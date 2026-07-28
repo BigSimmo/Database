@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 
@@ -45,7 +45,8 @@ export type TherapyDataState = {
   data: TherapyDataset | null;
   loading: boolean;
   error: string | null;
-  retry: () => void;
+  /** Settles when the replacement request finishes so Retry can stay busy. */
+  retry: () => Promise<void>;
 };
 
 export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataState {
@@ -64,12 +65,29 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
     }
   >({ requestKey: null, data: null, loading: true, error: null });
   const [attempt, setAttempt] = useState(0);
-  const retry = useCallback(() => {
+  const retryWaitersRef = useRef<Array<() => void>>([]);
+  const inFlightRetryRef = useRef<Promise<void> | null>(null);
+
+  const settleRetryWaiters = useCallback(() => {
+    const waiters = retryWaitersRef.current;
+    retryWaitersRef.current = [];
+    inFlightRetryRef.current = null;
+    for (const settle of waiters) settle();
+  }, []);
+
+  const retry = useCallback((): Promise<void> => {
+    // Coalesce repeated clicks onto the same in-flight reload.
+    if (inFlightRetryRef.current) return inFlightRetryRef.current;
     cache.delete(requestKey);
     // Keep the prior error message mounted so Retry focus is not lost while the
     // next attempt is in flight; success/failure handlers replace it below.
     setState((prev) => ({ ...prev, loading: true }));
-    setAttempt((value) => value + 1);
+    const promise = new Promise<void>((resolve) => {
+      retryWaitersRef.current.push(resolve);
+      setAttempt((value) => value + 1);
+    });
+    inFlightRetryRef.current = promise;
+    return promise;
   }, [requestKey]);
 
   useEffect(() => {
@@ -78,24 +96,35 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
     const request = cache.get(requestKey)!;
     request
       .then((data) => {
-        if (active) setState({ requestKey, data, loading: false, error: null });
+        if (!active) return;
+        setState({ requestKey, data, loading: false, error: null });
+        // Only the active attempt may settle Retry; a superseded effect must not
+        // release waiters belonging to a newer reload.
+        settleRetryWaiters();
       })
       .catch((err: unknown) => {
         // Only clear the shared cache when this request is still the active one.
         // A newer retry may have already replaced `cache` with a fresh promise.
         if (cache.get(requestKey) === request) cache.delete(requestKey);
-        if (active)
-          setState({
-            requestKey,
-            data: null,
-            loading: false,
-            error: err instanceof Error ? err.message : "Failed to load",
-          });
+        if (!active) return;
+        setState({
+          requestKey,
+          data: null,
+          loading: false,
+          error: err instanceof Error ? err.message : "Failed to load",
+        });
+        settleRetryWaiters();
       });
     return () => {
       active = false;
     };
-  }, [attempt, requestKey, resolved]);
+  }, [attempt, requestKey, resolved, settleRetryWaiters]);
+
+  useEffect(() => {
+    return () => {
+      settleRetryWaiters();
+    };
+  }, [settleRetryWaiters]);
 
   if (state.requestKey !== requestKey) return { data: null, loading: true, error: null, retry };
   return { data: state.data, loading: state.loading, error: state.error, retry };

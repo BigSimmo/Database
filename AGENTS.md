@@ -262,6 +262,18 @@ Output-style plugins such as caveman mode may compress prose. They must never co
   inspecting already-fetched local refs (`git log`, `git show`) first; `git fetch` or other
   network/provider access requires explicit user confirmation per the "API and provider confirmation
   boundary" section.
+- **PR titles and descriptions are parsed input, not prose.** `.github/workflows/pr-policy.yml`
+  runs `scripts/pr-policy.mjs` against the exact PR title/body text and hard-blocks the merge
+  when a clinical-risk diff lacks a complete `## Clinical Governance Preflight` (every item from
+  `requiredClinicalGovernanceItems` checked) or a RAG-ranking-surface diff lacks a satisfying
+  `RAG impact:` line (see "RAG ranking protection" below). Caveman-style fragment-dropping breaks
+  this exact-format contract — a paraphrased checklist item or a shortened `RAG impact:` reason can
+  silently fail `governanceItemSatisfied`/`ragImpactDeclared` even though the PR is otherwise fine.
+  `gh pr create`/`gh pr edit` bodies and any `PR_POLICY_BODY.md` content therefore always get
+  written in full normal prose from `.github/pull_request_template.md`, regardless of the active
+  output style — this is "commits" territory under the caveman carve-out, not chat. Before
+  push, sanity-check clinical-risk/RAG-ranking bodies against `scripts/pr-policy.mjs`'s
+  `evaluatePullRequestPolicy` shape (run `npm run check:pr-policy` if the script itself changed).
 
 <!-- END:external-skill-precedence -->
 
