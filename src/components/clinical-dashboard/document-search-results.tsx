@@ -164,7 +164,7 @@ function DocumentTagFacetRail({
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
           <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
             <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -180,7 +180,7 @@ function DocumentTagFacetRail({
             const Icon = documentFacetIcons[group];
             return (
               <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   {group}
                 </h3>
@@ -446,7 +446,7 @@ function cautionBadgeLabel(document: DocumentMatch) {
 function EvidencePanelRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">{label}</p>
       <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
     </div>
   );
@@ -483,7 +483,7 @@ function SelectedDocumentEvidencePanel({
           <Sparkles className="size-icon-lg" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+          <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
             Selected evidence
           </p>
           <h3 className="mt-1 line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
@@ -493,7 +493,7 @@ function SelectedDocumentEvidencePanel({
       </div>
 
       <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/65 p-3">
-        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+        <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
           Why this result
         </p>
         <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">

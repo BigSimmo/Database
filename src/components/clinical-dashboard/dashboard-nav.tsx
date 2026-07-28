@@ -288,7 +288,7 @@ export function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <p id={labelId} className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">

@@ -216,7 +216,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             renderDensePreview
                               ? "sr-only"
-                              : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                              : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                             textMuted,
                           )}
                         >
@@ -250,7 +250,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           renderDensePreview
                             ? "sr-only"
-                            : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                            : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                           textMuted,
                         )}
                       >

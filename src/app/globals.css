@@ -24,12 +24,17 @@
  * New overlays go through components/ui/sheet.tsx rather than a new layer.
  */
 @theme {
+  /* Radius ladder on the 4px grid: 4 · 6 · 8 · 12 · 16 · 20. `lg` used to be
+     10px, which broke the rhythm; moving it to 12 collided with `xl`, so the
+     whole upper ladder shifted a rung rather than collapsing two names onto one
+     value. `sm` stays 6px — the one deliberate half-step, for chips and pills
+     that read as too heavy at 8. */
   --radius-xs: 0.25rem;
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
-  --radius-lg: 0.625rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
 
   /* Minimum interactive target (WCAG 2.5.5 / 2.5.8). Named spacing token so the
      44px tap-target minimum is a single source of truth instead of copy-pasted
@@ -64,8 +69,10 @@
      `eyebrowText` in ui-primitives.tsx for the uppercase eyebrow treatment
      (`--text-2xs` used to bake that tracking in; it is now the neutral 11px
      step and the tracking lives at the recipe/call site instead).
-       4xs         8px   micro floor: tiny super/badges; ≤9px legends snap here
-       3xs         10px  dense metadata, legend labels, count bubbles
+       3xs         10px  micro floor: dense metadata, legend labels, count
+                         bubbles. An 8px `4xs` step existed here and is retired
+                         — unreadable at any density in a clinical product, so
+                         nothing below 10px is a legal step. ≤9px snaps here.
        2xs         11px  small chips / secondary labels (most common small size)
        (xs 12 · sm 14 · base 16 come from Tailwind's default scale)
        sm-minus    13px  one notch under sm — dense body/labels bigger than xs
@@ -73,7 +80,6 @@
        (lg 18 · xl 20 · 2xl 24 come from Tailwind's default scale)
        lg-minus    17px  one notch under lg — display titles a shade under 18
        2xl-minus   22px  one notch under 2xl — wide-screen nowrap headings */
-  --text-4xs: 0.5rem;
   --text-3xs: 0.625rem;
   --text-2xs: 0.6875rem;
   --text-sm-minus: 0.8125rem;
@@ -95,6 +101,20 @@
      misreads the clamp() value as a font-family list. Call sites that set an
      explicit leading-* utility still win over this default. */
   --text-hero--line-height: 1.15;
+
+  /* Named leading steps for the two contexts the stepped scale could not
+     express, so neither has to be spelled as an arbitrary value. Tailwind owns
+     --leading-tight/-snug/-normal/-relaxed; these do NOT redefine those (that
+     would silently retune every existing leading-tight/leading-snug call site).
+       leading-display  1.05  large display headings — hero/mode-home/detail h1
+       leading-prose    1.6   the max-w-[68ch] body measure */
+  --leading-display: 1.05;
+  --leading-prose: 1.6;
+
+  /* Uppercase eyebrow tracking. 0.08em was spelled as `tracking-[0.08em]` at 60+
+     call sites; this makes it a named utility (`tracking-eyebrow`) with the
+     identical computed value. */
+  --tracking-eyebrow: 0.08em;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
@@ -137,39 +157,45 @@
   --neutral-900: #101418;
   --neutral-950: #080b0f;
 
-  /* Clinical accent (Aegean): cool blue-teal clinical identity ramp. */
-  --primary-50: #e7f6f8;
-  --primary-100: #c5e9ee;
-  --primary-200: #b9e4ea;
-  --primary-300: #7fcdd8;
-  --primary-400: #3ba7ba;
-  --primary-500: #0b6f86;
-  --primary-600: #0a6377;
-  --primary-700: #095d70;
-  --primary-800: #0b4a5a;
-  --primary-900: #0a3b47;
+  /* Clinical accent (Clinical Sky): cool blue clinical identity ramp. The whole
+     ramp is derived from --primary-500 #1d6fb8 (5.2:1 on white, so it is legal
+     as both a text colour and a button fill) — never swap one step in isolation
+     or the tints, borders and hover states stop agreeing with each other. */
+  --primary-50: #eff5fc;
+  --primary-100: #d9e8f8;
+  --primary-200: #c6dcf2;
+  --primary-300: #8ebde6;
+  --primary-400: #4a91d2;
+  --primary-500: #1d6fb8;
+  --primary-600: #1a66a8;
+  --primary-700: #185c99;
+  --primary-800: #164a7a;
+  --primary-900: #143c62;
 
-  --background: #ffffff;
-  --app-shell: #101a27;
-  --surface: var(--neutral-0);
-  --surface-chrome: #f7f8fa;
-  --surface-raised: #fcfcfd;
-  --surface-subtle: #f7f8fa;
-  --surface-inset: #f1f4f6;
+  /* Surfaces are an ordered five-step scale: inset < wash < subtle < surface <
+     raised. `raised` must stay the lightest plane or cards read as recesses. */
+  --background: #f1f4f8;
+  --app-shell: #101d2e;
+  --surface: #fcfdfe;
+  --surface-chrome: #f7f9fc;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f7f9fc;
+  --surface-inset: #eaeef4;
   --surface-glass: rgb(255 255 255 / 82%);
   --surface-highlight: color-mix(in srgb, var(--neutral-0) 64%, transparent);
   --surface-lux: #ffffff;
-  --surface-wash: #f7f8fa;
+  --surface-wash: #f1f4f8;
   --text: var(--neutral-900);
   --text-heading: #080b0f;
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
-  --border: #e5e7eb;
-  --border-strong: #cdd5df;
-  --border-lux: rgb(205 213 223 / 55%);
+  --border: #e3e8ef;
+  --border-strong: #c8d2de;
+  /* Tracks --border-strong at 55% — re-derive both together. */
+  --border-lux: rgb(200 210 222 / 55%);
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
-  --primary-soft: #e7f6f8;
+  --primary-soft: #eff5fc;
   --primary-contrast: #ffffff;
 
   /* Command (graphite): primary actions — New chat, primary CTAs. */
@@ -177,11 +203,14 @@
   --command-hover: #0b1220;
   --command-contrast: #ffffff;
 
-  /* Clinical accent role tokens (Aegean). Selected · evidence · send · focus. */
+  /* Clinical accent role tokens (Clinical Sky). Selected · evidence · send ·
+     focus. Hover is a full ramp step (not a 4% nudge) and :active settles back
+     to rest rather than pushing below the resting baseline. */
   --clinical-accent: var(--primary-500);
-  --clinical-accent-hover: var(--primary-700);
+  --clinical-accent-hover: #185c99;
+  --clinical-accent-active: #14507f;
   --clinical-accent-soft: var(--primary-soft);
-  --clinical-accent-border: #b9e4ea;
+  --clinical-accent-border: #c6dcf2;
   --clinical-accent-contrast: #ffffff;
 
   /* Bespoke chat surfaces with no role-token equivalent: warm sand callouts
@@ -189,44 +218,51 @@
   --clinical-chat-sand: #f7f1e6;
   --clinical-chat-sand-border: #eadcc7;
   --clinical-chat-sand-border-strong: #ddc7a8;
-  --clinical-chat-document: #f1f4f6;
-  --clinical-chat-table-header: #f7f8fa;
+  /* These two are plain surface steps, not bespoke values — alias them so they
+     cannot drift off the scale again when the surface ladder is re-derived. */
+  --clinical-chat-document: var(--surface-inset);
+  --clinical-chat-table-header: var(--surface-subtle);
   --clinical-chat-ready: var(--success);
 
-  /* Favourite type chips — categorical, not semantic status. */
-  --type-document: #1d4ed8;
-  --type-document-soft: #eff6ff;
-  --type-document-border: #bfdbfe;
-  --type-table: #047857;
-  --type-table-soft: #ecfdf5;
-  --type-table-border: #a7f3d0;
-  --type-search: #334155;
-  --type-search-soft: #f8fafc;
-  --type-search-border: #e2e8f0;
-  --type-source: #6d28d9;
-  --type-source-soft: #f5f3ff;
-  --type-source-border: #ddd6fe;
-  --type-service: #0e7490;
-  --type-service-soft: #ecfeff;
-  --type-service-border: #a5f3fc;
-  --type-form: #b45309;
-  --type-form-soft: #fffbeb;
-  --type-form-border: #fde68a;
+  /* Favourite type chips — categorical, not semantic status. Chroma is capped
+     and lightness matched across the six so an identity chip can never
+     out-shout a status badge: status always wins the attention contest. */
+  --type-document: #3a5a94;
+  --type-document-soft: #f0f4fa;
+  --type-document-border: #d3dfef;
+  --type-table: #2f6b57;
+  --type-table-soft: #eef5f2;
+  --type-table-border: #cfe3da;
+  --type-search: #4a5568;
+  --type-search-soft: #f4f5f7;
+  --type-search-border: #dfe2e8;
+  --type-source: #634f8f;
+  --type-source-soft: #f4f1fa;
+  --type-source-border: #ded6ee;
+  --type-service: #2b6474;
+  --type-service-soft: #eaf4f7;
+  --type-service-border: #c4dfe7;
+  --type-form: #7d5a2c;
+  --type-form-soft: #f8f4ec;
+  --type-form-border: #e8dbc4;
 
-  /* Semantic triads (text / background / border), on-white for light mode. */
-  --info-text: #2563eb;
+  /* Semantic triads (text / background / border), on-white for light mode.
+     These all sat in one 4.6–5.2:1 band, so nothing read as more urgent than
+     anything else. Every -text step now clears 5.5:1 on its own -bg and danger
+     is clearly the highest of the four. */
+  --info-text: #1c4fbf;
   --info-bg: #eff4ff;
   --info-border: #b2ccff;
-  --success-text: #0f7a49;
+  --success-text: #0c6b41;
   --success-bg: #ecfdf3;
   --success-border: #abefc6;
-  --warning-text: #a15c07;
+  --warning-text: #8a4d05;
   --warning-bg: #fef7ec;
   --warning-border: #f5d9a8;
-  --danger-text: #b42318;
+  --danger-text: #a3190f;
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
-  --danger-solid: #b42318;
+  --danger-solid: #a3190f;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -240,13 +276,25 @@
 
   /* Categorical tone scale — taxonomy/pathway dots only. NEVER semantic: kept
      visually distinct from the role tokens (success/danger/warning/info) and
-     the brand accent so green/blue/teal keep their meanings. */
-  --tone-purple: #7c3aed;
-  --tone-indigo: #4338ca;
-  --tone-rose: #a21caf;
-  --tone-slate: #475569;
+     the brand accent so green/blue/sky keep their meanings. Each tone ships a
+     complete text/-soft/-border triad so chips never hand-roll their own wash,
+     and chroma is capped to match the --type-* identity set. */
+  --tone-purple: #634f8f;
+  --tone-purple-soft: #f4f1fa;
+  --tone-purple-border: #ded6ee;
+  --tone-indigo: #43508f;
+  --tone-indigo-soft: #f0f2fa;
+  --tone-indigo-border: #d6dcef;
+  --tone-rose: #8a4a7d;
+  --tone-rose-soft: #f9f0f6;
+  --tone-rose-border: #eed6e6;
+  --tone-slate: #4a5568;
+  --tone-slate-soft: #f4f5f7;
+  --tone-slate-border: #dfe2e8;
 
-  --disabled: #98a2b3;
+  /* WCAG exempts disabled controls from contrast, but a clinician still has to
+     read WHICH action is unavailable — so this clears 3:1 rather than 2.5:1. */
+  --disabled: #8794a8;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
@@ -257,18 +305,32 @@
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
-  /* Selection emphasis: crisp accent ring + neutral shadow (no colored halo). */
-  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 40%, transparent), 0 8px 20px rgb(16 24 40 / 8%);
-  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 28%, transparent), 0 4px 12px rgb(16 24 40 / 6%);
+  /* Selection emphasis: crisp accent ring + shadow tinted to the same hue as
+     the elevation ladder (these were the last flat-grey shadows in the set). */
+  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 40%, transparent), 0 8px 20px rgb(11 42 56 / 10%);
+  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 28%, transparent), 0 4px 12px rgb(11 42 56 / 8%);
 
-  /* Elevation: layered, small blur, low alpha */
-  --shadow-soft: 0 1px 2px rgb(12 24 34 / 6%), 0 8px 20px rgb(12 24 34 / 6%);
-  --shadow-tight: 0 1px 2px rgb(12 24 34 / 7%), 0 3px 8px rgb(12 24 34 / 5%);
-  --shadow-hover: 0 2px 4px rgb(12 24 34 / 8%), 0 10px 26px rgb(12 24 34 / 8%);
-  --shadow-elevated: 0 1px 2px rgb(12 24 34 / 8%), 0 10px 20px rgb(12 24 34 / 9%), 0 24px 48px rgb(12 24 34 / 10%);
-  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
+  /* Elevation ladder. --e0 … --e4 is the vocabulary: one monotonic sequence
+     that sorts by name, hue-tinted rather than flat grey, with negative spread
+     so a shadow pulls inward instead of bleeding past its own box. Reach for a
+     tier, never a hand-rolled `shadow-[0_…]`.
+       e0  flush        e1  resting hairline   e2  cards, popovers
+       e3  hover / lifted chrome               e4  modals, sheets, drawers */
+  --e0: none;
+  --e1: 0 1px 2px rgb(11 42 56 / 7%);
+  --e2: 0 1px 2px rgb(11 42 56 / 5%), 0 4px 10px -2px rgb(11 42 56 / 8%);
+  --e3: 0 2px 4px rgb(11 42 56 / 5%), 0 10px 24px -6px rgb(11 42 56 / 11%);
+  --e4: 0 4px 8px rgb(11 42 56 / 5%), 0 24px 48px -12px rgb(11 42 56 / 15%);
+
+  /* Role aliases onto the ladder. Keep these pointing AT a tier — the previous
+     hand-tuned values produced five effects that did not sort by name. */
+  --shadow-tight: var(--e1);
+  --shadow-card: var(--e2);
+  --shadow-soft: var(--e2);
+  --shadow-hover: var(--e3);
+  --shadow-elevated: var(--e4);
+  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 90%), var(--e4);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
-  --shadow-card: var(--shadow-tight);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   /* Active left-rail marker (nav/list "current" indicator). One token so the
      accent rail is a consistent 2px everywhere instead of hand-inlined at 2px/3px. */
@@ -309,84 +371,93 @@
   --neutral-200: #171a1d;
   --neutral-300: #23282c;
   --neutral-400: #3b454b;
-  --neutral-500: #7f8987;
-  --neutral-600: #a7b0ad;
-  --neutral-700: #cdd3d1;
-  --neutral-800: #e6e9e8;
-  --neutral-900: #f5f7f7;
-  --neutral-950: #fbfcfc;
+  --neutral-500: #7c858f;
+  --neutral-600: #a4adb7;
+  --neutral-700: #cbd1d8;
+  --neutral-800: #e5e8ec;
+  --neutral-900: #f4f6f8;
+  --neutral-950: #fbfcfd;
 
-  /* Clinical accent (Aegean), brightened + desaturated for dark surfaces. */
-  --primary-50: #04252a;
-  --primary-100: #0a3339;
-  --primary-200: #12383b;
-  --primary-300: #1c5a60;
-  --primary-400: #2f9ca0;
-  --primary-500: #4ccfd0;
-  --primary-600: #6fdada;
-  --primary-700: #6fdada;
-  --primary-800: #a6ebe9;
-  --primary-900: #d0f6f5;
+  /* Clinical accent (Clinical Sky), brightened for dark surfaces. Dark holds
+     the same hue as light rather than drifting toward cyan-green, so the accent
+     reads as one colour across themes. */
+  --primary-50: #08203a;
+  --primary-100: #0d2b48;
+  --primary-200: #123556;
+  --primary-300: #1c4f79;
+  --primary-400: #3a80c0;
+  --primary-500: #74bdf0;
+  --primary-600: #92cdf5;
+  --primary-700: #a9d8f8;
+  --primary-800: #c4e5fb;
+  --primary-900: #ddf0fd;
 
+  /* Same ordered five-step surface scale as light, inverted. */
   --background: #060708;
   --app-shell: #090a0c;
-  --surface: #101214;
+  --surface: #101315;
   --surface-chrome: #0b0d0f;
-  --surface-raised: #171a1d;
-  --surface-subtle: #0b0d0f;
-  --surface-inset: #040506;
+  --surface-raised: #171b1e;
+  --surface-subtle: #0d0f11;
+  --surface-inset: #08090b;
   --surface-glass: rgb(6 7 8 / 78%);
   --surface-highlight: rgb(255 255 255 / 5%);
-  --surface-lux: #101214;
-  --surface-wash: #0b0d0f;
+  --surface-lux: #1c2124;
+  --surface-wash: #0a0c0e;
   --text: var(--neutral-900);
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
-  --border: var(--neutral-300);
-  --border-strong: var(--neutral-400);
-  --border-lux: rgba(255, 255, 255, 0.08);
+  /* Per-theme values, not neutral-ramp aliases: tracking --neutral-300 left the
+     dark border at ~1.35:1 against --surface, i.e. effectively invisible. */
+  --border: #2b3136;
+  --border-strong: #3b444b;
+  --border-lux: rgba(255, 255, 255, 0.1);
 
   --primary: var(--primary-500);
   --primary-strong: var(--primary-700);
-  --primary-soft: #12383b;
-  --primary-contrast: #04252a;
+  --primary-soft: #123556;
+  --primary-contrast: #08203a;
 
   --command: #f5f7f7;
   --command-hover: #e6e9e8;
   --command-contrast: #060708;
 
   --clinical-accent: var(--primary-500);
-  --clinical-accent-hover: var(--primary-700);
+  --clinical-accent-hover: var(--primary-600);
+  --clinical-accent-active: var(--primary-700);
   --clinical-accent-soft: var(--primary-soft);
-  --clinical-accent-border: #235b60;
-  --clinical-accent-contrast: #04252a;
+  --clinical-accent-border: #235a7d;
+  --clinical-accent-contrast: #082e4d;
 
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
   --clinical-chat-sand-border-strong: #806034;
-  --clinical-chat-document: #101215;
-  --clinical-chat-table-header: #141619;
+  --clinical-chat-document: var(--surface-inset);
+  --clinical-chat-table-header: var(--surface-subtle);
   --clinical-chat-ready: var(--success);
 
-  --type-document: #93c5fd;
-  --type-document-soft: #172554;
-  --type-document-border: #1e3a8a;
-  --type-table: #6ee7b7;
-  --type-table-soft: #064e3b;
-  --type-table-border: #047857;
-  --type-search: #cbd5e1;
-  --type-search-soft: #1e293b;
-  --type-search-border: #475569;
-  --type-source: #c4b5fd;
-  --type-source-soft: #2e1065;
-  --type-source-border: #5b21b6;
-  --type-service: #67e8f9;
-  --type-service-soft: #164e63;
-  --type-service-border: #0e7490;
-  --type-form: #fcd34d;
-  --type-form-soft: #451a03;
-  --type-form-border: #92400e;
+  /* Identity anchors capped to match light, and their washes re-derived under
+     the capped anchors — the old raw-Tailwind -soft/-border pairs were more
+     saturated than the text sitting on them. */
+  --type-document: #9db6dc;
+  --type-document-soft: #1a2438;
+  --type-document-border: #2b3d5e;
+  --type-table: #93c7b3;
+  --type-table-soft: #152820;
+  --type-table-border: #2a4d3d;
+  --type-search: #c3c9d4;
+  --type-search-soft: #1e222a;
+  --type-search-border: #3a4150;
+  --type-source: #bdb0da;
+  --type-source-soft: #241f33;
+  --type-source-border: #3c3352;
+  --type-service: #96c6d4;
+  --type-service-soft: #16262c;
+  --type-service-border: #2b4650;
+  --type-form: #d6bd8a;
+  --type-form-soft: #2b2317;
+  --type-form-border: #4d4028;
 
   --info-text: #89c0f0;
   --info-bg: #122c4c;
@@ -412,13 +483,22 @@
   --danger: var(--danger-text);
   --danger-soft: var(--danger-bg);
 
-  /* Categorical tone scale, brightened for dark surfaces (categorical only). */
-  --tone-purple: #a78bfa;
-  --tone-indigo: #818cf8;
-  --tone-rose: #e879f9;
-  --tone-slate: #94a3b8;
+  /* Categorical tone scale, brightened for dark surfaces (categorical only).
+     Complete triads, chroma capped to match the --type-* identity set. */
+  --tone-purple: #b0a0d8;
+  --tone-purple-soft: #2a2540;
+  --tone-purple-border: #3d3557;
+  --tone-indigo: #9aa5dd;
+  --tone-indigo-soft: #232842;
+  --tone-indigo-border: #343b5a;
+  --tone-rose: #d99cc8;
+  --tone-rose-soft: #3a2434;
+  --tone-rose-border: #52344a;
+  --tone-slate: #9aa4b4;
+  --tone-slate-soft: #22262d;
+  --tone-slate-border: #333a44;
 
-  --disabled: #555e6b;
+  --disabled: #626c7a;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(0 0 0 / 72%);
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
@@ -426,11 +506,20 @@
   --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 45%, transparent), 0 8px 24px rgb(0 0 0 / 45%);
   --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
 
-  --shadow-soft: 0 1px 2px rgb(0 0 0 / 36%), 0 10px 26px rgb(0 0 0 / 40%);
-  --shadow-tight: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 12px rgb(0 0 0 / 35%);
-  --shadow-hover: 0 3px 10px rgb(0 0 0 / 42%), 0 16px 36px rgb(0 0 0 / 46%);
-  --shadow-elevated: 0 2px 8px rgb(0 0 0 / 46%), 0 12px 30px rgb(0 0 0 / 48%), 0 28px 58px rgb(0 0 0 / 50%);
-  --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 4%), 0 18px 44px rgb(0 0 0 / 64%);
+  /* Same ladder as light. Dark lifts with a top highlight rather than more
+     black — piling on opacity reads as a smudge, not as elevation. */
+  --e0: none;
+  --e1: inset 0 1px 0 rgb(255 255 255 / 4%), 0 1px 2px rgb(0 0 0 / 40%);
+  --e2: inset 0 1px 0 rgb(255 255 255 / 5%), 0 4px 12px -2px rgb(0 0 0 / 45%);
+  --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 8px 20px -6px rgb(0 0 0 / 55%);
+  --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 20px 40px -12px rgb(0 0 0 / 62%);
+
+  --shadow-tight: var(--e1);
+  --shadow-card: var(--e2);
+  --shadow-soft: var(--e2);
+  --shadow-hover: var(--e3);
+  --shadow-elevated: var(--e4);
+  --shadow-lux: var(--e4);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   color-scheme: dark;
@@ -525,6 +614,15 @@ select,
    containers and sheets cannot clip it at an edge. Keeping these unlayered is
    intentional: it prevents component-level `focus:ring-*` utilities from
    stacking a second halo on top of the shared treatment. */
+/* Deliberately outline-only: no companion box-shadow ring. The reviewed design
+   system proposed adding a 2px `--surface` spacer shadow here, on the grounds
+   that `--focus` IS the accent and the ring therefore sat accent-on-accent.
+   That does not reproduce in this codebase — `outline-offset` paints OUTSIDE
+   the border box, so the gap shows the ancestor's background (a surface), not
+   the control's own accent fill. Adding the shadow only stacked a second
+   affordance, which the rule above exists to prevent, and flattened the
+   control's resting elevation while focused. See the "focus is singular"
+   assertion in tests/ui-smoke.spec.ts. */
 :where(button, a, summary, input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -2148,6 +2246,20 @@ html[data-motion="reduced"] .pwa-notice-card {
   font-variant-numeric: tabular-nums;
 }
 
+/* …and by default wherever figures are inherently columnar: dose tables, code
+   and clinical identifiers. Doses, counts and dates must not wobble between
+   rows because a `1` is narrower than a `0`. `.nums` / `[data-numeric]` stay
+   the explicit opt-in for prose runs that need the same treatment. */
+code,
+kbd,
+samp,
+th,
+td,
+.font-mono,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
+}
+
 @utility search-results-main {
   container-type: inline-size;
   container-name: search-results-main;
@@ -2674,6 +2786,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --command-contrast: ButtonText;
     --clinical-accent: LinkText;
     --clinical-accent-hover: LinkText;
+    --clinical-accent-active: LinkText;
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: ButtonBorder;
     --clinical-accent-contrast: ButtonText;
@@ -2690,9 +2803,17 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
        contrast a Mark fill in arbitrary user schemes. */
     --danger-solid-contrast: MarkText;
     --tone-purple: CanvasText;
+    --tone-purple-soft: Canvas;
+    --tone-purple-border: ButtonBorder;
     --tone-indigo: CanvasText;
+    --tone-indigo-soft: Canvas;
+    --tone-indigo-border: ButtonBorder;
     --tone-rose: CanvasText;
+    --tone-rose-soft: Canvas;
+    --tone-rose-border: ButtonBorder;
     --tone-slate: CanvasText;
+    --tone-slate-soft: Canvas;
+    --tone-slate-border: ButtonBorder;
     --focus: Highlight;
     --surface-lux: Canvas;
     --surface-glass: Canvas;
@@ -2703,8 +2824,15 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --border-lux: ButtonBorder;
     --glow-primary: none;
     --glow-soft: none;
+    /* Flatten the ladder itself, not only the role aliases, so a call site that
+       reaches for a tier directly cannot reintroduce a shadow here. */
+    --e1: none;
+    --e2: none;
+    --e3: none;
+    --e4: none;
     --shadow-soft: none;
     --shadow-tight: none;
+    --shadow-card: none;
     --shadow-hover: none;
     --shadow-elevated: none;
     --shadow-lux: none;

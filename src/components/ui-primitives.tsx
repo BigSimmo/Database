@@ -65,7 +65,7 @@ export const proseMeasure = "max-w-[68ch]";
 export const codeText = "font-mono tabular-nums tracking-tight";
 
 export const chatAnswerText =
-  "max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)] sm:text-base sm:leading-[1.62]";
+  "max-w-[68ch] text-base-minus font-medium leading-prose text-[color:var(--text-heading)] sm:text-base";
 export const chatActionRow =
   "flex min-h-tap flex-wrap items-center gap-1.5 text-xs font-semibold text-[color:var(--text-heading)] sm:min-h-8";
 export const chatMicroAction =

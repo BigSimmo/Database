@@ -2,16 +2,16 @@
 
 > **Entry point:** day-to-day UI rules live in [`docs/design-system.md`](../design-system.md); this document remains the token rationale it links to.
 
-## July 1 — Clinical White / Aegean Graphite (active direction)
+## July 1 — Clinical White / Sky Graphite (active direction)
 
 This supersedes the earlier "single teal accent for primary actions" principle. The colour system is now **role-split** rather than single-accent:
 
 - **Command = graphite.** Primary actions (New chat, primary CTAs, the mobile section FAB) use `--command` (`#111827` light / near-white `#F5F7F7` dark) — never teal/green.
-- **Clinical accent = Aegean.** A cool blue-teal `--clinical-accent` (`#0B6F86` light / `#4CCFD0` dark) owns clinical identity only: selected mode, evidence/source rails, the composer send action, and focus.
+- **Clinical accent = Clinical Sky.** A cool clinical blue `--clinical-accent` (`#1D6FB8` light / `#74BDF0` dark) owns clinical identity only: selected mode, evidence/source rails, the composer send action, and focus.
 - **Green = success only.** `--success` is reserved for ready/connected/complete; it is never brand, nav, command, send, or evidence.
 - **True-white canvas.** The neutral ramp was de-blued to a true-neutral gray scale; the content surface is `#FFFFFF`, with `--surface-chrome` (`#F7F8FA`) for rails/header only. Light mode is de-glassed: flat surfaces + hairline borders + one restrained shadow; glass/blur is reserved for overlays. Dark mode keeps its black polish.
 
-Migration was token-led: `--primary*` now resolves to the Aegean accent, `--command*` is new, and legacy `--clinical-chat-teal*` / `--clinical-chat-ready` are retained as compat aliases pointing at the role tokens (`--clinical-accent` / `--success`). New code should reference the role tokens directly. Typography (Geist), spacing, radius, and motion are unchanged from below. See decision log **D11**.
+Migration was token-led: `--primary*` now resolves to the clinical accent, `--command*` is new, and legacy `--clinical-chat-teal*` / `--clinical-chat-ready` are retained as compat aliases pointing at the role tokens (`--clinical-accent` / `--success`). New code should reference the role tokens directly. Typography (Geist), spacing, radius, and motion are unchanged from below. See decision log **D11**.
 
 ## June 20 scoped run
 

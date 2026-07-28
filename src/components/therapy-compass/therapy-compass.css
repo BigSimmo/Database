@@ -223,7 +223,7 @@
   border-radius: 8px;
   padding: 5px 11px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .tc-tone-neutral {
@@ -833,13 +833,13 @@
   border-color: var(--clinical-accent-border);
   background: var(--clinical-accent-soft);
   color: var(--clinical-accent-hover);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .tc-is-active.tc-tab-control {
   border-bottom-color: var(--clinical-accent);
   color: var(--clinical-accent-hover);
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .tc-is-active.tc-segment-control {
@@ -903,16 +903,19 @@
   --tc-paper-ink: #0f1720;
   --tc-paper-body: #2b3444;
   --tc-paper-muted: #5b6472;
-  --tc-paper-accent: #095d70;
-  --tc-paper-accent-strong: #0b6f86;
-  --tc-paper-accent-background: #f4f8f9;
-  --tc-paper-accent-border: #d9e9ec;
+  /* Fixed print palette — deliberately NOT theme-reactive (the patient sheet
+     must print identically in either theme), but the accent still mirrors the
+     Clinical Sky ramp by hand so a printed sheet is not a different brand. */
+  --tc-paper-accent: #185c99;
+  --tc-paper-accent-strong: #1d6fb8;
+  --tc-paper-accent-background: #f4f7fb;
+  --tc-paper-accent-border: #d7e3f0;
   --tc-paper-border: #d6dce5;
   --tc-paper-border-subtle: #e6e9ee;
   --tc-paper-warning: #8a5a12;
   --tc-paper-warning-background: #fbf6ee;
   --tc-paper-warning-border: #f0e2c8;
-  --tc-paper-focus: #0b6f86;
+  --tc-paper-focus: #1d6fb8;
   --tc-paper-shadow: 0 2px 6px rgb(15 23 32 / 8%), 0 18px 42px rgb(15 23 32 / 10%);
 
   background: var(--tc-paper-background);
@@ -1102,7 +1105,7 @@
 .tc-root .tc-therapy-card-005 {
   margin: 0 0 5px;
   font-size: 16.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   letter-spacing: -0.01em;
 }
@@ -1151,7 +1154,7 @@
 .tc-root .tc-therapy-card-012 {
   display: block;
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-therapy-card-013 {
@@ -1220,7 +1223,7 @@
 }
 .tc-root .tc-ui-007 {
   font-size: 17px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
 }
 .tc-root .tc-ui-008 {
@@ -1235,7 +1238,7 @@
 }
 .tc-root .tc-ui-010 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-ui-011 {
@@ -1256,7 +1259,7 @@
 }
 .tc-root .tc-ui-014 {
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-muted);
 }
 .tc-root .tc-ui-015 {
@@ -1319,7 +1322,7 @@
 .tc-root .tc-screens-brief-screen-003 {
   margin: 0 0 6px;
   font-size: 27px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -1388,7 +1391,7 @@
 .tc-root .tc-screens-brief-screen-014 {
   display: block;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-brief-screen-015 {
@@ -1436,7 +1439,7 @@
 .tc-root .tc-screens-brief-screen-021 {
   margin: 0;
   font-size: 19px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-brief-screen-022 {
@@ -1482,7 +1485,7 @@
 }
 .tc-root .tc-screens-brief-screen-027 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 16px;
 }
@@ -1530,7 +1533,7 @@
 }
 .tc-root .tc-screens-brief-screen-036 {
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 3px;
 }
@@ -1549,7 +1552,7 @@
 }
 .tc-root .tc-screens-brief-screen-039 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 14px;
 }
@@ -1619,7 +1622,7 @@
 .tc-root .tc-screens-compare-screen-004 {
   margin: 0;
   font-size: 27px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -1706,7 +1709,7 @@
 }
 .tc-root .tc-screens-compare-screen-016 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-compare-screen-017 {
@@ -1726,7 +1729,7 @@
 .tc-root .tc-screens-compare-screen-019 {
   padding: 16px 20px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-soft);
 }
 .tc-root .tc-screens-compare-screen-020 {
@@ -1743,7 +1746,7 @@
 }
 .tc-root .tc-screens-compare-screen-023 {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-compare-screen-024 {
@@ -1867,7 +1870,7 @@
 .tc-root .tc-screens-detail-screen-008 {
   margin: 0 0 4px;
   font-size: 26px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -1933,7 +1936,7 @@
 }
 .tc-root .tc-screens-detail-screen-018 {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 14px;
 }
@@ -1944,7 +1947,7 @@
 }
 .tc-root .tc-screens-detail-screen-020 {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 8px;
 }
@@ -1985,7 +1988,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 10px;
 }
@@ -2025,7 +2028,7 @@
 }
 .tc-root .tc-screens-detail-screen-035 {
   font-size: 14.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 5px;
 }
@@ -2060,7 +2063,7 @@
 }
 .tc-root .tc-screens-detail-screen-040 {
   font-size: 14.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--warning-text);
   margin-bottom: 5px;
 }
@@ -2090,7 +2093,7 @@
 }
 .tc-root .tc-screens-detail-screen-045 {
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 2px;
 }
@@ -2190,7 +2193,7 @@
 .tc-root .tc-screens-home-screen-013 {
   margin: 0;
   font-size: 17px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-home-screen-014 {
@@ -2223,7 +2226,7 @@
 .tc-root .tc-screens-home-screen-017 {
   display: block;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 4px;
 }
@@ -2248,7 +2251,7 @@
 .tc-root .tc-screens-home-screen-021 {
   margin: 0;
   font-size: 17px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-home-screen-022 {
@@ -2286,7 +2289,7 @@
 .tc-root .tc-screens-home-screen-026 {
   display: block;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-home-screen-027 {
@@ -2328,7 +2331,7 @@
 .tc-root .tc-screens-home-screen-031 {
   display: block;
   font-size: 14.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-home-screen-032 {
@@ -2357,7 +2360,7 @@
 .tc-root .tc-screens-other-screen-003 {
   margin: 0 0 8px;
   font-size: 24px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-other-screen-004 {
@@ -2386,7 +2389,7 @@
 .tc-root .tc-screens-other-screen-008 {
   margin: 0 0 6px;
   font-size: 27px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -2429,7 +2432,7 @@
 }
 .tc-root .tc-screens-other-screen-014 {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-other-screen-015 {
@@ -2455,7 +2458,7 @@
 .tc-root .tc-screens-pathways-screen-003 {
   margin: 0 0 6px;
   font-size: 27px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -2484,7 +2487,7 @@
 }
 .tc-root .tc-screens-pathways-screen-008 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 14px;
 }
@@ -2500,7 +2503,7 @@
 .tc-root .tc-screens-pathways-screen-011 {
   display: block;
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-pathways-screen-012 {
@@ -2563,7 +2566,7 @@
 .tc-root .tc-screens-pathways-screen-021 {
   margin: 0;
   font-size: 20px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-pathways-screen-022 {
@@ -2617,7 +2620,7 @@
 }
 .tc-root .tc-screens-pathways-screen-029 {
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-pathways-screen-030 {
@@ -2677,7 +2680,7 @@
 }
 .tc-root .tc-screens-pathways-screen-037 {
   font-size: 13.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--warning-text);
 }
 .tc-root .tc-screens-pathways-screen-038 {
@@ -2711,7 +2714,7 @@
 .tc-root .tc-screens-recommend-screen-002 {
   margin: 0 0 6px;
   font-size: 27px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -2731,7 +2734,7 @@
 .tc-root .tc-screens-recommend-screen-005 {
   display: block;
   font-size: 12.5px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 9px;
 }
@@ -2807,7 +2810,7 @@
 }
 .tc-root .tc-screens-recommend-screen-015 {
   font-size: 16px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-recommend-screen-016 {
@@ -2874,7 +2877,7 @@
 }
 .tc-root .tc-screens-recommend-screen-023 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 14px;
 }
@@ -2911,7 +2914,7 @@
 }
 .tc-root .tc-screens-recommend-screen-028 {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 6px;
 }
@@ -3022,7 +3025,7 @@
 }
 .tc-root .tc-screens-search-screen-012 {
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-search-screen-013 {
@@ -3049,7 +3052,7 @@
 .tc-root .tc-screens-sheets-screen-003 {
   margin: 0 0 6px;
   font-size: 27px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--text-heading);
   letter-spacing: -0.02em;
 }
@@ -3100,13 +3103,13 @@
 }
 .tc-root .tc-screens-sheets-screen-010 {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 12px;
 }
 .tc-root .tc-screens-sheets-screen-011 {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin: 18px 0 10px;
 }
@@ -3126,7 +3129,7 @@
 }
 .tc-root .tc-screens-sheets-screen-014 {
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
   margin-bottom: 6px;
 }
@@ -3156,7 +3159,7 @@
 .tc-root .tc-screens-sheets-screen-019 {
   display: block;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   color: var(--text-heading);
 }
 .tc-root .tc-screens-sheets-screen-020 {
@@ -3239,7 +3242,7 @@
 .tc-root .tc-screens-sheets-screen-032 {
   margin: 0 0 10px;
   font-size: 16px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--tc-paper-accent);
 }
 .tc-root .tc-screens-sheets-screen-033 {
@@ -3281,7 +3284,7 @@
 .tc-root .tc-screens-sheets-screen-038 {
   margin: 0 0 8px;
   font-size: 15px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--tc-paper-accent);
 }
 .tc-root .tc-screens-sheets-screen-039 {
@@ -3300,7 +3303,7 @@
 .tc-root .tc-screens-sheets-screen-041 {
   margin: 0 0 8px;
   font-size: 15px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--tc-paper-warning);
 }
 .tc-root .tc-screens-sheets-screen-042 {
@@ -3325,7 +3328,7 @@
 .tc-root .tc-screens-sheets-screen-048 {
   margin: 0 0 8px;
   font-size: 16px;
-  font-weight: 680;
+  font-weight: 700;
   color: var(--tc-paper-accent);
 }
 .tc-root .tc-screens-sheets-screen-049 {

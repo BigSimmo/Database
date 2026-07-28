@@ -265,7 +265,10 @@ test.describe("previously uncovered production routes", () => {
           };
         });
         expect(Math.abs(layout.centerDelta)).toBeLessThanOrEqual(1);
-        expect(layout.backgroundColor).toBe("rgb(255, 255, 255)");
+        // .tc-root is `background: var(--background)`, so this tracks the app's
+        // page floor — #f1f4f8 since the Clinical Sky surface scale landed, not
+        // the white it used to be.
+        expect(layout.backgroundColor).toBe("rgb(241, 244, 248)");
         expect(layout.portaledIntoCollapse).toBe(true);
       },
     );

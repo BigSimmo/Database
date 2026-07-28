@@ -3989,7 +3989,7 @@ export function ClinicalDashboard({
                         >
                           <p
                             id="dashboard-setup-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Developer setup status
                           </p>
@@ -4011,7 +4011,7 @@ export function ClinicalDashboard({
                         >
                           <p
                             id="dashboard-upload-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Clinical upload
                           </p>
@@ -4040,7 +4040,7 @@ export function ClinicalDashboard({
                         >
                           <p
                             id="dashboard-indexing-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Indexing progress
                           </p>
@@ -4069,7 +4069,7 @@ export function ClinicalDashboard({
                         >
                           <p
                             id="dashboard-quality-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Ingestion quality console
                           </p>

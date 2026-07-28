@@ -236,7 +236,7 @@ function DocumentLabelReviewPanel({
                 if (!labelRows.length) return null;
                 return (
                   <section key={title} className="grid gap-1.5">
-                    <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                    <p className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                       {title}
                     </p>
                     <div className="grid gap-1.5">

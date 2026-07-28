@@ -15,12 +15,19 @@ arbitrary-value form — never hardcoded colours:
 - Text: `text-[color:var(--text)]`, `--text-heading`, `--text-muted`, `--text-soft`
 - Surfaces: `bg-[color:var(--surface)]`, `--surface-raised`, `--surface-inset`, `--surface-subtle`, `--surface-lux`, `--surface-wash`
 - Borders: `border-[color:var(--border)]`, `--border-strong`, `--border-lux`
-- Accent (primary action colour): `--clinical-accent`, `--clinical-accent-hover`, `--clinical-accent-soft`, `--clinical-accent-border`, `--clinical-accent-contrast`
+- Accent (primary action colour): `--clinical-accent`, `--clinical-accent-hover`, `--clinical-accent-active`, `--clinical-accent-soft`, `--clinical-accent-border`, `--clinical-accent-contrast`
 - Command (primary buttons): `--command`, `--command-hover`, `--command-contrast`
 - Status: `--danger-text/-bg/-border/-solid/-solid-contrast`, plus the same
   families for `success`, `warning`, `info` (e.g. `--success-text`)
-- Shadows: `shadow-[var(--shadow-tight)]`, `--shadow-soft`, `--shadow-hover`, `--shadow-inset`, `--shadow-lux`
-- Focus ring: `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]`
+- Elevation: the `--e0` … `--e4` ladder — `shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`.
+  `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers · `--e3` hover/lifted chrome ·
+  `--e4` modals/sheets/drawers. The role names are aliases onto tiers:
+  `--shadow-tight`→`--e1`, `--shadow-card`/`--shadow-soft`→`--e2`, `--shadow-hover`→`--e3`,
+  `--shadow-elevated`/`--shadow-lux`→`--e4`. `--shadow-inset` stays bespoke.
+  Never hand-roll a `shadow-[0_…]` literal.
+- Focus ring: `focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]`.
+  Outline only — never add a companion `focus:ring-*` / `box-shadow`. The shared base rule is one
+  focus owner by design; a second ring both stacks a halo and wipes the control's resting elevation.
 
 Radius rules: `rounded-md` chips/pills, `rounded-lg` controls/cards/panels,
 `rounded-xl` sheets/dialogs. Tap targets: `min-h-tap` / `h-tap w-tap` (44px).
