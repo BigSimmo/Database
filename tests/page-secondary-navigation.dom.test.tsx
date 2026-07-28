@@ -7,15 +7,8 @@ import {
   PageSecondaryNavigation,
 } from "@/components/page-secondary-navigation";
 
-const navigation = vi.hoisted(() => ({ search: "" }));
-
-vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(navigation.search),
-}));
-
 describe("PageSecondaryNavigation", () => {
   beforeEach(() => {
-    navigation.search = "";
     vi.spyOn(HTMLElement.prototype, "getClientRects").mockImplementation(
       () => [{ width: 100, height: 40 }] as unknown as DOMRectList,
     );
@@ -54,8 +47,13 @@ describe("PageSecondaryNavigation", () => {
     "/differentials/diagnoses/delirium",
     "/factsheets/sertraline",
     "/therapy-compass/cbt",
+    "/documents/11111111-1111-4111-8111-111111111111",
   ])("recognises %s as locally controlled information navigation", (pathname) => {
     expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
+  });
+
+  it("does not treat /documents/search as locally owned document-viewer navigation", () => {
+    expect(hasLocalInformationPageNavigation("/documents/search")).toBe(false);
   });
 
   it("uses stable semantic fragments for breakpoint-specific section targets", () => {
@@ -133,6 +131,16 @@ describe("PageSecondaryNavigation", () => {
         modeId="therapy-compass"
         pathname="/therapy-compass/search"
         hasSubmittedSearch={false}
+        onSearch={vi.fn()}
+      />,
+    );
+    expect(screen.queryByTestId("secondary-navigation")).toBeNull();
+
+    rerender(
+      <PageSecondaryNavigation
+        modeId="documents"
+        pathname="/documents/11111111-1111-4111-8111-111111111111"
+        hasSubmittedSearch
         onSearch={vi.fn()}
       />,
     );

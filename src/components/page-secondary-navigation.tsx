@@ -1,8 +1,8 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { isDocumentViewerOwnedRoute } from "@/components/clinical-dashboard/mobile-composer-reserve";
 import {
   SecondaryNavigation,
   type SecondaryNavigationItem,
@@ -173,7 +173,9 @@ export function hasLocalInformationPageNavigation(pathname: string): boolean {
     pathname.startsWith("/medications/") ||
     pathname.startsWith("/differentials/diagnoses/") ||
     (pathname.startsWith("/factsheets/") && pathname !== "/factsheets/search") ||
-    pathname.startsWith("/therapy-compass/")
+    pathname.startsWith("/therapy-compass/") ||
+    // DocumentViewer owns DocumentViewerAnchors (PDF/Evidence/Text/Summary/Images).
+    isDocumentViewerOwnedRoute(pathname)
   );
 }
 
@@ -247,6 +249,12 @@ export function PageSecondaryNavigation({
   pathname,
   hasSubmittedSearch,
   onSearch,
+  /**
+   * Bridged query string from GlobalStandaloneSearchShellBody. Must not call
+   * useSearchParams here — that reintroduces a nested Suspense boundary under
+   * the standalone shell body (search-chrome invariant 17).
+   */
+  searchParamString = "",
   sticky = true,
   stickyTop,
 }: {
@@ -254,11 +262,10 @@ export function PageSecondaryNavigation({
   pathname: string;
   hasSubmittedSearch: boolean;
   onSearch: () => void;
+  searchParamString?: string;
   sticky?: boolean;
   stickyTop?: number | string;
 }) {
-  const searchParams = useSearchParams();
-  const searchParamString = searchParams.toString();
   const informationDefinitions = informationPageSectionDefinitions(pathname);
   const locallyOwnedInformationNavigation = hasLocalInformationPageNavigation(pathname);
   const activeId = activeModeSecondaryNavigationId(modeId, pathname);

@@ -88,7 +88,9 @@ export function isModeSecondaryNavigationRoute(params: {
   const { modeId, pathname, hasSubmittedSearch } = params;
   if (hasSubmittedSearch) return true;
 
-  if (modeId === "documents") return pathname === "/documents/search";
+  // /documents/search is the documents mode home (composer already visible); do
+  // not add a lone Search focus control until a query has been submitted.
+  if (modeId === "documents") return false;
   if (modeId === "differentials") {
     return pathname === "/differentials/diagnoses" || pathname === "/differentials/presentations";
   }

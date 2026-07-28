@@ -87,6 +87,23 @@ describe("mode secondary navigation registry", () => {
     ).toBe(false);
   });
 
+  it("suppresses /documents/search until a query is submitted", () => {
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "documents",
+        pathname: "/documents/search",
+        hasSubmittedSearch: false,
+      }),
+    ).toBe(false);
+    expect(
+      isModeSecondaryNavigationRoute({
+        modeId: "documents",
+        pathname: "/documents/search",
+        hasSubmittedSearch: true,
+      }),
+    ).toBe(true);
+  });
+
   it("translates compatible workflow selection state into each destination URL", () => {
     expect(
       modeSecondaryNavigationHref({
