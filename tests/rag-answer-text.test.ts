@@ -116,6 +116,10 @@ describe("RAG answer text helpers", () => {
     expect(hasClinicalAnswerQualityIssue("For lithium, the dose is 10 mmol daily.")).toBe(false);
     expect(hasClinicalAnswerQualityIssue("For insulin, the dose is 10 international units daily.")).toBe(false);
     expect(hasClinicalAnswerQualityIssue("For olanzapine, the maximum dose is 2 tablets daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("A third dose 6 hours after the first dose may be given if required.")).toBe(
+      false,
+    );
+    expect(hasClinicalAnswerQualityIssue("For sertraline, the dose is 6 hours.")).toBe(true);
   });
 
   it("rejects incomplete extractive guidance clauses", () => {

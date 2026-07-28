@@ -123,7 +123,7 @@ function neurolepticPool(): SearchResult[] {
       "neuroleptic-1",
       0,
       "Escalation",
-      "Escalate neuroleptic side effects to the treating psychiatrist when symptoms are severe, progressive, or accompanied by fever or rigidity.",
+      "Any neuroleptic side effect causing distress irrespective of score should be escalated to the treating doctor and reviewed.",
     ),
     neurolepticS3(
       "neuroleptic-2",
@@ -219,10 +219,9 @@ describe("escalation rescue end-to-end ordering", () => {
     });
 
     expect(released[0]?.document_id).toBe("neuroleptic-doc");
-    const topFiveNeuroleptic = released.slice(0, 5).filter((result) => result.document_id === "neuroleptic-doc");
-    // minCitations 2 for the live case: at least two citable chunks of the
-    // rescued doc must reach the released top-5.
-    expect(topFiveNeuroleptic.length).toBeGreaterThanOrEqual(2);
+    // Pin the one smallest-sufficient live rule, rather than requiring two
+    // arbitrary same-document chunks and pressuring citation padding.
+    expect(released.slice(0, 5).map((result) => result.id)).toContain("neuroleptic-1");
     // Conservative availability: the sibling stays retrievable, just not on top.
     expect(released.some((result) => result.document_id === "zuclopenthixol-doc")).toBe(true);
     // The dose fast-path floor now passes on the rescued pool (0.94 >= 0.66).
