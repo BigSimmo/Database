@@ -79,6 +79,10 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
   // exactly the same clearing and abort semantics as an auth transition.
   const [reloadAttempt, setReloadAttempt] = useState(0);
   const reload = useCallback(() => setReloadAttempt((attempt) => attempt + 1), []);
+  // Depended on by identity rather than through `auth`, which would re-run the
+  // load effect on every auth-object render. It is a useCallback upstream, so
+  // this stays stable.
+  const markSessionExpired = auth.markSessionExpired;
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
@@ -109,6 +113,12 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
+        // A rejected token cannot be recovered by re-sending it, so an expired
+        // session has to change the auth state rather than only the error text.
+        // Retry now exists on this path; without this it would reissue the same
+        // 401 forever instead of routing the reader to sign in. The mutation
+        // paths below already do this.
+        if (response.status === 401) markSessionExpired();
         if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Saved items could not be loaded.");
         setFavourites(normalizedFavourites(payload.favourites));
         setLoadError(null);
@@ -125,7 +135,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       });
 
     return () => controller.abort();
-  }, [auth.authEpoch, auth.authorizationHeader, auth.status, reloadAttempt]);
+  }, [auth.authEpoch, auth.authorizationHeader, auth.status, markSessionExpired, reloadAttempt]);
 
   const setFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {

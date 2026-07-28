@@ -67,6 +67,9 @@ function FirstSaveProbe() {
 describe("favourites account retry", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Hoisted vi.fn()s keep their call history across restoreAllMocks, so the
+    // "not called" assertion below would inherit an earlier test's call.
+    authSession.markSessionExpired.mockClear();
     authSession.status = "authenticated";
   });
 
@@ -105,6 +108,46 @@ describe("favourites account retry", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("ready"));
     expect(screen.getByTestId("count")).toHaveTextContent("1");
+  });
+
+  it("marks the session expired when the account load is rejected as 401", async () => {
+    // Retry re-sends the same authorization header, so a rejected token can
+    // never be recovered by retrying. The load path has to change the auth
+    // state and route the reader to sign in, as the mutation paths already do.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ message: "Session expired." }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AccountDataProvider>
+        <Probe />
+      </AccountDataProvider>,
+    );
+
+    await waitFor(() => expect(authSession.markSessionExpired).toHaveBeenCalled());
+  });
+
+  it("does not mark the session expired for a non-auth load failure", async () => {
+    // A 503 is exactly what Retry is for; flipping the session on it would send
+    // a signed-in reader to a sign-in screen over a transient server fault.
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ message: "Saved items could not be loaded." }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AccountDataProvider>
+        <Probe />
+      </AccountDataProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("error"));
+    expect(authSession.markSessionExpired).not.toHaveBeenCalled();
   });
 
   it("keeps a successfully loaded empty library ready after a failed first save", async () => {
