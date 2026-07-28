@@ -391,6 +391,10 @@ test("calculators page-owned phone dock uses localized glass and releases its re
     )
     .toBeGreaterThan(112);
 
+  // This journey owns the visible/hidden paint contract. Give it explicit
+  // runway so the separate near-bottom tests remain the sole owner of the
+  // intentional anti-clamp behavior on naturally short calculator pages.
+  await addPhoneScrollRunway(page);
   const geometry = await readGeometry(page);
   await dragScrollBy(page, Math.min(Math.max(geometry.maxOffset, 500), 900), 24);
   await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
@@ -423,6 +427,7 @@ test("calculator dock clears its focus pin after a focused submit opens and clos
   await expect(page.getByRole("button", { name: "Close", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(dock).toBeVisible();
+  await expect(input).not.toBeFocused();
 
   await addPhoneScrollRunway(page);
   await dragScrollBy(page, 900, 24);

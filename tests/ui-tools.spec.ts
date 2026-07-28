@@ -265,7 +265,7 @@ async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
-async function waitForReactEventHandler(locator: Locator, eventName: "onClick" | "onSubmit" = "onClick") {
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onSubmit" = "onClick") {
   await expect
     .poll(
       async () =>
@@ -299,6 +299,14 @@ async function expectMinTouchTarget(locator: Locator, minSize = 44) {
 
 function visibleGlobalSearchInput(page: Page) {
   return page.locator('[data-testid="global-search-input"]:visible');
+}
+
+async function fillHydratedGlobalSearch(page: Page, value: string) {
+  const input = visibleGlobalSearchInput(page).first();
+  await expect(input).toBeVisible();
+  await waitForReactEventHandler(input, "onChange");
+  await input.fill(value);
+  await expect(input).toHaveValue(value);
 }
 
 async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
@@ -429,7 +437,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
 
     // Typing in the shared composer live-filters the tools grid, matching /?mode=tools.
-    await visibleGlobalSearchInput(page).fill("medication");
+    await fillHydratedGlobalSearch(page, "medication");
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
@@ -462,7 +470,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    await visibleGlobalSearchInput(page).fill("medication");
+    await fillHydratedGlobalSearch(page, "medication");
 
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
