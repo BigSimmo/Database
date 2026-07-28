@@ -167,7 +167,7 @@ export const SignedImage = memo(function SignedImage({
             type="button"
             onClick={() => setLightboxOpen(true)}
             aria-label={`Expand image: ${caption?.trim() || alt}`}
-            className="absolute inset-0 z-[1] flex cursor-zoom-in items-start justify-end p-2 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+            className="absolute inset-0 z-10 flex cursor-zoom-in items-start justify-end p-2 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
           >
             <span
               aria-hidden="true"

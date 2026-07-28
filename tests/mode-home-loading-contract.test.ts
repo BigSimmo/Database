@@ -59,6 +59,15 @@ describe("mode-home loading contract", () => {
       /function GlobalStandaloneSearchShellBody[\s\S]*?SearchCommandProvider value=\{searchCommandContextValue\}>\{children\}/,
     );
     expect(shellSource).not.toMatch(/function GlobalStandaloneSearchShellBody[\s\S]*?useSearchParams\(\)/);
+    // Secondary nav is mounted inside the standalone body; it must consume the
+    // bridged searchParamString prop rather than calling useSearchParams again.
+    const secondaryNavSource = readFileSync(
+      join(process.cwd(), "src/components/page-secondary-navigation.tsx"),
+      "utf8",
+    );
+    expect(secondaryNavSource).not.toMatch(/useSearchParams\s*\(/);
+    expect(secondaryNavSource).toMatch(/searchParamString/);
+    expect(shellSource).toMatch(/<PageSecondaryNavigation[\s\S]*?searchParamString=\{searchParamString\}/);
   });
 
   it("lazy-loads ClinicalDashboard so namespaced homes skip its module graph", () => {

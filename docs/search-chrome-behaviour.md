@@ -38,6 +38,74 @@ This repo uses one shared search experience across the global shell, dashboard r
 21. Installed standalone phones use the same normal-flow root with the final `display-mode: standalone` `100vh` bound and an internal `.phone-scroll-surface`. Keep that override after the browser contract; do not substitute `svh`, `dvh`, `visualViewport.height`, or a fixed root on this WebKit workaround path. Every phone footer uses `.phone-footer-layer`: fixed to the viewport in browser tabs and absolute to the positioned 100vh frame in standalone, so the composer and its backdrop share the repaired PWA edge. Page-owned footer layers must render through `PhoneFooterLayerPortal`; `PhoneFooterLayerFrame` provides a frame-scoped, paint-free host after the scroll surface. An absolute footer left inside `.phone-scroll-surface` still scrolls and clips with that surface.
 22. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
+## Results band (`SearchResultsHeaderBand`)
+
+The band above every result list is not a composer and owns no dock reserve, but it is shared
+chrome and changes to it land on every mode at once. Keep these rules:
+
+0. **A faulted search never asserts a count.** This is the band's clinical invariant, not a
+   style rule. `status` is a union (`ready | loading | refetching | error | unauthorized`); while
+   faulted the count is absent from the DOM entirely and the spine reads "Couldn't search". A
+   failed services search rendering "0 matches" states there are no crisis services when the
+   search never ran. `0` with `status="ready"` is a real answer and still renders. Pages own the
+   mapping from their own data source; five pages have no async source and are correct on the
+   default.
+1. **The query is the only heading element in the band.** It is the sole `<h1>`/`<h2>`; the count
+   is never a heading. Nothing here is bold: the query uses weight 560 (`.search-band-query`) and
+   the figure uses 580 (`.search-band-count`) — two nearby steps of the same scale, separated by
+   tabular numerals and a hairline rather than by shouting. No eyebrow — the magnifier tile
+   already says "search", and a `QUERY` / `RESULTS FOR` label costs a line to repeat it. The
+   query truncates; the count does not. Weights live as numeric `font-weight` on `.search-band-*`
+   classes in `globals.css`, not as Tailwind arbitrary values: `check:type-scale --strict` is a
+   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 470/540/560/580
+   interpolate rather than snapping to 700. Judge weights only with the app font loaded.
+2. **The count is neutral text, not a success pill.** `text-muted` with the figure itself
+   `.search-band-count` (580, tabular-nums), stepping down to 470 and muted at zero. Success
+   colour is reserved for states that were actually achieved, so it still carries meaning where
+   it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
+   while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
+   makes the single announcement instead of both speaking.
+3. **Sort is a segmented control, not a select.** Two values do not justify a menu you must open
+   to read. `ResultSortControl` renders `sortOptions` as `aria-pressed` buttons inside a
+   `role="group"` named "Sort results"; add a third order only if it still fits the rail.
+4. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
+   `globals.css` ("Interactive element defaults") deliberately beats Tailwind's `text-*`
+   utilities on `input`/`select`/`textarea`. Do not fight it with `!important` or a per-call-site
+   override — a sub-16px control zooms the viewport on focus in Safari. Any control that must
+   read quieter than the query steps down in **weight and colour**, never in size, and any
+   select carrying variable-length values must set `truncate` or it clips mid-word rather than
+   ellipsing (the "Current search" → "Current searcl" defect fixed 2026-07-27).
+5. **The utility group is a swipe rail below `lg`, an inline row at `lg+`.** The row/stack switch
+   moved to `sm` (640) so portrait tablets stop rendering the phone layout, but the rail's
+   overflow, fade mask and trailing spacer stay on `lg` deliberately: at 640-1023px a page with
+   chips, sort, a mobile filter and utility controls can exceed the width, and containing that
+   inside a scrollable rail is what keeps `expectNoPageHorizontalOverflow` green. Children are
+   `shrink-0` so they keep their natural width; overflow scrolls instead of wrapping into a
+   second tinted band. The right-edge fade is applied via `data-overflowing` only while the rail
+   actually overflows — never as a permanent mask.
+6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
+   constraint on the list is one tap from where it is read. Do not move them into a separate
+   strip; `hasUtilities` already suppresses the whole group when nothing is active.
+7. **The accent is the card's `border-top`, never an overlay.** An absolutely-positioned bar
+   inside an `overflow-hidden` 12px-radius card is sliced by the corner arc, so it starts short
+   and tapers while the 1px border curves past it — two lines, two geometries. A border mitres
+   into the side borders and follows the radius by construction, and forced-colors maps it
+   automatically. Under forced colors the rail survives as **thickness** (3px, and 6px `double`
+   for a fault) because `--clinical-accent` resolves to `LinkText` and would otherwise be
+   indistinguishable from the other borders — that is what keeps a failed search visually
+   distinct from a successful one when colour is gone. The band's forced-colors rules **must
+   remain the last block in `globals.css`**: at equal specificity a later rule wins, so an
+   earlier block is silently overridden while still reading correctly.
+8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
+   so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
+   `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented
+   allowlist entry for any search route that legitimately has no result list.
+
+Coverage: `tests/search-results-header-band.dom.test.tsx` (structure, sort wiring, count tone,
+fault states and the no-overlay-rail guard), `tests/search-results-band-adoption.test.ts` (mode
+and route adoption, forced-colors block ordering), `tests/ui-tools.spec.ts` (phone control pair
+geometry and tap heights).
+
 ## Scroll hide/reveal
 
 The universal **top bar** (mode, new chat, menu) is the only sticky desktop chrome: it hides on a deliberate scroll down and returns on a deliberate scroll up at **every** breakpoint. Tablet search stays pinned below it. Desktop search is mounted at the top of normal page content, so it scrolls away with that content and is independent of the header's hide state. Only the phone bottom search dock scroll-hides, and that stays phone-only. The top bar and phone dock read one `useScrollHideReporter` per host, so they can never disagree about direction.

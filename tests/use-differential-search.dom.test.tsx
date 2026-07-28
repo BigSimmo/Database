@@ -127,11 +127,14 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     const { result } = renderHook(() => useDifferentialSearch("   "));
     await advanceDebounce();
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(result.current).toEqual({
+    // toMatchObject rather than toEqual: the hook also returns a `refetch`
+    // callback, which this case is not asserting on.
+    expect(result.current).toMatchObject({
       status: "ready",
       matches: { diagnoses: [], presentations: [] },
       demoMode: false,
     });
+    expect(typeof result.current.refetch).toBe("function");
   });
 
   it("clears prior matches immediately when the auth identity changes", async () => {
@@ -203,5 +206,46 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     await flushMicrotasks();
     expect(result.current.status).toBe("unauthorized");
     expect(fetchMock).toHaveBeenCalled();
+  });
+});
+
+describe("useDifferentialSearch retry", () => {
+  // A Retry button that cannot re-issue the failed request is worse than none:
+  // it promises recovery and silently does nothing. The hook keys on query +
+  // auth identity, neither of which changes when the reader asks to try again.
+  it("re-requests both catalogue endpoints when refetch is called after a failure", async () => {
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "boom" }, 500)));
+
+    const { result } = renderHook(() => useDifferentialSearch("acute confusion"));
+    await advanceDebounce();
+    await flushMicrotasks();
+
+    expect(result.current.status).toBe("error");
+    const callsBeforeRetry = fetchMock.mock.calls.length;
+    expect(callsBeforeRetry).toBeGreaterThan(0);
+
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? {
+                matches: [{ record: { slug: "delirium", title: "Delirium" }, score: 5, reasons: ["title"] }],
+                demoMode: true,
+              }
+            : { matches: [], demoMode: true },
+        ),
+      ),
+    );
+
+    await act(async () => {
+      result.current.refetch();
+    });
+    await advanceDebounce();
+    await flushMicrotasks();
+
+    const retryCalls = fetchMock.mock.calls.slice(callsBeforeRetry).map(([input]) => String(input));
+    expect(retryCalls.some((url) => url.includes("kind=diagnosis"))).toBe(true);
+    expect(retryCalls.some((url) => url.includes("kind=presentation"))).toBe(true);
+    expect(result.current.status).toBe("ready");
   });
 });

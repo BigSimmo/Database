@@ -994,7 +994,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
   test("anonymous mobile user can search without a forced sign-in gate", async ({ page }) => {
@@ -1010,7 +1010,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Service unavailable")).toHaveCount(0);
     await expect(page.getByText("API unavailable")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -2338,7 +2338,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
     await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("Loading answer")).toBeVisible();
+    // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
+    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
+    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
     const questionBubble = page.getByTestId("user-question-bubble");
@@ -2753,7 +2755,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
 
     await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
-    await expect(page.getByTestId("differentials-home")).toBeVisible();
+    // Production hydration can briefly overlap the outgoing server tree and the
+    // settled client tree on this redirect; wait for one owner before strict
+    // locators (same guard as the mode-home loop in ui-tools).
+    await expectSingleSettledOwner(page.getByTestId("differentials-home"), {
+      message: "differentials redirect home owner",
+    });
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
@@ -2962,7 +2969,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toBeFocused();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
   });
 
   test("favourites hub hydrates saved services from the registry", async ({ page }) => {
@@ -3127,7 +3134,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
-    const globalSearchInput = page.getByTestId("global-search-input");
+    const globalSearchInput = page.locator('[data-testid="global-search-input"]:visible').first();
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medication dosing or safety...");
     await expect(globalSearchInput).toHaveValue("acamprosate renal dose");
@@ -3273,9 +3280,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mobileTypeFilter.selectOption("all");
     }
 
-    await queryRibbon.getByLabel("Sort results").selectOption("alpha");
+    // Sort is a segmented group of pressed buttons, not a select: the active order
+    // is readable without opening anything.
+    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
+    await documentSort.getByRole("button", { name: "A–Z" }).click();
     await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await queryRibbon.getByLabel("Sort results").selectOption("relevance");
+    await expect(documentSort.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
+    await documentSort.getByRole("button", { name: "Relevance" }).click();
 
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })

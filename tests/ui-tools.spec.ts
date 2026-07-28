@@ -1081,7 +1081,10 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     const results = page.getByTestId("form-search-results");
-    const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    // Sort is a segmented group; the persisted order reads off aria-pressed rather
+    // than a select value, including after history navigation.
+    const visibleSort = page.locator('[role="group"][aria-label="Sort results"]:visible');
+    const sortOption = (name: string) => visibleSort.getByRole("button", { name });
     const expectedAlphaFirstTestId = `form-search-result-${
       sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
         ?.service.slug
@@ -1091,7 +1094,7 @@ test.describe("Clinical KB tools launcher", () => {
       "form-search-result-transport-crisis-form",
     );
 
-    await visibleSort.selectOption("alpha");
+    await sortOption("A–Z").click();
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
@@ -1099,14 +1102,14 @@ test.describe("Clinical KB tools launcher", () => {
     );
 
     await page.goBack();
-    await expect(visibleSort).toHaveValue("relevance");
+    await expect(sortOption("Relevance")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
     );
 
     await page.goForward();
-    await expect(visibleSort).toHaveValue("alpha");
+    await expect(sortOption("A–Z")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       expectedAlphaFirstTestId,
@@ -1189,7 +1192,12 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/differentials?q=acute+confusion&run=1", resultsTestId: "differentials-search-results" },
     ] as const) {
       await gotoLauncher(page, route.path);
-      await expect(page.getByTestId(route.resultsTestId)).toBeVisible({ timeout: 20_000 });
+      const results = page.getByTestId(route.resultsTestId);
+      // A soft navigation can briefly retain the previous reserve-pad owner.
+      // Wait for the new route to settle to the single-owner contract before
+      // making a strict visibility assertion.
+      await expect(results).toHaveCount(1, { timeout: 20_000 });
+      await expect(results).toBeVisible();
       const dock = page.locator("form.answer-footer-search-dock");
       await expect(dock, route.path).toBeVisible();
       await expect(dock, route.path).not.toHaveAttribute("data-scroll-hidden", "true");
@@ -1572,17 +1580,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("diagnosis");
     await typeSelect.selectOption("all");
 
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
     const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
     const pairMetrics = await mobilePair.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.querySelectorAll("label")).map(
-        (label) => label.getBoundingClientRect().height,
-      ),
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
     }));
     expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
     expect(pairMetrics.controlHeights).toHaveLength(2);
     expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1672,17 +1682,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("presentation");
     await typeSelect.selectOption("all");
 
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
     const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
     const pairMetrics = await mobilePair.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.querySelectorAll("label")).map(
-        (label) => label.getBoundingClientRect().height,
-      ),
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
     }));
     expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
     expect(pairMetrics.controlHeights).toHaveLength(2);
     expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1937,16 +1949,20 @@ test.describe("Clinical KB tools launcher", () => {
   test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 });
     await gotoLauncher(page, "/differentials/diagnoses/delirium");
-    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load, which would make a
+    // document-wide getByTestId strict-mode fail.
+    const detailPage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-detail-page");
+    await expect(detailPage).toBeVisible();
     // The desktop action cluster must keep its intrinsic width (shrink-0) so the
     // icon action does not get crushed below the 44px tap standard.
-    await expectMinTouchTarget(page.getByRole("button", { name: "Save diagnosis" }));
+    await expectMinTouchTarget(detailPage.getByRole("button", { name: "Save diagnosis" }));
 
     // Tabs: no page overflow and single-line labels at the narrowest width.
     await page.setViewportSize({ width: 320, height: 700 });
-    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    await expect(detailPage).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
-    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    const overviewTab = detailPage.getByRole("tab", { name: "Overview" });
     await expect(overviewTab).toBeVisible();
     // Count rendered label lines from text-node rects (an icon rect would bridge
     // two wrapped lines and mask a wrap); the tab label must stay on one line.
