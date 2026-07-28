@@ -280,7 +280,7 @@ function parseProfile(raw: string, chunks: ModelIndexChunk[], images: ModelIndex
 }
 
 function buildPrompt(args: {
-  document: { title: string; file_name: string; source_path?: string | null };
+  document: { id?: string; title: string; file_name: string; source_path?: string | null };
   chunks: ModelIndexChunk[];
   images: ModelIndexImage[];
 }) {
@@ -362,7 +362,7 @@ ${imageBlock || "No image metadata."}`;
 }
 
 export async function generateModelIndexProfile(args: {
-  document: { title: string; file_name: string; source_path?: string | null };
+  document: { id?: string; title: string; file_name: string; source_path?: string | null };
   chunks: ModelIndexChunk[];
   images?: ModelIndexImage[];
 }) {
@@ -381,10 +381,13 @@ export async function generateModelIndexProfile(args: {
   });
   // Ingestion runs unattended over the whole corpus; a truncated extraction silently drops
   // model-index coverage for the document. Warn loudly (greppable, with document identity)
-  // instead of failing silent; parsing still proceeds on the partial text.
+  // instead of failing silent; parsing still proceeds on the partial text. Use
+  // a stable identifier rather than potentially identifying document names.
   if (result.truncated) {
     console.warn("model-index extraction truncated", {
-      document: args.document.file_name ?? args.document.title,
+      documentId: args.document.id ?? null,
+      stage: "model_index_extraction",
+      status: "truncated",
       reason: result.incompleteReason ?? result.status ?? "unknown",
     });
   }

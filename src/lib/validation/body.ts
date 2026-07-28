@@ -3,6 +3,7 @@ import { PublicApiError } from "@/lib/http";
 import { parseSchema } from "@/lib/validation/http";
 
 export const defaultJsonBodyLimitBytes = 256 * 1024;
+export const webhookJsonBodyLimitBytes = 64 * 1024;
 
 async function readBoundedJson(request: Request, maxBytes = defaultJsonBodyLimitBytes): Promise<unknown> {
   const declaredLength = Number(request.headers.get("content-length"));
@@ -46,8 +47,9 @@ export async function parseJsonBody<TSchema extends z.ZodType>(
   request: Request,
   schema: TSchema,
   message = "Invalid request body.",
+  maxBytes = defaultJsonBodyLimitBytes,
 ): Promise<z.infer<TSchema>> {
-  const body = await readBoundedJson(request);
+  const body = await readBoundedJson(request, maxBytes);
   return parseSchema(schema, body, message, "invalid_body");
 }
 

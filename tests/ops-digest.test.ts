@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderDigest, resolveHealthUrl } from "../scripts/ops-digest.mjs";
+import { evaluateOpsAlerts, renderDigest, resolveHealthUrl } from "../scripts/ops-digest.mjs";
 
 describe("resolveHealthUrl", () => {
   it("appends the deep health path to a bare base URL", () => {
@@ -80,5 +80,55 @@ describe("renderDigest", () => {
     });
     expect(md).toContain("OVER THRESHOLD");
     expect(md).toContain("sample truncated");
+  });
+});
+
+describe("evaluateOpsAlerts", () => {
+  const healthy = {
+    status: "ok",
+    slo: { hybridRpcErrorRate: 0, degradedRate: 0.1 },
+    cache: { hitRate: 0.8 },
+    coalescing: { coalescingRate: 0.2 },
+    spend: { alerting: false },
+  };
+
+  it("keeps liveness independent while alerting on SLO thresholds", () => {
+    const result = evaluateOpsAlerts({
+      ...healthy,
+      slo: { hybridRpcErrorRate: 0.006, degradedRate: 0.21 },
+    });
+
+    expect(result).toEqual({
+      alerting: true,
+      severity: "warning",
+      reasons: ["hybrid_rpc_error_rate_above_0_5_percent", "degraded_answer_rate_above_20_percent"],
+    });
+    expect(healthy.status).toBe("ok");
+  });
+
+  it("escalates degraded answers above fifty percent", () => {
+    expect(evaluateOpsAlerts({ ...healthy, slo: { hybridRpcErrorRate: 0, degradedRate: 0.51 } })).toMatchObject({
+      alerting: true,
+      severity: "critical",
+      reasons: ["degraded_answer_rate_above_50_percent"],
+    });
+  });
+
+  it("alerts on missing deep-probe blocks and projected spend", () => {
+    const result = evaluateOpsAlerts({ status: "ok", slo: healthy.slo, spend: { alerting: true } });
+
+    expect(result.reasons).toEqual([
+      "missing_cache_block",
+      "missing_coalescing_block",
+      "projected_spend_over_threshold",
+    ]);
+  });
+
+  it("treats an unreachable probe as critical", () => {
+    expect(evaluateOpsAlerts(null, { error: "timeout" })).toEqual({
+      alerting: true,
+      severity: "critical",
+      reasons: ["probe_unreachable"],
+    });
   });
 });

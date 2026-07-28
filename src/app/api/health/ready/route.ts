@@ -12,5 +12,6 @@ export async function GET(request: Request) {
     includeSlo: false,
     includeCache: false,
     includeCoalescing: false,
+    supabaseTimeoutMs: 4_000,
   });
 }

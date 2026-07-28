@@ -40,6 +40,32 @@ describe("POST /api/webhooks/railway", () => {
     expect(response.status).toBe(401);
   });
 
+  it("rejects authenticated payloads above 64 KiB before notification", async () => {
+    const { route, postChatNotification } = await loadRoute({ RAILWAY_WEBHOOK_SECRET: SECRET });
+    const response = await route.POST(
+      post(`http://localhost/api/webhooks/railway?token=${SECRET}`, {
+        status: "SUCCESS",
+        padding: "x".repeat(64 * 1024),
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(postChatNotification).not.toHaveBeenCalled();
+  });
+
+  it("rejects overlong surfaced names", async () => {
+    const { route, postChatNotification } = await loadRoute({ RAILWAY_WEBHOOK_SECRET: SECRET });
+    const response = await route.POST(
+      post(`http://localhost/api/webhooks/railway?token=${SECRET}`, {
+        status: "SUCCESS",
+        service: { name: "x".repeat(161) },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(postChatNotification).not.toHaveBeenCalled();
+  });
+
   it("skips transient statuses without notifying", async () => {
     const { route, postChatNotification } = await loadRoute({ RAILWAY_WEBHOOK_SECRET: SECRET });
     const response = await route.POST(

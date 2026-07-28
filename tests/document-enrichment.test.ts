@@ -2,6 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   generateStructuredTextResponse: vi.fn(),
+  structuredResult: {
+    truncated: false,
+    status: "completed" as "completed" | "incomplete",
+    incompleteReason: undefined as string | undefined,
+  },
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -16,9 +21,7 @@ vi.mock("@/lib/env", () => ({
 vi.mock("@/lib/openai", () => ({
   generateStructuredTextResult: vi.fn(async (...args: unknown[]) => ({
     text: await mocks.generateStructuredTextResponse(...args),
-    truncated: false,
-    status: "completed" as const,
-    incompleteReason: undefined,
+    ...mocks.structuredResult,
   })),
 }));
 
@@ -110,6 +113,7 @@ function createSupabaseMock() {
 
 describe("document enrichment", () => {
   beforeEach(() => {
+    Object.assign(mocks.structuredResult, { truncated: false, status: "completed", incompleteReason: undefined });
     mocks.generateStructuredTextResponse.mockResolvedValue(
       JSON.stringify({
         summary: "- Use the uploaded source for future-document clinical workflow review.",
@@ -272,6 +276,34 @@ describe("document enrichment", () => {
     expect(mocks.generateStructuredTextResponse.mock.calls.at(-1)?.[2]).toMatchObject({
       promptCacheKey: "clinical-document-enrichment-v1",
     });
+  });
+
+  it("logs a stable document id without names when enrichment is truncated", async () => {
+    Object.assign(mocks.structuredResult, {
+      truncated: true,
+      status: "incomplete",
+      incompleteReason: "max_output_tokens",
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await generateDocumentEnrichment({
+      document: {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "Jane Citizen MRN123.pdf",
+        file_name: "Jane Citizen MRN123.pdf",
+        source_path: null,
+      },
+      chunks: [],
+      images: [],
+    });
+
+    expect(warn).toHaveBeenCalledWith("document enrichment truncated", {
+      documentId: "11111111-1111-4111-8111-111111111111",
+      stage: "document_enrichment",
+      status: "truncated",
+      reason: "max_output_tokens",
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("Jane Citizen MRN123.pdf");
   });
 
   it("neutralizes untrusted source instructions in enrichment prompts", async () => {

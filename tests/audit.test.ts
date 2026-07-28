@@ -79,6 +79,41 @@ describe("writeAuditLog", () => {
     expect(client.insertSpy).toHaveBeenCalledWith(expect.objectContaining({ metadata: {} }));
   });
 
+  it("retains only bounded label mutation facts", async () => {
+    const client = mockClient(async () => ({ error: null }));
+    const documentId = "11111111-1111-4111-8111-111111111111";
+
+    await writeAuditLog(client, {
+      ownerId: "owner-1",
+      action: "document_label_change",
+      resourceType: "document_label",
+      resourceId: "label-1",
+      metadata: {
+        operation: "approve",
+        documentId,
+        label: "Jane Citizen MRN123.pdf",
+        title: "Jane Citizen MRN123.pdf",
+      },
+    });
+
+    expect(client.insertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { operation: "approve", documentId } }),
+    );
+    expect(JSON.stringify(client.insertSpy.mock.calls[0]?.[0])).not.toContain("Jane Citizen MRN123.pdf");
+  });
+
+  it("drops invalid label operations and identifiers", async () => {
+    const client = mockClient(async () => ({ error: null }));
+
+    await writeAuditLog(client, {
+      ownerId: "owner-1",
+      action: "document_label_change",
+      metadata: { operation: "rename-everything", documentId: "not-a-document-id" },
+    });
+
+    expect(client.insertSpy).toHaveBeenCalledWith(expect.objectContaining({ metadata: {} }));
+  });
+
   it("retains numeric storageRemoved counts from document deletes", async () => {
     const client = mockClient(async () => ({ error: null }));
 

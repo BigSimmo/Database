@@ -57,7 +57,7 @@ describe("fixture-free client performance boundaries", () => {
   it("revalidates cached document download URLs on every viewer action", () => {
     const viewer = source("src/components/DocumentViewer.tsx");
 
-    expect(viewer).toContain("const cached = getCachedSignedUrl(endpoint)");
+    expect(viewer).toContain("const cached = getCachedSignedUrl(endpoint, signedUrlAuthScope)");
     expect(viewer).toContain('anchor.download = currentDocumentFileName || "clinical-source"');
     expect(viewer).not.toContain("href={downloadSignedUrl}");
     expect(viewer).not.toContain("downloadUrl={downloadSignedUrl}");

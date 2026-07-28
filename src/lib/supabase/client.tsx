@@ -6,6 +6,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
+import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
@@ -170,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authEpoch, setAuthEpoch] = useState(0);
 
   const invalidateAuthRequests = useCallback(() => {
+    clearSignedUrlCache();
     setAuthEpoch(authRequestsRef.current.invalidate());
   }, []);
   const registerAuthRequest = useCallback((controller: AbortController) => {
@@ -352,8 +354,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
-    if (!client) return;
     invalidateAuthRequests();
+    if (!client) return;
     await client.auth.signOut();
     clearPersistedAnswerThread();
     clearRecentQueries();

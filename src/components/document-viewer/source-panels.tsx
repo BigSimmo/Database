@@ -227,7 +227,7 @@ function tableQualityWarnings(image: ImageRow, hasStructuredTable: boolean) {
   return warnings;
 }
 
-export function DocumentImage({ image }: { image: ImageRow }) {
+export function DocumentImage({ image, accessScope = "owner" }: { image: ImageRow; accessScope?: "public" | "owner" }) {
   const endpoint = `/api/images/${image.id}/signed-url`;
 
   const tableHeading = sourceTextForCompactDisplay([image.tableLabel, image.tableTitle].filter(Boolean).join(": "));
@@ -276,6 +276,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         className="max-h-[70dvh] min-h-40 w-full"
         aspectRatio={imageAspectRatio(image)}
         zoomable
+        accessScope={accessScope}
       />
     </div>
   );

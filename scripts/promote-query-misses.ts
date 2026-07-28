@@ -5,7 +5,9 @@ type MissRow = {
   query: string;
   normalized_query: string;
   query_class: string | null;
+  clicked_document_id: string | null;
   top_files: string[] | null;
+  top_chunk_ids: string[] | null;
   candidate_aliases: string[] | null;
   candidate_labels: Array<{
     label?: string;
@@ -28,6 +30,57 @@ function unique(values: Array<string | null | undefined>, limit = 12) {
   ).slice(0, limit);
 }
 
+async function resolveDocumentDisplayNames(supabase: Awaited<ReturnType<typeof loadAdminClient>>, rows: MissRow[]) {
+  const chunkIds = unique(
+    rows.flatMap((row) => row.top_chunk_ids ?? []),
+    2_000,
+  );
+  const documentIds = new Set<string>(
+    rows
+      .flatMap((row) => [
+        row.clicked_document_id,
+        ...(row.candidate_labels ?? []).map((label) => label.document_id ?? null),
+      ])
+      .filter((id): id is string => Boolean(id)),
+  );
+  const chunkDocumentIds = new Map<string, string>();
+
+  if (chunkIds.length > 0) {
+    const { data: chunks, error: chunksError } = await supabase
+      .from("document_chunks")
+      .select("id,document_id")
+      .in("id", chunkIds);
+    if (chunksError) throw new Error(chunksError.message);
+    for (const chunk of chunks ?? []) {
+      documentIds.add(chunk.document_id);
+      chunkDocumentIds.set(chunk.id, chunk.document_id);
+    }
+  }
+
+  const ids = Array.from(documentIds).filter((id): id is string => Boolean(id));
+  if (ids.length === 0) {
+    return { byDocumentId: new Map<string, string>(), byChunkId: new Map<string, string>() };
+  }
+  const { data: documents, error: documentsError } = await supabase
+    .from("documents")
+    .select("id,title,file_name")
+    .in("id", ids);
+  if (documentsError) throw new Error(documentsError.message);
+
+  const byDocumentId = new Map(
+    (documents ?? []).map((document) => [
+      document.id,
+      document.file_name?.trim() || document.title?.trim() || document.id,
+    ]),
+  );
+  const byChunkId = new Map<string, string>();
+  for (const [chunkId, documentId] of chunkDocumentIds) {
+    const displayName = byDocumentId.get(documentId);
+    if (displayName) byChunkId.set(chunkId, displayName);
+  }
+  return { byDocumentId, byChunkId };
+}
+
 async function main() {
   const supabase = await loadAdminClient();
   const minCount = Number(argValue("min-count") ?? 2);
@@ -36,7 +89,9 @@ async function main() {
 
   const { data, error } = await supabase
     .from("rag_query_misses")
-    .select("id,query,normalized_query,query_class,top_files,candidate_aliases,candidate_labels,created_at")
+    .select(
+      "id,query,normalized_query,query_class,clicked_document_id,top_files,top_chunk_ids,candidate_aliases,candidate_labels,created_at",
+    )
     .is("promoted_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -46,13 +101,23 @@ async function main() {
   for (const row of (data ?? []) as MissRow[]) {
     groups.set(row.normalized_query, [...(groups.get(row.normalized_query) ?? []), row]);
   }
+  const documentDisplayNames = await resolveDocumentDisplayNames(supabase, (data ?? []) as MissRow[]);
 
   const promotable = Array.from(groups.entries())
     .map(([query, rows]) => ({
       query,
       rows,
       aliases: unique(rows.flatMap((row) => row.candidate_aliases ?? [])),
-      files: unique(rows.flatMap((row) => row.top_files ?? [])),
+      files: unique(
+        rows.flatMap((row) => [
+          ...(row.top_files ?? []),
+          ...(row.top_chunk_ids ?? []).map((chunkId) => documentDisplayNames.byChunkId.get(chunkId)),
+          ...(row.clicked_document_id ? [documentDisplayNames.byDocumentId.get(row.clicked_document_id)] : []),
+          ...(row.candidate_labels ?? []).map((label) =>
+            label.document_id ? documentDisplayNames.byDocumentId.get(label.document_id) : undefined,
+          ),
+        ]),
+      ),
       labels: rows.flatMap((row) => row.candidate_labels ?? []),
     }))
     .filter((group) => group.rows.length >= minCount)

@@ -336,6 +336,7 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
 
   return {
     document: payload.document,
+    accessScope: "public",
     pages: (payload.pages ?? []).filter(
       (page) => page.page_number >= pageRange.from && page.page_number <= pageRange.to,
     ),
@@ -514,6 +515,7 @@ export async function loadAuthorizedDocumentDetail(args: {
           ? (summaryResult.data ?? null)
           : redactNonOwnedDocumentFields(summaryResult.data as Record<string, unknown>, access.ownerId),
     } as unknown as ClinicalDocument,
+    accessScope: isOwner ? "owner" : "public",
     pages: publicRows(
       committedRows(document, pagesResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],
     ) as DocumentDetailPage[],

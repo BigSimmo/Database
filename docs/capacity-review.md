@@ -4,7 +4,8 @@ Models the reference load ("30 clinicians on a ward round") against the known
 constraints of the current stack, names the first bottleneck, and defines the
 soak test that validates the model against staging. Written 2026-07-06.
 Topology assumptions come from `docs/deployment-architecture.md` (single warm
-app container, Sydney, co-located with Supabase `sjrfecxgysukkwxsowpy`).
+app container on Railway Singapore, with Supabase `sjrfecxgysukkwxsowpy` in
+Sydney over the public internet).
 
 ## 1. Load model
 

@@ -62,6 +62,7 @@ jobs:
             const body = fs.readFileSync("digest.md", "utf8");
             const status = "${{ steps.digest.outputs.status }}" || "unknown";
             const alerting = "${{ steps.digest.outputs.alerting }}" === "true";
+            const alertReasons = "${{ steps.digest.outputs.alert_reasons }}" || "none";
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -94,7 +95,8 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `⚠ Attention (status=${status}, alerting=${alerting}) — ${new Date().toISOString()}\n\n${body}`,
+                body: `⚠ Attention (status=${status}, alerting=${alerting}, reasons=${alertReasons}) — ${new Date().toISOString()}\n\n${body}`,
               });
             }
             if (status !== "ok") core.warning(`Ops digest status: ${status}`);
+            if (alerting) core.warning(`Ops digest alerts: ${alertReasons}`);

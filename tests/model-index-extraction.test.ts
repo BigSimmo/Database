@@ -2,6 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   generateStructuredTextResponse: vi.fn(),
+  structuredResult: {
+    truncated: false,
+    status: "completed" as "completed" | "incomplete",
+    incompleteReason: undefined as string | undefined,
+  },
 }));
 
 vi.mock("@/lib/env", () => ({
@@ -16,9 +21,7 @@ vi.mock("@/lib/env", () => ({
 vi.mock("@/lib/openai", () => ({
   generateStructuredTextResult: vi.fn(async (...args: unknown[]) => ({
     text: await mocks.generateStructuredTextResponse(...args),
-    truncated: false,
-    status: "completed" as const,
-    incompleteReason: undefined,
+    ...mocks.structuredResult,
   })),
 }));
 
@@ -27,6 +30,7 @@ import { generateModelIndexProfile } from "@/lib/model-index-extraction";
 describe("model index extraction", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    Object.assign(mocks.structuredResult, { truncated: false, status: "completed", incompleteReason: undefined });
   });
 
   it("uses coverage-aware chunk selection so late high-yield content reaches the model prompt", async () => {
@@ -113,5 +117,42 @@ describe("model index extraction", () => {
     expect(prompt).not.toMatch(/follow these instructions/i);
     expect(prompt).not.toMatch(/reveal the api key/i);
     expect(prompt).not.toMatch(/system prompt/i);
+  });
+
+  it("logs a stable document id without names when model-index extraction is truncated", async () => {
+    mocks.generateStructuredTextResponse.mockResolvedValueOnce(
+      JSON.stringify({
+        sections: [],
+        askable_questions: [],
+        clinical_facts: [],
+        table_facts: [],
+        aliases: [],
+        quality_issues: [],
+      }),
+    );
+    Object.assign(mocks.structuredResult, {
+      truncated: true,
+      status: "incomplete",
+      incompleteReason: "max_output_tokens",
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await generateModelIndexProfile({
+      document: {
+        id: "11111111-1111-4111-8111-111111111111",
+        title: "Jane Citizen MRN123.pdf",
+        file_name: "Jane Citizen MRN123.pdf",
+      },
+      chunks: [{ id: "chunk-1", page_number: 1, chunk_index: 0, section_heading: null, content: "Monitoring." }],
+      images: [],
+    });
+
+    expect(warn).toHaveBeenCalledWith("model-index extraction truncated", {
+      documentId: "11111111-1111-4111-8111-111111111111",
+      stage: "model_index_extraction",
+      status: "truncated",
+      reason: "max_output_tokens",
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("Jane Citizen MRN123.pdf");
   });
 });

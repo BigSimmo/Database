@@ -531,6 +531,26 @@ export function applyNumericVerification(answer: RagAnswer, verificationSources?
     }
   }
 
+  if (answer.supportedClaims) {
+    // Claim assessment is deliberately bounded. Keep its entity/polarity/source
+    // checks claim-scoped, but never let prose outside the assessed claim set
+    // disappear from numeric verification. Any rendered value atom that has no
+    // canonical counterpart in the assessed claim text is unreviewed by
+    // definition, even if an unrelated cited chunk happens to contain the same
+    // number. Preserve the authored spelling in diagnostics via rawText.
+    const assessedAtomKeys = new Set(
+      answer.supportedClaims.flatMap((claim) => extractClinicalValueAtoms(claim.text).map(clinicalValueAtomKey)),
+    );
+    const renderedAtoms = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].flatMap(
+      extractClinicalValueAtoms,
+    );
+    for (const atom of renderedAtoms) {
+      if (!assessedAtomKeys.has(clinicalValueAtomKey(atom)) && atom.rawText.trim()) {
+        unverified.add(atom.rawText.trim());
+      }
+    }
+  }
+
   if (unverified.size === 0) return answer;
 
   const unverifiedTokens = [...unverified];
@@ -579,7 +599,10 @@ export function applyNumericVerification(answer: RagAnswer, verificationSources?
 // verification could not confirm, leaving the text intact (just un-emphasised). Verified bold stays.
 export function unboldUnverifiedNumbers(text: string, unverified: Set<string>): string {
   if (!unverified.size || !text.includes("**")) return text;
+  const normalizedUnverified = new Set([...unverified].flatMap((token) => extractNumericTokens(token)));
   return text.replace(/\*\*([^*]+)\*\*/g, (full, inner: string) =>
-    extractNumericTokens(inner).some((token) => unverified.has(token)) ? inner : full,
+    extractNumericTokens(inner).some((token) => unverified.has(token) || normalizedUnverified.has(token))
+      ? inner
+      : full,
   );
 }

@@ -508,11 +508,12 @@ async function commitDocumentIndexGeneration(args: {
   // Audit L9: p_image_count is searchable-only (insertedImages excludes
   // audit-retained non-searchable rows). Retrieval filters searchable=true, so
   // the persisted count intentionally differs from extracted_image_count.
-  const { error } = await supabase.rpc("commit_document_index_generation", {
+  const { error } = await supabase.rpc("commit_document_index_generation_v2", {
     p_job_id: args.jobId,
     p_worker_id: workerId,
     p_document_id: args.documentId,
     p_index_generation_id: args.indexGenerationId,
+    p_image_bucket: env.SUPABASE_IMAGE_BUCKET,
     p_status: "indexed",
     p_page_count: args.pageCount,
     p_chunk_count: args.chunkCount,
@@ -527,9 +528,10 @@ async function commitDocumentIndexGeneration(args: {
     p_quality: sanitizeJsonbRecord(args.quality),
   });
   // The RPC upserts index quality and prunes stale/legacy generation rows atomically server-side
-  // (20260702000000_commit_generation_preserve_legacy_artifacts, lease-fenced by
-  // 20260713062125_fence_index_generation_commit), so the worker only needs to surface failures.
-  if (error) throw supabaseStageError("commit_document_index_generation", error);
+  // (20260702000000_commit_generation_preserve_legacy_artifacts, lease-fenced and
+  // storage-ledgered by commit_document_index_generation_v2), so the worker only
+  // needs to surface failures.
+  if (error) throw supabaseStageError("commit_document_index_generation_v2", error);
 }
 
 function buildDocumentPageRows(documentId: string, extracted: ExtractedDocument) {

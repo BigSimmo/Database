@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/supabase/client", () => {
   const authorizationHeader = {};
   const markSessionExpired = vi.fn();
-  return { useAuthSession: () => ({ authorizationHeader, markSessionExpired }) };
+  return { useAuthSession: () => ({ authEpoch: 0, session: null, authorizationHeader, markSessionExpired }) };
 });
 
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";

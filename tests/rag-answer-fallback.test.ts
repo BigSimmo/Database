@@ -1502,7 +1502,8 @@ describe("RAG structured-output fallback", () => {
     });
     const generateStructuredTextResult = vi.fn(async () => ({
       text: JSON.stringify({
-        answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+        answer:
+          "Step 1 uses oral medication when the patient is willing, and Step 3 uses intramuscular medication when oral medication is refused.",
         grounded: true,
         confidence: "high",
         answerSections: [],
@@ -1585,7 +1586,8 @@ describe("RAG structured-output fallback", () => {
       await generationGate;
       return {
         text: JSON.stringify({
-          answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+          answer:
+            "Step 1 uses oral medication when the patient is willing, and Step 3 uses intramuscular medication when oral medication is refused.",
           grounded: true,
           confidence: "high",
           answerSections: [],

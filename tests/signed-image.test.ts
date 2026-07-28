@@ -6,13 +6,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // The consolidated behaviour under test (deferred loading + synchronous cache
 // seeding) is independent of auth, so stub the hook with an inert session.
 vi.mock("@/lib/supabase/client", () => ({
-  useAuthSession: () => ({ authorizationHeader: {}, markSessionExpired: () => {} }),
+  useAuthSession: () => ({ authEpoch: 0, session: null, authorizationHeader: {}, markSessionExpired: () => {} }),
 }));
 
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
-import { clearSignedUrlCache, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { clearSignedUrlCache, setCachedSignedUrl, signedUrlCacheScope } from "@/lib/signed-url-cache";
 
 const ENDPOINT = "/api/images/consolidated/signed-url";
+const AUTH_SCOPE = signedUrlCacheScope("owner", 0, null);
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -42,7 +43,7 @@ describe("SignedImage", () => {
   // scrolled-back-to (already fetched) image paints immediately without waiting.
   it("seeds the URL synchronously from the signed-url cache", () => {
     clearSignedUrlCache();
-    setCachedSignedUrl(ENDPOINT, { url: "/demo-documents/airway.png", caption: "Airway" });
+    setCachedSignedUrl(ENDPOINT, AUTH_SCOPE, { url: "/demo-documents/airway.png", caption: "Airway" });
 
     const markup = renderToStaticMarkup(createElement(SignedImage, { endpoint: ENDPOINT, alt: "Airway diagram" }));
 
@@ -58,7 +59,7 @@ describe("SignedImage", () => {
 
   it("uses the provided alt text and does not render the failure state on a healthy render", () => {
     clearSignedUrlCache();
-    setCachedSignedUrl(ENDPOINT, { url: "/demo-documents/ecg.png" });
+    setCachedSignedUrl(ENDPOINT, AUTH_SCOPE, { url: "/demo-documents/ecg.png" });
 
     const markup = renderToStaticMarkup(
       createElement(SignedImage, {

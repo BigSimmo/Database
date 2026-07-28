@@ -36,6 +36,7 @@ type ClaimedJob = {
   batch_id: string | null;
   attempt_count: number;
   max_attempts: number;
+  locked_by: string;
   documents: {
     id: string;
     owner_id: string | null;
@@ -1661,20 +1662,29 @@ async function updateAgentJobStatus(
   status: AgentJobStatus,
   error: string | null = null,
   nextRunAt: string | null = null,
-): Promise<void> {
+  metadataPatch: Record<string, unknown> = {},
+  releaseUnstarted = false,
+): Promise<JobStatusRpcResult> {
   const rows = await sql<JobStatusRpcResult[]>`
     select *
-    from public.update_indexing_v3_agent_job_status(
+    from public.update_indexing_v3_agent_job_status_v2(
       ${job.document_id}::uuid,
+      ${job.id}::uuid,
+      ${job.locked_by}::text,
       ${status}::text,
       ${error}::text,
-      ${nextRunAt}::timestamptz
+      ${nextRunAt}::timestamptz,
+      ${jsonb(metadataPatch)},
+      ${releaseUnstarted}::boolean
     )
   `;
-  const result = parseJobStatusRpcResult(rows[0], "update_indexing_v3_agent_job_status");
+  const result = parseJobStatusRpcResult(rows[0], "update_indexing_v3_agent_job_status_v2");
   if (!result?.ok) {
-    throw new Error(`Failed to update indexing_v3_agent_jobs status to ${status} for document ${job.document_id}`);
+    throw new Error(
+      `Failed to update indexing_v3_agent_jobs status to ${status} for document ${job.document_id}: ${result?.status ?? "missing_result"}`,
+    );
   }
+  return result;
 }
 
 function logCompletionGate(job: ClaimedJob, gate: CompletionGate): void {
@@ -1701,49 +1711,35 @@ async function deferJob(job: ClaimedJob, gate: CompletionGate): Promise<void> {
     nowMs: Date.now(),
   });
 
-  await sql`
-    update public.documents
-    set
-      metadata = jsonb_strip_nulls(
-        (coalesce(metadata, '{}'::jsonb)
-          - 'indexing_v3_agent_locked_by'
-          - 'indexing_v3_agent_locked_at'
-          - 'indexing_v3_agent_last_error'
-          - 'indexing_v3_agent_next_run_at')
-        || jsonb_build_object(
-          'indexing_v3_agent_status', ${decision.status}::text,
-          'indexing_v3_agent_version', 'visual-core-v3',
-          'indexing_v3_agent_updated_at', now(),
-          'indexing_v3_agent_deferral_count', ${decision.deferral_count}::integer,
-          'indexing_v3_agent_next_run_at', ${decision.next_run_at}::timestamptz,
-          'completion_gate', ${jsonb(decision.details)},
-          'completion_gate_missing', ${jsonb(gate.missing)},
-          'enrichment_status', ${decision.enrichment_status}::text
-        )
-      ),
-      updated_at = now()
-    where id = ${job.document_id}::uuid
-  `;
   await updateAgentJobStatus(
     job,
     decision.status === "needs_enrichment_artifacts" ? "needs_enrichment_artifacts" : "pending",
     null,
     decision.status === "needs_enrichment_artifacts" ? null : decision.next_run_at,
+    {
+      indexing_v3_agent_status: decision.status,
+      indexing_v3_agent_version: "visual-core-v3",
+      indexing_v3_agent_deferral_count: decision.deferral_count,
+      completion_gate: decision.details,
+      completion_gate_missing: gate.missing,
+      enrichment_status: decision.enrichment_status,
+    },
   );
 }
 
 async function completeJob(job: ClaimedJob): Promise<void> {
   const rows = await sql<JobStatusRpcResult[]>`
     select *
-    from public.complete_strict_enrichment_job(
+    from public.complete_strict_enrichment_job_v2(
       ${job.document_id}::uuid,
       ${job.id}::uuid,
+      ${job.locked_by}::text,
       'indexed; enrichment completed',
       'visual-core-v3',
       'visual-v3'
     )
   `;
-  const result = parseJobStatusRpcResult(rows[0], "complete_strict_enrichment_job");
+  const result = parseJobStatusRpcResult(rows[0], "complete_strict_enrichment_job_v2");
   if (!result?.ok || !result.gate_passed) {
     throw new Error(
       `Strict enrichment completion blocked: ${JSON.stringify({
@@ -1752,37 +1748,33 @@ async function completeJob(job: ClaimedJob): Promise<void> {
       })}`,
     );
   }
-  await updateAgentJobStatus(job, "completed");
 }
 
 async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean> {
   const shouldRetry = job.attempt_count < job.max_attempts;
   const nextRunAt = shouldRetry ? new Date(Date.now() + INDEXING_V3_RETRY_DELAY_MS).toISOString() : null;
-  await sql`
-    update public.documents
-    set
-      metadata = jsonb_strip_nulls(
-        (coalesce(metadata, '{}'::jsonb)
-          - 'indexing_v3_agent_locked_by'
-          - 'indexing_v3_agent_locked_at'
-          - 'indexing_v3_agent_next_run_at')
-        || jsonb_build_object(
-          'indexing_v3_agent_status', ${shouldRetry ? "retry_pending" : "failed"}::text,
-          'indexing_v3_agent_version', 'visual-core-v3',
-          'indexing_v3_agent_updated_at', now(),
-          'indexing_v3_agent_attempt_count', ${job.attempt_count}::integer,
-          'indexing_v3_agent_max_attempts', ${job.max_attempts}::integer,
-          'indexing_v3_agent_next_run_at', ${nextRunAt}::timestamptz,
-          'indexing_v3_agent_last_error', ${message}::text,
-          'enrichment_status', ${shouldRetry ? "pending" : "failed"}::text,
-          'enrichment_error', ${message}::text
-        )
-      ),
-      updated_at = now()
-    where id = ${job.document_id}::uuid
-  `;
-  await updateAgentJobStatus(job, shouldRetry ? "pending" : "failed", message, nextRunAt);
+  await updateAgentJobStatus(job, shouldRetry ? "pending" : "failed", message, nextRunAt, {
+    indexing_v3_agent_status: shouldRetry ? "retry_pending" : "failed",
+    indexing_v3_agent_version: "visual-core-v3",
+    indexing_v3_agent_attempt_count: job.attempt_count,
+    indexing_v3_agent_max_attempts: job.max_attempts,
+    enrichment_status: shouldRetry ? "pending" : "failed",
+  });
   return shouldRetry;
+}
+
+async function releaseUnstartedClaim(job: ClaimedJob): Promise<void> {
+  await updateAgentJobStatus(
+    job,
+    "pending",
+    null,
+    new Date().toISOString(),
+    {
+      indexing_v3_agent_status: "pending",
+      enrichment_status: "pending",
+    },
+    true,
+  );
 }
 
 async function processJob(job: ClaimedJob): Promise<{ status: "completed" | "deferred"; missing: string[] }> {
@@ -1930,21 +1922,58 @@ Deno.serve({ port: Number(Deno.env.get("PORT") ?? "8000") }, async (req: Request
     let failed = 0;
     const failures: Array<{ job_id: string; document_id: string; error: string }> = [];
     const deferrals: Array<{ job_id: string; document_id: string; missing: string[] }> = [];
+    const startedJobIds = new Set<string>();
 
-    for (const job of claimed) {
-      try {
-        const result = await processJob(job);
-        if (result.status === "completed") {
-          processed += 1;
-        } else {
-          deferred += 1;
-          deferrals.push({ job_id: job.id, document_id: job.document_id, missing: result.missing });
+    try {
+      for (const job of claimed) {
+        startedJobIds.add(job.id);
+        try {
+          const result = await processJob(job);
+          if (result.status === "completed") {
+            processed += 1;
+          } else {
+            deferred += 1;
+            deferrals.push({ job_id: job.id, document_id: job.document_id, missing: result.missing });
+          }
+        } catch (e) {
+          failed += 1;
+          const msg = e instanceof Error ? e.message : JSON.stringify(e);
+          let reportedMessage = msg;
+          try {
+            await markJobFailure(job, msg);
+          } catch (persistenceError) {
+            const persistenceMessage =
+              persistenceError instanceof Error ? persistenceError.message : JSON.stringify(persistenceError);
+            reportedMessage = `${msg}; failure_persistence=${persistenceMessage}`;
+            console.error(
+              JSON.stringify({
+                event: "job_failure_persistence_failed",
+                worker: workerId,
+                job_id: job.id,
+                document_id: job.document_id,
+                error: persistenceMessage,
+              }),
+            );
+          }
+          failures.push({ job_id: job.id, document_id: job.document_id, error: reportedMessage });
         }
-      } catch (e) {
-        failed += 1;
-        const msg = e instanceof Error ? e.message : JSON.stringify(e);
-        failures.push({ job_id: job.id, document_id: job.document_id, error: msg });
-        await markJobFailure(job, msg);
+      }
+    } finally {
+      for (const job of claimed) {
+        if (startedJobIds.has(job.id)) continue;
+        try {
+          await releaseUnstartedClaim(job);
+        } catch (releaseError) {
+          console.error(
+            JSON.stringify({
+              event: "unstarted_claim_release_failed",
+              worker: workerId,
+              job_id: job.id,
+              document_id: job.document_id,
+              error: releaseError instanceof Error ? releaseError.message : JSON.stringify(releaseError),
+            }),
+          );
+        }
       }
     }
 

@@ -53,14 +53,6 @@ const interactionSchema = z
     message: "Either documentId or a crossMode target is required.",
   });
 
-function safeTelemetryText(value: string | undefined) {
-  const cleaned = value
-    ?.replace(/[\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return cleaned || null;
-}
-
 async function ownedDocumentExists(args: {
   supabase: ReturnType<typeof createAdminClient>;
   ownerId: string;
@@ -120,14 +112,7 @@ export async function POST(request: Request) {
         top_chunk_ids: [],
         miss_reason: "clicked_result",
         candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(body.query).slice(0, 10)),
-        candidate_labels: [
-          {
-            label: safeTelemetryText(target.title) ?? target.slug,
-            label_type: "cross_mode_target",
-            document_id: null,
-            confidence: 1,
-          },
-        ],
+        candidate_labels: [],
         metadata: {
           interaction: "cross_mode_link_open",
           cross_mode_target: target.mode,
@@ -145,8 +130,6 @@ export async function POST(request: Request) {
       : false;
     const clickedDocumentId = hasOwnedDocument ? body.documentId : null;
     const clickedChunkId = hasOwnedChunk ? body.chunkId! : null;
-    const safeFileName = clickedDocumentId ? safeTelemetryText(body.fileName) : null;
-    const safeTitle = clickedDocumentId ? safeTelemetryText(body.title) : null;
 
     const { error: insertError } = await supabase.from("rag_query_misses").insert({
       owner_id: user.id,
@@ -155,20 +138,11 @@ export async function POST(request: Request) {
       query_class: body.queryClass ?? null,
       clicked_document_id: clickedDocumentId,
       clicked_chunk_id: clickedChunkId,
-      top_files: safeFileName ? [safeFileName] : [],
+      top_files: [],
       top_chunk_ids: clickedChunkId ? [clickedChunkId] : [],
       miss_reason: "clicked_result",
       candidate_aliases: queryDerivedTokensForStorage(normalizedClinicalSearchTokens(body.query).slice(0, 10)),
-      candidate_labels: safeTitle
-        ? [
-            {
-              label: safeTitle,
-              label_type: "document_type",
-              document_id: clickedDocumentId,
-              confidence: 0.6,
-            },
-          ]
-        : [],
+      candidate_labels: [],
       metadata: {
         interaction: "source_open",
         ...queryPrivacyMetadata(body.query),

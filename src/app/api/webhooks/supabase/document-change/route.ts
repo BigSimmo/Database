@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 import { enqueueDocumentReindexJob, type EnqueueableDocument } from "@/lib/ingestion-enqueue";
 import { checkIngestionMutationSafety } from "@/lib/ingestion-mutation-safety";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { parseJsonBody, webhookJsonBodyLimitBytes } from "@/lib/validation/body";
 import { verifyWebhookSecret } from "@/lib/webhooks/secret-auth";
 
 export const runtime = "nodejs";
@@ -30,12 +31,12 @@ const documentRecordSchema = z
   .object({
     id: z.string().uuid(),
     owner_id: z.string().uuid().nullable().optional(),
-    status: z.string().nullable().optional(),
-    error_message: z.string().nullable().optional(),
+    status: z.string().trim().max(80).nullable().optional(),
+    error_message: z.string().max(1_000).nullable().optional(),
     page_count: z.number().nullable().optional(),
     chunk_count: z.number().nullable().optional(),
     image_count: z.number().nullable().optional(),
-    import_batch_id: z.string().nullable().optional(),
+    import_batch_id: z.string().uuid().nullable().optional(),
     metadata: z.record(z.string(), z.unknown()).nullable().optional(),
   })
   .passthrough();
@@ -43,8 +44,8 @@ const documentRecordSchema = z
 const supabaseWebhookSchema = z
   .object({
     type: z.enum(["INSERT", "UPDATE", "DELETE"]),
-    table: z.string(),
-    schema: z.string().optional(),
+    table: z.string().trim().min(1).max(63),
+    schema: z.string().trim().min(1).max(63).optional(),
     record: documentRecordSchema.nullable().optional(),
     old_record: z.record(z.string(), z.unknown()).nullable().optional(),
   })
@@ -82,17 +83,12 @@ export async function POST(request: Request) {
     // No live database in demo mode — accept and no-op so retries stop.
     if (isDemoMode()) return skip("demo_mode");
 
-    let rawBody: unknown;
-    try {
-      rawBody = await request.json();
-    } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-    }
-
-    const parsed = supabaseWebhookSchema.safeParse(rawBody);
-    if (!parsed.success) return skip("unrecognized_payload");
-
-    const event = parsed.data;
+    const event = await parseJsonBody(
+      request,
+      supabaseWebhookSchema,
+      "Invalid Supabase webhook body.",
+      webhookJsonBodyLimitBytes,
+    );
     if (event.table !== "documents") return skip("not_documents_table", { table: event.table });
     if (event.type === "DELETE") return skip("delete_event");
 

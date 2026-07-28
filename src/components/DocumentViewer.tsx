@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   CircleAlert,
@@ -18,10 +17,9 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
-import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading";
 import {
   getDefaultPdfViewerMode,
   getInitialPdfViewerMode,
@@ -53,8 +51,14 @@ import {
 } from "@/components/ui-primitives";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import {
+  clearCachedSignedUrl,
+  getCachedSignedUrl,
+  setCachedSignedUrl,
+  signedUrlCacheScope,
+} from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
+import { authSessionFingerprint } from "@/lib/auth-request-lifecycle";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import {
   documentLoadKey,
@@ -95,58 +99,14 @@ import {
 } from "@/components/document-viewer/source-panels";
 import { DocumentManualTagEditor } from "@/components/document-viewer/manual-tag-editor";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
-
-// pdf-canvas-viewer is only needed after a source document has loaded and the
-// user is viewing a PDF. Keeping it out of the document route's initial client
-// chunk avoids parsing its reader controls for image, text, and download-only
-// documents. pdf.js itself remains loaded on demand by that component.
-const PdfCanvasViewer = dynamic(
-  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.PdfCanvasViewer),
-  {
-    ssr: false,
-    loading: () => <PdfPreviewLoading />,
-  },
-);
-const NativePdfEmbed = dynamic(
-  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed),
-  { ssr: false, loading: () => <PdfPreviewLoading /> },
-);
+import {
+  requestSignedUrlPayload,
+  rowsById,
+  type SignedUrlResponsePayload,
+} from "@/components/document-viewer/document-viewer-data";
+import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-viewer-lazy";
 
 const secondaryButton = floatingControl;
-
-type SignedUrlResponsePayload = {
-  url?: string;
-  caption?: string;
-  mimeType?: string;
-  fileType?: string;
-  expiresAt?: string;
-  error?: string;
-};
-
-// Single signed-URL GET: parse JSON, mark the session expired on 401, and throw
-// a message on failure. Shared by the initial load and the expiry refresh so the
-// fetch/auth handling lives in exactly one place.
-async function requestSignedUrlPayload(
-  endpoint: string,
-  options: {
-    signal: AbortSignal;
-    headers: HeadersInit | undefined;
-    onUnauthorized: () => void;
-    errorMessage: string;
-  },
-): Promise<SignedUrlResponsePayload> {
-  const response = await fetch(endpoint, { signal: options.signal, headers: options.headers });
-  const payload: SignedUrlResponsePayload = await response.json();
-  if (response.status === 401) options.onUnauthorized();
-  if (!response.ok) throw new Error(payload?.error || options.errorMessage);
-  return payload;
-}
-
-function rowsById<T extends { id: string }>(incoming: T[]) {
-  const rows = new Map<string, T>();
-  for (const row of incoming) rows.set(row.id, row);
-  return Array.from(rows.values());
-}
 
 /**
  * Renders the clinical document viewer with source previews, extracted content, summaries, and document tools.
@@ -230,6 +190,9 @@ export function DocumentViewer({
     };
   }, []);
   const [document, setDocument] = useState<ClinicalDocument | null>(() => initialDetail?.document ?? null);
+  const [documentAccessScope, setDocumentAccessScope] = useState<"public" | "owner" | null>(() =>
+    initialDetail ? (initialDetail.accessScope === "public" ? "public" : "owner") : null,
+  );
   const [pages, setPages] = useState<PageRow[]>(() => initialDetail?.pages ?? []);
   const [images, setImages] = useState<ImageRow[]>(() => initialDetail?.images ?? []);
   const [tableFacts, setTableFacts] = useState<TableFactRow[]>(() => initialDetail?.tableFacts ?? []);
@@ -314,6 +277,7 @@ export function DocumentViewer({
     session,
     isConfigured,
     authorizationHeader,
+    authEpoch,
     registerAuthRequest,
     isAuthEpochCurrent,
     markSessionExpired,
@@ -328,6 +292,10 @@ export function DocumentViewer({
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
   const canUseAdministrativeApis =
     localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
+  const signedUrlAuthScope = signedUrlCacheScope(documentAccessScope ?? "owner", authEpoch, session?.user.id);
+  const documentAuthorizationHeader = documentAccessScope === "public" ? undefined : authorizationHeader;
+  const documentAuthStatus = documentAccessScope === "public" ? "public" : authStatus;
+  const canUsePrivateApisForDocument = documentAccessScope === "public" || canUsePrivateApis;
 
   useEffect(() => {
     if (authStatus !== "loading") {
@@ -390,7 +358,7 @@ export function DocumentViewer({
     (result: PromiseSettledResult<SignedUrlResponsePayload>, endpoint: string) => {
       if (result.status === "fulfilled") {
         const payload = result.value;
-        if (payload.url) setCachedSignedUrl(endpoint, { ...payload, url: payload.url });
+        if (payload.url) setCachedSignedUrl(endpoint, signedUrlAuthScope, { ...payload, url: payload.url });
         setSignedUrl(payload.url ?? null);
         setPreviewError(null);
         return;
@@ -398,23 +366,23 @@ export function DocumentViewer({
       setSignedUrl(null);
       setPreviewError(result.reason instanceof Error ? result.reason.message : "Source preview could not be loaded.");
     },
-    [],
+    [signedUrlAuthScope],
   );
 
   const openSourcePreview = useCallback(
     (options: { signal: AbortSignal; useCache: boolean }): Promise<SignedUrlResponsePayload> => {
       const endpoint = `/api/documents/${documentId}/signed-url`;
-      const cached = options.useCache ? getCachedSignedUrl(endpoint) : null;
+      const cached = options.useCache ? getCachedSignedUrl(endpoint, signedUrlAuthScope) : null;
       return cached
         ? Promise.resolve(cached)
         : requestSignedUrlPayload(endpoint, {
             signal: options.signal,
-            headers: clientDemoMode ? undefined : authorizationHeader,
+            headers: clientDemoMode ? undefined : documentAuthorizationHeader,
             onUnauthorized: markSessionExpired,
             errorMessage: "Source preview could not be loaded.",
           });
     },
-    [authorizationHeader, clientDemoMode, documentId, markSessionExpired],
+    [clientDemoMode, documentAuthorizationHeader, documentId, markSessionExpired, signedUrlAuthScope],
   );
 
   // Re-issue only the preview URL (no document-detail or download request) when a PDF's URL
@@ -474,18 +442,18 @@ export function DocumentViewer({
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
         if (!identity?.localServer?.safeLocalOrigin) throw new Error(unsafeLocalProjectMessage(identity));
 
-        const cached = getCachedSignedUrl(endpoint);
+        const cached = getCachedSignedUrl(endpoint, signedUrlAuthScope);
         const payload =
           cached ??
           (await requestSignedUrlPayload(endpoint, {
             signal: controller.signal,
-            headers: clientDemoMode ? undefined : authorizationHeader,
+            headers: clientDemoMode ? undefined : documentAuthorizationHeader,
             onUnauthorized: markSessionExpired,
             errorMessage: "Download URL could not be loaded.",
           }));
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch) || !payload.url) return;
 
-        setCachedSignedUrl(endpoint, { ...payload, url: payload.url });
+        setCachedSignedUrl(endpoint, signedUrlAuthScope, { ...payload, url: payload.url });
         setDownloadSignedUrl(payload.url);
         const anchor = window.document.createElement("a");
         anchor.href = payload.url;
@@ -509,13 +477,14 @@ export function DocumentViewer({
     });
     return action;
   }, [
-    authorizationHeader,
     clientDemoMode,
     currentDocumentFileName,
+    documentAuthorizationHeader,
     documentId,
     isAuthEpochCurrent,
     markSessionExpired,
     registerAuthRequest,
+    signedUrlAuthScope,
   ]);
 
   useEffect(
@@ -537,9 +506,58 @@ export function DocumentViewer({
   const localProjectIdentityPromiseRef = useRef<ReturnType<typeof readLocalProjectIdentity> | null>(null);
   const initialRouteRef = useRef({ documentId, initialPage, chunkId });
   const navigatedFromInitialRouteRef = useRef(false);
+  const initialResultConsumedRef = useRef(false);
+  const previousAuthEpochRef = useRef(authEpoch);
+  const authBoundaryFingerprint = authSessionFingerprint(authStatus, session?.user.id);
+  const previousAuthBoundaryFingerprintRef = useRef(authBoundaryFingerprint);
+
+  useLayoutEffect(() => {
+    const epochChanged = previousAuthEpochRef.current !== authEpoch;
+    const authBoundaryChanged = previousAuthBoundaryFingerprintRef.current !== authBoundaryFingerprint;
+    if (!epochChanged && !authBoundaryChanged) return;
+    previousAuthEpochRef.current = authEpoch;
+    previousAuthBoundaryFingerprintRef.current = authBoundaryFingerprint;
+    initialResultConsumedRef.current = true;
+    if (documentAccessScope !== "owner") return;
+
+    summaryAbortRef.current?.abort();
+    refreshControllerRef.current?.abort();
+    downloadControllerRef.current?.abort();
+    detailControllerRef.current?.abort();
+    detailRequestSequenceRef.current += 1;
+    downloadActionRef.current = null;
+    loadedKeyRef.current = null;
+
+    // Auth-boundary invalidation must finish in the layout phase so private
+    // content and bearer URLs cannot survive into the next browser paint.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDocument(null);
+    setDocumentAccessScope(null);
+    setPages([]);
+    setImages([]);
+    setTableFacts([]);
+    setChunks([]);
+    setIndexHealth(null);
+    setSummary(null);
+    setSummaryQuery(documentSummaryQuestion);
+    setSummaryProgressEvents([]);
+    setSummaryProgressStartedAt(null);
+    setLoadingSummary(false);
+    setSummaryError(null);
+    setSignedUrl(null);
+    setDownloadSignedUrl(null);
+    setPreviewError(null);
+    setDownloadError(null);
+    setDownloadingSource(false);
+    setDocumentSearchResults([]);
+    setSearchingDocument(false);
+    setDocumentSearchError(null);
+    setViewerError(null);
+    setLoadingDocument(true);
+  }, [authBoundaryFingerprint, authEpoch, documentAccessScope]);
 
   useEffect(() => {
-    if (!canViewSourceDocuments && authStatus === "loading") {
+    if (!canViewSourceDocuments && documentAuthStatus === "loading") {
       return () => undefined;
     }
     if (!canViewSourceDocuments) {
@@ -555,7 +573,9 @@ export function DocumentViewer({
       previewAttempt === 0 &&
       matchesInitialRoute &&
       !navigatedFromInitialRouteRef.current &&
+      !initialResultConsumedRef.current &&
       Boolean(initialDetail || initialError);
+    if (useInitialResult) initialResultConsumedRef.current = true;
 
     detailControllerRef.current?.abort();
     const controller = new AbortController();
@@ -624,7 +644,7 @@ export function DocumentViewer({
             : Promise.reject(new Error(initialError || "Document could not be loaded."))
           : fetch(detailUrl, {
               signal: controller.signal,
-              headers: clientDemoMode ? undefined : authorizationHeader,
+              headers: clientDemoMode ? undefined : documentAuthorizationHeader,
             }).then(async (response) => {
               const payload = await response.json();
               if (response.status === 401) markSessionExpired();
@@ -657,6 +677,7 @@ export function DocumentViewer({
         if (detailLoaded) {
           const detail = detailResult.value;
           setDocument(detail.document ?? null);
+          setDocumentAccessScope(detail.accessScope === "public" ? "public" : "owner");
           // Keep the previous window visible while loading, then atomically
           // replace it so client memory and mounted DOM stay bounded.
           setPages(rowsById(detail.pages));
@@ -670,6 +691,7 @@ export function DocumentViewer({
           // Never retain evidence from the previous page under a newly selected
           // route. A navigation failure becomes an explicit retryable error.
           setDocument(null);
+          setDocumentAccessScope(null);
           setPages([]);
           setImages([]);
           setTableFacts([]);
@@ -677,7 +699,7 @@ export function DocumentViewer({
           setIndexHealth(null);
           const message =
             detailResult.reason instanceof Error ? detailResult.reason.message : "Document could not be loaded.";
-          if (!canUsePrivateApis && !clientDemoMode && message === "Document not found.") {
+          if (!canUsePrivateApisForDocument && !clientDemoMode && message === "Document not found.") {
             setViewerError(
               isConfigured
                 ? "Sign in to open private source documents."
@@ -701,6 +723,7 @@ export function DocumentViewer({
         )
           return;
         setDocument(null);
+        setDocumentAccessScope(null);
         setPages([]);
         setImages([]);
         setTableFacts([]);
@@ -722,11 +745,11 @@ export function DocumentViewer({
       if (detailControllerRef.current === controller) detailControllerRef.current = null;
     };
   }, [
-    authStatus,
-    authorizationHeader,
-    canUsePrivateApis,
+    canUsePrivateApisForDocument,
     canViewSourceDocuments,
     clientDemoMode,
+    documentAuthorizationHeader,
+    documentAuthStatus,
     documentId,
     activeChunkId,
     activePage,
@@ -990,11 +1013,11 @@ export function DocumentViewer({
     if (signedUrlRefreshCountRef.current >= 2) return;
     signedUrlRefreshCountRef.current += 1;
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
-    clearCachedSignedUrl(signedUrlEndpoint);
-    clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
+    clearCachedSignedUrl(signedUrlEndpoint, signedUrlAuthScope);
+    clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`, signedUrlAuthScope);
     setDownloadSignedUrl(null);
     refreshSignedUrls();
-  }, [documentId, refreshSignedUrls]);
+  }, [documentId, refreshSignedUrls, signedUrlAuthScope]);
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
   // URL never loads, so it never resets, and the cap still stops its loop.
@@ -1586,7 +1609,9 @@ export function DocumentViewer({
               ) : clinicalImages.length === 0 ? (
                 <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
               ) : (
-                clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
+                clinicalImages.map((image) => (
+                  <DocumentImage key={image.id} image={image} accessScope={documentAccessScope ?? "owner"} />
+                ))
               )}
               {!effectiveLoadingDocument && auditImages.length > 0 ? (
                 <details className={cn(sourceCard, "p-3")}>
@@ -1595,7 +1620,7 @@ export function DocumentViewer({
                   </summary>
                   <div className="mt-3 grid gap-3">
                     {auditImages.map((image) => (
-                      <DocumentImage key={image.id} image={image} />
+                      <DocumentImage key={image.id} image={image} accessScope={documentAccessScope ?? "owner"} />
                     ))}
                   </div>
                 </details>

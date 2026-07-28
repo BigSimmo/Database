@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { applyNumericVerification } from "@/lib/answer-verification";
 import { assessAndEnforceClaimSupport, assessClaimSupport } from "@/lib/rag/rag-claim-support";
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
@@ -59,6 +60,109 @@ function answer(text: string, sources: SearchResult[], citations = sources.map((
 }
 
 describe("deterministic claim support", () => {
+  it("fails closed instead of silently dropping claim 25, and exposes its omitted numeric atom", () => {
+    const cited = source("bounded", "Continue clozapine 25 mg daily with clinical review.");
+    const supportedClaim = "Continue clozapine 25 mg daily with clinical review.";
+    const overflowClaim = "Increase clozapine to 500 mg daily after review.";
+    const input = answer(`${Array(24).fill(supportedClaim).join(" ")} ${overflowClaim}`, [cited]);
+    input.answerSections = [{ heading: "Plan", body: overflowClaim, citation_chunk_ids: [cited.id] }];
+    input.quoteCards = [{ ...citation(cited), quote: supportedClaim, section_heading: null }];
+
+    const assessment = assessClaimSupport(input);
+    expect(assessment.claims).toHaveLength(24);
+    expect(assessment.claimLimitExceeded).toBe(true);
+
+    const verified = applyNumericVerification({ ...input, supportedClaims: assessment.claims });
+    expect(verified.unverifiedNumericTokens).toContain("500 mg");
+
+    const enforced = assessAndEnforceClaimSupport(input);
+    expect(enforced).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+      routingMode: "unsupported",
+    });
+    expect(enforced.routingReason?.split(";").map((reason) => reason.trim())).toContain("claim_support_limit_exceeded");
+    expect(enforced.citations).toEqual([]);
+    expect(enforced.answerSections).toEqual([]);
+    expect(enforced.quoteCards).toEqual([]);
+    expect(enforced.bestSource).toBeNull();
+  });
+
+  it("keeps exactly 24 directly supported claims grounded", () => {
+    const supportedClaim = "Continue clozapine 25 mg daily with clinical review.";
+    const cited = source("bounded", supportedClaim);
+    const input = answer(Array(24).fill(supportedClaim).join(" "), [cited]);
+
+    expect(assessClaimSupport(input)).toMatchObject({ claimLimitExceeded: false });
+    expect(assessAndEnforceClaimSupport(input)).toMatchObject({ grounded: true, confidence: "high" });
+  });
+
+  it.each([
+    ["referral", "Refer the patient to the inpatient service.", "The inpatient service provides patient care."],
+    ["admission", "Admit the patient to the inpatient unit.", "The inpatient unit provides patient care."],
+    ["contact", "Contact the crisis team for urgent review.", "The crisis team provides urgent review."],
+    ["arrangement", "Arrange follow-up with the clinic.", "Follow-up is available through the clinic."],
+    ["assessment", "Assess suicide risk in the clinic.", "Suicide risk support is available in the clinic."],
+    ["evaluation", "Evaluate suicide risk in the clinic.", "Suicide risk support is available in the clinic."],
+    [
+      "initiation",
+      "Start lithium treatment for bipolar disorder.",
+      "Lithium treatment is available for bipolar disorder.",
+    ],
+    ["discontinuation", "Stop lithium treatment after toxicity.", "Lithium treatment includes toxicity monitoring."],
+    ["withholding", "Withhold lithium treatment after toxicity.", "Lithium treatment includes toxicity monitoring."],
+    ["increase", "Increase lithium treatment after review.", "Lithium treatment follows clinical review."],
+    ["titration", "Titrate lithium treatment after review.", "Lithium treatment follows clinical review."],
+    ["decrease", "Decrease lithium treatment after review.", "Lithium treatment follows clinical review."],
+    ["reduction", "Reduce lithium treatment after review.", "Lithium treatment follows clinical review."],
+  ])(
+    "fails closed when a prescriptive %s action is absent from otherwise related evidence",
+    (_family, claim, evidence) => {
+      const result = assessAndEnforceClaimSupport(answer(claim, [source("action", evidence)]));
+
+      expect(result.responseMode).toBe("evidence_gap");
+      expect(result.supportedClaims?.[0]).toMatchObject({ riskClass: "high_risk" });
+      expect(result.routingReason?.split(";").map((reason) => reason.trim())).toContain(
+        "claim_support_clinical_recommendation_gap",
+      );
+    },
+  );
+
+  it.each([
+    ["Refer the patient to the inpatient service.", "Patients should be referred to the inpatient service."],
+    [
+      "Admit the patient to the inpatient unit.",
+      "Patients requiring this level of care must be admitted to the inpatient unit.",
+    ],
+    ["Contact the crisis team for urgent review.", "Contact the crisis team for urgent review."],
+    ["Arrange follow-up with the clinic.", "Follow-up should be arranged with the clinic."],
+    ["Assess suicide risk in the clinic.", "Suicide risk must be assessed in the clinic."],
+    ["Evaluate suicide risk in the clinic.", "Suicide risk evaluation is required in the clinic."],
+    ["Start lithium treatment for bipolar disorder.", "Lithium treatment should be started for bipolar disorder."],
+    ["Stop lithium treatment after toxicity.", "Stop lithium treatment after toxicity."],
+    ["Withhold lithium treatment after toxicity.", "Lithium treatment must be withheld after toxicity."],
+    ["Increase lithium treatment after review.", "Increase lithium treatment after review."],
+    ["Titrate lithium treatment after review.", "Lithium treatment should be titrated after review."],
+    ["Decrease lithium treatment after review.", "Decrease lithium treatment after review."],
+    ["Reduce lithium treatment after review.", "Lithium treatment should be reduced after review."],
+  ])("accepts a prescriptive action when cited evidence carries the same action family", (claim, evidence) => {
+    const result = assessAndEnforceClaimSupport(answer(claim, [source("action", evidence)]));
+
+    expect(result.responseMode).not.toBe("evidence_gap");
+    expect(result.supportedClaims?.[0]).toMatchObject({ riskClass: "high_risk", supportStatus: "direct" });
+  });
+
+  it("does not classify descriptive can/may capability prose as a prescriptive high-risk action", () => {
+    const cited = source("capability", "The clinic provides follow-up and a referral directory for patients.");
+    const input = answer("The clinic can arrange follow-up and may refer patients to the service.", [cited]);
+    const result = assessAndEnforceClaimSupport(input);
+
+    expect(result.supportedClaims?.[0]?.riskClass).toBe("routine");
+    expect(result.responseMode).not.toBe("evidence_gap");
+    expect(result.routingReason ?? "").not.toContain("claim_support_clinical_recommendation_gap");
+  });
+
   it("rejects a valid citation id whose chunk does not support a high-risk claim", () => {
     const cited = source("c1", "Clozapine monitoring includes regular blood counts.");
     const result = assessClaimSupport(answer("Stop clozapine when ANC is below 1.0 x10^9/L.", [cited]));
@@ -151,7 +255,7 @@ describe("deterministic claim support", () => {
     expect(result.citations).toEqual([]);
     expect(result.answerSections).toEqual([]);
     expect(result.sources).toEqual([cited]);
-    expect(result.routingReason).toContain("claim_support_high_risk_gap");
+    expect(result.routingReason).toContain("claim_support_clinical_recommendation_gap");
   });
 
   it("keeps routine partial prose but caps confidence", () => {

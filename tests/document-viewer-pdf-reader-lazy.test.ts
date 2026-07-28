@@ -6,6 +6,10 @@ const viewerSource = readFileSync(
   fileURLToPath(new URL("../src/components/DocumentViewer.tsx", import.meta.url)),
   "utf8",
 );
+const lazyViewerSource = readFileSync(
+  fileURLToPath(new URL("../src/components/document-viewer/pdf-viewer-lazy.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("DocumentViewer PDF reader loading", () => {
   it("keeps both PDF reader exports out of the document route's initial client chunk", () => {
@@ -13,23 +17,26 @@ describe("DocumentViewer PDF reader loading", () => {
       /import\s*\{[^}]*\b(?:NativePdfEmbed|PdfCanvasViewer)\b[^}]*\}\s*from\s*["']@\/components\/document-viewer\/pdf-canvas-viewer["']/,
     );
 
-    expect(viewerSource).toContain("const PdfCanvasViewer = dynamic(");
     expect(viewerSource).toContain(
+      'import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-viewer-lazy"',
+    );
+    expect(lazyViewerSource).toContain("export const PdfCanvasViewer = dynamic(");
+    expect(lazyViewerSource).toContain(
       '() => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.PdfCanvasViewer)',
     );
-    expect(viewerSource).toContain("const NativePdfEmbed = dynamic(");
-    expect(viewerSource).toContain(
+    expect(lazyViewerSource).toContain("export const NativePdfEmbed = dynamic(");
+    expect(lazyViewerSource).toContain(
       '() => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed)',
     );
 
-    expect(viewerSource).toContain(
+    expect(lazyViewerSource).toContain(
       'import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading"',
     );
 
-    const canvasStart = viewerSource.indexOf("const PdfCanvasViewer = dynamic(");
-    const nativeStart = viewerSource.indexOf("const NativePdfEmbed = dynamic(");
-    const canvasBlock = viewerSource.slice(canvasStart, nativeStart);
-    const nativeBlock = viewerSource.slice(nativeStart, viewerSource.indexOf("const secondaryButton", nativeStart));
+    const canvasStart = lazyViewerSource.indexOf("export const PdfCanvasViewer = dynamic(");
+    const nativeStart = lazyViewerSource.indexOf("export const NativePdfEmbed = dynamic(");
+    const canvasBlock = lazyViewerSource.slice(canvasStart, nativeStart);
+    const nativeBlock = lazyViewerSource.slice(nativeStart);
     expect(canvasBlock).toContain("ssr: false");
     expect(nativeBlock).toContain("ssr: false");
     expect(canvasBlock).toContain("loading: () => <PdfPreviewLoading />");

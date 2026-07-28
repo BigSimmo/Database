@@ -551,7 +551,7 @@ function parseGeneratedSummary(
 }
 
 export async function generateDocumentEnrichment(args: {
-  document: Pick<ClinicalDocument, "title" | "file_name" | "source_path">;
+  document: Pick<ClinicalDocument, "title" | "file_name" | "source_path"> & { id?: string };
   chunks: EnrichmentChunk[];
   images?: EnrichmentImage[];
 }) {
@@ -573,10 +573,13 @@ export async function generateDocumentEnrichment(args: {
   // Ingestion runs unattended over the whole corpus, so a truncated enrichment must be loud,
   // not silent — a silently cut-off summary degrades retrieval for that document and would be
   // re-wasted on every re-index. Warn with the document identity so it is greppable and
-  // re-processable; parsing still proceeds on the partial text.
+  // re-processable; parsing still proceeds on the partial text. Document names
+  // are intentionally excluded because operators can use the stable ID.
   if (result.truncated) {
     console.warn("document enrichment truncated", {
-      document: args.document.file_name ?? args.document.title,
+      documentId: args.document.id ?? null,
+      stage: "document_enrichment",
+      status: "truncated",
       reason: result.incompleteReason ?? result.status ?? "unknown",
     });
   }

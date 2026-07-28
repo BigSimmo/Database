@@ -5,7 +5,8 @@ import { memo, useEffect, useRef, useState } from "react";
 import { CircleAlert, Maximize2 } from "lucide-react";
 
 import { cn, Skeleton } from "@/components/ui-primitives";
-import { getCachedSignedUrl } from "@/lib/signed-url-cache";
+import { getCachedSignedUrl, signedUrlCacheScope } from "@/lib/signed-url-cache";
+import { useAuthSession } from "@/lib/supabase/client";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
 
@@ -32,6 +33,7 @@ export const SignedImage = memo(function SignedImage({
   zoomable = false,
   caption,
   aspectRatio,
+  accessScope = "owner",
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -51,13 +53,17 @@ export const SignedImage = memo(function SignedImage({
   caption?: string;
   /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
   aspectRatio?: number | null;
+  /** Whether the image belongs to public content or the current auth owner. */
+  accessScope?: "public" | "owner";
 }) {
-  const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
+  const { authEpoch, session } = useAuthSession();
+  const authScope = signedUrlCacheScope(accessScope, authEpoch, session?.user.id);
+  const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint, authScope)));
   const [loaded, setLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
+  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad, accessScope);
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
@@ -183,6 +189,7 @@ export const SignedImage = memo(function SignedImage({
             alt={alt}
             caption={caption}
             returnFocusRef={triggerRef}
+            accessScope={accessScope}
           />
         </>
       ) : null}

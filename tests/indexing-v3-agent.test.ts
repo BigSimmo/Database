@@ -165,6 +165,22 @@ describe("indexing-v3-agent behavior", () => {
     expect(edgeSource).toContain("metadata->>'source' = 'visual_intelligence'");
   });
 
+  it("uses lease-fenced v2 completion and status RPCs and contains per-job persistence failures", async () => {
+    const edgeSource = String(
+      await import("node:fs/promises").then((fs) =>
+        fs.readFile(new URL("../supabase/functions/indexing-v3-agent/index.ts", import.meta.url), "utf8"),
+      ),
+    );
+
+    expect(edgeSource).toContain("from public.update_indexing_v3_agent_job_status_v2(");
+    expect(edgeSource).toContain("from public.complete_strict_enrichment_job_v2(");
+    expect(edgeSource).toContain("${job.id}::uuid");
+    expect(edgeSource).toContain("${job.locked_by}::text");
+    expect(edgeSource).toContain("failure_persistence=");
+    expect(edgeSource).toContain("await releaseUnstartedClaim(job)");
+    expect(edgeSource).toContain("${releaseUnstarted}::boolean");
+  });
+
   it("replaces every generated enrichment family inside one database transaction", async () => {
     const edgeSource = String(
       await import("node:fs/promises").then((fs) =>

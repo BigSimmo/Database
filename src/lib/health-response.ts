@@ -16,6 +16,7 @@ type HealthResponseOptions = {
   includeCache?: boolean;
   includeCoalescing?: boolean;
   includeSpend?: boolean;
+  supabaseTimeoutMs?: number;
 };
 
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
@@ -57,7 +58,9 @@ export async function healthResponse(request: Request, options: HealthResponseOp
             import("@/lib/observability/answer-slo"),
           ]);
           const admin = createAdminClient();
-          const health = await probeSupabaseHealth(admin);
+          const health = await probeSupabaseHealth(admin, {
+            ...(options.supabaseTimeoutMs ? { signal: AbortSignal.timeout(options.supabaseTimeoutMs) } : {}),
+          });
           checks.supabase = health.ok ? "ok" : "error";
           if (health.ok && options.includeSlo !== false) {
             try {

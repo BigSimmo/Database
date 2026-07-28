@@ -521,7 +521,10 @@ function logWeakSearch(args: {
       route: args.route ?? null,
       retrieval_strategy: args.retrievalStrategy ?? null,
       top_score: topScore,
-      top_files: Array.from(new Set(args.results.slice(0, 5).map((result) => result.file_name))),
+      // Filenames and titles are user-controlled and can contain patient identifiers.
+      // Persist stable IDs and ranking facts; operator readers resolve display names
+      // from authorized document rows when needed.
+      top_files: [],
       top_chunk_ids: args.results
         .slice(0, 8)
         .map((result) => result.id)
@@ -728,8 +731,6 @@ function logSearchObservation(args: {
           payload_bytes: payloadBytes,
           result_count: args.results.length,
           top_document_id: topResult?.document_id ?? null,
-          top_document_title: topResult?.title ?? null,
-          top_file_name: topResult?.file_name ?? null,
           top_score: topResult ? (topResult.hybrid_score ?? topResult.similarity ?? null) : null,
           latency_ms: latencyMs,
           latency_bucket: latencyBucket(latencyMs),

@@ -154,6 +154,7 @@ const containerPatterns = [
   "tests/stubs/server-only.ts",
   /^worker\/.+/,
   /^scripts\/(check-node-engine|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
+  /^scripts\/(child-process-result|sensitive-text|test-cache-path|test-run-lock)\.mjs$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -541,6 +542,10 @@ function selfTest() {
       "worker/index.ts",
       "scripts/build-worker.mjs",
       "scripts/run-heavy.mjs",
+      "scripts/child-process-result.mjs",
+      "scripts/sensitive-text.mjs",
+      "scripts/test-cache-path.mjs",
+      "scripts/test-run-lock.mjs",
       "scripts/check-client-bundle-secrets.mjs",
       "scripts/install-git-hooks.mjs",
       "tests/stubs/server-only.ts",
@@ -552,6 +557,19 @@ function selfTest() {
       build_changed: true,
     },
   );
+  for (const helper of [
+    "scripts/child-process-result.mjs",
+    "scripts/sensitive-text.mjs",
+    "scripts/test-cache-path.mjs",
+    "scripts/test-run-lock.mjs",
+  ]) {
+    assertScope(`transitive-build-controller-${helper}`, [helper], {
+      source_changed: true,
+      coverage_changed: true,
+      container_changed: true,
+      build_changed: true,
+    });
+  }
   assertScope("renamed-destination", parseStatusPorcelain("R  src/lib/rag-new.ts\0docs/rag-old.md\0"), {
     source_changed: true,
     rag_eval_changed: true,

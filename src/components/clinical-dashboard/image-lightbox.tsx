@@ -28,6 +28,7 @@ export function ImageLightbox({
   alt,
   caption,
   returnFocusRef,
+  accessScope = "owner",
 }: {
   open: boolean;
   onClose: () => void;
@@ -35,8 +36,9 @@ export function ImageLightbox({
   alt: string;
   caption?: string;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  accessScope?: "public" | "owner";
 }) {
-  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, open);
+  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, open, accessScope);
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });

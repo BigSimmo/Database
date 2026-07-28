@@ -43,36 +43,132 @@ function assertUploadNotAborted(request: Request) {
   }
 }
 
+type UploadCleanupState = {
+  cleanupJobId: string;
+  documentId: string;
+  ownerId: string;
+  storagePath: string;
+};
+
+function uploadCleanupMetadata(state: UploadCleanupState) {
+  return {
+    operation: "upload_compensation",
+    expected_document_id: state.documentId,
+  };
+}
+
+async function createUploadCleanupJob(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  documentId: string;
+  ownerId: string;
+  storagePath: string;
+}): Promise<UploadCleanupState> {
+  const state: UploadCleanupState = {
+    cleanupJobId: randomUUID(),
+    documentId: args.documentId,
+    ownerId: args.ownerId,
+    storagePath: args.storagePath,
+  };
+  const { error } = await args.supabase.from("storage_cleanup_jobs").insert({
+    id: state.cleanupJobId,
+    owner_id: state.ownerId,
+    // The document row does not exist yet, so the expected id lives in metadata
+    // until the atomic upload RPC succeeds and the FK can be populated safely.
+    document_id: null,
+    document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+    document_paths: [state.storagePath],
+    image_bucket: env.SUPABASE_IMAGE_BUCKET,
+    image_paths: [],
+    status: "pending",
+    metadata: uploadCleanupMetadata(state),
+  });
+  if (error) throw new Error(`Upload cleanup ledger insert failed: ${error.message}`);
+  return state;
+}
+
+async function completeUploadCleanupForLiveDocument(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  state: UploadCleanupState;
+}) {
+  const { error } = await args.supabase
+    .from("storage_cleanup_jobs")
+    .update({
+      document_id: args.state.documentId,
+      status: "completed",
+      last_error: null,
+      completed_at: new Date().toISOString(),
+      metadata: {
+        ...uploadCleanupMetadata(args.state),
+        live_document_id: args.state.documentId,
+        reconciliation: "live_document_committed",
+      },
+    })
+    .eq("id", args.state.cleanupJobId)
+    .eq("owner_id", args.state.ownerId);
+  if (error) {
+    // The pending row remains durable. The janitor reconciles it against the
+    // exact live documents.storage_path and completes it without deletion.
+    logger.warn("Upload cleanup ledger completion failed", {
+      cleanupJobId: args.state.cleanupJobId,
+      documentId: args.state.documentId,
+      message: error.message,
+    });
+  }
+}
+
+async function compensateUploadStorage(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  state: UploadCleanupState;
+}) {
+  let removed = 0;
+  let cleanupError: string | null = null;
+  try {
+    const cleanup = await args.supabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).remove([args.state.storagePath]);
+    removed = cleanup.data?.length ?? 0;
+    cleanupError = cleanup.error?.message ?? null;
+  } catch (error) {
+    cleanupError = error instanceof Error ? error.message : String(error);
+  }
+
+  const status = cleanupError ? "failed" : "completed";
+  const { error: ledgerError } = await args.supabase
+    .from("storage_cleanup_jobs")
+    .update({
+      status,
+      attempts: 1,
+      storage_removed: removed,
+      last_error: cleanupError,
+      completed_at: status === "completed" ? new Date().toISOString() : null,
+      metadata: {
+        ...uploadCleanupMetadata(args.state),
+        reconciliation: cleanupError ? "immediate_removal_failed" : "immediate_removal_completed",
+      },
+    })
+    .eq("id", args.state.cleanupJobId)
+    .eq("owner_id", args.state.ownerId);
+  if (ledgerError) {
+    logger.error("Upload cleanup ledger update failed", {
+      cleanupJobId: args.state.cleanupJobId,
+      documentId: args.state.documentId,
+      message: ledgerError.message,
+    });
+  }
+  if (cleanupError) {
+    logger.warn("Upload storage compensation failed", {
+      cleanupJobId: args.state.cleanupJobId,
+      documentId: args.state.documentId,
+      message: cleanupError,
+    });
+  }
+}
+
 async function duplicateUploadResponse(args: {
   supabase: ReturnType<typeof createAdminClient>;
   ownerId: string;
   contentHash: string;
-  storagePath: string | null;
+  cleanupState: UploadCleanupState;
 }) {
-  if (args.storagePath) {
-    const { error: cleanupStorageError } = await args.supabase.storage
-      .from(env.SUPABASE_DOCUMENT_BUCKET)
-      .remove([args.storagePath]);
-    if (cleanupStorageError) {
-      logger.warn("Duplicate upload storage cleanup failed", {
-        storagePath: args.storagePath,
-        message: cleanupStorageError.message,
-      });
-      const { error: cleanupLedgerError } = await args.supabase.from("storage_cleanup_jobs").insert({
-        document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
-        document_paths: [args.storagePath],
-        owner_id: args.ownerId,
-        status: "pending",
-        image_bucket: env.SUPABASE_IMAGE_BUCKET,
-        image_paths: [],
-      });
-      if (cleanupLedgerError) {
-        // Keep the duplicate response path fail-closed for orphaned objects: without a
-        // ledger row there is no durable recovery record after storage.remove() failed.
-        throw new Error(`Duplicate upload cleanup ledger insert failed: ${cleanupLedgerError.message}`);
-      }
-    }
-  }
+  await compensateUploadStorage({ supabase: args.supabase, state: args.cleanupState });
 
   const { data: duplicate, error: duplicateError } = await args.supabase
     .from("documents")
@@ -102,6 +198,7 @@ export async function POST(request: Request) {
   let uploadedPath: string | null = null;
   let insertedDocumentId: string | null = null;
   let insertedDocumentOwnerId: string | null = null;
+  let uploadCleanupState: UploadCleanupState | null = null;
   let releaseAdmission: (() => void) | null = null;
 
   try {
@@ -196,13 +293,21 @@ export async function POST(request: Request) {
     if (!health.ok) return NextResponse.json({ error: `Upload is paused. ${health.message}` }, { status: 503 });
 
     assertUploadNotAborted(request);
+    uploadCleanupState = await createUploadCleanupJob({
+      supabase: adminSupabase,
+      documentId,
+      ownerId: uploadOwnerId,
+      storagePath,
+    });
+    // Treat the exact path as potentially materialized once the upload starts,
+    // even if the storage API ultimately reports an error.
+    uploadedPath = storagePath;
     const upload = await adminSupabase.storage.from(env.SUPABASE_DOCUMENT_BUCKET).upload(storagePath, buffer, {
       contentType: file.type,
       upsert: false,
     });
 
     if (upload.error) throw new Error(upload.error.message);
-    uploadedPath = storagePath;
 
     const namingSupabase: DocumentNameSupabase = {
       from: ((table) => adminSupabase.from(table)) as DocumentNameSupabase["from"],
@@ -271,11 +376,15 @@ export async function POST(request: Request) {
       if (isContentHashDuplicateError(uploadRecordError)) {
         insertedDocumentId = null;
         insertedDocumentOwnerId = null;
+        const cleanupState = uploadCleanupState;
+        if (!cleanupState) throw new Error("Upload cleanup ledger state is missing.");
+        uploadedPath = null;
+        uploadCleanupState = null;
         return duplicateUploadResponse({
           supabase,
           ownerId: uploadOwnerId,
           contentHash,
-          storagePath: uploadedPath,
+          cleanupState,
         });
       }
       throw new Error(uploadRecordError.message);
@@ -301,8 +410,15 @@ export async function POST(request: Request) {
       metadata: { fileType: file.type, fileSize: file.size },
     });
 
+    if (uploadCleanupState) {
+      await completeUploadCleanupForLiveDocument({ supabase, state: uploadCleanupState });
+      uploadCleanupState = null;
+      uploadedPath = null;
+    }
+
     return NextResponse.json({ document, job }, { status: 201 });
   } catch (error) {
+    let documentRowRemoved = true;
     if (insertedDocumentId && insertedDocumentOwnerId && supabase) {
       try {
         const { error: cleanupDeleteError } = await supabase
@@ -311,6 +427,7 @@ export async function POST(request: Request) {
           .eq("id", insertedDocumentId)
           .eq("owner_id", insertedDocumentOwnerId);
         if (cleanupDeleteError) {
+          documentRowRemoved = false;
           logger.error("Upload cleanup failed; document row may be orphaned", {
             documentId: insertedDocumentId,
             ownerId: insertedDocumentOwnerId,
@@ -318,6 +435,7 @@ export async function POST(request: Request) {
           });
         }
       } catch (cleanupError) {
+        documentRowRemoved = false;
         logger.error("Upload cleanup failed; document row may be orphaned", {
           documentId: insertedDocumentId,
           ownerId: insertedDocumentOwnerId,
@@ -326,25 +444,8 @@ export async function POST(request: Request) {
       }
     }
 
-    if (uploadedPath && supabase) {
-      try {
-        const { error: cleanupStorageError } = await supabase.storage
-          .from(env.SUPABASE_DOCUMENT_BUCKET)
-          .remove([uploadedPath]);
-        if (cleanupStorageError) {
-          logger.error("Upload cleanup failed; storage object may be orphaned", {
-            storagePath: uploadedPath,
-            message: cleanupStorageError.message,
-          });
-        }
-      } catch (cleanupError) {
-        // Cleanup is best-effort, but a silent failure leaves an orphaned storage
-        // object. Record the path so it can be reconciled instead of dropping it.
-        logger.error("Upload cleanup failed; storage object may be orphaned", {
-          storagePath: uploadedPath,
-          message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
-        });
-      }
+    if (uploadedPath && supabase && uploadCleanupState && documentRowRemoved) {
+      await compensateUploadStorage({ supabase, state: uploadCleanupState });
     }
 
     if (error instanceof AuthenticationError) {

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const documentId = "11111111-1111-4111-8111-111111111111";
 const chunkId = "22222222-2222-4222-8222-222222222222";
-const clozapineTitle = ` Clozapine${String.fromCharCode(7)} Monitoring `;
 const otherUserTitle = `Other user${String.fromCharCode(39)}s source`;
 
 function request(body: unknown) {
@@ -95,7 +94,7 @@ describe("/api/search/interaction", () => {
     await expect(response.json()).resolves.toMatchObject({ error: "Request failed." });
   });
 
-  it("stores owned clicked document and chunk ids with sanitized labels", async () => {
+  it("stores owned clicked ids without caller-supplied document names", async () => {
     const { client, insert } = createClient({ ownsDocument: true, ownsChunk: true });
     vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: false }, isDemoMode: () => false }));
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
@@ -111,8 +110,8 @@ describe("/api/search/interaction", () => {
         query: "clozapine monitoring",
         documentId,
         chunkId,
-        fileName: " Clozapine\u0000 guideline.pdf ",
-        title: clozapineTitle,
+        fileName: " Jane Citizen MRN123.pdf ",
+        title: "Jane Citizen MRN123.pdf",
       }),
     );
     const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
@@ -122,20 +121,14 @@ describe("/api/search/interaction", () => {
       owner_id: userId,
       clicked_document_id: documentId,
       clicked_chunk_id: chunkId,
-      top_files: ["Clozapine guideline.pdf"],
+      top_files: [],
       top_chunk_ids: [chunkId],
       candidate_aliases: [],
     });
     expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
     expect(payload.normalized_query).toBe(payload.query);
-    expect(payload.candidate_labels).toEqual([
-      {
-        label: "Clozapine Monitoring",
-        label_type: "document_type",
-        document_id: documentId,
-        confidence: 0.6,
-      },
-    ]);
+    expect(payload.candidate_labels).toEqual([]);
+    expect(JSON.stringify(payload)).not.toContain("Jane Citizen MRN123.pdf");
   });
 
   it("stores cross-mode link clicks without a document id", async () => {
@@ -152,7 +145,7 @@ describe("/api/search/interaction", () => {
     const response = await POST(
       request({
         query: "clozapine maximum dose",
-        crossMode: { mode: "prescribing", slug: "clozapine", title: clozapineTitle },
+        crossMode: { mode: "prescribing", slug: "clozapine", title: "Jane Citizen MRN123.pdf" },
       }),
     );
     const payload = insert.mock.calls[0]?.[0] as Record<string, unknown>;
@@ -167,14 +160,8 @@ describe("/api/search/interaction", () => {
       miss_reason: "clicked_result",
     });
     expect(payload.query).toMatch(/^redacted-query:[a-f0-9]{64}$/);
-    expect(payload.candidate_labels).toEqual([
-      {
-        label: "Clozapine Monitoring",
-        label_type: "cross_mode_target",
-        document_id: null,
-        confidence: 1,
-      },
-    ]);
+    expect(payload.candidate_labels).toEqual([]);
+    expect(JSON.stringify(payload)).not.toContain("Jane Citizen MRN123.pdf");
     expect(payload.metadata).toMatchObject({
       interaction: "cross_mode_link_open",
       cross_mode_target: "prescribing",

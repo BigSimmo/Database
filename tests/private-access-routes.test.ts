@@ -1410,7 +1410,7 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.operation === "insert")).toBe(false);
   });
 
-  it("cleans up storage and skips database inserts when aborted before insertion", async () => {
+  it("durably records cleanup before upload and skips document insertion when aborted", async () => {
     const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
@@ -1430,8 +1430,64 @@ describe("private document API access", () => {
     );
 
     expect(response.status).toBe(499);
-    expect(client.calls.some((call) => call.operation === "insert")).toBe(false);
+    expect(
+      client.calls.filter((call) => call.table === "storage_cleanup_jobs" && call.operation === "insert"),
+    ).toHaveLength(1);
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "insert")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
     expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails before storage upload when the durable cleanup ledger insert fails", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "storage_cleanup_jobs" && call.operation === "insert") {
+        return fail("cleanup ledger unavailable");
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(authenticatedRequest("/api/upload", { method: "POST", body: form }));
+
+    expect(response.status).toBe(500);
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
+    expect(client.storageMocks.remove).not.toHaveBeenCalled();
+  });
+
+  it("updates the original durable row when persistence and immediate removal both fail", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
+      if (call.table === "documents" && call.operation === "insert") return fail("atomic persistence failed");
+      return ok([]);
+    });
+    client.storageMocks.remove.mockResolvedValue({ data: null, error: { message: "storage remove failed" } });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const form = new FormData();
+    form.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
+
+    const response = await POST(authenticatedRequest("/api/upload", { method: "POST", body: form }));
+    const ledgerInserts = client.calls.filter(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "insert",
+    );
+    const ledgerUpdate = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "update",
+    );
+    const cleanupJobId = (ledgerInserts[0]?.insertPayload as { id?: string } | undefined)?.id;
+
+    expect(response.status).toBe(500);
+    expect(ledgerInserts).toHaveLength(1);
+    expect(cleanupJobId).toEqual(expect.any(String));
+    expect(ledgerUpdate?.filters).toContainEqual({ column: "id", value: cleanupJobId });
+    expect(ledgerUpdate?.updatePayload).toMatchObject({
+      status: "failed",
+      attempts: 1,
+      last_error: "storage remove failed",
+    });
   });
 
   it("rejects concurrent upload capacity and releases it after the first request", async () => {
@@ -1563,12 +1619,41 @@ describe("private document API access", () => {
     const documentInsert = client.calls.find((call) => call.table === "documents" && call.operation === "insert");
     const inserted = documentInsert?.insertPayload as { owner_id: string; storage_path: string };
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
+    const cleanupInsert = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "insert",
+    );
+    const cleanupUpdate = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "update",
+    );
+    const cleanupJobId = (cleanupInsert?.insertPayload as { id?: string } | undefined)?.id;
+    const cleanupFromCallIndex = client.from.mock.calls.findIndex(([table]) => table === "storage_cleanup_jobs");
 
     expect(response.status).toBe(201);
     expect(inserted.owner_id).toBe(userId);
     expect(inserted.storage_path).toBe(uploadPath);
     expect(uploadPath).toMatch(new RegExp(`^${userId}/documents/[0-9a-f-]+/guideline\\.pdf$`));
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
+    expect(client.from.mock.invocationCallOrder[cleanupFromCallIndex]).toBeLessThan(
+      client.storageMocks.upload.mock.invocationCallOrder[0]!,
+    );
+    expect(cleanupInsert?.insertPayload).toMatchObject({
+      id: cleanupJobId,
+      owner_id: userId,
+      document_id: null,
+      document_bucket: "clinical-documents",
+      document_paths: [uploadPath],
+      image_bucket: "clinical-images",
+      image_paths: [],
+      status: "pending",
+      metadata: { operation: "upload_compensation" },
+    });
+    expect(cleanupUpdate?.filters).toContainEqual({ column: "id", value: cleanupJobId });
+    expect(cleanupUpdate?.updatePayload).toMatchObject({
+      document_id: expect.any(String),
+      status: "completed",
+      last_error: null,
+      metadata: { operation: "upload_compensation", reconciliation: "live_document_committed" },
+    });
   });
 
   it("does not mint Official/Trusted publisher_code from a spoofable upload filename", async () => {
@@ -2967,7 +3052,7 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
   });
 
-  it("still runs catch cleanup when post-enqueue cleanup calls return non-throwing errors", async () => {
+  it("keeps durable cleanup pending when the live document row cannot be removed", async () => {
     const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
@@ -3000,10 +3085,18 @@ describe("private document API access", () => {
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
     const documentDeletes = client.calls.filter((call) => call.table === "documents" && call.operation === "delete");
+    const cleanupInsert = client.calls.find(
+      (call) => call.table === "storage_cleanup_jobs" && call.operation === "insert",
+    );
 
     expect(response.status).toBe(499);
     expect(documentDeletes).toHaveLength(1);
-    expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
+    expect(client.storageMocks.remove).not.toHaveBeenCalled();
+    expect(cleanupInsert?.insertPayload).toMatchObject({
+      document_id: null,
+      document_paths: [uploadPath],
+      status: "pending",
+    });
   });
 
   it("does not return document details for an unowned document", async () => {
@@ -3303,6 +3396,7 @@ describe("private document API access", () => {
     );
     const body = await payload(response);
     const insert = client.calls.find((call) => call.table === "document_labels" && call.operation === "insert");
+    const auditInsert = client.calls.find((call) => call.table === "audit_logs" && call.operation === "insert");
 
     expect(response.status).toBe(201);
     expect(body.label).toMatchObject({ label: "clozapine monitoring", label_type: "medication", source: "manual" });
@@ -3313,6 +3407,13 @@ describe("private document API access", () => {
       label_type: "medication",
       source: "manual",
       confidence: 1,
+    });
+    expect(auditInsert?.insertPayload).toEqual({
+      owner_id: userId,
+      action: "document_label_change",
+      resource_type: "document_label",
+      resource_id: manualLabelId,
+      metadata: { operation: "create", documentId },
     });
     expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
@@ -3404,10 +3505,17 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
     const update = client.calls.find((call) => call.table === "document_labels" && call.operation === "update");
+    const auditInsert = client.calls.find((call) => call.table === "audit_logs" && call.operation === "insert");
 
     expect(response.status).toBe(200);
     expect(update?.filters).toContainEqual({ column: "source", value: "manual" });
     expect(update?.updatePayload).toMatchObject({ label: "lithium toxicity", label_type: "risk", source: "manual" });
+    expect(auditInsert?.insertPayload).toMatchObject({
+      owner_id: userId,
+      action: "document_label_change",
+      resource_id: manualLabelId,
+      metadata: { operation: "edit", documentId },
+    });
     expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
@@ -3446,6 +3554,7 @@ describe("private document API access", () => {
       (call) => call.table === "document_labels" && call.operation === "select" && call.maybeSingle,
     );
     const update = client.calls.find((call) => call.table === "document_labels" && call.operation === "update");
+    const auditInsert = client.calls.find((call) => call.table === "audit_logs" && call.operation === "insert");
 
     expect(response.status).toBe(200);
     expect(body.label).toMatchObject({
@@ -3467,6 +3576,12 @@ describe("private document API access", () => {
     );
     expect(update?.updatePayload).toMatchObject({
       metadata: expect.objectContaining({ review_status: reviewStatus, hidden, reviewed_by: "label-review-admin" }),
+    });
+    expect(auditInsert?.insertPayload).toMatchObject({
+      owner_id: userId,
+      action: "document_label_change",
+      resource_id: labelId,
+      metadata: { operation: action, documentId },
     });
     expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
@@ -3581,10 +3696,17 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
     const deleteCall = client.calls.find((call) => call.table === "document_labels" && call.operation === "delete");
+    const auditInsert = client.calls.find((call) => call.table === "audit_logs" && call.operation === "insert");
 
     expect(response.status).toBe(200);
     expect(await payload(response)).toMatchObject({ deleted: true, labelId: manualLabelId, labels: [] });
     expect(deleteCall?.filters).toContainEqual({ column: "source", value: "manual" });
+    expect(auditInsert?.insertPayload).toMatchObject({
+      owner_id: userId,
+      action: "document_label_change",
+      resource_id: manualLabelId,
+      metadata: { operation: "delete", documentId },
+    });
     expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 

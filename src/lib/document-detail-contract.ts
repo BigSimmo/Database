@@ -90,6 +90,7 @@ export type DocumentChunkWindow = {
 
 export type DocumentDetailPayload = {
   document: ClinicalDocument;
+  accessScope: "public" | "owner";
   pages: DocumentDetailPage[];
   images: DocumentDetailImage[];
   tableFacts: DocumentDetailTableFact[];

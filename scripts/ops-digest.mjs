@@ -45,6 +45,47 @@ function usd(value) {
   return typeof value === "number" ? `$${value.toFixed(2)}` : "—";
 }
 
+const expectedDeepProbeBlocks = ["slo", "cache", "coalescing", "spend"];
+
+/**
+ * Convert a deep-health snapshot into stable alert reasons. This is deliberately
+ * independent of the app's liveness status: an otherwise-live deployment can
+ * alert on silent retrieval degradation, source-only answers, missing telemetry,
+ * or projected spend without being removed from service.
+ */
+export function evaluateOpsAlerts(health, meta = {}) {
+  const reasons = [];
+  let severity = "none";
+  const add = (reason, nextSeverity = "warning") => {
+    reasons.push(reason);
+    if (nextSeverity === "critical" || severity === "none") severity = nextSeverity;
+  };
+
+  if (!health) {
+    add(meta.error ? "probe_unreachable" : "probe_missing", "critical");
+    return { alerting: true, severity, reasons };
+  }
+  if (health.status !== "ok") add("health_status_degraded", "critical");
+
+  for (const block of expectedDeepProbeBlocks) {
+    if (!health[block]) add(`missing_${block}_block`);
+  }
+
+  const hybridErrorRate = health.slo?.hybridRpcErrorRate;
+  if (typeof hybridErrorRate === "number" && hybridErrorRate > 0.005) {
+    add("hybrid_rpc_error_rate_above_0_5_percent");
+  }
+  const degradedRate = health.slo?.degradedRate;
+  if (typeof degradedRate === "number" && degradedRate > 0.5) {
+    add("degraded_answer_rate_above_50_percent", "critical");
+  } else if (typeof degradedRate === "number" && degradedRate > 0.2) {
+    add("degraded_answer_rate_above_20_percent");
+  }
+  if (health.spend?.alerting) add("projected_spend_over_threshold");
+
+  return { alerting: reasons.length > 0, severity, reasons };
+}
+
 export function renderDigest(health, meta = {}) {
   const lines = [];
   const stamp = new Date().toISOString();
@@ -52,6 +93,10 @@ export function renderDigest(health, meta = {}) {
   const badge = status === "ok" ? "🟢 ok" : status === "degraded" ? "🟠 degraded" : "🔴 unreachable";
   lines.push(`### Ops digest — ${stamp}`, "", `**Status:** ${badge}`);
   if (meta.error) lines.push("", `> Probe error: \`${meta.error}\``);
+  const alerts = evaluateOpsAlerts(health, meta);
+  if (alerts.alerting) {
+    lines.push("", `**Alerts (${alerts.severity}):** ${alerts.reasons.join(", ")}`);
+  }
 
   if (health) {
     if (typeof health.uptimeSeconds === "number") {
@@ -140,9 +185,12 @@ async function main() {
   if (out) writeFileSync(out, digest);
 
   const status = health?.status ?? "unreachable";
-  const alerting = Boolean(health?.spend?.alerting);
+  const alerts = evaluateOpsAlerts(health, { error });
   if (process.env.GITHUB_OUTPUT) {
-    appendFileSync(process.env.GITHUB_OUTPUT, `status=${status}\nalerting=${alerting}\n`);
+    appendFileSync(
+      process.env.GITHUB_OUTPUT,
+      `status=${status}\nalerting=${alerts.alerting}\nalert_reasons=${alerts.reasons.join(",")}\n`,
+    );
   }
   // Always exit 0 — the digest content carries the health signal.
   process.exit(0);

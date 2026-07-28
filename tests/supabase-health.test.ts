@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   formatSupabaseUnavailableError,
   isSupabaseUnavailableError,
@@ -10,6 +10,7 @@ describe("Supabase health helpers", () => {
     expect(isSupabaseUnavailableError(new Error("<title>supabase.co | 522: Connection timed out</title>"))).toBe(true);
     expect(isSupabaseUnavailableError(new Error("Connection terminated due to connection timeout"))).toBe(true);
     expect(isSupabaseUnavailableError(new Error("canceling statement due to statement timeout"))).toBe(true);
+    expect(isSupabaseUnavailableError(new DOMException("This operation was aborted", "AbortError"))).toBe(true);
     expect(isSupabaseUnavailableError(new Error("permission denied for table documents"))).toBe(false);
   });
 
@@ -38,6 +39,30 @@ describe("Supabase health helpers", () => {
 
     await expect(probeSupabaseHealth(supabase)).resolves.toMatchObject({ ok: true });
     expect(calls).toEqual([{ table: "import_batches", columns: "id" }]);
+  });
+
+  it("passes an explicit abort signal to the PostgREST query", async () => {
+    const abortSignal = vi.fn(async () => ({ error: null }));
+    const supabase = {
+      from() {
+        return {
+          select() {
+            return {
+              limit() {
+                return {
+                  then: Promise.resolve({ error: null }).then.bind(Promise.resolve({ error: null })),
+                  abortSignal,
+                };
+              },
+            };
+          },
+        };
+      },
+    };
+    const signal = AbortSignal.timeout(4_000);
+
+    await expect(probeSupabaseHealth(supabase, { signal })).resolves.toMatchObject({ ok: true });
+    expect(abortSignal).toHaveBeenCalledWith(signal);
   });
 
   it("fails closed for returned permission, credential, and relation errors", async () => {

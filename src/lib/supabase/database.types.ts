@@ -2204,6 +2204,10 @@ export type Database = {
         Args: { p_limit?: number };
         Returns: number;
       };
+      purge_expired_api_rate_limits: {
+        Args: { p_limit?: number };
+        Returns: Json;
+      };
       consume_api_subject_rate_limit: {
         Args: {
           p_subject_key: string;
@@ -2297,6 +2301,23 @@ export type Database = {
         };
         Returns: Json;
       };
+      commit_document_index_generation_v2: {
+        Args: {
+          p_chunk_count?: number;
+          p_document_id: string;
+          p_image_bucket: string;
+          p_image_count?: number;
+          p_index_generation_id: string;
+          p_job_id: string;
+          p_metadata?: Json;
+          p_page_count?: number;
+          p_pages?: Json;
+          p_quality?: Json;
+          p_status?: string;
+          p_worker_id: string;
+        };
+        Returns: Json;
+      };
       complete_ingestion_job: {
         Args: {
           p_batch_id?: string | null;
@@ -2320,6 +2341,26 @@ export type Database = {
           p_job_id?: string;
           p_stage?: string;
           p_visual_indexing_version?: string;
+        };
+        Returns: {
+          completed_job_ids: string[];
+          counts: Json;
+          document_id: string;
+          gate_passed: boolean;
+          missing: string[];
+          ok: boolean;
+          presence: Json;
+          status: string;
+        }[];
+      };
+      complete_strict_enrichment_job_v2: {
+        Args: {
+          p_agent_version?: string;
+          p_document_id: string;
+          p_job_id: string;
+          p_stage?: string;
+          p_visual_indexing_version?: string;
+          p_worker_id: string;
         };
         Returns: {
           completed_job_ids: string[];
@@ -2366,6 +2407,19 @@ export type Database = {
           reset_at: string;
           retry_after_seconds: number;
         }[];
+      };
+      update_indexing_v3_agent_job_status_v2: {
+        Args: {
+          p_document_id: string;
+          p_document_metadata_patch?: Json;
+          p_error?: string | null;
+          p_job_id: string;
+          p_next_run_at?: string | null;
+          p_release_unstarted?: boolean;
+          p_status: string;
+          p_worker_id: string;
+        };
+        Returns: Json;
       };
       corpus_topic_term_stats: {
         Args: { terms: string[]; owner_filter?: string | null };

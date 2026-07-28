@@ -1083,6 +1083,67 @@ grant select, insert, update, delete on table public.api_rate_limit_subjects to 
 revoke execute on function public.consume_api_subject_rate_limit(text, text, integer, integer) from public, anon, authenticated;
 grant execute on function public.consume_api_subject_rate_limit(text, text, integer, integer) to service_role;
 
+create or replace function public.purge_expired_api_rate_limits(p_limit integer default 5000)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_limit integer := least(greatest(coalesce(p_limit, 5000), 1), 5000);
+  v_cutoff timestamptz := now() - interval '24 hours';
+  v_owner_deleted integer := 0;
+  v_subject_deleted integer := 0;
+begin
+  with candidates as materialized (
+    select 'owner'::text as limiter_kind, owner_id::text as limiter_key, bucket, updated_at
+    from public.api_rate_limits
+    where updated_at < v_cutoff
+    union all
+    select 'subject'::text as limiter_kind, subject_key as limiter_key, bucket, updated_at
+    from public.api_rate_limit_subjects
+    where updated_at < v_cutoff
+    order by updated_at, limiter_kind, limiter_key, bucket
+    limit v_limit
+  ),
+  deleted_owners as (
+    delete from public.api_rate_limits as limits
+    using candidates
+    where candidates.limiter_kind = 'owner'
+      and limits.owner_id::text = candidates.limiter_key
+      and limits.bucket = candidates.bucket
+      and limits.updated_at < v_cutoff
+    returning 1
+  ),
+  deleted_subjects as (
+    delete from public.api_rate_limit_subjects as limits
+    using candidates
+    where candidates.limiter_kind = 'subject'
+      and limits.subject_key = candidates.limiter_key
+      and limits.bucket = candidates.bucket
+      and limits.updated_at < v_cutoff
+    returning 1
+  )
+  select
+    (select count(*)::integer from deleted_owners),
+    (select count(*)::integer from deleted_subjects)
+  into v_owner_deleted, v_subject_deleted;
+
+  return jsonb_build_object(
+    'deleted', v_owner_deleted + v_subject_deleted,
+    'owner_deleted', v_owner_deleted,
+    'subject_deleted', v_subject_deleted,
+    'limit', v_limit,
+    'cutoff', v_cutoff
+  );
+end;
+$$;
+
+revoke execute on function public.purge_expired_api_rate_limits(integer)
+  from public, anon, authenticated, service_role;
+grant execute on function public.purge_expired_api_rate_limits(integer)
+  to service_role;
+
 drop trigger if exists import_batches_updated_at on public.import_batches;
 create trigger import_batches_updated_at
 before update on public.import_batches
@@ -2039,6 +2100,144 @@ revoke execute on function public.commit_document_index_generation(
 grant execute on function public.commit_document_index_generation(
   uuid, text, uuid, uuid, text, integer, integer, integer, jsonb, jsonb, jsonb
 ) to service_role;
+
+create or replace function public.commit_document_index_generation_v2(
+  p_job_id uuid,
+  p_worker_id text,
+  p_document_id uuid,
+  p_index_generation_id uuid,
+  p_image_bucket text,
+  p_status text default 'indexed',
+  p_page_count integer default 0,
+  p_chunk_count integer default 0,
+  p_image_count integer default 0,
+  p_metadata jsonb default '{}'::jsonb,
+  p_pages jsonb default null,
+  p_quality jsonb default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_job public.ingestion_jobs%rowtype;
+  v_owner_id uuid;
+  v_prior_generation_id text;
+  v_obsolete_image_paths text[] := '{}'::text[];
+  v_cleanup_job_id uuid;
+  v_result jsonb;
+begin
+  if nullif(btrim(p_image_bucket), '') is null then
+    raise exception 'Image bucket must be non-empty.' using errcode = '22023';
+  end if;
+
+  select * into v_job
+  from public.ingestion_jobs
+  where id = p_job_id
+  for update;
+
+  if not found
+    or v_job.document_id is distinct from p_document_id
+    or v_job.status is distinct from 'processing'
+    or v_job.locked_by is distinct from p_worker_id
+  then
+    raise exception using errcode = 'P0001', message = 'ingestion_lease_lost';
+  end if;
+
+  select owner_id, metadata->>'index_generation_id'
+  into v_owner_id, v_prior_generation_id
+  from public.documents
+  where id = p_document_id
+  for update;
+
+  if not found then
+    raise exception using errcode = 'P0002', message = 'document_not_found';
+  end if;
+
+  select coalesce(
+    array_agg(distinct storage_path order by storage_path)
+      filter (where storage_path is not null and btrim(storage_path) <> ''),
+    '{}'::text[]
+  )
+  into v_obsolete_image_paths
+  from public.document_images
+  where document_id = p_document_id
+    and (
+      (index_generation_id is not null and index_generation_id <> p_index_generation_id)
+      or (
+        index_generation_id is null
+        and (metadata->>'index_generation_id')::uuid is distinct from p_index_generation_id
+        and exists (
+          select 1
+          from public.document_images replacement
+          where replacement.document_id = p_document_id
+            and (
+              replacement.index_generation_id = p_index_generation_id
+              or (
+                replacement.index_generation_id is null
+                and (replacement.metadata->>'index_generation_id')::uuid = p_index_generation_id
+              )
+            )
+        )
+      )
+    );
+
+  if cardinality(v_obsolete_image_paths) > 0 then
+    insert into public.storage_cleanup_jobs (
+      owner_id,
+      document_id,
+      document_bucket,
+      document_paths,
+      image_bucket,
+      image_paths,
+      status,
+      metadata
+    )
+    values (
+      v_owner_id,
+      p_document_id,
+      'clinical-documents',
+      '{}'::text[],
+      p_image_bucket,
+      v_obsolete_image_paths,
+      'pending',
+      jsonb_strip_nulls(jsonb_build_object(
+        'operation', 'obsolete_index_generation',
+        'job_id', p_job_id,
+        'prior_index_generation_id', v_prior_generation_id,
+        'committed_index_generation_id', p_index_generation_id
+      ))
+    )
+    returning id into v_cleanup_job_id;
+  end if;
+
+  v_result := public.commit_document_index_generation(
+    p_document_id,
+    p_index_generation_id,
+    p_status,
+    p_page_count,
+    p_chunk_count,
+    p_image_count,
+    p_metadata,
+    p_pages,
+    p_quality
+  );
+
+  return v_result || jsonb_build_object(
+    'storage_cleanup_job_id', v_cleanup_job_id,
+    'obsolete_image_path_count', cardinality(v_obsolete_image_paths)
+  );
+end;
+$$;
+
+revoke execute on function public.commit_document_index_generation_v2(
+  uuid, text, uuid, uuid, text, text, integer, integer, integer, jsonb, jsonb, jsonb
+) from public, anon, authenticated, service_role;
+grant execute on function public.commit_document_index_generation_v2(
+  uuid, text, uuid, uuid, text, text, integer, integer, integer, jsonb, jsonb, jsonb
+) to service_role;
+
 
 create or replace function public.cleanup_abandoned_document_index_generations(
   p_document_id uuid default null,
@@ -5720,6 +5919,207 @@ $$;
 
 revoke execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) from public, anon, authenticated;
 grant execute on function public.update_indexing_v3_agent_job_status(uuid, text, text, timestamptz) to service_role;
+
+create or replace function public.update_indexing_v3_agent_job_status_v2(
+  p_document_id uuid,
+  p_job_id uuid,
+  p_worker_id text,
+  p_status text,
+  p_error text default null,
+  p_next_run_at timestamptz default null,
+  p_document_metadata_patch jsonb default '{}'::jsonb,
+  p_release_unstarted boolean default false
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_job public.indexing_v3_agent_jobs%rowtype;
+  v_attempt_count integer;
+begin
+  if p_document_id is null or p_job_id is null or p_worker_id is null or btrim(p_worker_id) = '' then
+    raise exception using errcode = '22023', message = 'document_id, job_id, and worker_id are required';
+  end if;
+  if p_status not in ('pending', 'completed', 'failed', 'needs_enrichment_artifacts') then
+    raise exception using errcode = '22023', message = format('invalid status %s', p_status);
+  end if;
+  if p_release_unstarted and p_status <> 'pending' then
+    raise exception using errcode = '22023', message = 'unstarted claims can only be released to pending';
+  end if;
+
+  select * into v_job
+  from public.indexing_v3_agent_jobs as job
+  where job.id = p_job_id and job.document_id = p_document_id
+  for update;
+
+  if not found
+     or v_job.status is distinct from 'processing'
+     or v_job.locked_by is distinct from p_worker_id
+     or v_job.locked_at is null then
+    return jsonb_build_object(
+      'ok', false,
+      'gate_passed', false,
+      'missing', jsonb_build_array('lease_lost'),
+      'reason', 'lease_lost',
+      'status', 'lease_lost',
+      'job_id', p_job_id,
+      'document_id', p_document_id
+    );
+  end if;
+
+  v_attempt_count := greatest(v_job.attempt_count - case when p_release_unstarted then 1 else 0 end, 0);
+
+  update public.indexing_v3_agent_jobs
+  set
+    status = p_status,
+    enrichment_status = p_status,
+    attempt_count = v_attempt_count,
+    last_error = p_error,
+    next_run_at = case when p_status = 'pending' then coalesce(p_next_run_at, now()) else null end,
+    locked_by = null,
+    locked_at = null,
+    updated_at = now()
+  where id = p_job_id;
+
+  update public.documents as document
+  set
+    metadata = public.jsonb_merge_deep(
+      coalesce(document.metadata, '{}'::jsonb),
+      jsonb_build_object(
+        'indexing_v3_agent_status', p_status,
+        'indexing_v3_agent_updated_at', now(),
+        'indexing_v3_agent_attempt_count', v_attempt_count,
+        'indexing_v3_agent_locked_by', null,
+        'indexing_v3_agent_locked_at', null,
+        'indexing_v3_agent_next_run_at', case when p_status = 'pending' then coalesce(p_next_run_at, now()) else null end,
+        'indexing_v3_agent_last_error', p_error,
+        'enrichment_status', p_status,
+        'enrichment_error', p_error
+      ) || coalesce(p_document_metadata_patch, '{}'::jsonb)
+    ),
+    updated_at = now()
+  where document.id = p_document_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'gate_passed', false,
+    'missing', '[]'::jsonb,
+    'reason', case when p_release_unstarted then 'released_unstarted' else 'updated' end,
+    'status', p_status,
+    'job_id', p_job_id,
+    'document_id', p_document_id,
+    'attempt_count', v_attempt_count
+  );
+end;
+$$;
+
+revoke execute on function public.update_indexing_v3_agent_job_status_v2(
+  uuid, uuid, text, text, text, timestamptz, jsonb, boolean
+) from public, anon, authenticated, service_role;
+grant execute on function public.update_indexing_v3_agent_job_status_v2(
+  uuid, uuid, text, text, text, timestamptz, jsonb, boolean
+) to service_role;
+
+create or replace function public.complete_strict_enrichment_job_v2(
+  p_document_id uuid,
+  p_job_id uuid,
+  p_worker_id text,
+  p_stage text default 'indexed; enrichment completed',
+  p_agent_version text default 'visual-core-v3',
+  p_visual_indexing_version text default 'visual-v3'
+)
+returns table (
+  ok boolean,
+  document_id uuid,
+  gate_passed boolean,
+  missing text[],
+  status text,
+  counts jsonb,
+  presence jsonb,
+  completed_job_ids uuid[]
+)
+language plpgsql
+security invoker
+set search_path = public, extensions, pg_temp
+as $$
+declare
+  v_job public.indexing_v3_agent_jobs%rowtype;
+  v_completion record;
+begin
+  select * into v_job
+  from public.indexing_v3_agent_jobs as job
+  where job.id = p_job_id and job.document_id = p_document_id
+  for update;
+
+  if not found
+     or v_job.status is distinct from 'processing'
+     or v_job.locked_by is distinct from p_worker_id
+     or v_job.locked_at is null then
+    return query select
+      false,
+      p_document_id,
+      false,
+      array['lease_lost']::text[],
+      'lease_lost'::text,
+      '{}'::jsonb,
+      '{}'::jsonb,
+      '{}'::uuid[];
+    return;
+  end if;
+
+  select * into v_completion
+  from public.complete_strict_enrichment_job(
+    p_document_id,
+    p_job_id,
+    p_stage,
+    p_agent_version,
+    p_visual_indexing_version
+  );
+
+  if not found then
+    return query select
+      false,
+      p_document_id,
+      false,
+      array['completion_rpc_failed']::text[],
+      'completion_rpc_failed'::text,
+      '{}'::jsonb,
+      '{}'::jsonb,
+      '{}'::uuid[];
+    return;
+  end if;
+
+  if v_completion.ok then
+    update public.indexing_v3_agent_jobs
+    set
+      status = 'completed',
+      enrichment_status = 'completed',
+      last_error = null,
+      next_run_at = null,
+      locked_by = null,
+      locked_at = null,
+      updated_at = now()
+    where id = p_job_id;
+  end if;
+
+  return query select
+    v_completion.ok,
+    v_completion.document_id,
+    v_completion.gate_passed,
+    v_completion.missing,
+    v_completion.status,
+    v_completion.counts,
+    v_completion.presence,
+    case when v_completion.ok then array[p_job_id]::uuid[] else '{}'::uuid[] end;
+end;
+$$;
+
+revoke execute on function public.complete_strict_enrichment_job_v2(uuid, uuid, text, text, text, text)
+  from public, anon, authenticated, service_role;
+grant execute on function public.complete_strict_enrichment_job_v2(uuid, uuid, text, text, text, text)
+  to service_role;
 
 comment on index public.documents_indexing_v3_agent_claim_idx is
   'Retained for backward compatibility while edge function still writes enrichment_status / indexing_v3_agent_status to documents.metadata. Drop after edge function migration.';

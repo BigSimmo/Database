@@ -79,6 +79,7 @@ export {
   classifyAnswerIntent,
   completeExtractiveSentence,
   generatedAnswerQualityFailureReason,
+  hasInvalidModelEvidenceIds,
   isBareDefinitionQuestion,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
@@ -4229,6 +4230,21 @@ ${qualityRetryInstruction}`
       parseAnswerJson(generated.text, packedContextResults, args.query),
       retrievalDiagnostics,
     );
+    const fastClaimCheckedAnswer = route.mode === "fast" ? assessAndEnforceClaimSupport(answer) : answer;
+    const fastClaimSupportFailureReason = [
+      "claim_support_limit_exceeded",
+      "claim_support_clinical_recommendation_gap",
+      "claim_support_high_risk_gap",
+      "material_source_governance_gap",
+    ].find((reason) =>
+      (fastClaimCheckedAnswer.routingReason ?? "")
+        .split(";")
+        .map((token) => token.trim())
+        .includes(reason),
+    );
+    const fastClaimSupportRetryReason = fastClaimSupportFailureReason
+      ? `fast_${fastClaimSupportFailureReason}_retry_strong`
+      : null;
     const fastAnswerHadInvalidEvidenceIds = route.mode === "fast" && hasInvalidModelEvidenceIds(answer);
     const fastAnswerWasUnsupported =
       !fastAnswerHadInvalidEvidenceIds &&
@@ -4249,6 +4265,7 @@ ${qualityRetryInstruction}`
       fastAnswerWasUnusable ||
       fastAnswerWasTemplateLike ||
       fastAnswerWasOverExpanded ||
+      fastClaimSupportRetryReason ||
       fastAnswerFailedQualityGate
     ) {
       const retryReason = fastAnswerHadInvalidEvidenceIds
@@ -4261,7 +4278,7 @@ ${qualityRetryInstruction}`
               ? "fast_template_retry_strong"
               : fastAnswerWasOverExpanded
                 ? "fast_overexpanded_simple_retry_strong"
-                : "fast_quality_retry_strong";
+                : (fastClaimSupportRetryReason ?? "fast_quality_retry_strong");
       if (shouldRecoverFastFailureExtractively(retryReason)) {
         answerRetryCount += 1;
         answerRetryReasons.push(`fast_source_backed_extractive_recovery:${retryReason}`);
@@ -4277,15 +4294,17 @@ ${qualityRetryInstruction}`
         message:
           retryReason === "fast_invalid_evidence_retry_strong"
             ? "Fast answer cited invalid evidence IDs, retrying with the strong model."
-            : retryReason === "fast_unsupported_retry_strong"
-              ? "Fast answer was unsupported, retrying with the strong model."
-              : retryReason === "fast_unusable_retry_strong"
-                ? "Fast answer was not usable, retrying with the strong model."
-                : retryReason === "fast_template_retry_strong"
-                  ? "Fast answer was too template-like, retrying with the strong model."
-                  : retryReason === "fast_overexpanded_simple_retry_strong"
-                    ? "Fast answer over-expanded a simple question, retrying with the strong model."
-                    : "Fast answer failed quality checks, retrying with the strong model.",
+            : retryReason === fastClaimSupportRetryReason
+              ? "Fast answer failed claim-support checks, retrying with the strong model."
+              : retryReason === "fast_unsupported_retry_strong"
+                ? "Fast answer was unsupported, retrying with the strong model."
+                : retryReason === "fast_unusable_retry_strong"
+                  ? "Fast answer was not usable, retrying with the strong model."
+                  : retryReason === "fast_template_retry_strong"
+                    ? "Fast answer was too template-like, retrying with the strong model."
+                    : retryReason === "fast_overexpanded_simple_retry_strong"
+                      ? "Fast answer over-expanded a simple question, retrying with the strong model."
+                      : "Fast answer failed quality checks, retrying with the strong model.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -4463,13 +4482,18 @@ ${qualityRetryInstruction}`
     // source-safe comparison/extractive recovery path instead of returning an empty unsupported
     // model answer. The fallback is finalized through the same gates in the catch block, so weak
     // or unsafe source evidence still fails closed.
-    const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")
-      ? "claim_support_high_risk_gap"
-      : answer.routingReason?.includes("material_source_governance_gap")
-        ? "material_source_governance_gap"
-        : answer.unverifiedNumericTokens?.length
-          ? "numeric_faithfulness_gap"
-          : null;
+    const sourceSafeFallbackReason =
+      [
+        "claim_support_limit_exceeded",
+        "claim_support_clinical_recommendation_gap",
+        "claim_support_high_risk_gap",
+        "material_source_governance_gap",
+      ].find((reason) =>
+        (answer.routingReason ?? "")
+          .split(";")
+          .map((token) => token.trim())
+          .includes(reason),
+      ) ?? (answer.unverifiedNumericTokens?.length ? "numeric_faithfulness_gap" : null);
     if (sourceSafeFallbackReason) {
       throw new Error(`OpenAI generation quality gate failed: ${sourceSafeFallbackReason}`);
     }
@@ -4756,7 +4780,9 @@ ${qualityRetryInstruction}`
     let fallbackAnswer = finalizeAnswer(annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics));
     const finalizedFallbackNeedsReview =
       fallbackAnswer.responseMode === "evidence_gap" &&
-      /(?:claim_support_high_risk_gap|material_source_governance_gap)/.test(fallbackAnswer.routingReason ?? "") &&
+      /(?:claim_support_limit_exceeded|claim_support_clinical_recommendation_gap|claim_support_high_risk_gap|material_source_governance_gap)/.test(
+        fallbackAnswer.routingReason ?? "",
+      ) &&
       baseFallbackAnswer.citations.length > 0;
     if (finalizedFallbackNeedsReview) {
       const reviewRouteReason = [

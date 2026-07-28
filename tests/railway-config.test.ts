@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { posix } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -33,6 +34,22 @@ function triggersDeploy(config: RailwayConfig, filePath: string) {
   return (config.build?.watchPatterns ?? []).some((pattern) => watchPatternMatches(pattern, filePath));
 }
 
+function localImportClosure(entryFiles: string[]) {
+  const seen = new Set<string>();
+  const visit = (filePath: string) => {
+    if (seen.has(filePath)) return;
+    seen.add(filePath);
+    const source = readFileSync(new URL(`../${filePath}`, import.meta.url), "utf8");
+    const imports = source.matchAll(/(?:from\s+|import\s+)["'](\.{1,2}\/[^"']+)["']/g);
+    for (const match of imports) {
+      const imported = posix.normalize(posix.join(posix.dirname(filePath), match[1]!));
+      if (/\.(?:cjs|mjs)$/.test(imported)) visit(imported);
+    }
+  };
+  for (const entry of entryFiles) visit(entry);
+  return [...seen].sort();
+}
+
 describe("Railway config as code", () => {
   const app = readConfig("railway.app.json");
   const worker = readConfig("railway.worker.json");
@@ -41,6 +58,24 @@ describe("Railway config as code", () => {
   it("ships the local modules imported by next.config.ts in the app runner", () => {
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts");
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts");
+  });
+
+  it("redeploys the app for every transitive build-controller module", () => {
+    const closure = localImportClosure([
+      "scripts/check-client-bundle-secrets.mjs",
+      "scripts/guard-next-build.mjs",
+      "scripts/run-heavy.mjs",
+    ]);
+
+    expect(closure).toEqual(
+      expect.arrayContaining([
+        "scripts/child-process-result.mjs",
+        "scripts/sensitive-text.mjs",
+        "scripts/test-cache-path.mjs",
+        "scripts/test-run-lock.mjs",
+      ]),
+    );
+    for (const filePath of closure) expect(triggersDeploy(app, filePath), filePath).toBe(true);
   });
 
   it("uses the deep readiness endpoint for app rolling deploys", () => {

@@ -19,9 +19,13 @@
       "/src/**",
       "/scripts/check-client-bundle-secrets.mjs",
       "/scripts/check-node-engine.cjs",
+      "/scripts/child-process-result.mjs",
       "/scripts/guard-next-build.mjs",
       "/scripts/install-git-hooks.mjs",
-      "/scripts/run-heavy.mjs"
+      "/scripts/run-heavy.mjs",
+      "/scripts/sensitive-text.mjs",
+      "/scripts/test-cache-path.mjs",
+      "/scripts/test-run-lock.mjs"
     ]
   },
   "deploy": {

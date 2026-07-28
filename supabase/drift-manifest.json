@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-25T15:45:24.778Z",
+  "generated_at": "2026-07-27T05:20:05.163Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "81240cb662ec8a9da27eca60a3908587f565c3eb67981aa0c21961d6b333a3d5",
-  "replay_seconds": 15,
+  "schema_sha256": "7057470bb725150d489492e5400c484157afd0962b5ba7cbfc8be9a8fc9a7eb2",
+  "replay_seconds": 18,
   "snapshot": {
     "views": [
       {
@@ -6700,6 +6700,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "da956cfa7b47bcb3933e8bbee8269b12",
+        "signature": "public.commit_document_index_generation_v2(uuid,text,uuid,uuid,text,text,integer,integer,integer,jsonb,jsonb,jsonb)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "eb9926823dccb2d5d91c01a664f049d7",
         "signature": "public.commit_document_index_generation(uuid,text,uuid,uuid,text,integer,integer,integer,jsonb,jsonb,jsonb)"
       },
@@ -6717,6 +6725,14 @@
         ],
         "def_hash": "6406ade971963fa9b6d952765a697bd9",
         "signature": "public.complete_ingestion_job(uuid,uuid,uuid,text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "428f2f6f850ce80be09e1bb54d157733",
+        "signature": "public.complete_strict_enrichment_job_v2(uuid,uuid,text,text,text,text)"
       },
       {
         "acl": [
@@ -7154,6 +7170,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "9a555f53f0758fdfee4afb4f6f98e8e2",
+        "signature": "public.purge_expired_api_rate_limits(integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "3f7a8939ee41c93b0c0126a6b1b65124",
         "signature": "public.purge_expired_rag_queries(integer)"
       },
@@ -7347,6 +7371,14 @@
         ],
         "def_hash": "6b51ece12494d136b39977d8532c013c",
         "signature": "public.sync_document_title_words()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "a41095ec80ca3ee6eb3962d12c9abb89",
+        "signature": "public.update_indexing_v3_agent_job_status_v2(uuid,uuid,text,text,text,timestamp with time zone,jsonb,boolean)"
       },
       {
         "acl": [

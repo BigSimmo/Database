@@ -53,7 +53,10 @@ describe("worker visual capture hardening", () => {
     // The commit RPC prunes stale/legacy generation rows and upserts index quality atomically
     // server-side; the worker must surface any RPC failure (fail closed) rather than run a
     // client-side fallback that could partially write after an error.
-    expect(workerSource).toContain('if (error) throw supabaseStageError("commit_document_index_generation", error)');
+    expect(workerSource).toContain('supabase.rpc("commit_document_index_generation_v2"');
+    expect(workerSource).toContain("p_image_bucket: env.SUPABASE_IMAGE_BUCKET");
+    expect(workerSource).not.toContain('supabase.rpc("commit_document_index_generation",');
+    expect(workerSource).toContain('if (error) throw supabaseStageError("commit_document_index_generation_v2", error)');
     expect(workerSource).not.toContain("deleteStaleIndexGenerationRows");
     expect(workerSource).toContain("`${imagePrefix}/${indexGenerationId}/image-${index + 1}${ext}`");
     expect(workerSource).toContain('indexing_v3_agent_repair_reason: "core_index_committed"');

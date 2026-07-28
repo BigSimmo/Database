@@ -1,5 +1,10 @@
 import { loadEnvConfig } from "@next/env";
-import { nonNullDocumentIds, partitionStorageCleanupJobs } from "@/lib/storage-cleanup-safety";
+import {
+  classifyStorageCleanupJobs,
+  nonNullDocumentIds,
+  uniqueCleanupPaths,
+  uploadCompensationSelectionFilter,
+} from "@/lib/storage-cleanup-safety";
 import { loadAdminClient } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
@@ -17,7 +22,12 @@ type CleanupJob = {
   image_bucket: string | null;
   image_paths: string[] | null;
   attempts: number;
+  metadata: Record<string, unknown> | null;
 };
+
+function cleanupMetadata(metadata: CleanupJob["metadata"]): Record<string, unknown> {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata : {};
+}
 
 function parseArgs(argv: string[]): CleanupArgs {
   const args: CleanupArgs = { limit: 50, dryRun: false };
@@ -67,8 +77,11 @@ async function main() {
   const supabase = await loadAdminClient();
   const { data, error } = await supabase
     .from("storage_cleanup_jobs")
-    .select("id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts")
+    .select("id,document_id,document_bucket,document_paths,image_bucket,image_paths,attempts,metadata")
     .in("status", ["pending", "failed"])
+    // Upload compensation gets a grace period so an in-flight upload is never
+    // raced by the janitor. Other operations and legacy rows remain immediate.
+    .or(uploadCompensationSelectionFilter())
     .order("created_at", { ascending: true })
     .limit(args.limit);
 
@@ -88,16 +101,77 @@ async function main() {
     for (const doc of liveDocs ?? []) liveDocumentIds.add(doc.id);
   }
 
-  const { safe: jobs, skipped } = partitionStorageCleanupJobs(allJobs, liveDocumentIds);
-  console.log(`Found ${allJobs.length} storage cleanup job(s); ${jobs.length} safe to process.`);
+  // Reference checks are path-based as well as FK-based. That reconciles an
+  // upload row whose document_id could not yet be populated and prevents any
+  // queued path from being removed while a surviving row still owns it.
+  const referencedDocumentPaths = new Set<string>();
+  const candidateDocumentPaths = uniqueCleanupPaths(allJobs, "document_paths");
+  for (let start = 0; start < candidateDocumentPaths.length; start += 1000) {
+    const batch = candidateDocumentPaths.slice(start, start + 1000);
+    const { data: liveDocs, error: liveError } = await supabase
+      .from("documents")
+      .select("id,storage_path")
+      .in("storage_path", batch);
+    if (liveError) throw new Error(liveError.message);
+    for (const doc of liveDocs ?? []) {
+      if (doc.id) liveDocumentIds.add(doc.id);
+      if (doc.storage_path) referencedDocumentPaths.add(doc.storage_path);
+    }
+  }
+
+  const referencedImagePaths = new Set<string>();
+  const candidateImagePaths = uniqueCleanupPaths(allJobs, "image_paths");
+  for (let start = 0; start < candidateImagePaths.length; start += 1000) {
+    const batch = candidateImagePaths.slice(start, start + 1000);
+    const { data: liveImages, error: liveError } = await supabase
+      .from("document_images")
+      .select("storage_path")
+      .in("storage_path", batch);
+    if (liveError) throw new Error(liveError.message);
+    for (const image of liveImages ?? []) {
+      if (image.storage_path) referencedImagePaths.add(image.storage_path);
+    }
+  }
+
+  const {
+    safe: jobs,
+    skipped,
+    reconciled,
+  } = classifyStorageCleanupJobs(allJobs, {
+    liveDocumentIds,
+    referencedDocumentPaths,
+    referencedImagePaths,
+  });
+  console.log(
+    `Found ${allJobs.length} storage cleanup job(s); ${jobs.length} safe to process, ${reconciled.length} reconciled.`,
+  );
   if (skipped.length > 0) {
     console.warn(
-      `Skipping ${skipped.length} cleanup job(s) whose document still exists (aborted delete; would destroy live storage): ${skipped
+      `Skipping ${skipped.length} cleanup job(s) with surviving database references: ${skipped
         .map((job) => job.id)
         .join(", ")}`,
     );
   }
-  if (args.dryRun || jobs.length === 0) return;
+  if (args.dryRun) return;
+
+  for (const job of reconciled) {
+    const { error: updateError } = await supabase
+      .from("storage_cleanup_jobs")
+      .update({
+        status: "completed",
+        last_error: null,
+        completed_at: new Date().toISOString(),
+        metadata: {
+          ...cleanupMetadata(job.metadata),
+          reconciliation: "live_document_reference",
+          reconciled_at: new Date().toISOString(),
+        },
+      })
+      .eq("id", job.id);
+    if (updateError) throw new Error(updateError.message);
+  }
+
+  if (jobs.length === 0) return;
 
   let completed = 0;
   let failed = 0;
@@ -124,7 +198,8 @@ async function main() {
         last_error: warnings.length ? warnings.join("; ") : null,
         completed_at: nextStatus === "completed" ? new Date().toISOString() : null,
         metadata: {
-          operation: "storage_cleanup_retry",
+          ...cleanupMetadata(job.metadata),
+          cleanup_attempted_at: new Date().toISOString(),
           storage_warnings: warnings,
         },
       })

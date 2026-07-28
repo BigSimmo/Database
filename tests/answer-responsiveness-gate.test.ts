@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   completeExtractiveSentence,
   generatedAnswerQualityFailureReason,
+  hasInvalidModelEvidenceIds,
   isBareDefinitionQuestion,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
@@ -21,6 +22,30 @@ function modelAnswer(overrides: Partial<RagAnswer> = {}): RagAnswer {
     ...overrides,
   };
 }
+
+describe("model evidence-id reason parsing", () => {
+  it.each(["invalid_model_citation_ids", "partial_invalid_model_citation_ids"])(
+    "recognizes the exact semicolon-delimited reason %s",
+    (reason) => {
+      const answer = modelAnswer({
+        answer: "Clozapine monitoring requires regular blood counts.",
+        routingReason: `strong_route; ${reason}; final_check`,
+      });
+      expect(hasInvalidModelEvidenceIds(answer)).toBe(true);
+      expect(generatedAnswerQualityFailureReason(answer, "Summarize clozapine monitoring", "broad_summary")).toBe(
+        "invalid_model_evidence_ids",
+      );
+    },
+  );
+
+  it.each([
+    "not_invalid_model_citation_ids_extra",
+    "partial_invalid_model_citation_ids_suffix",
+    "prefix_invalid_model_citation_ids",
+  ])("does not match a reason token by substring: %s", (routingReason) => {
+    expect(hasInvalidModelEvidenceIds({ routingReason })).toBe(false);
+  });
+});
 
 describe("responsiveness gate — model-answer core-term overlap (P3)", () => {
   it("flags an off-target model answer to a simple direct (non-definition) question", () => {

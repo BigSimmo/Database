@@ -9,8 +9,116 @@ const acceptedProvenance = new Set<CitationProvenance>([
   "deterministic_support",
 ]);
 
+const MAX_ASSESSED_CLAIMS = 24;
+
 const highRiskPattern =
   /\b(?:contraindicat(?:ed|ion)?|must\s+not|do\s+not\s+use|withhold|cease|stop|discontinue|continue|do\s+not\s+stop|urgent(?:ly)?|immediate(?:ly)?|emergency|pregnan(?:cy|t)|renal|hepatic|dose|dosage|route|oral(?:ly)?|intramuscular(?:ly)?|subcutaneous(?:ly)?|sublingual(?:ly)?|intravenous(?:ly)?|\bim\b|\bpo\b|daily|weekly|hourly|nightly|fortnightly|monthly|threshold|cut-?off|monitor(?:ing)?|repeat|review interval|mg|mcg|mmol|x10)\b/i;
+
+type PrescriptiveActionFamily =
+  | "referral"
+  | "admission"
+  | "contact"
+  | "arrangement"
+  | "assessment"
+  | "initiation"
+  | "discontinuation"
+  | "increase"
+  | "decrease";
+
+const prescriptiveActionPatterns: Array<{ family: PrescriptiveActionFamily; pattern: RegExp }> = [
+  { family: "referral", pattern: /\b(?:refer(?:s|red|ring)?|referral)\b/i },
+  { family: "admission", pattern: /\b(?:admit(?:s|ted|ting)?|admission)\b/i },
+  { family: "contact", pattern: /\bcontact(?:s|ed|ing)?\b/i },
+  { family: "arrangement", pattern: /\b(?:arrange(?:s|d|ment|ments|ing)?)\b/i },
+  { family: "assessment", pattern: /\b(?:assess(?:es|ed|ing|ment|ments)?|evaluat(?:e|es|ed|ing|ion|ions))\b/i },
+  {
+    family: "initiation",
+    pattern: /\b(?:initiat(?:e|es|ed|ing|ion)|start(?:s|ed|ing)?|commenc(?:e|es|ed|ing|ement))\b/i,
+  },
+  {
+    family: "discontinuation",
+    pattern:
+      /\b(?:discontinu(?:e|es|ed|ing|ation)|stop(?:s|ped|ping)?|ceas(?:e|es|ed|ing)|withhold|withheld|withholding)\b/i,
+  },
+  { family: "increase", pattern: /\b(?:increase(?:s|d|ing)?|titrat(?:e|es|ed|ing|ion))\b/i },
+  { family: "decrease", pattern: /\b(?:decrease(?:s|d|ing)?|reduc(?:e|es|ed|ing|tion))\b/i },
+];
+
+const anyClinicalActionPattern = new RegExp(
+  prescriptiveActionPatterns.map(({ pattern }) => `(?:${pattern.source})`).join("|"),
+  "i",
+);
+const imperativeClinicalActionPattern =
+  /^(?:refer|admit|contact|arrange|assess|evaluate|initiate|start|commence|discontinue|stop|cease|withhold|increase|titrate|decrease|reduce)$/i;
+
+function clinicalActionFamilies(value: string) {
+  const families = new Set<PrescriptiveActionFamily>();
+  for (const { family, pattern } of prescriptiveActionPatterns) {
+    if (pattern.test(value)) families.add(family);
+  }
+  return families;
+}
+
+function capabilityModalImmediatelyBefore(value: string, actionIndex: number) {
+  return /\b(?:can|may|could)\s+(?:(?:reasonably|safely|also|then)\s+)?(?:be\s+)?$/i.test(
+    value.slice(Math.max(0, actionIndex - 40), actionIndex),
+  );
+}
+
+function actionOccurrenceIsPrescriptive(value: string, actionIndex: number, actionText: string) {
+  if (capabilityModalImmediatelyBefore(value, actionIndex)) return false;
+
+  const before = value.slice(0, actionIndex);
+  const nearbyBefore = before.slice(Math.max(0, before.length - 80));
+  if (
+    /\b(?:should|must|ought\s+to|needs?\s+to|required\s+to|recommended\s+to|is\s+to|are\s+to)\s+(?:\w+[ -]?){0,4}(?:be\s+)?$/i.test(
+      nearbyBefore,
+    ) ||
+    /\b(?:do\s+not|never)\s+$/i.test(nearbyBefore) ||
+    /\b(?:requires?|required)\s+(?:an?\s+)?$/i.test(nearbyBefore)
+  ) {
+    return true;
+  }
+
+  const after = value.slice(actionIndex + actionText.length, actionIndex + actionText.length + 45);
+  if (
+    /^.{0,24}\b(?:is|are)\s+(?:required|recommended|necessary)\b/i.test(after) ||
+    /^.{0,12}\b(?:should|must|needs?\s+to)\b/i.test(after)
+  ) {
+    return true;
+  }
+
+  const clauseStart = Math.max(
+    before.lastIndexOf("."),
+    before.lastIndexOf("!"),
+    before.lastIndexOf("?"),
+    before.lastIndexOf(";"),
+    before.lastIndexOf(":"),
+  );
+  const clausePrefix = before.slice(clauseStart + 1).trim();
+  const bareImperative = imperativeClinicalActionPattern.test(actionText);
+  return (
+    (bareImperative && clausePrefix.length === 0) ||
+    (bareImperative && /^(?:(?:if|when|unless|after|before|for)\b[^,]{0,100},\s*|then\s*)$/i.test(clausePrefix)) ||
+    (bareImperative &&
+      new RegExp(`^(?:${anyClinicalActionPattern.source})[^.!?;:]{0,100}\\band\\s*$`, "i").test(clausePrefix) &&
+      !/\b(?:can|may|could)\b/i.test(clausePrefix))
+  );
+}
+
+function prescriptiveActionFamilies(value: string) {
+  const families = new Set<PrescriptiveActionFamily>();
+  for (const { family, pattern } of prescriptiveActionPatterns) {
+    const matches = value.matchAll(new RegExp(pattern.source, "gi"));
+    for (const match of matches) {
+      if (match.index !== undefined && actionOccurrenceIsPrescriptive(value, match.index, match[0])) {
+        families.add(family);
+        break;
+      }
+    }
+  }
+  return families;
+}
 
 const entityPattern =
   /\b(?:clozapine|lithium|valproate|sodium valproate|olanzapine|quetiapine|risperidone|aripiprazole|haloperidol|lamotrigine|carbamazepine|fluoxetine|sertraline|escitalopram|venlafaxine|drug\s+[a-z])\b/gi;
@@ -88,7 +196,7 @@ function splitClaims(value: string) {
     .split(/(?<=[.!?])(?:[ \t]+|\n+)|\n+/)
     .map(cleanText)
     .filter((claim) => claim.length >= 8)
-    .slice(0, 24);
+    .slice(0, MAX_ASSESSED_CLAIMS + 1);
 }
 
 function splitComparisonClaims(value: string) {
@@ -96,7 +204,7 @@ function splitComparisonClaims(value: string) {
     .flatMap((claim) => claim.split(/\s*;\s*|\s+(?:whereas|while)\s+/i))
     .map((claim) => claim.trim())
     .filter((claim) => claim.length >= 8)
-    .slice(0, 24);
+    .slice(0, MAX_ASSESSED_CLAIMS + 1);
 }
 
 /**
@@ -157,7 +265,11 @@ function compatibleHighRiskTrigger(claim: string, evidence: string) {
 }
 
 function isHighRiskClaim(value: string) {
-  return highRiskPattern.test(value) || extractClinicalValueAtoms(value).length > 0;
+  return (
+    highRiskPattern.test(value) ||
+    extractClinicalValueAtoms(value).length > 0 ||
+    prescriptiveActionFamilies(value).size > 0
+  );
 }
 
 type ActionPolarity =
@@ -181,7 +293,7 @@ function actionPolarity(value: string): ActionPolarity {
   if (/\b(?:(?:do|must|should)\s+not|never)\s+(?:stop|cease|discontinue)\b/i.test(value)) {
     return "do_not_stop";
   }
-  if (/\b(?:stop|cease|discontinue|withhold)\b/i.test(value)) return "stop";
+  if (/\b(?:stop|cease|discontinue|withhold|withheld|withholding)\b/i.test(value)) return "stop";
   if (/\bcontinue\b/i.test(value)) return "continue";
   if (/\b(?:may|can)\s+(?:be\s+)?use|not\s+contraindicated\b/i.test(value)) return "use_allowed";
   if (/\b(?:contraindicat(?:ed|ion)?|must\s+not|do\s+not\s+use|avoid)\b/i.test(value)) return "do_not_use";
@@ -254,6 +366,9 @@ function sourceSupportsClaim(claim: string, source: SearchResult) {
   if (!compatiblePolarity(claim, evidence)) return false;
   if (!compatibleSafetyDimensions(claim, evidence)) return false;
   if (!compatibleHighRiskTrigger(claim, evidence)) return false;
+  const requiredActionFamilies = prescriptiveActionFamilies(claim);
+  const evidenceActionFamilies = clinicalActionFamilies(evidence);
+  if ([...requiredActionFamilies].some((family) => !evidenceActionFamilies.has(family))) return false;
 
   const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(clinicalValueAtomKey));
   if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(clinicalValueAtomKey(atom)))) return false;
@@ -388,7 +503,7 @@ function claimInputs(answer: RagAnswer): ClaimInput[] {
   const sections = (answer.answerSections ?? []).flatMap((section) =>
     split(section.body).map((text) => scopedInput(text, section.citation_chunk_ids, "section_selected")),
   );
-  return [...topLevel, ...sections];
+  return [...topLevel, ...sections].slice(0, MAX_ASSESSED_CLAIMS + 1);
 }
 
 function claimAssessment(
@@ -460,20 +575,43 @@ export function assessClaimSupport(answer: RagAnswer) {
       (answer.answerSections ?? []).every((section) => section.kind === "documentation"));
   const sourceBackedReviewAnswer = (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON);
   const inputs = claimInputs(answer);
-  const claims = inputs.map((input, index) =>
+  const claimLimitExceeded = inputs.length > MAX_ASSESSED_CLAIMS;
+  const assessedInputs = inputs.slice(0, MAX_ASSESSED_CLAIMS);
+  const claims = assessedInputs.map((input, index) =>
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
   );
   const evidenceAssessments = Object.fromEntries(
-    answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
+    answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, assessedInputs)]),
   );
-  return { claims, evidenceAssessments };
+  return { claims, evidenceAssessments, claimLimitExceeded };
 }
 
 export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
-  const { claims, evidenceAssessments } = assessClaimSupport(answer);
+  const { claims, evidenceAssessments, claimLimitExceeded } = assessClaimSupport(answer);
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {
     return { ...answer, supportedClaims: claims, evidenceAssessments };
   }
+  if (claimLimitExceeded) {
+    return {
+      ...answer,
+      answer:
+        "The generated answer exceeded the bounded claim-support review limit. Review the retrieved source passages before making a clinical decision.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      answerSections: [],
+      quoteCards: [],
+      bestSource: null,
+      responseMode: "evidence_gap",
+      routingMode: "unsupported",
+      routingReason: [answer.routingReason, "claim_support_limit_exceeded"].filter(Boolean).join("; "),
+      supportedClaims: claims,
+      evidenceAssessments,
+    };
+  }
+  const clinicalRecommendationGap = claims.some(
+    (claim) => prescriptiveActionFamilies(claim.text).size > 0 && claim.supportStatus !== "direct",
+  );
   const highRiskGap = claims.some((claim) => claim.riskClass === "high_risk" && claim.supportStatus !== "direct");
   const materialGovernanceGap = claims.some(
     (claim) =>
@@ -483,7 +621,7 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
         return assessment?.currency === "outdated" || assessment?.extractionQuality === "poor";
       }),
   );
-  if (highRiskGap || materialGovernanceGap) {
+  if (clinicalRecommendationGap || highRiskGap || materialGovernanceGap) {
     return {
       ...answer,
       answer:
@@ -498,7 +636,11 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
       routingMode: "unsupported",
       routingReason: [
         answer.routingReason,
-        highRiskGap ? "claim_support_high_risk_gap" : "material_source_governance_gap",
+        clinicalRecommendationGap
+          ? "claim_support_clinical_recommendation_gap"
+          : highRiskGap
+            ? "claim_support_high_risk_gap"
+            : "material_source_governance_gap",
       ]
         .filter(Boolean)
         .join("; "),

@@ -1,8 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import {
+  clearCachedSignedUrl,
+  getCachedSignedUrl,
+  setCachedSignedUrl,
+  signedUrlCacheScope,
+} from "@/lib/signed-url-cache";
 import { useAuthSession } from "@/lib/supabase/client";
 
 /**
@@ -13,16 +18,25 @@ import { useAuthSession } from "@/lib/supabase/client";
  * and the image lightbox (which enables it while open). A cached URL seeds the
  * state synchronously so an already-fetched image paints without a round-trip.
  */
-export function useSignedImageUrl(endpoint: string, enabled: boolean) {
-  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
+export function useSignedImageUrl(endpoint: string, enabled: boolean, accessScope: "public" | "owner" = "owner") {
+  const { authEpoch, authorizationHeader, markSessionExpired, session } = useAuthSession();
+  const authScope = signedUrlCacheScope(accessScope, authEpoch, session?.user.id);
+  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint, authScope)?.url ?? null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
+  const previousAuthScopeRef = useRef(authScope);
+
+  useLayoutEffect(() => {
+    if (previousAuthScopeRef.current === authScope) return;
+    previousAuthScopeRef.current = authScope;
+    setUrl(null);
+    setFailed(false);
+  }, [authScope]);
 
   useEffect(() => {
     if (!enabled) return () => undefined;
 
-    const cached = getCachedSignedUrl(endpoint);
+    const cached = getCachedSignedUrl(endpoint, authScope);
     if (cached) {
       let active = true;
       window.requestAnimationFrame(() => {
@@ -43,7 +57,7 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
       })
       .then((data) => {
         if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
+          setCachedSignedUrl(endpoint, authScope, data);
           setUrl(data.url);
           setFailed(false);
         } else if (active) {
@@ -56,22 +70,22 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
     return () => {
       active = false;
     };
-  }, [attempt, authorizationHeader, enabled, endpoint, markSessionExpired]);
+  }, [attempt, authScope, authorizationHeader, enabled, endpoint, markSessionExpired]);
 
   // Drop the cached URL and refetch (e.g. after a 403 on an expired URL).
   const retry = useCallback(() => {
-    clearCachedSignedUrl(endpoint);
+    clearCachedSignedUrl(endpoint, authScope);
     setUrl(null);
     setFailed(false);
     setAttempt((current) => current + 1);
-  }, [endpoint]);
+  }, [authScope, endpoint]);
 
   // Mark the current URL dead (e.g. <img> onError) so the frame shows its failure state.
   const markFailed = useCallback(() => {
-    clearCachedSignedUrl(endpoint);
+    clearCachedSignedUrl(endpoint, authScope);
     setUrl(null);
     setFailed(true);
-  }, [endpoint]);
+  }, [authScope, endpoint]);
 
   return { url, failed, retry, markFailed };
 }

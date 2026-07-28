@@ -184,4 +184,25 @@ describe("GET /api/health/ready", () => {
     expect(body.checks).toMatchObject({ supabase: "error" });
     expect(JSON.stringify(body)).not.toContain("permission denied");
   });
+
+  it("bounds the readiness dependency query to four seconds", async () => {
+    mockEnv({ configured: true });
+    const expectedSignal = new AbortController().signal;
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(expectedSignal);
+    const probeSupabaseHealth = vi.fn(async (client: unknown, options: { signal?: AbortSignal }) => {
+      expect(client).toEqual({});
+      expect(options.signal).toBe(expectedSignal);
+      return { ok: true, checkedAt: "2026-07-22T00:00:00.000Z" };
+    });
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+    vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(new Request("http://localhost/api/health/ready"));
+
+    expect(response.status).toBe(200);
+    const options = probeSupabaseHealth.mock.calls[0]?.[1] as { signal?: AbortSignal };
+    expect(timeout).toHaveBeenCalledWith(4_000);
+    expect(options.signal).toBe(expectedSignal);
+  });
 });

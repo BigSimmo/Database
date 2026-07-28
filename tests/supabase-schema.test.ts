@@ -30,6 +30,14 @@ const documentChangeWebhookMigration = readFileSync(
   new URL("../supabase/migrations/20260723150000_document_change_ingestion_webhook.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const boundedRateLimitRetentionMigration = readFileSync(
+  new URL("../supabase/migrations/20260727123000_bounded_api_rate_limit_retention.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const indexingV3LeaseFenceMigration = readFileSync(
+  new URL("../supabase/migrations/20260727124500_fence_indexing_v3_agent_lease.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const atomicReindexAgentGuardMigration = readFileSync(
   new URL("../supabase/migrations/20260724060000_atomic_reindex_agent_guard.sql", import.meta.url),
   "utf8",
@@ -84,6 +92,10 @@ const abandonedReindexRecoveryMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const auditLogsServiceRolePolicyMigration = readFileSync(
   new URL("../supabase/migrations/20260630090000_audit_logs_service_role_policy.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const durableReindexStorageCleanupMigration = readFileSync(
+  new URL("../supabase/migrations/20260727121500_durable_reindex_storage_cleanup.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const migrationDirectoryUrl = new URL("../supabase/migrations/", import.meta.url);
@@ -393,6 +405,33 @@ describe("Supabase schema Data API grants", () => {
     expect(atomicReindexMigration).toContain("atomic reindex patch did not match match_document_index_units_hybrid");
   });
 
+  it("durably snapshots obsolete image paths inside the fenced v2 generation commit", () => {
+    const signature =
+      "public.commit_document_index_generation_v2( uuid, text, uuid, uuid, text, text, integer, integer, integer, jsonb, jsonb, jsonb )";
+    for (const sql of [schema, durableReindexStorageCleanupMigration]) {
+      expect(sql).toContain("create or replace function public.commit_document_index_generation_v2(");
+      const functionStart = sql.indexOf("create or replace function public.commit_document_index_generation_v2(");
+      const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+      const leaseLock = functionBody.indexOf("from public.ingestion_jobs where id = p_job_id for update;");
+      const imageSnapshot = functionBody.indexOf("into v_obsolete_image_paths from public.document_images");
+      const ledgerInsert = functionBody.indexOf("insert into public.storage_cleanup_jobs");
+      const generationCommit = functionBody.indexOf("v_result := public.commit_document_index_generation(");
+
+      expect(functionBody).toContain("v_job.document_id is distinct from p_document_id");
+      expect(functionBody).toContain("v_job.status is distinct from 'processing'");
+      expect(functionBody).toContain("v_job.locked_by is distinct from p_worker_id");
+      expect(functionBody).toContain("'operation', 'obsolete_index_generation'");
+      expect(functionBody).toContain("'prior_index_generation_id', v_prior_generation_id");
+      expect(functionBody).toContain("'committed_index_generation_id', p_index_generation_id");
+      expect(leaseLock).toBeGreaterThanOrEqual(0);
+      expect(leaseLock).toBeLessThan(imageSnapshot);
+      expect(imageSnapshot).toBeLessThan(ledgerInsert);
+      expect(ledgerInsert).toBeLessThan(generationCommit);
+      expect(sql).toContain(`revoke execute on function ${signature} from public, anon, authenticated, service_role;`);
+      expect(sql).toContain(`grant execute on function ${signature} to service_role;`);
+    }
+  });
+
   it("preserves NULL-generation artifacts until replacements exist", () => {
     for (const sql of [preserveLegacyArtifactCommitMigration]) {
       expect(sql).toContain(
@@ -664,6 +703,39 @@ describe("Supabase schema Data API grants", () => {
     }
   });
 
+  it("fences indexing-v3 status and completion writes to the current job lease", () => {
+    expect(schema.indexOf("create table if not exists public.indexing_v3_agent_jobs")).toBeLessThan(
+      schema.indexOf("create or replace function public.complete_strict_enrichment_job_v2"),
+    );
+    for (const sql of [schema, indexingV3LeaseFenceMigration]) {
+      const statusStart = sql.indexOf("create or replace function public.update_indexing_v3_agent_job_status_v2");
+      const completionStart = sql.indexOf("create or replace function public.complete_strict_enrichment_job_v2");
+      expect(statusStart).toBeGreaterThanOrEqual(0);
+      expect(completionStart).toBeGreaterThanOrEqual(0);
+      const statusBody = sql.slice(statusStart, sql.indexOf("$$;", statusStart) + 3);
+      const completionBody = sql.slice(completionStart, sql.indexOf("$$;", completionStart) + 3);
+
+      expect(statusBody).toContain("where job.id = p_job_id and job.document_id = p_document_id for update");
+      expect(statusBody).toContain("v_job.status is distinct from 'processing'");
+      expect(statusBody).toContain("v_job.locked_by is distinct from p_worker_id");
+      expect(statusBody).toContain("v_job.locked_at is null");
+      expect(statusBody).toContain("case when p_release_unstarted then 1 else 0 end");
+      expect(completionBody).toContain("where job.id = p_job_id and job.document_id = p_document_id for update");
+      expect(completionBody).toContain("v_job.locked_by is distinct from p_worker_id");
+      expect(completionBody).toContain("from public.complete_strict_enrichment_job(");
+      expect(completionBody).toContain("status = 'completed'");
+      expect(sql).toContain(
+        "grant execute on function public.update_indexing_v3_agent_job_status_v2( uuid, uuid, text, text, text, timestamptz, jsonb, boolean ) to service_role",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.complete_strict_enrichment_job_v2(uuid, uuid, text, text, text, text) to service_role",
+      );
+    }
+
+    expect(schema).toContain("create or replace function public.update_indexing_v3_agent_job_status(");
+    expect(schema).toContain("create or replace function public.complete_strict_enrichment_job(");
+  });
+
   it("supports service-role-only durable API rate limiting", () => {
     expect(schema).toContain("create table if not exists public.api_rate_limits");
     expect(schema).toContain("create table if not exists public.api_rate_limit_subjects");
@@ -680,6 +752,19 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain('create policy "api rate limits service role all"');
     expect(schema).toContain('create policy "api rate limit subjects service role all"');
     expect(schema).not.toMatch(/grant [^;]*public\.api_rate_limits[^;]* to authenticated;/);
+  });
+
+  it("bounds stale owner and anonymous rate-limit cleanup without scheduling it implicitly", () => {
+    for (const sql of [schema, boundedRateLimitRetentionMigration]) {
+      expect(sql).toContain("create or replace function public.purge_expired_api_rate_limits");
+      expect(sql).toContain("now() - interval '24 hours'");
+      expect(sql).toContain("least(greatest(coalesce(p_limit, 5000), 1), 5000)");
+      expect(sql).toContain("from public.api_rate_limits");
+      expect(sql).toContain("from public.api_rate_limit_subjects");
+      expect(sql).toContain("limit v_limit");
+      expect(sql).toContain("grant execute on function public.purge_expired_api_rate_limits(integer) to service_role");
+    }
+    expect(boundedRateLimitRetentionMigration).not.toContain("cron.schedule");
   });
 
   it("keeps audit logs service-role-only with an explicit RLS policy", () => {

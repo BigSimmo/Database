@@ -1846,7 +1846,11 @@ function hasCompleteOpeningSentence(value: string) {
 
 /** Has invalid model evidence ids. */
 export function hasInvalidModelEvidenceIds(answer: Pick<RagAnswer, "routingReason">) {
-  return /\binvalid_model_citation_ids\b/.test(answer.routingReason ?? "");
+  const invalidReasons = new Set(["invalid_model_citation_ids", "partial_invalid_model_citation_ids"]);
+  return (answer.routingReason ?? "")
+    .split(";")
+    .map((reason) => reason.trim().toLowerCase())
+    .some((reason) => invalidReasons.has(reason));
 }
 
 /** Generated answer quality failure reason. */

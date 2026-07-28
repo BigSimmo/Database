@@ -70,6 +70,34 @@ describe("POST /api/webhooks/supabase/document-change", () => {
     expect(response.status).toBe(401);
   });
 
+  it("rejects authenticated payloads above 64 KiB before database work", async () => {
+    const { route, checkIngestionMutationSafety, enqueueDocumentReindexJob } = await loadRoute();
+    const response = await route.POST(
+      post({
+        ...insertEvent({ id: documentId, owner_id: ownerId }),
+        padding: "x".repeat(64 * 1024),
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(checkIngestionMutationSafety).not.toHaveBeenCalled();
+    expect(enqueueDocumentReindexJob).not.toHaveBeenCalled();
+  });
+
+  it("rejects overlong table and document status fields", async () => {
+    const { route, checkIngestionMutationSafety } = await loadRoute();
+    const response = await route.POST(
+      post({
+        type: "INSERT",
+        table: "x".repeat(64),
+        record: { id: documentId, owner_id: ownerId, status: "x".repeat(81) },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(checkIngestionMutationSafety).not.toHaveBeenCalled();
+  });
+
   it("skips in demo mode", async () => {
     const { route, enqueueDocumentReindexJob } = await loadRoute({ demo: true });
     const response = await route.POST(post(insertEvent({ id: documentId, owner_id: ownerId })));

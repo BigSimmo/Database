@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { writeAuditLog } from "@/lib/audit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
@@ -164,6 +165,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (error) throw new Error(error.message);
     invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
+    await writeAuditLog(supabase, {
+      ownerId: user.id,
+      action: "document_label_change",
+      resourceType: "document_label",
+      resourceId: label.id,
+      metadata: { operation: "create", documentId: id },
+    });
     return NextResponse.json({ label, labels: await selectLabels(supabase, id) }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -230,6 +238,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (error) throw new Error(error.message);
       invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
+      await writeAuditLog(supabase, {
+        ownerId: user.id,
+        action: "document_label_change",
+        resourceType: "document_label",
+        resourceId: label.id,
+        metadata: { operation: parsed.action, documentId: id },
+      });
       return NextResponse.json({ label });
     }
 
@@ -273,6 +288,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (error) throw new Error(error.message);
     invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
+    await writeAuditLog(supabase, {
+      ownerId: user.id,
+      action: "document_label_change",
+      resourceType: "document_label",
+      resourceId: label.id,
+      metadata: { operation: "edit", documentId: id },
+    });
     return NextResponse.json({ label, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -329,6 +351,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     if (error) throw new Error(error.message);
     invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
+    await writeAuditLog(supabase, {
+      ownerId: user.id,
+      action: "document_label_change",
+      resourceType: "document_label",
+      resourceId: parsed.labelId,
+      metadata: { operation: "delete", documentId: id },
+    });
     return NextResponse.json({ deleted: true, labelId: parsed.labelId, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {

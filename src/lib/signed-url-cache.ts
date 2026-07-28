@@ -26,27 +26,41 @@ const SIGNED_URL_EXPIRY_SKEW_MS = 30_000;
 
 const signedUrlCache = new Map<string, SignedUrlCacheEntry>();
 
-export function getCachedSignedUrl(endpoint: string) {
-  const cached = signedUrlCache.get(endpoint);
+export function signedUrlCacheScope(
+  accessScope: "public" | "owner",
+  authEpoch: number,
+  ownerId: string | null | undefined,
+) {
+  return accessScope === "public" ? "public" : `owner:${authEpoch}:${ownerId ?? "signed-out"}`;
+}
+
+function cacheKey(endpoint: string, authScope: string) {
+  return `${authScope}\n${endpoint}`;
+}
+
+export function getCachedSignedUrl(endpoint: string, authScope: string) {
+  const key = cacheKey(endpoint, authScope);
+  const cached = signedUrlCache.get(key);
   if (!cached) return null;
 
   if (cached.expiresAtMs - Date.now() <= SIGNED_URL_EXPIRY_SKEW_MS) {
-    signedUrlCache.delete(endpoint);
+    signedUrlCache.delete(key);
     return null;
   }
 
   // LRU: mark as most-recently-used.
-  signedUrlCache.delete(endpoint);
-  signedUrlCache.set(endpoint, cached);
+  signedUrlCache.delete(key);
+  signedUrlCache.set(key, cached);
   return cached.payload;
 }
 
-export function setCachedSignedUrl(endpoint: string, payload: SignedUrlPayload) {
+export function setCachedSignedUrl(endpoint: string, authScope: string, payload: SignedUrlPayload) {
+  const key = cacheKey(endpoint, authScope);
   const parsedExpiry = payload.expiresAt ? Date.parse(payload.expiresAt) : NaN;
   const expiresAtMs = Number.isFinite(parsedExpiry) ? parsedExpiry : Date.now() + SIGNED_URL_DEFAULT_TTL_MS;
 
-  if (signedUrlCache.has(endpoint)) signedUrlCache.delete(endpoint);
-  signedUrlCache.set(endpoint, { payload, expiresAtMs });
+  if (signedUrlCache.has(key)) signedUrlCache.delete(key);
+  signedUrlCache.set(key, { payload, expiresAtMs });
 
   while (signedUrlCache.size > SIGNED_URL_CACHE_MAX_SIZE) {
     const oldestKey = signedUrlCache.keys().next().value;
@@ -56,8 +70,8 @@ export function setCachedSignedUrl(endpoint: string, payload: SignedUrlPayload) 
   return payload;
 }
 
-export function clearCachedSignedUrl(endpoint: string) {
-  signedUrlCache.delete(endpoint);
+export function clearCachedSignedUrl(endpoint: string, authScope: string) {
+  signedUrlCache.delete(cacheKey(endpoint, authScope));
 }
 
 export function clearSignedUrlCache() {

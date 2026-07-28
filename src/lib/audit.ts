@@ -47,8 +47,29 @@ function minimumAuditMetadata(entry: AuditLogEntry): Record<string, boolean | nu
       return {};
     }
     case "document_rename":
-    case "document_label_change":
       return {};
+    case "document_label_change": {
+      const operation = metadata.operation;
+      const documentId = metadata.documentId;
+      const allowedOperation =
+        operation === "create" ||
+        operation === "edit" ||
+        operation === "approve" ||
+        operation === "hide" ||
+        operation === "restore" ||
+        operation === "delete"
+          ? operation
+          : undefined;
+      const allowedDocumentId =
+        typeof documentId === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(documentId)
+          ? documentId
+          : undefined;
+      return {
+        ...(allowedOperation ? { operation: allowedOperation } : {}),
+        ...(allowedDocumentId ? { documentId: allowedDocumentId } : {}),
+      };
+    }
   }
 }
 

@@ -4,12 +4,14 @@ type SupabaseProbeClient = {
       columns: string,
       options?: Record<string, unknown>,
     ): {
-      limit(
-        count: number,
-      ): PromiseLike<{ error: { message?: string; code?: string; details?: string; hint?: string } | null }>;
+      limit(count: number): PromiseLike<SupabaseProbeResponse> & {
+        abortSignal?: (signal: AbortSignal) => PromiseLike<SupabaseProbeResponse>;
+      };
     };
   };
 };
+
+type SupabaseProbeResponse = { error: { message?: string; code?: string; details?: string; hint?: string } | null };
 
 export type SupabaseHealthResult =
   | { ok: true; checkedAt: string }
@@ -32,7 +34,7 @@ function errorMessage(error: unknown) {
 
 export function isSupabaseUnavailableError(error: unknown) {
   const message = errorMessage(error);
-  return /<!doctype html|<html[\s>]|522|544|504|520|connection terminated|connection timeout|statement timeout|fetch failed|network|ECONNRESET|ETIMEDOUT/i.test(
+  return /<!doctype html|<html[\s>]|522|544|504|520|connection terminated|connection timeout|statement timeout|fetch failed|network|aborted|AbortError|ECONNRESET|ETIMEDOUT/i.test(
     message,
   );
 }
@@ -54,10 +56,15 @@ export function formatSupabaseUnavailableError(error: unknown) {
     : "Supabase is temporarily unavailable.";
 }
 
-export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promise<SupabaseHealthResult> {
+export async function probeSupabaseHealth(
+  supabase: SupabaseProbeClient,
+  options: { signal?: AbortSignal } = {},
+): Promise<SupabaseHealthResult> {
   const checkedAt = new Date().toISOString();
   try {
-    const { error } = await supabase.from("import_batches").select("id").limit(1);
+    const query = supabase.from("import_batches").select("id").limit(1);
+    const { error } =
+      options.signal && typeof query.abortSignal === "function" ? await query.abortSignal(options.signal) : await query;
     if (!error) return { ok: true, checkedAt };
     return {
       ok: false,

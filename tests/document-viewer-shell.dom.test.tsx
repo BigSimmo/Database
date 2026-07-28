@@ -7,7 +7,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { authMethods, authSession, push } = vi.hoisted(() => {
+  const authSessionState = {
+    status: "signed_out",
+    session: null as { user: { id: string } } | null,
+    authEpoch: 0,
+    authorizationHeader: {} as Record<string, string>,
+  };
+  return {
+    push: vi.fn(),
+    authSession: authSessionState,
+    authMethods: {
+      registerAuthRequest: () => ({ epoch: authSessionState.authEpoch, release: vi.fn() }),
+      isAuthEpochCurrent: (epoch: number) => epoch === authSessionState.authEpoch,
+      markSessionExpired: vi.fn(),
+      signInWithEmail: vi.fn(),
+      signInWithPassword: vi.fn(),
+      signUpWithPassword: vi.fn(),
+      signInWithOAuth: vi.fn(),
+      signOut: vi.fn(),
+    },
+  };
+});
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -16,18 +37,9 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
-    status: "signed_out",
-    session: null,
+    ...authSession,
     isConfigured: true,
-    authorizationHeader: {},
-    registerAuthRequest: () => ({ epoch: 1, release: vi.fn() }),
-    isAuthEpochCurrent: () => true,
-    markSessionExpired: vi.fn(),
-    signInWithEmail: vi.fn(),
-    signInWithPassword: vi.fn(),
-    signUpWithPassword: vi.fn(),
-    signInWithOAuth: vi.fn(),
-    signOut: vi.fn(),
+    ...authMethods,
   }),
 }));
 
@@ -53,7 +65,7 @@ vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
 import { DocumentViewer } from "@/components/DocumentViewer";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 
-function detailPayload() {
+function detailPayload(accessScope: "public" | "owner" = "public") {
   return {
     document: {
       id: "doc-1",
@@ -78,7 +90,8 @@ function detailPayload() {
     images: [],
     tableFacts: [],
     chunks: [],
-    demoMode: true,
+    demoMode: false,
+    accessScope,
     assetScope: "document",
     window: {
       requestedPage: 1,
@@ -99,6 +112,10 @@ function detailPayload() {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
   vi.stubEnv("NEXT_PUBLIC_LOCAL_NO_AUTH", "false");
+  authSession.status = "signed_out";
+  authSession.session = null;
+  authSession.authEpoch = 0;
+  authSession.authorizationHeader = {};
 });
 
 afterEach(() => {
@@ -152,5 +169,78 @@ describe("DocumentViewer — shell states", () => {
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
+  });
+
+  it("clears owner-scoped document state immediately when owner A signs out", async () => {
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "owner-a" } };
+    authSession.authEpoch = 1;
+    authSession.authorizationHeader = { Authorization: "Bearer owner-a" };
+    const detail = detailPayload("owner");
+    const view = render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+
+    authSession.status = "signed_out";
+    authSession.session = null;
+    authSession.authEpoch = 2;
+    authSession.authorizationHeader = {};
+    view.rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+
+    expect(screen.queryByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeNull();
+    expect(await screen.findByRole("heading", { level: 1, name: "Source unavailable" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeNull();
+  });
+
+  it("clears owner-scoped document state immediately when owner A becomes owner B", async () => {
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "owner-a" } };
+    authSession.authEpoch = 1;
+    authSession.authorizationHeader = { Authorization: "Bearer owner-a" };
+    const detail = detailPayload("owner");
+    const view = render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+
+    authSession.session = { user: { id: "owner-b" } };
+    // The identity update can render before AuthProvider advances its request
+    // epoch. The viewer must still clear A's content in that intermediate paint.
+    authSession.authorizationHeader = { Authorization: "Bearer owner-b" };
+    view.rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+
+    expect(screen.queryByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeNull();
+    expect(await screen.findByRole("heading", { level: 1, name: "Source unavailable" })).toBeVisible();
+    expect(screen.queryByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeNull();
+  });
+
+  it("keeps an already-rendered public document visible across sign-out", async () => {
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "owner-a" } };
+    authSession.authEpoch = 1;
+    authSession.authorizationHeader = { Authorization: "Bearer owner-a" };
+    const detail = detailPayload("public");
+    const view = render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+
+    authSession.status = "signed_out";
+    authSession.session = null;
+    authSession.authEpoch = 2;
+    authSession.authorizationHeader = {};
+    view.rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+  });
+
+  it("keeps owner-scoped content visible during same-user token refresh", async () => {
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "owner-a" } };
+    authSession.authEpoch = 1;
+    authSession.authorizationHeader = { Authorization: "Bearer token-1" };
+    const detail = detailPayload("owner");
+    const view = render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+
+    authSession.authorizationHeader = { Authorization: "Bearer token-2" };
+    view.rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detail} />);
+
+    expect(screen.getByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
   });
 });
