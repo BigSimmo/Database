@@ -466,6 +466,7 @@ Record one `docs/branch-review-ledger.md` row per PR touched, and end with the p
 - After auth, Supabase, ingestion, answer generation, search/ranking, clinical output, or source-governance changes, run the smallest domain check plus `npm run check:production-readiness`. Run `npm run check:supabase-project` after Supabase env/config changes.
 - For handoff, archive-safety, or upload-style requests, inspect branch/upstream/status first, run the appropriate verification gate, and only commit or push when the request explicitly asks for that workflow.
 - For broad chat/worktree reconciliation or cleanup, run `node scripts/reconciliation-preflight.mjs`, use the cheap ownership/PR/ledger/ancestry funnel before patch comparison, and never print raw process command lines.
+- Keep feature edits in task-owned worktrees. Before any deliberate write, branch switch, fast-forward, or synchronization in the canonical primary checkout, run it through `npm run primary:mutate -- <command> [args...]`; inspect ownership read-only with `npm run primary:status`. The guard must fail closed on a live writer, dirty state, active Git operation, or unreadable ownership record, while read-only work and independent worktrees remain unblocked.
 - For codebase appraisal exports, stage outside the repo, include `EXPORT_MANIFEST.md`, exclude secrets/dependencies/build outputs/local state, and verify the archive can be opened before handoff.
 - When a repeated repo-specific workflow is discovered, update this file or ask the user whether it should be remembered.
 

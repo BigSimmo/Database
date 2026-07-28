@@ -108,12 +108,30 @@ describe("productivity workflow planning", () => {
     const plan = buildWorkflowPlan("lifecycle", [], { phase: "reconcile" });
 
     expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+      "npm run primary:status",
       "node scripts/reconciliation-preflight.mjs",
     ]);
     expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toEqual([
       "git fetch --prune origin",
     ]);
     expect(plan.proof.join(" ")).toContain("never print raw process command lines");
+    expect(plan.proof.join(" ")).toContain("npm run primary:mutate");
+  });
+
+  it("surfaces primary ownership at task start without blocking independent worktrees", () => {
+    const plan = buildWorkflowPlan("lifecycle", [], { phase: "start" });
+
+    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual(["npm run primary:status"]);
+    expect(plan.approvalRequired).toEqual([]);
+  });
+
+  it("surfaces primary ownership before the handoff gate", () => {
+    const plan = buildWorkflowPlan("lifecycle", [], { phase: "handoff" });
+
+    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+      "npm run primary:status",
+      "npm run verify:pr-local",
+    ]);
   });
 
   it("classifies common failure signatures", () => {

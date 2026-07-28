@@ -237,17 +237,22 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
     if (!new Set(["status", "start", "reconcile", "handoff", "landed", "cleanup"]).has(phase)) {
       throw new Error(`Unknown lifecycle phase: ${phase}`);
     }
+    const primaryOwnershipCheck = check(
+      "npm run primary:status",
+      "Report canonical-checkout ownership and dirty/operation state without acquiring the mutation lease.",
+    );
     localChecks =
       phase === "handoff"
-        ? [check("npm run verify:pr-local", "Complete the local handoff gate.")]
+        ? [primaryOwnershipCheck, check("npm run verify:pr-local", "Complete the local handoff gate.")]
         : phase === "reconcile"
           ? [
+              primaryOwnershipCheck,
               check(
                 "node scripts/reconciliation-preflight.mjs",
                 "Inventory cached base, primary checkout, worktrees, dirty state, and Git operations without fetching.",
               ),
             ]
-          : [];
+          : [primaryOwnershipCheck];
     approvalRequired =
       phase === "handoff"
         ? [
@@ -267,6 +272,7 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
     proof.push(
       "Verify branch and worktree state at every transition.",
       "Use content equality for squash-merge proof before cleanup.",
+      "Wrap every deliberate canonical primary-checkout mutation with npm run primary:mutate.",
     );
     if (phase === "reconcile") {
       proof.push(

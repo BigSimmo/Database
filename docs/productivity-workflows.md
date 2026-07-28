@@ -26,7 +26,15 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 - Use lifecycle phase `reconcile` for broad multi-worktree work. It selects the report-only
   `node scripts/reconciliation-preflight.mjs` locally and keeps `git fetch --prune origin` approval-gated. Add
   `--include-processes` to the preflight only when process ownership may block cleanup; it never
-  serializes raw command lines.
+  serializes raw command lines. Worktree inspection is bounded and reports its duration, so the
+  command remains useful when many worktrees are registered without making the test suite depend
+  on that machine-local inventory.
+- Use `npm run primary:status` for a read-only view of the canonical checkout's owner, dirty state,
+  and Git operation markers. Wrap deliberate primary writes with
+  `npm run primary:mutate -- <command> [args...]`. The wrapper holds an atomic lease for the child
+  command, refuses a second live owner or pre-existing dirty/operation state, and recovers a lease
+  whose recorded process is proven dead. It does not serialize read-only work or commands run in
+  independent feature worktrees.
 
 The existing shared `workflow:run`, `workflow:status`, `workflow:verify`, `workflow:deps`, `workflow:clean-state`, `workflow:export`, and `workflow:handoff` commands now resolve their shared implementation through the repository's Git common directory. This keeps them portable in linked and detached Codex worktrees. Set `CODEX_LOCAL_WORKFLOW_ROOT` only when the shared tools live somewhere non-standard.
 

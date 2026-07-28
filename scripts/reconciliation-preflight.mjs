@@ -1,16 +1,21 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { execFile, execFileSync } from "node:child_process";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { listRepoNodeProcesses } from "./run-eval-safe.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const execFileAsync = promisify(execFile);
+const defaultWorktreeInspectionConcurrency = 6;
+const gitInspectionTimeoutMs = 15_000;
 const operationMarkers = [
   "MERGE_HEAD",
   "CHERRY_PICK_HEAD",
   "REVERT_HEAD",
+  "AM_HEAD",
   "BISECT_LOG",
   "rebase-merge",
   "rebase-apply",
@@ -35,9 +40,45 @@ function git(args, cwd = repositoryRoot, { allowFailure = false } = {}) {
   }
 }
 
-function tryGit(args, cwd) {
+async function gitAsync(args, cwd = repositoryRoot, { allowFailure = false } = {}) {
   try {
-    return { ok: true, output: git(args, cwd) };
+    const result = await execFileAsync("git", args, {
+      cwd,
+      encoding: "utf8",
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: "0" },
+      maxBuffer: 8 * 1024 * 1024,
+      timeout: gitInspectionTimeoutMs,
+      windowsHide: true,
+    });
+    return String(result.stdout ?? "").trim();
+  } catch (error) {
+    if (allowFailure) return "";
+    throw error;
+  }
+}
+
+async function tryGitAsync(args, cwd) {
+  try {
+    return { ok: true, output: await gitAsync(args, cwd) };
+  } catch {
+    return { ok: false, output: "" };
+  }
+}
+
+function tryResolveWorktreeGitDirectory(worktreePath) {
+  try {
+    const dotGitPath = path.join(path.resolve(worktreePath), ".git");
+    const dotGitStat = statSync(dotGitPath);
+    if (dotGitStat.isDirectory()) return { ok: true, output: dotGitPath };
+    if (!dotGitStat.isFile()) return { ok: false, output: "" };
+
+    const match = readFileSync(dotGitPath, "utf8")
+      .trim()
+      .match(/^gitdir:\s*(.+)$/i);
+    if (!match?.[1]) return { ok: false, output: "" };
+    const gitDirectory = path.resolve(path.dirname(dotGitPath), match[1]);
+    if (!statSync(gitDirectory).isDirectory()) return { ok: false, output: "" };
+    return { ok: true, output: gitDirectory };
   } catch {
     return { ok: false, output: "" };
   }
@@ -146,12 +187,12 @@ function resolveBaseRef(explicitBaseRef) {
   return "main";
 }
 
-function inspectWorktree(item, baseRef, baseCommit) {
-  const statusResult = tryGit(["status", "--porcelain=v1", "--untracked-files=normal"], item.path);
-  const gitDirectoryResult = tryGit(["rev-parse", "--path-format=absolute", "--git-dir"], item.path);
-  const countsResult = baseCommit
-    ? tryGit(["rev-list", "--left-right", "--count", `${baseRef}...${item.head}`], item.path)
-    : { ok: true, output: "" };
+async function inspectWorktree(item, baseCommit, resolveDivergence) {
+  const gitDirectoryResult = tryResolveWorktreeGitDirectory(item.path);
+  const [statusResult, countsResult] = await Promise.all([
+    tryGitAsync(["--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=normal"], item.path),
+    baseCommit ? resolveDivergence(item.head) : Promise.resolve({ ok: true, output: "" }),
+  ]);
   const inspectionErrors = [];
   if (!statusResult.ok) inspectionErrors.push("status-unreadable");
   if (!gitDirectoryResult.ok || !gitDirectoryResult.output) inspectionErrors.push("git-directory-unresolved");
@@ -180,6 +221,47 @@ function inspectWorktree(item, baseRef, baseCommit) {
 }
 
 /**
+ * @param {Array<Record<string, any>>} worktrees
+ * @param {string} baseRef
+ * @param {string} baseCommit
+ * @param {{
+ *   concurrency?: number;
+ *   inspect?: (worktree: any, baseRef: string, baseCommit: string) => Promise<Record<string, any>>;
+ * }} [options]
+ */
+export async function inspectReconciliationWorktrees(worktrees, baseRef, baseCommit, options = {}) {
+  const { concurrency = defaultWorktreeInspectionConcurrency, inspect } = options;
+  const boundedConcurrency = Math.max(1, Math.min(Number.parseInt(String(concurrency), 10) || 1, 16));
+  const results = new Array(worktrees.length);
+  const divergenceByHead = new Map();
+  const resolveDivergence = (head) => {
+    if (!head) return Promise.resolve({ ok: false, output: "" });
+    if (!divergenceByHead.has(head)) {
+      divergenceByHead.set(
+        head,
+        tryGitAsync(["rev-list", "--left-right", "--count", `${baseRef}...${head}`], repositoryRoot),
+      );
+    }
+    return divergenceByHead.get(head);
+  };
+  const inspectOne = inspect ?? ((item) => inspectWorktree(item, baseCommit, resolveDivergence));
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < worktrees.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await inspectOne(worktrees[index], baseRef, baseCommit);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(boundedConcurrency, Math.max(worktrees.length, 1)) }, () => worker()),
+  );
+  return results;
+}
+
+/**
  * @param {Array<{ path: string }>} worktrees
  * @param {(roots: string[]) => Array<{ pid: number, parentPid: number, createdAtMs: number | null }>} [listProcesses]
  */
@@ -191,11 +273,12 @@ export function collectProcessDiagnostics(worktrees, listProcesses = listRepoNod
   };
 }
 
-export function collectReconciliationState({ baseRef: explicitBaseRef, includeProcesses = false } = {}) {
+export async function collectReconciliationState({ baseRef: explicitBaseRef, includeProcesses = false } = {}) {
+  const inspectionStartedAt = Date.now();
   const baseRef = resolveBaseRef(explicitBaseRef);
   const baseCommit = git(["rev-parse", "--verify", "--quiet", baseRef], repositoryRoot, { allowFailure: true });
   const rawWorktrees = parseWorktreePorcelain(git(["worktree", "list", "--porcelain"]));
-  const worktrees = rawWorktrees.map((item) => inspectWorktree(item, baseRef, baseCommit));
+  const worktrees = await inspectReconciliationWorktrees(rawWorktrees, baseRef, baseCommit);
   const summary = classifyReconciliationState({ baseCommit, baseRef, worktrees });
   return {
     generatedAt: new Date().toISOString(),
@@ -204,31 +287,39 @@ export function collectReconciliationState({ baseRef: explicitBaseRef, includePr
     processDiagnostics: includeProcesses
       ? collectProcessDiagnostics(worktrees)
       : { skipped: true, rawCommandLinesSerialized: false },
+    inspectionDiagnostics: {
+      durationMs: Date.now() - inspectionStartedAt,
+      worktreeConcurrency: defaultWorktreeInspectionConcurrency,
+    },
     ...summary,
   };
 }
 
-function render(result) {
-  console.log("Reconciliation preflight (read-only, cached refs; no fetch)\n");
-  console.log(`Base: ${result.baseRef} ${result.baseCommit ?? "(unresolved)"}`);
-  console.log(`Primary: ${result.primaryPath ?? "(unknown)"}`);
-  console.log(
+function render(result, writeOutput = console.log) {
+  writeOutput("Reconciliation preflight (read-only, cached refs; no fetch)\n");
+  writeOutput(`Base: ${result.baseRef} ${result.baseCommit ?? "(unresolved)"}`);
+  writeOutput(`Primary: ${result.primaryPath ?? "(unknown)"}`);
+  writeOutput(
     `Worktrees: ${result.totals.worktrees} total, ${result.totals.dirty} dirty, ` +
       `${result.totals.detached} detached, ${result.totals.activeOperations} with active Git operations`,
   );
-  console.log("Integration base: create a dedicated clean worktree from the freshly fetched remote base.");
+  writeOutput(
+    `Inspection: ${result.inspectionDiagnostics.durationMs}ms with bounded concurrency ` +
+      `${result.inspectionDiagnostics.worktreeConcurrency}.`,
+  );
+  writeOutput("Integration base: create a dedicated clean worktree from the freshly fetched remote base.");
   if (result.processDiagnostics.skipped) {
-    console.log("Process check: skipped (add --include-processes when ownership could block cleanup).");
+    writeOutput("Process check: skipped (add --include-processes when ownership could block cleanup).");
   } else {
-    console.log(
+    writeOutput(
       `Process check: ${result.processDiagnostics.matchingWorktreeNodeProcesses} registered-worktree Node process(es); ` +
         "raw command lines were not serialized.",
     );
   }
-  console.log("\nFindings:");
-  if (!result.findings.length) console.log("- none");
-  for (const finding of result.findings) console.log(`- [${finding.severity}] ${finding.code}: ${finding.detail}`);
-  console.log(
+  writeOutput("\nFindings:");
+  if (!result.findings.length) writeOutput("- none");
+  for (const finding of result.findings) writeOutput(`- [${finding.severity}] ${finding.code}: ${finding.detail}`);
+  writeOutput(
     "\nNext: obtain fetch approval, refresh the remote base, classify by ownership/PR/ledger/ancestry, " +
       "then inspect patch-unique content only for the remaining candidates.",
   );
@@ -255,28 +346,39 @@ function parseArgs(argv) {
   return options;
 }
 
-function main() {
-  const options = parseArgs(process.argv.slice(2));
+export async function runReconciliationPreflightCli(
+  argv,
+  { collectState = collectReconciliationState, writeOutput = console.log } = {},
+) {
+  const options = parseArgs(argv);
   if (options.help) {
-    console.log(
+    writeOutput(
       "Usage: node scripts/reconciliation-preflight.mjs [--json] [--strict] [--include-processes] [--base-ref <ref>]",
     );
-    return;
+    return 0;
   }
-  const result = collectReconciliationState(options);
-  if (options.json) console.log(JSON.stringify(result, null, 2));
-  else render(result);
-  if (options.strict && result.blocking) process.exitCode = 2;
+  const result = await collectState(options);
+  if (options.json) writeOutput(JSON.stringify(result, null, 2));
+  else render(result, writeOutput);
+  return options.strict && result.blocking ? 2 : 0;
 }
 
 const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
 if (invokedDirectly) {
-  try {
-    main();
-  } catch (error) {
-    console.error(`[reconciliation-preflight] ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
-  }
+  runReconciliationPreflightCli(process.argv.slice(2))
+    .then((exitCode) => {
+      process.exitCode = exitCode;
+    })
+    .catch((error) => {
+      console.error(`[reconciliation-preflight] ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    });
 }
 
-export const reconciliationPreflightInternals = { normalizePath, operationMarkers };
+export const reconciliationPreflightInternals = {
+  defaultWorktreeInspectionConcurrency,
+  gitInspectionTimeoutMs,
+  normalizePath,
+  operationMarkers,
+  tryResolveWorktreeGitDirectory,
+};

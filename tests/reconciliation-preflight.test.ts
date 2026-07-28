@@ -1,10 +1,10 @@
-import { spawnSync } from "node:child_process";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   classifyReconciliationState,
   collectProcessDiagnostics,
+  inspectReconciliationWorktrees,
   parseWorktreePorcelain,
+  runReconciliationPreflightCli,
 } from "../scripts/reconciliation-preflight.mjs";
 
 describe("reconciliation preflight", () => {
@@ -102,19 +102,54 @@ describe("reconciliation preflight", () => {
     expect(diagnostics).toEqual({ matchingWorktreeNodeProcesses: 1, rawCommandLinesSerialized: false });
   });
 
-  it("emits parseable metadata-only JSON without fetching", () => {
-    const script = path.resolve(process.cwd(), "scripts", "reconciliation-preflight.mjs");
-    const result = spawnSync(process.execPath, [script, "--json"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
+  it("bounds concurrent worktree inspection while preserving registration order", async () => {
+    let active = 0;
+    let peak = 0;
+    const worktrees = Array.from({ length: 24 }, (_, index) => ({ path: `C:/repo-${index}`, head: `${index}` }));
+
+    const result = await inspectReconciliationWorktrees(worktrees, "origin/main", "base123", {
+      concurrency: 4,
+      inspect: async (worktree: (typeof worktrees)[number]) => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        active -= 1;
+        return { ...worktree, statusEntries: 0, operations: [], inspectionErrors: [] };
+      },
     });
 
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
-    const payload = JSON.parse(result.stdout);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(4);
+    expect(result.map((item) => item.path)).toEqual(worktrees.map((item) => item.path));
+  });
+
+  it("emits parseable metadata-only JSON from an injected snapshot without scanning real worktrees", async () => {
+    const output: string[] = [];
+    const snapshot = {
+      generatedAt: "2026-07-25T00:00:00.000Z",
+      cachedRefsOnly: true,
+      fetched: false,
+      processDiagnostics: { skipped: true, rawCommandLinesSerialized: false },
+      baseRef: "origin/main",
+      baseCommit: "base123",
+      primaryPath: "C:/repo",
+      totals: { worktrees: 1, dirty: 0, detached: 0, activeOperations: 0, inspectionFailures: 0 },
+      integrationBase: "dedicated-worktree-required",
+      blocking: false,
+      findings: [],
+      worktrees: [],
+      inspectionDiagnostics: { durationMs: 4, worktreeConcurrency: 6 },
+    };
+    const exitCode = await runReconciliationPreflightCli(["--json"], {
+      collectState: async () => snapshot,
+      writeOutput: (value) => output.push(value),
+    });
+
+    expect(exitCode).toBe(0);
+    const payload = JSON.parse(output.join("\n"));
     expect(payload).toMatchObject({ cachedRefsOnly: true, fetched: false });
     expect(payload.integrationBase).toBe("dedicated-worktree-required");
     expect(payload.processDiagnostics).toMatchObject({ skipped: true, rawCommandLinesSerialized: false });
-    expect(result.stdout).not.toContain("commandLine");
-  }, 60_000);
+    expect(output.join("\n")).not.toContain("commandLine");
+  });
 });

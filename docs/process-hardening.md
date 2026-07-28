@@ -12,6 +12,13 @@ The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-pla
   cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
   detached worktrees, ahead/behind counts, and operation markers. Add `--include-processes` only
   when ownership could block cleanup; that path emits metadata/counts and never raw command lines.
+  Its worktree Git checks use bounded asynchronous inspection, per-command fail-closed timeouts,
+  and duration metadata rather than serial subprocess fan-out tied to the host's worktree count.
+- `npm run primary:status` remains read-only. `npm run primary:mutate -- <command> [args...]` is the
+  cooperative write boundary for the canonical primary checkout: it holds an atomic lease for one
+  child mutation, refuses live contention, dirt, or Git operation markers, stores no command
+  arguments, and recovers only owners proven dead (or incomplete records older than the initialization
+  grace period). Feature worktrees and read-only inspection do not acquire this lease.
 - `workflow:lifecycle -- --phase reconcile` selects the preflight locally and lists remote fetch as
   a separate approval-required action.
 - Candidate filtering is cheap-first: owner/open-PR/review-ledger/ancestry before patch comparison;

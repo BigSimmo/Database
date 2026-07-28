@@ -71,6 +71,17 @@ merges, old review refs, and intentionally retained branches.
 - Start with a red reproducer or exact content proof.
 - Refresh the base between sequential protected-main PRs.
 - Reject stale, mixed, duplicated, refuted, or unmeasured behavior rather than forcing it to apply.
+
+## Canonical checkout synchronization
+
+- Inspect the primary without claiming it: `npm run primary:status`.
+- Keep ordinary edits and verification in task-owned worktrees.
+- Wrap each deliberate primary branch switch or fast-forward so ownership is held until Git exits,
+  for example `npm run primary:mutate -- git merge --ff-only origin/main`.
+- Stop when the guard reports a live owner, dirty entry, active Git operation, or unreadable state.
+  Preserve and classify the checkout; never bypass the lease or discard files to make the guard pass.
+- A dead owner is recovered automatically. A fresh incomplete ownership record fails closed until
+  its 30-second initialization grace period expires.
 - Protected RAG behavior requires the repository RAG declaration, offline contracts, and approved
   baseline/post live canary. A failed canary reverts immediately.
 
