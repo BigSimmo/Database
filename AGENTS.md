@@ -227,7 +227,9 @@ The shared search chrome must adapt by page ownership, not by ad-hoc padding or 
 # External skill precedence
 
 User-global skills and output-style plugins are installed outside this repo and know nothing about
-its contracts. Repo docs and committed tests always win. This section is the tie-breaker.
+its contracts. Where they conflict with repo docs or committed tests, the repo wins. This section
+is the tie-breaker for that case only: it scopes external, generic guidance and does not override
+system, developer, user, security, or compliance requirements, which remain higher priority.
 
 - **Repo contracts outrank generic rules.** The Front-End Checklist skill corpus (~390 user-global
   skills: `alt-text`, `touch-targets`, `focus-styles`, `reduced-motion`, `color-contrast`, and so
