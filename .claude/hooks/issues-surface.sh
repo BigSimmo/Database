@@ -49,13 +49,15 @@ queue_rows="$(awk '
   /^## /                            { if (inqueue) inqueue=0 }
   inqueue && /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
     n=split($0, c, "|")
-    ord=c[2]; ids=c[3]; acuity=c[4]; capability=c[5]; timing=c[6]
+    ord=c[2]; ids=c[3]; acuity=c[4]; capability=c[5]; timing=c[6]; summary=c[8]
     gsub(/^[ \t]+|[ \t]+$/, "", ord)
     gsub(/^[ \t]+|[ \t]+$/, "", ids)
     gsub(/^[ \t]+|[ \t]+$/, "", acuity)
     gsub(/^[ \t]+|[ \t]+$/, "", capability)
     gsub(/^[ \t]+|[ \t]+$/, "", timing)
-    printf "%s\t%s\t%s\t%s\t%s\n", ord, ids, acuity, capability, timing
+    gsub(/^[ \t]+|[ \t]+$/, "", summary)
+    if (length(summary) > 110) summary=substr(summary, 1, 107) "..."
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n", ord, ids, acuity, capability, timing, summary
   }
 ' "$ledger" 2>/dev/null || true)"
 
@@ -75,8 +77,8 @@ echo "[issues] Outstanding-work memory — ${total} open (${c1}×P1, ${c2}×P2, 
 
 if [ "${queue_total:-0}" -gt 0 ]; then
   echo "[issues] Recommended execution queue — ${queue_total} retained tasks (first 8):"
-  printf '%s\n' "$queue_rows" | head -n 8 | while IFS=$'\t' read -r ord ids acuity capability timing; do
-    echo "  ${ord}. ${ids} · ${acuity} · ${timing} · ${capability}"
+  printf '%s\n' "$queue_rows" | head -n 8 | while IFS=$'\t' read -r ord ids acuity capability timing summary; do
+    echo "  ${ord}. ${ids} · ${acuity} · ${summary} (${timing}; ${capability})"
   done
 fi
 

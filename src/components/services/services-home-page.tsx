@@ -1,6 +1,6 @@
 "use client";
 
-import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, Users } from "lucide-react";
 
 import {
   ModeHomeMain,
@@ -122,9 +122,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
   return (
     <ModeHomeMain
       testId="services-home"
-      // Seeded homes are content-rich and can clip when centered on phone;
-      // loading/empty notices stay short — keep those vertically centred.
-      contentAlign={hasRegistryRecords ? "startOnPhone" : "center"}
+      // Keep loading on startOnPhone so the seeded registry does not jump from
+      // center → top when records arrive. Confirmed empty/error notices stay centred.
+      contentAlign={registry.status === "loading" || hasRegistryRecords ? "startOnPhone" : "center"}
     >
       <ModeHomeTemplate
         testId="services-home-template"
@@ -139,9 +139,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
-              label="Catalogue service data"
-              body="Confirm locally before use"
+              icon={Route}
+              label="Referral fit"
+              body="Need, catchment, eligibility and route"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />

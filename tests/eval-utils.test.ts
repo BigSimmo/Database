@@ -11,7 +11,7 @@ import {
   withProviderBackoffProgress,
   type SupabaseAdmin,
 } from "../scripts/eval-utils";
-import type { RagEvalCase } from "../src/lib/rag/rag-eval-cases";
+import { ragEvalCases, type RagEvalCase } from "../src/lib/rag/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
 
 describe("RAG eval source identity matching", () => {
@@ -190,6 +190,151 @@ describe("RAG eval source identity matching", () => {
     const validation = validateRagAnswer(testCase, answer);
 
     expect(validation.failures).toContain("expected documents missing from citations: CG.MHSP.PtSafetyPlan.pdf");
+  });
+
+  it("requires one complete neuroleptic escalation claim bound to its exact expected-file citation", () => {
+    const testCase = ragEvalCases.find((candidate) => candidate.id === "neuroleptic-side-effect-escalation")!;
+    const expectedSource = {
+      title: "Neuroleptic Side Effects (AKG)",
+      file_name: "Neuroleptic Side Effects (AKG).pdf",
+    };
+    const completeClaim = {
+      claimId: "claim-1",
+      text: "Escalate any neuroleptic side effect causing distress, irrespective of score, to the treating doctor.",
+      riskClass: "high_risk" as const,
+      supportingChunkIds: ["distress-rule"],
+      supportStatus: "direct" as const,
+    };
+    const answer = {
+      answer: completeClaim.text,
+      grounded: true,
+      confidence: "medium",
+      citations: [
+        {
+          chunk_id: "distress-rule",
+          document_id: "doc-1",
+          page_number: 1,
+          chunk_index: 0,
+          ...expectedSource,
+        },
+      ],
+      sources: [expectedSource],
+      supportedClaims: [completeClaim],
+      queryClass: "medication_dose_risk",
+      routingMode: "strong",
+      visualEvidence: [],
+      latencyTimings: { total_latency_ms: 500 },
+    } as unknown as RagAnswer;
+
+    expect(validateRagAnswer(testCase, answer).failures).toEqual([]);
+
+    const deterministicFallbackClaim = {
+      ...completeClaim,
+      text: "For neuroleptic, any side effect which is causing distress irrespective of score should be escalated to the treating doctor and reviewed.",
+    };
+    expect(
+      validateRagAnswer(testCase, {
+        ...answer,
+        answer: deterministicFallbackClaim.text,
+        supportedClaims: [deterministicFallbackClaim],
+      }).failures,
+    ).toEqual([]);
+
+    for (const supportedParaphrase of [
+      "Any distressing neuroleptic side effect should be escalated to the treating doctor, regardless of score.",
+      "Neuroleptic side effects that cause the patient distress must be escalated to the treating doctor, irrespective of the LUNSERS score.",
+      "Any neuroleptic side effect causing distress should be escalated to the treating doctor, no matter what the score.",
+      "Any neuroleptic side effect causing distress should be escalated to the treating doctor independently of score.",
+    ]) {
+      expect(
+        validateRagAnswer(testCase, {
+          ...answer,
+          answer: supportedParaphrase,
+          supportedClaims: [{ ...completeClaim, text: supportedParaphrase }],
+        }).failures,
+        supportedParaphrase,
+      ).toEqual([]);
+    }
+
+    const noCitation = validateRagAnswer(testCase, { ...answer, citations: [] });
+    expect(noCitation.failures).toContain("expected at least 1 citations");
+    expect(noCitation.failures).toContain("required direct claim is not fully covered by an expected-file citation");
+
+    const incompleteClaim = validateRagAnswer(testCase, {
+      ...answer,
+      citations: [
+        ...answer.citations,
+        {
+          chunk_id: "score-context",
+          document_id: "doc-1",
+          page_number: 1,
+          chunk_index: 1,
+          ...expectedSource,
+        },
+      ],
+      supportedClaims: [
+        {
+          ...completeClaim,
+          text: "Escalate neuroleptic side effects to the treating doctor.",
+          supportingChunkIds: ["distress-rule", "score-context"],
+        },
+      ],
+    });
+    expect(incompleteClaim.failures).toContain(
+      "required direct claim is not fully covered by an expected-file citation",
+    );
+
+    const supportNotBoundToExpectedCitation = validateRagAnswer(testCase, {
+      ...answer,
+      citations: [
+        {
+          chunk_id: "expected-but-not-supporting",
+          document_id: "doc-1",
+          page_number: 1,
+          chunk_index: 0,
+          ...expectedSource,
+        },
+        {
+          chunk_id: "wrong-support",
+          document_id: "doc-2",
+          title: "Other guidance",
+          file_name: "Other.pdf",
+          page_number: 1,
+          chunk_index: 0,
+        },
+      ],
+      supportedClaims: [{ ...completeClaim, supportingChunkIds: ["wrong-support"] }],
+    });
+    expect(supportNotBoundToExpectedCitation.failures).toContain(
+      "required direct claim is not fully covered by an expected-file citation",
+    );
+
+    for (const unsafeLookalike of [
+      "De-escalate any neuroleptic side effect causing distress, irrespective of score, with the treating doctor.",
+      "The neuroleptic side effect distress escalation section lists the treating doctor's contact details, regardless of score.",
+      "Notify the treating doctor not to escalate a neuroleptic side effect causing distress, irrespective of score.",
+      "Escalation of neuroleptic side effect distress to the treating doctor was audited, irrespective of score.",
+      "Escalate chest pain to the treating doctor. A neuroleptic side effect causing distress is recorded irrespective of score.",
+      "Escalate chest pain to the treating doctor; a neuroleptic side effect causing distress is recorded irrespective of score.",
+      "Escalate any neuroleptic side effect not causing distress, irrespective of score, to the treating doctor.",
+      "Escalate any neuroleptic side effect causing no distress, irrespective of score, to the treating doctor.",
+      "Escalate no neuroleptic side effect causing distress, irrespective of score, to the treating doctor.",
+      "Escalate any neuroleptic side effect without causing distress, irrespective of score, to the treating doctor.",
+      "Escalate any neuroleptic side effect not necessarily causing distress, irrespective of score, to the treating doctor.",
+      "Escalate any neuroleptic side effect causing distress to the treating doctor, not independently of score.",
+      "Neuroleptic side effects causing distress should be documented; irrespective of score, chest pain should be escalated to the treating doctor.",
+      "Neuroleptic side effects causing distress should be escalated to the treating doctor only when the score is high; observations are recorded regardless of score.",
+      "Neuroleptic side effects causing distress should be escalated to nursing staff, while chest pain regardless of score should be escalated to the treating doctor.",
+    ]) {
+      const unsafeValidation = validateRagAnswer(testCase, {
+        ...answer,
+        answer: unsafeLookalike,
+        supportedClaims: [{ ...completeClaim, text: unsafeLookalike }],
+      });
+      expect(unsafeValidation.failures, unsafeLookalike).toContain(
+        "required direct claim is not fully covered by an expected-file citation",
+      );
+    }
   });
 
   it("retries transient provider rate-limit errors for eval operations", async () => {

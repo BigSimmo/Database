@@ -57,6 +57,22 @@ export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+/** Abort any in-flight controller and install a fresh one owned by `ref`. */
+export function replaceOwnedAbortController(ref: { current: AbortController | null }): AbortController {
+  ref.current?.abort();
+  const next = new AbortController();
+  ref.current = next;
+  return next;
+}
+
+/** Clear `ref` only when it still points at `controller` (avoids clobbering a newer owner). */
+export function releaseOwnedAbortController(
+  ref: { current: AbortController | null },
+  controller: AbortController,
+): void {
+  if (ref.current === controller) ref.current = null;
+}
+
 export function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }

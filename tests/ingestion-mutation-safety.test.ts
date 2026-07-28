@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildActiveJobsSafetyResult, isActiveAgentEnrichmentJob } from "../src/lib/ingestion-mutation-safety";
+import {
+  buildActiveJobsSafetyResult,
+  checkIngestionMutationSafety,
+  isActiveAgentEnrichmentJob,
+} from "../src/lib/ingestion-mutation-safety";
 
 describe("active enrichment-agent detection (R24d)", () => {
   const now = Date.parse("2026-07-07T00:00:00.000Z");
@@ -58,6 +62,87 @@ describe("active enrichment-agent detection (R24d)", () => {
         now,
       ),
     ).toBe(false);
+  });
+});
+
+describe("checkIngestionMutationSafety agent-enrichment guard", () => {
+  function supabaseMock(agentJobs: unknown[]) {
+    return {
+      from(table: string) {
+        if (table === "import_batches") {
+          return {
+            select: () => ({
+              limit: async () => ({ error: null }),
+            }),
+          };
+        }
+        if (table === "ingestion_jobs") {
+          return {
+            select: () => ({
+              in: () => ({
+                in: async () => ({ data: [], error: null }),
+              }),
+            }),
+          };
+        }
+        if (table === "indexing_v3_agent_jobs") {
+          return {
+            select: () => ({
+              in: () => ({
+                eq: async () => ({ data: agentJobs, error: null }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`Unexpected table ${table}`);
+      },
+    };
+  }
+
+  it("blocks full/retry mutations while a fresh agent-enrichment pass owns the document", async () => {
+    const result = await checkIngestionMutationSafety({
+      supabase: supabaseMock([
+        {
+          document_id: "doc-1",
+          status: "processing",
+          locked_at: "2026-07-07T23:50:00.000Z",
+          updated_at: "2026-07-07T23:50:00.000Z",
+        },
+      ]) as never,
+      documentIds: ["doc-1"],
+      action: "Reindex",
+      checkActiveJobs: true,
+      checkActiveAgentEnrichmentJobs: true,
+      staleAfterMinutes: 45,
+      now: new Date("2026-07-08T00:00:00.000Z"),
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("expected active agent-enrichment guard to block");
+    expect(result.reason).toBe("active_agent_enrichment");
+    expect(result.status).toBe(409);
+    expect(result.activeJobs[0]?.stage).toBe("agent_enrichment");
+  });
+
+  it("does not query agent-enrichment jobs when the caller opts out", async () => {
+    const result = await checkIngestionMutationSafety({
+      supabase: supabaseMock([
+        {
+          document_id: "doc-1",
+          status: "processing",
+          locked_at: "2026-07-07T23:50:00.000Z",
+          updated_at: "2026-07-07T23:50:00.000Z",
+        },
+      ]) as never,
+      documentIds: ["doc-1"],
+      action: "Enrichment",
+      checkActiveJobs: true,
+      checkActiveAgentEnrichmentJobs: false,
+      staleAfterMinutes: 45,
+      now: new Date("2026-07-08T00:00:00.000Z"),
+    });
+
+    expect(result.ok).toBe(true);
   });
 });
 

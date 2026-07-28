@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowUpDown, ChevronDown, Filter, Folder, Heart, Plus, Search, ShieldCheck, X } from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
   cn,
@@ -169,7 +170,10 @@ export function FavouritesHub({
         />
 
         {desktopComposerSlotId ? (
-          <div id={desktopComposerSlotId} className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block" />
+          <DesktopComposerPortalSlot
+            id={desktopComposerSlotId}
+            className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block"
+          />
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
@@ -317,7 +321,7 @@ export function FavouritesHub({
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-end">
           <button
             type="button"
-            aria-disabled="true"
+            disabled
             aria-describedby="favourites-sort-unavailable"
             className={cn(
               floatingControl,
@@ -332,7 +336,7 @@ export function FavouritesHub({
           </span>
           <button
             type="button"
-            aria-disabled="true"
+            disabled
             aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
@@ -464,7 +468,7 @@ export function FavouritesHub({
             </div>
             <button
               type="button"
-              aria-disabled="true"
+              disabled
               aria-describedby="favourites-new-set-unavailable"
               className={cn(
                 floatingControl,

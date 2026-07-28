@@ -108,9 +108,9 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
      the golden retrieval eval. If differentials-mode retrieval quality needs a lift, re-propose the
      action-signal part (without the metadata condition) through the golden eval; the original code
      is in PR #120 history (`git show 635485998^1:src/lib/retrieval-selection.ts`).
-   - Higher-value redirect than mrr-chasing: **item 9 (enrichment/reindex — the OCR extraction drops
-     letters, e.g. "score"→"core", "psychosis"→"p ycho i ", which hurts both lexical matching and the
-     readability of quoted answer text)** and **item 10 (DB-backed synonyms/typos)**.
+   - The former higher-value redirect than mrr-chasing was **item 9 (OCR enrichment/reindex)** plus
+     **item 10 (DB-backed synonyms/typos)**. The bounded reference-backed OCR repair has since landed
+     (item 24); only live backfill/measurement remains, not another broad heuristic.
 
 ## P2 — latency, eval coverage, data
 
@@ -148,8 +148,8 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
      `alcohol-ciwa-threshold` golden case guard it. **This is a general recall win, not just CIWA** —
      any long multi-term query previously risked silent 0-match FTS.
 
-9. ⚠️ **OCR "dropped-s" defect — real but NOT reliably heuristically-detectable; guard attempted then
-   REVERTED (2026-07-01). Honest post-mortem below.**
+9. ⚠️ **OCR "dropped-s" heuristic — attempted then REVERTED (2026-07-01); bounded reference repair
+   later landed (item 24). Historical post-mortem below.**
    - **What's true:** real dropped-'s' corruption exists in some table-derived index units
      ("psychosocial"→"p ycho ocial", "1st mood stabiliser"→"1 t mood tabili er"). The **raw
      `document_chunks` (answer context) are clean** — 0 docs below 0.025 s-ratio — so **generated
@@ -172,11 +172,12 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
      exposed the detector's false positives. Those images were legitimately refreshed (they were
      version-stale anyway); a few units carry harmless appended source-chunk context from the
      since-reverted guard — will normalize on the next reindex. No further docs were processed.
-   - **If ever pursued (low priority, modest impact):** reliable detection needs a **dictionary/
-     spellcheck approach** ("fraction of tokens that aren't valid English/clinical words") or fixing
-     the **upstream table-OCR** step — not a token heuristic. Neither is warranted by the impact.
-     Remaining true enrichment items: confirm `20260627000000_retrieval_hnsw_ef_search.sql` on live; run
-     `enrich:backfill` / `tags:backfill` for any genuinely missing synopsis/labels.
+   - **Current disposition (2026-07-27):** the broad low-`s` and token-fragment heuristics remain
+     rejected. Item 24's dictionary/reference-backed repair now fixes only whitespace-fragmented OCR
+     words aligned to clean same-page source text and directly covers `p ycho ocial`. The implementation
+     is complete; a provider-backed backfill and live warning/repair-rate measurement were not run.
+     Other enrichment work remains separate: confirm `20260627000000_retrieval_hnsw_ef_search.sql` on
+     live; run `enrich:backfill` / `tags:backfill` only for genuinely missing synopsis/labels.
 10. 🔧 **Query understanding (RC6/E) — pg_trgm typo correction started (2026-07-01).**
     - **Data-driven promotion is blocked:** `rag_query_misses` (71 rows) are privacy-redacted hashes
       with empty `candidate_aliases`, so the plan's "promote real misses to aliases" path can't run.
@@ -247,8 +248,9 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
 
 ## P2 — naturalness residual
 
-15. ⏳ One flattened-table run-on still slips through (TPR / postural-BP line). Mostly handled by v15 +
-    `separateSettingRunOns`; extend the deterministic separator or the prompt if it recurs.
+15. ✅ **Flattened TPR / postural-BP run-on — FIXED.** `polishClinicalAnswerProse` now separates the
+    inpatient/community clauses deterministically with and without the comma form. Focused coverage
+    in `tests/answer-prose-runons.test.ts` pins the original line and guards normal prose.
 
 ## Security (do outside this repo)
 
@@ -331,18 +333,21 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     that non-blocking performance debt remains tracked in item 25. Current productization boundary: there are no mutating registry
     edit routes today, so the re-embed-on-edit helper is present but not wired to a route; any future
     registry `POST`/`PATCH`/`PUT` path must call `bestEffortReembedRegistryRecordAfterEdit` after the
-    write commits. Remaining non-blocking UX follow-up: an answer-mode check that registry-backed
-    citations render as curated registry records rather than primary source documents.
+    write commits. The former citation UX follow-up is complete: `documentCitationHref` routes
+    registry-backed citations to their native service/differential detail pages, with focused tests
+    in `tests/citations.test.ts`.
 23. ✅ **Finding #11 full fix — CLOSED.** The corpus-grounded relevance implementation described in
     item 10 (2026-07-07) superseded the earlier classifier-memo-only state. In-corpus bare topics and
     corpus-absent invented terms now follow deterministic corpus evidence; no duplicate Phase-2 task
     remains. Item 17's broader alias-promotion privacy/design work remains separate.
-24. ⏳ **OCR dropped-letter corruption in table index units** — no reliable detector exists (82%
-    false positives; guard reverted). Next viable angle: dictionary-based repair at INGESTION
-    (compare table-cell tokens against the document's own clean chunk text — "p ycho ocial"
-    aligns to "psychosocial" within the same page's raw text) rather than heuristic detection at
-    query time. Scope to `worker/` table extraction; requires the Python OCR stack to test.
-25. 🔶 **Retrieval/RAG latency — serial-depth fixes landed locally; live tail isolated to DB RPCs.**
+24. ✅ **OCR dropped-letter corruption in table index units — bounded repair landed.** The broad
+    low-`s` heuristic remains rejected, but `repairOcrDropoutAgainstReference` now repairs only
+    whitespace-fragmented OCR words that align to the same page's clean source-chunk text and stamps
+    `ocr_repair_version=clean-chunk-fragment-v1`. `tests/document-index-units.test.ts` covers
+    `p ycho ocial` → `psychosocial` plus the single-letter clinical-token false-positive guard.
+    No broad provider-backed backfill was performed during this reconciliation.
+25. 🔶 **Retrieval/RAG latency — serial-depth fixes landed; targeted table-facts DB plans are now
+    acceptable, while the broader end-to-end tail remains.**
     Post-registry retrieval stayed quality-clean (`top_k_hit_rate=1`, `document_recall_at_5=1`,
     `content_recall_at_5=1`, `force_embedding_failure_count=0`) with local `p90_latency_ms=13145`.
     Post-routing RAG-only passed with `p95_latency_ms=20385` and no blocking threshold failures, but
@@ -359,9 +364,33 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     material temporary I/O. Forced-embedding/model-routing evaluation stopped after the provider
     returned quota exhaustion; no model or production configuration was changed.
 
-    **Next smallest performance work:** capture `EXPLAIN (ANALYZE, BUFFERS)` for the slow RPC shapes
-    with non-sensitive fixtures, optimise those plans, and then compare Micro versus Small primary
-    compute if the plans remain memory-bound. Do not create a Singapore read replica yet: replicas
-    require at least Small compute and would duplicate the same slow plans while adding asynchronous
-    freshness/read-routing work. Reconsider only after database execution is fast enough that network
-    RTT is again a material share.
+    **Superseded next step:** do not optimise the table-facts plan, alter ranking, or scale compute from
+    the earlier broad tail alone. The phase-aware profile below shows bounded database execution and a
+    visible client/edge component. If the broad end-to-end tail persists, profile first-unprimed versus
+    warm orchestration phases and remaining serial RPC depth separately; only reconsider compute after
+    a repeatable database-plan bottleneck is demonstrated.
+
+    **Targeted hosted profile (2026-07-27):** the first exact clinical-query pass recorded warm
+    PostgreSQL median/p90 execution of 43.045/43.757 ms for clozapine, 75.489/81.738 ms for lithium,
+    and 59.243/60.309 ms for metabolic monitoring; corresponding client median/p90 was
+    210.193/217.388, 226.029/253.273, and 204.702/213.108 ms. A subsequent six-sample phase-aware pass
+    labelled sample 1 `first_unprimed` and samples 2–6 `warm_repeat`: first-unprimed client/DB execution
+    was 662.916/141.537, 277.661/96.229, and 322.598/148.378 ms respectively; warm DB median/p90 was
+    88.292/89.355, 64.342/65.566, and 107.448/148.417 ms, while warm client median/p90 was
+    187.029/198.907, 167.803/174.391, and 189.065/243.324 ms. Managed Supabase buffers were not flushed,
+    so this deliberately does not claim a true cold-start measurement. The table-facts RPC is not the
+    multi-second tail and is closed without hosted migration or ranking changes; broader latency remains
+    an orchestration/RTT observation to diagnose independently.
+
+26. ✅ **Fallback answer quality and measurement — CLOSED (2026-07-27).** The earlier 12/30 and
+    3/44 review-fallback inventories are superseded. Evaluation now separates
+    `source_backed_review_fallback` from substantive grounded answers and does not award targeting
+    credit to echoed query boilerplate. Narrow source-bound paths cover the reproduced
+    admission/discharge, active-community ED, community-home-visit, clozapine threshold/typo and Best
+    Practice Prescription shapes. A cited provider source-gap is no longer promoted to grounded merely
+    because its citation IDs are valid; it retries or enters source-backed recovery, while terminal gaps
+    clear claim citations and retain an auditable reason. The final live 44-case gate recorded 30/30
+    substantive grounded supported answers, 14/14 unsupported correct, zero review fallbacks, zero
+    citation or numeric failures, zero route-ceiling failures, and p95 7,494 ms. The protected 36-case
+    retrieval canary stayed at document/content recall 1.0 with no per-case reciprocal-rank regression.
+    See `docs/evidence/rag-reliability-evidence-2026-07-27.md`.

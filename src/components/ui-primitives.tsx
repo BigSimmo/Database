@@ -1,12 +1,15 @@
-import { Ban, Loader2, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { Ban, Landmark, Loader2, ShieldCheck, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
   normalizeSourceMetadata,
+  sourceDesignationDescription,
+  sourceDesignationLabel,
   sourceStatusLabel,
   validationStatusLabel,
 } from "@/lib/source-metadata";
+import { classifySourceAuthority } from "@/lib/source-authority-registry";
 
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -14,10 +17,8 @@ export function cn(...classes: Array<string | false | null | undefined>) {
 
 export const textMuted = "text-[color:var(--text-muted)]";
 export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
+const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
 export const appBackdrop = "app-edge-backdrop";
-export const glassPanel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]";
 export const glassOverlaySurface =
   "border border-[color:var(--border-lux)] ring-1 ring-[color:var(--surface-highlight)] backdrop-blur-xl";
 export const toggleThumbSurface = "bg-[color:var(--surface-raised)]";
@@ -25,12 +26,10 @@ export const panelSubtle =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const sourceCard = `${panelSubtle} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface = "rounded-lg bg-transparent";
-export const evidenceSurface =
-  "rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const panel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--border-strong)]/20 dark:ring-[color:var(--border-strong)]/10";
-export const controlBase =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
+const controlBase =
+  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
 export const primaryControl = `${controlBase} bg-[color:var(--command)] px-5 text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)]`;
 export const floatingControl =
   "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
@@ -39,7 +38,7 @@ export const toolbarButton =
 export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]";
 export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
 export const fieldControl =
-  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none disabled:opacity-75 read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
+  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none disabled:opacity-75 read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
@@ -53,22 +52,17 @@ export const metadataPill =
 export const subtleStatusPill =
   "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-xs font-semibold text-[color:var(--text-muted)]";
 export const clinicalDivider = "border-t border-[color:var(--border)]/80";
-export const iconTile =
+const iconTile =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 export const iconTilePremium =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-export const compactMetadataRow =
+const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold tabular-nums text-[color:var(--text-muted)]";
-export const sheetSurface =
-  "rounded-t-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--border-strong)]/20 backdrop-blur-xl dark:ring-[color:var(--border-strong)]/10 sm:rounded-lg";
-export const sheetHandle = "mx-auto block h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70 sm:hidden";
 // Comfortable reading measure for long-form prose (answers, source passages, document text).
 export const proseMeasure = "max-w-[68ch]";
 // Geist Mono for clinical codes and identifiers: citation/source indices, page and
 // chunk numbers, guideline versions, document IDs. Pairs with tabular figures.
 export const codeText = "font-mono tabular-nums tracking-tight";
-export const commandInput =
-  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] motion-safe:transition sm:text-base";
 
 export const chatAnswerText =
   "max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)] sm:text-base sm:leading-[1.62]";
@@ -87,15 +81,11 @@ export const sourceCapsule =
   "source-capsule-face inline-flex items-center gap-1.5 rounded-full border bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-2.5 py-1 text-2xs font-medium text-[color:var(--clinical-accent)]";
 export const sourceCapsuleCountBadge =
   "nums inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1 text-3xs font-semibold leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
-export const evidenceRow =
-  "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-export const clinicalNotesRow =
-  "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--clinical-chat-sand-border)] bg-[color:var(--clinical-chat-sand)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-sand-border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 /* Composer chrome has one owner: the unlayered classes in globals.css. These
  * exports are semantic handles only, so recipes and cascade rules cannot fight
  * over input/button dimensions, states, or paint. */
 export const chatComposerShellBase = "chat-composer-shell-base";
-export const chatComposerShellDelta = "chat-composer-shell-delta";
+const chatComposerShellDelta = "chat-composer-shell-delta";
 export const chatComposerShell = `${chatComposerShellBase} ${chatComposerShellDelta}`;
 export const chatComposerInput = "chat-composer-input";
 export const chatComposerIconButton = "chat-composer-icon-button";
@@ -108,9 +98,7 @@ export const tableMicroActionRow =
   "flex min-h-tap flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-9";
 export const sidebarItem =
   "flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
-export const sidebarToolTile =
-  "grid min-h-16 place-items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-export const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
+const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
 export const statusDotReady = `${statusDotBase} bg-[color:var(--success)]`;
 export const statusDotReview = `${statusDotBase} bg-[color:var(--warning)]`;
 export const statusDotMuted = `${statusDotBase} bg-[color:var(--text-soft)]`;
@@ -122,7 +110,7 @@ export const toneDanger =
 export const toneInfo = "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 export const toneWarning =
   "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-export const toneWarningQuiet =
+const toneWarningQuiet =
   "border-[color:var(--warning-border)]/60 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
 export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
@@ -132,7 +120,7 @@ export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--
 // --mobile-composer-reserve so it can collapse when the dock hides. Do not bake
 // a second dock-sized safe-area pad into page shells.
 export const searchPageShell =
-  "min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden px-3 py-3 pb-4 sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+  "min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
 export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
 // Canonical content-page width. Detail pages (service / form / differential),
 // medication record + prescribing workspace, and the forms results view converge
@@ -322,6 +310,38 @@ export function ToggleSwitch({
 
 type IconComponent = LucideIcon;
 
+export function SourceDesignationBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
+  const source = normalizeSourceMetadata(metadata);
+  const classification = classifySourceAuthority(source);
+  const toneClassName =
+    classification.designation === "official"
+      ? toneSuccess
+      : classification.designation === "trusted"
+        ? toneInfo
+        : toneWarningQuiet;
+  const Icon =
+    classification.designation === "official"
+      ? Landmark
+      : classification.designation === "trusted"
+        ? ShieldCheck
+        : TriangleAlert;
+
+  return (
+    <span
+      title={sourceDesignationDescription(source)}
+      aria-label={`Source designation: ${sourceDesignationLabel(classification.designation)}. ${sourceDesignationDescription(source)}`}
+      className={cn(
+        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold",
+        toneClassName,
+        className,
+      )}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      {sourceDesignationLabel(classification.designation)}
+    </span>
+  );
+}
+
 export function SourceStatusBadge({
   metadata,
   className,
@@ -367,6 +387,7 @@ export function SourceProvenance({ metadata }: { metadata?: unknown }) {
   // validation and extraction-quality labels always stay — they are clinical
   // governance signals, not noise.
   const items = [
+    sourceDesignationLabel(classifySourceAuthority(source).designation),
     validationStatusLabel(source),
     reviewDate === "Unknown" ? null : `Review ${reviewDate}`,
     source.jurisdiction,
@@ -409,6 +430,25 @@ export function PanelHeading({
   );
 }
 
+export function Skeleton({
+  className,
+  animationDelay,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { animationDelay?: string }) {
+  return (
+    <div
+      className={cn(
+        "rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
+        "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
+        "motion-safe:animate-shimmer",
+        className,
+      )}
+      style={animationDelay ? { animationDelay } : undefined}
+      {...props}
+    />
+  );
+}
+
 export function LoadingPanel({
   label,
   variant = "spinner",
@@ -422,16 +462,7 @@ export function LoadingPanel({
     return (
       <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
         {Array.from({ length: lines }).map((_, index) => (
-          <span
-            key={index}
-            aria-hidden
-            className={cn(
-              "block h-3.5 rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
-              "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
-              "motion-safe:animate-shimmer",
-              index === lines - 1 ? "w-2/3" : "w-full",
-            )}
-          />
+          <Skeleton key={index} aria-hidden className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")} />
         ))}
         <span className="sr-only">{label}</span>
       </div>

@@ -208,6 +208,10 @@ function answerPlanIntent(args: {
 }): SmartRagAnswerPlan["intent"] {
   if (args.routeMode === "unsupported" || args.mode === "unsupported") return "unsupported";
   if (args.mode === "document_lookup") return "document_lookup";
+  // A validated deterministic comparison can deliberately use extractive assembly while still
+  // delivering clinical synthesis across documents. Its model strategy remains extractive_lookup,
+  // but its intent and citation policy must describe the answer it actually returns.
+  if (args.mode === "multi_document_synthesis") return "clinical_synthesis";
   if (args.routeMode === "extractive") return "source_lookup";
   return "clinical_synthesis";
 }

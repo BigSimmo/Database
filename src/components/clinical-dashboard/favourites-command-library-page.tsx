@@ -47,6 +47,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -312,6 +313,7 @@ function ActiveFilterChips({
   onClearType,
   onClearSet,
   onClearViewMode,
+  includeSearch = true,
 }: {
   searchTerm: string;
   selectedTypeId: string;
@@ -321,11 +323,14 @@ function ActiveFilterChips({
   onClearType: () => void;
   onClearSet: () => void;
   onClearViewMode: () => void;
+  includeSearch?: boolean;
 }) {
   const typeLabel = favouriteTabs.find((tab) => tab.id === selectedTypeId)?.label;
   const chips: { key: string; label: string; onClear: () => void }[] = [];
 
-  if (searchTerm.trim()) chips.push({ key: "search", label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch });
+  if (includeSearch && searchTerm.trim()) {
+    chips.push({ key: "search", label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch });
+  }
   if (selectedSet) chips.push({ key: "set", label: selectedSet.title, onClear: onClearSet });
   if (selectedTypeId !== "all" && typeLabel) chips.push({ key: "type", label: typeLabel, onClear: onClearType });
   if (viewMode === "source-backed") chips.push({ key: "view", label: "Source-backed", onClear: onClearViewMode });
@@ -1181,14 +1186,32 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               </p>
             ) : null}
 
-            <div
+            <DesktopComposerPortalSlot
               id={modeHomeDesktopComposerSlotId}
               className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
             />
 
-            <div className="hidden lg:block">
-              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
-            </div>
+            <SearchResultsHeaderBand
+              modeId="favourites"
+              query={query}
+              matchCount={scopedItems.length}
+              filterLabel="Active favourites filters"
+              filterControls={
+                selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
+                  <ActiveFilterChips
+                    searchTerm={query}
+                    selectedTypeId={selectedTypeId}
+                    selectedSet={selectedSet}
+                    viewMode={viewMode}
+                    onClearSearch={clearSearch}
+                    onClearType={() => setSelectedTypeId("all")}
+                    onClearSet={() => setSelectedSetId(null)}
+                    onClearViewMode={() => setViewMode("all")}
+                    includeSearch={false}
+                  />
+                ) : null
+              }
+            />
 
             <FavouritesMobileQuickViews
               items={items}
@@ -1206,17 +1229,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               viewMode={viewMode}
               onSelectSet={setSelectedSetId}
               onSelectViewMode={setViewMode}
-            />
-
-            <ActiveFilterChips
-              searchTerm={query}
-              selectedTypeId={selectedTypeId}
-              selectedSet={selectedSet}
-              viewMode={viewMode}
-              onClearSearch={clearSearch}
-              onClearType={() => setSelectedTypeId("all")}
-              onClearSet={() => setSelectedSetId(null)}
-              onClearViewMode={() => setViewMode("all")}
             />
 
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}

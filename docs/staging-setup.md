@@ -7,6 +7,12 @@ prod branch) and `docs/capacity-review.md` §4 (the soak test that validates it)
 Staging is two independent tiers: a **staging Supabase project** (data) and a
 **staging app host** (compute). Do the data tier first — the app needs it.
 
+> **Current state (verified 2026-07-27):** Supabase project `ikoiolksxqxfxgiyqpnu`
+> and the Railway staging app already exist and are healthy. The app is in offline-provider mode,
+> the staging corpus is empty, and `search_schema_health()` passes. Do not create replacements.
+> The remaining data-tier work is to apply the 23 repository migrations after
+> `20260719055623`, then repeat the identity, indexing, health, and empty-data-boundary proof.
+
 The identity guard is already staging-aware (`src/lib/supabase/project.ts`): it
 accepts a second project **only** when you explicitly declare it via
 `SUPABASE_STAGING_PROJECT_REF` + `SUPABASE_STAGING_PROJECT_NAME`, and it refuses
@@ -29,6 +35,11 @@ those vars are unset.
    supabase link --project-ref <staging-ref>
    supabase db push          # applies supabase/migrations/* → matches schema.sql
    ```
+
+   Preserve the repository migration versions exactly. Do not replay the missing chain through a
+   helper that records new timestamps, because that would make staging history diverge while
+   appearing current. If the staging database credential is unavailable, stop and retain the
+   migration gap as operator debt instead of substituting a different apply mechanism.
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
@@ -86,9 +97,10 @@ Reuse the app image; only the environment variables differ.
    fail `check:supabase-project` — that's the deliberate speed bump.
 
 3. **Service config:** the Dockerfile already binds `0.0.0.0:$PORT` (Railway
-   injects `$PORT`). Set the app service's healthcheck to `/api/health`, restart
-   policy to `ON_FAILURE`, and one replica pinned to `southeast-asia` with no
-   scale-to-zero (mirror `railway.app.json`).
+   injects `$PORT`). Set the app service's healthcheck to `/api/health/ready`
+   (matches `railway.app.json`), restart policy to `ON_FAILURE`, and one
+   replica pinned to `southeast-asia` with no scale-to-zero. Use `GET
+/api/health` only as a manual liveness smoke check.
 
 4. **No worker:** this staging environment intentionally has no ingestion
    service. The tenancy harness inserts and removes its synthetic lexical rows
@@ -96,7 +108,8 @@ Reuse the app image; only the environment variables differ.
 
 ## C. Validate staging
 
-1. Boot check: `GET /api/health` → `{"status":"ok"}` with the staging project.
+1. Boot check: `GET /api/health/ready` (Railway health) and `GET /api/health`
+   (manual smoke) → healthy responses with the staging project.
 2. Tenancy isolation: configure the dedicated A/B test accounts and standalone
    workflow described in
    [`staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).

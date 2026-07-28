@@ -117,6 +117,66 @@ describe("OpenAI query embedding cache", () => {
     await expect(second).resolves.toEqual({ embedding: [1, 2, 3], cacheHit: true });
   });
 
+  it("does not poison a new healthy caller after the last coalesced waiter disconnects", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small");
+    vi.stubEnv("OPENAI_QUERY_CACHE_SIZE", "200");
+    vi.stubEnv("EMBEDDING_DIMENSIONS", "3");
+
+    let embeddingCalls = 0;
+    const providerSignals: AbortSignal[] = [];
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = {
+          create: vi.fn((_body: unknown, options?: { signal?: AbortSignal }) => {
+            embeddingCalls += 1;
+            const signal = options?.signal;
+            if (signal) providerSignals.push(signal);
+            return new Promise<{ data: Array<{ index: number; embedding: number[] }> }>((resolve, reject) => {
+              const onAbort = () => {
+                signal?.removeEventListener("abort", onAbort);
+                reject(signal?.reason ?? new DOMException("The operation was aborted.", "AbortError"));
+              };
+              signal?.addEventListener("abort", onAbort, { once: true });
+              if (signal?.aborted) {
+                onAbort();
+                return;
+              }
+              // First shared flight stays pending until aborted; later flights resolve.
+              if (embeddingCalls >= 2) {
+                queueMicrotask(() => {
+                  signal?.removeEventListener("abort", onAbort);
+                  resolve({ data: [{ index: 0, embedding: [9, 8, 7] }] });
+                });
+              }
+            });
+          }),
+        };
+        responses = { create: vi.fn() };
+      },
+    }));
+
+    const { clearOpenAICaches, embedTextWithTelemetry } = await import("../src/lib/openai");
+    clearOpenAICaches();
+
+    const firstController = new AbortController();
+    const first = embedTextWithTelemetry("poison race query", { signal: firstController.signal });
+    for (let index = 0; index < 10 && embeddingCalls === 0; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(embeddingCalls).toBe(1);
+
+    firstController.abort(new DOMException("sole waiter left", "AbortError"));
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
+    expect(providerSignals[0]?.aborted).toBe(true);
+
+    const healthyController = new AbortController();
+    const healthy = embedTextWithTelemetry("poison race query", { signal: healthyController.signal });
+    await expect(healthy).resolves.toEqual({ embedding: [9, 8, 7], cacheHit: false });
+    expect(healthyController.signal.aborted).toBe(false);
+    expect(embeddingCalls).toBe(2);
+  });
+
   it("captures response telemetry and sends wrapper request options", async () => {
     let capturedBody: Record<string, unknown> = {};
     let capturedOptions: Record<string, unknown> = {};

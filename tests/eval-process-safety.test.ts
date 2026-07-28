@@ -12,6 +12,9 @@ vi.mock("node:child_process", async (importOriginal) => {
       if (cmd === "taskkill") {
         return { status: 0, stdout: "", stderr: "" };
       }
+      if (cmd === "powershell.exe" && args?.includes("Start-Sleep -Milliseconds 1500")) {
+        return { status: 0, stdout: "", stderr: "" };
+      }
       return original.spawnSync(cmd, args, options);
     }),
   };
@@ -57,11 +60,12 @@ describe("run-eval-safe process ownership safety", () => {
     mockedSpawnSync.mockClear();
 
     const killedCount = terminateOwnedProcessTree(1000, mockSnapshot);
+    const taskkillCalls = mockedSpawnSync.mock.calls.filter((call: unknown[]) => call[0] === "taskkill");
 
-    expect(mockedSpawnSync).toHaveBeenCalledTimes(3);
+    expect(taskkillCalls).toHaveLength(6);
     expect(killedCount).toBe(3);
 
-    const calledPids = mockedSpawnSync.mock.calls.map((call: unknown[]) => (call[1] as string[])?.[1]);
+    const calledPids = taskkillCalls.map((call: unknown[]) => (call[1] as string[])?.[1]);
     expect(calledPids).toContain("1000");
     expect(calledPids).toContain("1001");
     expect(calledPids).toContain("1002");

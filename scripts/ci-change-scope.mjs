@@ -141,15 +141,19 @@ const containerPatterns = [
   "Dockerfile",
   "Dockerfile.worker",
   ".dockerignore",
+  ".github/workflows/docker-image.yml",
   ".npmrc",
   ".nvmrc",
   "next.config.ts",
+  "postcss.config.mjs",
+  "tsconfig.json",
   "package.json",
   "package-lock.json",
   "railway.app.json",
   "railway.worker.json",
-  "worker/python/requirements.txt",
-  /^scripts\/(check-node-engine|guard-next-build|build-worker)\.(?:cjs|mjs)$/,
+  "tests/stubs/server-only.ts",
+  /^worker\/.+/,
+  /^scripts\/(check-node-engine|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -176,11 +180,12 @@ const staticConfigPatterns = [
   "vitest.config.mts",
 ];
 
-// Dependency-manifest changes are the only moment a PR can introduce a new
-// (possibly-vulnerable) dependency, so `npm audit` blocks the merge gate only
-// when one of these changes; otherwise the audit runs advisory. Scheduled/
-// full-run passes resolve to the sentinel below, which includes these paths.
-const lockfilePatterns = ["package.json", "package-lock.json", ".npmrc"];
+// Dependency lockfile / npm config changes are the only moment a PR can introduce
+// a new (possibly-vulnerable) dependency for `npm ci`, so `npm audit` blocks the
+// merge gate only then; otherwise the audit runs advisory. Scheduled/full-run
+// passes resolve to the sentinel below, which includes package-lock.json.
+// Script-only `package.json` edits do not trip blocking audit (no lock churn).
+const lockfilePatterns = ["package-lock.json", ".npmrc"];
 
 function classify(files) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
@@ -500,7 +505,9 @@ function selfTest() {
     container_changed: true,
     workflow_changed: false,
     build_changed: true,
-    lockfile_changed: true,
+    // Script/metadata edits to package.json alone do not introduce dependencies;
+    // blocking audit still keys off package-lock.json / .npmrc.
+    lockfile_changed: false,
   });
   assertScope("lockfile", ["package-lock.json"], {
     lockfile_changed: true,
@@ -524,7 +531,22 @@ function selfTest() {
   });
   assertScope(
     "container",
-    ["Dockerfile.worker", "railway.app.json", "railway.worker.json", "worker/python/requirements.txt"],
+    [
+      "Dockerfile.worker",
+      ".github/workflows/docker-image.yml",
+      "railway.app.json",
+      "railway.worker.json",
+      "worker/python/requirements.txt",
+      "worker/python/extract_pdf_assets.py",
+      "worker/index.ts",
+      "scripts/build-worker.mjs",
+      "scripts/run-heavy.mjs",
+      "scripts/check-client-bundle-secrets.mjs",
+      "scripts/install-git-hooks.mjs",
+      "tests/stubs/server-only.ts",
+      "tsconfig.json",
+      "postcss.config.mjs",
+    ],
     {
       container_changed: true,
       build_changed: true,

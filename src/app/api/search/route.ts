@@ -128,6 +128,11 @@ async function coalesceScopedSearch<T extends Record<string, unknown>>(
 ) {
   signal.throwIfAborted();
   let entry = scopedSearchInflight.get(key);
+  // Skip a flight already aborted by its last waiter (owner-catalogue pattern).
+  if (entry?.controller.signal.aborted) {
+    if (scopedSearchInflight.get(key) === entry) scopedSearchInflight.delete(key);
+    entry = undefined;
+  }
   const coalesced = Boolean(entry);
   if (!entry) {
     const controller = new AbortController();
@@ -149,7 +154,12 @@ async function coalesceScopedSearch<T extends Record<string, unknown>>(
     return { payload: (await awaitWithCallerSignal(entry.promise, signal)) as T, coalesced };
   } finally {
     entry.waiters -= 1;
-    if (entry.waiters === 0 && !entry.settled) entry.controller.abort();
+    // Drop the map entry immediately on last-waiter abort so a new healthy
+    // caller cannot join the dying promise before the producer's .finally runs.
+    if (entry.waiters === 0 && !entry.settled) {
+      entry.controller.abort();
+      if (scopedSearchInflight.get(key) === entry) scopedSearchInflight.delete(key);
+    }
   }
 }
 
@@ -1022,7 +1032,9 @@ export async function POST(request: Request) {
       const failurePayload = {
         results: [],
         telemetry: {
-          query_class: classifyRagQuery(error.message).queryClass,
+          query_class: fallbackBody
+            ? classifyRagQuery(fallbackBody.query).queryClass
+            : classifyRagQuery(error.message).queryClass,
           retrieval_strategy: null,
           failure_code: code,
         },
@@ -1031,7 +1043,7 @@ export async function POST(request: Request) {
         logSearchObservation({
           supabase,
           ownerId,
-          query: "unknown",
+          query: fallbackBody?.query ?? "unknown",
           results: [],
           payload: failurePayload,
           failure: {

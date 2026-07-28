@@ -12,14 +12,19 @@ The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-pla
   cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
   detached worktrees, ahead/behind counts, and operation markers. Add `--include-processes` only
   when ownership could block cleanup; that path emits metadata/counts and never raw command lines.
-- `workflow:lifecycle -- --phase reconcile` selects the preflight locally and lists remote fetch as
-  a separate approval-required action.
+- `node scripts/reconciliation-evidence-pack.mjs --output <path>` writes one deterministic secret-safe
+  local evidence pack (atomic) covering dispositions, markers, archive refs, bundle verification,
+  hashes, worktree counts, and local/base tree equality without fetching or deleting.
+- `node scripts/primary-checkout-lease.mjs --check` is the cooperative primary-write gate: refuse a
+  second primary writer while another live owner or dirty/operation state exists; keep read-only
+  work and independent feature worktrees unblocked.
+- `workflow:lifecycle -- --phase reconcile` selects the preflight and evidence pack locally and lists remote fetch as
+  a separate approval-required action. `start`/`cleanup` select the primary-checkout lease check.
 - Candidate filtering is cheap-first: owner/open-PR/review-ledger/ancestry before patch comparison;
   `merge-tree` remains a last resort. This avoids repeating the slow all-ref sweep that dominated the
   historical reconciliation.
-- Heavy verification remains serialized. Inspect the lock/process/artifact state before retrying,
-  never rerun an unchanged pass, and record interrupted aggregate suites as incomplete.
-- `scripts/test-run-lock.mjs` redacts credential-bearing command text before it reaches `owner.json`
+- Heavy verification uses resource-aware admission: two focused Vitest/read-only typecheck leases may overlap across different worktrees, while full suites, coverage, lint, builds, and browser runs remain exclusive. Inspect coordinator/process/artifact state before retrying, never rerun an unchanged pass, and record interrupted aggregate suites as incomplete.
+- `scripts/test-run-lock.mjs` redacts credential-bearing command text before it reaches coordinator metadata
   or a contention error. `scripts/run-eval-safe.mjs` uses command lines only inside its workspace
   filter and serializes PID/parent/start metadata only.
 
@@ -40,13 +45,32 @@ gates. Run the standalone manual/nightly workflow and attach a recent green evid
 artifact before release; see
 [`docs/staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
 
+## Open PR branch sync (operator-only)
+
+- **Problem:** landing one PR advances `main` and leaves the rest of a large open
+  queue behind. GitHub then marks many heads `CONFLICTING`/`DIRTY` even when the
+  merge tree is clean, which stalls squash auto-merge and creates endless manual
+  re-sync churn.
+- **Mitigation:** automatic `GITHUB_TOKEN` branch mutation was retired after repeated
+  `github-actions[bot]` heads left CI, SAST, and secret-scan runs awaiting approval. Use the local
+  helper deliberately: `npm run sync:pr-branches` is report-only and
+  `npm run sync:pr-branches:apply` verifies and uses the current human/operator `gh` identity,
+  refusing missing or bot identities. Opt out with
+  `hold`, `do-not-merge`, or `skip-branch-sync`.
+- **Guardrail:** `npm run check:github-actions` rejects workflow-authored GitHub
+  `update-branch` calls. Do not weaken required checks or widen approval for untrusted actors to
+  remove queue friction; change this policy only with a separately reviewed authentication model.
+- **Operator rule:** prefer clearing the open queue (merge or close) over keeping
+  dozens of long-lived feature branches that all touch shared docs like the
+  branch-review ledger.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
 - `npm run verify:pr-local` is the closest local mirror of the normal PR gate: runtime, format, lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation when changed-file scope requires it. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
-- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/action/scope/format/lint/typecheck checks, and `pr-required` is the single always-reporting required aggregate. One full unit run with coverage, build, one required production Chromium invocation, migration replay, safety/config, Codex workflow validation, and RAG fixture validation run only when their file scopes apply. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
+- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/action/scope/format/lint/typecheck checks, and `pr-required` is the single always-reporting required aggregate. One full unit run with coverage, build, both Docker image builds, one required production Chromium invocation, migration replay, safety/config, Codex workflow validation, and RAG fixture validation run only when their file scopes apply. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -174,7 +198,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 - `db-reset-verify` is path-scoped to Supabase migrations/schema/config and database-access code. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
 - `ui-critical` retains its job ID for branch-protection compatibility but runs one required production Chromium invocation covering all non-quarantined critical and regression journeys (`test:e2e:pr`). `ui-advisory` runs quarantined and mockup journeys together when UI scope applies. A JUnit failure is considered a known flake only when its exact spec/title matches the validated ledger. The full browser matrix remains main/release/manual/scheduled.
 - The 2026-07-13 cold-server and historical ledger candidates are tracked through the reproduction policy in `docs/testing.md`: run each three times on the same SHA, fix fail/pass races, treat deterministic failures as regressions, and remove entries that do not reproduce. On `0c56f27a3`, the historical composer/tap/answer-fallback entries and three cold-route candidates did not reproduce in three runs; the narrow differential viewport reproduced once in three cold runs, was fixed with route-specific readiness before its single submit, then passed three of three. The ledger is intentionally empty.
-- Branch protection for `main` should require `CI / PR required` and `Secret Scan / Gitleaks`. Keep `SAST / Semgrep` required only if the repository owner accepts its external-rule/network dependency as part of the normal merge gate. Do not require path-filtered or scheduled/manual contexts such as `CI / Unit coverage`, `CI / Critical UI smoke`, `CI / Migration replay`, `Docker image build / app-image`, `Docker image build / worker-image`, `CI / release-browser-matrix`, `Eval Canary`, or `Live drift check`; they can be skipped on ordinary PRs and would leave branches stuck at "Expected - Waiting for status to be reported."
+- Branch protection for `main` should require `CI / PR required` and `Secret Scan / Gitleaks`. Keep `SAST / Semgrep` required only if the repository owner accepts its external-rule/network dependency as part of the normal merge gate. Container-affecting PRs are enforced through `CI / PR required`; do not separately require `Docker image build / app-image` or `Docker image build / worker-image`. Also do not require other path-filtered or scheduled/manual contexts such as `CI / Unit coverage`, `CI / Critical UI smoke`, `CI / Migration replay`, `CI / release-browser-matrix`, `Eval Canary`, or `Live drift check`; they can be skipped on ordinary PRs and would leave branches stuck at "Expected - Waiting for status to be reported."
 
 ## CSS cascade layering (2026-07-02)
 
@@ -202,6 +226,12 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 
 - `GlobalMockupSearchShell` (aka `GlobalSearchShell`, used by the `forms`/`services`/`favourites`/`medications` layouts) wrapped `GlobalMockupSearchShellClient` in a `<Suspense>` whose **fallback also rendered `props.children` inside `#main-content`** — the same subtree the client body renders. Because `useSearchParams()` forces that boundary to the fallback on the server, the page subtree was emitted twice and both copies could persist, producing duplicate `id="main-content"` and duplicate `data-testid` on every shell page. It surfaced as `ui-smoke.spec.ts:1103` failing with a strict-mode violation (two `data-testid="acamprosate-medication-page"` `<main>` elements on `/medications/acamprosate`).
 - Fix: the Suspense fallback renders a **neutral placeholder only** — never `props.children`. Rule: do not render the resolved content inside its own Suspense fallback; the fallback is a loading state, not a second copy of the page.
+
+## useSearchParams Suspense must not wrap route children (2026-07-26)
+
+- Removing `ClientHydrationBoundary` around standalone shell `{children}` restored mode-home RSC paint, but left route segments nested inside the shell’s `useSearchParams()` Suspense. Next streamed the page root into a hidden completion template (`<div hidden id="S:N">`) while the live shell also mounted the same `data-testid` root. Playwright’s strict `getByTestId` counts hidden nodes, so Production UI failed on `/forms`, `/favourites`, and differentials presentations under CI load even though the a11y tree showed one `main`.
+- Portal ready-gating fixed React #418 (hydration) but not this duplicate-root class.
+- Fix: `isAlwaysStandaloneShellPath` skips the outer searchParams Suspense for namespaced routes; standalone chrome reads params via a mount-gated `ShellSearchParamsBridge` sibling so `{children}` stay outside that boundary. Keep mode-home RSC paint; do not restore full-shell `ClientHydrationBoundary`.
 
 ## Clinical registry tables applied live (2026-07-03)
 
@@ -252,7 +282,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 - **Eval debt (blocking merge, not development):** `npm run eval:retrieval:quality` (23/23) and `eval:quality --rag-only` (`unsupported_correct_rate` 1.0) could NOT be run in the authoring environment (no live keys) — they MUST be run before merge per the standing gate above, with special attention to the weak-match OR-augmentation (flag off restores relax-on-empty exactly) and the retrieval-selection tiebreak (tie-only by construction).
 - **Eval debt settled 2026-07-07 — both flagged changes had regressed the golden eval (31/34 on main).** Isolated case-by-case against the same live corpus (pre-#325 code passed all 3): the weak-match OR-augmentation buried `opioid-withdrawal-doses` (docRecall@5 → 0; OR recall is append-only at the RPC merge but NOT after re-ranking), and the `selectRetrievalEvidence` pre-clamp tiebreak buried `alcohol-ciwa-threshold` + `clozapine-cbc-abbreviation-threshold` (boost-stacking magnitude re-ordered saturated top-5 sets). Fixed on `claude/retrieval-correctness`: `RAG_TEXT_WEAK_OR_RELAXATION` now defaults to `false` (opt-in experiment flag; re-enable only behind a fresh full golden run) and the selection-layer tiebreak is removed — the pre-clamp deep tiebreak lives in `rankClinicalResults` (below the engineered `rankingTieBreakScore`), which is the only place it is eval-proven. Lesson reinforced: "tie-only by construction" still changes which tied candidate wins; ordering changes inside saturated score regions are behavior changes and need the golden gate.
 - **UI verification run:** new `tests/ui-universal-search.spec.ts` (grouped typeahead renders, item selection navigates, Enter still runs the mode search — universal endpoint mocked), full `ui-tools`/`ui-tools-task-directory` (40/40) and `ui-smoke`/`ui-overlap` suites against a live dev server in demo mode, plus a live curl of `/api/search/universal` (grouped payload, domain filter, 400 on short query).
-- **Known limitation:** the typeahead spec mocks the universal endpoint; an end-to-end spec against live seeded registries needs the owner-auth Playwright project (E2E_USER_* keys).
+- **Known limitation:** the typeahead spec mocks the universal endpoint; an end-to-end spec against live seeded registries needs the owner-auth Playwright project (E2E*USER*\* keys).
 
 ## Cross-mode answer links workstream — verification state (2026-07-06)
 

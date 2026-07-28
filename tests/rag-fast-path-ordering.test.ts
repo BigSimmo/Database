@@ -157,6 +157,123 @@ describe("text-fast-path ordering under imputed identical primaries", () => {
     expect(releasedReversed[0]?.document_id).toBe("lithium-doc");
   });
 
+  it("keeps a lithium maintenance range above a higher-scored unrelated table through release ordering", () => {
+    const query = "What lithium level range is used for maintenance monitoring?";
+    const { queryClass } = classifyRagQuery(query);
+    expect(queryClass).toBe("table_threshold");
+
+    const candidates = [
+      imputedResult({
+        id: "unrelated-bgl-threshold",
+        document_id: "bgl-doc",
+        title: "Blood Glucose Level",
+        file_name: "blood-glucose-level.pdf",
+        section_heading: "Escalation threshold",
+        content: "Escalate when the blood glucose level is greater than 15 mmol/L.",
+        similarity: 0.94,
+        hybrid_score: 0.96,
+        text_rank: 0.12,
+        table_facts: [
+          {
+            id: "bgl-fact",
+            document_id: "bgl-doc",
+            source_chunk_id: "unrelated-bgl-threshold",
+            source_image_id: null,
+            page_number: 5,
+            table_title: "Blood glucose escalation",
+            row_label: "High blood glucose",
+            clinical_parameter: "Blood glucose level",
+            threshold_value: ">15 mmol/L",
+            action: "Escalate",
+          },
+        ],
+      }),
+      imputedResult({
+        id: "lithium-maintenance-range",
+        document_id: "lithium-doc",
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "The lithium maintenance range is 0.6 to 0.8 mmol/L.",
+        similarity: 0.56,
+        hybrid_score: 0.58,
+        text_rank: 0.08,
+        table_facts: [
+          {
+            id: "lithium-fact",
+            document_id: "lithium-doc",
+            source_chunk_id: "lithium-maintenance-range",
+            source_image_id: null,
+            page_number: 5,
+            table_title: "Lithium monitoring",
+            row_label: "Maintenance",
+            clinical_parameter: "Lithium level",
+            threshold_value: "0.6 to 0.8 mmol/L",
+            action: "Continue maintenance monitoring",
+          },
+        ],
+      }),
+    ];
+
+    const released = runTextFastPathOrdering({ query, queryClass, candidates, topK: 2 });
+    const releasedReversed = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [...candidates].reverse(),
+      topK: 2,
+    });
+
+    expect(released[0]?.id).toBe("lithium-maintenance-range");
+    expect(releasedReversed.map((result) => result.id)).toEqual(released.map((result) => result.id));
+  });
+
+  it("keeps a lithium row above a higher-scored foreign-medication row from the same document", () => {
+    const query = "What lithium level range is used for maintenance monitoring?";
+    const { queryClass } = classifyRagQuery(query);
+    expect(queryClass).toBe("table_threshold");
+
+    const candidates = [
+      imputedResult({
+        id: "lamotrigine-range",
+        document_id: "lithium-doc",
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Lithium maintenance monitoring",
+        content: "Lithium guidance: the lamotrigine maintenance range used for monitoring is 3 to 15 mg/L.",
+        similarity: 0.94,
+        hybrid_score: 0.96,
+        text_rank: 0.12,
+      }),
+      imputedResult({
+        id: "lithium-range",
+        document_id: "lithium-doc",
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Lithium maintenance monitoring",
+        content: "The lithium maintenance range is 0.6 to 0.8 mmol/L.",
+        adjacent_context: "The valproate maintenance range is listed in the neighbouring row.",
+        similarity: 0.56,
+        hybrid_score: 0.58,
+        text_rank: 0.08,
+      }),
+    ];
+
+    const released = runTextFastPathOrdering({ query, queryClass, candidates, topK: 2 });
+    const releasedReversed = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [...candidates].reverse(),
+      topK: 2,
+    });
+
+    expect(released[0]?.id).toBe("lithium-range");
+    expect(released[0]?.match_explanation?.reasons).toContain("retrieval_signal:clinical_subject");
+    expect(released.find((result) => result.id === "lamotrigine-range")?.match_explanation?.reasons).not.toContain(
+      "retrieval_signal:clinical_subject",
+    );
+    expect(releasedReversed.map((result) => result.id)).toEqual(released.map((result) => result.id));
+  });
+
   it("keeps the threshold table chunk in the released top 5 of its own document (clozapine-anc-threshold)", () => {
     const query = "What ANC or FBC threshold should withhold clozapine?";
     const { queryClass } = classifyRagQuery(query);

@@ -1,15 +1,18 @@
 import { logger } from "@/lib/logger";
+import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
 const knownValidation = new Set(["unverified", "locally_reviewed", "approved"]);
 const knownExtraction = new Set(["good", "partial", "poor", "unknown"]);
+const knownSourceKinds = new Set(["document", "registry_record"]);
+const knownRegistryRecordKinds = new Set(["service", "form", "medication", "differential"]);
 
 function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
+function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
   if (typeof value === "string" && allowed.has(value)) return value as T;
   // A present-but-unrecognized string is a real data-entry defect (typo, renamed
   // enum, malformed ingest) that would otherwise collapse into the fallback and be
@@ -27,8 +30,13 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
   return {
-    source_kind: stringOrNull(value.source_kind),
-    registry_record_kind: stringOrNull(value.registry_record_kind),
+    source_kind: enumOrDefault(value.source_kind, knownSourceKinds, null, "source_kind"),
+    registry_record_kind: enumOrDefault(
+      value.registry_record_kind,
+      knownRegistryRecordKinds,
+      null,
+      "registry_record_kind",
+    ),
     registry_record_subkind: stringOrNull(value.registry_record_subkind),
     registry_record_id: stringOrNull(value.registry_record_id),
     registry_record_slug: stringOrNull(value.registry_record_slug),
@@ -117,9 +125,34 @@ export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null
   // clipboard line is an audit artifact, unlike the visible summary above
   // which drops unknown filler segments for readability.
   return [
+    `Designation: ${sourceDesignationSummary(source)}`,
     `Review status: ${sourceStatusLabel(source)}`,
     `Validation: ${validationStatusLabel(source)}`,
     `Review date: ${formatClinicalDate(source.review_date)}`,
     `Jurisdiction: ${source.jurisdiction ?? "Unknown"}`,
   ].join(" | ");
+}
+
+export function sourceDesignationLabel(designation: SourceDesignation) {
+  if (designation === "official") return "Official";
+  if (designation === "trusted") return "Trusted";
+  return "Unclassified";
+}
+
+export function sourceDesignationDescription(metadata?: ClinicalSourceMetadata | null) {
+  const classification = classifySourceAuthority(metadata);
+  if (classification.designation === "official") {
+    return classification.officialBasis === "wa_hospital"
+      ? "Authenticated source issued by a recognised WA hospital. Official does not imply current, locally approved, or clinically relevant."
+      : "Authenticated source issued by a recognised WA health-service network. Official does not imply current, locally approved, or clinically relevant.";
+  }
+  if (classification.designation === "trusted") {
+    return "Recognised authority outside the Official WA hospital/network scope. Trusted does not imply current, locally approved, or clinically relevant.";
+  }
+  return "Source authority is unknown, ambiguous, conflicting, or a registry summary. Treat as unclassified provenance.";
+}
+
+export function sourceDesignationSummary(metadata?: ClinicalSourceMetadata | null) {
+  const classification = classifySourceAuthority(metadata);
+  return sourceDesignationLabel(classification.designation);
 }

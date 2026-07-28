@@ -1,7 +1,8 @@
 "use client";
 
 import { RefreshCw, Share, SquarePlus, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 const SERVICE_WORKER_URL = "/sw.js";
 const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
@@ -33,9 +34,7 @@ function getConnectivitySnapshot() {
   return navigator.onLine;
 }
 
-function getServerConnectivitySnapshot() {
-  return true;
-}
+const useConnectivityStore = createBrowserStore(subscribeConnectivity, getConnectivitySnapshot, true);
 
 function isStandaloneDisplay() {
   return (
@@ -182,7 +181,7 @@ function InstallStepChip({ icon: Icon, label }: { icon: LucideIcon; label: strin
  * owned caches again.
  */
 export function PwaLifecycle() {
-  const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
+  const isOnline = useConnectivityStore();
   const [connectionRestored, setConnectionRestored] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [offlineNoticeDismissed, setOfflineNoticeDismissed] = useState(false);
@@ -291,6 +290,16 @@ export function PwaLifecycle() {
     const registrationCleanups = new Set<() => void>();
     hasSeenControllerRef.current = Boolean(navigator.serviceWorker.controller);
 
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      broadcastChannel = new BroadcastChannel("pwa_channel");
+      broadcastChannel.addEventListener("message", (event) => {
+        if (event.data === "sw-updated" && !cancelled && !updateDismissedRef.current) {
+          setActivatedUpdateReady(true);
+        }
+      });
+    } catch {}
+
     const exposeWaitingWorker = (worker: ServiceWorker | null) => {
       if (!cancelled && worker && !updateDismissedRef.current) setWaitingWorker(worker);
     };
@@ -325,7 +334,12 @@ export function PwaLifecycle() {
         return;
       }
       setWaitingWorker(null);
-      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) setActivatedUpdateReady(true);
+      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) {
+        setActivatedUpdateReady(true);
+        try {
+          broadcastChannel?.postMessage("sw-updated");
+        } catch {}
+      }
     };
 
     const register = async () => {
@@ -382,6 +396,9 @@ export function PwaLifecycle() {
       document.removeEventListener("visibilitychange", checkForUpdates);
       window.removeEventListener("online", checkForUpdates);
       registrationRef.current = null;
+      try {
+        broadcastChannel?.close();
+      } catch {}
     };
   }, []);
 

@@ -4,6 +4,8 @@ import nextTs from "eslint-config-next/typescript";
 
 import requireLucideIconAria from "./eslint-rules/require-lucide-icon-aria.mjs";
 import requireButtonWiring from "./eslint-rules/require-button-wiring.mjs";
+import restrictSuppressHydrationWarning from "./eslint-rules/restrict-suppress-hydration-warning.mjs";
+import noHardcodedHex from "./eslint-rules/no-hardcoded-hex.mjs";
 
 // Shared `local` plugin object. ESLint flat config requires every config block
 // that references a plugin namespace to point at the *same* object, so the two
@@ -12,6 +14,8 @@ const localRulesPlugin = {
   rules: {
     "require-lucide-icon-aria": requireLucideIconAria,
     "require-button-wiring": requireButtonWiring,
+    "restrict-suppress-hydration-warning": restrictSuppressHydrationWarning,
+    "no-hardcoded-hex": noHardcodedHex,
   },
 };
 
@@ -64,6 +68,14 @@ const eslintConfig = defineConfig([
     plugins: { local: localRulesPlugin },
     rules: {
       "local/require-button-wiring": "error",
+      "local/no-hardcoded-hex": "error",
+    },
+  },
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    plugins: { local: localRulesPlugin },
+    rules: {
+      "local/restrict-suppress-hydration-warning": "error",
     },
   },
   // Import boundary: production source must not import design-scratch mockup

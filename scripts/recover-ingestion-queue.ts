@@ -35,8 +35,8 @@ function supabaseStageError(stage: string, error: unknown) {
   return wrapped;
 }
 
-const booleanFlags = new Set(["--apply", "--yes"]);
-const valueFlags = new Set(["--stale-after-minutes", "--limit"]);
+const booleanFlags = new Set(["--apply", "--yes", "--include-stranded-queued"]);
+const valueFlags = new Set(["--stale-after-minutes", "--limit", "--stranded-min-age-minutes", "--owner-id"]);
 
 // Audit L2 (hardened after diff review): this script mutates ingestion state,
 // so argument parsing fails loudly on ANY surprise —
@@ -71,11 +71,18 @@ function parseArgs(argv: string[]) {
     }
     return parsed;
   };
+  const ownerId = values.get("--owner-id");
+  if (ownerId !== undefined && ownerId.trim().length === 0) {
+    throw new Error("--owner-id must be a non-empty UUID when provided.");
+  }
   return {
     apply: booleans.has("--apply"),
     yes: booleans.has("--yes"),
+    includeStrandedQueued: booleans.has("--include-stranded-queued"),
     staleAfterMinutes: positiveIntFor("stale-after-minutes"),
+    strandedMinAgeMinutes: positiveIntFor("stranded-min-age-minutes"),
     limit: positiveIntFor("limit"),
+    ownerId: ownerId?.trim(),
   };
 }
 
@@ -133,13 +140,34 @@ async function main() {
     console.log(`Remaining (over limit): ${remainingCount}`);
   }
 
-  if (actions.length === 0) {
+  let stranded: Awaited<
+    ReturnType<(typeof import("@/lib/stranded-queued-recovery"))["listStrandedQueuedDocuments"]>
+  > | null = null;
+  if (args.includeStrandedQueued) {
+    const { listStrandedQueuedDocuments, STRANDED_QUEUED_DEFAULT_MIN_AGE_MINUTES } =
+      await import("@/lib/stranded-queued-recovery");
+    const strandedMinAgeMinutes = args.strandedMinAgeMinutes ?? STRANDED_QUEUED_DEFAULT_MIN_AGE_MINUTES;
+    stranded = await listStrandedQueuedDocuments({
+      supabase,
+      minAgeMinutes: strandedMinAgeMinutes,
+      limit,
+      ownerId: args.ownerId ?? null,
+    });
+    console.log("\n=== Stranded queued-without-job recovery ===");
+    console.log(`Min age                 : ${strandedMinAgeMinutes} min`);
+    console.log(`Owner scope             : ${args.ownerId ?? "(all owners)"}`);
+    console.log(`Stranded candidates     : ${stranded.length}`);
+    for (const document of stranded) {
+      console.log(`  - ${document.id} owner=${document.owner_id ?? "null"} updated_at=${document.updated_at}`);
+    }
+  }
+
+  if (actions.length === 0 && (stranded?.length ?? 0) === 0) {
     console.log("\nNothing to recover. Queue looks healthy.");
     return;
   }
 
   let shouldApply = args.apply;
-
   if (!shouldApply) {
     if (args.yes) {
       shouldApply = true;
@@ -154,56 +182,75 @@ async function main() {
     return;
   }
 
-  console.log("\nApplying recovery...");
+  if (actions.length > 0) {
+    console.log("\nApplying job recovery...");
 
-  for (const documentId of resetDocumentIds) {
-    const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: documentId });
-    if (resetError) throw supabaseStageError("reset document index", resetError);
-    const { error: documentError } = await supabase
-      .from("documents")
-      .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
-      .eq("id", documentId);
-    if (documentError) throw supabaseStageError("reset document status", documentError);
-  }
+    for (const documentId of resetDocumentIds) {
+      const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: documentId });
+      if (resetError) throw supabaseStageError("reset document index", resetError);
+      const { error: documentError } = await supabase
+        .from("documents")
+        .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
+        .eq("id", documentId);
+      if (documentError) throw supabaseStageError("reset document status", documentError);
+    }
 
-  for (const action of actions) {
-    if (action.action === "supersede") {
-      const { error: supersedeError } = await supabase
+    for (const action of actions) {
+      if (action.action === "supersede") {
+        const { error: supersedeError } = await supabase
+          .from("ingestion_jobs")
+          .update({
+            status: "completed",
+            stage: "superseded by successful index",
+            progress: 100,
+            error_message: null,
+            locked_at: null,
+            locked_by: null,
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", action.jobId);
+        if (supersedeError) throw supabaseStageError("supersede sibling ingestion job", supersedeError);
+        continue;
+      }
+
+      const { error: retryError } = await supabase
         .from("ingestion_jobs")
         .update({
-          status: "completed",
-          stage: "superseded by successful index",
-          progress: 100,
+          status: "pending",
+          stage: "queued after recovery",
+          progress: 0,
+          attempt_count: 0,
           error_message: null,
           locked_at: null,
           locked_by: null,
-          completed_at: new Date().toISOString(),
+          next_run_at: new Date().toISOString(),
+          completed_at: null,
         })
         .eq("id", action.jobId);
-      if (supersedeError) throw supabaseStageError("supersede sibling ingestion job", supersedeError);
-      continue;
+      if (retryError) throw supabaseStageError("requeue ingestion job", retryError);
     }
 
-    const { error: retryError } = await supabase
-      .from("ingestion_jobs")
-      .update({
-        status: "pending",
-        stage: "queued after recovery",
-        progress: 0,
-        attempt_count: 0,
-        error_message: null,
-        locked_at: null,
-        locked_by: null,
-        next_run_at: new Date().toISOString(),
-        completed_at: null,
-      })
-      .eq("id", action.jobId);
-    if (retryError) throw supabaseStageError("requeue ingestion job", retryError);
+    console.log("Ingestion queue recovery applied.");
+    if (remainingCount > 0) {
+      console.log(`\n${remainingCount} action(s) remain over the limit. Re-run to process the next batch.`);
+    }
   }
 
-  console.log("Ingestion queue recovery applied.");
-  if (remainingCount > 0) {
-    console.log(`\n${remainingCount} action(s) remain over the limit. Re-run to process the next batch.`);
+  if (stranded && stranded.length > 0) {
+    const { recoverStrandedQueuedDocuments } = await import("@/lib/stranded-queued-recovery");
+    const strandedResults = await recoverStrandedQueuedDocuments({ supabase, documents: stranded });
+    const enqueued = strandedResults.filter((result) => result.outcome === "enqueued").length;
+    const alreadyActive = strandedResults.filter((result) => result.outcome === "already_active").length;
+    const errors = strandedResults.filter((result) => result.outcome === "error");
+    console.log(`\nStranded enqueued       : ${enqueued}`);
+    console.log(`Stranded already active : ${alreadyActive}`);
+    if (errors.length > 0) {
+      console.log(`Stranded errors         : ${errors.length}`);
+      for (const error of errors) {
+        console.log(`  - ${error.documentId}: ${error.message}`);
+      }
+      throw new Error(`Stranded queued recovery reported ${errors.length} error(s).`);
+    }
   }
 }
 

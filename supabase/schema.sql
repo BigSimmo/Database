@@ -1,4 +1,4 @@
--- Medical RAG Knowledge Base schema.
+﻿-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -1253,7 +1253,7 @@ begin
     and d.metadata ? 'indexing_v3_agent_status'
     and coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
           not in ('completed', 'needs_enrichment_artifacts')
-  on conflict (document_id) do nothing;
+  on conflict do nothing;
 
   return query
   with eligible_jobs as (
@@ -1272,7 +1272,7 @@ begin
         or j.locked_at < now() - make_interval(mins => p_stale_after_minutes))
     order by coalesce(j.next_run_at, j.updated_at), j.id
     limit greatest(p_claim_limit, 1)
-    for update of j skip locked
+    for update of j, d skip locked
   ),
   claimed_jobs as (
     update public.indexing_v3_agent_jobs j
@@ -3470,108 +3470,19 @@ $function$;
 revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
 
-CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text, min_sim real DEFAULT 0.45)
- RETURNS text
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'extensions', 'pg_temp'
- SET pg_trgm.similarity_threshold = 0.3
-AS $function$
-declare
-  tokens text[];
-  tok text;
-  best text;
-  best_sim real;
-  vocab text[];
-  corrected text[] := array[]::text[];
-  changed boolean := false;
+-- Prefer app.ingestion_worker_base_url (GUC) with the hardcoded project URL as
+-- fallback, matching invoke_indexing_v3_agent. Guarded ALTER DATABASE SET so
+-- hosted Supabase (42501) still replays cleanly.
+do $$
 begin
-  if min_sim is null or min_sim < 0.3 or min_sim > 1 then
-    raise exception 'min_sim must be between 0.3 and 1.0' using errcode = '22023';
-  end if;
+  execute format('alter database %I set app.ingestion_worker_base_url = %L',
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
+exception
+  when insufficient_privilege then
+    raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
+end
+$$;
 
-  if input_query is null or length(trim(input_query)) = 0 then
-    return input_query;
-  end if;
-
-  -- Build the known-term vocabulary once per call. Every source is scoped to the
-  -- public (null-owner) corpus: this function is SECURITY DEFINER and bypasses RLS, and
-  -- both rag_aliases and documents carry owner-scoped private rows (deep-memory persists
-  -- owner-scoped aliases/canonicals), so an unscoped read would leak private-document
-  -- terms across tenants. Mirrors migration 20260717120000_corrector_public_titles_only.
-  select array_agg(distinct term) into vocab
-  from (
-    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
-    union
-    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
-    union
-    select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
-    where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40
-  ) t;
-
-  tokens := regexp_split_to_array(lower(input_query), '\s+');
-  foreach tok in array tokens loop
-    if length(tok) < 4 then
-      corrected := corrected || tok;
-      continue;
-    end if;
-    best := null;
-    best_sim := 0;
-    select candidate.term, similarity(candidate.term, tok)
-      into best, best_sim
-    from (
-      (
-        select lower(alias) as term
-        from public.rag_aliases
-        where enabled
-          and length(alias) between 4 and 40
-          and lower(alias) % tok
-        order by similarity(lower(alias), tok) desc, lower(alias)
-        limit 32
-      )
-      union all
-      (
-        select lower(canonical) as term
-        from public.rag_aliases
-        where enabled
-          and length(canonical) between 4 and 40
-          and lower(canonical) % tok
-        order by similarity(lower(canonical), tok) desc, lower(canonical)
-        limit 32
-      )
-      union all
-      (
-        select word as term
-        from public.document_title_words
-        where length(word) between 4 and 40
-          and word % tok
-        order by similarity(word, tok) desc, word
-        limit 32
-      )
-    ) candidate
-    order by similarity(candidate.term, tok) desc, candidate.term
-    limit 1;
-    if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
-      corrected := corrected || best;
-      changed := true;
-    else
-      corrected := corrected || tok;
-    end if;
-  end loop;
-
-  if not changed then
-    return input_query;
-  end if;
-  return array_to_string(corrected, ' ');
-end;
-$function$;
-
-revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;
-grant execute on function public.correct_clinical_query_terms(text, real) to service_role;
-
--- NOTE: unlike invoke_indexing_v3_agent (URL moved to a GUC by 20260702160000),
--- the live definition still hardcodes the project URL. Codified as-is; migrate
--- to the GUC pattern in a follow-up if this RPC stays.
 CREATE OR REPLACE FUNCTION public.invoke_ingestion_worker(p_limit integer DEFAULT 25)
  RETURNS bigint
  LANGUAGE plpgsql
@@ -3582,6 +3493,7 @@ declare
   v_request_id bigint;
   v_jwt text;
   v_limit integer := greatest(1, least(coalesce("p_limit", 25), 200));
+  v_base_url text;
 begin
   select "decrypted_secret" into v_jwt
   from "vault"."decrypted_secrets"
@@ -3592,8 +3504,13 @@ begin
     raise exception 'Missing Vault secret: cron_ingestion_jwt';
   end if;
 
+  v_base_url := coalesce(
+    nullif(current_setting('app.ingestion_worker_base_url', true), ''),
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
+  );
+
   select "net"."http_post"(
-    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/ingestion-worker?limit=' || v_limit::text,
+    url := v_base_url || '/functions/v1/ingestion-worker?limit=' || v_limit::text,
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || v_jwt
@@ -5901,6 +5818,78 @@ revoke execute on function public.request_indexing_v3_enrichment(uuid, uuid) fro
 grant execute on function public.request_indexing_v3_enrichment(uuid, uuid) to service_role;
 
 
+-- Atomically create an uploaded document row and its initial ingestion job.
+-- The upload route has already stored the object and validated owner/file metadata;
+-- this RPC closes the process-crash window between `documents.insert` and
+-- `ingestion_jobs.insert` by doing both database writes in one transaction.
+create or replace function public.create_uploaded_document_with_ingestion_job(
+  p_document jsonb,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  insert into public.documents (
+    id,
+    owner_id,
+    title,
+    description,
+    file_name,
+    file_type,
+    file_size,
+    storage_path,
+    content_hash,
+    status,
+    metadata
+  ) values (
+    (p_document->>'id')::uuid,
+    (p_document->>'owner_id')::uuid,
+    p_document->>'title',
+    nullif(p_document->>'description', ''),
+    p_document->>'file_name',
+    p_document->>'file_type',
+    coalesce((p_document->>'file_size')::bigint, 0),
+    p_document->>'storage_path',
+    nullif(p_document->>'content_hash', ''),
+    'queued',
+    coalesce(p_document->'metadata', '{}'::jsonb)
+  )
+  returning * into v_document;
+
+  insert into public.ingestion_jobs (
+    document_id,
+    batch_id,
+    status,
+    stage,
+    progress,
+    max_attempts
+  ) values (
+    v_document.id,
+    null,
+    'pending',
+    'queued',
+    0,
+    p_max_attempts
+  )
+  returning * into v_job;
+
+  return jsonb_build_object(
+    'document', to_jsonb(v_document),
+    'job', to_jsonb(v_job)
+  );
+end;
+$$;
+
+revoke execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) from public, anon, authenticated;
+grant execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) to service_role;
+
+
 create table if not exists public.rag_visual_eval_cases (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -6126,7 +6115,7 @@ create table if not exists public.source_review_events (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null,
   reviewer_id uuid not null,
-  decision text not null check (decision in ('locally_reviewed', 'approved', 'rejected', 'decommissioned', 'superseded')),
+  decision text not null check (decision in ('locally_reviewed', 'approved', 'third_party_reference_attested', 'rejected', 'decommissioned', 'superseded')),
   reason text not null check (char_length(reason) between 3 and 2000),
   evidence_references text[] not null default '{}',
   prior_document_status text not null,
@@ -6135,6 +6124,8 @@ create table if not exists public.source_review_events (
   new_validation_status text not null,
   review_date date,
   replacement_document_id uuid,
+  policy_version text,
+  reviewer_qualification text,
   created_at timestamptz not null default now()
 );
 
@@ -6216,6 +6207,153 @@ $$;
 
 revoke all on function public.record_source_review(uuid, uuid, text, text, text[], date, uuid) from public, anon, authenticated;
 grant execute on function public.record_source_review(uuid, uuid, text, text, text[], date, uuid) to service_role;
+
+create or replace function public.record_source_review_v2(
+  p_document_id uuid,
+  p_reviewer_id uuid,
+  p_decision text,
+  p_reason text,
+  p_evidence_references text[] default '{}',
+  p_review_date date default null,
+  p_replacement_document_id uuid default null,
+  p_policy_version text default null,
+  p_reviewer_qualification text default null
+)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_document public.documents%rowtype;
+  v_metadata jsonb;
+  v_prior_status text;
+  v_prior_validation text;
+  v_new_status text;
+  v_new_validation text;
+  v_event public.source_review_events%rowtype;
+begin
+  if p_decision not in ('locally_reviewed', 'approved', 'third_party_reference_attested', 'rejected', 'decommissioned', 'superseded') then raise exception 'invalid source review decision'; end if;
+  if char_length(trim(coalesce(p_reason, ''))) < 3 then raise exception 'source review reason is required'; end if;
+  if p_decision in ('locally_reviewed', 'approved') and coalesce(cardinality(p_evidence_references), 0) = 0 then raise exception 'evidence references are required for source promotion'; end if;
+  if p_decision = 'superseded' and p_replacement_document_id is null then raise exception 'replacement document is required for supersession'; end if;
+  select * into v_document from public.documents
+  where id = p_document_id and (owner_id = p_reviewer_id or owner_id is null)
+  for update;
+  if not found then raise exception 'document not found'; end if;
+  if p_replacement_document_id is not null and (
+    p_replacement_document_id = p_document_id
+    or not exists (
+      select 1 from public.documents replacement
+      where replacement.id = p_replacement_document_id
+        and (
+          (v_document.owner_id is null and replacement.owner_id is null)
+          or (v_document.owner_id = p_reviewer_id and (replacement.owner_id = p_reviewer_id or replacement.owner_id is null))
+        )
+    )
+  ) then raise exception 'replacement document not found'; end if;
+  if v_document.owner_id is null and p_decision in ('locally_reviewed', 'approved') then
+    if p_review_date is null or p_review_date > (now() at time zone 'Australia/Perth')::date then raise exception 'public source promotion review date is invalid'; end if;
+    if char_length(trim(coalesce(p_reviewer_qualification, ''))) = 0 then raise exception 'public source promotion reviewer qualification is required'; end if;
+  end if;
+  v_metadata := coalesce(v_document.metadata, '{}'::jsonb);
+  v_prior_status := coalesce(v_metadata->>'document_status', 'unknown');
+  v_prior_validation := coalesce(v_metadata->>'clinical_validation_status', 'unverified');
+
+  if p_decision = 'third_party_reference_attested' then
+    if v_document.status <> 'indexed' then raise exception 'BMJ third-party attestation requires an indexed document'; end if;
+    if upper(trim(coalesce(v_metadata->>'publisher_code', ''))) <> 'BMJ'
+      or btrim(
+        regexp_replace(
+          replace(lower(coalesce(v_metadata->>'publisher', '')), '&', ' and '),
+          '[^a-z0-9/]+',
+          ' ',
+          'g'
+        )
+      ) not in ('bmj best practice', 'bmj publishing group')
+      or btrim(
+        regexp_replace(
+          replace(lower(coalesce(v_metadata->>'jurisdiction', '')), '&', ' and '),
+          '[^a-z0-9/]+',
+          ' ',
+          'g'
+        )
+      ) not in ('international', 'global', 'united kingdom', 'uk')
+    then raise exception 'BMJ third-party attestation requires compatible BMJ authority metadata'; end if;
+    if v_prior_validation <> 'unverified' then raise exception 'BMJ third-party attestation preserves unverified validation status'; end if;
+    if coalesce(cardinality(p_evidence_references), 0) = 0 or exists (
+      select 1 from unnest(coalesce(p_evidence_references, '{}'::text[])) as evidence(reference)
+      where char_length(trim(coalesce(evidence.reference, ''))) = 0
+    ) then raise exception 'BMJ third-party attestation evidence references are required'; end if;
+    if p_review_date is null or p_review_date > (now() at time zone 'Australia/Perth')::date then raise exception 'BMJ third-party attestation review date is invalid'; end if;
+    if p_policy_version is distinct from 'bmj-third-party-reference-attestation-v1' then raise exception 'BMJ third-party attestation policy version is invalid'; end if;
+    if char_length(trim(coalesce(p_reviewer_qualification, ''))) = 0 then raise exception 'BMJ third-party attestation reviewer qualification is required'; end if;
+
+    v_new_status := v_prior_status;
+    v_new_validation := 'unverified';
+    v_metadata := v_metadata || jsonb_build_object(
+      'clinical_validation_status', 'unverified',
+      'clinical_validation_evidence', jsonb_build_object(
+        'status', 'unverified',
+        'basis', 'third_party_reference_attested',
+        'evidence_type', 'structured_bmj_third_party_attestation',
+        'publisher_code', 'BMJ',
+        'policy_version', p_policy_version,
+        'reviewer_qualification', trim(p_reviewer_qualification),
+        'evidence_references', to_jsonb(p_evidence_references),
+        'review_date', to_jsonb(p_review_date),
+        'attested_at', now(),
+        'attested_by', p_reviewer_id
+      ),
+      'governance_disposition', 'third_party_reference_attested',
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  elsif p_decision in ('rejected', 'decommissioned', 'superseded') then
+    v_new_status := 'outdated';
+    v_new_validation := case when p_decision = 'rejected' then 'unverified' else v_prior_validation end;
+    v_metadata := v_metadata || jsonb_build_object(
+      'document_status', v_new_status,
+      'clinical_validation_status', v_new_validation,
+      'review_date', to_jsonb(p_review_date),
+      'provenance_basis', coalesce(v_metadata->>'provenance_basis', 'unknown'),
+      'governance_disposition', p_decision,
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  else
+    v_new_status := case when p_review_date is not null and p_review_date < (now() at time zone 'Australia/Perth')::date then 'review_due' else 'current' end;
+    v_new_validation := p_decision;
+    v_metadata := v_metadata || jsonb_build_object(
+      'document_status', v_new_status,
+      'clinical_validation_status', v_new_validation,
+      'review_date', to_jsonb(p_review_date),
+      'provenance_basis', 'reviewer_verified',
+      'governance_disposition', p_decision,
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  end if;
+
+  insert into public.source_review_events (
+    document_id, reviewer_id, decision, reason, evidence_references, prior_document_status,
+    new_document_status, prior_validation_status, new_validation_status, review_date,
+    replacement_document_id, policy_version, reviewer_qualification
+  ) values (
+    p_document_id, p_reviewer_id, p_decision, trim(p_reason), coalesce(p_evidence_references, '{}'),
+    v_prior_status, v_new_status, v_prior_validation, v_new_validation, p_review_date,
+    p_replacement_document_id,
+    case when p_decision = 'third_party_reference_attested' then p_policy_version else null end,
+    case
+      when p_decision = 'third_party_reference_attested'
+        or (v_document.owner_id is null and p_decision in ('locally_reviewed', 'approved'))
+      then trim(p_reviewer_qualification)
+      else null
+    end
+  ) returning * into v_event;
+  update public.documents set metadata = v_metadata, updated_at = now() where id = p_document_id;
+  return to_jsonb(v_event);
+end;
+$$;
+
+revoke all on function public.record_source_review_v2(uuid, uuid, text, text, text[], date, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.record_source_review_v2(uuid, uuid, text, text, text[], date, uuid, text, text) to service_role;
 
 create table if not exists public.rag_answer_feedback (
   id uuid primary key default gen_random_uuid(),
@@ -6506,23 +6644,25 @@ drop function if exists public.match_document_table_facts_text(text, integer, uu
 
 CREATE OR REPLACE FUNCTION public.match_document_table_facts_text(query_text text, match_count integer DEFAULT 16, document_filters uuid[] DEFAULT NULL::uuid[], owner_filter uuid DEFAULT NULL::uuid)
  RETURNS TABLE(id uuid, document_id uuid, source_chunk_id uuid, source_image_id uuid, page_number integer, table_title text, row_label text, clinical_parameter text, threshold_value text, action text, text_rank double precision, match_reason text)
- LANGUAGE sql
+ LANGUAGE plpgsql
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
  SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
+begin
+  return query execute $body$
   with query as (
     select
-      websearch_to_tsquery('english', coalesce(query_text, '')) as tsq,
-      lower(trim(regexp_replace(coalesce(query_text, ''), '\\s+', ' ', 'g'))) as normalized,
-      string_to_array(lower(trim(regexp_replace(coalesce(query_text, ''), '\\s+', ' ', 'g'))), ' ')::text[] as tokens
+      websearch_to_tsquery('english', coalesce($1, '')) as tsq,
+      lower(trim(regexp_replace(coalesce($1, ''), '\s+', ' ', 'g'))) as normalized,
+      string_to_array(lower(trim(regexp_replace(coalesce($1, ''), '\s+', ' ', 'g'))), ' ')::text[] as tokens
   ),
   doc_scope as (
     select d.id, d.metadata
     from public.documents d
     where d.status = 'indexed'
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
-      and (document_filters is null or d.id = any(document_filters))
+      and public.retrieval_owner_matches($4, d.owner_id)
+      and ($3 is null or d.id = any($3))
   ),
   fts_matches as (
     select
@@ -6547,7 +6687,7 @@ AS $function$
     join doc_scope ds on ds.id = f.document_id
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
     order by ts_rank_cd(f.search_tsv, q.tsq) desc
-    limit greatest(match_count * 5, 64)
+    limit greatest($2 * 5, 64)
   ),
   term_matches as (
     select
@@ -6569,7 +6709,7 @@ AS $function$
      and f.normalized_terms && q.tokens
     join doc_scope ds on ds.id = f.document_id
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
-    limit greatest(match_count * 4, 48)
+    limit greatest($2 * 4, 48)
   ),
   trgm_matches as (
     select
@@ -6592,7 +6732,7 @@ AS $function$
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
       and similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), q.normalized) >= 0.18
     order by similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), q.normalized) desc
-    limit greatest(match_count * 4, 48)
+    limit greatest($2 * 4, 48)
   ),
   combined as (
     select * from fts_matches
@@ -6634,7 +6774,10 @@ AS $function$
   from deduped d
   where d.text_rank > 0
   order by d.text_rank desc, d.page_number asc nulls last
-  limit match_count;
+  limit $2
+  $body$
+  using query_text, match_count, document_filters, owner_filter;
+end;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.match_documents_for_query(query_text text, match_count integer DEFAULT 12, owner_filter uuid DEFAULT NULL::uuid)
@@ -7260,6 +7403,33 @@ grant execute on function public.get_visual_evidence_cards(uuid, integer) to ser
 revoke execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid)
   from public, anon, authenticated;
 grant execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid) to service_role;
+
+-- Base match RPCs: keep EXECUTE lockdown explicit in the canonical snapshot so
+-- fresh replay does not depend solely on roles.sql / default-privilege churn.
+revoke execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  to service_role;
+
+revoke execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_documents_for_query(text, integer, uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_documents_for_query(text, integer, uuid)
+  to service_role;
 
 revoke execute on function public.repair_enrichment_quality_batch(integer)
   from public, anon, authenticated;
@@ -8472,6 +8642,99 @@ revoke all on function public.retry_ingestion_job_if_idle(uuid, uuid, timestampt
   from public, anon, authenticated;
 grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
   to service_role;
+
+create or replace function public.request_ingestion_reindex_if_agent_idle(
+  p_document_id uuid,
+  p_owner_id uuid,
+  p_stale_before timestamptz,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  if p_document_id is null or p_owner_id is null or p_stale_before is null
+     or p_max_attempts is null or p_max_attempts < 1 then
+    raise exception 'Reindex identifiers, stale cutoff, and max attempts are required.' using errcode = '22023';
+  end if;
+
+  select d.*
+    into v_document
+  from public.documents d
+  where d.id = p_document_id
+    and d.owner_id = p_owner_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+
+  if exists (
+    select 1
+    from public.indexing_v3_agent_jobs a
+    where a.document_id = p_document_id
+      and a.status = 'processing'
+      and (
+        coalesce(a.locked_at, a.updated_at) is null
+        or coalesce(a.locked_at, a.updated_at) > p_stale_before
+      )
+  ) then
+    return jsonb_build_object('outcome', 'agent_enrichment_active');
+  end if;
+
+  if exists (
+    select 1
+    from public.ingestion_jobs i
+    where i.document_id = p_document_id
+      and i.status in ('pending', 'processing')
+  ) then
+    return jsonb_build_object('outcome', 'ingestion_active');
+  end if;
+
+  begin
+    update public.documents
+    set status = case when v_document.status = 'indexed' then status else 'queued' end,
+        error_message = null,
+        page_count = case when v_document.status = 'indexed' then page_count else 0 end,
+        chunk_count = case when v_document.status = 'indexed' then chunk_count else 0 end,
+        image_count = case when v_document.status = 'indexed' then image_count else 0 end,
+        updated_at = now()
+    where id = p_document_id
+      and owner_id = p_owner_id;
+
+    insert into public.ingestion_jobs (
+      document_id,
+      batch_id,
+      status,
+      stage,
+      progress,
+      max_attempts
+    ) values (
+      p_document_id,
+      v_document.import_batch_id,
+      'pending',
+      'queued',
+      0,
+      p_max_attempts
+    )
+    returning * into v_job;
+  exception when unique_violation then
+    return jsonb_build_object('outcome', 'ingestion_active');
+  end;
+
+  return jsonb_build_object('outcome', 'queued', 'job', to_jsonb(v_job));
+end;
+$$;
+
+revoke all on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer)
+  from public, anon, authenticated;
+grant execute on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer)
+  to service_role;
 -- Catalog-level, fail-closed verification for future objects created by
 -- postgres. A missing pg_default_acl row must be interpreted through
 -- acldefault(), including PostgreSQL's built-in PUBLIC EXECUTE on functions.
@@ -9021,3 +9284,13 @@ begin
   end if;
 end;
 $$;
+
+-- Explicit function revokes (ISSUE-05)
+revoke execute on function public.detect_legacy_ivfflat_indexes() from public, anon, authenticated;
+revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;
+grant execute on function public.detect_legacy_ivfflat_indexes() to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+grant execute on function public.set_document_embedding_field_content_hash() to service_role;

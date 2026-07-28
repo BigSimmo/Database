@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { NavigationBackButton } from "@/components/navigation-back-button";
+import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cn,
   clinicalDivider,
@@ -42,11 +44,13 @@ import {
  * A clinician builds an evidence-based safety plan *with* the patient (the
  * Stanley-Brown Safety Planning Intervention, six prioritised steps), and a
  * live patient-facing preview updates as they type — ready to print, save as
- * PDF, or hand over. Sample content is seeded so the layout reads fully; every
- * field is editable and "Clear all" empties the plan. Australian English + AU
- * crisis resources throughout, per the Clinical KB (en-AU) voice. All chrome is
- * token-driven so light/dark, reduced-motion and forced-colors follow the
- * shared design system.
+ * PDF, or hand over. Working content stays in this mounted browser component;
+ * the app neither stores it nor sends it to a server. Copy and print are
+ * explicit user-directed exports. Sample content is seeded so the layout reads
+ * fully; every field is editable and "Clear all" empties the plan.
+ * Australian English + AU crisis resources throughout, per the Clinical KB
+ * (en-AU) voice. All chrome is token-driven so light/dark, reduced-motion and
+ * forced-colors follow the shared design system.
  */
 
 const focusRing =
@@ -149,6 +153,18 @@ const STEPS: StepDef[] = [
   },
 ];
 
+/**
+ * A step counts as complete when it has entries — and for the two contact steps,
+ * only when every listed contact also has a reach method (the secondary field).
+ * This stops a plan being finalised or shared with support/crisis contacts that
+ * have a name but no phone or way to reach them in a crisis.
+ */
+function isStepComplete(step: StepDef, rows: Entry[]): boolean {
+  if (rows.length === 0) return false;
+  if (step.kind === "contact") return rows.every((row) => (row.secondary ?? "").trim() !== "");
+  return true;
+}
+
 const SEED: Record<StepKey, Entry[]> = {
   warning: [
     { id: "w1", primary: "Not sleeping for a couple of nights" },
@@ -208,14 +224,20 @@ function AddRow({
   primaryPlaceholder,
   secondaryPlaceholder,
   onAdd,
+  onDraftDirtyChange,
 }: {
   kind: StepKind;
   primaryPlaceholder: string;
   secondaryPlaceholder?: string;
   onAdd: (primary: string, secondary?: string) => void;
+  onDraftDirtyChange?: (dirty: boolean) => void;
 }) {
   const [primary, setPrimary] = useState("");
   const [secondary, setSecondary] = useState("");
+  const draftIsDirty = useCallback(
+    (nextPrimary: string, nextSecondary: string) => nextPrimary.trim() !== "" || nextSecondary.trim() !== "",
+    [],
+  );
 
   const submit = () => {
     const trimmed = primary.trim();
@@ -223,13 +245,18 @@ function AddRow({
     onAdd(trimmed, secondary.trim() || undefined);
     setPrimary("");
     setSecondary("");
+    onDraftDirtyChange?.(false);
   };
 
   return (
     <div className={cn("grid gap-2", kind === "contact" && "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]")}>
       <input
         value={primary}
-        onChange={(event) => setPrimary(event.target.value)}
+        onChange={(event) => {
+          const nextPrimary = event.target.value;
+          setPrimary(nextPrimary);
+          onDraftDirtyChange?.(draftIsDirty(nextPrimary, secondary));
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
@@ -243,7 +270,11 @@ function AddRow({
       {kind === "contact" ? (
         <input
           value={secondary}
-          onChange={(event) => setSecondary(event.target.value)}
+          onChange={(event) => {
+            const nextSecondary = event.target.value;
+            setSecondary(nextSecondary);
+            onDraftDirtyChange?.(draftIsDirty(primary, nextSecondary));
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -307,14 +338,16 @@ function StepBuilderCard({
   entries,
   onAdd,
   onRemove,
+  onDraftDirtyChange,
 }: {
   def: StepDef;
   entries: Entry[];
   onAdd: (primary: string, secondary?: string) => void;
   onRemove: (id: string) => void;
+  onDraftDirtyChange: (dirty: boolean) => void;
 }) {
   const Icon = def.icon;
-  const filled = entries.length > 0;
+  const filled = isStepComplete(def, entries);
 
   return (
     <section
@@ -364,6 +397,7 @@ function StepBuilderCard({
         primaryPlaceholder={def.primaryPlaceholder}
         secondaryPlaceholder={def.secondaryPlaceholder}
         onAdd={onAdd}
+        onDraftDirtyChange={onDraftDirtyChange}
       />
     </section>
   );
@@ -422,11 +456,11 @@ function PreviewStep({ def, entries }: { def: StepDef; entries: Entry[] }) {
 export function PatientSafetyPlan() {
   const [entries, setEntries] = useState<Record<StepKey, Entry[]>>(EMPTY_ENTRIES);
   const [reasons, setReasons] = useState<Entry[]>([]);
-  const [patient, setPatient] = useState("");
   const [planDate, setPlanDate] = useState("");
   const [mobileTab, setMobileTab] = useState<"build" | "preview">("build");
   const [copied, setCopied] = useState(false);
   const [finalised, setFinalised] = useState(false);
+  const [draftDirtyByRow, setDraftDirtyByRow] = useState<Record<string, boolean>>({});
 
   // Per-instance id counter — avoids a module-level mutable that would persist
   // across remounts; ids only need to be unique within this mounted plan.
@@ -446,13 +480,32 @@ export function PatientSafetyPlan() {
     setFinalised(false);
   }, []);
 
-  const filledSteps = useMemo(() => STEPS.filter((step) => entries[step.key].length > 0).length, [entries]);
+  const setDraftDirty = useCallback((key: string, dirty: boolean) => {
+    setDraftDirtyByRow((prev) => {
+      if (prev[key] === dirty) return prev;
+      return { ...prev, [key]: dirty };
+    });
+  }, []);
+
+  const filledSteps = useMemo(() => STEPS.filter((step) => isStepComplete(step, entries[step.key])).length, [entries]);
   const ready = filledSteps === STEPS.length;
+  // Working plan content is browser-tab only and never persisted. Treat any
+  // entered step/reason/date as dirty so the header back control cannot discard
+  // an in-progress plan without an explicit confirmation.
+  const isDirty = useMemo(
+    () =>
+      Object.values(entries).some((rows) => rows.length > 0) ||
+      reasons.length > 0 ||
+      planDate.trim() !== "" ||
+      Object.values(draftDirtyByRow).some(Boolean),
+    [draftDirtyByRow, entries, planDate, reasons],
+  );
 
   const planText = useMemo(() => {
     const lines: string[] = [
+      ...(ready ? [] : ["*** DRAFT — INCOMPLETE SAFETY PLAN, NOT FOR PATIENT HANDOVER ***", ""]),
       "MY SAFETY PLAN",
-      patient ? `For: ${patient}` : "",
+      "Name (add after export): ____________________",
       planDate ? `Date: ${planDate}` : "",
       "",
     ];
@@ -474,7 +527,7 @@ export function PatientSafetyPlan() {
     lines.push("In an emergency: call 000 or go to your nearest Emergency Department.");
     lines.push("24/7 support: Lifeline 13 11 14 · Suicide Call Back Service 1300 659 467.");
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
-  }, [entries, patient, planDate, reasons]);
+  }, [entries, planDate, ready, reasons]);
 
   const copyPlan = async () => {
     try {
@@ -492,16 +545,11 @@ export function PatientSafetyPlan() {
 
   const loadExample = () => {
     const hasContent =
-      Object.values(entries).some((rows) => rows.length > 0) ||
-      reasons.length > 0 ||
-      patient.trim() !== "" ||
-      planDate.trim() !== "";
+      Object.values(entries).some((rows) => rows.length > 0) || reasons.length > 0 || planDate.trim() !== "";
     if (hasContent && !window.confirm("Replace the current plan with the example content?")) return;
     setEntries(SEED);
     setReasons(SEED_REASONS);
-    // Clear the patient context so example content can never carry a real
-    // patient's name or date into the preview/print output.
-    setPatient("");
+    // Clear the plan date so example content cannot look like a current handover.
     setPlanDate("");
     setFinalised(false);
   };
@@ -509,7 +557,6 @@ export function PatientSafetyPlan() {
   const clearAll = () => {
     setEntries(EMPTY_ENTRIES);
     setReasons([]);
-    setPatient("");
     setPlanDate("");
     setFinalised(false);
   };
@@ -526,7 +573,17 @@ export function PatientSafetyPlan() {
       {/* Tool header */}
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-3">
+            <NavigationBackButton
+              className="size-tap"
+              fallbackHref={appModeHomeHref("tools")}
+              onBeforeNavigate={() => {
+                if (!isDirty) return true;
+                return window.confirm(
+                  "Leave this safety plan? Your entries are only in this browser tab and will be lost.",
+                );
+              }}
+            />
             <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldCheck className="size-icon-lg" aria-hidden="true" />
             </span>
@@ -536,8 +593,8 @@ export function PatientSafetyPlan() {
                 Safety plan generator
               </h1>
               <p className="mt-1 max-w-xl text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
-                Build an evidence-based safety plan <em>with</em> your patient — the six prioritised steps — then print,
-                save as PDF, or hand over a copy.
+                Build an identifier-free safety plan <em>with</em> your patient — the six prioritised steps — then
+                export it through your approved clinical workflow.
               </p>
             </div>
           </div>
@@ -552,7 +609,7 @@ export function PatientSafetyPlan() {
                       key={step.key}
                       className={cn(
                         "h-1.5 w-6 rounded-full transition-colors",
-                        entries[step.key].length
+                        isStepComplete(step, entries[step.key])
                           ? "bg-[color:var(--clinical-accent)]"
                           : "bg-[color:var(--surface-inset)] ring-1 ring-inset ring-[color:var(--border)]",
                       )}
@@ -642,26 +699,24 @@ export function PatientSafetyPlan() {
             </div>
           </div>
 
-          {/* Patient context */}
-          <section className={cn(panelSubtle, "grid gap-3 p-4 sm:grid-cols-2")}>
-            <div>
-              <label htmlFor="spg-patient" className={fieldLabel}>
-                Patient (name or initials)
-              </label>
-              <input
-                id="spg-patient"
-                value={patient}
-                onChange={(event) => {
-                  setPatient(event.target.value);
-                  setFinalised(false);
-                }}
-                placeholder="e.g. Sam R."
-                className={fieldControlPlain}
-              />
+          {/* Local-only working boundary */}
+          <section className={cn(panelSubtle, "grid gap-3 p-4")} aria-label="Safety plan privacy">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+              <ShieldCheck className="mt-0.5 size-icon-md text-[color:var(--clinical-accent)]" aria-hidden="true" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">
+                  Keep this plan identifier-free
+                </h2>
+                <p className="mt-1 text-2xs font-medium leading-5 text-[color:var(--text-muted)]">
+                  Do not enter the patient&apos;s name, date of birth, or record number. Enter only the minimum plan
+                  details and support contacts needed. Working content is kept only in this browser tab; Clinical KB
+                  does not save it or send it to a server.
+                </p>
+              </div>
             </div>
             <div>
               <label htmlFor="spg-date" className={fieldLabel}>
-                Date
+                Plan date (optional)
               </label>
               <input
                 id="spg-date"
@@ -683,6 +738,7 @@ export function PatientSafetyPlan() {
               entries={entries[def.key]}
               onAdd={(primary, secondary) => addEntry(def.key, primary, secondary)}
               onRemove={(id) => removeEntry(def.key, id)}
+              onDraftDirtyChange={(dirty) => setDraftDirty(def.key, dirty)}
             />
           ))}
 
@@ -734,8 +790,10 @@ export function PatientSafetyPlan() {
             <AddRow
               kind="list"
               primaryPlaceholder="e.g. Finishing my apprenticeship"
+              onDraftDirtyChange={(dirty) => setDraftDirty("reason", dirty)}
               onAdd={(primary) => {
                 setReasons((prev) => [...prev, { id: uid("reason"), primary }]);
+                setDraftDirty("reason", false);
                 setFinalised(false);
               }}
             />
@@ -775,6 +833,14 @@ export function PatientSafetyPlan() {
             </div>
           </div>
 
+          <p
+            data-print-hide
+            className="mb-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-2xs font-semibold leading-5 text-[color:var(--text-muted)]"
+          >
+            Copying, printing, or saving a PDF moves the plan outside Clinical KB. Add any patient identifier only after
+            export, using your organisation&apos;s approved clinical record and handling process.
+          </p>
+
           {finalised ? (
             <div
               role="status"
@@ -791,6 +857,15 @@ export function PatientSafetyPlan() {
 
           {/* The plan document */}
           <article className="grid content-start gap-5 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-lux)] sm:p-6">
+            {ready ? null : (
+              <p
+                role="note"
+                className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm-minus font-bold leading-5 text-[color:var(--warning)]"
+              >
+                Draft — this plan is incomplete. Finish every step, and give each contact a way to reach them, before
+                giving it to a patient.
+              </p>
+            )}
             <header className="grid gap-2 border-b border-[color:var(--border)] pb-4">
               <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
                 <Heart className="size-icon-md" aria-hidden="true" />
@@ -800,7 +875,7 @@ export function PatientSafetyPlan() {
                 Keeping myself safe
               </h2>
               <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-2xs font-semibold tabular-nums text-[color:var(--text-muted)]">
-                <span>{patient ? patient : "Name: ________________"}</span>
+                <span>Name (add after printing): ________________</span>
                 <span>{planDate ? planDate : "Date: ____________"}</span>
               </div>
               <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
@@ -875,7 +950,8 @@ export function PatientSafetyPlan() {
             className="mt-3 flex items-center gap-1.5 px-1 text-2xs font-semibold text-[color:var(--text-soft)]"
           >
             <ChevronRight className="size-icon-xs text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            Confirm every contact and crisis number with your patient before printing or sharing this plan.
+            Confirm every contact and crisis number before export, then handle the copy under your approved clinical
+            record process.
           </p>
         </div>
       </div>

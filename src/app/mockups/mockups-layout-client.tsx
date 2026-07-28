@@ -10,9 +10,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isToolsPageMockup = pathname.startsWith("/mockups/tools-");
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
+  const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
+  const isSearchHeadingMockup = pathname === "/mockups/search-heading";
+  const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -25,7 +28,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
           ? "tools"
           : isFavouritesPageMockup
             ? "favourites"
-            : isDocumentSearchMockup
+            : isDocumentSearchMockup || isDocumentTopNavigationMockup
               ? "documents"
               : "answer"
       }
@@ -33,10 +36,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isToolsPageMockup &&
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
+        !isDocumentTopNavigationMockup &&
         !isUniversalSearchRedesignMockup &&
-        !isCalculatorsSearchPageMockup
+        !isCalculatorsSearchPageMockup &&
+        !isPhoneInPageNavigationMockup
       }
-      chromeVisible={!isSourceOverlayRedesignMockup}
+      chromeVisible={!isSourceOverlayRedesignMockup && !isSearchHeadingMockup && !isPhoneInPageNavigationMockup}
     >
       {children}
     </GlobalMockupSearchShell>
