@@ -139,6 +139,74 @@ afterEach(() => {
 });
 
 describe("/api/documents/bulk", () => {
+  it.each([
+    ["current source status", { sourceStatus: "current" }],
+    ["review-due source status", { sourceStatus: "review_due" }],
+    ["outdated source status", { sourceStatus: "outdated" }],
+    ["unknown source status", { sourceStatus: "unknown" }],
+    ["unverified validation", { validationStatus: "unverified" }],
+    ["locally reviewed validation", { validationStatus: "locally_reviewed" }],
+    ["approved validation", { validationStatus: "approved" }],
+  ])("rejects every bulk governance status write through %s", async (label, metadata) => {
+    const supabase = createSupabaseMock(() => ({ data: null, error: null }));
+    mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentIds: [documentId], metadata }),
+      }),
+    );
+
+    expect(response.status, label).toBe(400);
+    expect(supabase.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ["publisher identity", { publisherCode: "BMJ" }],
+    ["extraction quality", { extractionQuality: "good" }],
+  ])("rejects changing protected %s without an auditable demotion", async (label, metadata) => {
+    const supabase = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return {
+          data: [
+            {
+              id: documentId,
+              title: "Reviewed local guidance",
+              metadata: {
+                document_status: "current",
+                clinical_validation_status: "approved",
+                provenance_basis: "reviewer_verified",
+              },
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+    const { invalidateRagCachesForOwner } = mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentIds: [documentId], metadata }),
+      }),
+    );
+
+    expect(response.status, label).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        "Identity or provenance edits are unavailable for reviewed sources; record an auditable source-review disposition first.",
+    });
+    expect(supabase.calls.filter((call) => call.operation !== "select")).toEqual([]);
+    expect(invalidateRagCachesForOwner).not.toHaveBeenCalled();
+  });
+
   it("applies owner-scoped metadata, title, and label edits", async () => {
     const supabase = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {
@@ -158,7 +226,7 @@ describe("/api/documents/bulk", () => {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           documentIds: [documentId, missingDocumentId],
-          metadata: { sourceStatus: "review_due", publisher: "WA Health" },
+          metadata: { publisher: "WA Health" },
           titleEdit: { prefix: "Updated: ", find: "Old", replace: "New" },
           labels: {
             add: [{ label: "Cardiology", label_type: "topic", confidence: 0.9 }],
@@ -203,7 +271,6 @@ describe("/api/documents/bulk", () => {
       title: "Updated: New title",
       metadata: {
         retained: true,
-        document_status: "review_due",
         publisher: "WA Health",
         bulk_metadata_updated_by: ownerId,
       },

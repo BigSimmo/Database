@@ -94,7 +94,12 @@ describe("RAG answer routing", () => {
   });
 
   it("uses the strong model for medication or risk-heavy decision questions", () => {
-    const selected = route("What ANC threshold should stop clozapine?", [source()]);
+    const selected = route("What ANC threshold should stop clozapine?", [
+      source({
+        title: "Clozapine monitoring",
+        content: "Clozapine monitoring includes an ANC threshold of 1.5 x 10^9/L for clinical review.",
+      }),
+    ]);
 
     expect(selected.mode).toBe("strong");
     expect(selected.model).toBe("strong-model");
@@ -184,7 +189,7 @@ describe("RAG answer routing", () => {
       source({
         title: "Clozapine Prescribing and Monitoring",
         file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
-        content: "ANC threshold table: withhold clozapine and repeat FBC when the result is below threshold.",
+        content: "ANC threshold table: withhold clozapine when the result is below 1.5 x 10^9/L and repeat FBC.",
         text_rank: 0.08,
       }),
     ]);
@@ -194,13 +199,741 @@ describe("RAG answer routing", () => {
     expect(selected.reason).toBe("high_confidence_extractive_retrieval");
   });
 
+  it("fails closed when an unrelated table is the only evidence for a named-medication range", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Blood Glucose Level",
+        file_name: "blood-glucose-level.pdf",
+        section_heading: "Escalation threshold",
+        content: "Escalate when the blood glucose level is greater than 15 mmol/L.",
+        similarity: 0.94,
+        hybrid_score: 0.96,
+        text_rank: 0.12,
+        table_facts: [
+          tableFact({
+            table_title: "Blood glucose escalation",
+            row_label: "High blood glucose",
+            clinical_parameter: "Blood glucose level",
+            threshold_value: ">15 mmol/L",
+            action: "Escalate",
+          }),
+        ],
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("keeps a co-located lithium maintenance range on the extractive route", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "The lithium maintenance range is 0.6 to 0.8 mmol/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+        table_facts: [
+          tableFact({
+            table_title: "Lithium monitoring",
+            row_label: "Maintenance",
+            clinical_parameter: "Lithium level",
+            threshold_value: "0.6 to 0.8 mmol/L",
+            action: "Continue maintenance monitoring",
+          }),
+        ],
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("keeps the hosted flattened lithium therapeutic-range bullet shape", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Prescribing And Management(NMHS)",
+        file_name: "Lithium Prescribing and Management (NMHS).pdf",
+        content:
+          "Dosing and Therapeutic Drug Monitoring Lithium dose is titrated according to patient response and plasma levels. The recommended therapeutic serum lithium range for:\n• ACUTE mania is between 0.5 -1.2 mmol/L.\n• MAINTENANCE treatment is between 0.5 -1.0 mmol/L.\n• In the elderly (>65 years) is between 0.4 -0.7 mmol/L. In addition to age-related decline in renal function increasing the risk of lithium toxicity, older people may be more sensitive.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("uses the provider-free route for a top-ranked atomic lithium range even when retrieval score is modest", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Prescribing And Management(NMHS)",
+        file_name: "Lithium Prescribing and Management (NMHS).pdf",
+        content:
+          "The recommended therapeutic serum lithium range for:\n• ACUTE mania is between 0.5 -1.2 mmol/L.\n• MAINTENANCE treatment is between 0.5 -1.0 mmol/L.\n• In the elderly (>65 years) is between 0.4 -0.7 mmol/L.",
+        similarity: 0.55,
+        hybrid_score: 0.58,
+        text_rank: 0.01,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.model).toBeNull();
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("does not carry a foreign medication label into a following maintenance bullet", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "lithium-therapy.pdf",
+        content: "The lamotrigine maintenance range for:\n• MAINTENANCE treatment is between 3 and 15 mg/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it.each(["Blood glucose target levels", "TSH reference ranges"])(
+    "does not carry a plural foreign threshold heading into a lithium bullet: %s",
+    (heading) => {
+      const selected = route("What lithium level range is used for maintenance monitoring?", [
+        source({
+          title: "Lithium Therapy",
+          file_name: "lithium-therapy.pdf",
+          content: `${heading}:\n• Maintenance range is 3.0-15.0 mmol/L.`,
+          similarity: 0.8,
+          hybrid_score: 0.82,
+          text_rank: 0.12,
+        }),
+      ]);
+
+      expect(selected.mode).toBe("unsupported");
+      expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+    },
+  );
+
+  it("does not require threshold evidence for narrative lithium baseline checks", () => {
+    const selected = route("What baseline checks are required before starting lithium?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Before starting treatment",
+        content: "Before starting lithium, confirm renal function, thyroid function and calcium.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it.each([
+    ["What level of monitoring is required for lithium?", "Check renal function, thyroid function and calcium."],
+    ["What lithium level monitoring is required?", "Check lithium levels every 3 months."],
+    ["What FBC monitoring is required for clozapine?", "Check FBC weekly, then every 4 weeks."],
+  ])("does not impose a numeric-value guard on narrative monitoring: %s", (query, content) => {
+    const medication = query.includes("clozapine") ? "Clozapine" : "Lithium";
+    const selected = route(query, [
+      source({
+        title: `${medication} Monitoring`,
+        file_name: `${medication.toLowerCase()}-monitoring.pdf`,
+        section_heading: "Monitoring schedule",
+        content,
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).not.toBe("unsupported");
+    expect(selected.reason).not.toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not impose a numeric-value guard on a categorical stop instruction", () => {
+    const selected = route("When should I stop lithium?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Toxicity",
+        content: "Stop lithium if severe toxicity is suspected and seek urgent clinical review.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).not.toBe("unsupported");
+    expect(selected.reason).not.toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not impose a numeric-value guard on a categorical red-range action", () => {
+    const selected = route("what clozapine monitoring action is needed for red range blood results", [
+      source({
+        title: "Clozapine Monitoring",
+        file_name: "clozapine-monitoring.pdf",
+        section_heading: "Red range action",
+        content: "If blood results return in the red range, clozapine therapy must be discontinued immediately.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).not.toBe("unsupported");
+    expect(selected.reason).not.toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not impose a numeric-value guard on categorical FBC bands", () => {
+    const selected = route("What FBC threshold should withhold clozapine?", [
+      source({
+        title: "Clozapine Monitoring",
+        file_name: "clozapine-monitoring.pdf",
+        section_heading: "FBC result action",
+        content: "FBC blood results in the Amber or Red range require clozapine to be withheld.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).not.toBe("unsupported");
+    expect(selected.reason).not.toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("requires an atomic value when an FBC threshold query explicitly asks for a number and unit", () => {
+    const selected = route("What numeric FBC threshold value in x 10^9/L should withhold clozapine?", [
+      source({
+        title: "Clozapine Monitoring",
+        file_name: "clozapine-monitoring.pdf",
+        section_heading: "FBC result action",
+        content: "FBC blood results in the Amber or Red range require clozapine to be withheld.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it.each([
+    [
+      "What monitoring is required across the adult age range for lithium?",
+      "Lithium monitoring includes renal and thyroid function tests for adults.",
+    ],
+    [
+      "What range of baseline tests is required before lithium?",
+      "Before lithium, check renal function, thyroid function and calcium.",
+    ],
+  ])("does not treat a narrative range as a medication-value lookup: %s", (query, content) => {
+    const selected = route(query, [
+      source({
+        title: "Lithium Monitoring",
+        file_name: "lithium-monitoring.pdf",
+        section_heading: "Baseline monitoring",
+        content,
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.reason).not.toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it.each(["full blood count", "blood count"])(
+    "does not impose a numeric-value guard on categorical %s bands",
+    (parameter) => {
+      const selected = route(`What ${parameter} threshold should withhold clozapine?`, [
+        source({
+          title: "Clozapine Monitoring",
+          file_name: "clozapine-monitoring.pdf",
+          section_heading: "Blood result action",
+          content: "Blood results in the Amber or Red range require clozapine to be withheld.",
+          similarity: 0.8,
+          hybrid_score: 0.82,
+          text_rank: 0.12,
+        }),
+      ]);
+
+      expect(selected.mode).not.toBe("unsupported");
+      expect(selected.reason).not.toBe("missing_structured_threshold_subject_evidence");
+    },
+  );
+
+  it("does not combine a medication title with an unrelated threshold atom", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Imported table",
+        content: "Escalate when the blood glucose level is greater than 15 mmol/L.",
+        similarity: 0.94,
+        hybrid_score: 0.96,
+        text_rank: 0.12,
+        table_facts: [
+          tableFact({
+            table_title: "Blood glucose escalation",
+            row_label: "High blood glucose",
+            clinical_parameter: "Blood glucose level",
+            threshold_value: ">15 mmol/L",
+            action: "Escalate",
+          }),
+        ],
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not combine a medication sentence with a later unrelated threshold sentence", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content:
+          "Lithium therapy requires routine review. During maintenance monitoring, escalate when blood glucose is above 15 mmol/L.",
+        similarity: 0.94,
+        hybrid_score: 0.96,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("recognizes a brand alias inside the same threshold evidence atom", () => {
+    const selected = route("What ANC threshold should stop clozapine?", [
+      source({
+        title: "ANC Monitoring",
+        file_name: "anc-monitoring.pdf",
+        section_heading: "Red range",
+        content: "For Clozaril, stop treatment when the ANC is below 1.5 x 10^9/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("fails closed when medication monitoring evidence contains no threshold value", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium level requires regular monitoring.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not treat nonnumeric table-fact review text as a medication threshold", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium levels require routine review.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+        table_facts: [
+          tableFact({
+            table_title: "Lithium monitoring",
+            row_label: "Maintenance",
+            clinical_parameter: "Lithium level",
+            threshold_value: "Review routinely",
+            action: "Continue monitoring",
+          }),
+        ],
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not treat a table-threshold unit type as proof when its content has no value", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium levels require routine review.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+        index_unit: {
+          id: "unit-1",
+          unit_type: "table_threshold",
+          title: "Lithium monitoring",
+          content: "Lithium levels require routine review.",
+          source_chunk_id: "chunk-1",
+          source_image_id: null,
+          page_start: 1,
+          page_end: 1,
+          heading_path: ["Maintenance monitoring"],
+          normalized_terms: ["lithium", "monitoring"],
+          quality_score: 0.8,
+          extraction_mode: "deterministic",
+        },
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not treat an administrative year range as a medication threshold", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium guidance applies from 2024-2026.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not treat an administrative page range as a medication threshold", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium guidance appears on pages 12-14.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not answer a lithium level-range query from a nearby medication dose", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium dose is 500 mg daily.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not answer a QTc query from a nearby haloperidol dose", () => {
+    const selected = route("What QTc threshold should stop haloperidol?", [
+      source({
+        title: "Haloperidol Monitoring",
+        file_name: "haloperidol-monitoring.pdf",
+        section_heading: "Monitoring",
+        content: "Haloperidol dose is 5 mg daily.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not answer an ANC query from a clozapine dose under an ANC heading", () => {
+    const selected = route("What ANC threshold should stop clozapine?", [
+      source({
+        title: "Clozapine Monitoring",
+        file_name: "clozapine-monitoring.pdf",
+        section_heading: "ANC threshold",
+        content: "Clozapine dose is 300 mg daily.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not bind a foreign medication range to a nearby lithium mention", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Lithium maintenance monitoring",
+        content: "Lithium guidance: the lamotrigine maintenance range is 3 to 15 mg/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("does not route a digoxin value as an extractive lithium answer", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Unlike lithium, monitor digoxin at 0.8 to 2.0 ng/mL.",
+        similarity: 0.55,
+        hybrid_score: 0.58,
+        text_rank: 0.01,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it.each([
+    ["Lithicarb", "TSH is 0.4 to 4.0 mmol/L."],
+    ["Quilonum SR", "Serum sodium is 130 to 145 mmol/L."],
+    ["Lithicarb", "Blood glucose is 3.0 to 15.0 mmol/L."],
+  ])("does not route a foreign analyte as an extractive %s answer", (brand, content) => {
+    const selected = route(`What ${brand} level range is used for maintenance monitoring?`, [
+      source({
+        title: `${brand} Therapy`,
+        file_name: `${brand} Therapy.pdf`,
+        section_heading: "Maintenance monitoring",
+        content,
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it.each([
+    "Maintain lithium at 0.6 to 0.8 mmol/L and keep sodium chloride intake stable.",
+    "For lithium co-prescribed with aspirin, maintain 0.6 to 0.8 mmol/L.",
+    "For lithium, keep sodium chloride intake stable and maintain the level at 0.6 to 0.8 mmol/L.",
+  ])("keeps an explicit lithium value when a contextual co-medication has no value", (content) => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content,
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("accepts a flattened lithium value when title scope and maintenance context bind it", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Maintenance range is 0.6 to 0.8 mmol/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("accepts a unit-bearing range phrased as between and", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Lithium maintenance range is between 0.6 and 0.8 mmol/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("accepts a medication-specific therapeutic range bound by local heading scope", () => {
+    const selected = route("What is the lithium therapeutic range?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Reference range",
+        content: "0.6 to 0.8 mmol/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("accepts a medication-bound QTc threshold expressed in milliseconds", () => {
+    const selected = route("What QTc threshold should stop haloperidol?", [
+      source({
+        title: "Haloperidol Monitoring",
+        file_name: "haloperidol-monitoring.pdf",
+        section_heading: "QTc threshold",
+        content: "Stop haloperidol if QTc reaches 500 ms.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("keeps a lithium range when renal function is only contextual", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Maintain lithium at 0.6 to 0.8 mmol/L in patients with stable renal function.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it("keeps a long-form lithium concentration claim without a character-distance cutoff", () => {
+    const selected = route("What lithium level range is used for maintenance monitoring?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Maintenance monitoring",
+        content:
+          "Lithium should, after the patient has remained clinically stable and completed the required safety review, be maintained at a target trough concentration of 0.6 to 0.8 mmol/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("extractive");
+    expect(selected.reason).toBe("high_confidence_extractive_retrieval");
+  });
+
+  it.each([
+    ["Valproate therapeutic range is 50 to 100 mg/L."],
+    ["Carbamazepine reference range is 4 to 12 mg/L."],
+    ["Lamotrigine maintenance range is 3 to 15 mg/L."],
+    ["TSH reference range is 0.4 to 4.0 mIU/L."],
+  ])("does not bind a foreign labelled range to lithium document scope: %s", (content) => {
+    const selected = route("What is the lithium therapeutic range?", [
+      source({
+        title: "Lithium Therapy",
+        file_name: "CG.MHSP.Lithium.pdf",
+        section_heading: "Reference range",
+        content,
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).toBe("unsupported");
+    expect(selected.reason).toBe("missing_structured_threshold_subject_evidence");
+  });
+
+  it("keeps flattened clozapine blood values eligible when the body carries a blood-count anchor", () => {
+    const selected = route("What FBC threshold should withhold clozapine?", [
+      source({
+        title: "Clozapine Prescribing and Monitoring",
+        file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
+        section_heading: "FBC red range",
+        content: "WBC is less than 3.0 x 10^9/L and neutrophils are less than 1.5 x 10^9/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).not.toBe("unsupported");
+  });
+
+  it("keeps a flattened ANC count value eligible when the ANC label is in local scope", () => {
+    const selected = route("What ANC threshold should stop clozapine?", [
+      source({
+        title: "Clozapine Monitoring",
+        file_name: "clozapine-monitoring.pdf",
+        section_heading: "ANC threshold",
+        content: "Below 1.5 x 10^9/L.",
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+
+    expect(selected.mode).not.toBe("unsupported");
+  });
+
   it("uses the strong model for clozapine blood threshold queries without explicit action evidence", () => {
     const selected = route("What FBC threshold should withhold clozapine?", [
       source({
         title: "Clozapine Prescribing and Monitoring",
         file_name: "CG.MHSP.ClozapinePresAdminMonitor.pdf",
-        content:
-          "FBC monitoring is weekly for the first 18 weeks and then every 4 weeks if blood results are in range.",
+        content: "Clozapine FBC monitoring identifies 3.0 x 10^9/L as a red-range blood result for review.",
         text_rank: 0.14,
       }),
     ]);
