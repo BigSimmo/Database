@@ -37,6 +37,7 @@ export function ImageLightbox({
   returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, open);
+  const [retryDisabled, setRetryDisabled] = useState(false);
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
@@ -46,6 +47,13 @@ export function ImageLightbox({
   useEffect(() => {
     scaleRef.current = scale;
   }, [scale]);
+
+  const handleRetry = useCallback(() => {
+    if (retryDisabled) return;
+    setRetryDisabled(true);
+    retry();
+    setTimeout(() => setRetryDisabled(false), 2000);
+  }, [retryDisabled, retry]);
 
   // Reset the view on close so the next open never inherits a prior image's zoom.
   const handleClose = useCallback(() => {
@@ -125,11 +133,12 @@ export function ImageLightbox({
             Image could not load.
             <button
               type="button"
-              onClick={retry}
-              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+              onClick={handleRetry}
+              disabled={retryDisabled}
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)] disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
-              <RefreshCw aria-hidden="true" className="h-4 w-4" />
-              Retry
+              <RefreshCw aria-hidden="true" className={cn("h-4 w-4", retryDisabled && "animate-spin")} />
+              {retryDisabled ? "Retrying..." : "Retry"}
             </button>
           </div>
         ) : (

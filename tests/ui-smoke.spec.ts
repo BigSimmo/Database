@@ -4144,11 +4144,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/99999999-9999-4999-8999-999999999999?page=1&chunk=99999999-9999-4999-8999-999999999998",
     );
 
-    await expect(page.getByRole("heading", { level: 1, name: "Source unavailable" })).toBeVisible({
+    // Missing/unowned documents now resolve through the segment not-found boundary
+    // (page.tsx calls notFound() on PublicApiError 404) instead of DocumentViewer.
+    await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(/Demo document not found\./i);
-    await expect(page.getByRole("button", { name: /^Answer from this(?: document)?$/ }).first()).toBeDisabled();
+    await expect(page.locator("body")).toContainText(/could not be found or has been deleted/i);
+    await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
