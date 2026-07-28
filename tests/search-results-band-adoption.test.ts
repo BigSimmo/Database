@@ -257,7 +257,8 @@ describe("band adoption detection", () => {
         'export function OrphanResultsPage() { return <div data-testid="orphan-results" />; }',
       ],
     ]);
-    const routeSource = 'import { OrphanResultsPage } from "@/components/orphan-results-page";\nexport default OrphanResultsPage;';
+    const routeSource =
+      'import { OrphanResultsPage } from "@/components/orphan-results-page";\nexport default OrphanResultsPage;';
     expect(routeReachesBand(routeSource, componentSources)).toBe(false);
   });
 });
