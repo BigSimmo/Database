@@ -4,7 +4,8 @@ import { DocumentPhoneZeroChromeMockups } from "@/components/document-phone-zero
 
 export const metadata: Metadata = {
   title: "Document phone navigation, zero new chrome - Clinical KB",
-  description: "Section navigation on the document page that adds no permanent phone chrome and no second scroll owner.",
+  description:
+    "Section navigation on the document page that adds no permanent phone chrome and no second scroll owner.",
 };
 
 export default function DocumentPhoneZeroChromeMockupPage() {

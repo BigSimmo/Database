@@ -86,7 +86,7 @@ const spec: Array<{ title: string; body: string }> = [
   },
   {
     title: "Jump opens the accordion first",
-    body: "Targets are `<details name=\"document-viewer-section\">`. The handler opens the target, waits a frame, then scrolls by the measured row height.",
+    body: 'Targets are `<details name="document-viewer-section">`. The handler opens the target, waits a frame, then scrolls by the measured row height.',
   },
   {
     title: "Non-colour cue for the active segment",
@@ -319,7 +319,10 @@ function SectionsSheet({ id }: { id: string }) {
         aria-label="Jump to section"
         className="absolute inset-x-0 bottom-0 z-50 rounded-t-[1rem] border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 pb-3 pt-2 shadow-[var(--shadow-lux)]"
       >
-        <span aria-hidden="true" className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60" />
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60"
+        />
         <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{documentTitle}</p>
         <p className="mb-2 mt-0.5 text-3xs font-semibold text-[color:var(--text-soft)]">
           {activeSection.label} · {activeIndex + 1} of {sections.length}
@@ -398,7 +401,10 @@ function DesktopFrame() {
         <div className="grid grid-cols-[minmax(0,1fr)_21rem] items-start">
           <DocumentBody />
           <div className="space-y-3 p-4 pl-0">
-            <IndexCard sticky note="First card in the column the viewer already renders. Sticky offset follows the top bar." />
+            <IndexCard
+              sticky
+              note="First card in the column the viewer already renders. Sticky offset follows the top bar."
+            />
             <EvidencePanel />
           </div>
         </div>
@@ -424,9 +430,7 @@ function TabletFrame() {
                 <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
                   Source passages
                 </p>
-                <h4 className="mt-0.5 text-sm font-semibold text-[color:var(--text-heading)]">
-                  {activeSection.label}
-                </h4>
+                <h4 className="mt-0.5 text-sm font-semibold text-[color:var(--text-heading)]">{activeSection.label}</h4>
               </div>
             </div>
             <div className="mt-3 space-y-2 border-t border-[color:var(--border)] pt-3">
@@ -492,7 +496,10 @@ export function DocumentNavigationFinalMockups() {
           </h2>
           <div className="mt-3 grid gap-2 lg:grid-cols-3">
             {lineage.map((item) => (
-              <div key={item.from} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+              <div
+                key={item.from}
+                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              >
                 <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
                   {item.from}
                 </p>
@@ -545,12 +552,18 @@ export function DocumentNavigationFinalMockups() {
           <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
             Build specification
           </p>
-          <h2 id="spec-title" className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]">
+          <h2
+            id="spec-title"
+            className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
+          >
             Eight rules this design has to keep
           </h2>
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {spec.map((item) => (
-              <div key={item.title} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+              <div
+                key={item.title}
+                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              >
                 <p className="text-xs font-bold text-[color:var(--text-heading)]">{item.title}</p>
                 <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{item.body}</p>
               </div>
