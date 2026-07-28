@@ -134,6 +134,14 @@ describe("generation-timeout fallback wording (P2)", () => {
     const text = sourceBackedGenerationTimeoutAnswer("How is agitation managed in the ED?");
     expect(hasClinicalAnswerQualityIssue(text)).toBe(false);
   });
+
+  it("uses canonical clinical terms instead of echoing query typos", () => {
+    const text = sourceBackedGenerationTimeoutAnswer(
+      "What agitaton and arousl dosing guidance applies to psychiatric inpatients?",
+    );
+    expect(text).toMatch(/agitation and arousal/i);
+    expect(text).not.toMatch(/agitaton|arousl/i);
+  });
 });
 
 describe("offline extractive naturalness — completeExtractiveSentence (P4)", () => {

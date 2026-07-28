@@ -73,6 +73,38 @@ Ledger `#032` / source-governance audit (PR #1051) items that look like “gaps�
 - **Standing guard:** `tests/retrieval-selection.test.ts` keeps relevance ordering and asserts a higher-relevance `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one (`docs/rag-hybrid-findings-and-todo.md` item 20).
 - **If ever revisited:** only via **RC8 — source-strength as a filter, not a penalty/boost in selection ordering**, gated on `eval:retrieval:quality` 36/36 plus an approved live canary pair. Prompt-side governance caveats are a separate generation-surface item (`#033`), not a ranking change.
 
+## Refutation 4 — plural antipsychotic classifier correction alone: wrong-subject answer
+
+- **Shape (2026-07-27):** the exact metabolic-monitoring case was classified as
+  `document_lookup` because `medicationDoseRiskPattern` recognized singular `antipsychotic`
+  but not plural `antipsychotics`. A one-token `antipsychotics?` correction was RED-proven
+  locally and changed the live case to `medication_dose_risk`.
+- **Live result:** targeting remained `0` with `no schedule/interval`, and the extractive
+  recovery changed from schedule-free metabolic prose to an unrelated clozapine-clinic
+  sentence. The expected metabolic document still ranked first, but its retrieved text and
+  table facts did not contain an auditable monitoring schedule; its table image had no
+  accessible table text. No model request or OpenAI cost was incurred.
+- **Disposition:** the candidate was reverted immediately. Do not reintroduce the classifier
+  correction as a standalone answer-quality fix. The remaining work is structured
+  table/ingestion evidence for the schedule, followed by a fresh fixture and live canary; do
+  not infer a clinical schedule from an image caption or loosen answer gates.
+
+## Refutation 5 — generic comparator rejection or broad-citation retry for the ECT flow edge
+
+- **Observed artifact (2026-07-27):** flattened OCR represented a procedural edge as
+  `Referral for ECT > 6`. Treating every `> number` expression as structural is unsafe: real
+  clinical thresholds, decimal comparators such as `> 6.5`, and ECT treatment counts also use
+  comparator syntax.
+- **Rejected recovery:** forcing the case through broader multi-source/model generation retained
+  irrelevant citations and ended in generic review-fallback wording rather than a substantive
+  ECT process answer.
+- **Adopted bounded handling:** reject only the exact ECT referral-edge shape (with an optional
+  table-normalization colon) and unambiguous arrow glyphs, rebuild every derived evidence surface
+  from surviving sources, and reflow the known wrapped BASE directive. Negative fixtures preserve
+  ordinary measurements, `> 6.5`, `> 7`, `> 60`, and treatment-count prose. The final live ECT case
+  returned the complete Booking Assistant Scheduling Engine (BASE) step, grounded and substantive,
+  with zero provider calls in about 1.3 seconds.
+
 ## Related follow-up plans
 
 - **Word-boundary content matcher — ✅ IMPLEMENTED (2026-07-20, same-day follow-up).**
@@ -80,10 +112,14 @@ Ledger `#032` / source-governance audit (PR #1051) items that look like “gaps�
   superset by artifact replay (canary #53: 1,126 comparisons, 0 lost matches, 7 gained — the
   exact known punctuation-joined occurrences). The weekly scheduled canary provides the free
   live confirmation; a more-tolerant matcher cannot fail a previously-passing case.
-- **irrelevant@10 labeling audit — unblocked, not yet run.** The canary artifact now carries
-  the TOP 10 result rows per case (was 5), so the audit of broad/vector cases' extra top-10
-  documents for under-labeled relevant siblings can run offline against the next artifact.
-  Until it runs, treat the 0.108 rate as a labeling question, not ranking debt
-  (`docs/observability-slos.md` §3.1).
-- **Phase E (answer-side quality):** untouched by this cycle; requires its own approval and
-  spend (~$2–5/run) per the master plan.
+- **irrelevant@10 labeling audit — diagnostics completed 2026-07-27; no ranking action.** Scheduled run
+  `30216191889` kept irrelevant@10 exactly 0.0917 versus baseline `30018289898`. The 12 cases with
+  non-zero rates and their top-10 titles/previews showed no broad under-labelled-sibling pattern;
+  the obvious tail rows were off-topic service records, unrelated conditions, or generic policy
+  fragments. The current artifact now persists each row's `relevanceGrade` and
+  `matchedDeclaredSignals`; focused tests cover ideal and zero-grade rows, closing #084. Human
+  disposition remains #023. Keep treating this as an evaluation-label audit surface, not permission
+  to change ranking (`docs/observability-slos.md` §3.1).
+- **Answer-side quality:** the final 44-case run passed every blocking gate with 30/30 substantive
+  grounded supported answers and zero source-backed review stubs. #029 is resolved, and the quality
+  gate now blocks any recurrence of that fallback rather than merely reporting it.

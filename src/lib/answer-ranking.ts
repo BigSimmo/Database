@@ -21,7 +21,7 @@ const answerBoilerplatePattern =
 // robotic, keyword-highlighted prose rather than natural clinical writing.
 const fixedHighYieldPatterns = [
   /\b(?:withhold|withholding|cease|ceased|stop|stopping|discontinue\w*|contraindicat\w*|avoid|urgent|escalat\w*|red flag\w*)\b/gi,
-  /\b\d+(?:\.\d+)?\s?(?:mg|mcg|g|mmol\/L|days?|weeks?|months?|hours?|minutes?|%)\b/gi,
+  /\b(?:\d+(?:\.\d+)?\s*[-–—]\s*)?\d+(?:\.\d+)?\s?(?:mg|mcg|g|mmol\/L|days?|weeks?|months?|hours?|minutes?|%)\b/gi,
   /\brating\s+\d+(?:\s*[-–]\s*\d+)?\b/gi,
 ];
 

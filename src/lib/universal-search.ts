@@ -1,7 +1,6 @@
 import { normalizeSearchText } from "@/lib/catalog-search";
 import { analyzeClinicalQuery } from "@/lib/clinical-search";
 import { demoSearch } from "@/lib/demo-data";
-import { fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   differentialPresentations,
@@ -464,16 +463,6 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
     .slice(0, limit);
 }
 
-function documentHrefMapFromChunks(results: SearchResult[]) {
-  const hrefByDocument = new Map<string, string>();
-  for (const result of results) {
-    if (!hrefByDocument.has(result.document_id)) {
-      hrefByDocument.set(result.document_id, searchResultDocumentHref(result));
-    }
-  }
-  return hrefByDocument;
-}
-
 async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   // Original query on purpose: the live retrieval path runs its own analyzeClinicalQuery.
   if (args.demo || !args.supabase) {
@@ -493,27 +482,8 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     lexicalOnly: true,
     signal: args.signal,
   });
-  const hrefByDocument = documentHrefMapFromChunks(results);
-  const related = await fetchRelatedDocuments({
-    supabase: args.supabase,
-    ownerId: args.ownerId,
-    query: args.query,
-    results,
-    limit: args.limitPerDomain,
-    includeVisualCounts: false,
-    signal: args.signal,
-  });
-  if (related.length > 0) {
-    return related.map((document) => ({
-      id: document.document_id,
-      kind: "documents" as const,
-      title: document.title,
-      subtitle: document.summary ?? undefined,
-      href: hrefByDocument.get(document.document_id) ?? `/documents/${document.document_id}`,
-      score: document.score,
-      meta: document.match_reason,
-    }));
-  }
+  // Typeahead needs the already-ranked preview, not a second sequential metadata
+  // query. Full document search still performs its richer enrichment downstream.
   return documentItemsFromChunks(results, args.limitPerDomain);
 }
 
