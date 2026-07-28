@@ -290,16 +290,23 @@ export async function POST(request: Request) {
     insertedDocumentOwnerId = uploadOwnerId;
     assertUploadNotAborted(request);
 
-    await writeAuditLog(supabase, {
-      ownerId: uploadOwnerId,
-      action: "document_upload",
-      resourceType: "document",
-      resourceId: documentId,
-      // `audit_logs` is retained indefinitely. Keep only operational facts there;
-      // the user-controlled filename and content hash remain on the scoped document
-      // record, not in the durable audit trail.
-      metadata: { fileType: file.type, fileSize: file.size },
-    });
+    try {
+      await writeAuditLog(supabase, {
+        ownerId: uploadOwnerId,
+        action: "document_upload",
+        resourceType: "document",
+        resourceId: documentId,
+        // `audit_logs` is retained indefinitely. Keep only operational facts there;
+        // the user-controlled filename and content hash remain on the scoped document
+        // record, not in the durable audit trail.
+        metadata: { fileType: file.type, fileSize: file.size },
+      });
+    } catch (auditError) {
+      logger.warn("Upload succeeded but audit log failed", {
+        documentId,
+        message: auditError instanceof Error ? auditError.message : String(auditError),
+      });
+    }
 
     return NextResponse.json({ document, job }, { status: 201 });
   } catch (error) {
