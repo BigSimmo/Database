@@ -46,9 +46,7 @@ describe("document section navigation ownership", () => {
     // The lithium demo document used by ui-smoke has image_count: 0.
     // Requiring that label in the phone sheet will red Production UI again.
     expect(sectionIndexSource).toContain("input.visualCount > 0");
-    expect(lithiumDemoSource).toMatch(
-      /id:\s*"11111111-1111-4111-8111-111111111111"[\s\S]*?image_count:\s*0/,
-    );
+    expect(lithiumDemoSource).toMatch(/id:\s*"11111111-1111-4111-8111-111111111111"[\s\S]*?image_count:\s*0/);
   });
 
   it("keeps document-viewer ui-smoke on the current phone section chrome", () => {
