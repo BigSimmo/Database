@@ -15,7 +15,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isDocumentPhoneTitleMockup = pathname.startsWith("/mockups/document-phone-");
   // Draws its own universal top bar and document composer inside every frame, so
   // the shared composer would read as a second, real search bar over the study.
-  const isDocumentNavigationContractMockup = pathname === "/mockups/document-navigation-contract";
+  const isDocumentNavigationContractMockup =
+    pathname === "/mockups/document-navigation-contract" || pathname === "/mockups/document-navigation-final";
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
