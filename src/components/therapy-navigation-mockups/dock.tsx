@@ -112,7 +112,7 @@ function CompareTray({ horizontal = false }: { horizontal?: boolean }) {
                 aria-hidden="true"
                 className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[color:var(--clinical-accent)]"
               >
-                <X className="h-3 w-3" />
+                <X aria-hidden="true" className="h-3 w-3" />
               </span>
             </span>
           </li>
