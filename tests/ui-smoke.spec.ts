@@ -994,7 +994,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
   test("anonymous mobile user can search without a forced sign-in gate", async ({ page }) => {
@@ -1010,7 +1010,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Service unavailable")).toHaveCount(0);
     await expect(page.getByText("API unavailable")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -2969,7 +2969,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toBeFocused();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
   });
 
   test("favourites hub hydrates saved services from the registry", async ({ page }) => {
@@ -3134,7 +3134,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
-    const globalSearchInput = page.getByTestId("global-search-input");
+    const globalSearchInput = page.locator('[data-testid="global-search-input"]:visible').first();
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medication dosing or safety...");
     await expect(globalSearchInput).toHaveValue("acamprosate renal dose");

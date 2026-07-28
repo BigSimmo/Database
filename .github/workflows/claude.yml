@@ -69,3 +69,16 @@ jobs:
           # The action's default trigger phrase is "@claude"; it reads the
           # triggering comment/review and acts on the current PR head.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # DIAGNOSTIC (temporary): claude_args: --strict-mcp-config (added in
+          # #1359) had no observable effect on the crash — the run still fails
+          # in ~2s with $0 cost and zero turns, meaning no model call is ever
+          # made. This action runs the Agent SDK's query() in-process rather
+          # than spawning the `claude` CLI, so claude_args may not map to
+          # --strict-mcp-config at all. Setting `settings` directly targets
+          # the JSON key the action logs writing itself
+          # ("Updated settings with enableAllProjectMcpServers: true").
+          # show_full_output is on to capture the real error since the prior
+          # two failures were both silent. Revert both once root-caused.
+          claude_args: --strict-mcp-config
+          settings: '{"enableAllProjectMcpServers": false}'
+          show_full_output: true

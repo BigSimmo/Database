@@ -468,7 +468,8 @@ function MedicationResults({
         modeId="prescribing"
         query={query}
         matchCount={resultCount}
-        loading={catalog.loading}
+        status={catalog.error ? "error" : catalog.loading ? "loading" : "ready"}
+        faultBody={catalog.error ?? undefined}
         filterLabel="Filter medication results"
         mobileControls={
           <MobileResultFilterControl
@@ -488,15 +489,11 @@ function MedicationResults({
 
       <PatientProfilePanel variant="compact" className="medication-patient-strip" />
 
-      {catalog.loading || catalog.error ? (
+      {/* The error branch moved into the band's fault panel, which carries the
+          same message and announces it once. Loading copy stays here. */}
+      {catalog.loading ? (
         <div className="medication-results-inset">
-          {catalog.loading ? (
-            <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
-          ) : (
-            <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
-              {catalog.error}
-            </p>
-          )}
+          <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
         </div>
       ) : null}
 
