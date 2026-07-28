@@ -51,7 +51,7 @@ does not replace the fetch/approval and per-branch content proof below.
    npm run ledger:lookup -- BRANCH_NAME --scope branch-cleanup
    ```
 
-   The lookup resolves the HEAD itself and matches the abbreviated SHAs that older records used, which a literal regex on the full SHA silently missed. Skip the branch only on an `ALREADY REVIEWED` verdict — that requires the same branch/ref, reviewed HEAD, and `branch-cleanup` scope together; a branch-name-only match is not enough. Re-review when the HEAD changed or the user explicitly asks for a fresh pass. `npm run sweep:branch-ledger` applies this filter across every remote branch in one pass.
+   The lookup resolves the HEAD itself and matches the abbreviated SHAs that older records used, which a literal regex on the full SHA silently missed. Skip the branch only on an `ALREADY REVIEWED` verdict — that requires the same branch/ref, reviewed HEAD, and an exact `branch-cleanup` scope together; a branch-name-only match is not enough, and a `branch-cleanup-deletion-pending` row must not match. Re-review when the HEAD changed or the user explicitly asks for a fresh pass. `npm run sweep:branch-ledger` applies this filter across every remote branch in one pass.
 
 6. For each remaining candidate branch, check whether it has patch content not on `main`:
 

@@ -193,7 +193,9 @@ describe("branch-review-ledger row parsing", () => {
 
   it("treats an abbreviated recorded HEAD as the same commit", () => {
     expect(headMatches("`bc5b51c2`", "bc5b51c2f0a9d3e4b5c6d7e8f9a0b1c2d3e4f5a6")).toBe(true);
+    expect(headMatches("bc5b51c2 (squash)", "bc5b51c2f0a9d3e4b5c6d7e8f9a0b1c2d3e4f5a6")).toBe(true);
     expect(headMatches("see PR head", "a".repeat(40))).toBe(false);
+    expect(headMatches("n/a - see deadbeef", `deadbeef${"0".repeat(32)}`)).toBe(false);
     expect(headMatches("bc5b51c2", "0123456789abcdef0123456789abcdef01234567")).toBe(false);
   });
 
@@ -203,6 +205,20 @@ describe("branch-review-ledger row parsing", () => {
     );
     expect(findReviews(md, { ref: "codex/thing", head: "a".repeat(40) }).atHead).toHaveLength(1);
     expect(findReviews(md, { ref: "codex/other", head: "b".repeat(40) }).atHead).toHaveLength(1);
+  });
+
+  it("requires an exact scope match so deletion-pending rows do not skip cleanup", () => {
+    const md = row({ scope: "branch-cleanup-deletion-pending" });
+    expect(findReviews(md, { ref: "codex/thing", head: "a".repeat(40), scope: "branch-cleanup" }).atHead).toHaveLength(
+      0,
+    );
+    expect(
+      findReviews(md, {
+        ref: "codex/thing",
+        head: "a".repeat(40),
+        scope: "branch-cleanup-deletion-pending",
+      }).atHead,
+    ).toHaveLength(1);
   });
 
   it("separates records at a different HEAD so only the delta is re-reviewed", () => {

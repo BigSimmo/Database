@@ -59,24 +59,42 @@ export function normalizeRef(value) {
     .toLowerCase();
 }
 
-/** Every branch-like token in a ref cell, so "PR #1137 / `codex/x` (babysit)" yields `codex/x`. */
+/** Scope cells compare as exact (case/whitespace-insensitive) strings — never substrings. */
+export function normalizeScope(value) {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Every branch-like token in a ref cell, so "PR #1137 / `codex/x` (babysit)" yields `codex/x`.
+ * Slash-form tokens only when present; bare names are kept only when the cell has no slash
+ * token, so parenthetical prose like "(babysit)" cannot false-hit an unrelated lookup.
+ */
 export function refTokens(cell) {
   const tokens = new Set();
   const plain = cell.replace(/`/g, "");
   for (const match of plain.matchAll(/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+/g)) tokens.add(normalizeRef(match[0]));
-  for (const match of plain.matchAll(/(?:^|[\s(])([A-Za-z0-9][A-Za-z0-9._-]{2,})(?=[\s),]|$)/g)) {
-    tokens.add(normalizeRef(match[1]));
+  if (tokens.size === 0) {
+    const bare = plain.trim();
+    if (/^[A-Za-z0-9][A-Za-z0-9._-]{2,}$/.test(bare)) tokens.add(normalizeRef(bare));
   }
   return tokens;
 }
 
+/** SHA prefix from a HEAD cell: pure hex, or hex at the start before annotation like `(squash)`. */
+function shaToken(value) {
+  const cleaned = value.replace(/`/g, "").trim().toLowerCase();
+  if (!cleaned || /^n\/a\b/i.test(cleaned)) return "";
+  if (/^[0-9a-f]{7,40}$/.test(cleaned)) return cleaned;
+  return (cleaned.match(/^([0-9a-f]{7,40})\b/) ?? [])[1] ?? "";
+}
+
 /** A recorded HEAD matches when either side is an abbreviation (>= 7 chars) of the other. */
 export function headMatches(recorded, target) {
-  const a = recorded.replace(/`/g, "").trim().toLowerCase();
-  const b = target.replace(/`/g, "").trim().toLowerCase();
-  if (!a || !b) return false;
-  const aSha = /^[0-9a-f]{7,40}$/.test(a) ? a : (a.match(/\b[0-9a-f]{7,40}\b/) ?? [])[0];
-  const bSha = /^[0-9a-f]{7,40}$/.test(b) ? b : (b.match(/\b[0-9a-f]{7,40}\b/) ?? [])[0];
+  const aSha = shaToken(recorded);
+  const bSha = shaToken(target);
   if (!aSha || !bSha) return false;
   const short = aSha.length <= bSha.length ? aSha : bSha;
   const long = aSha.length <= bSha.length ? bSha : aSha;
@@ -86,11 +104,12 @@ export function headMatches(recorded, target) {
 /** Prior review records for this ref, split by whether the reviewed HEAD still matches. */
 export function findReviews(markdown, { ref, head = "", scope = "" }) {
   const wanted = normalizeRef(ref);
+  const wantedScope = scope ? normalizeScope(scope) : "";
   const atHead = [];
   const otherHead = [];
   for (const row of parseLedgerRows(markdown)) {
     if (!refTokens(row.ref).has(wanted)) continue;
-    if (scope && !row.scope.toLowerCase().includes(scope.toLowerCase())) continue;
+    if (wantedScope && normalizeScope(row.scope) !== wantedScope) continue;
     (head && headMatches(row.head, head) ? atHead : otherHead).push(row);
   }
   return { atHead, otherHead };
@@ -128,11 +147,26 @@ function git(args) {
   }
 }
 
-/** Expand a ref or abbreviated SHA to a full SHA when git can; otherwise return it unchanged. */
-function resolveHead(value) {
+/**
+ * Expand a ref or SHA to a full commit SHA via `git rev-parse`. Full-length hex is verified
+ * the same way as abbreviations — a mistyped 40-char string must not become an unmatchable
+ * ledger HEAD. Documented `n/a - …` heads pass through unchanged.
+ */
+function resolveHead(value, { required = false } = {}) {
   const cleaned = String(value ?? "").trim();
-  if (/^[0-9a-f]{40}$/i.test(cleaned)) return cleaned.toLowerCase();
-  return git(["rev-parse", "--verify", `${cleaned}^{commit}`]) || cleaned;
+  if (!cleaned) {
+    if (required) throw new Error("head is empty");
+    return "";
+  }
+  if (/^n\/a\b/i.test(cleaned)) return cleaned;
+  const resolved = git(["rev-parse", "--verify", `${cleaned}^{commit}`]);
+  if (resolved) return resolved.toLowerCase();
+  if (required) {
+    throw new Error(
+      `head ${JSON.stringify(cleaned)} is not a commit in this repository; pass a real SHA/ref, or "n/a - <reason>"`,
+    );
+  }
+  return /^[0-9a-f]{40}$/i.test(cleaned) ? cleaned.toLowerCase() : cleaned;
 }
 
 function parseFlags(argv) {
@@ -180,7 +214,7 @@ function runLookup(markdown, argv) {
 
   console.log(`ref:   ${ref}`);
   console.log(`head:  ${head}${/^[0-9a-f]{40}$/.test(head) ? "" : "  (not resolvable to a SHA here)"}`);
-  if (scope) console.log(`scope: contains ${JSON.stringify(scope)}`);
+  if (scope) console.log(`scope: exact ${JSON.stringify(scope)}`);
   console.log("");
 
   if (atHead.length > 0) {
@@ -215,32 +249,57 @@ function runAppend(markdown, argv) {
   }
 
   const date = flags.date && flags.date !== true ? flags.date : new Date().toISOString().slice(0, 10);
-  const head = /^n\/a\b/i.test(String(flags.head)) ? String(flags.head) : resolveHead(flags.head);
-
-  let row;
+  let head;
   try {
-    row = buildRow({ date, ref: flags.ref, head, scope: flags.scope, outcome: flags.outcome, checks: flags.checks });
+    head = /^n\/a\b/i.test(String(flags.head)) ? String(flags.head) : resolveHead(flags.head, { required: true });
   } catch (error) {
     console.error(`refusing to append: ${error.message}`);
     process.exitCode = 1;
     return;
   }
 
+  const appendTokens = refTokens(String(flags.ref));
+  if (appendTokens.size === 0) appendTokens.add(normalizeRef(String(flags.ref)));
+  const sameRefHeadScope = (existing, scopeValue) =>
+    headMatches(existing.head, head) &&
+    normalizeScope(existing.scope) === normalizeScope(scopeValue) &&
+    [...appendTokens].some((token) => refTokens(existing.ref).has(token));
+
   const rows = parseLedgerRows(markdown);
-  if (rows.some((existing) => existing.raw === row)) {
-    console.error("refusing to append: an identical record already exists.");
+  let scope = String(flags.scope);
+  const near = rows.filter((existing) => sameRefHeadScope(existing, scope));
+  if (near.length > 0) {
+    if (!flags.supersede) {
+      console.error(`refusing to append: this ref/HEAD/scope was already recorded on ${near.at(-1).date}.`);
+      console.error(
+        "Cite the prior record instead, or pass --supersede to append a distinct superseding scope the guard accepts.",
+      );
+      process.exitCode = 1;
+      return;
+    }
+    // Guard keys on ref/HEAD/scope; keep the correction append-only by minting a distinct scope.
+    const priorDate = near.at(-1).date;
+    let suffix = 1;
+    do {
+      scope =
+        suffix === 1
+          ? `${String(flags.scope)} (supersedes ${priorDate})`
+          : `${String(flags.scope)} (supersedes ${priorDate} #${suffix})`;
+      suffix += 1;
+    } while (rows.some((existing) => sameRefHeadScope(existing, scope)));
+  }
+
+  let row;
+  try {
+    row = buildRow({ date, ref: flags.ref, head, scope, outcome: flags.outcome, checks: flags.checks });
+  } catch (error) {
+    console.error(`refusing to append: ${error.message}`);
     process.exitCode = 1;
     return;
   }
-  const near = rows.filter(
-    (existing) =>
-      headMatches(existing.head, head) &&
-      existing.scope.toLowerCase() === sanitizeCell(flags.scope).toLowerCase() &&
-      refTokens(existing.ref).has(normalizeRef(String(flags.ref).split("/").slice(-2).join("/"))),
-  );
-  if (near.length > 0 && !flags.supersede) {
-    console.error(`refusing to append: this ref/HEAD/scope was already recorded on ${near.at(-1).date}.`);
-    console.error("Cite the prior record instead, or pass --supersede when this record deliberately replaces it.");
+
+  if (rows.some((existing) => existing.raw === row)) {
+    console.error("refusing to append: an identical record already exists.");
     process.exitCode = 1;
     return;
   }
@@ -269,8 +328,11 @@ function selfTest() {
   assert(rows[0].cells.length === 6, "records have six cells");
 
   assert(headMatches("`abc1234`", "abc1234def"), "abbreviated HEAD matches full");
+  assert(headMatches("abc1234 (squash)", "abc1234def"), "leading annotated HEAD matches full");
   assert(!headMatches("abc1234", "def5678"), "different HEADs do not match");
   assert(!headMatches("see PR head", "a".repeat(40)), "prose HEAD matches nothing");
+  assert(!headMatches("n/a - see deadbeef", "deadbeef" + "0".repeat(32)), "n/a prose does not match embedded hex");
+  assert(!refTokens("PR #1 / `codex/thing` (babysit)").has("babysit"), "parenthetical prose is not a ref token");
 
   const hit = findReviews(markdown, { ref: "codex/thing", head: "a".repeat(40) });
   assert(hit.atHead.length === 1, "finds the record at this HEAD");
@@ -280,8 +342,16 @@ function selfTest() {
     "origin/ ref normalizes",
   );
   assert(
-    findReviews(markdown, { ref: "codex/thing", head: "a".repeat(40), scope: "cleanup" }).atHead.length === 1,
-    "scope filter matches",
+    findReviews(markdown, { ref: "codex/thing", head: "a".repeat(40), scope: "branch-cleanup" }).atHead.length === 1,
+    "exact scope filter matches",
+  );
+  assert(
+    findReviews(markdown, {
+      ref: "codex/thing",
+      head: "a".repeat(40),
+      scope: "branch-cleanup-deletion-pending",
+    }).atHead.length === 0,
+    "scope filter is exact, not substring",
   );
   assert(
     findReviews(markdown, { ref: "codex/thing", head: "a".repeat(40), scope: "release" }).atHead.length === 0,
