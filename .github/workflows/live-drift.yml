@@ -50,7 +50,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Guard Supabase project identity
         run: npm run check:supabase-project

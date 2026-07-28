@@ -67,12 +67,15 @@ async function gotoHome(page: Page) {
   // shells (and two header#search nodes), which trips Playwright strict mode.
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
   // Wait until React settles on a single header. During client remount /
-  // hydration a second transient header#search can exist briefly and trip
-  // Playwright strict mode even though the stable tree has only one banner.
-  // Permanent double-render still fails toHaveCount(1).
-  const header = page.locator("header#search");
-  await expect(header).toHaveCount(1, { timeout: 30_000 });
-  await header.waitFor({ state: "visible", timeout: 30_000 });
+  // hydration a second transient header#search can exist briefly; checking
+  // count then immediately calling waitFor races that flicker into a strict-mode
+  // violation. Retry count+visibility together so permanent double-render still
+  // fails while transient remounts can settle.
+  await expect(async () => {
+    const header = page.locator("header#search");
+    await expect(header).toHaveCount(1);
+    await expect(header).toBeVisible();
+  }).toPass({ timeout: 30_000 });
   await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 

@@ -104,6 +104,44 @@ describe("Therapy Compass required data recovery", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
+  it("keeps Retry busy until the replacement catalogue request settles", async () => {
+    let failTherapies = true;
+    let releaseRetry!: (value: unknown) => void;
+    const retryGate = new Promise((resolve) => {
+      releaseRetry = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/therapies-index.json")) {
+        if (failTherapies) return response(null, false, 503);
+        await retryGate;
+        return response([therapy]);
+      }
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <HomeScreen />
+      </TherapyCompassWorkspace>,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Therapy could not load");
+    failTherapies = false;
+    const retry = screen.getByRole("button", { name: "Retry" });
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retrying…" })).toBeDisabled());
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Therapy" })).not.toBeInTheDocument();
+
+    releaseRetry(undefined);
+
+    expect(await screen.findByRole("heading", { name: "Therapy" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("loads full therapy records only on a record-rich route", async () => {
     navigation.pathname = "/therapy-compass/test-therapy";
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {

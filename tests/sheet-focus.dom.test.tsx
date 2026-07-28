@@ -1,6 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { useEffect, useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Sheet } from "@/components/ui/sheet";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet-focus";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   if (typeof document !== "undefined" && document.body) {
     document.body.style.overflow = "";
   }
@@ -253,5 +254,43 @@ describe("Sheet open focus", () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(document.activeElement).toBe(backgroundControl);
     background.remove();
+  });
+});
+
+describe("Sheet Tab cycle", () => {
+  it("skips visible controls explicitly removed from the tab order", async () => {
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue({
+      length: 1,
+      item: () => null,
+      [Symbol.iterator]: function* () {
+        yield {} as DOMRect;
+      },
+    } as DOMRectList);
+
+    render(
+      <Sheet open onClose={() => {}} title="Tab order" portal>
+        <a href="#first">First</a>
+        <input aria-label="Programmatic only" tabIndex={-1} />
+        <button type="button">Last</button>
+      </Sheet>,
+    );
+
+    const panel = panelOf("Tab order");
+    const first = panel.querySelector<HTMLAnchorElement>('a[href="#first"]');
+    const excluded = panel.querySelector<HTMLInputElement>('input[tabindex="-1"]');
+    const last = Array.from(panel.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent === "Last",
+    );
+    expect(first).not.toBeNull();
+    expect(excluded).not.toBeNull();
+    expect(last).toBeDefined();
+
+    act(() => {
+      first?.focus();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    });
+
+    expect(document.activeElement).toBe(last);
+    expect(document.activeElement).not.toBe(excluded);
   });
 });
