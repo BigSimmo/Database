@@ -6,6 +6,10 @@ import { useCallback, useMemo } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
+import {
+  foldSavedFavouritesStatus,
+  type SavedFavouritesBandStatus,
+} from "@/components/clinical-dashboard/saved-registry-favourites-status";
 import type { ServiceRecord } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
@@ -26,21 +30,18 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
 
 export type SavedRegistryFavouritesResult = {
   items: FavouriteItem[];
-  /** Folded state of the registries this hook actually requested, so the page can
-      report a failure instead of rendering an empty list as "no favourites".
-      When unaffected sources already produced items (e.g. local differentials
-      while a service registry failed), this stays `ready` so the band can keep
-      an honest nonzero count — see `registryStatus` for the raw fold. */
-  status: "ready" | "loading" | "unauthorized" | "error";
-  /** Raw folded registry status before the nonempty-items override. Useful when
-      a page needs to distinguish a partial registry fault from a clean ready. */
-  registryStatus: "ready" | "loading" | "unauthorized" | "error";
+  /** Combined account + registry status for the band/empty state. When unaffected
+      sources already produced items, this stays `ready` so a valid nonzero count
+      remains visible — see `registryStatus` for the raw registry fold. */
+  status: SavedFavouritesBandStatus;
+  /** Raw folded registry status before account/nonempty overrides. */
+  registryStatus: SavedFavouritesBandStatus;
   /** Re-runs every registry this hook actually requested. */
   refetch: () => void;
 };
 
 export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
-  const { favourites } = useAccountData();
+  const { favourites, ready: accountReady, error: accountError, isAuthenticated } = useAccountData();
   const savedServices = favourites.service;
   const savedForms = favourites.form;
   const savedDifferentials = favourites.differential;
@@ -80,17 +81,20 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   // hook sits in its initial state forever and must not be read as a failure.
   // Unauthorized outranks error because it is the one the reader can act on.
   const requested = [savedServices.length > 0 ? services.status : null, savedForms.length > 0 ? forms.status : null];
-  const registryStatus = requested.includes("unauthorized")
+  const rawRegistryStatus: SavedFavouritesBandStatus = requested.includes("unauthorized")
     ? "unauthorized"
     : requested.includes("error") || requested.includes("not_found")
       ? "error"
       : requested.includes("loading")
         ? "loading"
         : "ready";
-  // A nonempty list from unaffected sources (local differentials, or one registry
-  // that succeeded) must not be hidden behind a whole-band fault/loading state —
-  // that drops a valid nonzero count while the table below still renders items.
-  const status = items.length > 0 && registryStatus !== "ready" ? "ready" : registryStatus;
+  const { status, registryStatus } = foldSavedFavouritesStatus({
+    isAuthenticated,
+    accountReady,
+    accountError,
+    registryStatus: rawRegistryStatus,
+    itemCount: items.length,
+  });
 
   const refetchServices = services.refetch;
   const refetchForms = forms.refetch;

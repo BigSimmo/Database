@@ -1034,13 +1034,17 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
   const {
     items: savedRegistryFavourites,
-    status: favouritesRegistryStatus,
+    status: favouritesHookStatus,
     refetch: refetchFavouritesRegistry,
   } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
   );
+  // Demo prototypes live outside the hook. If they are the only items while a
+  // registry/account read failed, keep the band ready so the table's nonzero
+  // list is not contradicted by a whole-band fault.
+  const favouritesRegistryStatus = items.length > 0 ? "ready" : favouritesHookStatus;
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
