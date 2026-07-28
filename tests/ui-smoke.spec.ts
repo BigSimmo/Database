@@ -8,6 +8,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -2741,7 +2742,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     expect(redirectMeasureErrors).toEqual([]);
   });
@@ -2935,7 +2936,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
@@ -2952,7 +2953,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
@@ -2983,9 +2984,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
+      message: "favourites hub owner",
+    });
     // The saved service slug is hydrated to its registry title in the hub.
-    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+    await expect(hub.getByText("13YARN").first()).toBeVisible();
   });
 
   test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
@@ -3026,7 +3029,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
-    const hub = page.getByTestId("favourites-hub");
+    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
+      message: "favourites hub owner",
+    });
     await expect(hub.locator('article[role="button"]')).toHaveCount(0);
     const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
     const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
