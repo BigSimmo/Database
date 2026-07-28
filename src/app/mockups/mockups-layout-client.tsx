@@ -11,6 +11,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
   const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
+  const isDocumentNavigationPaneMockup = pathname === "/mockups/document-navigation-pane";
+  const isDocumentPhoneTitleMockup = pathname.startsWith("/mockups/document-phone-");
+  // Draws its own universal top bar and document composer inside every frame, so
+  // the shared composer would read as a second, real search bar over the study.
+  const isDocumentNavigationContractMockup =
+    pathname === "/mockups/document-navigation-contract" ||
+    pathname === "/mockups/document-navigation-perfected" ||
+    pathname.startsWith("/mockups/document-navigation-final");
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
@@ -33,7 +41,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
             ? "favourites"
             : isTherapyNavigationMockup
               ? "therapy-compass"
-              : isDocumentSearchMockup || isDocumentTopNavigationMockup
+              : isDocumentSearchMockup ||
+                  isDocumentTopNavigationMockup ||
+                  isDocumentNavigationPaneMockup ||
+                  isDocumentPhoneTitleMockup ||
+                  isDocumentNavigationContractMockup
                 ? "documents"
                 : "answer"
       }
@@ -42,6 +54,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
+        !isDocumentNavigationPaneMockup &&
+        !isDocumentPhoneTitleMockup &&
+        !isDocumentNavigationContractMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
