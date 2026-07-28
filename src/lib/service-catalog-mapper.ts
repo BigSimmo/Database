@@ -12,8 +12,6 @@ import type {
   ServiceSummaryCard,
 } from "@/lib/services";
 
-export { compactBestUseTitle };
-
 const UNKNOWN_VALUES = /^(?:not publicly stated|not applicable|none|n\/a|unknown)$/i;
 
 function isUnknown(value: string | undefined | null) {
@@ -176,14 +174,13 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
   const bestUse = cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness);
   if (bestUse) {
     const title = compactBestUseTitle(bestUse);
-    const patientGroup = cleanField(service.patient_group);
-    const sectionDetail = cleanField(service.sections[0]);
-    const detailSource = patientGroup ?? sectionDetail ?? (title === bestUse ? undefined : bestUse);
     cards.push({
       id: "best-use",
       label: "Best use",
       title,
-      detail: detailSource ? compactBestUseTitle(detailSource) : "Clinical fit and referral priority",
+      detail:
+        compactBestUseTitle(cleanField(service.patient_group) ?? cleanField(service.sections[0]) ?? "") ||
+        (title === bestUse ? "Clinical fit and referral priority" : bestUse),
     });
   }
 
