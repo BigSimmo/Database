@@ -2638,11 +2638,13 @@ html[data-motion="reduced"] .pwa-notice-card {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-shimmer::after,
   .stagger-item {
     animation: none !important;
   }
 }
 
+html[data-motion="reduced"] .animate-skeleton-shimmer::after,
 html[data-motion="reduced"] .stagger-item {
   animation: none !important;
 }
