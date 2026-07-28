@@ -133,7 +133,7 @@ describe("search results band adoption", () => {
       const imported = [...routeSource.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
       const reaches = imported.some((specifier) =>
         [...componentSources.entries()].some(
-          ([componentPath, source]) => componentPath === `src/${specifier}.tsx` && source.includes(BAND_IDENTIFIER),
+          ([componentPath, source]) => componentPath === `src/${specifier}.tsx` && rendersBand(source),
         ),
       );
       if (!reaches) orphans.push(key);
@@ -146,7 +146,7 @@ describe("search results band adoption", () => {
     ).toEqual([]);
   });
 
-  it("keeps the band's forced-colors rules last in the stylesheet", () => {
+  it("keeps the band's forced-colors rules inside the final forced-colors block", () => {
     // At equal specificity a later rule wins, so a forced-colors block placed
     // before another one is silently overridden while still reading correctly.
     const globals = readFileSync(path.join(REPO_ROOT, "src", "app", "globals.css"), "utf8");
@@ -155,13 +155,29 @@ describe("search results band adoption", () => {
     );
     expect(forcedColorsOpeners.length).toBeGreaterThan(0);
 
-    const bandRule = globals.lastIndexOf(".search-band");
-    if (bandRule === -1) return; // The visual phase has not landed yet.
+    const lastOpener = forcedColorsOpeners[forcedColorsOpeners.length - 1];
+    let depth = 0;
+    let lastCloser = -1;
+    for (let index = lastOpener; index < globals.length; index += 1) {
+      const char = globals[index];
+      if (char === "{") depth += 1;
+      else if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          lastCloser = index;
+          break;
+        }
+      }
+    }
+    expect(lastCloser).toBeGreaterThan(lastOpener);
+
+    const bandRule = globals.indexOf(".search-band", lastOpener);
     expect(
       bandRule,
-      "The band's forced-colors rules must sit inside the last @media (forced-colors: active) " +
+      "The band's forced-colors rules must exist inside the last @media (forced-colors: active) " +
         "block, or an earlier block at equal specificity will override them.",
-    ).toBeGreaterThan(forcedColorsOpeners[forcedColorsOpeners.length - 1]);
+    ).toBeGreaterThan(lastOpener);
+    expect(bandRule).toBeLessThan(lastCloser);
   });
 });
 

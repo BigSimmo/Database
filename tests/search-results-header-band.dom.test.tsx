@@ -82,6 +82,22 @@ describe("SearchResultsHeaderBand", () => {
     expect(within(region).queryByText(/\d/)).toBeNull();
   });
 
+  // Initial loading is the same untrue-zero risk: forms forces matches to [] until
+  // the registry is ready, so ResultTabs would assert "Forms 0" under Searching….
+  it("drops count-bearing page controls while loading", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="forms"
+        query="transport order"
+        matchCount={0}
+        status="loading"
+        filterControls={<span>Forms 0</span>}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Searching…");
+    expect(screen.queryByText("Forms 0")).toBeNull();
+  });
+
   it("keeps exactly one status region and one alert while faulted", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" />);
 

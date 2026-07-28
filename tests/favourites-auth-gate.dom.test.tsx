@@ -31,7 +31,12 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
-  useSavedRegistryFavourites: () => ({ items: [], status: "ready" }),
+  useSavedRegistryFavourites: () => ({
+    items: [],
+    status: "ready",
+    registryStatus: "ready",
+    refetch: () => undefined,
+  }),
 }));
 
 vi.mock("@/components/clinical-dashboard/search-command-context", () => ({

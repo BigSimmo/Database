@@ -921,11 +921,16 @@ function SearchResultsView({
             ? "Sign in again to search the differentials catalogue"
             : "The differentials catalogue could not be searched"
         }
-        faultBody="Retry the search shortly, or browse the catalogue pages directly."
+        faultBody={
+          catalog.status === "unauthorized"
+            ? "Sign in again to search, or browse the catalogue pages directly."
+            : "Retry the search shortly, or browse the catalogue pages directly."
+        }
         // The fault copy promises two recoveries, so both have to exist: rerun the
         // search, and the catalogue links that the removed error section used to
         // carry. Without these the failed view tells the reader to act and gives
-        // them nothing to act with.
+        // them nothing to act with. Unauthorized omits Retry because a refetch
+        // cannot mint a session — the body must not promise one either.
         // Retry the request that actually failed. `rerunSearch` only re-runs the
         // parent document-evidence search; the catalogue hook keys on query + auth
         // identity, neither of which changes when the reader asks to try again, so

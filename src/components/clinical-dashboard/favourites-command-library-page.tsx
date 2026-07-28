@@ -1032,7 +1032,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
   const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
-  const { items: savedRegistryFavourites, status: favouritesRegistryStatus } = useSavedRegistryFavourites();
+  const {
+    items: savedRegistryFavourites,
+    status: favouritesRegistryStatus,
+    refetch: refetchFavouritesRegistry,
+  } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
@@ -1197,8 +1201,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               matchCount={scopedItems.length}
               // Without this a failed registry read renders as "0 matches", which
               // reads as "you have no saved favourites" rather than "we could not
-              // load them".
+              // load them". `status` stays ready when unaffected items already
+              // exist (local differentials, etc.) so a partial registry fault
+              // does not hide a valid nonzero count.
               status={favouritesRegistryStatus}
+              onRetry={favouritesRegistryStatus === "error" ? refetchFavouritesRegistry : undefined}
               filterLabel="Active favourites filters"
               filterControls={
                 selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (

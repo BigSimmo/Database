@@ -49,7 +49,11 @@ export function FavouritesHub({
 }) {
   // Keep the status: discarding it makes a failed registry read indistinguishable
   // from an empty library.
-  const { items: savedRegistryFavourites, status: savedRegistryStatus } = useSavedRegistryFavourites();
+  const {
+    items: savedRegistryFavourites,
+    status: savedRegistryStatus,
+    refetch: refetchFavouritesRegistry,
+  } = useSavedRegistryFavourites();
   const allFavouriteItems = useMemo(
     () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
     [demoMode, savedRegistryFavourites],
@@ -446,6 +450,15 @@ export function FavouritesHub({
                           ? "Your session expired. Sign in again to see your saved items."
                           : "Your saved items could not be loaded. Try again shortly."}
                   </p>
+                  {savedRegistryStatus === "error" ? (
+                    <button
+                      type="button"
+                      onClick={() => refetchFavouritesRegistry()}
+                      className={cn(primaryControl, "mx-auto mt-3")}
+                    >
+                      Retry
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ) : null}

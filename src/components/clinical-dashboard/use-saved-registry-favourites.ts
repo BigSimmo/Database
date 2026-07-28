@@ -2,7 +2,7 @@
 
 import { BrainCircuit, ClipboardList } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
@@ -27,8 +27,16 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
 export type SavedRegistryFavouritesResult = {
   items: FavouriteItem[];
   /** Folded state of the registries this hook actually requested, so the page can
-      report a failure instead of rendering an empty list as "no favourites". */
+      report a failure instead of rendering an empty list as "no favourites".
+      When unaffected sources already produced items (e.g. local differentials
+      while a service registry failed), this stays `ready` so the band can keep
+      an honest nonzero count — see `registryStatus` for the raw fold. */
   status: "ready" | "loading" | "unauthorized" | "error";
+  /** Raw folded registry status before the nonempty-items override. Useful when
+      a page needs to distinguish a partial registry fault from a clean ready. */
+  registryStatus: "ready" | "loading" | "unauthorized" | "error";
+  /** Re-runs every registry this hook actually requested. */
+  refetch: () => void;
 };
 
 export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
@@ -72,13 +80,24 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   // hook sits in its initial state forever and must not be read as a failure.
   // Unauthorized outranks error because it is the one the reader can act on.
   const requested = [savedServices.length > 0 ? services.status : null, savedForms.length > 0 ? forms.status : null];
-  const status = requested.includes("unauthorized")
+  const registryStatus = requested.includes("unauthorized")
     ? "unauthorized"
     : requested.includes("error") || requested.includes("not_found")
       ? "error"
       : requested.includes("loading")
         ? "loading"
         : "ready";
+  // A nonempty list from unaffected sources (local differentials, or one registry
+  // that succeeded) must not be hidden behind a whole-band fault/loading state —
+  // that drops a valid nonzero count while the table below still renders items.
+  const status = items.length > 0 && registryStatus !== "ready" ? "ready" : registryStatus;
 
-  return { items, status };
+  const refetchServices = services.refetch;
+  const refetchForms = forms.refetch;
+  const refetch = useCallback(() => {
+    if (savedServices.length > 0) refetchServices();
+    if (savedForms.length > 0) refetchForms();
+  }, [savedServices.length, savedForms.length, refetchServices, refetchForms]);
+
+  return { items, status, registryStatus, refetch };
 }

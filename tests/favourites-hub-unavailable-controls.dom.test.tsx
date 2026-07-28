@@ -4,7 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
-  useSavedRegistryFavourites: () => ({ items: [], status: "ready" }),
+  useSavedRegistryFavourites: () => ({
+    items: [],
+    status: "ready",
+    registryStatus: "ready",
+    refetch: () => undefined,
+  }),
 }));
 
 describe("FavouritesHub unavailable controls", () => {
