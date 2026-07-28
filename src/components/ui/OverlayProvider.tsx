@@ -36,11 +36,12 @@ export function OverlayProvider({ children }: { children: React.ReactNode }) {
     [activeOverlays],
   );
 
-  return (
-    <OverlayContext.Provider value={{ activeOverlays, registerOverlay, unregisterOverlay, isTopOverlay }}>
-      {children}
-    </OverlayContext.Provider>
+  const value = React.useMemo(
+    () => ({ activeOverlays, registerOverlay, unregisterOverlay, isTopOverlay }),
+    [activeOverlays, registerOverlay, unregisterOverlay, isTopOverlay],
   );
+
+  return <OverlayContext.Provider value={value}>{children}</OverlayContext.Provider>;
 }
 
 export function useOverlay(id: string) {
