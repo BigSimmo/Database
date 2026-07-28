@@ -219,6 +219,7 @@ export function Sheet({
         (element) =>
           !element.hasAttribute("disabled") &&
           element.getAttribute("aria-hidden") !== "true" &&
+          element.tabIndex >= 0 &&
           !element.closest('[aria-hidden="true"], [inert]') &&
           element.getClientRects().length > 0,
       );
