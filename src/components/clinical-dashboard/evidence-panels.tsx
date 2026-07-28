@@ -581,7 +581,7 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
  * content from untrusted sections, quotes, or documentBreakdown (visual
  * evidence is passed separately).
  */
-function trustGatedAnswerForClinicalNotes(
+export function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
 ): RagAnswer {
@@ -592,8 +592,11 @@ function trustGatedAnswerForClinicalNotes(
       smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
     };
   }
+  // Clear free-text answer too: labeled Action/Monitoring prose can rebuild
+  // clinical-notes sections even after structured fields are stripped.
   return {
     ...answer,
+    answer: "",
     answerSections: [],
     quoteCards: [],
     documentBreakdown: [],

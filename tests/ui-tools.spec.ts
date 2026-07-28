@@ -1944,16 +1944,20 @@ test.describe("Clinical KB tools launcher", () => {
   test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 });
     await gotoLauncher(page, "/differentials/diagnoses/delirium");
-    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load, which would make a
+    // document-wide getByTestId strict-mode fail.
+    const detailPage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-detail-page");
+    await expect(detailPage).toBeVisible();
     // The desktop action cluster must keep its intrinsic width (shrink-0) so the
     // icon action does not get crushed below the 44px tap standard.
-    await expectMinTouchTarget(page.getByRole("button", { name: "Save diagnosis" }));
+    await expectMinTouchTarget(detailPage.getByRole("button", { name: "Save diagnosis" }));
 
     // Tabs: no page overflow and single-line labels at the narrowest width.
     await page.setViewportSize({ width: 320, height: 700 });
-    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    await expect(detailPage).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
-    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    const overviewTab = detailPage.getByRole("tab", { name: "Overview" });
     await expect(overviewTab).toBeVisible();
     // Count rendered label lines from text-node rects (an icon rect would bridge
     // two wrapped lines and mask a wrap); the tab label must stay on one line.
