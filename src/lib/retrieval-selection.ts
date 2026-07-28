@@ -1,5 +1,6 @@
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
 import {
+  hasMedicationMonitoringSubjectEvidence,
   medicationDoseEvidenceQueryIntent,
   medicationDoseQueryContext,
   medicationDoseQuerySubjectTokens,
@@ -231,22 +232,21 @@ function signalMatchesText(signal: string, text: string) {
     case "anc":
       return /\b(?:anc|neutrophil|neutrophils)\b/.test(text);
     case "fbc":
-      return /\b(?:fbc|full blood count|blood count)\b/.test(text);
+      return (
+        /\b(?:fbc|full blood count|blood count)\b/.test(text) ||
+        (/\b(?:wbc|wcc|white blood cells?)\b/.test(text) && /\b(?:anc|neutrophils?)\b/.test(text))
+      );
     default:
       return text.includes(signal);
   }
 }
 
-function medicationClinicalSubjectMatches(query: string, result: SearchResult, normalizedEvidenceText: string) {
+function medicationClinicalSubjectMatches(query: string, result: SearchResult) {
   const doseIntent = medicationDoseEvidenceQueryIntent(query);
   if (doseIntent.asksAmount || doseIntent.asksRoute || doseIntent.asksFrequency) {
     return medicationDoseQueryContext(query, result).matched;
   }
-  const subjectTokens = medicationMonitoringQuerySubjectTokens(query);
-  if (!subjectTokens.length) return true;
-  const evidenceTokens = new Set(normalizedEvidenceText.split(" "));
-  const hitCount = subjectTokens.filter((token) => evidenceTokens.has(token)).length;
-  return hitCount >= Math.min(2, subjectTokens.length);
+  return hasMedicationMonitoringSubjectEvidence(query, result);
 }
 
 function matchedSignalsForResult(args: {
@@ -280,7 +280,7 @@ function matchedSignalsForResult(args: {
   if (args.intent.needsDoseRouteFrequency && hasRoute(text)) signals.push("route");
   if (
     args.intent.requiredTermSignals.includes("clinical_subject") &&
-    medicationClinicalSubjectMatches(args.query, args.result, text)
+    medicationClinicalSubjectMatches(args.query, args.result)
   ) {
     signals.push("clinical_subject");
   }
@@ -372,7 +372,10 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     medicationEvidenceIntent.asksAmount || medicationEvidenceIntent.asksRoute || medicationEvidenceIntent.asksFrequency;
   const asksDoseAmount = medicationEvidenceIntent.asksAmount;
   const asksMedicationMonitoring =
-    queryClass === "medication_dose_risk" && /\b(?:monitor\w*|baseline|blood|level)\b/.test(normalizedQuery);
+    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+    /\b(?:monitor\w*|baseline|blood|level|threshold|cut[\s-]?off|range|anc|fbc|neutrophils?|qtc|therapeutic|target|trough|concentration)\b/.test(
+      normalizedQuery,
+    );
   const clinicalSubjectTokens = asksMedicationMonitoring
     ? medicationMonitoringQuerySubjectTokens(query)
     : medicationDoseQuerySubjectTokens(query);
@@ -420,7 +423,7 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     if (medicationEvidenceIntent.asksRoute) requiredTermSignals.push("route");
   }
   if (
-    queryClass === "medication_dose_risk" &&
+    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
     (asksDoseRoute || asksMedicationMonitoring) &&
     clinicalSubjectTokens.length > 0
   ) {
