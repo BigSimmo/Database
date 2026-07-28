@@ -127,18 +127,6 @@
   --content-max-width: 1440px;
   --rail-width: 480px;
 
-  /* Stacking Context Tokens (W3C Stacking Engine Standard) */
-  --z-negative: -1;
-  --z-elevated: 1;
-  --z-dropdown: 10;
-  --z-sticky: 20;
-  --z-header: 30;
-  --z-drawer: 40;
-  --z-popover: 50;
-  --z-modal: 60;
-  --z-toast: 70;
-  --z-tooltip: 80;
-
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;
   --neutral-50: #f7f8fa;
@@ -2075,7 +2063,7 @@ summary::-webkit-details-marker {
   --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
 
   position: fixed;
-  z-index: var(--z-toast);
+  z-index: 95;
   left: max(0.75rem, var(--safe-area-left));
   right: max(0.75rem, var(--safe-area-right));
   bottom: var(--pwa-notice-bottom-gap);
@@ -2933,32 +2921,6 @@ html.theme-transitioning *:after {
     background: Canvas !important;
     box-shadow: none !important;
   }
-}
-
-/* Stacking layer utility classes mapping to design tokens */
-.z-dropdown {
-  z-index: var(--z-dropdown);
-}
-.z-sticky {
-  z-index: var(--z-sticky);
-}
-.z-header {
-  z-index: var(--z-header);
-}
-.z-drawer {
-  z-index: var(--z-drawer);
-}
-.z-popover {
-  z-index: var(--z-popover);
-}
-.z-modal {
-  z-index: var(--z-modal);
-}
-.z-toast {
-  z-index: var(--z-toast);
-}
-.z-tooltip {
-  z-index: var(--z-tooltip);
 }
 
 /* Modern line-height alignment helper for clinical icons */

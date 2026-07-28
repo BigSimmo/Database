@@ -92,7 +92,7 @@ describe("audit navigation and auth regressions", () => {
     const focusLeaveContract = sourceSegment(
       masterSearchHeaderSource,
       "ref={modeMenuRef}",
-      'className={cn("relative z-modal',
+      'className={cn("relative z-[60]',
     );
 
     expect(focusLeaveContract).toContain("onBlur={(event) => {");
