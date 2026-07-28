@@ -46,7 +46,10 @@ This repo uses one shared search experience across the global shell, dashboard r
     the top bar is hidden; section anchors use `--document-anchor-offset`, published from the live collapse-row height
     plus that sticky header when the shared bar is away, instead of a fixed `scroll-mt`. Observe the shared header
     from the viewer; never edit it for this. The in-column section index card is `lg+` only — phones use the header
-    disclosure and section sheet.
+    disclosure and section sheet. Exactly one element may own `id="document-overview"` (the DocumentViewer overview
+    landing wrapper); `DocumentClinicalSummary` must not reuse that id. The phone sheet lists only present sections —
+    omit `source-images` when `visualCount === 0`, and do not require a "Tables and diagrams" sheet row in smoke for
+    the empty-images lithium demo doc.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
 ## Results band (`SearchResultsHeaderBand`)
