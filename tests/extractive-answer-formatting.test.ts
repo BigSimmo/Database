@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
+import { citationFromResult } from "../src/lib/citations";
+import {
+  adjacentLabelledNumericBandConflicts,
+  textReferencesAdjacentBandConflict,
+} from "../src/lib/answer-verification";
 import {
   buildExtractiveAnswer,
+  finalizeRagAnswerQuality,
+  generatedAnswerQualityFailureReason,
   hasMaximumDoseEvidence,
+  isExplicitEscalationQuery,
+  isProviderSourceGapGeneratedAnswer,
+  isSafeExtractiveFallbackCandidate,
+  labelledNumericBandConflictChunkIds,
+  retainCitedExtractiveFallbackEvidence,
   sentenceFromFact,
   splitClinicalEvidenceSentences,
 } from "../src/lib/rag/rag-extractive-answer";
@@ -44,6 +56,1690 @@ function figureChunk(overrides: Partial<SearchResult>): SearchResult {
     ...overrides,
   } as unknown as SearchResult;
 }
+
+describe("source-bound clozapine red-range extraction", () => {
+  const query = "What FBC threshold should withhold clozapine?";
+  const redRangeSource = figureChunk({
+    id: "nmhs-clozapine-red-range",
+    document_id: "nmhs-clozapine",
+    title: "Clozapine Prescribing(NMHS)",
+    file_name: "Clozapine Prescribing (NMHS).pdf",
+    page_number: 7,
+    section_heading: "8.2 Monitoring for agranulocytosis and neutropenia",
+    content: `Clozapine Blood Results Monitoring Recommended Action
+System
+WBC ≥ 3.5 x 109/L AND Continue clozapine therapy
+Green Range Neutrophils ≥ 2.0 x 109 /L
+
+WBC 3.0 - <3.5 x 109/L AND/OR Continue clozapine therapy with twice-weekly blood
+Amber Range Neutrophils 1.5 - < 2.0 x 109 /L tests until return to “green” range
+
+WBC < 3.0 x 109/L AND/OR Stop clozapine therapy immediately.
+Red Range Neutrophils < 1.5 x 109 /L Contact haematologist and Clozapine Monitoring
+Centre`,
+    source_metadata: {
+      source_title: "Clozapine Prescribing(NMHS)",
+      publisher: "North Metropolitan Health Service",
+      jurisdiction: "Australia/WA",
+      version: "1",
+      publication_date: null,
+      review_date: "2027-03-24",
+      uploaded_at: null,
+      indexed_at: null,
+      uploaded_by: null,
+      document_status: "current",
+      clinical_validation_status: "locally_reviewed",
+      extraction_quality: "good",
+    },
+  });
+
+  it("keeps both blood-count thresholds bound to the immediate stop action in one cited chunk", () => {
+    const distractor = figureChunk({
+      id: "generic-monitoring",
+      document_id: "other-document",
+      title: "Clozapine Monitoring Appendix",
+      content: "Routine monitoring forms should be filed after each blood test.",
+    });
+    const answer = finalizeRagAnswerQuality(
+      extractiveAnswerFor(query, [redRangeSource, distractor], "table_threshold"),
+      query,
+      "table_threshold",
+    );
+    const plainAnswer = answer.answer.replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(plainAnswer).toContain("WBC <3.0 × 10⁹/L");
+    expect(plainAnswer).toContain("neutrophils <1.5 × 10⁹/L");
+    expect(plainAnswer).toMatch(/stop clozapine therapy immediately/i);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["nmhs-clozapine-red-range"]);
+    expect(answer.answerSections).toEqual([
+      expect.objectContaining({
+        heading: "Red-range threshold and action",
+        citation_chunk_ids: ["nmhs-clozapine-red-range"],
+      }),
+    ]);
+  });
+
+  it("uses the same source-bound answer after deterministic medication typo correction", () => {
+    const typoQuery = "What ANC or FBC cut off means clozapin should be withheld?";
+    const answer = finalizeRagAnswerQuality(
+      extractiveAnswerFor(typoQuery, [redRangeSource], "table_threshold"),
+      typoQuery,
+      "table_threshold",
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer.replace(/\*\*/g, " ")).toMatch(/stop clozapine therapy immediately/i);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["nmhs-clozapine-red-range"]);
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+  });
+
+  it("does not synthesize the atomic red-range answer from partial or split rows", () => {
+    const partialWbc = {
+      ...redRangeSource,
+      id: "partial-wbc-row",
+      content: "WBC < 3.0 x 109/L AND/OR Stop clozapine therapy immediately.",
+    };
+    const splitNeutrophils = {
+      ...redRangeSource,
+      id: "split-neutrophil-row",
+      content: "Red Range Neutrophils < 1.5 x 109/L Contact haematologist.",
+    };
+    const splitAnswer = extractiveAnswerFor(query, [partialWbc, splitNeutrophils], "table_threshold");
+    const monitoringAnswer = extractiveAnswerFor(
+      "When should clozapine blood monitoring occur?",
+      [redRangeSource],
+      "medication_dose_risk",
+    );
+
+    expect(splitAnswer.answerSections?.some((section) => section.heading === "Red-range threshold and action")).toBe(
+      false,
+    );
+    expect(
+      monitoringAnswer.answerSections?.some((section) => section.heading === "Red-range threshold and action"),
+    ).toBe(false);
+  });
+});
+
+describe("source-bound community-home-visit requirements", () => {
+  const query = "What is required for community home visits?";
+  const departureSource = figureChunk({
+    id: "community-home-visit-departure",
+    document_id: "community-home-visit-akg",
+    title: "Community Home Visit(AKG)",
+    file_name: "Community Home Visit (AKG).pdf",
+    page_number: 1,
+    section_heading: "Procedure",
+    content: `All clinical staff are to complete a Community Home Visit Log prior to leaving the workplace.
+Designated OAC clerical staff will review the log.`,
+  });
+  const returnSource = figureChunk({
+    id: "community-home-visit-return",
+    document_id: "community-home-visit-akg",
+    title: "Community Home Visit(AKG)",
+    file_name: "Community Home Visit (AKG).pdf",
+    page_number: 2,
+    section_heading: "Safety monitoring",
+    content: `Leschen clerical reception staff will take responsibility for safety monitoring.
+The clinician will inform Leschen clerical reception staff on their return to the workplace and update the community home visit log.`,
+  });
+
+  it("keeps departure and return requirements bound to two chunks in the same AKG procedure", () => {
+    const answer = finalizeRagAnswerQuality(
+      extractiveAnswerFor(query, [departureSource, returnSource], "unsupported_or_general"),
+      query,
+      "unsupported_or_general",
+    );
+    const plainAnswer = answer.answer.replace(/\*\*/g, " ");
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(plainAnswer).toMatch(/Community Home Visit Log.*prior to leaving the workplace/i);
+    expect(plainAnswer).toMatch(/clerical staff will review the log/i);
+    expect(plainAnswer).toMatch(/safety monitoring/i);
+    expect(plainAnswer).toMatch(/on their return to the workplace.*update the Community Home Visit Log/i);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([
+      "community-home-visit-departure",
+      "community-home-visit-return",
+    ]);
+    expect(answer.answerSections?.map((section) => section.heading)).toEqual([
+      "Before leaving",
+      "Safety monitoring and return",
+    ]);
+  });
+
+  it("does not synthesize the measured answer from partial, cross-document, or mislabelled evidence", () => {
+    const cases: SearchResult[][] = [
+      [departureSource],
+      [departureSource, { ...returnSource, document_id: "other-document" }],
+      [departureSource, { ...returnSource, title: "Community Visits", file_name: "visits.pdf" }],
+      [
+        departureSource,
+        {
+          ...returnSource,
+          content: returnSource.content.replace("safety monitoring", "filing support"),
+        },
+      ],
+    ];
+
+    for (const results of cases) {
+      const answer = extractiveAnswerFor(query, results, "unsupported_or_general");
+      expect(answer.answerSections?.some((section) => section.heading === "Safety monitoring and return")).toBe(false);
+    }
+  });
+});
+
+describe("source-bound Best Practice Prescription requirements", () => {
+  const query = "What does the best practice prescription document require?";
+  const useSource = figureChunk({
+    id: "best-practice-program-use",
+    document_id: "best-practice-prescription-akg",
+    title: "Best Practice Prescription(AKG)",
+    file_name: "Best Practice Prescription (AKG).pdf",
+    page_number: 1,
+    section_heading: "MEN-PRO-0489-19",
+    content: `Best Practice Prescription Program is an electronic program implemented in the AHS outpatient mental health clinics that is used for the following activities:
+• Prescription generation (replacing handwritten prescriptions)
+• Maintenance of electronic medication profiles (replacing paper-based profiles)
+• Internal and external correspondence generation
+• Recording other relevant clinical information (e.g.: allergies/ adverse drug reactions).`,
+  });
+  const profileSource = figureChunk({
+    id: "best-practice-profile-maintenance",
+    document_id: "best-practice-prescription-akg",
+    title: "Best Practice Prescription(AKG)",
+    file_name: "Best Practice Prescription (AKG).pdf",
+    page_number: 2,
+    section_heading: "Maintaining a medication profile",
+    content: `At the first clinic appointment, medical officers are to inquire with the consumer (or carer) about their current medications and may need to verify this information with the consumer's own medications or a suitable alternative source (e.g.: General Practitioner).
+The details (i.e.: medication name, formulation, route, dose and directions for use) of each psychiatric and non-psychiatric medication must be entered into the Best Practice Prescription Program medication profile.`,
+  });
+
+  it("binds program uses and profile duties to two chunks in the same AKG procedure", () => {
+    const answer = finalizeRagAnswerQuality(
+      extractiveAnswerFor(query, [useSource, profileSource], "document_lookup"),
+      query,
+      "document_lookup",
+    );
+    const plainAnswer = answer.answer.replace(/\*\*/g, " ");
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(plainAnswer).toMatch(/prescription generation/i);
+    expect(plainAnswer).toMatch(/electronic medication profiles/i);
+    expect(plainAnswer).toMatch(/first clinic appointment/i);
+    expect(plainAnswer).toMatch(/current medications/i);
+    expect(plainAnswer).toMatch(/medication name, formulation, route, dose and directions for use/i);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([
+      "best-practice-program-use",
+      "best-practice-profile-maintenance",
+    ]);
+    expect(answer.answerSections?.map((section) => section.heading)).toEqual(["Program use", "Medication profile"]);
+  });
+
+  it("does not synthesize the measured answer from partial or cross-document evidence", () => {
+    for (const results of [
+      [useSource],
+      [useSource, { ...profileSource, document_id: "other-document" }],
+      [useSource, { ...profileSource, content: profileSource.content.replace("General Practitioner", "local file") }],
+    ]) {
+      const answer = extractiveAnswerFor(query, results, "document_lookup");
+      expect(answer.answerSections?.some((section) => section.heading === "Medication profile")).toBe(false);
+    }
+  });
+});
+
+describe("provider source-gap lifecycle", () => {
+  it("clears claim attribution when a cited terminal answer is only a source gap", () => {
+    const result = figureChunk({
+      id: "nearby-discharge-source",
+      document_id: "discharge-document",
+      title: "Discharge guidance",
+      content: "Discharge planning begins during admission.",
+    });
+    const answer = finalizeRagAnswerQuality(
+      {
+        answer: "No current source with directly relevant clinical guidance was found.",
+        grounded: false,
+        confidence: "low",
+        citations: [citationFromResult(result)],
+        sources: [result],
+        answerSections: [
+          {
+            heading: "Source gap",
+            kind: "source_gap",
+            supportLevel: "unsupported",
+            body: "The available source does not provide enough detail.",
+            citation_chunk_ids: [result.id],
+          },
+        ],
+        quoteCards: [
+          {
+            chunk_id: result.id,
+            quote: "Discharge planning begins during admission.",
+            section_heading: null,
+          },
+        ],
+        bestSource: null,
+        routingReason: "strong_routine_retrieval",
+        routingMode: "strong",
+        modelUsed: "gpt-test",
+        queryClass: "broad_summary",
+      } as RagAnswer,
+      "Summarize the discharge guidance",
+      "broad_summary",
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.quoteCards).toEqual([]);
+    expect(answer.routingReason).toContain("final_quality_gate:provider_source_gap");
+  });
+
+  it("does not classify a substantive answer with a bounded limitation as a source-gap refusal", () => {
+    expect(
+      isProviderSourceGapGeneratedAnswer({
+        answer:
+          "Discharge planning begins during admission and records ongoing care arrangements. The available sources do not specify the local follow-up interval.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("extractive malformed-fragment signatures", () => {
+  it("reflows the observed EMHS olanzapine and consultant dose bullets without dropping their continuations", () => {
+    const sentences = splitClinicalEvidenceSentences(
+      [
+        "• Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the",
+        "first dose if required. Total of 3 doses or 30mg maximum in 24 hours (10mg",
+        "maximum in 24 hours for older adults over 65 years) whichever occurs first.",
+        "• Dosing frequencies outside the recommended guidelines require Consultant",
+        "Psychiatrist approval.",
+      ].join("\n"),
+    );
+
+    expect(sentences).toEqual([
+      "Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the first dose if required — Total of 3 doses or 30mg maximum in 24 hours (10mg maximum in 24 hours for older adults over 65 years) whichever occurs first.",
+      "Dosing frequencies outside the recommended guidelines require Consultant Psychiatrist approval.",
+    ]);
+  });
+
+  it.each([
+    "Dosing frequencies outside the recommended schedule require prescriber review before olanzapine is administered.",
+    "The table summarising olanzapine dosing lists a maximum dose of 20 mg daily.",
+  ])("keeps complete clinical prose that shares an artifact prefix: %s", (text) => {
+    expect(splitClinicalEvidenceSentences(text)).toEqual([text]);
+  });
+
+  it.each([
+    "Dosing frequencies outside of recommended time and/or dose maximum AND IM daily dose hourly until the patient is ambulatory.",
+    "Table summarizing recommended medication doses, monitoring protocols, and maximum daily dose limits.",
+  ])("rejects the complete observed malformed continuation: %s", (text) => {
+    expect(splitClinicalEvidenceSentences(text)).toEqual([]);
+  });
+});
+
+describe("escalation fallback intent", () => {
+  const query = "When should neuroleptic side effects be escalated?";
+  const queryClass = "medication_dose_risk" as const;
+  const distressSource = figureChunk({
+    id: "lunsers-distress",
+    document_id: "lunsers-document",
+    title: "Neuroleptic Side Effects (AKG)",
+    file_name: "Neuroleptic Side Effects (AKG).pdf",
+    section_heading: null,
+    content:
+      "Scores are medium (41-89), high (81-100), and very high (>101). Any neuroleptic side effect which is causing distress irrespective of score should be escalated to the treating doctor and reviewed.",
+  });
+
+  it("requires a direct escalation action and trigger rather than topical neuroleptic overlap", () => {
+    const supported = extractiveAnswerFor(query, [distressSource], queryClass);
+    const unrelated = {
+      ...supported,
+      answer:
+        "Contraindications and precautions include agranulocytosis, blood dyscrasias, and a history of neuroleptic malignant syndrome.",
+      grounded: true,
+      confidence: "medium" as const,
+    };
+
+    expect(generatedAnswerQualityFailureReason(unrelated, query, queryClass)).toBe("missing_query_intent");
+    expect(isSafeExtractiveFallbackCandidate(unrelated, query, queryClass)).toBe(false);
+    expect(
+      isSafeExtractiveFallbackCandidate(
+        {
+          ...unrelated,
+          answer:
+            "Armadale Kalamunda Group > Contraindications Precautions (consider the following when prescribing) > History of neuroleptic malignant syndrome.",
+        },
+        query,
+        queryClass,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not route de-escalation language through the escalation fallback contract", () => {
+    expect(isExplicitEscalationQuery("How should agitation be de-escalated?")).toBe(false);
+    expect(isExplicitEscalationQuery("Summarise de-escalation techniques")).toBe(false);
+    expect(isExplicitEscalationQuery("When should de-escalation stop and escalation to medical review begin?")).toBe(
+      true,
+    );
+    expect(isExplicitEscalationQuery(query)).toBe(true);
+  });
+
+  it.each([
+    "Scores are recorded and the treating doctor should review them.",
+    "The prescriber should review the neuroleptic side-effect score.",
+    "Contact the treating doctor about documentation when prescribing neuroleptics.",
+    "If neuroleptic side effects were discussed, the nurse reported to the treating doctor yesterday.",
+    "If neuroleptic side effects caused distress yesterday, they were escalated during the audit.",
+    "If neuroleptic side effects occur, urgent medical review is documented in the audit.",
+    "If severe side effects occur, the patient should be assessed before escalation.",
+    "If severe side effects occur, the plan requires assessment before escalation.",
+    "If severe side effects occur, staff should assess whether to contact the treating doctor.",
+    "If severe side effects occur, staff must document any decision to contact the prescriber.",
+    "If severe side effects occur, contact details for the treating doctor are available.",
+    "If severe side effects occur, a report from the prescriber is filed.",
+    "If treatment is stable, document neuroleptic side effects and contact the treating doctor.",
+    "The 2024 audit recorded that severe neuroleptic side effects should be escalated to the treating doctor.",
+    "It was reported in the 2024 audit that severe neuroleptic side effects should be escalated to the treating doctor.",
+    "According to the 2024 audit, severe neuroleptic side effects should be escalated to the treating doctor.",
+    "This guideline states that the 2024 audit reported severe neuroleptic side effects should be escalated to the treating doctor.",
+    "This guideline states that the patient record reports severe neuroleptic side effects should be escalated to the treating doctor.",
+    "A previous guideline stated that severe neuroleptic side effects should be escalated to the treating doctor.",
+    "The former protocol states that severe neuroleptic side effects should be escalated to the treating doctor.",
+    "In 2024, the guideline stated that severe neuroleptic side effects should be escalated to the treating doctor.",
+    "The superseded policy requires escalation when neuroleptic side effects are severe.",
+    "The prior policy requires escalation when neuroleptic side effects are severe.",
+    "The earlier guideline requires escalation when neuroleptic side effects are severe.",
+    "The withdrawn policy requires escalation when neuroleptic side effects are severe.",
+    "The legacy protocol requires escalation when neuroleptic side effects are severe.",
+    "The retired guideline requires escalation when neuroleptic side effects are severe.",
+    "The repealed policy requires escalation when neuroleptic side effects are severe.",
+    "The discontinued protocol requires escalation when neuroleptic side effects are severe.",
+    "The outdated guideline requires escalation when neuroleptic side effects are severe.",
+    "When should severe neuroleptic side effects be escalated to the treating doctor?",
+    "Should severe neuroleptic side effects be escalated to the treating doctor?",
+  ])("does not treat an unbound score or incidental when-clause as an escalation trigger: %s", (answer) => {
+    const candidate = { ...extractiveAnswerFor(query, [distressSource], queryClass), answer };
+    expect(generatedAnswerQualityFailureReason(candidate, query, queryClass)).not.toBeNull();
+    expect(isSafeExtractiveFallbackCandidate(candidate, query, queryClass)).toBe(false);
+  });
+
+  it.each([
+    "Which neuroleptic side effects require escalation?",
+    "What triggers escalation of neuroleptic side effects?",
+    "Give the escalation criteria for neuroleptic side effects.",
+    "Under what circumstances should neuroleptic side effects be escalated?",
+  ])("requires a condition for escalation trigger and criteria questions: %s", (triggerQuery) => {
+    const candidate = {
+      ...extractiveAnswerFor(triggerQuery, [distressSource], queryClass),
+      answer: "Escalation is required.",
+    };
+    expect(generatedAnswerQualityFailureReason(candidate, triggerQuery, queryClass)).toBe("missing_query_intent");
+  });
+
+  it.each([
+    "Contact the treating doctor when neuroleptic side effects cause distress.",
+    "Notify the responsible clinician if neuroleptic side effects cause distress.",
+    "Neuroleptic side effects causing distress require prompt medical review.",
+    "Neuroleptic side effects causing distress should be reviewed by the treating prescriber.",
+    "For a patient with a history of NMS, severe neuroleptic side effects should be escalated to the treating doctor.",
+    "This guideline states that severe neuroleptic side effects should be escalated to the treating doctor.",
+  ])("accepts a bounded escalation-action paraphrase: %s", (answer) => {
+    const candidate = { ...extractiveAnswerFor(query, [distressSource], queryClass), answer };
+    expect(generatedAnswerQualityFailureReason(candidate, query, queryClass)).toBeNull();
+  });
+
+  it("withholds contradictory score bands but keeps the independent trigger and score-independent context", () => {
+    const scoreContext = figureChunk({
+      id: "lunsers-score-context",
+      document_id: "lunsers-document",
+      title: "Neuroleptic Side Effects (AKG)",
+      file_name: "Neuroleptic Side Effects (AKG).pdf",
+      section_heading: null,
+      content:
+        "The LUNSERS tool measures neuroleptic side effects. Scoring of the completed LUNSERS can ascertain severity, however scoring is not essential for actions to be taken. Scores are medium (41-89), high (81-100), and very high (>101).",
+    });
+    const answer = extractiveAnswerFor(query, [distressSource, scoreContext], queryClass);
+    const plain = answer.answer.replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/causing distress/i);
+    expect(plain).toMatch(/escalated to the treating doctor/i);
+    expect(`${answer.answer} ${answer.answerSections.map((section) => section.body).join(" ")}`).not.toMatch(
+      /\b(?:41|81|100|101)\b/,
+    );
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(
+      expect.arrayContaining(["lunsers-distress", "lunsers-score-context"]),
+    );
+    expect(answer.conflictsOrGaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "conflict", source_chunk_ids: expect.arrayContaining(["lunsers-distress"]) }),
+      ]),
+    );
+    expect(isSafeExtractiveFallbackCandidate(answer, query, queryClass)).toBe(true);
+  });
+
+  it("keeps a soft-wrapped escalation recipient attached to the live source rule", () => {
+    const wrappedDistressSource = figureChunk({
+      id: "lunsers-wrapped-distress",
+      document_id: "lunsers-document",
+      title: "Neuroleptic Side Effects (AKG)",
+      file_name: "Neuroleptic Side Effects (AKG).pdf",
+      section_heading: null,
+      content: [
+        "increased, or side",
+        "effects noted within the three-month period, LUNSERS is to be repeated within 28 days of",
+        "the change. Scores which fall into the medium (41-89), High (81-100) Very High (>101)",
+        "ranges are to be escalated to the treating doctor. The treating doctor will document a plan",
+        "within the health care record for management",
+        "• Side effects are noted as causing distress to the patient, the LUNSERS should be repeated",
+        "3-monthly. Any side effect which is causing distress irrespective of score should be escalated",
+        "to the treating doctor and reviewed.",
+      ].join("\n"),
+    });
+
+    const answer = extractiveAnswerFor(query, [wrappedDistressSource], queryClass);
+    const plain = answer.answer.replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(
+      /any side effect which is causing distress irrespective of score should be escalated to the treating doctor and reviewed/i,
+    );
+    expect(plain).not.toMatch(/\b(?:41|81|100|101)\b/);
+    expect(isSafeExtractiveFallbackCandidate(answer, query, queryClass)).toBe(true);
+  });
+
+  it("scopes a split labelled-band conflict to the adjacent LUNSERS chunks", () => {
+    const splitMedium = figureChunk({
+      id: "lunsers-medium-split",
+      document_id: "multi-scale-document",
+      page_number: 1,
+      chunk_index: 10,
+      section_heading: null,
+      content: "LUNSERS score bands: medium (41-89),",
+    });
+    const splitHigh = figureChunk({
+      id: "lunsers-high-split",
+      document_id: "multi-scale-document",
+      page_number: 1,
+      chunk_index: 11,
+      section_heading: null,
+      content:
+        "high (81-100), and very high (>101). LUNSERS side effects causing distress should be escalated to the treating doctor.",
+    });
+    const independentScale = figureChunk({
+      id: "metabolic-risk-bands",
+      document_id: "multi-scale-document",
+      page_number: 4,
+      chunk_index: 30,
+      anchor_id: "metabolic-risk",
+      section_path: ["Appendix", "Metabolic risk"],
+      section_heading: "Metabolic risk",
+      content: "Metabolic risk bands are low (0-9), medium (10-19), and high (>19).",
+    });
+
+    const results = [splitMedium, splitHigh, independentScale];
+    const conflicts = adjacentLabelledNumericBandConflicts(results);
+    expect(labelledNumericBandConflictChunkIds(results)).toEqual(
+      new Set(["lunsers-medium-split", "lunsers-high-split"]),
+    );
+    expect(textReferencesAdjacentBandConflict("A LUNSERS score of 81 is high.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("LUNSERS high starts at 85.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("High is 81.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("The LUNSERS score is 80-90.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("The LUNSERS score is below 90.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("The LUNSERS score is >80.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("The LUNSERS score is between 80 and 90.", splitHigh.id, conflicts)).toBe(
+      true,
+    );
+    expect(
+      textReferencesAdjacentBandConflict("A LUNSERS score of 50 requires escalation.", splitHigh.id, conflicts),
+    ).toBe(true);
+    expect(
+      textReferencesAdjacentBandConflict("According to NMHS, the LUNSERS score 85 is high.", splitHigh.id, conflicts),
+    ).toBe(true);
+    // Once a labelled set is internally contradictory, every scalar within
+    // its affected member bands is withheld rather than only the overlap.
+    expect(textReferencesAdjacentBandConflict("The LUNSERS score is 90.", splitHigh.id, conflicts)).toBe(true);
+    expect(textReferencesAdjacentBandConflict("There were 81 cases.", splitHigh.id, conflicts)).toBe(false);
+    expect(textReferencesAdjacentBandConflict("The appendix contains 100 examples.", splitHigh.id, conflicts)).toBe(
+      false,
+    );
+    expect(textReferencesAdjacentBandConflict("The interval 81-100 was reviewed.", splitHigh.id, conflicts)).toBe(
+      false,
+    );
+    expect(textReferencesAdjacentBandConflict("See sections 81-100.", splitHigh.id, conflicts)).toBe(false);
+    expect(textReferencesAdjacentBandConflict("81.", splitHigh.id, conflicts, "What is the LUNSERS score band?")).toBe(
+      true,
+    );
+    for (const actionableScalar of [
+      "Escalate at 90.",
+      "Contact the treating doctor at 100.",
+      "At 90, escalate to the treating doctor.",
+      "100, escalate neuroleptic side effects to the treating doctor.",
+      "At 100, escalate neuroleptic side effects to the treating doctor.",
+      "100: neuroleptic side effects should be escalated to the treating doctor.",
+      "Escalate neuroleptic side effects at 100.",
+    ]) {
+      expect(
+        textReferencesAdjacentBandConflict(
+          actionableScalar,
+          splitHigh.id,
+          conflicts,
+          "Should neuroleptic side effects be escalated?",
+        ),
+      ).toBe(true);
+    }
+    for (const nonThresholdIdentifier of [
+      "Contact the treating doctor on extension 100.",
+      "Contact the treating doctor by calling 100.",
+      "Notify switchboard on 90.",
+      "Escalate using form 100.",
+      "Contact the treating doctor using reference 100.",
+    ]) {
+      expect(
+        textReferencesAdjacentBandConflict(
+          nonThresholdIdentifier,
+          splitHigh.id,
+          conflicts,
+          "Should neuroleptic side effects be escalated?",
+        ),
+      ).toBe(false);
+    }
+    for (const modifier of [
+      "applicable",
+      "specified",
+      "defined",
+      "documented",
+      "indicated",
+      "provided",
+      "given",
+      "reported",
+      "required",
+    ]) {
+      expect(
+        textReferencesAdjacentBandConflict(
+          `The ${modifier} range is 81-100.`,
+          splitHigh.id,
+          conflicts,
+          "What is the applicable LUNSERS range?",
+        ),
+      ).toBe(true);
+    }
+    expect(
+      textReferencesAdjacentBandConflict("See page 81 for the LUNSERS score bands.", splitHigh.id, conflicts),
+    ).toBe(false);
+    expect(
+      textReferencesAdjacentBandConflict("LUNSERS was validated in 80-90 patients.", splitHigh.id, conflicts),
+    ).toBe(false);
+    expect(
+      textReferencesAdjacentBandConflict("Give 81-100 mg and record the LUNSERS score.", splitHigh.id, conflicts),
+    ).toBe(false);
+    expect(textReferencesAdjacentBandConflict("The score was recorded. Give 81-100 mg.", splitHigh.id, conflicts)).toBe(
+      false,
+    );
+    expect(
+      textReferencesAdjacentBandConflict("Hamilton Anxiety Rating Scale high starts at 81.", splitHigh.id, conflicts),
+    ).toBe(false);
+    expect(textReferencesAdjacentBandConflict("Metabolic risk is high above 19.", splitHigh.id, conflicts)).toBe(false);
+    expect(textReferencesAdjacentBandConflict("Metabolic bands are low (70-81).", splitHigh.id, conflicts)).toBe(false);
+    expect(
+      textReferencesAdjacentBandConflict(
+        "LUNSERS was recorded; metabolic risk bands are low (70-81).",
+        splitHigh.id,
+        conflicts,
+      ),
+    ).toBe(false);
+    expect(
+      textReferencesAdjacentBandConflict(
+        "PANSS and LUNSERS were recorded, and 81 on the PANSS score is high.",
+        splitHigh.id,
+        conflicts,
+      ),
+    ).toBe(false);
+    expect(
+      textReferencesAdjacentBandConflict(
+        "The PANSS range is 81-100.",
+        splitHigh.id,
+        conflicts,
+        "What is the applicable LUNSERS range?",
+      ),
+    ).toBe(false);
+    expect(
+      textReferencesAdjacentBandConflict(
+        "The LUNSERS reference range is 81-100.",
+        splitHigh.id,
+        conflicts,
+        "What is the applicable LUNSERS range?",
+      ),
+    ).toBe(true);
+    for (const panssRange of [
+      "On PANSS, the range is 81-100.",
+      "On PANSS: the range is 81-100.",
+      "On PANSS; the range is 81-100.",
+      "On PANSS — the range is 81-100.",
+      "On PANSS - the range is 81-100.",
+      "On PANSS (the range is 81-100).",
+      "PANSS: the range is 81-100.",
+      "PANSS; the range is 81-100.",
+      "PANSS — the range is 81-100.",
+      "PANSS – the range is 81-100.",
+      "PANSS - the range is 81-100.",
+      "(PANSS) the range is 81-100.",
+      "The range is 81-100 (PANSS).",
+    ]) {
+      expect(
+        textReferencesAdjacentBandConflict(
+          panssRange,
+          splitHigh.id,
+          conflicts,
+          "Compare the LUNSERS and PANSS ranges.",
+        ),
+      ).toBe(false);
+    }
+    expect(
+      textReferencesAdjacentBandConflict(
+        "PANSS guidance ends here. The range is 81-100.",
+        splitHigh.id,
+        conflicts,
+        "What is the applicable LUNSERS range?",
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps a coherent named scale from a chunk containing another scale's conflict", () => {
+    const mixedScale = figureChunk({
+      id: "mixed-scale-extractive",
+      document_id: "mixed-scale-extractive-document",
+      content:
+        "LUNSERS score bands are medium (41-89) and high (81-100). Metabolic risk bands are low (0-9), medium (10-19), and high (>19).",
+    });
+    const answer = extractiveAnswerFor("What is the high metabolic risk band?", [mixedScale], "table_threshold");
+    const delivered = `${answer.answer} ${answer.answerSections.map((section) => section.body).join(" ")}`;
+
+    expect(answer.grounded).toBe(true);
+    expect(delivered).toMatch(/metabolic/i);
+    expect(delivered).toMatch(/(?:above|>)\s*19/i);
+    expect(delivered).not.toMatch(/41|81|100/);
+    expect(answer.conflictsOrGaps).toEqual([]);
+  });
+
+  it("does not bridge different sections, scales, or non-adjacent chunks", () => {
+    const chunk = (overrides: Partial<SearchResult>) =>
+      figureChunk({
+        document_id: "bounded-band-document",
+        page_number: 2,
+        ...overrides,
+      });
+    const differentSections = [
+      chunk({
+        id: "depression-medium",
+        chunk_index: 1,
+        anchor_id: "depression",
+        section_path: ["Depression"],
+        content: "Mood score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "anxiety-high",
+        chunk_index: 2,
+        anchor_id: "anxiety",
+        section_path: ["Anxiety"],
+        content: "high (81-100). Mood score guidance for anxiety.",
+      }),
+    ];
+    const differentScales = [
+      chunk({
+        id: "lunsers-medium",
+        chunk_index: 4,
+        section_heading: "Outcome measures",
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "panss-high",
+        chunk_index: 5,
+        section_heading: "Outcome measures",
+        content: "PANSS score bands: high (81-100).",
+      }),
+    ];
+    const nonAdjacent = [
+      chunk({
+        id: "lunsers-gap-medium",
+        chunk_index: 8,
+        section_heading: null,
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "lunsers-gap-high",
+        chunk_index: 10,
+        section_heading: null,
+        content: "high (81-100). LUNSERS score guidance.",
+      }),
+    ];
+    const differentNamedScales = [
+      chunk({
+        id: "hamilton-medium",
+        chunk_index: 12,
+        section_path: ["Outcome measures"],
+        section_heading: null,
+        content: "Hamilton Anxiety Rating Scale bands: medium (41-89),",
+      }),
+      chunk({
+        id: "montgomery-high",
+        chunk_index: 13,
+        section_path: ["Outcome measures"],
+        section_heading: null,
+        content: "Montgomery Depression Rating Scale bands: high (81-100).",
+      }),
+    ];
+
+    expect(labelledNumericBandConflictChunkIds(differentSections)).toEqual(new Set());
+    expect(labelledNumericBandConflictChunkIds(differentScales)).toEqual(new Set());
+    expect(labelledNumericBandConflictChunkIds(nonAdjacent)).toEqual(new Set());
+    expect(labelledNumericBandConflictChunkIds(differentNamedScales)).toEqual(new Set());
+  });
+
+  it("uses an explicit shared scale identity for consecutive pageless chunks", () => {
+    const chunk = (overrides: Partial<SearchResult>) =>
+      figureChunk({
+        document_id: "pageless-band-document",
+        page_number: null,
+        section_path: [],
+        section_heading: null,
+        parent_heading: null,
+        ...overrides,
+      });
+    const sameScale = [
+      chunk({
+        id: "pageless-lunsers-medium",
+        chunk_index: 10,
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "pageless-lunsers-high",
+        chunk_index: 11,
+        content: "LUNSERS score bands continue: high (81-100), very high (>101).",
+      }),
+    ];
+    const differentScales = [
+      sameScale[0]!,
+      chunk({
+        id: "pageless-panss-high",
+        chunk_index: 11,
+        content: "PANSS score bands continue: high (81-100), very high (>101).",
+      }),
+    ];
+
+    expect(labelledNumericBandConflictChunkIds(sameScale)).toEqual(
+      new Set(["pageless-lunsers-medium", "pageless-lunsers-high"]),
+    );
+    expect(labelledNumericBandConflictChunkIds(differentScales)).toEqual(new Set());
+  });
+
+  it("uses strong section scope ahead of repaired or repeated anchors", () => {
+    const chunk = (overrides: Partial<SearchResult>) =>
+      figureChunk({
+        document_id: "anchor-scope-document",
+        page_number: 2,
+        ...overrides,
+      });
+    const samePathWithRepairedAnchors = [
+      chunk({
+        id: "repaired-medium",
+        chunk_index: 20,
+        anchor_id: "p2-c20-outcome-measures",
+        section_path: ["Outcome measures", "LUNSERS"],
+        section_heading: "LUNSERS medium bands",
+        parent_heading: "Outcome measures",
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "repaired-high",
+        chunk_index: 21,
+        anchor_id: "p2-c21-outcome-measures",
+        section_path: ["Outcome measures", "LUNSERS"],
+        section_heading: "Continuation fragment",
+        parent_heading: "Different detected heading",
+        content: "high (81-100). LUNSERS score guidance.",
+      }),
+    ];
+    const repeatedAnchorDifferentPaths = [
+      chunk({
+        id: "depression-repeated-anchor",
+        chunk_index: 30,
+        anchor_id: "risk-bands",
+        section_path: ["Depression", "Risk bands"],
+        content: "Mood score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "anxiety-repeated-anchor",
+        chunk_index: 31,
+        anchor_id: "risk-bands",
+        section_path: ["Anxiety", "Risk bands"],
+        content: "high (81-100). Mood score guidance.",
+      }),
+    ];
+    const uppercaseLiveShape = [
+      chunk({
+        id: "uppercase-medium",
+        chunk_index: 40,
+        section_path: ["Outcome measures", "LUNSERS"],
+        content: "LUNSERS SCORE BANDS: MEDIUM (41-89),",
+      }),
+      chunk({
+        id: "uppercase-high",
+        chunk_index: 41,
+        section_path: ["Outcome measures", "LUNSERS"],
+        content: "HIGH (81-100), VERY HIGH (>101).",
+      }),
+    ];
+    const sharedBroadPathDifferentHeadings = [
+      chunk({
+        id: "heading-lunsers-medium",
+        chunk_index: 50,
+        section_path: ["Outcome measures"],
+        section_heading: "LUNSERS",
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "heading-panss-high",
+        chunk_index: 51,
+        section_path: ["Outcome measures"],
+        section_heading: "PANSS",
+        content: "high (81-100).",
+      }),
+    ];
+    const authorityPathDifferentHeadings = sharedBroadPathDifferentHeadings.map((result, index) => ({
+      ...result,
+      id: index === 0 ? "authority-lunsers-medium" : "authority-panss-high",
+      section_path: ["NMHS", "Outcome measures"],
+      chunk_index: 60 + index,
+    }));
+    const sameScaleAliasHeadings = [
+      chunk({
+        id: "alias-lunsers-medium",
+        chunk_index: 70,
+        section_path: ["Outcome measures", "LUNSERS"],
+        section_heading: "LUNSERS",
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "alias-lunsers-high",
+        chunk_index: 71,
+        section_path: ["Outcome measures", "LUNSERS"],
+        section_heading: "Liverpool University Neuroleptic Side Effect Rating Scale",
+        content: "high (81-100).",
+      }),
+    ];
+    const sameScaleConnectorAliasHeadings = [
+      chunk({
+        id: "alias-panss-medium",
+        chunk_index: 75,
+        section_path: ["Outcome measures"],
+        section_heading: "PANSS",
+        content: "PANSS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "alias-panss-high",
+        chunk_index: 76,
+        section_path: ["Outcome measures"],
+        section_heading: "Positive and Negative Syndrome Scale",
+        content: "high (81-100).",
+      }),
+    ];
+    const sameScaleRowHeadings = [
+      chunk({
+        id: "row-heading-medium",
+        chunk_index: 80,
+        section_heading: "LUNSERS medium bands",
+        content: "LUNSERS score bands: medium (41-89),",
+      }),
+      chunk({
+        id: "row-heading-high",
+        chunk_index: 81,
+        section_heading: "LUNSERS high bands",
+        content: "high (81-100).",
+      }),
+    ];
+
+    expect(labelledNumericBandConflictChunkIds(samePathWithRepairedAnchors)).toEqual(
+      new Set(["repaired-medium", "repaired-high"]),
+    );
+    expect(labelledNumericBandConflictChunkIds(repeatedAnchorDifferentPaths)).toEqual(new Set());
+    expect(labelledNumericBandConflictChunkIds(uppercaseLiveShape)).toEqual(
+      new Set(["uppercase-medium", "uppercase-high"]),
+    );
+    expect(labelledNumericBandConflictChunkIds(sharedBroadPathDifferentHeadings)).toEqual(new Set());
+    expect(labelledNumericBandConflictChunkIds(authorityPathDifferentHeadings)).toEqual(new Set());
+    expect(labelledNumericBandConflictChunkIds(sameScaleAliasHeadings)).toEqual(
+      new Set(["alias-lunsers-medium", "alias-lunsers-high"]),
+    );
+    expect(labelledNumericBandConflictChunkIds(sameScaleConnectorAliasHeadings)).toEqual(
+      new Set(["alias-panss-medium", "alias-panss-high"]),
+    );
+    expect(labelledNumericBandConflictChunkIds(sameScaleRowHeadings)).toEqual(
+      new Set(["row-heading-medium", "row-heading-high"]),
+    );
+  });
+
+  it("runs claim-support trigger binding through the fallback-candidate safety gate", () => {
+    const supported = extractiveAnswerFor(query, [distressSource], queryClass);
+    const mismatchedTrigger = {
+      ...supported,
+      answer: "Escalate a neuroleptic side effect to the treating doctor if it causes a rash.",
+    };
+
+    expect(generatedAnswerQualityFailureReason(mismatchedTrigger, query, queryClass)).toBeNull();
+    expect(isSafeExtractiveFallbackCandidate(mismatchedTrigger, query, queryClass)).toBe(false);
+  });
+
+  it("removes ranked and removed-section artifacts after extractive fallback finalization", () => {
+    const results = Array.from({ length: 7 }, (_, index) =>
+      figureChunk({
+        id: `fallback-source-${index + 1}`,
+        document_id: `fallback-document-${index + 1}`,
+        title: `Fallback source ${index + 1}`,
+        file_name: `fallback-source-${index + 1}.pdf`,
+        chunk_index: index,
+        content: `Routine source text ${index + 1}.`,
+      }),
+    );
+    results[0]!.content = "Any neuroleptic side effect causing distress should be escalated to the treating doctor.";
+    results[1]!.content = "If neuroleptic side effects persist, they should be escalated to the treating doctor.";
+    results[3]!.content = "If neuroleptic symptoms worsen, contact the responsible clinician for prompt review.";
+    results[4]!.content =
+      "It was reported in the 2024 audit that severe neuroleptic side effects should be escalated to the treating doctor.";
+    results[5]!.content = "If severe lithium side effects occur, contact the treating doctor for prompt review.";
+    results[6]!.content = "Should severe neuroleptic side effects be escalated to the treating doctor?";
+    const bestSource = {
+      ...citationFromResult(results[6]!, "deterministic_support"),
+      source_strength: "moderate",
+      score: 0.8,
+      snippet: results[6]!.content,
+      section_heading: null,
+      image_count: 0,
+      viewer_href: "/documents/fallback-document-7",
+    } as RagAnswer["bestSource"];
+    const candidate = {
+      answer: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+      grounded: true,
+      confidence: "medium",
+      citations: results.map((result) => citationFromResult(result, "deterministic_support")),
+      sources: results,
+      routingMode: "extractive",
+      routingReason: "generation_fallback:generation_quality_failed; source_backed_extractive_fallback",
+      queryClass,
+      answerSections: [
+        {
+          heading: "Persistent effects",
+          body: "If neuroleptic side effects persist, they should be escalated to the treating doctor.",
+          citation_chunk_ids: [results[1]!.id],
+        },
+        {
+          heading: "Duplicate answer",
+          body: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+          citation_chunk_ids: [results[2]!.id],
+        },
+      ],
+      quoteCards: [
+        {
+          ...citationFromResult(results[3]!, "exact_quote"),
+          quote: results[3]!.content,
+          section_heading: null,
+        },
+        {
+          ...citationFromResult(results[4]!, "exact_quote"),
+          quote: results[4]!.content,
+          section_heading: null,
+        },
+        {
+          ...citationFromResult(results[5]!, "exact_quote"),
+          quote: results[5]!.content,
+          section_heading: null,
+        },
+        {
+          ...citationFromResult(results[6]!, "exact_quote"),
+          quote: results[6]!.content,
+          section_heading: null,
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "removed-visual",
+          image_id: "removed-image",
+          signed_url_endpoint: "/api/images/removed-image/signed-url",
+          caption: "This visual is not cited by delivered content.",
+          document_id: results[4]!.document_id,
+          title: "Removed visual",
+          file_name: results[4]!.file_name,
+          page_number: 1,
+          source_chunk_id: results[4]!.id,
+          chunk_index: results[4]!.chunk_index,
+          viewer_href: "/documents/fallback-document-5",
+        },
+      ],
+      bestSource,
+      conflictsOrGaps: [
+        {
+          type: "gap",
+          message: "Removed source gap.",
+          source_chunk_ids: [results[5]!.id],
+        },
+      ],
+      memoryCardsUsed: [
+        {
+          id: "removed-memory",
+          document_id: results[5]!.document_id,
+          card_type: "risk",
+          title: "Removed memory",
+          content: "Not delivered.",
+          normalized_terms: [],
+          page_number: 1,
+          source_chunk_ids: [results[5]!.id],
+          source_image_ids: [],
+          confidence: 0.8,
+        },
+      ],
+      scoreExplanations: results.map((result) => ({
+        chunk_id: result.id,
+        document_id: result.document_id,
+        finalScore: result.hybrid_score ?? result.similarity,
+      })),
+      supportedClaims: [
+        {
+          claimId: "retained-claim",
+          text: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+          riskClass: "high_risk",
+          supportingChunkIds: [results[0]!.id],
+          supportStatus: "direct",
+        },
+        {
+          claimId: "removed-claim",
+          text: "Removed routine text 7.",
+          riskClass: "routine",
+          supportingChunkIds: [results[6]!.id],
+          supportStatus: "direct",
+        },
+      ],
+      evidenceAssessments: Object.fromEntries(
+        results.map((result) => [
+          result.id,
+          {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority: "unverified",
+            currency: "unknown",
+            extractionQuality: "unknown",
+          },
+        ]),
+      ),
+      smartPanel: {
+        query,
+        total_sources: results.length,
+        documents: [],
+        quotes: [],
+        visualEvidence: [],
+        bestSource,
+        image_count: 1,
+        evidenceSummary: {
+          document_count: results.length,
+          total_sources: results.length,
+          quote_count: 1,
+          image_count: 1,
+          source_strength: "moderate",
+          summary: "Unpruned evidence.",
+        },
+        sourceCoverage: {
+          documents_used: results.length,
+          pages: [1],
+          strongest_similarity: 0.95,
+          has_images: true,
+        },
+        conflictsOrGaps: [],
+      },
+    } as RagAnswer;
+
+    const answer = finalizeRagAnswerQuality(candidate, query, queryClass, results);
+    const retainedIds = [results[0]!.id, results[1]!.id, results[3]!.id];
+
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(retainedIds);
+    expect(answer.sources.map((result) => result.id)).toEqual(retainedIds);
+    expect(answer.answerSections).toEqual([
+      expect.objectContaining({ heading: "Persistent effects", citation_chunk_ids: [results[1]!.id] }),
+    ]);
+    expect(answer.quoteCards?.map((quote) => quote.chunk_id)).toEqual([results[3]!.id]);
+    expect(answer.visualEvidence).toEqual([]);
+    expect(answer.bestSource).toBeNull();
+    expect(answer.conflictsOrGaps).toEqual([]);
+    expect(answer.memoryCardsUsed).toEqual([]);
+    expect(answer.scoreExplanations?.map((item) => item.chunk_id)).toEqual(retainedIds);
+    expect(answer.smartPanel).toMatchObject({ total_sources: 3, image_count: 0, bestSource: null });
+    expect(answer.supportedClaims?.some((claim) => /removed routine text/i.test(claim.text))).toBe(false);
+    expect(Object.keys(answer.evidenceAssessments ?? {}).sort()).toEqual([...retainedIds].sort());
+  });
+
+  it("removes medication-unbound numeric repeat schedules from fallback quote cards", () => {
+    const query = "What agitation and arousal dosing guidance applies?";
+    const queryClass = "medication_dose_risk" as const;
+    const source = figureChunk({
+      id: "agitation-repeat-dose-source",
+      document_id: "agitation-repeat-dose-document",
+      title: "Agitation and Arousal Pharmacological Management",
+      file_name: "agitation-and-arousal-pharmacological-management.pdf",
+      content:
+        "For agitation and arousal, oral doses may be repeated hourly. For agitation and arousal, olanzapine IM maximum is 30 mg in 24 hours.",
+    });
+    const unsafeQuote = "For agitation and arousal, oral doses may be repeated hourly.";
+    const safeQuote = "For agitation and arousal, olanzapine IM maximum is 30 mg in 24 hours.";
+    const answer = finalizeRagAnswerQuality(
+      {
+        answer: safeQuote,
+        grounded: true,
+        confidence: "medium",
+        citations: [citationFromResult(source, "deterministic_support")],
+        sources: [source],
+        routingMode: "extractive",
+        routingReason: "generation_fallback:provider_timeout; source_backed_extractive_fallback",
+        queryClass,
+        answerSections: [],
+        quoteCards: [unsafeQuote, safeQuote].map((quote) => ({
+          ...citationFromResult(source, "exact_quote"),
+          quote,
+          section_heading: null,
+        })),
+      },
+      query,
+      queryClass,
+      [source],
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([source.id]);
+    expect(answer.quoteCards?.map((quote) => quote.quote)).toEqual([safeQuote]);
+  });
+
+  it("removes uncited smart-plan source links from extractive fallback artifacts", () => {
+    const kept = figureChunk({ id: "kept-plan-source", document_id: "kept-plan-document" });
+    const removed = figureChunk({ id: "removed-plan-source", document_id: "removed-plan-document" });
+    const answer = retainCitedExtractiveFallbackEvidence({
+      answer: "Keep the cited source.",
+      grounded: true,
+      confidence: "medium",
+      citations: [citationFromResult(kept, "deterministic_support")],
+      sources: [kept, removed],
+      smartApiPlan: {
+        sourceLinkCount: 2,
+        coreSourceLinks: [kept, removed].map((source) => ({ chunk_id: source.id })),
+      },
+    } as unknown as RagAnswer);
+
+    expect(answer.smartApiPlan?.coreSourceLinks.map((link) => link.chunk_id)).toEqual([kept.id]);
+    expect(answer.smartApiPlan?.sourceLinkCount).toBe(1);
+  });
+
+  it("retains the correctly bound escalation clause from a mixed-medication chunk", () => {
+    const mixedSource = figureChunk({
+      id: "mixed-medication-escalation",
+      document_id: "mixed-medication-document",
+      title: "Medication escalation guidance",
+      file_name: "medication-escalation-guidance.pdf",
+      content:
+        "If clozapine side effects cause distress, contact the treating doctor for prompt review. If lithium toxicity is suspected, arrange urgent lithium assessment.",
+    });
+    const answer = finalizeRagAnswerQuality(
+      {
+        answer: "If clozapine side effects cause distress, contact the treating doctor for prompt review.",
+        grounded: true,
+        confidence: "medium",
+        citations: [citationFromResult(mixedSource, "deterministic_support")],
+        sources: [mixedSource],
+        routingMode: "extractive",
+        routingReason: "generation_fallback:generation_quality_failed; source_backed_extractive_fallback",
+        queryClass,
+        answerSections: [],
+        quoteCards: [
+          {
+            ...citationFromResult(mixedSource, "exact_quote"),
+            quote: "If clozapine side effects cause distress, contact the treating doctor for prompt review.",
+            section_heading: null,
+          },
+        ],
+      },
+      "When should clozapine side effects be escalated?",
+      queryClass,
+      [mixedSource],
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([mixedSource.id]);
+    expect(answer.quoteCards?.map((quote) => quote.chunk_id)).toEqual([mixedSource.id]);
+  });
+
+  it("uses trusted title context to bind a generic escalation clause to a named medication", () => {
+    const clozapineSource = figureChunk({
+      id: "clozapine-title-context",
+      document_id: "clozapine-title-document",
+      title: "Clozapine Side Effects",
+      file_name: "clozapine-side-effects.pdf",
+      content: "Any side effect causing distress should be escalated to the treating doctor.",
+    });
+    const answer = finalizeRagAnswerQuality(
+      {
+        answer: "Any clozapine side effect causing distress should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "medium",
+        citations: [citationFromResult(clozapineSource, "deterministic_support")],
+        sources: [clozapineSource],
+        routingMode: "extractive",
+        routingReason: "generation_fallback:generation_quality_failed; source_backed_extractive_fallback",
+        queryClass,
+        answerSections: [],
+        quoteCards: [
+          {
+            ...citationFromResult(clozapineSource, "exact_quote"),
+            quote: clozapineSource.content,
+            section_heading: null,
+          },
+        ],
+      },
+      "When should clozapine side effects be escalated?",
+      queryClass,
+      [clozapineSource],
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([clozapineSource.id]);
+    expect(answer.quoteCards?.map((quote) => quote.chunk_id)).toEqual([clozapineSource.id]);
+  });
+
+  it("drops a named-medication quote that would overgeneralize to all neuroleptics", () => {
+    const neurolepticSource = figureChunk({
+      id: "neuroleptic-direct-rule",
+      document_id: "neuroleptic-direct-document",
+      title: "Neuroleptic Side Effects",
+      file_name: "neuroleptic-side-effects.pdf",
+      content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    });
+    const lithiumSource = figureChunk({
+      id: "lithium-specific-rule",
+      document_id: "lithium-specific-document",
+      title: "Lithium Side Effects",
+      file_name: "lithium-side-effects.pdf",
+      content: "If severe lithium side effects occur, contact the treating doctor for prompt review.",
+    });
+    const answer = finalizeRagAnswerQuality(
+      {
+        answer: neurolepticSource.content,
+        grounded: true,
+        confidence: "medium",
+        citations: [
+          citationFromResult(neurolepticSource, "deterministic_support"),
+          citationFromResult(lithiumSource, "deterministic_support"),
+        ],
+        sources: [neurolepticSource, lithiumSource],
+        routingMode: "extractive",
+        routingReason: "generation_fallback:generation_quality_failed; source_backed_extractive_fallback",
+        queryClass,
+        answerSections: [],
+        quoteCards: [
+          {
+            ...citationFromResult(lithiumSource, "exact_quote"),
+            quote: lithiumSource.content,
+            section_heading: null,
+          },
+        ],
+      },
+      query,
+      queryClass,
+      [neurolepticSource, lithiumSource],
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([neurolepticSource.id]);
+    expect(answer.quoteCards).toEqual([]);
+  });
+
+  it("rejects escalation prose hidden behind historical title or preceding audit context", () => {
+    const content = "Severe neuroleptic side effects should be escalated to the treating doctor.";
+    const candidateFor = (source: SearchResult, answerText = content, candidateClass: RagQueryClass = queryClass) =>
+      ({
+        answer: answerText,
+        grounded: true,
+        confidence: "medium",
+        citations: [citationFromResult(source, "deterministic_support")],
+        sources: [source],
+        routingMode: "extractive",
+        routingReason: "generation_fallback:generation_quality_failed; source_backed_extractive_fallback",
+        queryClass: candidateClass,
+        answerSections: [],
+        quoteCards: [
+          {
+            ...citationFromResult(source, "exact_quote"),
+            quote: answerText,
+            section_heading: source.section_heading,
+          },
+        ],
+      }) as RagAnswer;
+    const auditSource = figureChunk({
+      id: "historical-audit-title",
+      title: "2024 Audit of Neuroleptic Side-effect Escalation",
+      content,
+    });
+    const currentSource = figureChunk({
+      id: "current-guideline-title",
+      title: "Current Neuroleptic Side-effect Guideline",
+      content,
+    });
+    const currentComplianceAuditSource = figureChunk({
+      id: "current-compliance-audit-context",
+      title: "Current Neuroleptic Side-effect Guideline",
+      content: `${content} Compliance with this requirement is reviewed in the annual clinical audit.`,
+    });
+    const followingHistoricalAnaphoraSources = [
+      figureChunk({
+        id: "following-this-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} This was recorded in the 2024 audit.`,
+      }),
+      figureChunk({
+        id: "following-it-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} It was reported in the 2024 audit.`,
+      }),
+      figureChunk({
+        id: "following-it-recommendation-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} It was the recommendation recorded in a historical audit.`,
+      }),
+      figureChunk({
+        id: "following-this-based-on-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} This was based on a historical audit.`,
+      }),
+      figureChunk({
+        id: "following-it-came-from-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} It came from a retrospective study.`,
+      }),
+      figureChunk({
+        id: "following-recommendation-came-from-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} The recommendation came from an earlier audit.`,
+      }),
+      figureChunk({
+        id: "following-those-observed-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} Those were observed in the historical review.`,
+      }),
+      figureChunk({
+        id: "following-its-origin-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} Its origin was a historical audit.`,
+      }),
+      figureChunk({
+        id: "following-source-for-recommendation-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} The source for this recommendation was a retrospective study.`,
+      }),
+      figureChunk({
+        id: "following-rule-originated-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} The rule originated in an earlier audit.`,
+      }),
+      figureChunk({
+        id: "following-its-provenance-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} Its provenance was an archived protocol.`,
+      }),
+      figureChunk({
+        id: "following-source-label-historical-anaphora",
+        title: "Neuroleptic Side Effects",
+        content: `${content} Source: historical audit.`,
+      }),
+    ];
+    const precedingAuditSource = figureChunk({
+      id: "preceding-audit-context",
+      title: "Neuroleptic Side Effects",
+      content: `The 2024 audit reviewed staff responses to neuroleptic side effects. ${content}`,
+      retrieval_synopsis: content,
+    });
+    const auditFilenameSource = figureChunk({
+      id: "audit-filename-context",
+      title: "Neuroleptic Side Effects",
+      file_name: "2024_Audit-of-Neuroleptic-Escalation.docx",
+      content,
+    });
+    const auditSectionPathSource = figureChunk({
+      id: "audit-section-path-context",
+      title: "Neuroleptic Side Effects",
+      section_heading: null,
+      section_path: ["Appendices", "Historical audit"],
+      content,
+    });
+    const staleProvenanceSources = [
+      figureChunk({
+        id: "archived-guidance-section-path",
+        title: "Neuroleptic Side Effects",
+        section_path: ["Archived guidance"],
+        content,
+      }),
+      figureChunk({
+        id: "previous-recommendations-section-path",
+        title: "Neuroleptic Side Effects",
+        section_path: ["Previous recommendations"],
+        content,
+      }),
+      figureChunk({
+        id: "superseded-procedure-index-path",
+        title: "Neuroleptic Side Effects",
+        content,
+        index_unit: {
+          id: "superseded-procedure-index-unit",
+          unit_type: "section",
+          title: "Escalation",
+          content,
+          source_chunk_id: "superseded-procedure-index-path",
+          source_image_id: null,
+          page_start: 2,
+          page_end: 2,
+          heading_path: ["Superseded procedure"],
+          normalized_terms: [],
+          quality_score: 1,
+          extraction_mode: "deterministic",
+        },
+      }),
+      figureChunk({
+        id: "former-standard-section-path",
+        title: "Neuroleptic Side Effects",
+        section_path: ["Former standard"],
+        content,
+      }),
+      figureChunk({
+        id: "legacy-escalation-criteria-section-path",
+        title: "Neuroleptic Side Effects",
+        section_path: ["Legacy escalation criteria"],
+        content,
+      }),
+      figureChunk({
+        id: "archived-appendix-section-heading",
+        title: "Neuroleptic Side Effects",
+        section_heading: "Archived appendix",
+        content,
+      }),
+      figureChunk({
+        id: "withdrawn-escalation-criteria-parent-heading",
+        title: "Neuroleptic Side Effects",
+        parent_heading: "Withdrawn escalation criteria",
+        content,
+      }),
+      figureChunk({
+        id: "superseded-escalation-rules-index-path",
+        title: "Neuroleptic Side Effects",
+        content,
+        index_unit: {
+          id: "superseded-escalation-rules-index-unit",
+          unit_type: "section",
+          title: "Escalation",
+          content,
+          source_chunk_id: "superseded-escalation-rules-index-path",
+          source_image_id: null,
+          page_start: 2,
+          page_end: 2,
+          heading_path: ["Superseded escalation rules"],
+          normalized_terms: [],
+          quality_score: 1,
+          extraction_mode: "deterministic",
+        },
+      }),
+    ];
+    const distantAuditContextSource = figureChunk({
+      id: "distant-audit-context",
+      title: "Neuroleptic Side Effects",
+      content: `Historical audit findings. Staff education was reviewed. ${content}`,
+    });
+    const blankLineAuditSources = [
+      figureChunk({
+        id: "blank-line-audit-heading",
+        title: "Neuroleptic Side Effects",
+        content: `Historical audit findings.\n\n${content}`,
+      }),
+      figureChunk({
+        id: "blank-line-dated-audit",
+        title: "Neuroleptic Side Effects",
+        content: `The 2024 audit reviewed practice.\n\n${content}`,
+      }),
+    ];
+    const equivalentHistoricalSources = [
+      {
+        query: "When should neuroleptic side effects be reported to the treating doctor?",
+        answerText: "Severe neuroleptic side effects should be reported to the treating doctor.",
+        source: figureChunk({
+          id: "historical-reported-equivalent",
+          title: "Neuroleptic Side Effects",
+          content:
+            "The 2024 audit recorded how staff responded to side effects. Severe neuroleptic side effects should be reported to the treating doctor.",
+        }),
+      },
+      {
+        query: "When should I contact the treating doctor about neuroleptic side effects?",
+        answerText: "Staff should contact the treating doctor about severe neuroleptic side effects.",
+        source: figureChunk({
+          id: "historical-contact-equivalent",
+          title: "Neuroleptic Side Effects",
+          content:
+            "The 2024 audit recorded how staff responded to side effects. Staff should contact the treating doctor about severe neuroleptic side effects.",
+        }),
+      },
+    ];
+    const documentContactSource = figureChunk({
+      id: "document-contact-control",
+      title: "Document access contacts",
+      content: "The 2024 audit recorded document access contacts. Contact the records office about document access.",
+    });
+
+    const auditAnswer = finalizeRagAnswerQuality(candidateFor(auditSource), query, queryClass, [auditSource]);
+    const precedingAuditAnswer = finalizeRagAnswerQuality(candidateFor(precedingAuditSource), query, queryClass, [
+      precedingAuditSource,
+    ]);
+    const auditFilenameAnswer = finalizeRagAnswerQuality(candidateFor(auditFilenameSource), query, queryClass, [
+      auditFilenameSource,
+    ]);
+    const auditSectionPathAnswer = finalizeRagAnswerQuality(candidateFor(auditSectionPathSource), query, queryClass, [
+      auditSectionPathSource,
+    ]);
+    const distantAuditContextAnswer = finalizeRagAnswerQuality(
+      candidateFor(distantAuditContextSource),
+      query,
+      queryClass,
+      [distantAuditContextSource],
+    );
+    const currentAnswer = finalizeRagAnswerQuality(candidateFor(currentSource), query, queryClass, [currentSource]);
+    const currentComplianceAuditAnswer = finalizeRagAnswerQuality(
+      candidateFor(currentComplianceAuditSource),
+      query,
+      queryClass,
+      [currentComplianceAuditSource],
+    );
+
+    expect(auditAnswer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(auditAnswer.citations).toEqual([]);
+    expect(auditAnswer.quoteCards).toEqual([]);
+    expect(precedingAuditAnswer).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+    });
+    expect(precedingAuditAnswer.citations).toEqual([]);
+    expect(precedingAuditAnswer.quoteCards).toEqual([]);
+    expect(auditFilenameAnswer).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+    });
+    expect(auditFilenameAnswer.citations).toEqual([]);
+    expect(auditFilenameAnswer.quoteCards).toEqual([]);
+    const blankLineAuditAnswers = blankLineAuditSources.map((source) =>
+      finalizeRagAnswerQuality(candidateFor(source), query, queryClass, [source]),
+    );
+    const followingHistoricalAnaphoraAnswers = followingHistoricalAnaphoraSources.map((source) =>
+      finalizeRagAnswerQuality(candidateFor(source), query, queryClass, [source]),
+    );
+    const staleProvenanceAnswers = staleProvenanceSources.map((source) =>
+      finalizeRagAnswerQuality(candidateFor(source), query, queryClass, [source]),
+    );
+    for (const historicalAnswer of [
+      auditSectionPathAnswer,
+      distantAuditContextAnswer,
+      ...blankLineAuditAnswers,
+      ...followingHistoricalAnaphoraAnswers,
+      ...staleProvenanceAnswers,
+    ]) {
+      expect(historicalAnswer, historicalAnswer.sources[0]?.id ?? "unknown historical source").toMatchObject({
+        grounded: false,
+        confidence: "unsupported",
+        responseMode: "evidence_gap",
+      });
+      expect(historicalAnswer.citations).toEqual([]);
+      expect(historicalAnswer.quoteCards).toEqual([]);
+    }
+    for (const equivalent of equivalentHistoricalSources) {
+      const equivalentAnswer = finalizeRagAnswerQuality(
+        candidateFor(equivalent.source, equivalent.answerText),
+        equivalent.query,
+        queryClass,
+        [equivalent.source],
+      );
+      expect(equivalentAnswer).toMatchObject({
+        grounded: false,
+        confidence: "unsupported",
+        responseMode: "evidence_gap",
+      });
+      expect(equivalentAnswer.citations).toEqual([]);
+      expect(equivalentAnswer.quoteCards).toEqual([]);
+    }
+    const documentContactAnswer = finalizeRagAnswerQuality(
+      candidateFor(documentContactSource, "Contact the records office about document access.", "document_lookup"),
+      "Who should I contact about document access?",
+      "document_lookup",
+      [documentContactSource],
+    );
+    expect(documentContactAnswer.grounded).toBe(true);
+    expect(documentContactAnswer.citations.map((citation) => citation.chunk_id)).toEqual([documentContactSource.id]);
+    expect(currentAnswer.grounded).toBe(true);
+    expect(currentAnswer.citations.map((citation) => citation.chunk_id)).toEqual([currentSource.id]);
+    expect(currentAnswer.quoteCards?.map((quote) => quote.chunk_id)).toEqual([currentSource.id]);
+    expect(currentComplianceAuditAnswer.grounded).toBe(true);
+    expect(currentComplianceAuditAnswer.citations.map((citation) => citation.chunk_id)).toEqual([
+      currentComplianceAuditSource.id,
+    ]);
+  });
+});
 
 describe("maximum-dose evidence", () => {
   it("accepts equivalent numeric limit wording without accepting an unrelated dose", () => {
@@ -541,6 +2237,195 @@ describe("zero-atom figure promotion guard (reviewer P2)", () => {
 // "annually", "monitored", bare durations, and the level-range/metabolic-panel
 // vocabulary were all rejected. These pin the widened shared vocabulary.
 describe("monitoring evidence gate parity (run-#60 miss class)", () => {
+  it("carries a lithium range heading across flattened cohort bullets and selects maintenance", () => {
+    const content =
+      "• Baseline weight (desirable) All patients commenced on lithium must be provided with written information. 4.4 Dosing and Therapeutic Drug Monitoring Lithium dose is titrated according to patient response and plasma levels. Consider all interacting medication when prescribing lithium and if necessary adjust dose and/or monitoring. The recommended therapeutic serum lithium range for:\n• ACUTE mania is between 0.5 -1.2 mmol/L.\n• MAINTENANCE treatment is between 0.5 -1.0 mmol/L.\n• In the elderly (>65 years) is between 0.4 -0.7 mmol/L.";
+    const sentences = splitClinicalEvidenceSentences(content);
+    const maintenance = sentences.find((sentence) => /maintenance treatment/i.test(sentence));
+    expect(maintenance).toMatch(/therapeutic serum lithium range/i);
+
+    const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+      figureChunk({
+        id: "lithium-hosted-range-shape",
+        title: "Lithium Prescribing And Management(NMHS)",
+        file_name: "Lithium Prescribing and Management (NMHS).pdf",
+        section_heading: null,
+        content,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/0\.5\s*-\s*1\.0 mmol\/L/i);
+    expect(plain).not.toMatch(/0\.5\s*-\s*1\.2 mmol\/L/i);
+    expect(answer.grounded).toBe(true);
+    expect(
+      isSafeExtractiveFallbackCandidate(
+        answer,
+        "What lithium level range is used for maintenance monitoring?",
+        "table_threshold",
+      ),
+    ).toBe(true);
+  });
+
+  it("does not inherit a foreign medication heading across a flattened maintenance bullet", () => {
+    const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+      figureChunk({
+        id: "lamotrigine-hosted-range-shape",
+        title: "Lithium Therapy",
+        file_name: "Lithium Therapy.pdf",
+        section_heading: null,
+        content: "The lamotrigine maintenance range for:\n• MAINTENANCE treatment is between 3 and 15 mg/L.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/3\s+and\s+15 mg\/L/i);
+  });
+
+  it("does not return a digoxin range as a grounded lithium answer", () => {
+    const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+      figureChunk({
+        id: "digoxin-range-in-lithium-document",
+        title: "Lithium Therapy",
+        file_name: "Lithium Therapy.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Unlike lithium, monitor digoxin at 0.8 to 2.0 ng/mL.",
+        similarity: 0.55,
+        hybrid_score: 0.58,
+        text_rank: 0.01,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(false);
+    expect(plain).not.toMatch(/0\.8\s+to\s+2\.0 ng\/mL/i);
+  });
+
+  it.each([
+    ["Lithicarb", "TSH is 0.4 to 4.0 mmol/L."],
+    ["Quilonum SR", "Serum sodium is 130 to 145 mmol/L."],
+    ["Lithicarb", "Blood glucose is 3.0 to 15.0 mmol/L."],
+  ])("does not return a foreign analyte as a grounded %s answer", (brand, content) => {
+    const answer = extractiveAnswerFor(`What ${brand} level range is used for maintenance monitoring?`, [
+      figureChunk({
+        id: `${brand.toLowerCase().replace(/\s+/g, "-")}-foreign-analyte`,
+        title: `${brand} Therapy`,
+        file_name: `${brand} Therapy.pdf`,
+        section_heading: "Maintenance monitoring",
+        content,
+        similarity: 0.8,
+        hybrid_score: 0.82,
+        text_rank: 0.12,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(false);
+    expect(plain).not.toContain(content);
+  });
+
+  it.each([
+    "Maintain lithium at 0.6 to 0.8 mmol/L and keep sodium chloride intake stable.",
+    "For lithium co-prescribed with aspirin, maintain 0.6 to 0.8 mmol/L.",
+    "For lithium, keep sodium chloride intake stable and maintain the level at 0.6 to 0.8 mmol/L.",
+  ])("keeps an explicit lithium value when a contextual co-medication has no value", (content) => {
+    const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+      figureChunk({
+        id: "lithium-range-with-contextual-sodium",
+        title: "Lithium Therapy",
+        file_name: "Lithium Therapy.pdf",
+        section_heading: "Maintenance monitoring",
+        content,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/0\.6\s+to\s+0\.8 mmol\/L/i);
+  });
+
+  it.each(["Blood glucose target levels", "TSH reference ranges"])(
+    "does not emit a plural foreign threshold heading as a lithium answer: %s",
+    (heading) => {
+      const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+        figureChunk({
+          id: "plural-foreign-range",
+          title: "Lithium Therapy",
+          file_name: "Lithium Therapy.pdf",
+          section_heading: null,
+          content: `${heading}:\n• Maintenance range is 3.0-15.0 mmol/L.`,
+        }),
+      ]);
+      const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+      expect(answer.grounded).toBe(false);
+      expect(plain).not.toMatch(/3\.0\s*-\s*15\.0 mmol\/L/i);
+    },
+  );
+
+  it("uses maintenance section scope for a locally bound target concentration", () => {
+    const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+      figureChunk({
+        id: "maintenance-scope-range",
+        title: "Lithium Therapy",
+        file_name: "Lithium Therapy.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Target serum lithium concentration is 0.6 to 0.8 mmol/L.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/0\.6\s+to\s+0\.8 mmol\/L/i);
+  });
+
+  it("prefers a lithium concentration range over cadence for a natural level-value query", () => {
+    const answer = extractiveAnswerFor("What lithium level is used for maintenance monitoring?", [
+      figureChunk({
+        id: "lithium-level-and-cadence",
+        title: "Lithium Therapy",
+        file_name: "Lithium Therapy.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "Check lithium levels every 3 months. The maintenance serum lithium concentration is 0.6-0.8 mmol/L.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/0\.6-0\.8 mmol\/L/i);
+    expect(plain.indexOf("0.6-0.8 mmol/L")).toBeLessThan(plain.indexOf("every 3 months"));
+  });
+
+  it("answers a natural target-concentration query from exact medication evidence", () => {
+    const answer = extractiveAnswerFor("What target concentration is used for lithium maintenance?", [
+      figureChunk({
+        id: "lithium-target-concentration",
+        title: "Lithium Therapy",
+        file_name: "Lithium Therapy.pdf",
+        section_heading: "Maintenance monitoring",
+        content: "The target lithium concentration for maintenance is 0.6-0.8 mmol/L.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/0\.6-0\.8 mmol\/L/i);
+  });
+
+  it.each(["FBC", "full blood count"])("keeps passive categorical %s withholding evidence", (parameter) => {
+    const answer = extractiveAnswerFor(`What ${parameter} threshold should withhold clozapine?`, [
+      figureChunk({
+        id: "categorical-fbc-withheld",
+        title: "Clozapine Monitoring",
+        file_name: "Clozapine Monitoring.pdf",
+        section_heading: "Blood result action",
+        content: `${parameter} results in the Amber or Red range require clozapine to be withheld and urgent review arranged.`,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/amber|red|withheld/i);
+  });
+
   it("admits a level-range fact phrased without monitor/level tokens", () => {
     const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
       figureChunk({

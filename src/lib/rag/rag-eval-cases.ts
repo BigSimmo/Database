@@ -32,6 +32,19 @@ export type RagEvalCase = {
   allowedRoutes: Array<NonNullable<RagAnswer["routingMode"]>>;
   minCitations: number;
   requireExpectedFileCitation?: boolean;
+  /**
+   * Optional claim-level release contract for safety cases where one exact
+   * source is stronger than padding the answer with multiple partial sources.
+   * When present, every concept group must match within the same directly
+   * supported claim. A semantic contract can instead own the complete bounded
+   * grammar when substring groups would conflict with accepted paraphrases.
+   * One of the claim's supporting chunks must be an expected-file citation.
+   */
+  requiredDirectClaim?: {
+    riskClass: "routine" | "high_risk";
+    conceptAlternatives?: string[][];
+    semanticContract?: "positive_prescriptive_score_independent_distress_escalation";
+  };
   latencyTargetMs: number;
   requireVisualEvidence?: boolean;
   /**
@@ -99,6 +112,12 @@ function containsNone(text: string, values: string[] | undefined) {
   return values.every((value) => !normalized.includes(value.toLowerCase()));
 }
 
+function isSourceBackedReviewFallback(answer: RagAnswer) {
+  return (answer.routingReason ?? "")
+    .split(";")
+    .some((reason) => reason.trim().toLowerCase() === "source_backed_review_fallback");
+}
+
 function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: RagAnswer, text: string) {
   if (!testCase.expectedFiles.length) return /\b(?:document|guideline|policy|procedure|form)\b/i.test(text);
 
@@ -121,6 +140,7 @@ function citesOrNamesExpectedDocument(testCase: AnswerQualityEvalCase, answer: R
 
 export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answer: RagAnswer) {
   const text = answerTextForQuality(answer);
+  const sourceBackedReviewStub = isSourceBackedReviewFallback(answer);
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   const artifactPattern =
     /\b(?:source-backed|source-governance|retrieved sources?|provided excerpts?|chunk\s+\d+|similarity score|admin\/source)\b/i;
@@ -142,7 +162,7 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
     : unsupported;
   const readabilityOk = wordCount >= 5 && wordCount <= 220 && !fragmentPattern.test(text);
   const artifactOk = !artifactPattern.test(text) && containsNone(text, testCase.mustNotContain);
-  const intentOk = containsAny(text, testCase.mustContainAny);
+  const intentOk = !sourceBackedReviewStub && containsAny(text, testCase.mustContainAny);
   const failClosedOk =
     testCase.supported || (unsupported && /no current source|could not find|not enough|no relevant/i.test(text));
 
@@ -154,7 +174,11 @@ export function scoreAnswerQualityEvalCase(testCase: AnswerQualityEvalCase, answ
       reason: readabilityOk ? "readable" : "fragmented or too long",
     },
     { metric: "artifact_leaks", score: artifactOk ? 1 : 0, reason: artifactOk ? "clean" : "artifact wording present" },
-    { metric: "intent_coverage", score: intentOk ? 1 : 0, reason: intentOk ? "covered" : "intent cue missing" },
+    {
+      metric: "intent_coverage",
+      score: intentOk ? 1 : 0,
+      reason: intentOk ? "covered" : sourceBackedReviewStub ? "source-backed review stub" : "intent cue missing",
+    },
     { metric: "fail_closed", score: failClosedOk ? 1 : 0, reason: failClosedOk ? "safe" : "did not fail closed" },
   ] satisfies AnswerQualityMetricScore[];
 }
@@ -177,8 +201,14 @@ export const answerTargetingMetricLabel =
 // correctly fail-closed cases are n/a (a precise refusal is on-target by construction) and do not
 // count toward the applicable denominator.
 export function scoreAnswerTargeting(testCase: AnswerQualityEvalCase, answer: RagAnswer): AnswerTargetingScore {
+  if (!testCase.supported) {
+    return { score: 1, applicable: false, reason: "n/a: unsupported / fail-closed case" };
+  }
+  if (isSourceBackedReviewFallback(answer)) {
+    return { score: 0, applicable: true, reason: "source-backed review stub" };
+  }
   const unsupported = answer.confidence === "unsupported" || answer.grounded === false;
-  if (!testCase.supported || unsupported) {
+  if (unsupported) {
     return { score: 1, applicable: false, reason: "n/a: unsupported / fail-closed case" };
   }
   const text = answerTextForQuality(answer).toLowerCase();
@@ -1009,7 +1039,13 @@ export const ragEvalCases: RagEvalCase[] = [
     supported: true,
     expectedFiles: ["MHSP.NeurolepticSideEffect.pdf"],
     allowedRoutes: ["strong", "extractive", "fast"],
-    minCitations: 2,
+    expectedQueryClass: "medication_dose_risk",
+    minCitations: 1,
+    requireExpectedFileCitation: true,
+    requiredDirectClaim: {
+      riskClass: "high_risk",
+      semanticContract: "positive_prescriptive_score_independent_distress_escalation",
+    },
     latencyTargetMs: 20000,
   },
   {
@@ -1022,7 +1058,12 @@ export const ragEvalCases: RagEvalCase[] = [
     supported: true,
     expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
     allowedRoutes: ["strong", "extractive", "fast"],
-    minCitations: 2,
+    // One complete reviewed table row directly binds both blood-count
+    // thresholds to the stop action. Requiring a second citation rewards an
+    // unrelated source rather than stronger support; pin the authoritative
+    // document citation instead.
+    minCitations: 1,
+    requireExpectedFileCitation: true,
     latencyTargetMs: 20000,
   },
   {
