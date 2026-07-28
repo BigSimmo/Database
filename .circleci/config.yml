@@ -5,9 +5,9 @@ jobs:
   verify:
     docker:
       # cimg/node:24.9 matches package.json "engines": node 24.x (image ships npm 11.x).
-      # Keep the floating patch tag rather than a digest pin: the digest-pinned form
-      # plus resource_class: small failed this project's CircleCI executor before any
-      # step logs were produced, while the tag-only smoke job passed.
+      # Keep the floating patch tag rather than a digest pin: digest-pinned images
+      # with a constrained Docker resource class failed this project's CircleCI
+      # executor before any step logs were produced, while the tag-only smoke job passed.
       - image: cimg/node:24.9
     steps:
       - checkout

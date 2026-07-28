@@ -56,7 +56,9 @@ describe("CircleCI config contract", () => {
   });
 
   it("avoids the executor knobs that failed before any step ran on this project", () => {
-    expect(config).not.toMatch(/resource_class:\s*small/);
-    expect(config).not.toMatch(/cimg\/node:\d+[^@\n]*@sha256:/);
+    // Match YAML keys only — comments may mention the rejected knobs.
+    expect(config).not.toMatch(/^\s*resource_class:\s*small\s*$/m);
+    expect(config).not.toMatch(/^\s*-\s*image:\s*cimg\/node:[^\n]*@sha256:/m);
   });
 });
+
