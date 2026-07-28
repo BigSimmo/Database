@@ -14,8 +14,13 @@ const tenGiB = 10 * 1024 * 1024 * 1024;
  * RAM are refused. GitHub-hosted ubuntu runners commonly report ~7–8 GiB even
  * though this project's Next build completes there regularly — hard-failing on
  * that measurement made Build flaky. CI therefore warns and continues.
+ *
+ * @param {{ totalRamBytes?: number, env?: { readonly [key: string]: string | undefined } }} [options]
+ * @returns {"ok" | "warn" | "fail"}
  */
-export function evaluateNextBuildRamGuard({ totalRamBytes = os.totalmem(), env = process.env } = {}) {
+export function evaluateNextBuildRamGuard(options = {}) {
+  const totalRamBytes = options.totalRamBytes ?? os.totalmem();
+  const env = options.env ?? process.env;
   if (totalRamBytes >= tenGiB) return "ok";
   const isCi = env.CI === "true" || env.GITHUB_ACTIONS === "true";
   return isCi ? "warn" : "fail";
