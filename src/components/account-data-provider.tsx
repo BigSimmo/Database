@@ -35,9 +35,16 @@ function readDemoFavourites(): FavouritesByType {
 type AccountDataContextValue = {
   favourites: FavouritesByType;
   ready: boolean;
+  /** Failure of GET /api/account/favourites (initial load or reload). */
+  loadError: string | null;
+  /** Failure of a save/clear mutation after the library was already loaded. */
   error: string | null;
   isAuthenticated: boolean;
   isSaved: (contentType: FavouriteContentType, contentKey: string) => boolean;
+  /** Re-issue the account favourites request for the current identity. A failed
+      load clears every saved slug, so without this a Retry offered by a
+      favourites surface has nothing left to re-request and cannot recover. */
+  reload: () => void;
   setFavourite: (contentType: FavouriteContentType, contentKey: string, saved: boolean) => Promise<boolean>;
   clearFavourites: () => Promise<boolean>;
 };
@@ -66,7 +73,16 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
   const auth = useAuthSession();
   const [favourites, setFavourites] = useState<FavouritesByType>(emptyFavourites);
   const [ready, setReady] = useState(auth.status !== "authenticated");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumping this re-runs the load effect unchanged, so an explicit Retry gets
+  // exactly the same clearing and abort semantics as an auth transition.
+  const [reloadAttempt, setReloadAttempt] = useState(0);
+  const reload = useCallback(() => setReloadAttempt((attempt) => attempt + 1), []);
+  // Depended on by identity rather than through `auth`, which would re-run the
+  // load effect on every auth-object render. It is a useCallback upstream, so
+  // this stays stable.
+  const markSessionExpired = auth.markSessionExpired;
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
@@ -76,6 +92,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         refreshDemoFavourites();
         setReady(true);
+        setLoadError(null);
         setError(null);
       });
       const unsubscribe = demoAccountData ? subscribeSavedRegistrySlugs(refreshDemoFavourites) : undefined;
@@ -96,21 +113,29 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
+        // A rejected token cannot be recovered by re-sending it, so an expired
+        // session has to change the auth state rather than only the error text.
+        // Retry now exists on this path; without this it would reissue the same
+        // 401 forever instead of routing the reader to sign in. The mutation
+        // paths below already do this.
+        if (response.status === 401) markSessionExpired();
         if (!response.ok) throw new Error(payload.message ?? payload.error ?? "Saved items could not be loaded.");
         setFavourites(normalizedFavourites(payload.favourites));
+        setLoadError(null);
         setError(null);
       })
       .catch((cause) => {
         if (cause instanceof DOMException && cause.name === "AbortError") return;
         setFavourites(emptyFavourites);
-        setError(cause instanceof Error ? cause.message : "Saved items could not be loaded.");
+        setLoadError(cause instanceof Error ? cause.message : "Saved items could not be loaded.");
+        setError(null);
       })
       .finally(() => {
         if (!controller.signal.aborted) setReady(true);
       });
 
     return () => controller.abort();
-  }, [auth.authEpoch, auth.authorizationHeader, auth.status]);
+  }, [auth.authEpoch, auth.authorizationHeader, auth.status, markSessionExpired, reloadAttempt]);
 
   const setFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
@@ -146,6 +171,8 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       if (!response?.ok) {
         setFavourites(previous);
         const payload = await response?.json().catch(() => ({}));
+        // Mutation failures must not poison loadError: the library already loaded,
+        // and Retry-on-GET would mis-describe a failed write as an unread library.
         setError(payload?.message ?? payload?.error ?? "Saved items could not be updated.");
         if (response?.status === 401) auth.markSessionExpired();
         return false;
@@ -181,13 +208,15 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     () => ({
       favourites,
       ready,
+      loadError,
       error,
       isAuthenticated: auth.status === "authenticated",
       isSaved: (contentType, contentKey) => favourites[contentType].includes(contentKey),
       setFavourite,
       clearFavourites,
+      reload,
     }),
-    [auth.status, clearFavourites, error, favourites, ready, setFavourite],
+    [auth.status, clearFavourites, error, favourites, loadError, ready, reload, setFavourite],
   );
 
   return <AccountDataContext.Provider value={value}>{children}</AccountDataContext.Provider>;

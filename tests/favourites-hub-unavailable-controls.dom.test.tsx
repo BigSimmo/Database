@@ -1,13 +1,33 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
 
+const favouritesHook = vi.hoisted(() => ({
+  items: [] as Array<{
+    id: string;
+    type: "note" | "source" | "set" | "service" | "form";
+    title: string;
+    meta?: string;
+    set?: string;
+    keywords: string;
+  }>,
+  status: "ready" as "ready" | "loading" | "error" | "unauthorized",
+  registryStatus: "ready" as "ready" | "loading" | "error" | "unauthorized",
+  refetch: () => undefined,
+}));
+
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
-  useSavedRegistryFavourites: () => [],
+  useSavedRegistryFavourites: () => favouritesHook,
 }));
 
 describe("FavouritesHub unavailable controls", () => {
+  beforeEach(() => {
+    favouritesHook.items = [];
+    favouritesHook.status = "ready";
+    favouritesHook.registryStatus = "ready";
+  });
+
   it("keeps unavailable actions natively disabled and exposes their reasons", () => {
     render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode={false} />);
 
@@ -24,5 +44,35 @@ describe("FavouritesHub unavailable controls", () => {
     expect(newSet).toBeDisabled();
     expect(newSet).not.toHaveAttribute("aria-disabled");
     expect(newSet).toHaveAccessibleDescription("Creating favourite sets is coming soon.");
+  });
+
+  it("does not assert library zeroes while the saved registry is still loading", () => {
+    favouritesHook.status = "loading";
+    render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode={false} />);
+
+    const hub = screen.getByTestId("favourites-hub");
+    expect(within(hub).getByText("Loading your favourites")).toBeInTheDocument();
+    expect(within(hub).getByLabelText("Items unavailable until favourites finish loading")).toHaveTextContent("—");
+    expect(within(hub).getByLabelText("Sets unavailable until favourites finish loading")).toHaveTextContent("—");
+    // Filters is local UI state, not library inventory — a zero there is honest.
+    expect(within(hub).getByText("Filters").parentElement?.parentElement).toHaveTextContent("0");
+    expect(within(hub).getByRole("button", { name: "Choose favourite type" })).toHaveTextContent("All");
+    expect(within(hub).getByRole("button", { name: "Choose favourite type" })).not.toHaveTextContent("·");
+  });
+
+  it("does not assert library zeroes after the saved registry fails", () => {
+    favouritesHook.status = "error";
+    render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode={false} />);
+
+    const hub = screen.getByTestId("favourites-hub");
+    expect(within(hub).getByText("Could not load your favourites")).toBeInTheDocument();
+    expect(within(hub).getByLabelText("Items unavailable because favourites could not be loaded")).toHaveTextContent(
+      "—",
+    );
+    expect(within(hub).getByLabelText("Sets unavailable because favourites could not be loaded")).toHaveTextContent(
+      "—",
+    );
+    expect(within(hub).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(within(hub).queryByText("All · 0")).not.toBeInTheDocument();
   });
 });
