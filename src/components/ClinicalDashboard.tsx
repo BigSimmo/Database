@@ -2255,7 +2255,6 @@ export function ClinicalDashboard({
         "",
         documentsSearchHref({
           query: trimmedQuery,
-          focus: true,
           run: true,
           ...navigationContext,
         }),

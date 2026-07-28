@@ -63,6 +63,8 @@ describe("retrieval query variants", () => {
     expect(variants[0]).toContain("clozapine");
     expect(variants.join(" ")).toContain("fbc");
     expect(variants.join(" ")).toContain("anc");
+    expect(variants).toContain("clozapine blood results amber red range");
+    expect(variants.indexOf("clozapine blood results amber red range")).toBeLessThan(maxTextRpcQueryVariants);
     expect(variants.length).toBeLessThanOrEqual(4);
   });
 
@@ -73,6 +75,13 @@ describe("retrieval query variants", () => {
     expect(variants).toContain("clozapine blood results amber red range");
     expect(variants.indexOf("clozapine blood results amber red range")).toBeLessThan(maxTextRpcQueryVariants);
     expect(variants.length).toBeLessThanOrEqual(4);
+  });
+
+  it("recognizes WCC as clozapine blood-intent alongside ANC/FBC/WBC", () => {
+    const query = "What WCC threshold should withhold clozapine?";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+
+    expect(variants).toContain("clozapine blood results amber red range");
   });
 
   it("adds document-title-focused variants for document lookup intent", () => {
