@@ -37,8 +37,9 @@ force-push, or discard work.
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Enabling squash-auto-merge (`gh pr merge --squash --auto`) is the
    repo norm but requires explicit user confirmation before enabling; the PR lands on green.
-7. **Record** the review in `docs/branch-review-ledger.md` (Date | Branch/ref | Reviewed
-   HEAD | Scope | Outcome | Checks).
+7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
+   (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
+   the row into `docs/branch-review-ledger.md`.
 
 ## Requires explicit confirmation (do not do automatically)
 

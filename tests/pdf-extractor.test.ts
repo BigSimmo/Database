@@ -202,7 +202,9 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
   });
 });
 
-describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
+// Process-death paths use scriptPathOverride only — they must not depend on PyMuPDF
+// being installed, or the SIGKILL/137 regressions can silently skip outside CI.
+describe("Python extractor process failures", () => {
   it.skipIf(process.platform === "win32")("rejects cleanly if the python process dies with SIGKILL", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
     try {
@@ -217,9 +219,33 @@ describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
 
       const pdfBuffer = await readFile(pdfPath);
 
-      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toThrow(
-        /PDF extractor exited with code/,
-      );
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toMatchObject({
+        name: "PdfExtractorProcessError",
+        message: expect.stringMatching(/PDF extractor exited with code/),
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("rejects cleanly when the python process exits with code 137", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
+    try {
+      const pdfPath = path.join(root, "table.pdf");
+      const scriptPath = path.join(root, "exit_137.py");
+
+      await mkdir(root, { recursive: true });
+      await writeSyntheticTablePdf(pdfPath);
+
+      // OOM killer often surfaces as exit code 137 with no Node signal.
+      await writeFile(scriptPath, "import sys\nsys.exit(137)\n");
+
+      const pdfBuffer = await readFile(pdfPath);
+
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toMatchObject({
+        name: "PdfExtractorProcessError",
+        message: expect.stringMatching(/PDF extractor exited with code 137 \(SIGKILL\)/),
+      });
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -283,6 +283,15 @@ describe("answer evidence ranking", () => {
 });
 
 describe("high-yield answer bolding", () => {
+  it("keeps a clinical range inside one bold span", () => {
+    expect(
+      boldHighYieldClinicalText(
+        "The maintenance range is between 0.5 -1.0 mmol/L.",
+        "What lithium level range is used for maintenance monitoring?",
+      ),
+    ).toContain("**0.5 -1.0 mmol/L**");
+  });
+
   it("bolds only values and actions, not topic nouns or query terms", () => {
     const formatted = boldHighYieldClinicalText(
       "Withhold clozapine when FBC is unsafe and repeat review after 4 hours. Existing **ANC** stays stable.",

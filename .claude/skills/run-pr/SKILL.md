@@ -59,10 +59,9 @@ Never, even during a sweep:
 - Draft with `WIP` or "do not merge" in the title, or a `hold` label → skip. Plain drafts are
   processed the same as ready PRs.
 - Fork-hosted head → no pushes; run diagnosis and thread replies only.
-- Ledger throttle: resolve the head SHA; if `docs/branch-review-ledger.md` already has a
-  completed sweep-scope row for this PR at this exact HEAD, and current checks are green, and
-  there are no unresolved threads, and the branch is not behind `main` → skip, citing the prior
-  row in one line.
+- Ledger throttle: `npm run ledger:lookup -- <branch> --head <sha> --scope "Run PR sweep"`. On
+  `ALREADY REVIEWED`, and current checks are green, and there are no unresolved threads, and the
+  branch is not behind `main` → skip, citing the prior row in one line.
 
 ### Step 1 — snapshot "before"
 
@@ -71,11 +70,12 @@ required checks, unresolved-thread count, and behind/ahead relative to `main`.
 
 ### Step 2 — branch drift first (so CI fixes target the merged state)
 
-- Hosted mitigation: `.github/workflows/pr-branch-sync.yml` updates open PR branches
-  after each push to `main`. Do not treat a fresh `DIRTY` state as a product bug until
+- Automatic `GITHUB_TOKEN` branch mutation is prohibited because bot-authored heads leave
+  required checks awaiting approval. Do not treat a fresh `DIRTY` state as a product bug until
   you confirm the tip is still behind or `git merge-tree` reports real conflicts.
-- Behind `main` but cleanly mergeable, with no local checkout otherwise needed →
-  `mcp__github__update_pull_request_branch` (or `npm run sync:pr-branches:apply` /
+- Behind `main` but cleanly mergeable, with no local checkout otherwise needed → use the current
+  explicitly authenticated user via `mcp__github__update_pull_request_branch` (or
+  `npm run sync:pr-branches:apply`, which refuses bot identities, or
   `gh api .../update-branch`), then re-fetch.
 - Conflicting (`mergeable_state: dirty`), or the branch is being checked out anyway →
   classify with `git merge-tree --write-tree origin/main <tip>` first. If clean, merge
@@ -159,12 +159,19 @@ branch/ref recorded during setup.
 
 ## Ledger recording
 
-Append one row per PR touched to `docs/branch-review-ledger.md` (the file is prettier-ignored,
-so long rows are fine):
+Append one record per PR touched. Never hand-write the markdown row — use the helper, which
+stamps the date, resolves the HEAD, escapes prose pipes, and writes UTF-8:
 
-`| <date> | <branch> (PR #<n>) | <post-sweep HEAD SHA> | Run PR sweep: CI fix + threads + drift | <before → after: failing checks fixed, N threads resolved / M left open (reasons), merged origin/main (conflicts resolved: files / none / skipped: files), or skip reason> | <exact gates run with results; explicit "no provider-backed checks run"> |`
+```bash
+npm run ledger:append -- --ref "<branch> (PR #<n>)" --head <post-sweep full 40-char HEAD SHA> \
+  --scope "Run PR sweep: CI fix + threads + drift" \
+  --outcome "<before → after: failing checks fixed, N threads resolved / M left open (reasons), merged origin/main (conflicts resolved: files / none / skipped: files), or skip reason>" \
+  --checks "<exact gates run with results; explicit 'no provider-backed checks run'>"
+```
 
-Per-PR rows only — no extra sweep-total row — so ledger throttling lookups stay per-branch.
+The HEAD must be the full SHA — `pending pushed head` and 8-character abbreviations are
+unmatchable, so the next sweep re-reviews the same PR. Per-PR records only — no extra sweep-total
+record — so ledger throttling lookups stay per-branch.
 
 ## Final report format
 

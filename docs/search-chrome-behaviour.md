@@ -36,6 +36,40 @@ This repo uses one shared search experience across the global shell, dashboard r
 19. `ClinicalDashboard` must stay out of the shared shell's static import graph (dynamic import) so namespaced mode routes do not parse the dashboard module.
 20. Browser-mode phones keep `.phone-viewport-shell` in normal flow and use the document as the vertical scroll owner. This is required for Safari to minimize its own browser chrome; do not restore a fixed/inset root or a phone `overflow-y: auto` canvas.
 21. Installed standalone phones use the same normal-flow root with the final `display-mode: standalone` `100vh` bound and an internal `.phone-scroll-surface`. Keep that override after the browser contract; do not substitute `svh`, `dvh`, `visualViewport.height`, or a fixed root on this WebKit workaround path. Every phone footer uses `.phone-footer-layer`: fixed to the viewport in browser tabs and absolute to the positioned 100vh frame in standalone, so the composer and its backdrop share the repaired PWA edge. Page-owned footer layers must render through `PhoneFooterLayerPortal`; `PhoneFooterLayerFrame` provides a frame-scoped, paint-free host after the scroll surface. An absolute footer left inside `.phone-scroll-surface` still scrolls and clips with that surface.
+22. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
+
+## Results band (`SearchResultsHeaderBand`)
+
+The band above every result list is not a composer and owns no dock reserve, but it is shared
+chrome and changes to it land on every mode at once. Keep these rules:
+
+1. **The query is the only heading-weight thing in the band.** It renders at `text-lg`
+   `font-extrabold` with no eyebrow — the magnifier tile already says "search", and a `QUERY` /
+   `RESULTS FOR` label costs a line to repeat it. The query truncates; the count does not.
+2. **The count is neutral text, not a success pill.** `text-muted` with the figure itself
+   `font-extrabold tabular-nums`. Success colour is reserved for states that were actually
+   achieved, so it still carries meaning where it appears. The `role="status"` /
+   `aria-live="polite"` announcement stays either way.
+3. **Sort is a segmented control, not a select.** Two values do not justify a menu you must open
+   to read. `ResultSortControl` renders `sortOptions` as `aria-pressed` buttons inside a
+   `role="group"` named "Sort results"; add a third order only if it still fits the rail.
+4. **Native selects are pinned to 16px below `sm`.** The unlayered iOS anti-zoom rule in
+   `globals.css` ("Interactive element defaults") deliberately beats Tailwind's `text-*`
+   utilities on `input`/`select`/`textarea`. Do not fight it with `!important` or a per-call-site
+   override — a sub-16px control zooms the viewport on focus in Safari. Any control that must
+   read quieter than the query steps down in **weight and colour**, never in size, and any
+   select carrying variable-length values must set `truncate` or it clips mid-word rather than
+   ellipsing (the "Current search" → "Current searcl" defect fixed 2026-07-27).
+5. **The utility group is a swipe rail below `lg`, an inline row at `lg+`.** Children are
+   `shrink-0` so they keep their natural width; overflow scrolls instead of wrapping into a
+   second tinted band. The right-edge fade is applied via `data-overflowing` only while the rail
+   actually overflows — never as a permanent mask.
+6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
+   constraint on the list is one tap from where it is read. Do not move them into a separate
+   strip; `hasUtilities` already suppresses the whole group when nothing is active.
+
+Coverage: `tests/search-results-header-band.dom.test.tsx` (structure, sort wiring, count tone),
+`tests/ui-tools.spec.ts` (phone control pair geometry and tap heights).
 
 ## Scroll hide/reveal
 
@@ -68,6 +102,8 @@ Rules that keep this working:
 
 Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet pinned-search behaviour and desktop page-flow search plus top-bar hide/reveal), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry), `tests/ui-therapy-nav-scroll.spec.ts` (Therapy section nav hide/reveal with the top bar).
 
+Run `npm run verify:phone-chrome` for phone-chrome work. For executable changes its classifier checks installed/lock parity first, runs focused static contracts and only the browser/PWA owners and route journeys implicated by the changed files, then escalates to `npm run verify:ui` automatically for shared chrome foundations. Documentation-only scopes run only documentation guards. Use `-- --dry-run` to inspect the plan, `-- --files <comma-separated paths>` for an explicit scope, and `-- --full=always|never` only for a deliberate override.
+
 ## Change checklist
 
 Before changing search bar behaviour:
@@ -77,5 +113,6 @@ Before changing search bar behaviour:
 - Update the reserve helper and CSS token together when changing clearances.
 - Add or update a focused static contract test for new constants or exceptions.
 - For visual/scroll changes, run the relevant phone-scroll/overlap Playwright coverage through `npm run ensure` and `npm run verify:ui` when the environment supports the repo runtime.
+- Complete [the physical iPhone checklist](phone-chrome-physical-acceptance.md) for shared safe-area/ownership changes; local Chromium cannot certify Safari or cold-launch PWA physical paint.
 - For hide-on-scroll changes, re-read "Scroll hide/reveal" and prove the reveal at tablet and desktop, not just the hide.
 - If a new route has a page-owned composer, document it here and add it to the route/search coverage rather than relying on comments in a component.

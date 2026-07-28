@@ -26,7 +26,7 @@ const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-const ragCacheDependencyVersion = "rag-cache-v13";
+const ragCacheDependencyVersion = "rag-cache-v20";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();

@@ -4,9 +4,11 @@ import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
+  readPrimaryScrollAndDomGeometry,
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -135,10 +137,21 @@ async function isVisibleWithoutThrow(locator: Locator) {
 }
 
 async function fillVisibleQuestionInput(page: Page, value: string) {
-  const questionInput = visibleQuestionInput(page);
-  const submitAnswer = visibleAnswerSubmitButton(page);
+  const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+  const submitAnswer = page.locator('[aria-label="Generate source-backed answer"]:visible');
 
+  // Production HTML can be visible before React owns the controlled input.
+  // Filling during that gap is immediately overwritten by hydration and leaves
+  // the submit button disabled, so establish the live handler boundary first.
+  await waitForReactEventHandler(questionInput, "onChange");
   await expect(async () => {
+    // A production navigation can briefly overlap or replace the server-rendered
+    // composer. Require one settled React owner before filling so the new client
+    // tree cannot discard the value and leave submit disabled.
+    await expect(questionInput).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(submitAnswer).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await waitForReactEventHandler(questionInput, "onChange");
+    await waitForReactEventHandler(questionInput.locator("xpath=ancestor::form[1]"), "onSubmit");
     await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
       timeout: uiAssertionTimeoutMs,
     });
@@ -146,7 +159,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
     await questionInput.fill(value);
     await expect(questionInput).toHaveValue(value, { timeout: uiAssertionTimeoutMs });
     await expect(submitAnswer).toBeEnabled({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 15_000 });
+  }).toPass({ timeout: uiAssertionTimeoutMs });
 
   return questionInput;
 }
@@ -855,11 +868,33 @@ async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
-  await expect(settings.getByTestId("settings-row-profile")).toBeVisible();
+  await expect(settings.getByTestId("settings-account-card")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-profile")).toHaveCount(0);
   await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
   await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
   await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+  await expect(settings.getByText("Saved on this device; not yet used in answers.")).toHaveCount(1);
   await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
+}
+
+async function expectMobileSettingsLayout(settings: Locator) {
+  const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
+  const label = jurisdictionRow.getByText("Jurisdiction", { exact: true });
+  const control = jurisdictionRow.getByRole("combobox");
+  const [rowBox, labelBox, controlBox] = await Promise.all([
+    jurisdictionRow.boundingBox(),
+    label.boundingBox(),
+    control.boundingBox(),
+  ]);
+
+  expect(rowBox).not.toBeNull();
+  expect(labelBox).not.toBeNull();
+  expect(controlBox).not.toBeNull();
+  expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
+  expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+  expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+  await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
 
 async function expectAccountSetupSurface(setup: Locator) {
@@ -1258,7 +1293,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({
+  test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -1284,10 +1319,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 430, height: 820 });
+    await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 820 });
 
     const escapeMenu = await openMobileClinicalGuideMenu(page);
     await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
@@ -2297,7 +2338,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
     await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("Loading answer")).toBeVisible();
+    // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
+    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
+    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
     const questionBubble = page.getByTestId("user-question-bubble");
@@ -2701,7 +2744,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     expect(redirectMeasureErrors).toEqual([]);
   });
@@ -2712,7 +2755,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
 
     await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
-    await expect(page.getByTestId("differentials-home")).toBeVisible();
+    // Production hydration can briefly overlap the outgoing server tree and the
+    // settled client tree on this redirect; wait for one owner before strict
+    // locators (same guard as the mode-home loop in ui-tools).
+    await expectSingleSettledOwner(page.getByTestId("differentials-home"), {
+      message: "differentials redirect home owner",
+    });
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
@@ -2895,7 +2943,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
@@ -2912,7 +2960,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
@@ -2943,9 +2991,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
+      message: "favourites hub owner",
+    });
     // The saved service slug is hydrated to its registry title in the hub.
-    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+    await expect(hub.getByText("13YARN").first()).toBeVisible();
   });
 
   test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
@@ -2986,7 +3036,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
-    const hub = page.getByTestId("favourites-hub");
+    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
+      message: "favourites hub owner",
+    });
     await expect(hub.locator('article[role="button"]')).toHaveCount(0);
     const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
     const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
@@ -3228,9 +3280,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mobileTypeFilter.selectOption("all");
     }
 
-    await queryRibbon.getByLabel("Sort results").selectOption("alpha");
+    // Sort is a segmented group of pressed buttons, not a select: the active order
+    // is readable without opening anything.
+    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
+    await documentSort.getByRole("button", { name: "A–Z" }).click();
     await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await queryRibbon.getByLabel("Sort results").selectOption("relevance");
+    await expect(documentSort.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
+    await documentSort.getByRole("button", { name: "Relevance" }).click();
 
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
@@ -3952,9 +4008,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
   });
 
-  test("document questions use the shared answer stream with progress and cleaned bold formatting", async ({
-    page,
-  }) => {
+  test("document search stays separate from the shared answer stream and summary action", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
     let legacySummaryRequestCount = 0;
@@ -3978,10 +4032,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
 
     const composer = page.locator("form.document-viewer-composer");
-    await composer
-      .getByRole("textbox", { name: "Search or answer from this document" })
-      .fill("How is clozapine monitored?");
-    await activateFocusedControl(page, composer.getByRole("button", { name: "Answer from this document" }));
+    await composer.getByRole("textbox", { name: "Search within this document" }).fill("safety plan include");
+    await activateFocusedControl(page, composer.getByRole("button", { name: "Search within this document" }));
+    await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
+    expect(answerRequests).toEqual([]);
+
+    await composer.getByRole("button", { name: "Open document actions" }).click();
+    const documentActions = page.getByRole("dialog", { name: "This document" });
+    await documentActions.getByRole("button", { name: "Answer from this", exact: true }).click();
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
@@ -3992,31 +4050,25 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(generatedSummary).not.toContainText("**");
     await expect(generatedSummary.locator("strong").filter({ hasText: "clozapine" })).toHaveCount(1);
 
-    const summaryBox = await generatedSummary.boundingBox();
-    const previewBox = await page.getByTestId("pdf-preview").boundingBox();
-    expect(summaryBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(summaryBox!.y).toBeLessThan(previewBox!.y);
+    // The generated answer deliberately smooth-scrolls into view. Read both
+    // boxes in one browser evaluation so viewport motion cannot corrupt their
+    // relative order between independent Playwright round trips.
+    const answerGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      summary: '[data-testid="generated-clinical-summary"]',
+      preview: '[data-testid="pdf-preview"]',
+    });
+    expect(answerGeometry.nodes.summary.count).toBe(1);
+    expect(answerGeometry.nodes.preview.count).toBe(1);
+    expect(answerGeometry.nodes.summary.rect).not.toBeNull();
+    expect(answerGeometry.nodes.preview.rect).not.toBeNull();
+    expect(answerGeometry.nodes.summary.rect!.top).toBeLessThan(answerGeometry.nodes.preview.rect!.top);
     expect(answerRequests).toEqual([
       {
-        query: "How is clozapine monitored?",
+        query: documentSummaryQuestion,
         documentId: "11111111-1111-4111-8111-111111111111",
-        summaryMode: undefined,
+        summaryMode: true,
       },
     ]);
-    expect(legacySummaryRequestCount).toBe(0);
-
-    await composer.getByRole("textbox", { name: "Search or answer from this document" }).fill("");
-    // The generated answer intentionally smooth-scrolls into view. WebKit can
-    // move the fixed pointer target during that animation, so exercise the
-    // native submit control by keyboard for this immediate follow-up action.
-    await activateFocusedControl(page, composer.getByRole("button", { name: "Answer from this document" }));
-    await expect.poll(() => answerRequests.length).toBe(2);
-    expect(answerRequests[1]).toEqual({
-      query: documentSummaryQuestion,
-      documentId: "11111111-1111-4111-8111-111111111111",
-      summaryMode: true,
-    });
     expect(legacySummaryRequestCount).toBe(0);
     await expectNoPageHorizontalOverflow(page);
   });

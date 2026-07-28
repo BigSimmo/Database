@@ -30,6 +30,7 @@ import { landingModeForPreference, readAppPreferences } from "@/components/clini
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
   isPageOwnedComposerRoute,
   resolveMobileComposerReserve,
@@ -331,6 +332,7 @@ function GlobalStandaloneSearchShellBody({
   }
   const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, pathname);
   const chromeTransitioning = useReserveTransitionMarker(chromeScrollHide.hidden, pathname);
+  const activeScrollOwner = useActiveScrollOwner(mainElement, pathname);
   useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainElement, inputRef);
   useEffect(() => {
     reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
@@ -755,7 +757,10 @@ function GlobalStandaloneSearchShellBody({
         </div>
       ) : null}
 
-      <PhoneFooterLayerFrame className="phone-viewport-frame flex min-w-0 flex-col sm:min-h-dvh">
+      <PhoneFooterLayerFrame
+        className="phone-viewport-frame flex min-w-0 flex-col sm:min-h-dvh"
+        scrollHidden={chromeScrollHide.hidden}
+      >
         {/*
           `contents` at every visible breakpoint: the chrome wrapper pins itself
           to the viewport top, and a plain block here would be a header-height
@@ -864,6 +869,18 @@ function GlobalStandaloneSearchShellBody({
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
           data-chrome-transitioning={chromeTransitioning ? "true" : undefined}
+          data-phone-scroll-owner={activeScrollOwner}
+          data-phone-footer-owner={
+            isStandaloneModeHome
+              ? "hero"
+              : isPageOwnedComposerRoute(pathname)
+                ? "page"
+                : shouldShowSearchComposer
+                  ? "shell"
+                  : "none"
+          }
+          data-phone-composer-reserve={mobileComposerReserve}
+          data-phone-chrome-transition={reserveTransitioning || chromeTransitioning ? "active" : "idle"}
           className={cn(
             // Browser phones use overflow-x: clip so CSS cannot silently turn
             // overflow-y: visible into an element scroller. Standalone mode

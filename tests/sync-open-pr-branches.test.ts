@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPr } from "../scripts/sync-open-pr-branches.mjs";
+import { classifyPr, repositoryNameWithOwner, validateApplyIdentity } from "../scripts/sync-open-pr-branches.mjs";
 
 describe("sync-open-pr-branches classifyPr", () => {
   it("skips hold / do-not-merge / skip-branch-sync labels", () => {
@@ -33,5 +33,28 @@ describe("sync-open-pr-branches classifyPr", () => {
       action: "update",
       reason: "behind=12",
     });
+  });
+});
+
+describe("sync-open-pr-branches apply identity", () => {
+  it("accepts an authenticated human/operator identity", () => {
+    expect(validateApplyIdentity({ login: "BigSimmo" })).toBe("BigSimmo");
+  });
+
+  it("fails closed for missing and bot identities", () => {
+    expect(() => validateApplyIdentity(undefined)).toThrow(/human\/operator/);
+    expect(() => validateApplyIdentity({ login: "github-actions[bot]" })).toThrow(/human\/operator/);
+    expect(() => validateApplyIdentity({ login: "dependabot[bot]" })).toThrow(/human\/operator/);
+  });
+});
+
+describe("sync-open-pr-branches repository identity", () => {
+  it("extracts the structured gh repository response", () => {
+    expect(repositoryNameWithOwner({ nameWithOwner: "BigSimmo/Database" })).toBe("BigSimmo/Database");
+  });
+
+  it("rejects missing or malformed repository identity", () => {
+    expect(() => repositoryNameWithOwner(undefined)).toThrow(/nameWithOwner/);
+    expect(() => repositoryNameWithOwner({ nameWithOwner: "Database" })).toThrow(/nameWithOwner/);
   });
 });

@@ -7,6 +7,7 @@ import type {
   ComparisonMatrixRow,
   DocumentTableFact,
   RagAnswer,
+  RagQueryClass,
   SearchResult,
 } from "@/lib/types";
 
@@ -363,6 +364,57 @@ export function buildComparisonEvidenceGapAnswer(args: {
     comparisonEvaluationState: comparison.evaluationState,
     answerSections: [],
   } satisfies RagAnswer;
+}
+
+/** Choose a comparison recovery without letting a generic matrix bypass a bounded fail-closed family. */
+export function selectSafeComparisonFallback(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  extractiveAnswer: RagAnswer;
+  selectedDocuments?: SelectedComparisonDocument[];
+  matrixRouteReason: string;
+  gapRouteReason: string;
+  sourceBoundAdmissionDischarge: boolean;
+  failClosedWithoutSourceBoundAnswer: boolean;
+  timings?: RagAnswer["latencyTimings"];
+}) {
+  if (args.queryClass !== "comparison") {
+    return { answer: args.extractiveAnswer, sourceBoundAdmissionDischarge: false };
+  }
+  if (args.sourceBoundAdmissionDischarge) {
+    return {
+      answer: {
+        ...args.extractiveAnswer,
+        routingReason: [args.extractiveAnswer.routingReason, "comparison_source_extractive_fallback"]
+          .filter(Boolean)
+          .join("; "),
+      },
+      sourceBoundAdmissionDischarge: true,
+    };
+  }
+  const gap = () =>
+    buildComparisonEvidenceGapAnswer({
+      query: args.query,
+      results: args.results,
+      selectedDocuments: args.selectedDocuments,
+      routeReason: args.gapRouteReason,
+      timings: args.timings,
+    });
+  if (args.failClosedWithoutSourceBoundAnswer) {
+    return { answer: gap(), sourceBoundAdmissionDischarge: false };
+  }
+  return {
+    answer:
+      buildComparisonAnswer({
+        query: args.query,
+        results: args.results,
+        selectedDocuments: args.selectedDocuments,
+        routeReason: args.matrixRouteReason,
+        timings: args.timings,
+      }) ?? (args.extractiveAnswer.grounded ? args.extractiveAnswer : gap()),
+    sourceBoundAdmissionDischarge: false,
+  };
 }
 
 export function comparisonEvidenceGuide(args: ComparisonMatrixArgs) {

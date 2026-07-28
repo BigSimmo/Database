@@ -37,13 +37,17 @@ import {
   sourceOnlyReason,
 } from "@/lib/rag/rag-provider";
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
-import { assessAndEnforceClaimSupport } from "@/lib/rag/rag-claim-support";
+import { assessAndEnforceClaimSupport, enforceLabelledNumericBandCoherence } from "@/lib/rag/rag-claim-support";
 import {
   enrichGroundedReviewCitations,
   sanitizeConflictsOrGaps,
   sanitizeQuoteCards,
 } from "@/lib/rag/rag-quote-verification";
-import { applyNumericVerification } from "@/lib/answer-verification";
+import {
+  adjacentLabelledNumericBandConflicts,
+  applyNumericVerification,
+  textReferencesAdjacentBandConflict,
+} from "@/lib/answer-verification";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
 import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 export {
@@ -59,22 +63,21 @@ import {
   finalizeRagAnswerQuality,
   generatedAnswerQualityFailureReason,
   hasInvalidModelEvidenceIds,
+  isAdmissionDischargeRequirementsComparisonQuery,
+  isExplicitEscalationQuery,
+  isSourceBoundAdmissionDischargeComparisonAnswer,
   isOverExpandedSimpleGeneratedAnswer,
   isSafeExtractiveFallbackCandidate,
   isSimpleDirectQuestion,
   isTemplateLikeGeneratedAnswer,
   isUnusableGeneratedAnswer,
+  hasCitedProviderSourceGap,
   retainCitedExtractiveFallbackEvidence,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag/rag-extractive-answer";
-import { chooseValidatedExtractiveShortCircuit } from "@/lib/rag/rag-extractive-first";
-import {
-  buildComparisonAnswer,
-  buildComparisonEvidenceGapAnswer,
-  buildComparisonMatrix,
-  comparisonEvidenceGuide,
-} from "@/lib/rag/rag-comparison";
+import { chooseValidatedExtractiveShortCircuit, hasValidatedExtractiveCandidate } from "@/lib/rag/rag-extractive-first";
+import { buildComparisonMatrix, comparisonEvidenceGuide, selectSafeComparisonFallback } from "@/lib/rag/rag-comparison";
 export {
   classifyAnswerIntent,
   completeExtractiveSentence,
@@ -3017,7 +3020,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
       nonArtifactParsedAnswer ||
       machineReadableFallbackAnswer;
     const answerSections = sanitizeAnswerSections(parsed.answerSections, results, query);
-    const grounded = modelCited && citations.length > 0 && confidence !== "unsupported";
+    const grounded = parsed.grounded !== false && modelCited && citations.length > 0 && confidence !== "unsupported";
     const answer: RagAnswer = {
       answer: boldHighYieldClinicalText(sanitizedAnswer, query),
       grounded,
@@ -3039,8 +3042,15 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
     } else if (proposedCount === 0 && grounded) {
       answer.routingReason = undefined;
     }
-    // GEN-C2 / GEN-H2: numeric faithfulness gate.
-    return enrichGroundedReviewCitations(applyNumericVerification(answer), results);
+    const coherenceChecked = enforceLabelledNumericBandCoherence(answer, {
+      answerText: parsedAnswer,
+      query,
+      sectionFields: parsed.answerSections?.map((section) => ({
+        body: section.body,
+        citationChunkIds: section.citation_chunk_ids,
+      })),
+    });
+    return enrichGroundedReviewCitations(applyNumericVerification(coherenceChecked), results, 2, query);
   } catch (error) {
     console.warn("Failed to parse answer payload, falling back to safe text:", safeErrorLogDetails(error));
     return safeFallbackAnswer(raw, results, query);
@@ -3441,6 +3451,9 @@ async function answerQuestionWithScopeUncoalesced(
       routeReason: reason,
       conflictsOrGaps,
       retrievalStrategy: search.telemetry.retrieval_strategy,
+      preferredResponseMode: reason.includes("validated_admission_discharge_extractive_first")
+        ? "multi_document_synthesis"
+        : undefined,
     });
   const smartApiPlan = buildCurrentSmartApiPlan();
   const routingLatencyMs = Date.now() - routingStartedAt;
@@ -3674,10 +3687,13 @@ async function answerQuestionWithScopeUncoalesced(
       ...routeTimingDiagnostics(),
       total_latency_ms: Date.now() - startedAt,
     };
-    const sourceSafeExtractiveAnswer = buildExtractiveAnswer({
+    const validatedExtractiveResults = validatedExtractiveShortCircuit?.resultIds?.length
+      ? answerInputResults.filter((result) => validatedExtractiveShortCircuit.resultIds?.includes(result.id))
+      : answerInputResults;
+    const builtSourceSafeExtractiveAnswer = buildExtractiveAnswer({
       query: args.query,
       queryClass,
-      results: answerInputResults,
+      results: validatedExtractiveResults,
       quoteCards,
       documentBreakdown,
       evidenceSummary,
@@ -3687,29 +3703,33 @@ async function answerQuestionWithScopeUncoalesced(
       bestSource,
       smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
       relatedDocuments,
-      routeReason:
-        queryClass === "comparison" ? `${route.reason}; comparison_source_extractive_fallback` : route.reason,
+      routeReason: route.reason,
       timings: extractiveTimings,
     });
-    const sourceSafeComparisonAnswer =
-      queryClass === "comparison"
-        ? (buildComparisonAnswer({
-            query: args.query,
-            results: answerInputResults,
-            routeReason: route.reason,
-            selectedDocuments: explicitlySelectedComparisonDocuments,
-            timings: extractiveTimings,
-          }) ??
-          (sourceSafeExtractiveAnswer.grounded
-            ? sourceSafeExtractiveAnswer
-            : buildComparisonEvidenceGapAnswer({
-                query: args.query,
-                results: answerInputResults,
-                selectedDocuments: explicitlySelectedComparisonDocuments,
-                routeReason: `${route.reason}; comparison_evidence_gap`,
-                timings: extractiveTimings,
-              })))
-        : sourceSafeExtractiveAnswer;
+    const sourceSafeExtractiveAnswer = route.reason.includes("validated_agitation_arousal_typo_dosing_extractive_first")
+      ? retainCitedExtractiveFallbackEvidence(builtSourceSafeExtractiveAnswer)
+      : builtSourceSafeExtractiveAnswer;
+    const { answer: sourceSafeComparisonAnswer, sourceBoundAdmissionDischarge: sourceBoundAdmissionDischargeAnswer } =
+      selectSafeComparisonFallback({
+        query: args.query,
+        queryClass,
+        results: answerInputResults,
+        extractiveAnswer: sourceSafeExtractiveAnswer,
+        selectedDocuments: explicitlySelectedComparisonDocuments,
+        matrixRouteReason: route.reason,
+        gapRouteReason: `${route.reason}; comparison_evidence_gap`,
+        sourceBoundAdmissionDischarge: isSourceBoundAdmissionDischargeComparisonAnswer(sourceSafeExtractiveAnswer),
+        failClosedWithoutSourceBoundAnswer: isAdmissionDischargeRequirementsComparisonQuery(args.query, queryClass),
+        timings: extractiveTimings,
+      });
+    const extractiveSmartApiPlan = sourceBoundAdmissionDischargeAnswer
+      ? {
+          ...smartApiPlan,
+          displayMode: "checklist" as const,
+          answerFocus:
+            "Present one directly supported admission requirement and one directly supported discharge requirement from distinct documents.",
+        }
+      : smartApiPlan;
     const answer: RagAnswer = annotateAnswerWithDiagnostics(sourceSafeComparisonAnswer, retrievalDiagnostics);
     answer.quoteCards ??= quoteCards;
     answer.documentBreakdown ??= documentBreakdown;
@@ -3721,17 +3741,27 @@ async function answerQuestionWithScopeUncoalesced(
     answer.relatedDocuments ??= relatedDocuments;
     answer.relevance = relevance;
     answer.queryAnalysis = queryAnalysis;
-    answer.responseMode = smartApiPlan.displayMode;
+    // The source-bound comparison is already formatted as two directly cited sections and
+    // intentionally has no matrix rows. Labelling it as comparison_matrix would make the
+    // matrix-only attribution validator reject those section-scoped claims.
+    answer.responseMode = extractiveSmartApiPlan.displayMode;
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
-    answer.smartApiPlan = smartApiPlan;
+    answer.smartApiPlan = extractiveSmartApiPlan;
     answer.scoreExplanations = answerScoreExplanations;
     let finalizedAnswer = finalizeAnswer(answer);
     const extractiveReviewCitations = answer.citations.length
       ? answer.citations
       : compactCitations(answerInputResults, 5, "deterministic_support");
-    const extractiveNeedsReviewFallback = !finalizedAnswer.grounded && extractiveReviewCitations.length > 0;
+    const extractiveNeedsReviewFallback =
+      !finalizedAnswer.grounded &&
+      extractiveReviewCitations.length > 0 &&
+      !(finalizedAnswer.routingReason ?? answer.routingReason ?? "").includes("comparison_evidence_gap");
     if (extractiveNeedsReviewFallback) {
-      const reviewRouteReason = `${answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}`;
+      const extractiveQualityReason =
+        generatedAnswerQualityFailureReason(finalizedAnswer, args.query, queryClass) ??
+        finalizedAnswer.routingReason?.match(/\bfinal_quality_gate:([^;]+)/)?.[1] ??
+        "ungrounded_extractive_answer";
+      const reviewRouteReason = `${finalizedAnswer.routingReason ?? answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}; extractive_quality_gate:${extractiveQualityReason}`;
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
       finalizedAnswer = finalizeAnswer({
         ...answer,
@@ -3768,7 +3798,7 @@ async function answerQuestionWithScopeUncoalesced(
           provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer.routingReason),
           model_used: null,
           retrieved_candidate_count: results.length,
-          ...smartApiLogMetadata(smartApiPlan),
+          ...smartApiLogMetadata(extractiveSmartApiPlan),
           ...answerRankMetadata,
           ...memoryLogMetadata,
           ...scoreLogMetadata,
@@ -3834,7 +3864,8 @@ async function answerQuestionWithScopeUncoalesced(
 - Never state unsupported numbers, doses, frequencies, thresholds, routes, or medication names. If a number or dose is not clearly in the evidence, leave it out.
 - Copy every dose, level, threshold, cut-off, frequency, and duration EXACTLY as written in a cited excerpt — digit for digit, with its unit. Never supply a number from general clinical knowledge (including "typical" therapeutic levels or well-known reference ranges) that is not verbatim in the excerpts, and never round, infer, or complete a partial figure.
 - Do not merge separate values into a range. If the excerpts list discrete dose steps (for example 0.25 mg, 0.5 mg, 1 mg), present them as discrete steps — never as "0.25–1 mg" or any range the excerpt does not itself state.
-- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite only the strongest 3-5 that collectively support every claim you retain; if five chunks cannot cover a lower-priority claim, omit that claim instead of leaving it uncited.
+- Within one named scale and source, if differently labelled score, severity, or risk intervals overlap or a range is reversed, omit the entire affected band set; do not quote, repair, reconcile, or infer any label or value. Record the conflict in conflictsOrGaps. If a separate sentence or clause states a nonnumeric condition and action independent of the score, answer only with that independently supported condition and action, cite the smallest sufficient directly supporting chunk set, and add a conflict entry; otherwise return a concise source-gap answer.
+- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite the smallest sufficient set of the strongest directly supporting chunks, up to five; do not pad a complete claim with partial or redundant citations. If five chunks cannot cover a lower-priority claim, omit that claim instead of leaving it uncited.
 - For every number, dose, threshold, frequency, or timing, include the exact supporting chunk ID in the containing section's citation_chunk_ids (and in the top-level citations when the figure appears in the answer field). Do not combine independently sourced requirements into one sentence unless all supporting chunk IDs are attached to that sentence's citation scope.
 - If the excerpts contain only headings, partial table fragments, or disconnected text that cannot support a logical answer, say the uploaded documents do not contain enough information — do not fill from general knowledge.
 - Integrate relevant sources: merge overlapping guidance once; when several documents are relevant, synthesise by clinical theme/action and reconcile conflicts explicitly rather than silently choosing one; call out weak, nearby-only, or missing support when the evidence is partial or conflicting. Prefer Australian or WA-specific guidance when present. Sources are ordered by relevance — prioritise earlier ones unless a later source resolves a conflict or gap. The fused source brief and structured memory lines are orientation only; verify every claim against the raw excerpts below them and cite the original chunks.
@@ -4025,12 +4056,13 @@ ${qualityRetryInstruction}`
   /** Should recover fast failure extractively. */
   function shouldRecoverFastFailureExtractively(retryReason: string) {
     const sourceBackedRecoveryRetryReasons = new Set([
+      "fast_source_gap_retry_strong",
       "fast_unsupported_retry_strong",
       "fast_unusable_retry_strong",
       "fast_template_retry_strong",
       "fast_quality_retry_strong",
     ]);
-    return (
+    const eligibleForRoutineExtractiveRecovery =
       route.mode === "fast" &&
       route.reason === "strong_routine_retrieval" &&
       answerInputResults.length > 0 &&
@@ -4038,8 +4070,19 @@ ${qualityRetryInstruction}`
       queryClass !== "broad_summary" &&
       queryClass !== "medication_dose_risk" &&
       queryClass !== "table_threshold" &&
-      sourceBackedRecoveryRetryReasons.has(retryReason)
-    );
+      sourceBackedRecoveryRetryReasons.has(retryReason);
+    if (!eligibleForRoutineExtractiveRecovery) return false;
+
+    // Do not commit the route to deterministic recovery merely because sources
+    // exist. The candidate must already pass the same final grounding, claim,
+    // numeric and governance gates used by pre-generation short-circuits;
+    // otherwise preserve the established strong-model retry.
+    return hasValidatedExtractiveCandidate({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      routeReason: `${route.reason}; source_backed_extractive_recovery:${retryReason}`,
+    });
   }
 
   /** Summarize generation failure reason. */
@@ -4050,6 +4093,7 @@ ${qualityRetryInstruction}`
 
     if (sourceBackedRecovery) return `source_backed_extractive_recovery_${sourceBackedRecovery[1]}`;
     if (!normalized) return "generation_failed";
+    if (/\bprovider_source_gap\b/.test(normalized)) return "provider_source_gap";
     if (/\bmax_output_tokens\b/.test(normalized)) return "provider_incomplete_max_output_tokens";
     if (/\bincomplete\b/.test(normalized)) return "provider_incomplete";
     if (/\brate limit|rate_limited|429\b/.test(normalized)) return "provider_rate_limited";
@@ -4230,13 +4274,16 @@ ${qualityRetryInstruction}`
       retrievalDiagnostics,
     );
     const fastAnswerHadInvalidEvidenceIds = route.mode === "fast" && hasInvalidModelEvidenceIds(answer);
-    const fastAnswerWasUnsupported =
-      !fastAnswerHadInvalidEvidenceIds &&
-      shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
+    const fastSourceGap = route.mode === "fast" && hasCitedProviderSourceGap(answer);
     const fastAnswerWasUnusable = route.mode === "fast" && isUnusableGeneratedAnswer(answer);
     const fastAnswerWasTemplateLike = route.mode === "fast" && isTemplateLikeGeneratedAnswer(answer);
     const fastAnswerWasOverExpanded =
       route.mode === "fast" && isOverExpandedSimpleGeneratedAnswer(args.query, queryClass, answer);
+    const fastAnswerWasUnsupported =
+      !fastAnswerHadInvalidEvidenceIds &&
+      !fastSourceGap &&
+      !fastAnswerWasTemplateLike &&
+      shouldRetryWithStrongAfterFast({ route, answer, results: answerInputResults });
     const fastAnswerFailedQualityGate =
       route.mode === "fast" &&
       !fastAnswerWasUnusable &&
@@ -4245,6 +4292,7 @@ ${qualityRetryInstruction}`
       Boolean(generatedAnswerQualityFailureReason(answer, args.query, queryClass));
     if (
       fastAnswerHadInvalidEvidenceIds ||
+      fastSourceGap ||
       fastAnswerWasUnsupported ||
       fastAnswerWasUnusable ||
       fastAnswerWasTemplateLike ||
@@ -4253,15 +4301,17 @@ ${qualityRetryInstruction}`
     ) {
       const retryReason = fastAnswerHadInvalidEvidenceIds
         ? "fast_invalid_evidence_retry_strong"
-        : fastAnswerWasUnsupported
-          ? "fast_unsupported_retry_strong"
-          : fastAnswerWasUnusable
-            ? "fast_unusable_retry_strong"
-            : fastAnswerWasTemplateLike
-              ? "fast_template_retry_strong"
-              : fastAnswerWasOverExpanded
-                ? "fast_overexpanded_simple_retry_strong"
-                : "fast_quality_retry_strong";
+        : fastSourceGap
+          ? "fast_source_gap_retry_strong"
+          : fastAnswerWasUnsupported
+            ? "fast_unsupported_retry_strong"
+            : fastAnswerWasUnusable
+              ? "fast_unusable_retry_strong"
+              : fastAnswerWasTemplateLike
+                ? "fast_template_retry_strong"
+                : fastAnswerWasOverExpanded
+                  ? "fast_overexpanded_simple_retry_strong"
+                  : "fast_quality_retry_strong";
       if (shouldRecoverFastFailureExtractively(retryReason)) {
         answerRetryCount += 1;
         answerRetryReasons.push(`fast_source_backed_extractive_recovery:${retryReason}`);
@@ -4277,15 +4327,17 @@ ${qualityRetryInstruction}`
         message:
           retryReason === "fast_invalid_evidence_retry_strong"
             ? "Fast answer cited invalid evidence IDs, retrying with the strong model."
-            : retryReason === "fast_unsupported_retry_strong"
-              ? "Fast answer was unsupported, retrying with the strong model."
-              : retryReason === "fast_unusable_retry_strong"
-                ? "Fast answer was not usable, retrying with the strong model."
-                : retryReason === "fast_template_retry_strong"
-                  ? "Fast answer was too template-like, retrying with the strong model."
-                  : retryReason === "fast_overexpanded_simple_retry_strong"
-                    ? "Fast answer over-expanded a simple question, retrying with the strong model."
-                    : "Fast answer failed quality checks, retrying with the strong model.",
+            : retryReason === "fast_source_gap_retry_strong"
+              ? "Fast answer returned a source gap despite strong retrieval, retrying with the strong model."
+              : retryReason === "fast_unsupported_retry_strong"
+                ? "Fast answer was unsupported, retrying with the strong model."
+                : retryReason === "fast_unusable_retry_strong"
+                  ? "Fast answer was not usable, retrying with the strong model."
+                  : retryReason === "fast_template_retry_strong"
+                    ? "Fast answer was too template-like, retrying with the strong model."
+                    : retryReason === "fast_overexpanded_simple_retry_strong"
+                      ? "Fast answer over-expanded a simple question, retrying with the strong model."
+                      : "Fast answer failed quality checks, retrying with the strong model.",
         mode: "strong",
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
@@ -4310,6 +4362,8 @@ ${qualityRetryInstruction}`
         retrievalDiagnostics,
       );
     }
+    if (hasCitedProviderSourceGap(answer))
+      throw new Error("OpenAI generation quality gate failed: provider_source_gap");
     // Whether the answer was produced by the strong path (either routed strong from the
     // start or escalated via retry). Tracked by flag rather than model identity so it stays
     // correct when fast and strong tiers share a model.
@@ -4343,7 +4397,7 @@ ${qualityRetryInstruction}`
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
-        qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
+        qualityRetryInstruction: `The previous answer failed deterministic validation (${strongQualityFailureReason}). Return schema-valid output only, with a complete natural clinical synthesis in the answer field. The first sentence must directly answer the question as a full sentence. Every clinical claim must be supported by valid retrieved citation_chunk_id values; do not invent citation IDs. Within one named scale and source, if differently labelled intervals overlap or a range is reversed, omit the entire affected band set; do not quote, repair, or infer any label or value. If a separate sentence or clause states a nonnumeric condition and action independent of the score, answer only with that independently supported condition and action, cite the smallest sufficient directly supporting chunk set, and add a conflict entry; otherwise return a source gap. Avoid template/source-inventory wording and do not include JSON fragments inside text fields. If the evidence cannot support the requested clinical answer, return a concise source-gap answer instead. If the question is a simple definition or direct fact question, answer only that question and return answerSections as an empty array unless a source-gap or safety caveat is essential.`,
       });
       retrievalDiagnostics.routeMode = "strong";
       if (generated.truncated) {
@@ -4467,9 +4521,11 @@ ${qualityRetryInstruction}`
       ? "claim_support_high_risk_gap"
       : answer.routingReason?.includes("material_source_governance_gap")
         ? "material_source_governance_gap"
-        : answer.unverifiedNumericTokens?.length
-          ? "numeric_faithfulness_gap"
-          : null;
+        : answer.routingReason?.includes("numeric_band_coherence_gate_source_conflict")
+          ? "numeric_band_coherence_gap"
+          : answer.unverifiedNumericTokens?.length
+            ? "numeric_faithfulness_gap"
+            : null;
     if (sourceSafeFallbackReason) {
       throw new Error(`OpenAI generation quality gate failed: ${sourceSafeFallbackReason}`);
     }
@@ -4585,18 +4641,8 @@ ${qualityRetryInstruction}`
       generationFallbackArtifacts,
     );
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    const comparisonMatrixFallbackAnswer =
-      queryClass === "comparison"
-        ? buildComparisonAnswer({
-            query: args.query,
-            results: generationFallbackResults,
-            selectedDocuments: explicitlySelectedComparisonDocuments,
-            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
-            timings: baseFallbackAnswer.latencyTimings,
-          })
-        : null;
     const comparisonExtractiveFallbackAnswer =
-      queryClass === "comparison" && !comparisonMatrixFallbackAnswer
+      queryClass === "comparison"
         ? buildExtractiveAnswer({
             query: args.query,
             queryClass,
@@ -4615,23 +4661,26 @@ ${qualityRetryInstruction}`
               relatedDocuments,
             },
             relatedDocuments,
-            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_extractive_fallback`,
+            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}`,
             timings: baseFallbackAnswer.latencyTimings,
           })
         : null;
-    const comparisonFallbackAnswer =
-      comparisonMatrixFallbackAnswer ??
-      (comparisonExtractiveFallbackAnswer?.grounded
-        ? comparisonExtractiveFallbackAnswer
-        : queryClass === "comparison"
-          ? buildComparisonEvidenceGapAnswer({
-              query: args.query,
-              results: generationFallbackResults,
-              selectedDocuments: explicitlySelectedComparisonDocuments,
-              routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
-              timings: baseFallbackAnswer.latencyTimings,
-            })
-          : null);
+    const comparisonFallbackAnswer = comparisonExtractiveFallbackAnswer
+      ? selectSafeComparisonFallback({
+          query: args.query,
+          queryClass,
+          results: generationFallbackResults,
+          extractiveAnswer: comparisonExtractiveFallbackAnswer,
+          selectedDocuments: explicitlySelectedComparisonDocuments,
+          matrixRouteReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
+          gapRouteReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
+          sourceBoundAdmissionDischarge: isSourceBoundAdmissionDischargeComparisonAnswer(
+            comparisonExtractiveFallbackAnswer,
+          ),
+          failClosedWithoutSourceBoundAnswer: isAdmissionDischargeRequirementsComparisonQuery(args.query, queryClass),
+          timings: baseFallbackAnswer.latencyTimings,
+        }).answer
+      : null;
     const canRecoverGenerationErrorExtractively =
       queryClass !== "comparison" && generationFallbackResults.length > 0 && baseFallbackAnswer.citations.length > 0;
     const extractiveFallbackRouteReason = `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`;
@@ -4675,24 +4724,69 @@ ${qualityRetryInstruction}`
         scoreExplanations: candidateArtifacts.scoreExplanations,
       } satisfies RagAnswer;
     };
+    const adjacentGenerationBandConflicts = adjacentLabelledNumericBandConflicts(answerInputResults);
+    const referencesAdjacentGenerationBandConflict = (candidate: RagAnswer) => {
+      const topLevelCitationIds = candidate.citations.map((citation) => citation.chunk_id);
+      const scopedText = [
+        { text: candidate.answer, chunkIds: topLevelCitationIds },
+        ...(candidate.answerSections ?? []).map((section) => ({
+          text: section.body,
+          chunkIds: section.citation_chunk_ids,
+        })),
+        ...(candidate.quoteCards ?? []).map((quote) => ({ text: quote.quote, chunkIds: [quote.chunk_id] })),
+      ];
+      return scopedText.some(({ text, chunkIds }) =>
+        chunkIds.some((chunkId) =>
+          textReferencesAdjacentBandConflict(text, chunkId, adjacentGenerationBandConflicts, args.query),
+        ),
+      );
+    };
     let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
       ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
+    if (extractiveFallbackAnswer && referencesAdjacentGenerationBandConflict(extractiveFallbackAnswer)) {
+      extractiveFallbackAnswer = null;
+    }
     // Generated synthesis has already failed, so do not stitch dose or threshold figures
     // across fallback chunks. Prefer an individually complete candidate that passes every
     // extractive and numeric safety gate — and among those, one whose answer carries the
     // asked-for dose/monitoring figure, so a figure-less chunk that happens to rank first
     // cannot displace a verbatim-supported dose or schedule.
-    if (extractiveFallbackAnswer && (queryClass === "medication_dose_risk" || queryClass === "table_threshold")) {
+    if (
+      canRecoverGenerationErrorExtractively &&
+      (queryClass === "medication_dose_risk" || queryClass === "table_threshold")
+    ) {
       const safeSingleChunkCandidates = generationFallbackResults
-        .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
+        .flatMap((result) => {
+          const candidate = retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result]));
+          return referencesAdjacentGenerationBandConflict(candidate) ? [] : [candidate];
+        })
         .filter((candidate) => isSafeExtractiveFallbackCandidate(candidate, args.query, queryClass));
-      extractiveFallbackAnswer =
-        safeSingleChunkCandidates.find((candidate) =>
-          extractiveAnswerCarriesIntentFigure(candidate.answer, args.query, queryClass),
-        ) ??
-        safeSingleChunkCandidates[0] ??
-        extractiveFallbackAnswer;
+      if (isExplicitEscalationQuery(args.query)) {
+        // Escalation questions need both a trigger and an escalation action. A
+        // same-document candidate may legitimately combine the score-independent
+        // context and the separately stated nonnumeric trigger, while still
+        // avoiding cross-document clinical-value stitching. If no such candidate
+        // survives every final safety gate, fail closed instead of accepting the
+        // first chunk with merely topical overlap.
+        const resultsByDocument = new Map<string, SearchResult[]>();
+        for (const result of generationFallbackResults) {
+          const documentKey = result.document_id || result.id;
+          resultsByDocument.set(documentKey, [...(resultsByDocument.get(documentKey) ?? []), result]);
+        }
+        const safeSameDocumentCandidates = Array.from(resultsByDocument.values())
+          .map((results) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate(results)))
+          .filter((candidate) => !referencesAdjacentGenerationBandConflict(candidate))
+          .filter((candidate) => isSafeExtractiveFallbackCandidate(candidate, args.query, queryClass));
+        extractiveFallbackAnswer = safeSameDocumentCandidates[0] ?? null;
+      } else {
+        extractiveFallbackAnswer =
+          safeSingleChunkCandidates.find((candidate) =>
+            extractiveAnswerCarriesIntentFigure(candidate.answer, args.query, queryClass),
+          ) ??
+          safeSingleChunkCandidates[0] ??
+          extractiveFallbackAnswer;
+      }
     }
     const extractiveFallbackQualityReason = extractiveFallbackAnswer
       ? generatedAnswerQualityFailureReason(extractiveFallbackAnswer, args.query, queryClass)
