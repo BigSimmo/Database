@@ -40,8 +40,9 @@ requirement that applies to mutating provider operations (merging, closing PRs, 
    only after confirming the content diff is empty. For squash-merged branches, `-d` will
    refuse (no ancestry merge) even though the content landed, so `-D` is required once
    the empty diff confirms the work is fully landed. Do not force-delete before verification.
-5. **Update the ledger** (`docs/branch-review-ledger.md`) and any relevant memory note with
-   the merged HEAD SHA and outcome.
+5. **Update the ledger** with `npm run ledger:append -- --ref <branch> --head <merged full
+   40-char SHA> --scope "prlanded" --outcome <o> --checks <c>`, plus any relevant memory note.
+   Record the squashed commit's full SHA, not an abbreviation.
 
 ## Notes
 

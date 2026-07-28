@@ -13,6 +13,8 @@ import {
   railwayVariableArgs,
 } from "../scripts/check-env-parity.mjs";
 import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
+import { buildRow, findReviews, headMatches, parseLedgerRows, sanitizeCell } from "../scripts/branch-review-ledger.mjs";
+import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
 
 describe("check-env-parity name parsing", () => {
   it("extracts UPPER_SNAKE schema keys from env.ts-style text", () => {
@@ -165,5 +167,102 @@ describe("hasCompletedCleanupReview", () => {
   it("does NOT match when the HEAD has moved since the review", () => {
     const md = "| 2026-07-14 | codex/foo | oldsha | branch-cleanup | out | c |";
     expect(hasCompletedCleanupReview(md, "codex/foo", "newsha")).toBe(false);
+  });
+});
+
+describe("branch-review-ledger row parsing", () => {
+  const row = (over: Record<string, string> = {}) => {
+    const cells = {
+      date: "2026-07-29",
+      ref: "codex/thing",
+      head: "a".repeat(40),
+      scope: "diff review",
+      outcome: "fine",
+      checks: "npm run test",
+      ...over,
+    };
+    return `| ${[cells.date, cells.ref, cells.head, cells.scope, cells.outcome, cells.checks].join(" | ")} |`;
+  };
+
+  it("keeps an escaped prose pipe inside one cell", () => {
+    const [parsed] = parseLedgerRows(row({ outcome: String.raw`kept \| escaped` }));
+    expect(parsed.cells).toHaveLength(6);
+    expect(parsed.outcome).toBe(String.raw`kept \| escaped`);
+    expect(parsed.checks).toBe("npm run test");
+  });
+
+  it("treats an abbreviated recorded HEAD as the same commit", () => {
+    expect(headMatches("`bc5b51c2`", "bc5b51c2f0a9d3e4b5c6d7e8f9a0b1c2d3e4f5a6")).toBe(true);
+    expect(headMatches("see PR head", "a".repeat(40))).toBe(false);
+    expect(headMatches("bc5b51c2", "0123456789abcdef0123456789abcdef01234567")).toBe(false);
+  });
+
+  it("finds a prior review across origin/ and 'PR #N /' ref spellings", () => {
+    const md = [row({ ref: "PR #1 / `codex/thing`" }), row({ ref: "origin/codex/other", head: "b".repeat(40) })].join(
+      "\n",
+    );
+    expect(findReviews(md, { ref: "codex/thing", head: "a".repeat(40) }).atHead).toHaveLength(1);
+    expect(findReviews(md, { ref: "codex/other", head: "b".repeat(40) }).atHead).toHaveLength(1);
+  });
+
+  it("separates records at a different HEAD so only the delta is re-reviewed", () => {
+    const md = [row(), row({ head: "b".repeat(40), scope: "later pass" })].join("\n");
+    const result = findReviews(md, { ref: "codex/thing", head: "b".repeat(40) });
+    expect(result.atHead.map((r) => r.scope)).toEqual(["later pass"]);
+    expect(result.otherHead).toHaveLength(1);
+  });
+
+  it("escapes pipes and collapses newlines when building a row", () => {
+    expect(sanitizeCell("before | after\nnext line")).toBe(String.raw`before \| after next line`);
+    const built = buildRow({
+      date: "2026-07-29",
+      ref: "codex/thing",
+      head: "a".repeat(40),
+      scope: "s",
+      outcome: "a | b",
+      checks: "c",
+    });
+    expect(parseLedgerRows(built)[0].cells).toHaveLength(6);
+  });
+
+  it("refuses a row whose HEAD no lookup could ever match", () => {
+    const base = { date: "2026-07-29", ref: "x", scope: "s", outcome: "o", checks: "c" };
+    expect(() => buildRow({ ...base, head: "see PR head" })).toThrow(/full 40-character SHA/);
+    expect(() => buildRow({ ...base, head: "abc1234" })).toThrow(/full 40-character SHA/);
+    expect(buildRow({ ...base, head: "n/a - branch never pushed" })).toContain("n/a - branch never pushed");
+  });
+});
+
+describe("branch-review-ledger guard", () => {
+  const valid = {
+    ledger: ["This file is append-only.", `| 2026-07-29 | codex/x | ${"a".repeat(40)} | s | o | c |`, ""].join("\n"),
+    mergeAttribute: "union",
+    protocol: "The ledger is append-only: append corrections.",
+  };
+
+  it("accepts a well-formed ledger", () => {
+    expect(validateLedger(valid).failures).toEqual([]);
+  });
+
+  it("rejects mojibake left by a non-UTF-8 append", () => {
+    const ledger = valid.ledger.replace("| o |", "| restored ??? arc |");
+    expect(validateLedger({ ...valid, ledger }).failures.join(" ")).toMatch(/mojibake/);
+  });
+
+  it("rejects a record that is not six cells", () => {
+    const ledger = valid.ledger.replace("| s | o | c |", "| s | o has a | pipe | c |");
+    expect(validateLedger({ ...valid, ledger }).failures.join(" ")).toMatch(/6 cells/);
+  });
+
+  it("rejects a record written as a dated heading inside the table", () => {
+    const ledger = `${valid.ledger}\n## 2026-07-29 - a review\n`;
+    expect(validateLedger({ ...valid, ledger }).failures.join(" ")).toMatch(/dated heading/);
+  });
+
+  it("rejects an unmatchable HEAD only for records under the machine-readable contract", () => {
+    const strict = valid.ledger.replace("a".repeat(40), "see PR head");
+    expect(validateLedger({ ...valid, ledger: strict }).failures.join(" ")).toMatch(/no lookup can match/);
+    const legacy = strict.replace("2026-07-29", "2026-07-01");
+    expect(validateLedger({ ...valid, ledger: legacy }).failures).toEqual([]);
   });
 });

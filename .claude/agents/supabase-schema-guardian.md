@@ -11,7 +11,7 @@ Use this agent when a change touches database migrations, schema, RLS, RPCs/SECU
 
 ## Repository Review Protocol
 
-Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, do not mutate files during pure review, and record completed branch/PR reviews with `npm run ledger:append` (check `npm run ledger:lookup` first; never hand-edit the ledger).
 
 ## Scope
 

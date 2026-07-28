@@ -45,16 +45,13 @@ does not replace the fetch/approval and per-branch content proof below.
    git worktree list --porcelain
    ```
 
-5. Filter candidates through the review ledger before inspecting branch diffs. Follow the lookup procedure in `docs/branch-review-ledger.md` and require all three fields to match before skipping:
+5. Filter candidates through the review ledger before inspecting branch diffs:
 
-   ```powershell
-   $branch = "BRANCH_NAME"
-   $head = git rev-parse $branch
-   Get-Content docs\branch-review-ledger.md |
-     Select-String -Pattern "\|\s*$branch\s*\|\s*$head\s*\|\s*branch-cleanup\s*\|"
+   ```bash
+   npm run ledger:lookup -- BRANCH_NAME --scope branch-cleanup
    ```
 
-   Skip the branch only when a ledger row matches the same branch/ref, reviewed HEAD, and `branch-cleanup` scope together. A branch-name-only match is not enough. Re-review when the HEAD changed or the user explicitly asks for a fresh pass.
+   The lookup resolves the HEAD itself and matches the abbreviated SHAs that older records used, which a literal regex on the full SHA silently missed. Skip the branch only on an `ALREADY REVIEWED` verdict — that requires the same branch/ref, reviewed HEAD, and `branch-cleanup` scope together; a branch-name-only match is not enough. Re-review when the HEAD changed or the user explicitly asks for a fresh pass. `npm run sweep:branch-ledger` applies this filter across every remote branch in one pass.
 
 6. For each remaining candidate branch, check whether it has patch content not on `main`:
 
@@ -75,7 +72,7 @@ credentials.
 2. Resolve each candidate's HEAD and skip unchanged completed reviews recorded in `docs/branch-review-ledger.md`.
 3. For each remaining candidate branch, confirm patch-unique commits and file diffs against `main`.
 4. Port, commit, or explicitly reject useful patch content before deleting any branch ref.
-5. Record completed cleanup reviews in `docs/branch-review-ledger.md`.
+5. Record completed cleanup reviews with `npm run ledger:append -- --ref <branch> --head <full-sha> --scope branch-cleanup --outcome <o> --checks <c>`. The scope cell must be exactly `branch-cleanup` for a later sweep to treat it as complete; `branch-cleanup-deletion-pending` deliberately does not count.
 6. Remove detached worktrees only when clean, unneeded, and absent from active `git worktree list` output.
 
 ## Final Verification
