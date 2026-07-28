@@ -606,4 +606,33 @@ test.describe("Clinical KB accessibility coverage", () => {
     expect(editableOutline).not.toBe("none");
     await expectNoBlockingAxeViolations(page, testInfo);
   });
+  // The accent rail must be the card's real border-top and must actually win the
+  // cascade. Tailwind's utilities layer outranks `@layer components`, and the band
+  // root also carries `border` / `border-[color:var(--border)]`, so a layered rule
+  // silently degrades to a neutral 1px border while every class-presence assertion
+  // still passes. Assert computed style, not classes.
+  test("search results band renders the accent rail and survives forced colors", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/services?q=CMHT&run=1", { waitUntil: "domcontentloaded" });
+    const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
+    await expect(band).toBeVisible({ timeout: 20_000 });
+
+    const rail = await band.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { width: style.borderTopWidth, color: style.borderTopColor, leftWidth: style.borderLeftWidth };
+    });
+    expect(rail.width, "accent rail must be 2px, not the neutral 1px border").toBe("2px");
+    expect(rail.color, "accent rail must use the clinical accent, not --border").not.toBe(rail.leftWidth);
+    expect(rail.color).not.toBe("rgb(229, 231, 235)");
+
+    // Under forced colors the rail survives as thickness, since --clinical-accent
+    // resolves to LinkText and would otherwise match the other three borders.
+    // Poll: the forced-colors style recalc does not always land on the first
+    // read after emulateMedia resolves.
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect
+      .poll(async () => band.evaluate((node) => getComputedStyle(node).borderTopWidth), { timeout: 10_000 })
+      .toBe("3px");
+    await page.emulateMedia({ forcedColors: "none" });
+  });
 });

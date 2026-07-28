@@ -163,9 +163,16 @@ export function SearchResultsHeaderBand({
       ? "Your session has expired. Sign in again to run this search."
       : "The search could not be completed. Try again shortly.");
   const [retrying, setRetrying] = useState(false);
+  // Page-supplied filter/mobile controls carry their own result counts ("Forms 0",
+  // "All (0)"). Suppressing the number in the spine while those still render it
+  // defeats the whole invariant — the reader still sees a zero asserted about a
+  // search that never ran. A filter over a result set that failed to load is
+  // meaningless anyway, so the faulted band drops them entirely.
+  const pageControls = faulted ? null : filterControls;
+  const pageMobileControls = faulted ? null : mobileControls;
   const hasUtilities =
     visibleScopes.length > 0 ||
-    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || mobileControls);
+    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls);
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
 
@@ -295,27 +302,27 @@ export function SearchResultsHeaderBand({
             {/* Desktop only: pushes the controls to the trailing edge while the chips
                 stay next to the query. On the phone rail this collapses away. */}
             <span className="hidden lg:block lg:flex-1" aria-hidden />
-            {onSortChange && mobileControls ? (
+            {onSortChange && pageMobileControls ? (
               <div
                 data-testid="search-query-ribbon-mobile-control-pair"
                 className="flex min-w-0 shrink-0 items-center gap-1.5"
               >
                 <ResultSortControl value={sortValue} onChange={onSortChange} />
                 <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
-                  {mobileControls}
+                  {pageMobileControls}
                 </div>
               </div>
             ) : (
               <>
                 {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
-                {mobileControls ? (
+                {pageMobileControls ? (
                   <div
                     data-testid="search-query-ribbon-mobile-controls"
                     role="group"
                     aria-label={filterLabel}
                     className="min-w-0 shrink-0 sm:hidden"
                   >
-                    {mobileControls}
+                    {pageMobileControls}
                   </div>
                 ) : null}
               </>
@@ -375,17 +382,17 @@ export function SearchResultsHeaderBand({
           </div>
         ) : null}
       </div>
-      {filterControls ? (
+      {pageControls ? (
         <div
           data-testid="search-query-ribbon-filters"
           role="group"
           aria-label={filterLabel}
           className={cn(
             "min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3",
-            Boolean(mobileControls) && "hidden sm:block",
+            Boolean(pageMobileControls) && "hidden sm:block",
           )}
         >
-          {filterControls}
+          {pageControls}
         </div>
       ) : null}
       {/* The fault panel carries the announcement and the recovery affordance.

@@ -922,6 +922,27 @@ function SearchResultsView({
             : "The differentials catalogue could not be searched"
         }
         faultBody="Retry the search shortly, or browse the catalogue pages directly."
+        // The fault copy promises two recoveries, so both have to exist: rerun the
+        // search, and the catalogue links that the removed error section used to
+        // carry. Without these the failed view tells the reader to act and gives
+        // them nothing to act with.
+        onRetry={catalog.status === "unauthorized" ? undefined : rerunSearch}
+        faultAction={
+          <>
+            <Link
+              href={differentialRouteWithQuery("/differentials/presentations", query)}
+              className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+            >
+              Browse presentations
+            </Link>
+            <Link
+              href={differentialRouteWithQuery("/differentials/diagnoses", query)}
+              className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+            >
+              Browse diagnoses
+            </Link>
+          </>
+        }
         sortValue={sortValue}
         onSortChange={setSortValue}
         filterLabel="Filter differential result type"

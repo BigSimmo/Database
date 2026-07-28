@@ -52,6 +52,36 @@ describe("SearchResultsHeaderBand", () => {
     expect(within(region).queryByText(/\d/)).toBeNull();
   });
 
+  // Suppressing the count in the spine is worthless if a page-supplied filter
+  // chip still renders "Forms 0" beside it — the reader still sees a zero
+  // asserted about a search that never ran.
+  it("drops count-bearing page controls while faulted", () => {
+    const { rerender } = render(
+      <SearchResultsHeaderBand
+        modeId="forms"
+        query="transport order"
+        matchCount={0}
+        status="ready"
+        filterControls={<span>Forms 0</span>}
+      />,
+    );
+    expect(screen.getByText("Forms 0")).toBeVisible();
+
+    rerender(
+      <SearchResultsHeaderBand
+        modeId="forms"
+        query="transport order"
+        matchCount={0}
+        status="error"
+        filterControls={<span>Forms 0</span>}
+      />,
+    );
+    const region = screen.getByRole("region", { name: "Search results for transport order" });
+    expect(screen.queryByText("Forms 0")).toBeNull();
+    // Belt and braces: no digit anywhere in the ribbon, not just in the spine.
+    expect(within(region).queryByText(/\d/)).toBeNull();
+  });
+
   it("keeps exactly one status region and one alert while faulted", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" />);
 

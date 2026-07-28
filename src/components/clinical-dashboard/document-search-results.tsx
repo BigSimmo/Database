@@ -885,8 +885,28 @@ function DocumentSearchResultsPanelImpl({
           modeId={showRecordMatches ? recordMode : "documents"}
           query={trimmedQuery}
           matchCount={recordMatchCount + sortedMatches.length}
-          status={unavailableMessage ? "error" : loading ? "loading" : "ready"}
-          faultBody={unavailableMessage ?? undefined}
+          // Derive the fault from whichever source this ribbon is actually
+          // counting. On the services/forms path the registry has its own status
+          // and can be perfectly healthy while the unrelated document API is
+          // down; letting that invalidate the ribbon would announce "Couldn't
+          // search" and hide a valid recordMatchCount while SearchRecordResults
+          // renders those very matches below.
+          status={
+            showRecordMatches
+              ? recordStatus === "unauthorized"
+                ? "unauthorized"
+                : recordStatus === "error" || recordStatus === "not_found"
+                  ? "error"
+                  : recordStatus === "loading"
+                    ? "loading"
+                    : "ready"
+              : unavailableMessage
+                ? "error"
+                : loading
+                  ? "loading"
+                  : "ready"
+          }
+          faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
           onSortChange={matches.length > 0 ? setSortValue : undefined}
           utilityControls={
