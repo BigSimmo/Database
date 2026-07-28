@@ -890,9 +890,9 @@
   /* Animate the horizontal move on the compositor (transform) rather than `left`,
      which forces layout each frame. The 18px offset matches the knob width so the
      resting/active positions are visually identical to the old left-based values.
-     Spring easing (IMP-01) gives a tactile, physical feel to the toggle. */
+     IMP-01: spring token for a tactile toggle without hardcoding the bezier. */
   transform: translate(0, -50%);
-  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 150ms var(--ease-spring);
 }
 
 .tc-clinician-knob.tc-is-active {

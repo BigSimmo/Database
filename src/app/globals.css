@@ -2481,11 +2481,31 @@ html[data-motion="reduced"] .pwa-notice-card {
     right: -10px;
   }
 
-  /* Premium Skeleton Shimmer animation with custom easing and GPU compositing layer hints */
+  /* Premium skeleton shimmer: GPU translateX sweep on ::after (IMP-04).
+     The highlight rides the compositor; the host keeps a solid fill so call sites
+     only need background colour + this class. Entrance stagger can still use the
+     host `animation` via .stagger-item without fighting the sweep. */
   .animate-skeleton-shimmer {
-    will-change: transform, opacity;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     transform: translateZ(0);
-    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .animate-skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--surface-highlight) 55%, transparent) 50%,
+      transparent 80%
+    );
+    will-change: transform;
+    animation: shimmer-sweep 1.4s linear infinite;
+    pointer-events: none;
   }
 
   /* Premium Double-Ring Focus style */
@@ -2590,24 +2610,10 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 }
 
-/* IMP-04: Upgraded skeleton shimmer — GPU transform-based sweep replaces the
-   opacity-pulse approach. The translateX sweep stays strictly on the compositor
-   thread (will-change: transform), avoids opacity stacking contexts that can
-   cause repaint on Safari, and renders a premium linear-gradient highlight that
-   matches modern loading UI conventions. contains: strict limits reflow scope. */
+/* IMP-04: Compositor-thread sweep used by .animate-skeleton-shimmer::after. */
 @keyframes shimmer-sweep {
   100% {
     transform: translateX(100%);
-  }
-}
-
-@keyframes skeleton-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
   }
 }
 
