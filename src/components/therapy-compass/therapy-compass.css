@@ -889,9 +889,10 @@
   box-shadow: var(--shadow-tight);
   /* Animate the horizontal move on the compositor (transform) rather than `left`,
      which forces layout each frame. The 18px offset matches the knob width so the
-     resting/active positions are visually identical to the old left-based values. */
+     resting/active positions are visually identical to the old left-based values.
+     Spring easing (IMP-01) gives a tactile, physical feel to the toggle. */
   transform: translate(0, -50%);
-  transition: transform 150ms ease;
+  transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tc-clinician-knob.tc-is-active {
@@ -930,13 +931,30 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* ISSUE-02: Halt rotational animation completely — slowing it still triggers
+     vestibular distress for motion-sensitive users. Replace with a static fade. */
   .tc-root .tc-spin {
-    animation-duration: 2s;
+    animation: none !important;
+    opacity: 0.6;
   }
 
   .tc-root * {
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ISSUE-05: Mirror the OS-level prefers-reduced-motion gate to the in-app
+   preference toggle (html[data-motion="reduced"]) so users who set "Reduce motion"
+   inside application settings get the same behaviour even when their OS motion
+   preference is enabled. globals.css already sets this attribute via the settings
+   dialog; therapy-compass.css must honour it in its own scope. */
+html[data-motion="reduced"] .tc-root .tc-spin {
+  animation: none !important;
+  opacity: 0.6;
+}
+
+html[data-motion="reduced"] .tc-root * {
+  transition-duration: 0.001ms !important;
 }
 
 @media (max-width: 640px) {

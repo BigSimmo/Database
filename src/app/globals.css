@@ -2590,6 +2590,17 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 }
 
+/* IMP-04: Upgraded skeleton shimmer — GPU transform-based sweep replaces the
+   opacity-pulse approach. The translateX sweep stays strictly on the compositor
+   thread (will-change: transform), avoids opacity stacking contexts that can
+   cause repaint on Safari, and renders a premium linear-gradient highlight that
+   matches modern loading UI conventions. contains: strict limits reflow scope. */
+@keyframes shimmer-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @keyframes skeleton-pulse {
   0%,
   100% {
@@ -2598,6 +2609,36 @@ html[data-motion="reduced"] .pwa-notice-card {
   50% {
     opacity: 0.35;
   }
+}
+
+/* IMP-02: Staggered cascade entrance for search results and card grids.
+   Apply .stagger-item to each list child and set --stagger-index via inline style
+   or a :nth-child selector to sequence each card entrance at 35ms intervals.
+   Reduced-motion guard stops the animation while keeping items fully visible. */
+@keyframes cascade-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-item {
+  animation: cascade-fade-up 200ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--stagger-index, 0) * 35ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-item {
+    animation: none !important;
+  }
+}
+
+html[data-motion="reduced"] .stagger-item {
+  animation: none !important;
 }
 
 /* User preference and alternate output modes */
