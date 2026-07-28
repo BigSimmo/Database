@@ -23,6 +23,16 @@ describe("fixture-free client performance boundaries", () => {
     expect(dashboard).not.toContain('from "@/lib/differentials"');
   });
 
+  it("keeps the cross-mode links consumer on a dynamic catalog import", () => {
+    // The index-module allowlist lives in tests/cross-mode-differentials-index.test.ts.
+    // This locks the dashboard consumer: a static import would pull the catalog (and
+    // any future regression it reintroduces) into the main dashboard chunk.
+    const links = source("src/components/clinical-dashboard/cross-mode-links.tsx");
+    expect(links).toContain('import("@/lib/cross-mode-differentials")');
+    expect(links).not.toContain('from "@/lib/cross-mode-differentials"');
+    expect(links).not.toContain('from "@/lib/differentials"');
+  });
+
   it("keeps initial dashboard rankers on fixture-free entry points", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const deferredRegistrySearch = source("src/components/clinical-dashboard/use-deferred-registry-search.ts");
