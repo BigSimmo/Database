@@ -728,11 +728,12 @@ export function ServicesNavigatorPage() {
         />
       }
     >
+      {/* `registryBlocked` renders nothing here: the band above now reports the
+          fault and owns the retry/sign-in action, so repeating it would announce
+          the same failure twice. */}
       {registryLoading ? (
         <SearchResultsSkeleton />
-      ) : registryBlocked ? // The band itself now reports the fault, with the retry/sign-in action.
-      // Repeating it here would announce the same failure twice.
-      null : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
+      ) : registryBlocked ? null : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
