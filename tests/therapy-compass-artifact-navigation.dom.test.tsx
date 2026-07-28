@@ -1,7 +1,8 @@
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TcProvider, useTcBindings } from "@/components/therapy-compass/bindings";
+import { TherapyCompassNav, TherapyInformationNavigation } from "@/components/therapy-compass/nav";
 
 // Capture router pushes and drive pathname/search so we can assert where the
 // artifact-navigation helpers route.
@@ -82,6 +83,34 @@ function Probe() {
 }
 
 describe("Therapy Compass artifact-route navigation", () => {
+  it("uses the shared workflow navigation without a Home destination", () => {
+    nav.pathname = "/therapy-compass/search";
+    render(
+      <TcProvider>
+        <TherapyCompassNav />
+      </TcProvider>,
+    );
+
+    expect(screen.getByRole("navigation", { name: "Therapy mode" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Search" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Home")).toBeNull();
+  });
+
+  it("replaces workflow navigation with page-specific therapy sections", () => {
+    nav.pathname = "/therapy-compass/with-both";
+    render(
+      <TcProvider>
+        <TherapyInformationNavigation kind="detail" />
+      </TcProvider>,
+    );
+
+    const navigation = screen.getByRole("navigation", { name: "On this therapy page" });
+    expect(within(navigation).getByRole("link", { name: "Overview" })).toHaveAttribute("href", "#therapy-overview");
+    expect(within(navigation).getByRole("link", { name: "Delivery" })).toHaveAttribute("href", "#therapy-delivery");
+    expect(within(navigation).queryByText("Search")).toBeNull();
+    expect(within(navigation).queryByText("Home")).toBeNull();
+  });
+
   it("routes a picker selection on a /sheet subroute to the chosen therapy's sheet (not left pinned to the URL)", () => {
     nav.pathname = "/therapy-compass/no-artifacts/sheet";
     nav.search = "";

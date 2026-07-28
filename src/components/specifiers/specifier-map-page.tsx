@@ -10,7 +10,6 @@ import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -24,7 +23,6 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
     <SpecifierPageShell>
       <div className="grid gap-3">
         <SpecifierBreadcrumbs current="Map" />
-        <SpecifierSubnav active="map" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">

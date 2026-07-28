@@ -22,7 +22,6 @@ import {
   SpecifierBreadcrumbs,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   categoryShortName,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
@@ -136,11 +135,13 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
     <SpecifierPageShell>
       <div className="grid gap-3">
         <SpecifierBreadcrumbs current={item.label} />
-        <SpecifierSubnav active="search" />
       </div>
 
       {/* Hero */}
-      <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <section
+        id="specifier-overview"
+        className="scroll-mt-20 grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+      >
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
           <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Tags className="h-7 w-7" aria-hidden />
@@ -206,7 +207,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="grid min-w-0 gap-5">
+        <div id="specifier-wording" className="scroll-mt-20 grid min-w-0 gap-5">
           <SectionHeading
             eyebrow="Reference"
             title="What this specifier records"
@@ -223,7 +224,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
           ) : null}
 
           {enrichment ? (
-            <section className={cn(specifierCard, "grid gap-4 p-4 sm:p-5")}>
+            <section id="specifier-fit" className={cn(specifierCard, "scroll-mt-20 grid gap-4 p-4 sm:p-5")}>
               <div className="flex items-start gap-3">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                   <Check className="h-5 w-5" aria-hidden />
@@ -251,7 +252,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
         </div>
 
         <aside className="grid content-start gap-4 xl:sticky xl:top-20">
-          <section className={cn(specifierCard, "overflow-hidden")}>
+          <section id="specifier-evidence" className={cn(specifierCard, "scroll-mt-20 overflow-hidden")}>
             <div className="border-b border-[color:var(--border)] px-4 py-3">
               <p className={eyebrowText}>Review status</p>
             </div>

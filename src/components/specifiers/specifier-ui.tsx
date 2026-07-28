@@ -60,44 +60,6 @@ export function SpecifierBreadcrumbs({ current }: { current?: string }) {
   );
 }
 
-export function SpecifierSubnav({ active }: { active: "search" | "builder" | "compare" | "map" }) {
-  const items = [
-    { id: "search" as const, label: "Find", shortLabel: "Find", href: "/specifiers" },
-    { id: "builder" as const, label: "Build wording", shortLabel: "Build", href: "/specifiers/builder" },
-    { id: "compare" as const, label: "Compare", shortLabel: "Compare", href: "/specifiers/compare" },
-    { id: "map" as const, label: "Map", shortLabel: "Map", href: "/specifiers/map" },
-  ];
-
-  return (
-    <nav
-      aria-label="Specifier tools"
-      className="polished-scroll flex max-w-full gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {items.map((item) => (
-        <Link
-          key={item.id}
-          href={item.href}
-          aria-label={item.label}
-          aria-current={active === item.id ? "page" : undefined}
-          className={cn(
-            "inline-flex min-h-tap shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm",
-            active === item.id
-              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
-          )}
-        >
-          <span className="sm:hidden" aria-hidden>
-            {item.shortLabel}
-          </span>
-          <span className="hidden sm:inline" aria-hidden>
-            {item.label}
-          </span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
 const familyChipBase =
   "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
 const familyChipActive =

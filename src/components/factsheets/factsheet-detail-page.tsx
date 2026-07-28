@@ -15,7 +15,7 @@ import {
   TriangleAlert,
   Zap,
 } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -28,6 +28,7 @@ import {
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
+import { SecondaryNavigation, type SecondaryNavigationItem } from "@/components/secondary-navigation";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
 import {
   readSavedRegistrySlugs,
@@ -42,6 +43,14 @@ function accentBorder(accent: string) {
 
 function Heading({ children }: { children: ReactNode }) {
   return <h2 className="text-xl font-bold tracking-tight text-[color:var(--text-heading)]">{children}</h2>;
+}
+
+function factsheetSectionId(label: string) {
+  return `factsheet-${label
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")}`;
 }
 
 export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
@@ -62,6 +71,19 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
   const related = relatedFactsheets(factsheet.slug);
   const moreInTopic = sameTopicFactsheets(factsheet.slug);
   const toc = tocFor(factsheet);
+  const tocSignature = toc.join("|");
+  const navigationItems = useMemo<SecondaryNavigationItem[]>(
+    () =>
+      toc.map((label) => ({
+        kind: "section" as const,
+        id: factsheetSectionId(label),
+        label,
+        targetId: factsheetSectionId(label),
+      })),
+    // Reading-level changes intentionally rebuild the destination set even
+    // when a sheet keeps the same headings in both versions.
+    [factsheet.slug, readingLevel, tocSignature],
+  );
   const blocks = printBlocks(factsheet, readingLevel);
 
   useEffect(() => {
@@ -173,6 +195,8 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           </div>
         </div>
 
+        <SecondaryNavigation ariaLabel="On this factsheet" items={navigationItems} placeInShell />
+
         <div className="mx-auto grid max-w-[64rem] gap-8 px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
           <article className="min-w-0">
             {/* hero band */}
@@ -214,7 +238,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
             </div>
 
             {/* sources */}
-            <section className="mt-7">
+            <section id={factsheetSectionId("Sources")} className="scroll-mt-20 mt-7">
               <Heading>Where this information comes from</Heading>
               <div className="mt-3 grid gap-2">
                 {factsheet.sources.map((source) => {
@@ -433,7 +457,8 @@ function FactsheetBody({
       return (
         <div className="flex flex-col gap-6">
           <div
-            className="rounded-2xl border p-5"
+            id={factsheetSectionId("At a glance")}
+            className="scroll-mt-20 rounded-2xl border p-5"
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <p className="text-2xs font-bold uppercase tracking-[0.06em]" style={{ color: theme.accent }}>
@@ -448,13 +473,13 @@ function FactsheetBody({
               ))}
             </div>
           </div>
-          <section>
+          <section id={factsheetSectionId("What is this medicine?")} className="scroll-mt-20">
             <Heading>What is {factsheet.title.toLowerCase()}?</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {readingLevel === "easy" ? factsheet.whatEasy : factsheet.whatStandard}
             </p>
           </section>
-          <section>
+          <section id={factsheetSectionId("How to take it")} className="scroll-mt-20">
             <Heading>How to take it</Heading>
             <div className="mt-3 flex flex-col gap-3">
               {factsheet.howto.map((step) => (
@@ -472,7 +497,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id={factsheetSectionId("Side effects")} className="scroll-mt-20">
             <Heading>Side effects</Heading>
             <div className="mt-3 grid gap-3.5 sm:grid-cols-2">
               <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
@@ -510,7 +535,10 @@ function FactsheetBody({
               </div>
             </div>
           </section>
-          <div className="flex gap-3.5 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--surface)] p-5">
+          <div
+            id={factsheetSectionId("When to get urgent help")}
+            className="scroll-mt-20 flex gap-3.5 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--surface)] p-5"
+          >
             <span className="grid h-tap w-tap shrink-0 place-items-center rounded-xl bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]">
               <Zap className="h-5 w-5" aria-hidden="true" />
             </span>
@@ -527,7 +555,8 @@ function FactsheetBody({
       return (
         <div className="flex flex-col gap-5">
           <div
-            className="flex gap-3.5 rounded-2xl border p-4"
+            id={factsheetSectionId("How long it takes")}
+            className="scroll-mt-20 flex gap-3.5 rounded-2xl border p-4"
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <Clock className="mt-0.5 h-5 w-5 shrink-0" style={{ color: theme.accent }} aria-hidden="true" />
@@ -537,7 +566,12 @@ function FactsheetBody({
             </div>
           </div>
           {factsheet.sections.map((section) => (
-            <section key={section.heading} className="border-l-[3px] pl-4" style={{ borderColor: theme.accent }}>
+            <section
+              id={factsheetSectionId(section.heading)}
+              key={section.heading}
+              className="scroll-mt-20 border-l-[3px] pl-4"
+              style={{ borderColor: theme.accent }}
+            >
               <h2 className="text-lg-minus font-bold text-[color:var(--text-heading)]">{section.heading}</h2>
               <p className="mt-1.5 max-w-[64ch] text-pretty text-base-minus leading-7 text-[color:var(--text)]">
                 {section.body}
@@ -549,13 +583,13 @@ function FactsheetBody({
     case "condition":
       return (
         <div className="flex flex-col gap-6">
-          <section>
+          <section id={factsheetSectionId("In plain terms")} className="scroll-mt-20">
             <Heading>In plain terms</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.intro}
             </p>
           </section>
-          <section>
+          <section id={factsheetSectionId("Signs to look for")} className="scroll-mt-20">
             <Heading>Signs to look for</Heading>
             <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
               {factsheet.signs.map((sign) => (
@@ -574,13 +608,13 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id={factsheetSectionId("Why it happens")} className="scroll-mt-20">
             <Heading>Why it happens</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.why}
             </p>
           </section>
-          <section>
+          <section id={factsheetSectionId("What helps")} className="scroll-mt-20">
             <Heading>What helps</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {factsheet.helps.map((help) => (
@@ -601,7 +635,8 @@ function FactsheetBody({
             </div>
           </section>
           <div
-            className="flex gap-3.5 rounded-2xl border p-5"
+            id={factsheetSectionId("You’re not alone")}
+            className="scroll-mt-20 flex gap-3.5 rounded-2xl border p-5"
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <span
@@ -625,13 +660,13 @@ function FactsheetBody({
     case "therapy":
       return (
         <div className="flex flex-col gap-6">
-          <section>
+          <section id={factsheetSectionId("What it is")} className="scroll-mt-20">
             <Heading>What it is</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.intro}
             </p>
           </section>
-          <section>
+          <section id={factsheetSectionId("How it works")} className="scroll-mt-20">
             <Heading>How it works</Heading>
             <div className="mt-3.5">
               {factsheet.steps.map((step, index) => (
@@ -657,7 +692,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id={factsheetSectionId("What to expect")} className="scroll-mt-20">
             <Heading>What to expect</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {factsheet.expect.map((item) => (
@@ -676,13 +711,13 @@ function FactsheetBody({
     case "procedure":
       return (
         <div className="flex flex-col gap-6">
-          <section>
+          <section id={factsheetSectionId("Why it matters")} className="scroll-mt-20">
             <Heading>Why it matters</Heading>
             <p className="mt-2 max-w-[66ch] text-pretty text-base leading-7 text-[color:var(--text)]">
               {factsheet.why}
             </p>
           </section>
-          <section>
+          <section id={factsheetSectionId("How to prepare")} className="scroll-mt-20">
             <Heading>How to prepare</Heading>
             <div className="mt-3 flex flex-col gap-2.5">
               {factsheet.prepare.map((item) => (
@@ -701,7 +736,7 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <section>
+          <section id={factsheetSectionId("Step by step")} className="scroll-mt-20">
             <Heading>Step by step</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {factsheet.timeline.map((step) => (
@@ -717,7 +752,10 @@ function FactsheetBody({
               ))}
             </div>
           </section>
-          <div className={cn("flex gap-3.5 rounded-2xl border p-5", toneWarning)}>
+          <div
+            id={factsheetSectionId("Staying safe")}
+            className={cn("scroll-mt-20 flex gap-3.5 rounded-2xl border p-5", toneWarning)}
+          >
             <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--warning)]" aria-hidden="true" />
             <div>
               <p className="text-sm font-bold text-[color:var(--warning)]">Staying safe between tests</p>

@@ -3633,6 +3633,114 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
+  test("mode navigation stays pinned while universal chrome collapses at every target width", async ({ page }) => {
+    const widths = [320, 390, 639, 768, 1440, 1920];
+    await mockDemoApi(page);
+
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: width < 640 ? 844 : 900 });
+      await gotoApp(page, "/?mode=documents&q=lithium&run=1");
+
+      const main = page.locator("main#main-content");
+      const collapseHost = page.getByTestId("universal-header-collapse");
+      const secondaryNavigation = page.getByTestId("secondary-navigation");
+      await waitForReactEventHandler(main, "onScroll");
+      await expect(secondaryNavigation).toBeVisible();
+      await expect(secondaryNavigation.getByText("Home", { exact: true })).toHaveCount(0);
+
+      await main.evaluate((node) => {
+        const spacer = document.createElement("div");
+        spacer.dataset.testid = "secondary-navigation-scroll-runway";
+        spacer.style.height = "2200px";
+        node.appendChild(spacer);
+      });
+      for (const offset of [40, 90, 140, 200, 280]) {
+        await main.evaluate((node, top) => {
+          node.scrollTop = top;
+        }, offset);
+      }
+
+      await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+      await expect(secondaryNavigation).toBeVisible();
+      await expect
+        .poll(async () => secondaryNavigation.evaluate((node) => Math.round(node.getBoundingClientRect().top)))
+        .toBe(0);
+
+      for (const offset of [240, 200, 150]) {
+        await main.evaluate((node, top) => {
+          node.scrollTop = top;
+        }, offset);
+      }
+      await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+      await expect(secondaryNavigation).toBeVisible();
+    }
+  });
+
+  test("standalone workflow navigation pins above window and phone scroll owners", async ({ page }) => {
+    const widths = [320, 390, 639, 768, 1440, 1920];
+    await mockDemoApi(page);
+
+    for (const width of widths) {
+      const usesPhoneScroller = width < 640;
+      await page.setViewportSize({ width, height: width < 640 ? 844 : 900 });
+      await gotoApp(page, "/specifiers/compare?a=with-mixed-features&b=with-anxious-distress");
+
+      const main = page.locator("#main-content").first();
+      const collapseHost = page.getByTestId("universal-header-collapse");
+      const secondaryNavigation = page.getByTestId("secondary-navigation");
+      await expect(secondaryNavigation).toBeVisible();
+      await expect(secondaryNavigation.getByText("Home", { exact: true })).toHaveCount(0);
+      if (usesPhoneScroller) await waitForReactEventHandler(main, "onScroll");
+
+      // Use a post-hydration stylesheet rather than inserting a child into the
+      // React-owned page subtree. ClientHydrationBoundary can legitimately
+      // replace that subtree once more on slower/narrower runs and remove a
+      // DOM spacer before the scroll assertion executes.
+      await page.addStyleTag({
+        content: '[data-testid="mobile-composer-reserve-pad"]::after { content: ""; display: block; height: 1800px; }',
+      });
+      for (const offset of [40, 100, 180, 280, 420]) {
+        await page.evaluate(
+          ({ phone, top }) => {
+            if (phone) document.querySelector<HTMLElement>("#main-content")?.scrollTo(0, top);
+            else window.scrollTo(0, top);
+          },
+          { phone: usesPhoneScroller, top: offset },
+        );
+        await page.waitForTimeout(32);
+      }
+
+      await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+      await expect
+        .poll(async () => secondaryNavigation.evaluate((node) => Math.round(node.getBoundingClientRect().top)))
+        .toBe(0);
+
+      for (const offset of [360, 300, 220]) {
+        await page.evaluate(
+          ({ phone, top }) => {
+            if (phone) document.querySelector<HTMLElement>("#main-content")?.scrollTo(0, top);
+            else window.scrollTo(0, top);
+          },
+          { phone: usesPhoneScroller, top: offset },
+        );
+        await page.waitForTimeout(32);
+      }
+
+      await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+      await expect
+        .poll(async () =>
+          collapseHost.evaluate((node) => ({
+            height: Math.round(node.getBoundingClientRect().height),
+            top: Math.round(node.getBoundingClientRect().top),
+          })),
+        )
+        .toMatchObject({ top: 0 });
+      await expect
+        .poll(async () => secondaryNavigation.evaluate((node) => Math.round(node.getBoundingClientRect().top)))
+        .toBeGreaterThan(0);
+    }
+  });
+
   test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);

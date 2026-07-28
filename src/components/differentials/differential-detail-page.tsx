@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -28,6 +28,7 @@ import {
 import type { DifferentialRecordGovernance } from "@/components/clinical-dashboard/use-differential-catalog";
 import { DiagnosisMapPanel } from "@/components/differentials/diagnosis-map-panel";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { SecondaryNavigation } from "@/components/secondary-navigation";
 import { cn, pageContainer, toneDanger, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -858,63 +859,21 @@ function Tabs({
   active: DifferentialDetailTabId;
   onChange: (id: DifferentialDetailTabId) => void;
 }) {
-  const tabRefs = useRef(new Map<DifferentialDetailTabId, HTMLButtonElement>());
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    const order = detailTabs.map((tab) => tab.id);
-    const index = order.indexOf(active);
-    const next =
-      event.key === "ArrowRight"
-        ? order[(index + 1) % order.length]
-        : event.key === "ArrowLeft"
-          ? order[(index - 1 + order.length) % order.length]
-          : event.key === "Home"
-            ? order[0]
-            : event.key === "End"
-              ? order[order.length - 1]
-              : null;
-    if (!next) return;
-    event.preventDefault();
-    if (next === active) return;
-    onChange(next);
-    tabRefs.current.get(next)?.focus();
-  }
-
   return (
-    <nav
-      role="tablist"
-      onKeyDown={handleKeyDown}
-      className="flex border-b border-[color:var(--border)] text-sm font-bold text-[color:var(--text-muted)]"
-      aria-label="Diagnosis sections"
-    >
-      {detailTabs.map((tab) => {
-        const isActive = tab.id === active;
-        return (
-          <button
-            key={tab.id}
-            ref={(element) => {
-              if (element) tabRefs.current.set(tab.id, element);
-              else tabRefs.current.delete(tab.id);
-            }}
-            type="button"
-            role="tab"
-            id={`differential-tab-${tab.id}`}
-            aria-selected={isActive}
-            aria-controls={`differential-panel-${tab.id}`}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => onChange(tab.id)}
-            className={cn(
-              "focus-ring-tab min-h-tap flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-center text-xs sm:flex-none sm:px-4 sm:text-sm",
-              isActive
-                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "border-transparent hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {tab.label}
-          </button>
-        );
-      })}
-    </nav>
+    <SecondaryNavigation
+      ariaLabel="Diagnosis sections"
+      activeId={active}
+      tablist
+      placeInShell
+      items={detailTabs.map((tab) => ({
+        kind: "action" as const,
+        id: tab.id,
+        elementId: `differential-tab-${tab.id}`,
+        label: tab.label,
+        controlsId: `differential-panel-${tab.id}`,
+        onSelect: () => onChange(tab.id),
+      }))}
+    />
   );
 }
 
@@ -1005,6 +964,7 @@ export function DifferentialDetailPage({
       className="min-h-dvh bg-[color:var(--background)] pb-24 text-[color:var(--text)] lg:pb-6"
     >
       <HeaderChrome />
+      <Tabs active={activeTab} onChange={changeTab} />
       <div className={cn(pageContainer, "grid gap-4 px-3 py-3 sm:px-6 sm:py-4 lg:gap-5 lg:px-8")}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -1047,8 +1007,6 @@ export function DifferentialDetailPage({
             {saveNotice}
           </p>
         ) : null}
-
-        <Tabs active={activeTab} onChange={changeTab} />
 
         <div
           role="tabpanel"

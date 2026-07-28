@@ -20,12 +20,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
 import { useMedicationDetail } from "@/components/clinical-dashboard/use-medication-catalog";
+import { SecondaryNavigation } from "@/components/secondary-navigation";
 import {
   medicationAccessBadges,
   medicationAccessFields,
@@ -176,63 +177,30 @@ const detailTabs = [
 ] as const;
 type MedicationTabId = (typeof detailTabs)[number][0];
 
-function SectionTabs({ active, onChange }: { active: MedicationTabId; onChange: (id: MedicationTabId) => void }) {
-  const tabRefs = useRef(new Map<MedicationTabId, HTMLButtonElement>());
-
-  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
-    const order = detailTabs.map((tab) => tab[0]);
-    const index = order.indexOf(active);
-    const next =
-      event.key === "ArrowRight"
-        ? order[(index + 1) % order.length]
-        : event.key === "ArrowLeft"
-          ? order[(index - 1 + order.length) % order.length]
-          : event.key === "Home"
-            ? order[0]
-            : event.key === "End"
-              ? order[order.length - 1]
-              : null;
-    if (!next) return;
-    event.preventDefault();
-    if (next !== active) onChange(next);
-    tabRefs.current.get(next)?.focus();
-  }
-
+function SectionTabs({
+  active,
+  tabs,
+  onChange,
+}: {
+  active: MedicationTabId;
+  tabs: ReadonlyArray<(typeof detailTabs)[number]>;
+  onChange: (id: MedicationTabId) => void;
+}) {
   return (
-    <nav
-      role="tablist"
-      aria-label="Medication sections"
-      onKeyDown={handleKeyDown}
-      className="flex gap-1 border-b border-[color:var(--border)] text-sm font-semibold text-[color:var(--text-muted)]"
-    >
-      {detailTabs.map(([id, label]) => {
-        const isActive = active === id;
-        return (
-          <button
-            key={id}
-            ref={(element) => {
-              if (element) tabRefs.current.set(id, element);
-              else tabRefs.current.delete(id);
-            }}
-            type="button"
-            role="tab"
-            id={`medication-tab-${id}`}
-            aria-selected={isActive}
-            aria-controls={`medication-panel-${id}`}
-            tabIndex={isActive ? 0 : -1}
-            onClick={() => onChange(id)}
-            className={cn(
-              "min-h-tap flex-1 whitespace-nowrap border-b-2 px-1 pb-2.5 pt-1.5 text-center text-2xs transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:flex-none sm:px-4 sm:text-sm",
-              isActive
-                ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
-                : "border-transparent hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {label}
-          </button>
-        );
-      })}
-    </nav>
+    <SecondaryNavigation
+      ariaLabel="Medication sections"
+      activeId={active}
+      tablist
+      placeInShell
+      items={tabs.map(([id, label]) => ({
+        kind: "action" as const,
+        id,
+        elementId: `medication-tab-${id}`,
+        label,
+        controlsId: `medication-panel-${id}`,
+        onSelect: () => onChange(id),
+      }))}
+    />
   );
 }
 
@@ -385,91 +353,100 @@ function MedicationRecordDetail({
   }, [record.sections]);
 
   const activeSections = sectionsByTab[activeTab];
+  const availableTabs = useMemo(
+    () => detailTabs.filter(([id]) => id === "summary" || sectionsByTab[id].length > 0),
+    [sectionsByTab],
+  );
+
+  useEffect(() => {
+    if (!availableTabs.some(([id]) => id === activeTab)) setActiveTab("summary");
+  }, [activeTab, availableTabs]);
 
   return (
-    <div className={cn(pageContainer, "space-y-3 py-1 sm:py-2")} style={medicationAccentStyle(record.accent)}>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="space-y-3.5">
-          <section className="scroll-mt-16 overflow-hidden rounded-xl border border-[color:var(--border)] border-l-4 border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-soft)] sm:p-5">
-            <div className="flex items-start gap-3 sm:items-center sm:gap-4">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--med-accent-border)] bg-[color:var(--surface)] text-[color:var(--med-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14">
-                <Pill className="h-[52%] w-[52%]" aria-hidden="true" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
-                  {record.name}
-                </h1>
-                <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
-                  <span
-                    className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[color:var(--med-accent)] align-middle"
-                    aria-hidden="true"
-                  />
-                  {record.subclass || record.class}
-                  {record.category ? (
-                    <>
-                      <span className="mx-1.5 text-[color:var(--text-soft)]">·</span>
-                      {record.category}
-                    </>
-                  ) : null}
-                </p>
-                {indication ? (
-                  <p className="mt-1 line-clamp-1 text-sm-minus leading-5 text-[color:var(--text-muted)]">
-                    {indication}
+    <div style={medicationAccentStyle(record.accent)}>
+      <SectionTabs active={activeTab} tabs={availableTabs} onChange={setActiveTab} />
+      <div className={cn(pageContainer, "space-y-3 py-3 sm:py-4")}>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
+          <div className="space-y-3.5">
+            <section className="scroll-mt-16 overflow-hidden rounded-xl border border-[color:var(--border)] border-l-4 border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-soft)] sm:p-5">
+              <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--med-accent-border)] bg-[color:var(--surface)] text-[color:var(--med-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14">
+                  <Pill className="h-[52%] w-[52%]" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-2xl font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
+                    {record.name}
+                  </h1>
+                  <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+                    <span
+                      className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[color:var(--med-accent)] align-middle"
+                      aria-hidden="true"
+                    />
+                    {record.subclass || record.class}
+                    {record.category ? (
+                      <>
+                        <span className="mx-1.5 text-[color:var(--text-soft)]">·</span>
+                        {record.category}
+                      </>
+                    ) : null}
                   </p>
-                ) : null}
-                <BadgeCluster items={badges} limit={5} showOverflowCount className="mt-2" />
+                  {indication ? (
+                    <p className="mt-1 line-clamp-1 text-sm-minus leading-5 text-[color:var(--text-muted)]">
+                      {indication}
+                    </p>
+                  ) : null}
+                  <BadgeCluster items={badges} limit={5} showOverflowCount className="mt-2" />
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
 
-          <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            {metrics.map((metric, index) => (
-              // Some records repeat a stat label (e.g. adrenaline has two "Route"
-              // stats), so the label alone is not a unique key — include the index.
-              <DetailTile key={`${metric.label}-${index}`} metric={metric} />
-            ))}
-          </section>
-
-          <section className="space-y-2.5">
-            <PatientProfilePanel defaultOpen={false} />
-            <MedicationConsiderations record={record} />
-          </section>
-
-          <SectionTabs active={activeTab} onChange={setActiveTab} />
-
-          <section
-            role="tabpanel"
-            id={`medication-panel-${activeTab}`}
-            aria-labelledby={`medication-tab-${activeTab}`}
-            className="overflow-hidden rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]"
-          >
-            {activeSections.length ? (
-              activeSections.map((section) => (
-                <SectionCard key={`${section.type}-${section.title}`} section={section} />
-              ))
-            ) : (
-              <div className="p-3">
-                <EmptyState
-                  icon={ClipboardList}
-                  title="Nothing in this view"
-                  body="Switch tabs to see dosing, safety, or more detail for this medication."
-                />
-              </div>
-            )}
-          </section>
-        </div>
-
-        <aside className="space-y-3 lg:sticky lg:top-20 lg:self-start">
-          <SidebarCard title="Quick reference" icon={BookOpen}>
-            <div className="divide-y divide-[color:var(--border)]">
-              {record.quick.map((row) => (
-                <QuickRefRow key={row.label} row={row} />
+            <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              {metrics.map((metric, index) => (
+                // Some records repeat a stat label (e.g. adrenaline has two "Route"
+                // stats), so the label alone is not a unique key — include the index.
+                <DetailTile key={`${metric.label}-${index}`} metric={metric} />
               ))}
-            </div>
-          </SidebarCard>
+            </section>
 
-          <MedicationAccessPanel record={record} />
-        </aside>
+            <section className="space-y-2.5">
+              <PatientProfilePanel defaultOpen={false} />
+              <MedicationConsiderations record={record} />
+            </section>
+
+            <section
+              role="tabpanel"
+              id={`medication-panel-${activeTab}`}
+              aria-labelledby={`medication-tab-${activeTab}`}
+              className="overflow-hidden rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]"
+            >
+              {activeSections.length ? (
+                activeSections.map((section) => (
+                  <SectionCard key={`${section.type}-${section.title}`} section={section} />
+                ))
+              ) : (
+                <div className="p-3">
+                  <EmptyState
+                    icon={ClipboardList}
+                    title="Nothing in this view"
+                    body="Switch tabs to see dosing, safety, or more detail for this medication."
+                  />
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-3 lg:sticky lg:top-20 lg:self-start">
+            <SidebarCard title="Quick reference" icon={BookOpen}>
+              <div className="divide-y divide-[color:var(--border)]">
+                {record.quick.map((row) => (
+                  <QuickRefRow key={row.label} row={row} />
+                ))}
+              </div>
+            </SidebarCard>
+
+            <MedicationAccessPanel record={record} />
+          </aside>
+        </div>
       </div>
     </div>
   );

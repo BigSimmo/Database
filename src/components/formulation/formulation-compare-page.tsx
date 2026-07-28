@@ -8,7 +8,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -118,7 +117,6 @@ export function FormulationComparePage({ initialLeft, initialRight }: { initialL
     <FormulationPageShell>
       <div className="grid gap-3">
         <FormulationBreadcrumbs current="Compare" />
-        <FormulationSubnav active="compare" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">

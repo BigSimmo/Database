@@ -42,7 +42,10 @@ export function SheetsScreen() {
 
       <div className="tc-stack-sm tc-screens-sheets-screen-007">
         {/* BUILDER */}
-        <div className="tc-builder-panel tc-mobile-static tc-screens-sheets-screen-008">
+        <div
+          id="therapy-sheet-builder"
+          className="tc-builder-panel tc-mobile-static tc-screens-sheets-screen-008 scroll-mt-20"
+        >
           <div className="tc-screens-sheets-screen-009">
             <div className="tc-screens-sheets-screen-010">Therapy</div>
             <TherapyPicker />
@@ -147,7 +150,7 @@ export function SheetsScreen() {
         </div>
 
         {/* PAPER */}
-        <div className="tc-paper-wrap tc-screens-sheets-screen-022">
+        <div id="therapy-sheet-preview" className="tc-paper-wrap tc-screens-sheets-screen-022 scroll-mt-20">
           <div className="tc-paper tc-screens-sheets-screen-023">
             <div className="tc-mobile-wrap tc-screens-sheets-screen-024">
               <div className="tc-screens-sheets-screen-025">

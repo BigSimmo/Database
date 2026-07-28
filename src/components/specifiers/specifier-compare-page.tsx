@@ -9,7 +9,6 @@ import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -97,7 +96,6 @@ export function SpecifierComparePage({ initialLeft, initialRight }: { initialLef
     <SpecifierPageShell>
       <div className="grid gap-3">
         <SpecifierBreadcrumbs current="Compare" />
-        <SpecifierSubnav active="compare" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">

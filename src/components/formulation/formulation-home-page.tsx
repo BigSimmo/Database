@@ -18,7 +18,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -183,7 +182,6 @@ function FormulationResults({ query }: { query: string }) {
     <FormulationPageShell>
       <div className="grid gap-3">
         <FormulationBreadcrumbs />
-        <FormulationSubnav active="search" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">

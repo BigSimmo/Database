@@ -59,7 +59,7 @@ export function BriefScreen() {
 
   return (
     <section data-screen-label="Brief" className="tc-screens-brief-screen-001">
-      <div className="tc-screens-brief-screen-002">
+      <div id="therapy-brief-overview" className="tc-screens-brief-screen-002 scroll-mt-20">
         <div>
           <h1 className="tc-screens-brief-screen-003">Brief Intervention</h1>
           <p className="tc-screens-brief-screen-004">
@@ -170,7 +170,7 @@ export function BriefScreen() {
           </div>
 
           <div className="tc-mobile-stack tc-screens-brief-screen-025">
-            <div className="tc-screens-brief-screen-026">
+            <div id="therapy-brief-delivery" className="tc-screens-brief-screen-026 scroll-mt-20">
               <div className="tc-screens-brief-screen-027">{durationLabel} delivery</div>
               {steps.length ? (
                 <div className="tc-screens-brief-screen-028">
@@ -203,7 +203,7 @@ export function BriefScreen() {
               )}
 
               {t.clinicianScripts.length ? (
-                <div className="tc-screens-brief-screen-033">
+                <div id="therapy-brief-script" className="tc-screens-brief-screen-033 scroll-mt-20">
                   <div className="tc-screens-brief-screen-034">CLINICIAN SCRIPT</div>
                   {t.clinicianScripts.slice(0, 2).map((c, i) => (
                     <div key={i} className="tc-screens-brief-screen-035">
@@ -215,7 +215,7 @@ export function BriefScreen() {
               ) : null}
             </div>
 
-            <div className="tc-screens-brief-screen-038">
+            <div id="therapy-brief-before-use" className="tc-screens-brief-screen-038 scroll-mt-20">
               <div className="tc-screens-brief-screen-039">Before use</div>
               <div className="tc-screens-brief-screen-040">
                 {CHECKLIST.map((item) => (

@@ -6,7 +6,7 @@ import { mobileComposerHiddenReserveRem } from "@/components/clinical-dashboard/
 
 // Matches phoneSearchLayoutMediaQuery in master-search-header.tsx — the repo's
 // phone/tablet seam. Hide-on-scroll runs below the sm breakpoint unless the
-// host opts into all breakpoints (the ClinicalDashboard glass-header overlay).
+// host opts into an all-breakpoint overlay or collapse strategy.
 const phoneMediaQuery = "(max-width: 639px)";
 
 // Scroll offset (px) that must be passed before the chrome may hide; the
@@ -202,7 +202,7 @@ function usePhoneScrollHideActive(disabled = false, allowAllBreakpoints = false)
  * Imperative scroll-offset reporter for hosts that already own a React `onScroll`
  * handler on the scrolling element (for example ClinicalDashboard `<main>`).
  * Pass `allowAllBreakpoints` when the consumer hides chrome at every width
- * (the all-breakpoints glass-header overlay) instead of phones only.
+ * instead of phones only.
  */
 export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false) {
   const [hidden, setHidden] = useState(false);

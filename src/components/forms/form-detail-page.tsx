@@ -257,11 +257,13 @@ function PathwayContextCard({
   code,
   criteria,
   testId,
+  sectionId,
 }: {
   form: FormRecord;
   code: string;
   criteria: ServiceCriterion[];
   testId?: string;
+  sectionId?: string;
 }) {
   const details = formCatalogDetails(form);
   const [activeTab, setActiveTab] = useState<"pathway" | "source">("pathway");
@@ -292,8 +294,9 @@ function PathwayContextCard({
 
   return (
     <section
+      id={sectionId}
       data-testid={testId}
-      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]"
+      className="scroll-mt-20 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
@@ -503,7 +506,7 @@ function PathwayContextCard({
   );
 }
 
-function SourceSnapshotCard({ form }: { form: FormRecord }) {
+function SourceSnapshotCard({ form, sectionId }: { form: FormRecord; sectionId?: string }) {
   const details = formCatalogDetails(form);
   const rows = [
     {
@@ -530,7 +533,10 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
   ];
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
+    <section
+      id={sectionId}
+      className="scroll-mt-20 overflow-hidden rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
+    >
       {rows.map(({ icon: Icon, label, value }) => (
         <div
           key={label}
@@ -718,7 +724,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
           <div className="min-w-0 space-y-4">
-            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+            <section
+              id="form-overview"
+              className="scroll-mt-20 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5"
+            >
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
                 <FormCodeBadge code={code} variant="hero" />
                 <div className="min-w-0">
@@ -839,7 +848,11 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               />
             </div>
 
-            <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
+            <section
+              id="form-priority-facts"
+              aria-label="Priority facts"
+              className="scroll-mt-20 space-y-2.5 sm:space-y-3"
+            >
               <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
                 Priority facts
               </h2>
@@ -850,7 +863,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               </div>
             </section>
 
-            <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
+            <section
+              id="form-legal-boundary"
+              className="scroll-mt-20 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]"
+            >
               <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
                 <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--warning-soft)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
                   <ShieldCheck className="h-5 w-5" aria-hidden />
@@ -870,7 +886,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               </div>
             </section>
 
-            <section aria-label="Form information" className="grid gap-2">
+            <section id="form-information" aria-label="Form information" className="scroll-mt-20 grid gap-2">
               {detailRows.map((row) => {
                 const label = row.label.toLowerCase();
                 const Icon = label.includes("only")
@@ -889,7 +905,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <div className="grid gap-3 lg:hidden">
-              <SourceSnapshotCard form={form} />
+              <SourceSnapshotCard form={form} sectionId="form-source-verification-mobile" />
               <ActionPanel
                 sourceHref={form.source?.url ?? null}
                 onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
@@ -898,13 +914,25 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </div>
 
             <div className="lg:hidden">
-              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
+              <PathwayContextCard
+                form={form}
+                code={code}
+                criteria={criteria}
+                testId="form-decision-context-mobile"
+                sectionId="form-decision-context-mobile"
+              />
             </div>
           </div>
 
           <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-            <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
-            <SourceSnapshotCard form={form} />
+            <PathwayContextCard
+              form={form}
+              code={code}
+              criteria={criteria}
+              testId="form-decision-context-desktop"
+              sectionId="form-decision-context-desktop"
+            />
+            <SourceSnapshotCard form={form} sectionId="form-source-verification-desktop" />
 
             <RailCard icon={FileText} title="Source status">
               <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">

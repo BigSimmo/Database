@@ -28,12 +28,15 @@ import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
+import { SecondaryNavigationShellHostProvider } from "@/components/secondary-navigation";
 import {
   isDocumentViewerOwnedRoute,
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { isInformationPage } from "@/lib/information-pages";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
@@ -66,6 +69,8 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 ];
 // Re-apply focus shortly after the first frame to survive initial hydration remounts.
 const focusHydrationRetryDelayMs = 300;
+const desktopScrollMediaQuery = "(min-width: 640px)";
+const phoneScrollMediaQuery = "(max-width: 639px)";
 
 type GlobalSearchShellProps = {
   children: ReactNode;
@@ -160,65 +165,6 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   );
 }
 
-function isInformationPage(pathname: string): boolean {
-  // Services detail: /services/[slug]
-  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
-
-  // Forms detail: /forms/[slug]
-  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
-
-  // Medications detail: /medications/[slug]
-  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
-
-  // Psychiatric specifier detail: /specifiers/[slug]
-  if (
-    pathname.startsWith("/specifiers/") &&
-    pathname !== "/specifiers" &&
-    pathname !== "/specifiers/builder" &&
-    pathname !== "/specifiers/compare" &&
-    pathname !== "/specifiers/map"
-  )
-    return true;
-
-  // Clinical formulation detail: /formulation/[slug]
-  if (
-    pathname.startsWith("/formulation/") &&
-    pathname !== "/formulation" &&
-    pathname !== "/formulation/builder" &&
-    pathname !== "/formulation/compare" &&
-    pathname !== "/formulation/map"
-  )
-    return true;
-
-  // Factsheets detail: /factsheets/[slug]
-  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
-    return true;
-
-  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
-  if (
-    pathname.startsWith("/therapy-compass/") &&
-    pathname !== "/therapy-compass" &&
-    pathname !== "/therapy-compass/compare" &&
-    pathname !== "/therapy-compass/pathways" &&
-    pathname !== "/therapy-compass/recommend" &&
-    pathname !== "/therapy-compass/review" &&
-    pathname !== "/therapy-compass/search"
-  )
-    return true;
-
-  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
-  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
-    return true;
-
-  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
-  if (pathname.startsWith("/dsm/diagnoses/")) return true;
-
-  // Document detail: /documents/[id] (excluding /documents/search)
-  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
-
-  return false;
-}
-
 function isToolDetailWithFooterSearch(pathname: string): boolean {
   return (
     (pathname.startsWith("/services/") && pathname !== "/services") ||
@@ -241,8 +187,9 @@ function GlobalStandaloneSearchShellClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [secondaryNavigationHost, setSecondaryNavigationHost] = useState<HTMLDivElement | null>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
-  const phoneScrollHide = useScrollHideReporter();
+  const phoneScrollHide = useScrollHideReporter(false, true);
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   useEffect(() => {
@@ -534,6 +481,7 @@ function GlobalStandaloneSearchShellClient({
   }
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
+    if (!window.matchMedia(phoneScrollMediaQuery).matches) return;
     const target = event.currentTarget;
     phoneScrollHide.reportScroll({
       offset: target.scrollTop,
@@ -555,6 +503,7 @@ function GlobalStandaloneSearchShellClient({
     if (!main) return undefined;
 
     const onScrollCapture = (event: Event) => {
+      if (!window.matchMedia(phoneScrollMediaQuery).matches) return;
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
@@ -572,6 +521,51 @@ function GlobalStandaloneSearchShellClient({
     return () => main.removeEventListener("scroll", onScrollCapture, { capture: true });
   }, [mainElement, chromeVisible]);
 
+  // Phones scroll #main-content; sm+ intentionally leaves that element out of
+  // the vertical overflow chain so sticky descendants follow document scroll.
+  // Report the window separately at those widths rather than turning the page
+  // into a second desktop scroll container.
+  useEffect(() => {
+    if (!chromeVisible) return undefined;
+    const desktopMedia = window.matchMedia(desktopScrollMediaQuery);
+    let frame = 0;
+    const reportWindow = () => {
+      frame = 0;
+      if (!desktopMedia.matches) return;
+      const scrollingElement = document.scrollingElement ?? document.documentElement;
+      reportPhoneScrollHideRef.current({
+        offset: window.scrollY,
+        maxOffset: Math.max(0, scrollingElement.scrollHeight - window.innerHeight),
+        collapseBudget: readChromeCollapseBudget(mainElement ?? document.documentElement),
+        source: window,
+      });
+    };
+    const reportCurrentOwner = () => {
+      if (desktopMedia.matches) {
+        reportWindow();
+        return;
+      }
+      if (!mainElement) return;
+      reportPhoneScrollHideRef.current({
+        offset: mainElement.scrollTop,
+        maxOffset: Math.max(0, mainElement.scrollHeight - mainElement.clientHeight),
+        collapseBudget: readChromeCollapseBudget(mainElement),
+        source: mainElement,
+      });
+    };
+    const onScroll = () => {
+      if (desktopMedia.matches && !frame) frame = window.requestAnimationFrame(reportWindow);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    desktopMedia.addEventListener("change", reportCurrentOwner);
+    reportCurrentOwner();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      desktopMedia.removeEventListener("change", reportCurrentOwner);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [chromeVisible, mainElement]);
+
   if (!chromeVisible) {
     return (
       <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
@@ -587,227 +581,241 @@ function GlobalStandaloneSearchShellClient({
   }
 
   return (
-    <div
-      className={cn(
-        // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
-        // re-resolves dvh lazily when its toolbar collapses/expands (especially
-        // with body scrolling disabled like here), leaving a dead band between
-        // the clipped shell and the toolbar. Fixed insets track the live
-        // viewport through the whole transition, so content stays edge to edge.
-        "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
-        shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
-        shouldShowDesktopSidebar &&
-          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
-        shouldShowDesktopSidebar &&
-          (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
-      )}
-      style={
-        {
-          "--clinical-sidebar-width": effectiveSidebarWidth,
-          "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
-          "--mobile-composer-reserve": mobileComposerReserve,
-        } as CSSProperties
-      }
-    >
-      {shouldShowDesktopSidebar ? (
-        <div className="hidden md:block">
-          <div className="sticky top-0 flex h-dvh min-h-0">
-            <ClinicalDesktopSidebar
-              collapsed={effectiveSidebarCollapsed}
-              collapseLocked={isDifferentialPresentationWorkflow}
-              recentQueries={recentQueries}
-              identity={sidebarIdentity}
-              activeMode={searchMode}
-              showAccountLibrary={favouritesAccessible}
-              onCollapsedChange={setSidebarCollapsed}
-              onNewChat={startNewAnswerChat}
-              onPickRecent={pickRecentQuery}
-              onOpenGuide={openGuide}
-              onOpenSettings={openSettings}
-              onOpenAccount={openAccountProfile}
-              theme={theme}
-              onToggleTheme={toggleTheme}
-              onPrefetchApplications={prefetchApplications}
+    <SecondaryNavigationShellHostProvider host={secondaryNavigationHost}>
+      <div
+        className={cn(
+          // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
+          // re-resolves dvh lazily when its toolbar collapses/expands (especially
+          // with body scrolling disabled like here), leaving a dead band between
+          // the clipped shell and the toolbar. Fixed insets track the live
+          // viewport through the whole transition, so content stays edge to edge.
+          "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+          shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
+          shouldShowDesktopSidebar &&
+            "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
+          shouldShowDesktopSidebar &&
+            (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
+        )}
+        style={
+          {
+            "--clinical-sidebar-width": effectiveSidebarWidth,
+            "--clinical-sidebar-width-md": shouldShowDesktopSidebar ? "5.25rem" : "0px",
+            "--mobile-composer-reserve": mobileComposerReserve,
+          } as CSSProperties
+        }
+      >
+        {shouldShowDesktopSidebar ? (
+          <div className="hidden md:block">
+            <div className="sticky top-0 flex h-dvh min-h-0">
+              <ClinicalDesktopSidebar
+                collapsed={effectiveSidebarCollapsed}
+                collapseLocked={isDifferentialPresentationWorkflow}
+                recentQueries={recentQueries}
+                identity={sidebarIdentity}
+                activeMode={searchMode}
+                showAccountLibrary={favouritesAccessible}
+                onCollapsedChange={setSidebarCollapsed}
+                onNewChat={startNewAnswerChat}
+                onPickRecent={pickRecentQuery}
+                onOpenGuide={openGuide}
+                onOpenSettings={openSettings}
+                onOpenAccount={openAccountProfile}
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                onPrefetchApplications={prefetchApplications}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
+          <div className="isolate z-30 shrink-0 sm:sticky sm:top-0">
+            <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
+              <MasterSearchHeader
+                demoMode={clientDemoMode}
+                documents={[]}
+                documentTotal={0}
+                query={query}
+                searchMode={searchMode}
+                loading={false}
+                selectedDocumentIds={[]}
+                queryMode={queryMode}
+                scopeFilters={scopeFilters}
+                realDataReady
+                onQueryChange={setQuery}
+                onSearchModeChange={changeMode}
+                canAccessFavourites={favouritesAccessible}
+                onRequestAccountSetup={() => {
+                  setGuideOpen(false);
+                  setSettingsOpen(false);
+                  setMobileMenuOpen(false);
+                  openAccountSetup("favourites");
+                }}
+                onAsk={submitSearch}
+                onClearQuery={() => {
+                  setQuery("");
+                  if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
+                }}
+                onClearScope={() => undefined}
+                onQueryModeChange={setQueryMode}
+                onScopeFiltersChange={setScopeFilters}
+                onToggleScope={() => undefined}
+                onOpenUpload={() =>
+                  router.push(`${appModeHomeHref("documents", { focus: true, queryMode, scopeFilters })}#sources`)
+                }
+                onOpenEvidence={() => navigateToMode("answer", { focus: true })}
+                onNewChat={startNewAnswerChat}
+                onOpenMobileSidebar={() => setMobileMenuOpen(true)}
+                mobileLeadingAction={
+                  isInfoPage
+                    ? "back"
+                    : pathname === "/differentials" && searchMode === "differentials" && requestedQuery
+                      ? "back"
+                      : "menu"
+                }
+                onMobileBack={() => {
+                  if (isInfoPage) {
+                    if (pathname.startsWith("/services/")) {
+                      router.push("/services");
+                    } else if (pathname.startsWith("/forms/")) {
+                      router.push("/forms");
+                    } else if (pathname.startsWith("/medications/")) {
+                      router.push("/?mode=prescribing");
+                    } else if (pathname.startsWith("/differentials/")) {
+                      router.push("/differentials");
+                    } else if (pathname.startsWith("/dsm/")) {
+                      router.push("/dsm");
+                    } else if (pathname.startsWith("/specifiers/")) {
+                      router.push("/specifiers");
+                    } else if (pathname.startsWith("/formulation/")) {
+                      router.push("/formulation");
+                    } else if (pathname.startsWith("/therapy-compass/")) {
+                      router.push("/therapy-compass");
+                    } else if (pathname.startsWith("/factsheets/")) {
+                      router.push("/factsheets");
+                    } else if (pathname.startsWith("/documents/")) {
+                      router.push("/documents/search");
+                    } else {
+                      router.back();
+                    }
+                  } else {
+                    setQuery("");
+                    navigateToMode(searchMode, { focus: true });
+                  }
+                }}
+                queryModeOptions={mockupQueryModeOptions}
+                queryInputRef={inputRef}
+                recentQueries={recentQueries}
+                commandScopes={commandScopes}
+                onCommandScopesChange={setCommandScopes}
+                onPickRecent={pickRecentQuery}
+                onCrossModeSearch={crossModeSearch}
+                headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
+                mobileSearchPlacement="bottom"
+                // Every phone dock is the compact single-row pill so content keeps
+                // maximum screen space (mode homes and result views alike).
+                mobileBottomSearchVariant="compact"
+                mobileBottomSearchAddonSlotId={
+                  differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+                }
+                desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
+                searchComposerVisible={shouldShowSearchComposer}
+                desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+                // Standalone mode homes keep the in-flow hero pill at every width,
+                // phones included — the composer sits in the middle of the hero and
+                // scrolls with the content, matching the answer home rather than
+                // docking to the bottom edge.
+                heroComposerBreakpoint="all"
+                // Phone uses #main-content and sm+ uses window scroll; both report
+                // into the same collapse state so mode/page navigation can stay at
+                // the viewport top after the universal chrome moves away.
+                hideOnScroll={{ strategy: "collapse", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }}
+                externalMenuOpen={mobileMenuOpen}
+                onBottomComposerHiddenChange={setBottomComposerHidden}
+                queryInputAutoFocus={searchParams.get("focus") === "1"}
+              />
+            </div>
+            <div ref={setSecondaryNavigationHost} />
+            <PageSecondaryNavigation
+              modeId={searchMode}
+              pathname={pathname}
+              hasSubmittedSearch={hasSubmittedModeSearch || isDocumentCommandSearchView}
+              onSearch={() => inputRef.current?.focus({ preventScroll: true })}
+              sticky={false}
             />
           </div>
-        </div>
-      ) : null}
 
-      <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
-        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
-          <MasterSearchHeader
-            demoMode={clientDemoMode}
-            documents={[]}
-            documentTotal={0}
-            query={query}
-            searchMode={searchMode}
-            loading={false}
-            selectedDocumentIds={[]}
-            queryMode={queryMode}
-            scopeFilters={scopeFilters}
-            realDataReady
-            onQueryChange={setQuery}
-            onSearchModeChange={changeMode}
-            canAccessFavourites={favouritesAccessible}
-            onRequestAccountSetup={() => {
-              setGuideOpen(false);
-              setSettingsOpen(false);
-              setMobileMenuOpen(false);
-              openAccountSetup("favourites");
-            }}
-            onAsk={submitSearch}
-            onClearQuery={() => {
-              setQuery("");
-              if (isStandaloneModeHome) navigateToMode(searchMode, { focus: true });
-            }}
-            onClearScope={() => undefined}
-            onQueryModeChange={setQueryMode}
-            onScopeFiltersChange={setScopeFilters}
-            onToggleScope={() => undefined}
-            onOpenUpload={() =>
-              router.push(`${appModeHomeHref("documents", { focus: true, queryMode, scopeFilters })}#sources`)
-            }
-            onOpenEvidence={() => navigateToMode("answer", { focus: true })}
-            onNewChat={startNewAnswerChat}
-            onOpenMobileSidebar={() => setMobileMenuOpen(true)}
-            mobileLeadingAction={
-              isInfoPage
-                ? "back"
-                : pathname === "/differentials" && searchMode === "differentials" && requestedQuery
-                  ? "back"
-                  : "menu"
-            }
-            onMobileBack={() => {
-              if (isInfoPage) {
-                if (pathname.startsWith("/services/")) {
-                  router.push("/services");
-                } else if (pathname.startsWith("/forms/")) {
-                  router.push("/forms");
-                } else if (pathname.startsWith("/medications/")) {
-                  router.push("/?mode=prescribing");
-                } else if (pathname.startsWith("/differentials/")) {
-                  router.push("/differentials");
-                } else if (pathname.startsWith("/dsm/")) {
-                  router.push("/dsm");
-                } else if (pathname.startsWith("/specifiers/")) {
-                  router.push("/specifiers");
-                } else if (pathname.startsWith("/formulation/")) {
-                  router.push("/formulation");
-                } else if (pathname.startsWith("/therapy-compass/")) {
-                  router.push("/therapy-compass");
-                } else if (pathname.startsWith("/factsheets/")) {
-                  router.push("/factsheets");
-                } else if (pathname.startsWith("/documents/")) {
-                  router.push("/documents/search");
-                } else {
-                  router.back();
-                }
-              } else {
-                setQuery("");
-                navigateToMode(searchMode, { focus: true });
-              }
-            }}
-            queryModeOptions={mockupQueryModeOptions}
-            queryInputRef={inputRef}
-            recentQueries={recentQueries}
-            commandScopes={commandScopes}
-            onCommandScopesChange={setCommandScopes}
-            onPickRecent={pickRecentQuery}
-            onCrossModeSearch={crossModeSearch}
-            headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
-            mobileSearchPlacement="bottom"
-            // Every phone dock is the compact single-row pill so content keeps
-            // maximum screen space (mode homes and result views alike).
-            mobileBottomSearchVariant="compact"
-            mobileBottomSearchAddonSlotId={
-              differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
-            }
-            desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
-            searchComposerVisible={shouldShowSearchComposer}
-            desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            // Standalone mode homes keep the in-flow hero pill at every width,
-            // phones included — the composer sits in the middle of the hero and
-            // scrolls with the content, matching the answer home rather than
-            // docking to the bottom edge.
-            heroComposerBreakpoint="all"
-            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
-            // collapses the header/composer to hand space back to content.
-            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
-            onBottomComposerHiddenChange={setBottomComposerHidden}
-            queryInputAutoFocus={searchParams.get("focus") === "1"}
-          />
-        </div>
-
-        <div
-          id="main-content"
-          ref={mainRefCallback}
-          tabIndex={-1}
-          onScroll={handleMainScroll}
-          data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
-          className={cn(
-            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
-            // auto, which turns #main-content into the sticky scrollport while the
-            // window does the actual scrolling — silently disabling every
-            // position:sticky descendant (e.g. the document viewer rail).
-            // Phone: keep a block formatting scrollport (not a column flex). A
-            // flex-1 child overflowed past a sibling spacer without extending
-            // scrollHeight, which parked long pages under the visible dock.
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
-            // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
-            // can simulate insets without depending on env() in Chromium.
-            !reservesFloatingComposer
-              ? "sm:pb-8"
-              : searchMode === "answer"
-                ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
-                : useCompactBottomSearch
-                  ? "sm:pb-8"
-                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
-          )}
-        >
-          {/*
+          <div
+            id="main-content"
+            ref={mainRefCallback}
+            tabIndex={-1}
+            onScroll={handleMainScroll}
+            data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+            className={cn(
+              // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
+              // auto, which turns #main-content into the sticky scrollport while the
+              // window does the actual scrolling — silently disabling every
+              // position:sticky descendant (e.g. the document viewer rail).
+              // Phone: keep a block formatting scrollport (not a column flex). A
+              // flex-1 child overflowed past a sibling spacer without extending
+              // scrollHeight, which parked long pages under the visible dock.
+              "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
+              // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
+              // can simulate insets without depending on env() in Chromium.
+              !reservesFloatingComposer
+                ? "sm:pb-8"
+                : searchMode === "answer"
+                  ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
+                  : useCompactBottomSearch
+                    ? "sm:pb-8"
+                    : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
+            )}
+          >
+            {/*
             Phone dock clearance lives on this inner pad (not #main-content):
             padding on the scrollport itself is omitted from scrollHeight in some
             flex/overflow combinations. The inner block box includes padding in
             its height, so end-of-page content clears the visible dock.
           */}
-          <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
-            <ClientHydrationBoundary
-              fallback={<div className="min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden" aria-hidden />}
-            >
-              <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
-            </ClientHydrationBoundary>
+            <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
+              <ClientHydrationBoundary
+                fallback={<div className="min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden" aria-hidden />}
+              >
+                <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
+              </ClientHydrationBoundary>
+            </div>
           </div>
         </div>
-      </div>
 
-      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        identity={sidebarIdentity}
-        onSignOut={auth.signOut}
-        onOpenGuide={openGuide}
-      />
-      <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
-      <ClinicalMobileSidebar
-        open={mobileMenuOpen}
-        // The workflow header keeps its menu trigger past md, so the drawer
-        // must stay available until the locked desktop rail takes over at lg.
-        hiddenFrom={isDifferentialPresentationWorkflow ? "lg" : "md"}
-        recentQueries={recentQueries}
-        identity={sidebarIdentity}
-        activeMode={searchMode}
-        showAccountLibrary={favouritesAccessible}
-        onOpenChange={setMobileMenuOpen}
-        onNewChat={startNewAnswerChat}
-        onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-        onPrefetchApplications={prefetchApplications}
-      />
-    </div>
+        <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
+        <SettingsDialog
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          identity={sidebarIdentity}
+          onSignOut={auth.signOut}
+          onOpenGuide={openGuide}
+        />
+        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
+        <ClinicalMobileSidebar
+          open={mobileMenuOpen}
+          // The workflow header keeps its menu trigger past md, so the drawer
+          // must stay available until the locked desktop rail takes over at lg.
+          hiddenFrom={isDifferentialPresentationWorkflow ? "lg" : "md"}
+          recentQueries={recentQueries}
+          identity={sidebarIdentity}
+          activeMode={searchMode}
+          showAccountLibrary={favouritesAccessible}
+          onOpenChange={setMobileMenuOpen}
+          onNewChat={startNewAnswerChat}
+          onPickRecent={pickRecentQuery}
+          onOpenGuide={openGuide}
+          onOpenSettings={openSettings}
+          onOpenAccount={openAccountProfile}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          onPrefetchApplications={prefetchApplications}
+        />
+      </div>
+    </SecondaryNavigationShellHostProvider>
   );
 }

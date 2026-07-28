@@ -21,7 +21,6 @@ import {
   SpecifierFamilyBadge,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -101,10 +100,12 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
     <SpecifierPageShell>
       <div className="grid gap-3">
         <SpecifierBreadcrumbs current={record.shortName} />
-        <SpecifierSubnav active="search" />
       </div>
 
-      <section className="grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <section
+        id="specifier-overview"
+        className="scroll-mt-20 grid gap-5 border-b border-[color:var(--border)] pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end"
+      >
         <div className="grid gap-4 sm:grid-cols-[4rem_minmax(0,1fr)] sm:items-start">
           <span className="grid h-14 w-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-16 sm:w-16">
             <Tags className="h-7 w-7" aria-hidden />
@@ -158,11 +159,13 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="grid min-w-0 gap-5">
-          <SectionHeading
-            eyebrow="Fit and exclusions"
-            title="Make the specifier earn its place"
-            body="Start with the deciding signal, then test chronology, competing explanations, and the effect on diagnostic wording."
-          />
+          <div id="specifier-fit" className="scroll-mt-20">
+            <SectionHeading
+              eyebrow="Fit and exclusions"
+              title="Make the specifier earn its place"
+              body="Start with the deciding signal, then test chronology, competing explanations, and the effect on diagnostic wording."
+            />
+          </div>
 
           <section className={cn(specifierCard, "overflow-hidden")}>
             <GuidanceSection icon={Check} title="When this fits" items={record.fit} tone="success" open />
@@ -175,7 +178,7 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
             />
           </section>
 
-          <section className={cn(specifierCard, "grid gap-4 p-4 sm:p-5")}>
+          <section id="specifier-wording" className={cn(specifierCard, "scroll-mt-20 grid gap-4 p-4 sm:p-5")}>
             <div className="flex items-start gap-3">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                 <Route className="h-5 w-5" aria-hidden />
@@ -245,7 +248,9 @@ export function SpecifierRecordPage({ record }: { record: SpecifierRecord }) {
         </aside>
       </div>
 
-      <SpecifierSafetyNote />
+      <div id="specifier-evidence" className="scroll-mt-20">
+        <SpecifierSafetyNote />
+      </div>
     </SpecifierPageShell>
   );
 }

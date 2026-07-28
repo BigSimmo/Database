@@ -84,6 +84,7 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import {
   resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
@@ -377,11 +378,11 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
-  // Answer mode hides the glass header at every breakpoint (all-breakpoints
-  // overlay); other modes keep the phone-only collapse, so the reporter only
-  // widens past the phone media gate while in answer mode.
-  const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  // Every mode reports the dashboard's owned scrollport at every breakpoint.
+  // Answer translates an overlay; other modes collapse their in-flow chrome.
+  const phoneScrollHide = useScrollHideReporter(false, true);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  const [headerChromeHidden, setHeaderChromeHidden] = useState(false);
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
   reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
@@ -3407,14 +3408,15 @@ export function ClinicalDashboard({
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
-          // modes keep the phone-only collapse (their sm+ composer renders
-          // in-flow below the header, which an absolute header would bury).
+          // modes collapse their in-flow header/composer at every width.
           hideOnScroll={
             searchMode === "answer"
               ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
-              : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
+              : { strategy: "collapse", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
           }
           onBottomComposerHiddenChange={setBottomComposerHidden}
+          onHeaderChromeHiddenChange={setHeaderChromeHidden}
+          externalMenuOpen={mobileSidebarOpen}
         />
 
         <main
@@ -3453,6 +3455,15 @@ export function ClinicalDashboard({
           )}
         >
           <h1 className="sr-only">Clinical Guide</h1>
+          <PageSecondaryNavigation
+            modeId={searchMode}
+            pathname="/"
+            hasSubmittedSearch={Boolean(modeSearchSubmitted || answer || latestAnswerQuery)}
+            onSearch={() => composerInputRef.current?.focus({ preventScroll: true })}
+            stickyTop={
+              searchMode === "answer" && !headerChromeHidden ? "calc(4rem + max(0.5rem, env(safe-area-inset-top)))" : 0
+            }
+          />
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the

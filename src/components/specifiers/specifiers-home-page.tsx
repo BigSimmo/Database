@@ -23,7 +23,6 @@ import {
   SpecifierMatchCard,
   SpecifierPageShell,
   SpecifierSafetyNote,
-  SpecifierSubnav,
   specifierCard,
 } from "@/components/specifiers/specifier-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
@@ -252,7 +251,6 @@ function SpecifierResults({ query }: { query: string }) {
     <SpecifierPageShell>
       <div className="grid gap-3">
         <SpecifierBreadcrumbs />
-        <SpecifierSubnav active="search" />
       </div>
 
       <header className="grid gap-1 border-b border-[color:var(--border)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-3 sm:pb-5">

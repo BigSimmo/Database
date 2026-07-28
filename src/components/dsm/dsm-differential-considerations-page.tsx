@@ -87,7 +87,10 @@ export function DsmDifferentialConsiderationsPage({
       />
 
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
-        <section className="rounded-xl border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 p-3 sm:flex sm:items-center sm:justify-between sm:gap-4">
+        <section
+          id="dsm-differential-overview"
+          className="scroll-mt-20 rounded-xl border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/40 p-3 sm:flex sm:items-center sm:justify-between sm:gap-4"
+        >
           <div className="flex items-start gap-2.5">
             <Scale className="mt-0.5 h-5 w-5 shrink-0 text-[color:var(--info)]" aria-hidden />
             <div>
@@ -106,7 +109,7 @@ export function DsmDifferentialConsiderationsPage({
         <section aria-labelledby="dsm-differential-filters" className="grid gap-2">
           <h2
             id="dsm-differential-filters"
-            className="inline-flex items-center gap-2 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+            className="scroll-mt-20 inline-flex items-center gap-2 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
           >
             <ListFilter className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             Review lens
@@ -139,8 +142,9 @@ export function DsmDifferentialConsiderationsPage({
         {selected ? (
           <div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
             <section
+              id="dsm-differential-considerations"
               aria-label="Differential consideration list"
-              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+              className="scroll-mt-20 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
             >
               <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
                 {visible.length} {visible.length === 1 ? "consideration" : "considerations"}
@@ -190,7 +194,10 @@ export function DsmDifferentialConsiderationsPage({
               </div>
             </section>
 
-            <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] lg:sticky lg:top-20">
+            <article
+              id="dsm-differential-clarify"
+              className="scroll-mt-20 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] lg:sticky lg:top-20"
+            >
               <header className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-4">
                 <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
                   Differential consideration

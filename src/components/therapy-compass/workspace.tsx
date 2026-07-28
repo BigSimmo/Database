@@ -8,7 +8,7 @@ import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 
 import { TcProvider, useTcBindings } from "./bindings";
 import { accentControl } from "./controls";
-import { TherapyCompassNav } from "./nav";
+import { TherapyCompassNav, TherapyInformationNavigation } from "./nav";
 
 function TherapyCompassFooter() {
   return (
@@ -71,11 +71,22 @@ function TherapyCompassMain({
 export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isHome = pathname === "/therapy-compass";
+  const informationKind = pathname.endsWith("/brief")
+    ? "brief"
+    : pathname.endsWith("/sheet")
+      ? "sheet"
+      : /^\/therapy-compass\/[^/]+$/.test(pathname)
+        ? "detail"
+        : null;
 
   return (
     <TcProvider>
       <div className={`tc-root tc-workspace-006${isHome ? " tc-root--home" : ""}`}>
-        {isHome ? null : <TherapyCompassNav />}
+        {isHome ? null : informationKind ? (
+          <TherapyInformationNavigation kind={informationKind} />
+        ) : (
+          <TherapyCompassNav />
+        )}
         <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
           {children}
         </TherapyCompassMain>

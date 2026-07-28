@@ -47,39 +47,6 @@ export function FormulationBreadcrumbs({ current }: { current?: string }) {
   );
 }
 
-export function FormulationSubnav({ active }: { active: "search" | "builder" | "compare" | "map" }) {
-  const items = [
-    { id: "search" as const, label: "Find mechanisms", shortLabel: "Find", href: "/formulation" },
-    { id: "builder" as const, label: "Build formulation", shortLabel: "Build", href: "/formulation/builder" },
-    { id: "compare" as const, label: "Compare", shortLabel: "Compare", href: "/formulation/compare" },
-    { id: "map" as const, label: "Mechanism map", shortLabel: "Map", href: "/formulation/map" },
-  ];
-
-  return (
-    <nav
-      aria-label="Formulation tools"
-      className="polished-scroll flex max-w-full gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {items.map((item) => (
-        <Link
-          key={item.id}
-          href={item.href}
-          aria-current={active === item.id ? "page" : undefined}
-          className={cn(
-            "inline-flex min-h-tap shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm",
-            active === item.id
-              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
-          )}
-        >
-          <span className="sm:hidden">{item.shortLabel}</span>
-          <span className="hidden sm:inline">{item.label}</span>
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
 export function MechanismDomainChips({ values, limit }: { values: string[]; limit?: number }) {
   const visible = typeof limit === "number" ? values.slice(0, limit) : values;
   return (

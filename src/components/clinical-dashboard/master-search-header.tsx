@@ -187,6 +187,8 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
+  onHeaderChromeHiddenChange,
+  externalMenuOpen = false,
   canAccessFavourites = false,
   onRequestAccountSetup,
 }: {
@@ -249,7 +251,7 @@ export function MasterSearchHeader({
   mobileBottomSearchAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
-  /** Phone-only hide-on-scroll for the universal header and bottom search dock.
+  /** Hide-on-scroll for the universal header and phone bottom search dock.
    *  "overlay" translates the sticky header away (host scrolls the document,
    *  content already flows beneath); "collapse" also releases the header's
    *  layout space (host keeps the header above an internally scrolling element).
@@ -258,17 +260,17 @@ export function MasterSearchHeader({
    *  `useScrollHideReporter` wired to that element's scroll events. */
   hideOnScroll?: {
     strategy: "overlay" | "collapse";
-    /**
-     * Overlay-only: apply the hide/reveal (and the out-of-flow absolute header)
-     * at every breakpoint instead of phones only. The host must reserve
-     * matching top padding on its scroll container.
-     */
+    /** Apply hide/reveal at every breakpoint. Overlay hosts must reserve
+     * matching top padding; collapse hosts release their in-flow chrome. */
     allBreakpoints?: boolean;
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
   /** Notify hosts when the phone bottom composer is actually hidden (not merely scrolled). */
   onBottomComposerHiddenChange?: (hidden: boolean) => void;
+  onHeaderChromeHiddenChange?: (hidden: boolean) => void;
+  /** Keeps universal chrome visible while a host-owned header menu is open. */
+  externalMenuOpen?: boolean;
   /**
    * Favourites are account-scoped. When false, omit Favourites from the mode menu
    * and route favourites actions to account setup instead of switching mode.
@@ -294,6 +296,9 @@ export function MasterSearchHeader({
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
+  const hideStrategy = hideOnScroll?.strategy;
+  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
+  const collapseAllBreakpoints = hideStrategy === "collapse" && Boolean(hideOnScroll?.allBreakpoints);
   const isServicesMode = searchMode === "services";
   const isMobileBottomComposer = searchComposerVisible && mobileSearchPlacement === "bottom" && !isAnswerFooterComposer;
   const isHeroDesktopComposer = desktopSearchPlacement === "hero" && isMobileBottomComposer;
@@ -338,9 +343,8 @@ export function MasterSearchHeader({
   // (no flash while the portal mounts); once it flips true the inline composer
   // renders, so the search can never vanish from the page at any width.
   const [desktopHomeComposerFallback, setDesktopHomeComposerFallback] = useState(false);
-  // Phone-only hide-on-scroll: never hide while a header-owned surface is open
-  // or while focus sits inside the header chrome (keyboard users must not tab
-  // into invisible controls).
+  // Never hide while a header-owned surface is open or focus sits inside the
+  // universal chrome (keyboard users must not tab into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const internalScrollHidden = useHideOnScroll({
@@ -348,7 +352,14 @@ export function MasterSearchHeader({
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
-    scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
+    scrollHidden &&
+    !modeMenuOpen &&
+    !actionMenuOpen &&
+    !commandDropdownOpen &&
+    !scopeOpen &&
+    !scopeSheetOpen &&
+    !externalMenuOpen &&
+    !headerChromeFocused;
   // Mode homes portal the composer into the hero slot. With "all" the hero owns
   // every width (the answer home keeps its in-flow pill on phones); "sm-up"
   // hero hosts hand phones the bottom dock instead.
@@ -368,11 +379,16 @@ export function MasterSearchHeader({
     !commandDropdownOpen &&
     !scopeOpen &&
     !scopeSheetOpen &&
+    !externalMenuOpen &&
     !composerChromeFocused;
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
   }, [bottomComposerHidden, onBottomComposerHiddenChange]);
+
+  useEffect(() => {
+    onHeaderChromeHiddenChange?.(headerChromeHidden);
+  }, [headerChromeHidden, onHeaderChromeHiddenChange]);
 
   useEffect(() => {
     if (!loading || !commandDropdownOpen) return undefined;
@@ -1400,10 +1416,17 @@ export function MasterSearchHeader({
                           "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
                           isHeroDesktopComposer
                             ? "sm:hidden"
-                            : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                            : collapseAllBreakpoints
+                              ? "sm:relative sm:top-auto"
+                              : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
                         ),
                   )
-                : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+                : cn(
+                    "universal-top-search-edge z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+                    collapseAllBreakpoints
+                      ? "relative top-auto"
+                      : "sticky top-[calc(4.75rem+env(safe-area-inset-top))]",
+                  ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -1644,11 +1667,9 @@ export function MasterSearchHeader({
     );
   }
 
-  const hideStrategy = hideOnScroll?.strategy;
   // Overlay hosts that opt into all breakpoints take the header fully out of
   // flow (absolute over the scrolling <main>, which reserves matching top
   // padding) so content frosts under the glass bar at every width.
-  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
@@ -1684,7 +1705,9 @@ export function MasterSearchHeader({
           // an ancestor of the header. Legacy overlay hosts keep sticky (they ride
           // document scroll) and can translate away with zero layout shift.
           hideStrategy === "collapse"
-            ? "max-sm:relative sm:sticky sm:top-0"
+            ? collapseAllBreakpoints
+              ? "relative"
+              : "max-sm:relative sm:sticky sm:top-0"
             : overlayAllBreakpoints
               ? "absolute inset-x-0 top-0"
               : "sticky top-0",
@@ -1906,32 +1929,48 @@ export function MasterSearchHeader({
   );
 
   if (hideStrategy === "collapse") {
-    // Collapse hide-on-scroll (phones): the host renders the header above an
+    // Collapse hide-on-scroll: the host renders the header above an
     // internally scrolling element, so hiding must also release the header's
     // layout space. A 1fr -> 0fr grid row animates the collapse without any
     // height measurement; the bottom-anchored inner track makes the chrome
     // slide up out of the viewport top. Fixed-position composers (answer
     // footer, mobile bottom search) escape the wrapper naturally because it
-    // never carries a transform, and everything is inert from sm up.
+    // never carries a transform. Hosts may opt into the same behavior at every
+    // breakpoint when their scroll reporter covers the desktop scroll owner.
     return (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
         data-testid="universal-header-collapse"
         className={cn(
-          "max-sm:grid max-sm:transition-[grid-template-rows] motion-reduce:transition-none",
+          collapseAllBreakpoints
+            ? "grid transition-[grid-template-rows]"
+            : "max-sm:grid max-sm:transition-[grid-template-rows]",
+          "motion-reduce:transition-none",
           headerChromeHidden
-            ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-            : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-          headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+            ? collapseAllBreakpoints
+              ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+              : "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+            : collapseAllBreakpoints
+              ? "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+          headerChromeHidden
+            ? collapseAllBreakpoints
+              ? "[grid-template-rows:0fr]"
+              : "max-sm:[grid-template-rows:0fr]"
+            : collapseAllBreakpoints
+              ? "[grid-template-rows:1fr]"
+              : "max-sm:[grid-template-rows:1fr]",
         )}
         {...chromeFocusProps}
       >
         <div
           className={cn(
-            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            collapseAllBreakpoints
+              ? "flex min-h-0 flex-col justify-end"
+              : "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
             // Clip only while hiding so the edge-glass-header gradient that
             // extends below the header keeps painting when the chrome is shown.
-            headerChromeHidden && "max-sm:overflow-hidden",
+            headerChromeHidden && (collapseAllBreakpoints ? "overflow-hidden" : "max-sm:overflow-hidden"),
           )}
         >
           {headerAndComposer}

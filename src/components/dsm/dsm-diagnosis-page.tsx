@@ -68,7 +68,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
             <section
               id="criteria"
               aria-labelledby="criteria-title"
-              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+              className="scroll-mt-20 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
             >
               <div className="flex items-start gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-3 sm:px-4">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
@@ -98,8 +98,9 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
 
             {diagnosis.key_features.length > 0 && diagnosis.criteria_display.length > 0 ? (
               <section
+                id="key-features"
                 aria-labelledby="key-features-title"
-                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+                className="scroll-mt-20 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
               >
                 <div className="flex items-center gap-2">
                   <Signpost className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -124,7 +125,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
             <section
               id="specifiers"
               aria-labelledby="specifiers-title"
-              className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+              className="scroll-mt-20 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
             >
               <div className="flex items-center gap-2 border-b border-[color:var(--border)] px-4 py-3">
                 <SlidersHorizontal className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -159,7 +160,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
             <section
               id="documentation"
               aria-labelledby="documentation-title"
-              className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
+              className="scroll-mt-20 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
             >
               <div className="flex items-center gap-2">
                 <MessageSquareText className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -219,7 +220,10 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
               </div>
             </section>
 
-            <section className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+            <section
+              id="record-summary"
+              className="scroll-mt-20 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+            >
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                 <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Record summary</h2>

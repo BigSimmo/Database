@@ -77,7 +77,6 @@ import {
   ClinicalSummaryProfile,
   DocumentImage,
   DocumentSectionSummary,
-  DocumentViewerAnchors,
   FormattedHighYieldSummary,
   IndexedTextPanel,
   PinnedSourceEvidence,
@@ -1330,8 +1329,6 @@ export function DocumentViewer({
         ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text" className="lg:hidden" />
-
           <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
@@ -1491,7 +1488,6 @@ export function DocumentViewer({
           ) : null}
 
           <div className="hidden lg:block">
-            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" textHref="#source-text" className="mb-3" />
             <PinnedSourceEvidence
               loading={effectiveLoadingDocument}
               chunk={selectedChunk}

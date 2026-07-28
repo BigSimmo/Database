@@ -40,7 +40,7 @@ export function DetailScreen() {
       <div className="tc-stack-sm tc-screens-detail-screen-003">
         <div className="tc-screens-detail-screen-004">
           {/* HERO */}
-          <div className={`${heroCard} tc-detail-hero`}>
+          <div id="therapy-overview" className={`${heroCard} tc-detail-hero scroll-mt-20`}>
             <div className="tc-screens-detail-screen-005">
               <StatusBadge status={t.reviewStatus} />
               {t.complexity ? (
@@ -60,27 +60,33 @@ export function DetailScreen() {
 
           {/* QUICK TILES */}
           <div className="tc-mobile-stack tc-screens-detail-screen-012">
-            <Tile
-              icon={ShieldIcon}
-              eyebrow="USE WHEN"
-              tone="accent"
-              text={summarise(t.bestUsedFor || t.indications, 1) || "See clinical record."}
-            />
-            <Tile
-              icon={AlertIcon}
-              eyebrow="AVOID / MODIFY"
-              tone="warning"
-              text={summarise(t.contraindicationsOrCautions, 1) || "Confirm suitability against source before use."}
-            />
-            <Tile
-              icon={ClockIcon}
-              eyebrow="DELIVERY"
-              tone="info"
-              text={
-                [t.timeRequired, t.sessionLength].filter(Boolean).join(" · ") ||
-                (t.briefInterventionAvailable ? "Brief version available." : "See delivery notes.")
-              }
-            />
+            <div id="therapy-use" className="scroll-mt-20">
+              <Tile
+                icon={ShieldIcon}
+                eyebrow="USE WHEN"
+                tone="accent"
+                text={summarise(t.bestUsedFor || t.indications, 1) || "See clinical record."}
+              />
+            </div>
+            <div id="therapy-safety" className="scroll-mt-20">
+              <Tile
+                icon={AlertIcon}
+                eyebrow="AVOID / MODIFY"
+                tone="warning"
+                text={summarise(t.contraindicationsOrCautions, 1) || "Confirm suitability against source before use."}
+              />
+            </div>
+            <div id="therapy-delivery" className="scroll-mt-20">
+              <Tile
+                icon={ClockIcon}
+                eyebrow="DELIVERY"
+                tone="info"
+                text={
+                  [t.timeRequired, t.sessionLength].filter(Boolean).join(" · ") ||
+                  (t.briefInterventionAvailable ? "Brief version available." : "See delivery notes.")
+                }
+              />
+            </div>
             <Tile
               icon={InfoIcon}
               eyebrow="EVIDENCE / SOURCE"
@@ -167,7 +173,7 @@ export function DetailScreen() {
           </div>
 
           {b.relatedForSelected.length ? (
-            <div className={`${card} tc-detail-rail-card`}>
+            <div id="therapy-related" className={`${card} tc-detail-rail-card scroll-mt-20`}>
               <div className="tc-screens-detail-screen-020">Related therapies</div>
               <div className="tc-screens-detail-screen-021">
                 {b.relatedForSelected.map((r, i, arr) => (
@@ -188,7 +194,7 @@ export function DetailScreen() {
             </div>
           ) : null}
 
-          <div className="tc-screens-detail-screen-026">
+          <div id="therapy-sources" className="tc-screens-detail-screen-026 scroll-mt-20">
             <div className="tc-screens-detail-screen-027">
               <DatabaseIcon size={16} className="tc-screens-detail-screen-028" />
               Source provenance

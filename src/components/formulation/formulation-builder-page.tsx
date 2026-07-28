@@ -21,7 +21,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   SessionPrivacyNote,
   formulationCard,
@@ -275,7 +274,6 @@ export function FormulationBuilderPage({
     <FormulationPageShell>
       <div className="grid gap-3">
         <FormulationBreadcrumbs current="Build formulation" />
-        <FormulationSubnav active="builder" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">

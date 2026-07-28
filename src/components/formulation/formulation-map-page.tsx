@@ -8,7 +8,6 @@ import {
   FormulationBreadcrumbs,
   FormulationPageShell,
   FormulationSafetyNote,
-  FormulationSubnav,
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -25,7 +24,6 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
     <FormulationPageShell>
       <div className="grid gap-3">
         <FormulationBreadcrumbs current="Mechanism map" />
-        <FormulationSubnav active="map" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5">
