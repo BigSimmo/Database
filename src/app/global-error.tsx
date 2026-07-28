@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces
@@ -12,10 +12,27 @@ import { useEffect, useRef } from "react";
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error]);
+
+  const handleCopyDiagnostics = () => {
+    const diagnosticPayload = {
+      name: error.name,
+      message: error.message,
+      digest: error.digest,
+      url: typeof window !== "undefined" ? window.location.href : "unknown",
+      userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
+      timestamp: new Date().toISOString(),
+    };
+    navigator.clipboard.writeText(JSON.stringify(diagnosticPayload, null, 2)).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   return (
     <html lang="en">
@@ -115,6 +132,26 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               }}
             >
               Reload page
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyDiagnostics}
+              style={{
+                cursor: "pointer",
+                borderRadius: "0.5rem",
+                border: "1px solid ButtonText",
+                backgroundColor: "ButtonFace",
+                color: "ButtonText",
+                padding: "0.625rem 1rem",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+              }}
+            >
+              {copied ? "Copied Diagnostics" : "Copy Diagnostics"}
             </button>
           </div>
         </div>

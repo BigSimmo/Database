@@ -41,6 +41,7 @@ import {
   clinicalDivider,
   cn,
   codeText,
+  EmptyState,
   eyebrowText,
   floatingControl,
   glassOverlaySurface,
@@ -1618,7 +1619,7 @@ export function DocumentViewer({
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading extracted tables" />
               ) : clinicalImages.length === 0 ? (
-                <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
+                <EmptyState title="No tables or diagrams" body="No indexed clinically useful tables or diagrams." tone="neutral" />
               ) : (
                 clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
               )}

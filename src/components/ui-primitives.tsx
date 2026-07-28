@@ -487,7 +487,7 @@ export function EmptyState({
   title,
   body,
   actions,
-  live,
+  live = "polite",
   tone = "neutral",
   testId,
 }: {
