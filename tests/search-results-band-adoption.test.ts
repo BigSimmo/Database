@@ -20,6 +20,13 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const COMPONENTS_DIR = path.join(REPO_ROOT, "src", "components");
 const APP_DIR = path.join(REPO_ROOT, "src", "app");
 const BAND_IDENTIFIER = "SearchResultsHeaderBand";
+/** A rendered element, not a bare mention. Matching the identifier alone counts
+    an import, a comment, or a dead reference as adoption, so a production route
+    could drop the band while this gate stayed green. */
+const BAND_ELEMENT = `<${BAND_IDENTIFIER}`;
+function rendersBand(source: string) {
+  return source.includes(BAND_ELEMENT);
+}
 
 /** Mockups are design scratch and exempt from production wiring gates. */
 function isMockupPath(relativePath: string) {
@@ -85,7 +92,7 @@ describe("search results band adoption", () => {
     const mounted = new Set<string>();
     for (const { abs } of productionComponents) {
       const source = readFileSync(abs, "utf8");
-      if (!source.includes(BAND_IDENTIFIER)) continue;
+      if (!rendersBand(source)) continue;
       for (const modeId of collectBandModeIds(source)) mounted.add(modeId);
     }
 
@@ -121,7 +128,7 @@ describe("search results band adoption", () => {
       const key = rel.replaceAll(path.sep, "/");
       if (BAND_ROUTE_ALLOWLIST.has(key)) continue;
       const routeSource = readFileSync(abs, "utf8");
-      if (routeSource.includes(BAND_IDENTIFIER)) continue;
+      if (rendersBand(routeSource)) continue;
       // One import hop: a route almost always delegates to a client component.
       const imported = [...routeSource.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
       const reaches = imported.some((specifier) =>
@@ -155,5 +162,22 @@ describe("search results band adoption", () => {
       "The band's forced-colors rules must sit inside the last @media (forced-colors: active) " +
         "block, or an earlier block at equal specificity will override them.",
     ).toBeGreaterThan(forcedColorsOpeners[forcedColorsOpeners.length - 1]);
+  });
+});
+
+describe("band adoption detection", () => {
+  // Negative fixture: importing or mentioning the identifier is not adoption.
+  // Without this, the gate above passes on a route that never mounts the band.
+  it("does not count an import, comment, or dead reference as a mount", () => {
+    const imported =
+      'import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";';
+    const mentioned = "// SearchResultsHeaderBand is rendered by the shell, not here.";
+    const referenced = "const Band = SearchResultsHeaderBand;";
+    const mounted = '<SearchResultsHeaderBand modeId="services" query={q} matchCount={0} />';
+
+    for (const source of [imported, mentioned, referenced]) {
+      expect(source.includes("<SearchResultsHeaderBand"), source.slice(0, 40)).toBe(false);
+    }
+    expect(mounted.includes("<SearchResultsHeaderBand")).toBe(true);
   });
 });

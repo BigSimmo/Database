@@ -168,8 +168,13 @@ export function SearchResultsHeaderBand({
   // defeats the whole invariant — the reader still sees a zero asserted about a
   // search that never ran. A filter over a result set that failed to load is
   // meaningless anyway, so the faulted band drops them entirely.
-  const pageControls = faulted ? null : filterControls;
-  const pageMobileControls = faulted ? null : mobileControls;
+  // `loading` means no trustworthy count exists yet, exactly like a fault: forms
+  // forces `displayedMatches` to [] until the registry is ready, so ResultTabs
+  // would assert "Forms 0" beneath a "Searching…" spine. `refetching` is
+  // deliberately excluded — there the prior count is still correct.
+  const countUntrusted = faulted || resolvedStatus === "loading";
+  const pageControls = countUntrusted ? null : filterControls;
+  const pageMobileControls = countUntrusted ? null : mobileControls;
   const hasUtilities =
     visibleScopes.length > 0 ||
     Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls);
