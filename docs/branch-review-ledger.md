@@ -1167,3 +1167,4 @@ Records before 2026-07-28 were written by hand and had drifted: 146 lines carrie
 | 2026-07-28 | pr-1326 | 9f93b1a56fa557e15fa1df8526d28d0b10bd1d21 | six-pr-consolidation | close-superseded: matcher evolved on main | diff-vs-main,merge-tree |
 | 2026-07-28 | cursor/pr-policy-caveman-docs-dc4e | e449eccc7e050736519588a89d2c35b2348e4380 | pr-1335 | docs-ready: caveman×pr-policy guidance | content-proofread |
 | 2026-07-28 | cursor/mode-secondary-navigation-dc4e | 3712edca0a4ea0638668d316c8696a695d180256 | pr-1336 | nav-port-ready; UI chrome gate pending | vitest-51+58+4186,tsc,eslint |
+| 2026-07-28 | cursor/pr-policy-caveman-docs-dc4e | c0fe85980b998a7790e99e4a0ab4a04c01934536 | pr-1335 | docs-ready: caveman×pr-policy + consolidation ledger | content-proofread,check:branch-review-ledger |
