@@ -47,7 +47,9 @@ export function FavouritesHub({
   demoMode: boolean;
   headingLevel?: 1 | 2;
 }) {
-  const savedRegistryFavourites = useSavedRegistryFavourites().items;
+  // Keep the status: discarding it makes a failed registry read indistinguishable
+  // from an empty library.
+  const { items: savedRegistryFavourites, status: savedRegistryStatus } = useSavedRegistryFavourites();
   const allFavouriteItems = useMemo(
     () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
     [demoMode, savedRegistryFavourites],
@@ -425,9 +427,24 @@ export function FavouritesHub({
               <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center">
                 <div>
                   <Search aria-hidden="true" className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" />
-                  <p className="font-semibold text-[color:var(--text-heading)]">No favourites match</p>
+                  {/* An empty list only means "no favourites" once the registry
+                      actually answered. While loading or faulted it means we could
+                      not look, and saying otherwise reads as data loss. */}
+                  <p className="font-semibold text-[color:var(--text-heading)]">
+                    {savedRegistryStatus === "ready"
+                      ? "No favourites match"
+                      : savedRegistryStatus === "loading"
+                        ? "Loading your favourites"
+                        : "Could not load your favourites"}
+                  </p>
                   <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                    Clear the composer text or choose another tab.
+                    {savedRegistryStatus === "ready"
+                      ? "Clear the composer text or choose another tab."
+                      : savedRegistryStatus === "loading"
+                        ? "Fetching your saved services and forms."
+                        : savedRegistryStatus === "unauthorized"
+                          ? "Your session expired. Sign in again to see your saved items."
+                          : "Your saved items could not be loaded. Try again shortly."}
                   </p>
                 </div>
               </div>

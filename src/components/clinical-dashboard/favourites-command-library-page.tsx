@@ -1237,7 +1237,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
 
-            {query.trim() && scopedItems.length === 0 ? (
+            {/* Only a successful read can say "no matches". While loading or
+                faulted an empty list means we could not look, not that the
+                library is empty; the band's fault panel reports that. */}
+            {query.trim() && scopedItems.length === 0 && favouritesRegistryStatus === "ready" ? (
               <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
             ) : (
               <FavouritesTable

@@ -122,7 +122,10 @@ export function SearchScreen() {
         }
       />
 
-      {b.loading ? (
+      {/* The band's fault panel owns the failure. Without this guard an error
+          also renders the empty state, so the page says both "we couldn't
+          search" and "nothing matched" at once. */}
+      {b.error ? null : b.loading ? (
         <LoadingState />
       ) : (
         <>

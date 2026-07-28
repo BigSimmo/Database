@@ -957,7 +957,10 @@ function DocumentSearchResultsPanelImpl({
       {/* When the ribbon is shown it owns this message in its fault panel. This
           standalone alert remains for the routes that render no ribbon, so the
           message is never lost. */}
-      {!showIdentityHeader && unavailableMessage ? (
+      {/* The ribbon only carries this message on the documents path; in record
+          mode its fault comes from the registry, so the notice must still
+          render or an auth/API/setup warning is reported nowhere. */}
+      {unavailableMessage && (showRecordMatches || !showIdentityHeader) ? (
         <div
           role="alert"
           className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 p-4 text-sm font-semibold leading-6 text-[color:var(--warning)]"

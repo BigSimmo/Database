@@ -994,8 +994,13 @@ function SearchResultsView({
           ))}
         </div>
       ) : /* A failed catalogue search is reported by the band's fault panel, which
-              also owns the retry copy; this section is now the empty state only. */
-      !best && !catalogFailed ? (
+              also owns the retry copy, so the whole body is suppressed here.
+              `catalogFailed` must short-circuit BEFORE the `!best` test: `best` is
+              `results[0] ?? null`, and a faulted search with no results would
+              otherwise fall through to the results grid, which dereferences
+              `best.id` / `best.kind` unconditionally and throws — on exactly the
+              state this component is meant to report truthfully. */
+      catalogFailed ? null : !best ? (
         <section
           data-testid="differentials-empty-results"
           className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"

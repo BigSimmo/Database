@@ -619,10 +619,10 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     const rail = await band.evaluate((node) => {
       const style = getComputedStyle(node);
-      return { width: style.borderTopWidth, color: style.borderTopColor, leftWidth: style.borderLeftWidth };
+      return { width: style.borderTopWidth, color: style.borderTopColor, leftColor: style.borderLeftColor };
     });
     expect(rail.width, "accent rail must be 2px, not the neutral 1px border").toBe("2px");
-    expect(rail.color, "accent rail must use the clinical accent, not --border").not.toBe(rail.leftWidth);
+    expect(rail.color, "accent rail must use the clinical accent, not --border").not.toBe(rail.leftColor);
     expect(rail.color).not.toBe("rgb(229, 231, 235)");
 
     // Under forced colors the rail survives as thickness, since --clinical-accent

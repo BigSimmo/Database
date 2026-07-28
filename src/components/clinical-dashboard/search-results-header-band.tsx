@@ -418,6 +418,9 @@ export function SearchResultsHeaderBand({
                     setRetrying(true);
                     try {
                       await onRetry();
+                    } catch {
+                      // The fault panel is already the failure surface; a rejected
+                      // retry leaves it in place rather than escaping unhandled.
                     } finally {
                       setRetrying(false);
                     }
