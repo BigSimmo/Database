@@ -254,7 +254,7 @@ export function DocumentManagementActions({
                 disabled={pending}
               />
             </label>
-            <p className={cn("truncate text-xs", textMuted)}>Original file: {document.file_name}</p>
+            <p className={cn("truncate text-xs min-w-0", textMuted)}>Original file: {document.file_name}</p>
             <div className="flex flex-wrap justify-end gap-2">
               <button type="button" className={floatingControl} onClick={closeDialog} disabled={pending}>
                 Cancel
