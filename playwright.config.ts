@@ -55,7 +55,8 @@ export default defineConfig({
     // claims the page, and serves every subsequent navigation — bypassing route
     // interception for navigations outright, and wedging Playwright-Firefox's
     // reload path under an active route (the two ui-smoke reload hangs in matrix
-    // run 4012). Only ui-pwa.spec.ts is meant to exercise the worker; it opts
+    // run 4012). Page routes also cannot intercept requests made by a controlling
+    // service worker. Only ui-pwa.spec.ts is meant to exercise the worker; it opts
     // back in with test.use({ serviceWorkers: "allow" }).
     serviceWorkers: "block",
   },
