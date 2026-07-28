@@ -12,8 +12,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 // Next heap when `npm run build` runs on the host. Skip in hosted CI and inside
 // container image builds — those environments often report ~7–8 GiB via
 // os.totalmem even when the build is expected to proceed.
-const runningInCi =
-  process.env.CI === "true" || process.env.CI === "1" || process.env.GITHUB_ACTIONS === "true";
+const runningInCi = process.env.CI === "true" || process.env.CI === "1" || process.env.GITHUB_ACTIONS === "true";
 const runningInContainer = fs.existsSync("/.dockerenv");
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
