@@ -12,7 +12,6 @@ import {
   DollarSign,
   ExternalLink,
   Phone,
-  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -23,7 +22,6 @@ import {
 import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
-import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
   MobileResultFilterControl,
@@ -634,7 +632,35 @@ export function ServicesNavigatorPage() {
             modeId="services"
             query={query}
             matchCount={displayedMatches.length}
-            loading={registryLoading}
+            // A blocked registry must not reach the band as "0 matches" — on this
+            // page that would assert there are no crisis services when the search
+            // never ran. The band renders no count while faulted.
+            status={
+              registryBlocked
+                ? registry.status === "unauthorized"
+                  ? "unauthorized"
+                  : "error"
+                : registryLoading
+                  ? "loading"
+                  : "ready"
+            }
+            faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load services"}
+            faultBody={
+              registry.status === "unauthorized"
+                ? "Your session expired. Sign in again to search private service records and referral pathways."
+                : "The services registry could not be loaded. Try again shortly."
+            }
+            onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+            faultAction={
+              registry.status === "unauthorized" ? (
+                <Link
+                  href="/"
+                  className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+                >
+                  Open account setup
+                </Link>
+              ) : undefined
+            }
             sortValue={sortValue}
             onSortChange={setSortValue}
             filterLabel="Quick service filters"
@@ -705,21 +731,9 @@ export function ServicesNavigatorPage() {
       {registryLoading ? (
         <SearchResultsSkeleton />
       ) : registryBlocked ? (
-        registry.status === "unauthorized" ? (
-          <ModeHomeStatusNotice
-            icon={ShieldAlert}
-            title="Session expired"
-            body="Your session expired. Sign in again to search private service records and referral pathways."
-            actionHref="/"
-            actionLabel="Open account setup"
-          />
-        ) : (
-          <ModeHomeStatusNotice
-            icon={ShieldAlert}
-            title="Could not load services"
-            body="The services registry could not be loaded. Try again shortly."
-          />
-        )
+        // The band itself now reports the fault, with the retry/sign-in action.
+        // Repeating it here would announce the same failure twice.
+        null
       ) : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
