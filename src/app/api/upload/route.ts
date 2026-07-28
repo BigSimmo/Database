@@ -234,9 +234,9 @@ export async function POST(request: Request) {
       content_hash: contentHash,
       metadata: {
         source_title: title,
-        publisher_code: canonicalAuthority ? (identityAuthority.code ?? canonicalAuthority.codes[0] ?? null) : null,
-        publisher: canonicalAuthority?.publisher ?? null,
-        jurisdiction: canonicalAuthority?.jurisdictions[0] ?? "Australia/WA",
+        publisher_code: null,
+        publisher: null,
+        jurisdiction: "Australia/WA",
         version: null,
         publication_date: null,
         review_date: null,
