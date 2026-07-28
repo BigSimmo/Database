@@ -28,7 +28,8 @@ function isPrototype(relativePath) {
   return (
     relativePath.includes("/mockups/") ||
     relativePath.includes("-mockup") ||
-    relativePath.includes("/favourites-page-mockups/")
+    relativePath.includes("/favourites-page-mockups/") ||
+    relativePath.includes("/calculator-mockups/")
   );
 }
 

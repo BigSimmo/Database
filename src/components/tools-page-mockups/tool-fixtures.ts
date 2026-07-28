@@ -1,14 +1,4 @@
-import {
-  Brain,
-  Calculator,
-  ClipboardList,
-  FileCheck2,
-  FileText,
-  Pill,
-  Search,
-  Star,
-  type LucideIcon,
-} from "lucide-react";
+import { Brain, ClipboardList, FileCheck2, FileText, Pill, Search, Star, type LucideIcon } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { toolCatalogRecordById } from "@/lib/tools-catalog";
 
@@ -106,15 +96,6 @@ const fixtureExtras: ToolFixtureExtras[] = [
     lastUsed: "Today, 9:10 AM",
     primaryAction: "Open",
     secondary: "Warning signs, coping, supports, means safety",
-  },
-  {
-    id: "calculators",
-    icon: Calculator,
-    area: "assessment",
-    status: "ready",
-    lastUsed: "Today, 9:20 AM",
-    primaryAction: "Open",
-    secondary: "Rating scales, severity bands, bedside scoring",
   },
   {
     id: "favourites",

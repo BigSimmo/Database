@@ -43,7 +43,7 @@ import {
   type AnswerMap,
   type DerivedCalculator,
 } from "./calculator-ui";
-import { CalculatorSheet } from "./calculator-sheet";
+import { CalculatorSheet } from "./popup-sheet-mockup";
 
 type DomainFilter = CalculatorDomain | "all";
 type SessionAnswers = Record<string, AnswerMap>;
@@ -137,7 +137,7 @@ function CalculatorComposer({
               type="button"
               onClick={() => onQuery("")}
               aria-label="Clear search"
-              className="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -201,7 +201,7 @@ function CalculatorTile({
       <span
         className={cn(
           "grid shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
-          compact ? "size-10" : "size-tap",
+          compact ? "size-10" : "size-11",
         )}
       >
         <Icon className={compact ? "size-icon-lg" : "size-icon-xl"} aria-hidden="true" />
@@ -456,7 +456,7 @@ const filterChips: { id: DomainFilter; label: string }[] = [
   ...domainOrder.map((domain) => ({ id: domain as DomainFilter, label: domainLabels[domain] })),
 ];
 
-export function CalculatorsSearchPage() {
+export function CalculatorsSearchPageMockup() {
   const [query, setQuery] = useState("");
   const [domain, setDomain] = useState<DomainFilter>("all");
   const [density, setDensity] = useState<Density>("comfortable");
@@ -535,9 +535,6 @@ export function CalculatorsSearchPage() {
       <SearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculators"
-        // Page-owned phone dock: shell composer is hidden, so clear space here.
-        // Collapse with the dock on scroll-hide so content reaches the viewport edge.
-        className={cn(!dockHidden && !activeCalc && "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))]")}
         header={
           <div className="grid gap-3">
             {/* Desktop: universal-style composer at the top, matching the site-wide
@@ -581,18 +578,13 @@ export function CalculatorsSearchPage() {
               <button
                 type="button"
                 disabled
-                aria-disabled="true"
-                aria-describedby="calculators-filters-unavailable"
-                title="Advanced filters — coming soon"
+                title="Advanced filters are not available in this mockup"
                 aria-label="Filters"
-                className="inline-flex min-h-9 shrink-0 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
+                className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]"
               >
                 <SlidersHorizontal className="size-icon-sm" aria-hidden="true" />
                 <span className="hidden sm:inline">Filters</span>
               </button>
-              <span id="calculators-filters-unavailable" className="sr-only">
-                Advanced filters are coming soon.
-              </span>
             </div>
           </div>
         }
@@ -627,7 +619,7 @@ export function CalculatorsSearchPage() {
           </div>
         ) : (
           <div className="grid justify-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-8 text-center">
-            <span className="grid size-tap place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
+            <span className="grid size-11 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
               <Search className="size-icon-lg" aria-hidden="true" />
             </span>
             <p className="text-base font-bold text-[color:var(--text-heading)]">
@@ -664,7 +656,7 @@ export function CalculatorsSearchPage() {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
           }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none sm:hidden",
+            "fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none sm:hidden",
             dockHidden ? "translate-y-full" : "translate-y-0",
           )}
           aria-hidden={dockHidden}

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Brain,
-  Calculator,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -96,7 +95,6 @@ const launcherIconById: Record<string, LucideIcon> = {
   forms: FileCheck2,
   "care-plans": ClipboardCheck,
   "safety-plan": ClipboardList,
-  calculators: Calculator,
   monitoring: Waves,
   favourites: Star,
 };
