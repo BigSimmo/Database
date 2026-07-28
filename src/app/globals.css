@@ -117,6 +117,18 @@
 
 /* Theme tokens */
 :root {
+  /* Stacking Context Tokens (W3C Stacking Engine Standard) */
+  --z-negative: -1;
+  --z-elevated: 1;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-header: 30;
+  --z-drawer: 40;
+  --z-popover: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+  --z-tooltip: 80;
+
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;
   --neutral-50: #f7f8fa;
@@ -2653,3 +2665,46 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     transition: none;
   }
 }
+
+/* Stacking layer utility classes mapping to design tokens */
+.z-dropdown { z-index: var(--z-dropdown); }
+.z-sticky { z-index: var(--z-sticky); }
+.z-header { z-index: var(--z-header); }
+.z-drawer { z-index: var(--z-drawer); }
+.z-popover { z-index: var(--z-popover); }
+.z-modal { z-index: var(--z-modal); }
+.z-toast { z-index: var(--z-toast); }
+.z-tooltip { z-index: var(--z-tooltip); }
+
+/* GPU-accelerated motion pipeline optimization */
+@media (max-width: 639px) {
+  #main-content,
+  #main-content [data-testid="mobile-composer-reserve-pad"],
+  [data-testid="document-viewer-content"] {
+    will-change: padding-bottom, transform;
+  }
+}
+
+/* High-contrast forced-colors mode (WCAG AAA accessibility compliance) */
+@media (forced-colors: active) {
+  .edge-glass-header,
+  .surface-raised,
+  [aria-selected="true"] {
+    border: 2px solid CanvasText !important;
+    background: Canvas !important;
+    box-shadow: none !important;
+  }
+}
+
+/* Off-screen rendering optimization for dynamic lists & search results */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+}
+
+/* Modern line-height alignment helper for clinical icons */
+.icon-align-lh {
+  width: 1lh;
+  height: 1lh;
+}
+
