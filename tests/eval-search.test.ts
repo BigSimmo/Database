@@ -72,6 +72,44 @@ describe("search eval thresholds", () => {
     expect(partial.missingFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf"]);
   });
 
+  it("does not let one aliased source satisfy two expected document slots", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          title: "Admission to Discharge for Mental Health Inpatients",
+          file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toHaveLength(1);
+    expect(coverage.missingFiles).toHaveLength(1);
+    expect(coverage.allHit).toBe(false);
+  });
+
+  it("assigns overlapping aliases to distinct sources when both expected documents exist", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          title: "Admission to Discharge for Mental Health Inpatients",
+          file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        },
+        {
+          title: "Admission of Community Patients",
+          file_name: "Admission of Community Patients (AKG).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"]);
+    expect(coverage.missingFiles).toEqual([]);
+    expect(coverage.allHit).toBe(true);
+  });
+
   it("matches legacy eval expectations to current clinical source filenames", () => {
     expect(
       expectedFileHit(

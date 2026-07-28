@@ -38,6 +38,7 @@ export type EvalQualityProviderMode = "openai" | "offline";
 
 type EvalQualityArgs = {
   fixture: string;
+  retrievalResults?: string;
   ownerEmail?: string;
   ownerId?: string;
   limit?: number;
@@ -293,6 +294,7 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     index += 1;
 
     if (token === "--fixture") args.fixture = value;
+    if (token === "--retrieval-results") args.retrievalResults = value;
     if (token === "--owner-email") args.ownerEmail = value;
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
@@ -309,11 +311,41 @@ function parseArgs(argv: string[]): EvalQualityArgs {
   }
 
   if (args.retrievalOnly && args.ragOnly) throw new Error("Use only one of --retrieval-only or --rag-only.");
+  if (args.retrievalResults && !args.ragOnly) {
+    throw new Error("--retrieval-results is only supported with --rag-only.");
+  }
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
     throw new Error("--limit must be a positive integer.");
   }
 
   return args;
+}
+
+export function goldenRetrievalResultsFromArtifact(payload: unknown): GoldenRetrievalResult[] {
+  if (!payload || typeof payload !== "object" || !("results" in payload) || !Array.isArray(payload.results)) {
+    throw new Error("Golden retrieval artifact must contain a results array.");
+  }
+  if (
+    payload.results.some(
+      (result) =>
+        !result || typeof result !== "object" || !("topResults" in result) || !Array.isArray(result.topResults),
+    )
+  ) {
+    throw new Error("Every golden retrieval result must contain a topResults array.");
+  }
+  return payload.results as GoldenRetrievalResult[];
+}
+
+async function loadGoldenRetrievalResultsArtifact(path: string) {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Unable to read golden retrieval artifact ${path}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  return goldenRetrievalResultsFromArtifact(payload);
 }
 
 export function configureEvalProviderEnvironment(providerMode: EvalQualityProviderMode) {
@@ -597,6 +629,7 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
 export function buildEvalQualityReport(args: {
   generatedAt?: string;
   retrievalResults: GoldenRetrievalResult[];
+  sourceGovernanceResults?: GoldenRetrievalResult[];
   ragResults: RagQualityResult[];
   sourceMetadataDebtAcceptance?: SourceMetadataDebtAcceptance;
   providerMode?: EvalQualityProviderMode;
@@ -604,7 +637,7 @@ export function buildEvalQualityReport(args: {
   const providerMode = args.providerMode ?? "openai";
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
   const ragSummary = summarizeRagQualityResults(args.ragResults, providerMode);
-  const governance = topResultGovernanceCounts(args.retrievalResults);
+  const governance = topResultGovernanceCounts(args.sourceGovernanceResults ?? args.retrievalResults);
   const thresholdFailures: string[] = [];
   const providerEvidence = {
     mode: providerMode,
@@ -1258,10 +1291,14 @@ async function main() {
     : undefined;
 
   const ownerId = await resolveEvalOwnerId(supabase, args);
+  const sourceGovernanceResults = args.retrievalResults
+    ? await loadGoldenRetrievalResultsArtifact(args.retrievalResults)
+    : undefined;
   const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
   const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
   const report = buildEvalQualityReport({
     retrievalResults,
+    sourceGovernanceResults,
     ragResults,
     sourceMetadataDebtAcceptance,
     providerMode: args.providerMode,

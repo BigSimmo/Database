@@ -5,6 +5,7 @@ import {
   configureEvalProviderEnvironment,
   deliveredGroundedAfterSourceGovernancePolicy,
   evalQualityRunContext,
+  goldenRetrievalResultsFromArtifact,
   qualityFailureCategory,
   ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
@@ -656,6 +657,39 @@ describe("eval quality reporting", () => {
     );
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");
+  });
+
+  it("renders governance counts from the preceding golden retrieval artifact", () => {
+    const retrievalResults = goldenRetrievalResultsFromArtifact({
+      results: [
+        retrievalResult({
+          topResults: [
+            {
+              ...retrievalResult().topResults[0],
+              document_status: "review_due",
+              clinical_validation_status: "unverified",
+              extraction_quality: "poor",
+            },
+          ],
+        }),
+      ],
+    });
+    const report = buildEvalQualityReport({
+      retrievalResults: [],
+      sourceGovernanceResults: retrievalResults,
+      ragResults: [ragResult()],
+    });
+    const markdown = renderEvalQualityMarkdown(report);
+
+    expect(markdown).toContain("| Top results | 1 |");
+    expect(markdown).toContain("| Review-due top results | 1 |");
+    expect(markdown).toContain("| Unverified top results | 1 |");
+    expect(markdown).toContain("| Poor-extraction top results | 1 |");
+    expect(markdown).toContain("| Review-required top results | 1 |");
+    expect(report.retrieval.summary.case_count).toBe(0);
+    expect(report.threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("top-result review_required_rate")]),
+    );
   });
 
   it("hard-fails any answer case that exceeds its route ceiling", () => {

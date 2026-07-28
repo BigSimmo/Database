@@ -116,12 +116,32 @@ export function expectedFileCoverage(
   sources: Array<Pick<SearchResult, "file_name" | "title">>,
   limit = 3,
 ): ExpectedFileCoverage {
-  const topFiles = sources.slice(0, limit).map(resultDocumentText);
-  const matchedFiles = expectedFiles.filter((expected) =>
-    documentExpectationAlternatives(expected).some((alternative) =>
-      topFiles.some((file) => file.includes(alternative)),
-    ),
-  );
+  const topFiles = Array.from(new Set(sources.slice(0, limit).map(resultDocumentText)));
+  const alternatives = expectedFiles.map(documentExpectationAlternatives);
+  const expectedForSource = Array<number>(topFiles.length).fill(-1);
+  const sourceForExpected = Array<number>(expectedFiles.length).fill(-1);
+
+  const assignExpected = (expectedIndex: number, visitedSources: Set<number>): boolean => {
+    for (let sourceIndex = 0; sourceIndex < topFiles.length; sourceIndex += 1) {
+      if (visitedSources.has(sourceIndex)) continue;
+      if (!alternatives[expectedIndex].some((alternative) => topFiles[sourceIndex].includes(alternative))) continue;
+
+      visitedSources.add(sourceIndex);
+      const currentExpected = expectedForSource[sourceIndex];
+      if (currentExpected >= 0 && !assignExpected(currentExpected, visitedSources)) continue;
+
+      expectedForSource[sourceIndex] = expectedIndex;
+      sourceForExpected[expectedIndex] = sourceIndex;
+      return true;
+    }
+    return false;
+  };
+
+  for (let expectedIndex = 0; expectedIndex < expectedFiles.length; expectedIndex += 1) {
+    assignExpected(expectedIndex, new Set());
+  }
+
+  const matchedFiles = expectedFiles.filter((_, index) => sourceForExpected[index] >= 0);
 
   return {
     expectedFiles,
