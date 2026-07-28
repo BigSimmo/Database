@@ -1,0 +1,18 @@
+Starting Clinical KB at http://localhost:4510 (configured port).
+▲ Next.js 16.2.11 (webpack)
+- Local:         http://localhost:4510
+- Network:       http://0.0.0.0:4510
+- Environments: .env.local
+✓ Ready in 13.4s○ Compiling /instrumentation ...
+- Experiments (use with caution):
+  · cpus: 1
+  · optimizePackageImports
+  · proxyClientMaxBodySize: "151mb"
+
+○ Compiling proxy ...
+○ Compiling /api/local-project-id ...
+○ Compiling / ...
+○ Compiling /api/local-project-id ...
+ GET /api/local-project-id 200 in 444ms (next.js: 100ms, proxy.ts: 136ms, application-code: 208ms)
+ GET /api/local-project-id 200 in 32ms (next.js: 6ms, proxy.ts: 10ms, application-code: 16ms)
+ GET /api/local-project-id 200 in 88ms (next.js: 11ms, proxy.ts: 29ms, application-code: 48ms)
