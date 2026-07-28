@@ -249,6 +249,15 @@ describe("captured RAG eval cases", () => {
     expect(quality?.expectedFiles).toEqual(["MHSP.Duress.pdf"]);
   });
 
+  it("requires the authoritative clozapine source rather than an unrelated second citation", () => {
+    const testCase = ragEvalCases.find((item) => item.id === "clozapine-anc-withhold-threshold");
+    expect(testCase).toMatchObject({
+      minCitations: 1,
+      requireExpectedFileCitation: true,
+      expectedFiles: ["CG.MHSP.ClozapinePresAdminMonitor.pdf"],
+    });
+  });
+
   it("scores an acceptSourceOnly source-only answer as relevant only when it still cites the expected doc", () => {
     const testCase = answerQualityEvalCases.find((item) => item.id === "quality-discharge-documentation")!;
 
@@ -340,6 +349,53 @@ describe("captured RAG eval cases", () => {
         answerSections: [],
       } as unknown as RagAnswer;
     }
+
+    it("scores source-backed review stubs as targeting and intent-coverage misses despite echoed clinical terms", () => {
+      const redCase = {
+        ...doseCase,
+        question: "What ANC threshold should trigger clozapine withholding?",
+        expectedIntent: "red_result_action",
+        mustContainAny: ["ANC", "withhold"],
+      } as AnswerQualityEvalCase;
+      const substantive = grounded("Monitor clozapine ANC weekly and withhold treatment below 1.5.");
+      const reviewStub = {
+        ...substantive,
+        routingReason:
+          "strong_routine_retrieval; generation_fallback:generation_quality_failed; source_backed_review_fallback",
+      } as RagAnswer;
+
+      expect(scoreAnswerTargeting(redCase, reviewStub)).toEqual({
+        applicable: true,
+        score: 0,
+        reason: "source-backed review stub",
+      });
+      expect(
+        scoreAnswerQualityEvalCase(redCase, reviewStub).find((score) => score.metric === "intent_coverage"),
+      ).toMatchObject({ score: 0, reason: "source-backed review stub" });
+
+      expect(scoreAnswerTargeting(redCase, substantive)).toMatchObject({ applicable: true, score: 1 });
+      expect(
+        scoreAnswerQualityEvalCase(redCase, substantive).find((score) => score.metric === "intent_coverage"),
+      ).toMatchObject({ score: 1, reason: "covered" });
+    });
+
+    it("keeps unsupported cases outside the targeting denominator even with a review-fallback marker", () => {
+      const unsupportedCase = {
+        ...doseCase,
+        supported: false,
+        category: "unsupported",
+      } as AnswerQualityEvalCase;
+      const reviewStub = {
+        ...grounded("The maximum sertraline dose is available for source-backed review."),
+        routingReason: "strong_routine_retrieval; source_backed_review_fallback",
+      } as RagAnswer;
+
+      expect(scoreAnswerTargeting(unsupportedCase, reviewStub)).toEqual({
+        score: 1,
+        applicable: false,
+        reason: "n/a: unsupported / fail-closed case",
+      });
+    });
 
     it("passes a dose answer that carries a figure+unit", () => {
       const result = scoreAnswerTargeting(doseCase, grounded("The maximum dose is 200 mg daily."));
