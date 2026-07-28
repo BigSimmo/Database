@@ -119,6 +119,20 @@ describe("Sheet stacked-overlay coordination", () => {
     vi.useRealTimers();
   });
 
+  it("keeps caller-provided mobile and small-screen height caps authoritative", () => {
+    const { getByRole } = render(
+      <Sheet open onClose={vi.fn()} title="Capped sheet" contentClassName="max-h-[88dvh] sm:max-h-[min(80dvh,36rem)]">
+        <p>Body</p>
+      </Sheet>,
+    );
+
+    const classes = getByRole("dialog").classList;
+    expect(classes).toContain("max-h-[88dvh]");
+    expect(classes).toContain("sm:max-h-[min(80dvh,36rem)]");
+    expect(classes).not.toContain("max-h-[calc(100dvh-2rem)]");
+    expect(classes).not.toContain("sm:max-h-[88dvh]");
+  });
+
   it("upgrades from the close-button fallback to a late-mounted data-sheet-autofocus target", async () => {
     const onClose = vi.fn();
     const { rerender } = render(

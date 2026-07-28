@@ -49,7 +49,7 @@ export type TcBindings = {
   // ---- data -----------------------------------------------------------
   loading: boolean;
   error: string | null;
-  retryData: () => void;
+  retryData: () => void | Promise<void>;
   therapies: Therapy[];
   unreviewedTherapies: Therapy[];
   reviewCount: number;

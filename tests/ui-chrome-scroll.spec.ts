@@ -177,7 +177,12 @@ test.beforeEach(async ({ page }) => {
 test("1024px bounded main scrolling preserves focused page search", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.goto("/?mode=prescribing&q=a&run=1", { waitUntil: "domcontentloaded" });
-  const input = page.getByTestId("global-search-input");
+  // Scope to the visible composer: Next may briefly retain a hidden streaming
+  // `S:` clone of the page root under CI load, so a document-wide getByTestId
+  // strict-mode fails on two identical inputs, one of them hidden. Same class of
+  // flake the differentials detail page hit, and the same remedy already used
+  // for this exact testid in ui-overlap.spec.ts.
+  const input = page.locator('[data-testid="global-search-input"]:visible').first();
   await expect(input).toBeVisible({ timeout: 15_000 });
   await expect
     .poll(async () => (await readPrimaryScrollGeometry(page)).maxScrollTop, { timeout: 20_000 })
