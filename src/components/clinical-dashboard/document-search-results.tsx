@@ -870,6 +870,12 @@ function DocumentSearchResultsPanelImpl({
     deployedClinicalKb: isDeployedClinicalKb(),
   });
   const unavailableMessage = unavailable?.message ?? null;
+  // On the record path the band's fault panel now reports a failed registry, so
+  // RecordRegistryNotice would repeat that verbatim two lines below — the same
+  // double-reporting removed from the standalone services/forms pages. Loading
+  // is still the notice's to own: the band only says "Searching…" there.
+  const recordBandOwnsFault =
+    showRecordMatches && (recordStatus === "error" || recordStatus === "not_found" || recordStatus === "unauthorized");
   const showResultsControls = matches.length > 0 && !loading;
   const showIdentityHeader =
     recordMatchCount > 0 ||
@@ -971,7 +977,7 @@ function DocumentSearchResultsPanelImpl({
 
       {showRecordMatches ? (
         <>
-          <RecordRegistryNotice status={recordStatus} mode={recordMode} />
+          {recordBandOwnsFault ? null : <RecordRegistryNotice status={recordStatus} mode={recordMode} />}
           <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} />
         </>
       ) : null}
