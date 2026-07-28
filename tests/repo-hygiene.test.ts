@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   computeParity,
+  EXPECTED_GITHUB_VARIABLES,
   EXPECTED_GITHUB_SECRETS,
+  EXPECTED_RAILWAY_APP_VARIABLES,
   EXPECTED_RAILWAY_SECRETS,
+  EXPECTED_RAILWAY_WORKER_VARIABLES,
   parseCiEnvNames,
+  parseEnvExampleNames,
+  parseEnvFilePresence,
   parseEnvSchemaNames,
+  presenceRows,
+  railwayVariableArgs,
 } from "../scripts/check-env-parity.mjs";
 import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
 
@@ -15,6 +22,9 @@ describe("check-env-parity name parsing", () => {
       "  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),",
       "  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),",
       "  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().default(16000),",
+      "  RAG_PERSIST_RAW_QUERY_TEXT: z",
+      '    .enum(["true", "false"])',
+      '    .default("false"),',
       "  notAKey: 3,",
       "});",
     ].join("\n");
@@ -22,6 +32,7 @@ describe("check-env-parity name parsing", () => {
     expect(names).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(names).toContain("SUPABASE_SERVICE_ROLE_KEY");
     expect(names).toContain("OPENAI_MAX_OUTPUT_TOKENS");
+    expect(names).toContain("RAG_PERSIST_RAW_QUERY_TEXT");
     expect(names).not.toContain("notAKey");
   });
 
@@ -29,6 +40,13 @@ describe("check-env-parity name parsing", () => {
     const text = `const required = ["E2E_USER_EMAIL", "E2E_USER_PASSWORD"]; if (process.env.E2E_AUTH_ENABLED) {}`;
     const names = parseCiEnvNames(text);
     expect(names).toEqual(expect.arrayContaining(["E2E_USER_EMAIL", "E2E_USER_PASSWORD", "E2E_AUTH_ENABLED"]));
+  });
+
+  it("extracts active and documented optional names from .env.example-style text", () => {
+    const names = parseEnvExampleNames(
+      ["OPENAI_API_KEY=replace-with-key", "#OPENAI_SAFETY_IDENTIFIER_SECRET=", "# explanation"].join("\n"),
+    );
+    expect(names).toEqual(["OPENAI_API_KEY", "OPENAI_SAFETY_IDENTIFIER_SECRET"]);
   });
 
   it("reports missing expected secrets and unknown live names", () => {
@@ -49,11 +67,72 @@ describe("check-env-parity name parsing", () => {
       expect.arrayContaining([
         "SUPABASE_SERVICE_ROLE_KEY",
         "OPENAI_API_KEY",
+        "OPENAI_SAFETY_IDENTIFIER_SECRET",
         "RAG_QUERY_HASH_SECRET",
         "HEALTH_DEEP_PROBE_SECRET",
       ]),
     );
     expect(EXPECTED_RAILWAY_SECRETS).not.toEqual(expect.arrayContaining(["E2E_USER_EMAIL", "E2E_USER_PASSWORD"]));
+  });
+
+  it("covers hosted project identity, runtime privacy, and scheduled health config", () => {
+    expect(EXPECTED_RAILWAY_APP_VARIABLES).toEqual(
+      expect.arrayContaining([
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_PROJECT_REF",
+        "SUPABASE_PROJECT_NAME",
+        "OPENAI_SAFETY_IDENTIFIER_SECRET",
+      ]),
+    );
+    expect(EXPECTED_RAILWAY_WORKER_VARIABLES).toEqual(
+      expect.arrayContaining([
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "SUPABASE_PROJECT_REF",
+        "SUPABASE_PROJECT_NAME",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "OPENAI_API_KEY",
+      ]),
+    );
+    expect(EXPECTED_GITHUB_VARIABLES).toContain("PROD_HEALTH_URL");
+  });
+
+  it("reduces process and env-file values to PRESENT/MISSING without retaining values", () => {
+    const secretSentinel = "do-not-include-this-value-in-the-report";
+    const processReport = presenceRows(
+      {
+        OPENAI_API_KEY: secretSentinel,
+        RAG_QUERY_HASH_SECRET: "replace-with-query-hash-secret",
+      },
+      ["OPENAI_API_KEY", "RAG_QUERY_HASH_SECRET"],
+    );
+    const fileReport = parseEnvFilePresence(`OPENAI_API_KEY=${secretSentinel}\nRAG_QUERY_HASH_SECRET=\n`, [
+      "OPENAI_API_KEY",
+      "RAG_QUERY_HASH_SECRET",
+    ]);
+
+    expect(processReport).toEqual([
+      { name: "OPENAI_API_KEY", status: "PRESENT" },
+      { name: "RAG_QUERY_HASH_SECRET", status: "MISSING" },
+    ]);
+    expect(fileReport).toEqual([
+      { name: "OPENAI_API_KEY", status: "PRESENT" },
+      { name: "RAG_QUERY_HASH_SECRET", status: "MISSING" },
+    ]);
+    expect(JSON.stringify({ processReport, fileReport })).not.toContain(secretSentinel);
+  });
+
+  it("pins Railway reads to the production project, environment, and named service", () => {
+    expect(railwayVariableArgs("Database")).toEqual(
+      expect.arrayContaining([
+        "--project",
+        "5deaad0b-675a-4c13-978e-5ca2b5b877f9",
+        "--environment",
+        "6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4",
+        "--service",
+        "Database",
+      ]),
+    );
   });
 });
 
