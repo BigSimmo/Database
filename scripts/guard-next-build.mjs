@@ -9,7 +9,9 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
-if (totalRamBytes < tenGiB) {
+// Local Docker Desktop safeguard only. Hosted CI chooses runner size and can
+// report <10 GiB totalmem on otherwise capable build agents.
+if (process.env.GITHUB_ACTIONS !== "true" && totalRamBytes < tenGiB) {
   console.error(
     [
       `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
