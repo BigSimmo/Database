@@ -52,10 +52,10 @@ jobs:
           # client bundle, so the CI placeholder is enough to validate the build.
           # Real production images are built with the real key at deploy time.
           build-args: |
-            CI=true
             NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
             NEXT_PUBLIC_MAX_UPLOAD_MB=
+            ALLOW_LOW_RAM_BUILD=1
 
   worker-image:
     runs-on: ubuntu-24.04

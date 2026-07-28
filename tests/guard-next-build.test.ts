@@ -1,23 +1,27 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-describe("next build host guard", () => {
-  const source = readFileSync(new URL("../scripts/guard-next-build.mjs", import.meta.url), "utf8");
+import { evaluateNextBuildRamGuard } from "../scripts/guard-next-build.mjs";
 
-  it("keeps the local low-RAM hard stop but continues under CI", () => {
-    expect(source).toContain("Host system has less than 10 GiB of total RAM");
-    expect(source).toContain('process.env.CI === "true"');
-    expect(source).toContain('process.env.GITHUB_ACTIONS === "true"');
-    expect(source).toContain("CI detected; continuing despite low reported host RAM.");
-    expect(source).toMatch(/if \(inContinuousIntegration\) \{\s*console\.warn/);
-    expect(source).toMatch(/else \{\s*console\.error\(message\);\s*process\.exit\(1\);/);
+const eightGiB = 8 * 1024 * 1024 * 1024;
+const twelveGiB = 12 * 1024 * 1024 * 1024;
+
+/** Partial env stub — avoids requiring full NodeJS.ProcessEnv (NODE_ENV). */
+type RamGuardEnv = { CI?: string; GITHUB_ACTIONS?: string; ALLOW_LOW_RAM_BUILD?: string };
+
+describe("evaluateNextBuildRamGuard", () => {
+  it("allows hosts with at least 10 GiB total RAM", () => {
+    const env: RamGuardEnv = {};
+    expect(evaluateNextBuildRamGuard({ totalRamBytes: twelveGiB, env })).toBe("ok");
   });
 
-  it("documents that Docker CI builds forward CI=true into the image build", () => {
-    const dockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
-    expect(dockerfile).toContain("ARG CI=");
-    expect(dockerfile).toContain("ENV CI=${CI}");
-    const workflow = readFileSync(new URL("../.github/workflows/docker-image.yml", import.meta.url), "utf8");
-    expect(workflow).toMatch(/build-args:[\s\S]*CI=true/);
+  it("hard-fails low-RAM local/Docker Desktop hosts", () => {
+    const env: RamGuardEnv = {};
+    expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env })).toBe("fail");
+  });
+
+  it("warns instead of failing under CI or ALLOW_LOW_RAM_BUILD when RAM is under 10 GiB", () => {
+    expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env: { CI: "true" } })).toBe("warn");
+    expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env: { GITHUB_ACTIONS: "true" } })).toBe("warn");
+    expect(evaluateNextBuildRamGuard({ totalRamBytes: eightGiB, env: { ALLOW_LOW_RAM_BUILD: "1" } })).toBe("warn");
   });
 });

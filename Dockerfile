@@ -41,13 +41,12 @@ ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
-# Hosted CI builders sometimes report <10 GiB inside buildx even when the job
-# can complete with the 8 GiB Node heap. Forward CI=true from the workflow so
-# guard-next-build warns instead of hard-stopping; local Docker Desktop builds
-# omit this and keep the low-RAM hard stop.
-ARG CI=
-ENV CI=${CI}
-# The repo build script allocates an 8 GiB heap; give the builder >= 10 GiB.
+# The repo build script allocates an 8 GiB heap. Prefer builders with >= 10 GiB
+# locally (Docker Desktop hard-fails under the RAM guard by default). CI image
+# builds pass ALLOW_LOW_RAM_BUILD=1 because GitHub buildx runners report ~7–8 GiB
+# while still completing this Next build.
+ARG ALLOW_LOW_RAM_BUILD=0
+ENV ALLOW_LOW_RAM_BUILD=${ALLOW_LOW_RAM_BUILD}
 RUN npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
