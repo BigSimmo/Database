@@ -16,7 +16,7 @@ import {
   Target,
   type LucideIcon,
 } from "lucide-react";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -684,25 +684,34 @@ function highlightTermsFor(terms: string[], fallback: string) {
 
 function HighlightedSearchText({ text, terms }: { text: string; terms: string[] }) {
   if (!text.trim() || terms.length === 0) return <>{text}</>;
-  const escaped = terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).filter(Boolean);
+  const escaped = terms
+    .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
   if (!escaped.length) return <>{text}</>;
-  const matcher = new RegExp(`(${escaped.join("|")})`, "gi");
-  return (
-    <>
-      {text.split(matcher).map((part, index) =>
-        terms.some((term) => part.toLowerCase() === term.toLowerCase()) ? (
-          <mark
-            key={`${part}:${index}`}
-            className="rounded-sm bg-[color:var(--clinical-accent-soft)] px-0.5 font-semibold text-[color:var(--clinical-accent)]"
-          >
-            {part}
-          </mark>
-        ) : (
-          <span key={`${part}:${index}`}>{part}</span>
-        ),
-      )}
-    </>
-  );
+  const matcher = new RegExp(`(^|[^a-z0-9])(${escaped.join("|")})`, "gi");
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = matcher.exec(text))) {
+    const prefixLength = match[1]?.length ?? 0;
+    const term = match[2] ?? "";
+    const termStart = match.index + prefixLength;
+    if (termStart > cursor) parts.push(text.slice(cursor, termStart));
+    parts.push(
+      <mark
+        key={`${termStart}:${term}`}
+        className="rounded-sm bg-[color:var(--clinical-accent-soft)] px-0.5 font-semibold text-[color:var(--clinical-accent)]"
+      >
+        {term}
+      </mark>,
+    );
+    cursor = termStart + term.length;
+  }
+
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
 }
 
 // Memoised: both the mobile <details> and desktop copies stay mounted and are
@@ -735,28 +744,39 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   onSearchChange: (value: string) => void;
 }) {
   const normalizedSearch = search.trim().toLowerCase();
-  const displayChunks = chunks.map((chunk) => ({
-    ...chunk,
-    displayContent: sourceTextForDocumentViewer(chunk.content),
-  }));
-  const loadedChunkById = new Map(displayChunks.map((chunk) => [chunk.id, chunk]));
-  const visibleChunks = normalizedSearch
-    ? documentSearchResults.map((result) => {
-        const loadedChunk = loadedChunkById.get(result.id);
-        return {
-          id: result.id,
-          page_number: result.page_number,
-          chunk_index: result.chunk_index,
-          section_heading: result.section_heading,
-          displayContent: loadedChunk?.displayContent ?? result.snippet,
-          matchedTerms: result.matched_terms,
-          serverRanked: true,
-        };
-      })
-    : displayChunks.slice(0, 8).map((chunk) => ({ ...chunk, matchedTerms: [], serverRanked: false }));
+  const searchEligible = normalizedSearch.length >= 2;
+  const displayChunks = useMemo(
+    () =>
+      chunks.map((chunk) => ({
+        ...chunk,
+        displayContent: sourceTextForDocumentViewer(chunk.content),
+      })),
+    [chunks],
+  );
+  const loadedChunkById = useMemo(() => new Map(displayChunks.map((chunk) => [chunk.id, chunk])), [displayChunks]);
+  const visibleChunks = useMemo(
+    () =>
+      searchEligible
+        ? documentSearchResults.map((result) => {
+            const loadedChunk = loadedChunkById.get(result.id);
+            return {
+              id: result.id,
+              page_number: result.page_number,
+              chunk_index: result.chunk_index,
+              section_heading: result.section_heading,
+              displayContent: loadedChunk?.displayContent ?? result.snippet,
+              matchedTerms: result.matched_terms,
+              serverRanked: true,
+            };
+          })
+        : normalizedSearch
+          ? []
+          : displayChunks.slice(0, 8).map((chunk) => ({ ...chunk, matchedTerms: [], serverRanked: false })),
+    [displayChunks, documentSearchResults, loadedChunkById, normalizedSearch, searchEligible],
+  );
   const [activeHitIndex, setActiveHitIndex] = useState(0);
   const clampedActiveHitIndex = visibleChunks.length ? Math.min(activeHitIndex, visibleChunks.length - 1) : 0;
-  const activeHit = normalizedSearch && visibleChunks.length ? visibleChunks[clampedActiveHitIndex] : null;
+  const activeHit = searchEligible && visibleChunks.length ? visibleChunks[clampedActiveHitIndex] : null;
   const pageHitCounts = visibleChunks.reduce<Map<number, number>>((counts, chunk) => {
     if (!chunk.page_number) return counts;
     counts.set(chunk.page_number, (counts.get(chunk.page_number) ?? 0) + 1);
@@ -819,7 +839,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
       <div className={cn("mt-4 pt-4", clinicalDivider)}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
-          {normalizedSearch ? (
+          {searchEligible ? (
             <span className={cn("text-xs font-semibold", textMuted)}>
               {searchingDocument
                 ? "Searching all indexed passages"
@@ -827,7 +847,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
             </span>
           ) : null}
         </div>
-        {normalizedSearch && visibleChunks.length > 0 && !searchingDocument ? (
+        {searchEligible && visibleChunks.length > 0 && !searchingDocument ? (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
             <div className="min-w-0">
               <p className="nums text-xs font-bold text-[color:var(--text)]">
@@ -859,15 +879,19 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
             </div>
           </div>
         ) : null}
-        {documentSearchError ? (
+        {documentSearchError && searchEligible ? (
           <p className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--warning)]">
             {documentSearchError}
           </p>
         ) : null}
         <div className="mt-3 grid gap-3">
-          {searchingDocument ? (
+          {normalizedSearch.length === 1 ? (
+            <p className={cn("text-base-minus leading-6", textMuted)}>
+              Enter at least 2 characters to search all indexed passages.
+            </p>
+          ) : searchingDocument ? (
             <LoadingPanel label="Searching all indexed passages" />
-          ) : visibleChunks.length === 0 ? (
+          ) : documentSearchError ? null : visibleChunks.length === 0 ? (
             <p className={cn("text-base-minus leading-6", textMuted)}>No indexed passage matched that search.</p>
           ) : (
             visibleChunks.map((chunk) => (

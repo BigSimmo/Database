@@ -61,6 +61,7 @@ import { Sheet } from "@/components/ui/sheet";
 import {
   appModeDefinition,
   appModeDefinitions,
+  appModeHomeHref,
   appModeSearchConfig,
   isSearchableAppMode,
   visibleAppModeDefinitionsForSession,
@@ -469,6 +470,7 @@ export function MasterSearchHeader({
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -921,6 +923,14 @@ export function MasterSearchHeader({
     }
   }
 
+  function prefetchModeHome(modeId: AppModeId) {
+    if (modeId === searchMode) return;
+    const href = appModeHomeHref(modeId);
+    if (prefetchedModeHrefsRef.current.has(href)) return;
+    prefetchedModeHrefsRef.current.add(href);
+    router.prefetch(href);
+  }
+
   function renderModeMenuOptions() {
     return visibleAppModeOptions.map((mode, index) => {
       const Icon = appModeIcons[mode.id];
@@ -936,6 +946,8 @@ export function MasterSearchHeader({
           aria-checked={active}
           tabIndex={active ? 0 : -1}
           data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
+          onFocus={() => prefetchModeHome(mode.id)}
+          onPointerEnter={() => prefetchModeHome(mode.id)}
           onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
           onClick={() => {
             selectAppMode(mode);
