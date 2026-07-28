@@ -49,10 +49,12 @@ export function useOverlay(id: string) {
     throw new Error("useOverlay must be used within an OverlayProvider");
   }
 
+  const { registerOverlay, unregisterOverlay } = context;
+
   React.useEffect(() => {
-    context.registerOverlay(id);
-    return () => context.unregisterOverlay(id);
-  }, [id, context]);
+    registerOverlay(id);
+    return () => unregisterOverlay(id);
+  }, [id, registerOverlay, unregisterOverlay]);
 
   return {
     isTopOverlay: context.isTopOverlay(id),

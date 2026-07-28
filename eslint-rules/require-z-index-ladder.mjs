@@ -23,7 +23,7 @@ const rule = {
   },
   create(context) {
     const checkString = (node, value) => {
-      const regex = /\bz-\[(\d+)\]\b/g;
+      const regex = /\bz-\[(\d+)\](?:\s|$)/g;
       let match;
       while ((match = regex.exec(value)) !== null) {
         const num = parseInt(match[1], 10);
