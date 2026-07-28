@@ -35,8 +35,14 @@ force-push, or discard work.
 5. **Push** the feature branch: `git push -u origin <branch>`. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
-   attribution line. Enabling squash-auto-merge (`gh pr merge --squash --auto`) is the
-   repo norm but requires explicit user confirmation before enabling; the PR lands on green.
+   attribution line. Write the body from `.github/pull_request_template.md` in full normal
+   prose — exact `## Summary` / `## Verification` / `## Risk and rollout` / (when clinical-risk
+   or RAG-ranking files are touched) `## Clinical Governance Preflight` headings, every governance
+   box checked, and a satisfying `RAG impact:` line — never caveman-compressed; `pr-policy.yml`
+   parses this text verbatim and hard-blocks the merge on a paraphrased or dropped item (see
+   AGENTS.md "External skill precedence"). Enabling squash-auto-merge is the repo norm but
+   requires explicit user confirmation before enabling (`gh pr merge --squash --auto`); the
+   PR lands on green.
 7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
    (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
    the row into `docs/branch-review-ledger.md`.
