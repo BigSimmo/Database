@@ -136,6 +136,7 @@ import {
   answerPayloadIsUsable,
   classifyAnswerError,
   createAnswerRequestWatchdog,
+  generateQuerySuggestions,
   isRetryableError,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
@@ -3560,7 +3561,7 @@ export function ClinicalDashboard({
                   <EmptyState
                     icon={Search}
                     title={answerRecovery.noResults.heading}
-                    body={answerRecovery.noResults.body}
+                    body={`${answerRecovery.noResults.body} Suggestions: ${generateQuerySuggestions((lastFailedQuery ?? query).trim()).join("; ")}.`}
                     live="polite"
                     tone="info"
                     testId="answer-no-results"

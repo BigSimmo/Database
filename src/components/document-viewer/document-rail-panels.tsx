@@ -21,13 +21,13 @@ import {
   clinicalDivider,
   cn,
   codeText,
+  EmptyState,
   eyebrowText,
   InlineNotice,
   LoadingPanel,
   panel,
   proseMeasure,
   sourceCard,
-  textMuted,
 } from "@/components/ui-primitives";
 import type { ClinicalDocument, DocumentLabel } from "@/lib/types";
 import type { FormattedDocumentSummary } from "@/lib/document-summary-formatting";
@@ -240,7 +240,11 @@ export function DocumentViewerRail({
           {effectiveLoadingDocument ? (
             <LoadingPanel label="Loading extracted tables" />
           ) : clinicalImages.length === 0 ? (
-            <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
+            <EmptyState
+              title="No clinically useful tables or diagrams"
+              body="No indexed clinically useful tables or diagrams."
+              tone="neutral"
+            />
           ) : (
             clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
           )}
