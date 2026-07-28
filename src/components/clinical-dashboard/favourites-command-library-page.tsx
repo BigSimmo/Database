@@ -1032,7 +1032,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
   const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const { items: savedRegistryFavourites, status: favouritesRegistryStatus } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
@@ -1195,6 +1195,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               modeId="favourites"
               query={query}
               matchCount={scopedItems.length}
+              // Without this a failed registry read renders as "0 matches", which
+              // reads as "you have no saved favourites" rather than "we could not
+              // load them".
+              status={favouritesRegistryStatus}
               filterLabel="Active favourites filters"
               filterControls={
                 selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (

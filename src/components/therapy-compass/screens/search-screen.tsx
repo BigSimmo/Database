@@ -28,7 +28,9 @@ export function SearchScreen() {
         modeId="therapy-compass"
         query={q}
         matchCount={results.length}
-        loading={b.loading}
+        status={b.error ? "error" : b.loading ? "loading" : "ready"}
+        faultBody={b.error ?? undefined}
+        onRetry={b.retryData}
         headingLevel={1}
         filterLabel="Filter therapy results"
         mobileControls={

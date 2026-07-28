@@ -885,7 +885,8 @@ function DocumentSearchResultsPanelImpl({
           modeId={showRecordMatches ? recordMode : "documents"}
           query={trimmedQuery}
           matchCount={recordMatchCount + sortedMatches.length}
-          loading={loading}
+          status={unavailableMessage ? "error" : loading ? "loading" : "ready"}
+          faultBody={unavailableMessage ?? undefined}
           sortValue={sortValue}
           onSortChange={matches.length > 0 ? setSortValue : undefined}
           utilityControls={
@@ -933,7 +934,10 @@ function DocumentSearchResultsPanelImpl({
         />
       ) : null}
 
-      {unavailableMessage ? (
+      {/* When the ribbon is shown it owns this message in its fault panel. This
+          standalone alert remains for the routes that render no ribbon, so the
+          message is never lost. */}
+      {!showIdentityHeader && unavailableMessage ? (
         <div
           role="alert"
           className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 p-4 text-sm font-semibold leading-6 text-[color:var(--warning)]"

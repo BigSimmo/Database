@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FavouritesHub } from "@/components/clinical-dashboard/favourites-hub";
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
-  useSavedRegistryFavourites: () => [],
+  useSavedRegistryFavourites: () => ({ items: [], status: "ready" }),
 }));
 
 describe("FavouritesHub unavailable controls", () => {

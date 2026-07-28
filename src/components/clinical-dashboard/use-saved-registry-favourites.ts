@@ -24,7 +24,14 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
   };
 }
 
-export function useSavedRegistryFavourites(): FavouriteItem[] {
+export type SavedRegistryFavouritesResult = {
+  items: FavouriteItem[];
+  /** Folded state of the registries this hook actually requested, so the page can
+      report a failure instead of rendering an empty list as "no favourites". */
+  status: "ready" | "loading" | "unauthorized" | "error";
+};
+
+export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const { favourites } = useAccountData();
   const savedServices = favourites.service;
   const savedForms = favourites.form;
@@ -33,7 +40,7 @@ export function useSavedRegistryFavourites(): FavouriteItem[] {
   const services = useRegistryRecords("service", { enabled: savedServices.length > 0 });
   const forms = useRegistryRecords("form", { enabled: savedForms.length > 0 });
 
-  return useMemo(() => {
+  const items = useMemo(() => {
     const savedServiceSet = new Set(savedServices);
     const savedFormSet = new Set(savedForms);
     const serviceItems = services.records
@@ -60,4 +67,21 @@ export function useSavedRegistryFavourites(): FavouriteItem[] {
     }));
     return [...serviceItems, ...formItems, ...differentialItems];
   }, [services.records, forms.records, savedServices, savedForms, savedDifferentials]);
+
+  // Only a registry that was actually requested can report a fault: a disabled
+  // hook sits in its initial state forever and must not be read as a failure.
+  // Unauthorized outranks error because it is the one the reader can act on.
+  const requested = [
+    savedServices.length > 0 ? services.status : null,
+    savedForms.length > 0 ? forms.status : null,
+  ];
+  const status = requested.includes("unauthorized")
+    ? "unauthorized"
+    : requested.includes("error") || requested.includes("not_found")
+      ? "error"
+      : requested.includes("loading")
+        ? "loading"
+        : "ready";
+
+  return { items, status };
 }

@@ -47,7 +47,7 @@ export function FavouritesHub({
   demoMode: boolean;
   headingLevel?: 1 | 2;
 }) {
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const savedRegistryFavourites = useSavedRegistryFavourites().items;
   const allFavouriteItems = useMemo(
     () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
     [demoMode, savedRegistryFavourites],

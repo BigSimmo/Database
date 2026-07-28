@@ -907,7 +907,21 @@ function SearchResultsView({
         modeId="differentials"
         query={query}
         matchCount={results.length}
-        loading={loading || catalogLoading}
+        status={
+          catalogFailed
+            ? catalog.status === "unauthorized"
+              ? "unauthorized"
+              : "error"
+            : loading || catalogLoading
+              ? "loading"
+              : "ready"
+        }
+        faultTitle={
+          catalog.status === "unauthorized"
+            ? "Sign in again to search the differentials catalogue"
+            : "The differentials catalogue could not be searched"
+        }
+        faultBody="Retry the search shortly, or browse the catalogue pages directly."
         sortValue={sortValue}
         onSortChange={setSortValue}
         filterLabel="Filter differential result type"
@@ -954,30 +968,22 @@ function SearchResultsView({
             />
           ))}
         </div>
-      ) : !best ? (
+      ) : /* A failed catalogue search is reported by the band's fault panel, which
+              also owns the retry copy; this section is now the empty state only. */
+      !best && !catalogFailed ? (
         <section
-          data-testid={catalogFailed ? "differentials-catalogue-error" : "differentials-empty-results"}
-          role={catalogFailed ? "alert" : undefined}
-          className={cn(
-            "grid gap-3 rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]",
-            catalogFailed ? "border-[color:var(--warning-border)]" : "border-[color:var(--border)]",
-          )}
+          data-testid="differentials-empty-results"
+          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
         >
           <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-            {catalogFailed
-              ? catalog.status === "unauthorized"
-                ? "Sign in again to search the differentials catalogue"
-                : "The differentials catalogue could not be searched"
-              : `No catalogue matches for “${query}”`}
+            {`No catalogue matches for “${query}”`}
           </h2>
           <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            {catalogFailed
-              ? "Retry the search shortly, or browse the catalogue pages directly."
-              : hasSourceEvidence
-                ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
-                    reviewedSourceCount === 1 ? "match is" : "matches are"
-                  } available in the library.`
-                : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
+            {hasSourceEvidence
+              ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
+                  reviewedSourceCount === 1 ? "match is" : "matches are"
+                } available in the library.`
+              : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Link
