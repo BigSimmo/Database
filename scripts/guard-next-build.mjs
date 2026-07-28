@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { existsSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import os from "node:os";
@@ -6,6 +7,17 @@ import { fileURLToPath } from "node:url";
 import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function isHostedOrContainerBuild() {
+  // Private GitHub-hosted runners and image builds often report ~7–8 GiB.
+  // This RAM floor is a local/Docker Desktop safety rail only.
+  return (
+    process.env.CI === "true" ||
+    process.env.GITHUB_ACTIONS === "true" ||
+    process.env.DOCKER_BUILD === "1" ||
+    existsSync("/.dockerenv")
+  );
+}
 
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
@@ -15,11 +27,9 @@ if (totalRamBytes < tenGiB) {
     "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
     "If you are using Docker Desktop, increase the memory limit in settings.",
   ].join("\n");
-  // Private GitHub-hosted ubuntu runners advertise ~7–8 GiB. This guard is a
-  // local/Docker Desktop safety rail; fail closed only outside CI.
-  if (process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true") {
+  if (isHostedOrContainerBuild()) {
     console.warn(message);
-    console.warn("Continuing because CI/GITHUB_ACTIONS is set.");
+    console.warn("Continuing because this is a CI or container image build.");
   } else {
     console.error(message);
     process.exit(1);

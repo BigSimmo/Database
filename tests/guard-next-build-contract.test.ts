@@ -11,11 +11,14 @@ describe("guard-next-build RAM floor", () => {
     expect(guardSource).toMatch(/process\.exit\(1\)/);
   });
 
-  it("does not fail closed on hosted CI runners that report ~7–8 GiB", () => {
-    // Private GitHub-hosted ubuntu runners are documented around 7 GB; the
-    // guard message is a local/Docker Desktop warning, not a CI blocker.
+  it("does not fail closed on hosted CI or container image builds", () => {
+    // Private GitHub-hosted ubuntu runners and Docker buildx hosts often report
+    // ~7–8 GiB; the guard message is a local/Docker Desktop warning only.
+    expect(guardSource).toContain("function isHostedOrContainerBuild");
     expect(guardSource).toContain('process.env.CI === "true"');
     expect(guardSource).toContain('process.env.GITHUB_ACTIONS === "true"');
-    expect(guardSource).toContain("Continuing because CI/GITHUB_ACTIONS is set.");
+    expect(guardSource).toContain('process.env.DOCKER_BUILD === "1"');
+    expect(guardSource).toContain('existsSync("/.dockerenv")');
+    expect(guardSource).toContain("Continuing because this is a CI or container image build.");
   });
 });
