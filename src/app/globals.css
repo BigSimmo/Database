@@ -123,6 +123,10 @@
 
 /* Theme tokens */
 :root {
+  /* Layout constraints */
+  --content-max-width: 1440px;
+  --rail-width: 480px;
+
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;
   --neutral-50: #f7f8fa;
@@ -1809,7 +1813,7 @@ summary::-webkit-details-marker {
      beside the main column. */
   .document-viewer-composer.floating-composer-edge {
     left: max(2rem, var(--safe-area-left));
-    right: calc(max(0px, (100vw - 1440px) / 2) + 480px + 3.5rem + var(--safe-area-right));
+    right: calc(max(0px, (100vw - var(--content-max-width)) / 2) + var(--rail-width) + 3.5rem + var(--safe-area-right));
   }
 }
 
@@ -2948,7 +2952,10 @@ html.theme-transitioning *:after {
   }
 }
 
-/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3) */
+/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3).
+   Token remap only — glass-header Canvas fills live in the earlier
+   forced-colors block; do not blanket-reset [aria-selected="true"] or
+   invent unused .surface-raised selectors with !important. */
 @media (forced-colors: active) {
   :root,
   .dark {
