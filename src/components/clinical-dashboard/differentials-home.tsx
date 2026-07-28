@@ -926,7 +926,11 @@ function SearchResultsView({
         // search, and the catalogue links that the removed error section used to
         // carry. Without these the failed view tells the reader to act and gives
         // them nothing to act with.
-        onRetry={catalog.status === "unauthorized" ? undefined : rerunSearch}
+        // Retry the request that actually failed. `rerunSearch` only re-runs the
+        // parent document-evidence search; the catalogue hook keys on query + auth
+        // identity, neither of which changes when the reader asks to try again, so
+        // routing Retry through it left the band permanently faulted.
+        onRetry={catalog.status === "unauthorized" ? undefined : catalog.refetch}
         faultAction={
           <>
             <Link
