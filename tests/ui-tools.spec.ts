@@ -1192,7 +1192,9 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/differentials?q=acute+confusion&run=1", resultsTestId: "differentials-search-results" },
     ] as const) {
       await gotoLauncher(page, route.path);
-      await expect(page.getByTestId(route.resultsTestId)).toBeVisible({ timeout: 20_000 });
+      // Prefer the first mounted results canvas when phone reserve-pad and
+      // results trees briefly coexist after soft navigations between modes.
+      await expect(page.getByTestId(route.resultsTestId).first()).toBeVisible({ timeout: 20_000 });
       const dock = page.locator("form.answer-footer-search-dock");
       await expect(dock, route.path).toBeVisible();
       await expect(dock, route.path).not.toHaveAttribute("data-scroll-hidden", "true");
