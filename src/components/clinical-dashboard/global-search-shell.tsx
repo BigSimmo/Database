@@ -31,6 +31,7 @@ import { landingModeForPreference, readAppPreferences } from "@/components/clini
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
   isPageOwnedComposerRoute,
@@ -916,6 +917,26 @@ function GlobalStandaloneSearchShellBody({
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
                 className="hidden lg:block lg:empty:hidden"
+              />
+            ) : null}
+            {/*
+              Shared, task-oriented mode/section navigation. It self-suppresses on
+              clean mode homes, locally-owned detail routes (medications,
+              factsheets, differentials diagnoses), and Therapy Compass, and only
+              renders an "On this page" bar where a record exposes the shared
+              section ids. Specifiers and Formulation keep their existing local
+              Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
+              is skipped for them to avoid a duplicate row on their workflow routes.
+              Rendered in normal flow (sticky={false}) so it never contends with
+              the universal collapsing header / pinned search chrome.
+            */}
+            {searchMode !== "specifiers" && searchMode !== "formulation" ? (
+              <PageSecondaryNavigation
+                modeId={searchMode}
+                pathname={pathname}
+                hasSubmittedSearch={hasSubmittedModeSearch}
+                onSearch={() => inputRef.current?.focus({ preventScroll: true })}
+                sticky={false}
               />
             ) : null}
             {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
