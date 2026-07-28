@@ -99,7 +99,7 @@ const standalonePageOwnedFooterRoutes = [
     name: "document composer",
     route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
     selector: "form.document-viewer-composer",
-    focusSelector: 'input[placeholder="Search or answer from this document..."]',
+    focusSelector: 'input[placeholder="Search within this document..."]',
     reserveSelector: '[data-testid="document-viewer-content"]',
     flushBottom: false,
   },
