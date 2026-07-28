@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn, toolbarButton } from "@/components/ui-primitives";
+import { useOverlayPresence } from "@/components/use-overlay-presence";
 
 export type SheetMobileSize = "content" | "viewport";
 
@@ -112,7 +113,7 @@ export function Sheet({
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
-  const dragRef = useRef<{ startY: number; dragging: boolean }>({ startY: 0, dragging: false });
+  const dragRef = useRef<{ startY: number; startTime: number; dragging: boolean }>({ startY: 0, startTime: 0, dragging: false });
   // Backdrop dismiss must require the gesture to *start* on the dimmed area.
   // Otherwise a press that begins on the panel and ends on the backdrop would
   // synthesize a click on the common ancestor and accidentally close the sheet.
@@ -132,11 +133,12 @@ export function Sheet({
   function handleGripPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     const panel = panelRef.current;
     if (!panel) return;
-    dragRef.current = { startY: event.clientY, dragging: true };
+    dragRef.current = { startY: event.clientY, startTime: performance.now(), dragging: true };
     panel.style.transition = "none";
     // Release the entry animation's `both` fill so the inline drag transform is
     // not overridden by the finished keyframes (CSS animations beat inline style).
     panel.style.animation = "none";
+    panel.style.willChange = "transform";
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
@@ -149,14 +151,17 @@ export function Sheet({
   function handleGripPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
     if (!dragRef.current.dragging) return;
     const delta = Math.max(0, event.clientY - dragRef.current.startY);
-    dragRef.current = { startY: 0, dragging: false };
+    const dt = performance.now() - dragRef.current.startTime;
+    const velocity = dt > 0 ? delta / dt : 0;
+    dragRef.current = { startY: 0, startTime: 0, dragging: false };
     const panel = panelRef.current;
     if (panel) {
       // Restore the class-based transition so a non-dismiss snaps back smoothly.
       panel.style.transition = "";
       panel.style.transform = "";
+      panel.style.willChange = "";
     }
-    if (delta > 96) onClose();
+    if (delta > 96 || velocity > 0.5) onClose();
   }
 
   useEffect(() => {
@@ -165,13 +170,18 @@ export function Sheet({
     const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     pushSheet(sheetId);
-    const focusFrame = window.requestAnimationFrame(() => {
-      const focusTarget =
-        initialFocusRef?.current ??
-        panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
-        closeRef.current;
-      focusTarget?.focus({ preventScroll: true });
-    });
+    
+    // ISSUE-04: Delay the focus frame so the outline does not translate across the screen
+    let focusFrame: number;
+    const focusTimeout = window.setTimeout(() => {
+      focusFrame = window.requestAnimationFrame(() => {
+        const focusTarget =
+          initialFocusRef?.current ??
+          panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
+          closeRef.current;
+        focusTarget?.focus({ preventScroll: true });
+      });
+    }, 250);
 
     function onKeyDown(event: KeyboardEvent) {
       // Only the top-most open Sheet reacts, so a stacked overlay (lightbox /
@@ -212,7 +222,8 @@ export function Sheet({
 
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      window.cancelAnimationFrame(focusFrame);
+      window.clearTimeout(focusTimeout);
+      if (focusFrame) window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
@@ -233,7 +244,9 @@ export function Sheet({
     };
   }, [open, initialFocusRef, returnFocusRef, sheetId]);
 
-  if (!open) return null;
+  const { stage, isMounted } = useOverlayPresence(open);
+
+  if (!isMounted) return null;
 
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
@@ -245,7 +258,7 @@ export function Sheet({
       className={cn(
         "fixed inset-0 z-[100] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         desktopBackdropClassName,
-        placement !== "left" && "motion-safe:animate-overlay-in",
+        stage === "exiting" ? "motion-safe:animate-overlay-out" : "motion-safe:animate-overlay-in",
         placement === "left"
           ? "items-stretch justify-start"
           : defaultSheetIsFullscreen
@@ -282,25 +295,30 @@ export function Sheet({
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
           "transition duration-200 motion-reduce:transition-none sm:duration-150",
           placement === "left"
-            ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
+            ? cn(
+                "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0",
+                stage === "exiting" ? "motion-safe:animate-sheet-left-out" : "motion-safe:animate-sheet-left"
+              )
             : cn(
                 defaultSheetIsFullscreen
-                  ? // Fullscreen panels size from the inset-0 backdrop (h-full), not
-                    // 100dvh: iOS Safari resolves dvh stale across toolbar
-                    // collapse, which strands a dead band under the sheet.
-                    "h-full max-h-full rounded-none border-0 motion-safe:animate-pop-in sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0 lg:motion-safe:animate-dialog-rise"
+                  ? cn(
+                      "h-full max-h-full rounded-none border-0 sm:max-w-none sm:rounded-none lg:h-auto lg:max-h-[calc(100dvh-3rem)] lg:rounded-2xl lg:border lg:border-[color:var(--border-lux)] lg:pb-0",
+                      stage === "exiting" ? "motion-safe:animate-pop-out lg:motion-safe:animate-dialog-fall" : "motion-safe:animate-pop-in lg:motion-safe:animate-dialog-rise"
+                    )
                   : cn(
-                      "sm:max-w-lg sm:rounded-2xl sm:pb-0 sm:motion-safe:animate-dialog-rise",
+                      "sm:max-w-lg sm:rounded-2xl sm:pb-0",
                       defaultSheetIsTopAligned
                         ? cn(
-                            "max-h-[calc(100dvh-1.5rem)] rounded-2xl motion-safe:animate-pop-in",
+                            "max-h-[calc(100dvh-1.5rem)] rounded-2xl",
                             defaultSheetUsesViewportSize && "min-h-[calc(100dvh-2rem)] sm:min-h-0",
+                            stage === "exiting" ? "motion-safe:animate-pop-out sm:motion-safe:animate-dialog-fall" : "motion-safe:animate-pop-in sm:motion-safe:animate-dialog-rise"
                           )
                         : cn(
-                            "rounded-t-2xl motion-safe:animate-sheet-up",
+                            "rounded-t-2xl",
                             defaultSheetUsesViewportSize
                               ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
                               : "max-h-[88dvh]",
+                            stage === "exiting" ? "motion-safe:animate-sheet-down sm:motion-safe:animate-dialog-fall" : "motion-safe:animate-sheet-up sm:motion-safe:animate-dialog-rise"
                           ),
                     ),
               ),

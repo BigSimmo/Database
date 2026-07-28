@@ -429,10 +429,12 @@ export function ModeActionPopup({
     window.requestAnimationFrame(() => buttonRef.current?.focus());
   }, [onOpenChange, setModeSelectorOpen]);
 
+  const popoverPresence = useOverlayPresence(open && !useSheet);
+
   // The sheet owns its own focus trap, Escape, and backdrop dismissal; only the
   // anchored popover needs the outside-click dismissable layer.
   useDismissableLayer({
-    enabled: open && !useSheet,
+    enabled: popoverPresence.isMounted,
     refs: [rootRef, surfaceRef, ...(dismissIgnoreRefs ?? [])],
     restoreFocusRef: buttonRef,
     onDismiss: () => {
@@ -622,9 +624,9 @@ export function ModeActionPopup({
   }
 
   useLayoutEffect(() => {
-    if (!open || useSheet) return;
+    if (!popoverPresence.isMounted) return;
     updatePlacement();
-  }, [items.length, open, title, updatePlacement, useSheet]);
+  }, [items.length, popoverPresence.isMounted, title, updatePlacement]);
 
   useEffect(() => {
     if (open) return;
@@ -632,12 +634,12 @@ export function ModeActionPopup({
   }, [open]);
 
   useEffect(() => {
-    if (!open || useSheet) return;
+    if (!popoverPresence.isMounted) return;
     onPlacementChange?.(placement);
-  }, [onPlacementChange, open, placement, useSheet]);
+  }, [onPlacementChange, popoverPresence.isMounted, placement]);
 
   useEffect(() => {
-    if (!open || useSheet) return;
+    if (!popoverPresence.isMounted) return;
 
     let placementFrame: number | null = null;
     const schedulePlacementUpdate = () => {
@@ -661,7 +663,7 @@ export function ModeActionPopup({
       window.visualViewport?.removeEventListener("resize", schedulePlacementUpdate);
       window.visualViewport?.removeEventListener("scroll", schedulePlacementUpdate);
     };
-  }, [open, updatePlacement, useSheet]);
+  }, [popoverPresence.isMounted, updatePlacement]);
 
   const surfaceStyle = {
     "--mode-action-max-height": surfaceMaxHeight ? `${surfaceMaxHeight}px` : undefined,
@@ -869,10 +871,11 @@ export function ModeActionPopup({
   }
 
   const actionSurface =
-    open && !useSheet ? (
+    popoverPresence.isMounted ? (
       <div
         ref={surfaceRef}
         data-placement={placement}
+        data-state={popoverPresence.stage === "exiting" ? "exiting" : "open"}
         style={surfaceStyle}
         className={cn(
           "mode-action-surface z-50 text-[color:var(--text)]",

@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { useOverlayPresence } from "@/components/use-overlay-presence";
 import { cn } from "@/components/ui-primitives";
 
 type PopoverPlacement = "below" | "above";
@@ -67,6 +68,7 @@ export function SourcePreviewPopover({
   children: ReactNode;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const presence = useOverlayPresence(open);
   const [layout, setLayout] = useState<{
     placement: PopoverPlacement;
     top: number;
@@ -77,12 +79,12 @@ export function SourcePreviewPopover({
 
   const updateLayout = useCallback(() => {
     const anchor = anchorRef.current;
-    if (!anchor) return;
+    if (!anchor || !presence.isMounted) return;
     setLayout(computePopoverLayout(anchor));
-  }, [anchorRef]);
+  }, [anchorRef, presence.isMounted]);
 
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!presence.isMounted) return;
     updateLayout();
   }, [open, updateLayout]);
 
@@ -114,7 +116,7 @@ export function SourcePreviewPopover({
       window.visualViewport?.removeEventListener("scroll", handleViewportChange);
       window.removeEventListener("scroll", handleViewportChange, scrollOptions);
     };
-  }, [open, updateLayout]);
+  }, [presence.isMounted, updateLayout]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -144,13 +146,13 @@ export function SourcePreviewPopover({
   }, [open]);
 
   useDismissableLayer({
-    enabled: open,
+    enabled: presence.isMounted,
     refs: [anchorRef, surfaceRef],
     restoreFocusRef: anchorRef,
     onDismiss: () => onClose(),
   });
 
-  if (!open || typeof document === "undefined") return null;
+  if (!presence.isMounted || typeof document === "undefined") return null;
 
   const style: CSSProperties = layout
     ? {
@@ -168,11 +170,13 @@ export function SourcePreviewPopover({
       role="dialog"
       aria-modal="false"
       aria-label={title}
+      aria-hidden={presence.stage === "exiting"}
       data-testid="source-capsule-preview"
       data-popover-placement={layout?.placement ?? "below"}
       style={style}
       className={cn(
-        "fixed z-[95] min-w-[min(100vw-1.5rem,20rem)] overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-safe:animate-pop-in motion-reduce:animate-none",
+        "fixed z-[95] min-w-[min(100vw-1.5rem,20rem)] overflow-y-auto overscroll-contain rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)] motion-reduce:animate-none",
+        presence.stage === "exiting" ? "motion-safe:animate-pop-out" : "motion-safe:animate-pop-in"
       )}
     >
       {children}
