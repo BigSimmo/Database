@@ -14,7 +14,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Send,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -76,6 +75,7 @@ import { cleanClinicalSummaryText } from "@/lib/source-text-sanitizer";
 import { formatDocumentSummary } from "@/lib/document-summary-formatting";
 import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
+import { documentsSearchHref } from "@/lib/document-flow-routes";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 import type {
   ChunkRow,
@@ -109,6 +109,8 @@ const PdfCanvasViewer = dynamic(
     loading: () => <PdfPreviewLoading />,
   },
 );
+
+const emptyDocumentSearchResults: DocumentSearchResult[] = [];
 const NativePdfEmbed = dynamic(
   () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed),
   { ssr: false, loading: () => <PdfPreviewLoading /> },
@@ -251,20 +253,25 @@ export function DocumentViewer({
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
-  // Bounds *consecutive* auto-refreshes of an expired PDF signed URL so a
-  // persistently failing URL can't loop. Reset on document change and on a
-  // successful reload, so a long session that legitimately expires many times
-  // over is never dead-ended — only an unrecoverable URL exhausts the budget.
+  // Cap consecutive expired-PDF signed-URL auto-refreshes; reset on document
+  // change / successful reload so only an unrecoverable URL exhausts the budget.
   const signedUrlRefreshCountRef = useRef(0);
+  const sourceSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
-  const [documentSearchResults, setDocumentSearchResults] = useState<DocumentSearchResult[]>([]);
+  const [documentSearchState, setDocumentSearchState] = useState<{
+    query: string;
+    results: DocumentSearchResult[];
+  }>({ query: "", results: [] });
   const [searchingDocument, setSearchingDocument] = useState(false);
   const [documentSearchError, setDocumentSearchError] = useState<string | null>(null);
+  const normalizedSourceSearch = sourceSearch.replace(/\s+/g, " ").trim();
+  const currentDocumentSearchResults =
+    documentSearchState.query === normalizedSourceSearch ? documentSearchState.results : emptyDocumentSearchResults;
+  const currentDocumentSearchError = documentSearchState.query === normalizedSourceSearch ? documentSearchError : null;
   const [reviewingTableFactId, setReviewingTableFactId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
-  // Phone-only hide-on-scroll for the bottom composer: never hide while the
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -329,6 +336,10 @@ export function DocumentViewer({
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
+  const documentSearchPending =
+    canViewSourceDocuments &&
+    normalizedSourceSearch.length >= 2 &&
+    (searchingDocument || documentSearchState.query !== normalizedSourceSearch);
   const canUseAdministrativeApis =
     localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
 
@@ -745,10 +756,10 @@ export function DocumentViewer({
   ]);
 
   useEffect(() => {
-    const query = sourceSearch.trim();
+    const query = sourceSearch.replace(/\s+/g, " ").trim();
     if (!canViewSourceDocuments || query.length < 2) {
       const reset = window.setTimeout(() => {
-        setDocumentSearchResults([]);
+        setDocumentSearchState({ query: "", results: [] });
         setSearchingDocument(false);
         setDocumentSearchError(null);
       }, 0);
@@ -772,15 +783,22 @@ export function DocumentViewer({
         })
         .then((payload) => {
           if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-          setDocumentSearchResults(payload.results ?? []);
+          const responseQuery = typeof payload.query === "string" ? payload.query.trim() : query;
+          if (responseQuery !== query) {
+            setDocumentSearchState({ query, results: [] });
+            setDocumentSearchError("Document search returned an outdated response. Retry the search.");
+            return;
+          }
+          setDocumentSearchState({ query, results: Array.isArray(payload.results) ? payload.results : [] });
           setDocumentSearchError(null);
         })
         .catch((error) => {
           if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-          setDocumentSearchResults([]);
+          setDocumentSearchState({ query, results: [] });
           setDocumentSearchError(error instanceof Error ? error.message : "Document search could not be loaded.");
         })
         .finally(() => {
+          authRequest.release();
           if (!controller.signal.aborted) setSearchingDocument(false);
         });
     }, 220);
@@ -821,8 +839,7 @@ export function DocumentViewer({
       setSummaryError("Load a source document before summarising.");
       return;
     }
-    const summaryMode = sourceSearch.trim().length === 0;
-    const query = summaryMode ? documentSummaryQuestion : sourceSearch.trim();
+    const query = documentSummaryQuestion;
     const controller = new AbortController();
     summaryAbortRef.current?.abort();
     summaryAbortRef.current = controller;
@@ -850,7 +867,7 @@ export function DocumentViewer({
           "Content-Type": "application/json",
           ...(clientDemoMode ? {} : authorizationHeader),
         },
-        body: JSON.stringify({ query, documentId, ...(summaryMode ? { summaryMode: true } : {}) }),
+        body: JSON.stringify({ query, documentId, summaryMode: true }),
         signal: controller.signal,
       });
       if (response.status === 401) markSessionExpired();
@@ -1014,8 +1031,14 @@ export function DocumentViewer({
     setDocument((current) => (current ? { ...current, labels } : current));
   };
   const searchByTag = (tag: { searchText: string; label: string }) => {
-    const params = new URLSearchParams({ mode: "documents", q: tag.searchText || tag.label });
-    router.push(`/?${params.toString()}`);
+    router.push(documentsSearchHref({ query: tag.searchText || tag.label, run: true }));
+  };
+  const submitSourceSearch = () => {
+    if (normalizedSourceSearch.length < 2) return;
+    globalThis.document.getElementById("source-text")?.scrollIntoView({
+      block: "start",
+      behavior: resolveScrollBehavior(),
+    });
   };
   async function reviewTableFact(fact: TableFactRow, reviewClass: string) {
     setReviewingTableFactId(fact.id);
@@ -1117,7 +1140,9 @@ export function DocumentViewer({
                 type="button"
                 onClick={() => {
                   setMobileActionsOpen(false);
-                  setSourceSearch(documentDisplayTitle(readyDocument));
+                  window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => sourceSearchInputRef.current?.focus());
+                  });
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
@@ -1438,9 +1463,9 @@ export function DocumentViewer({
               selectedPage={selectedPage}
               chunks={chunks}
               search={sourceSearch}
-              documentSearchResults={documentSearchResults}
-              searchingDocument={searchingDocument}
-              documentSearchError={documentSearchError}
+              documentSearchResults={currentDocumentSearchResults}
+              searchingDocument={documentSearchPending}
+              documentSearchError={currentDocumentSearchError}
               idPrefix="source-chunk"
               sectionId="source-text"
               selectedChunkId={activeChunkId}
@@ -1655,7 +1680,7 @@ export function DocumentViewer({
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              if (canSummarizeDocument) void summarize();
+              submitSourceSearch();
             }}
             data-scroll-hidden={composerScrollHidden ? "true" : undefined}
             onFocusCapture={() => setComposerChromeFocused(true)}
@@ -1679,24 +1704,25 @@ export function DocumentViewer({
               <Plus aria-hidden="true" className="h-5 w-5" />
             </button>
             <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-              <span className="sr-only">Search or answer from this document</span>
+              <span className="sr-only">Search within this document</span>
               <input
+                ref={sourceSearchInputRef}
                 value={sourceSearch}
                 onChange={(event) => setSourceSearch(event.target.value)}
-                placeholder="Search or answer from this document..."
+                placeholder="Search within this document..."
                 className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
               />
             </label>
             <button
               type="submit"
-              disabled={!canSummarizeDocument}
+              disabled={!canViewSourceDocuments || normalizedSourceSearch.length < 2}
               className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Answer from this document"
+              aria-label="Search within this document"
             >
-              {loadingSummary ? (
+              {documentSearchPending ? (
                 <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
               ) : (
-                <Send aria-hidden="true" className="h-4 w-4" />
+                <Search aria-hidden="true" className="h-4 w-4" />
               )}
             </button>
           </form>
