@@ -9,15 +9,22 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
+// GitHub-hosted ubuntu runners sometimes report ~7–8 GiB even when the job can
+// complete with the CI heap (`--max-old-space-size=8192`). Keep the hard stop for
+// local/Docker Desktop hosts; in CI only warn so Build is not a capacity flake.
+const inContinuousIntegration = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 if (totalRamBytes < tenGiB) {
-  console.error(
-    [
-      `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
-      "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
-      "If you are using Docker Desktop, increase the memory limit in settings.",
-    ].join("\n"),
-  );
-  process.exit(1);
+  const message = [
+    `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
+    "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
+    "If you are using Docker Desktop, increase the memory limit in settings.",
+  ].join("\n");
+  if (inContinuousIntegration) {
+    console.warn(`${message}\nCI detected; continuing despite low reported host RAM.`);
+  } else {
+    console.error(message);
+    process.exit(1);
+  }
 }
 const expectedProjectId = localProjectId(projectRoot);
 const identityPath = "/api/local-project-id";

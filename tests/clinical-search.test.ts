@@ -353,7 +353,10 @@ describe("clinical search query normalization", () => {
     expect(buildClinicalTextSearchQuery("When should neuroleptic side effects be escalated?")).toBe(
       "neuroleptic side effect",
     );
-    expect(classifyRagQuery("When should neuroleptic side effects be escalated?").queryClass).toBe("document_lookup");
+    // Keep medication_dose_risk so title-supported escalation rescue can engage.
+    expect(classifyRagQuery("When should neuroleptic side effects be escalated?").queryClass).toBe(
+      "medication_dose_risk",
+    );
     expect(classifyRagQuery("What dose applies for neuroleptic side effect management?").queryClass).toBe(
       "medication_dose_risk",
     );

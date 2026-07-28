@@ -548,9 +548,6 @@ function queryClassFromSignals(args: {
   ) {
     return "medication_dose_risk";
   }
-  // Title-alias hit for the neuroleptic side-effect sheet should stay document_lookup
-  // for escalation/lookup questions, but must not outrank an explicit dose/route ask above.
-  if (args.documentTitleTerms.includes("neuroleptic side effects")) return "document_lookup";
   if (args.thresholdTerms.length > 0 || tableThresholdPattern.test(args.normalizedQuery)) return "table_threshold";
   if (args.medications.length > 0 || medicationDoseRiskPattern.test(args.normalizedQuery))
     return "medication_dose_risk";
