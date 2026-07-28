@@ -61,7 +61,8 @@ const ledger: Array<{ issue: string; resolution: string; source: string }> = [
   },
   {
     issue: "A dropdown hung from a row that scroll-hides",
-    resolution: "The phone pane is a sheet, anchored to the viewport. Scrolling under it is not a question that arises.",
+    resolution:
+      "The phone pane is a sheet, anchored to the viewport. Scrolling under it is not a question that arises.",
     source: "Sheets are not viewport chrome",
   },
   {
@@ -122,7 +123,8 @@ const versions: Array<{
       "Desktop and tablet show the section list permanently, as the first card in the column the viewer already renders. Phone opens the identical list as a sheet, because it has no column to spare.",
     perDevice: {
       desktop: "Index card always visible, sticky, offset bound to the top-bar hide state.",
-      tablet: "Same card in page flow above the document, so it scrolls away rather than becoming a third sticky layer.",
+      tablet:
+        "Same card in page flow above the document, so it scrolls away rather than becoming a third sticky layer.",
       phone: "Row chevron opens the list as a bottom sheet.",
     },
     costs: [
@@ -401,7 +403,10 @@ function SectionsSheet({ id }: { id: string }) {
         aria-label="Jump to section"
         className="absolute inset-x-0 bottom-0 z-50 max-h-[72%] overflow-y-auto rounded-t-[1rem] border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 pb-3 pt-2 shadow-[var(--shadow-lux)]"
       >
-        <span aria-hidden="true" className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60" />
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60"
+        />
         <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{documentTitle}</p>
         <p className="mb-2 mt-0.5 text-3xs font-semibold text-[color:var(--text-soft)]">
           {activeSection.label} · {activeIndex + 1} of {sections.length} — a chevron marks a section that opens first
@@ -497,7 +502,10 @@ function DesktopFrame({ version }: { version: VersionId }) {
           <DocumentBody />
           <div className="space-y-3 p-4 pl-0">
             {single ? null : (
-              <IndexCard sticky caption="First card in the column the viewer already renders; sticky offset follows the top bar." />
+              <IndexCard
+                sticky
+                caption="First card in the column the viewer already renders; sticky offset follows the top bar."
+              />
             )}
             <EvidencePanel />
           </div>
@@ -650,8 +658,8 @@ export function DocumentNavigationFinalReviewMockups() {
           </h1>
           <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
             Both versions share the same row and the same pane: a two-line header with the section label and a
-            seven-segment track, and a single-column list where every label renders in full. They differ on one
-            question only — whether wide screens show that list permanently, or open it the same way the phone does.
+            seven-segment track, and a single-column list where every label renders in full. They differ on one question
+            only — whether wide screens show that list permanently, or open it the same way the phone does.
           </p>
         </header>
 

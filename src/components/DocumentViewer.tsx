@@ -81,7 +81,11 @@ import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-vi
 import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
 import { buildDocumentSectionIndex, documentOverviewSectionId } from "@/components/document-viewer/section-index";
-import { DocumentSectionSheet, DocumentSectionTrack, jumpToDocumentSection } from "@/components/document-viewer/section-nav";
+import {
+  DocumentSectionSheet,
+  DocumentSectionTrack,
+  jumpToDocumentSection,
+} from "@/components/document-viewer/section-nav";
 import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
 import { useDocumentChromeMetrics } from "@/components/document-viewer/use-document-chrome-metrics";
 

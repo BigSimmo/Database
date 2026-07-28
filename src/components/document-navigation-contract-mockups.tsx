@@ -44,7 +44,8 @@ const contractFindings: Array<{ area: string; finding: string; consequence: stri
     area: "Phone header",
     finding:
       "The document header is not its own sticky bar. `PhoneHeaderCollapsePortal` moves it into the universal collapse row below `sm`, and the contract allows exactly one collapse owner per phone header.",
-    consequence: "A second sticky or fixed phone header is out of bounds. Anything added lands inside the collapse row.",
+    consequence:
+      "A second sticky or fixed phone header is out of bounds. Anything added lands inside the collapse row.",
   },
   {
     area: "Collapse budget",
@@ -56,17 +57,20 @@ const contractFindings: Array<{ area: string; finding: string; consequence: stri
     area: "Phone footer",
     finding:
       "`DocumentViewer` already owns the bottom: a 56 px floating composer pill with `+` actions, portalled through `PhoneFooterLayerPortal`, reserve `9rem + safe-area + keyboard`, and `0rem` once hidden.",
-    consequence: "The bottom edge is taken. Navigation cannot claim a persistent bar there without a second footer owner.",
+    consequence:
+      "The bottom edge is taken. Navigation cannot claim a persistent bar there without a second footer owner.",
   },
   {
     area: "Sheets",
-    finding: "The contract states plainly that modal and sheet headers are not viewport chrome and keep their own scroll context.",
+    finding:
+      "The contract states plainly that modal and sheet headers are not viewport chrome and keep their own scroll context.",
     consequence: "A bottom sheet is the one overlay that adds no chrome, no reserve, and no scroll owner.",
   },
   {
     area: "Tablet",
     finding: "The top bar hides and reveals, and tablet search stays pinned beneath it as the second sticky layer.",
-    consequence: "A sticky nav pane would be a third layer. Tablet navigation should sit in page flow or share the pinned stack.",
+    consequence:
+      "A sticky nav pane would be a third layer. Tablet navigation should sit in page flow or share the pinned stack.",
   },
   {
     area: "Desktop",
@@ -93,7 +97,8 @@ const candidates: Array<{
     perDevice: {
       desktop: "Sticky index card at the top of the existing right column. No third column, no new grid.",
       tablet: "In-flow index card above the document. Scrolls away with content — no third sticky layer.",
-      phone: "Existing header title becomes the disclosure; sections open in a bottom sheet. Zero added collapse height.",
+      phone:
+        "Existing header title becomes the disclosure; sections open in a bottom sheet. Zero added collapse height.",
     },
   },
   {
@@ -133,7 +138,7 @@ const perfected: Array<{ title: string; body: string }> = [
   },
   {
     title: "Jump opens the accordion first",
-    body: "Target sections are `<details name=\"document-viewer-section\">` — exclusive. The handler opens the target, waits a frame, then scrolls.",
+    body: 'Target sections are `<details name="document-viewer-section">` — exclusive. The handler opens the target, waits a frame, then scrolls.',
   },
   {
     title: "Anchor offset is measured, not fixed",
@@ -447,7 +452,10 @@ function SectionsSheet({ id }: { id: string }) {
         aria-label="Jump to section"
         className="absolute inset-x-0 bottom-0 z-50 rounded-t-[1rem] border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 pb-3 pt-2 shadow-[var(--shadow-lux)]"
       >
-        <span aria-hidden="true" className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60" />
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60"
+        />
         <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{documentTitle}</p>
         <p className="mb-2 mt-0.5 text-3xs font-semibold text-[color:var(--text-soft)]">
           {activeSection.label} · {activeIndex + 1} of {sections.length} — composer blurred, scrim covers the pill
@@ -540,7 +548,10 @@ function DesktopFrame({ candidate }: { candidate: CandidateId }) {
             <div className="grid grid-cols-[minmax(0,1fr)_20rem] items-start">
               <DocumentBody />
               <div className="space-y-3 p-4 pl-0">
-                <IndexCard sticky note="First card in the 480 px column the viewer already renders — no third column." />
+                <IndexCard
+                  sticky
+                  note="First card in the 480 px column the viewer already renders — no third column."
+                />
                 <EvidenceColumnPanel />
               </div>
             </div>

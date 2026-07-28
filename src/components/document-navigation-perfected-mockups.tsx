@@ -373,7 +373,10 @@ function SectionsSheet({ id, list, activeId }: { id: string; list: Section[]; ac
         aria-label="Jump to section"
         className="absolute inset-x-0 bottom-0 z-50 max-h-[72%] overflow-y-auto rounded-t-[1rem] border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 pb-3 pt-2 shadow-[var(--shadow-lux)]"
       >
-        <span aria-hidden="true" className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60" />
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60"
+        />
         <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{documentTitle}</p>
         <p className="mb-2 mt-0.5 text-3xs font-semibold text-[color:var(--text-soft)]">
           {active.label} · {position} of {list.length} — a chevron marks a section that opens first
@@ -578,7 +581,10 @@ export function DocumentNavigationPerfectedMockups() {
           </h2>
           <div className="mt-3 grid gap-2 lg:grid-cols-3">
             {behaviour.map((item) => (
-              <div key={item.title} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+              <div
+                key={item.title}
+                className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              >
                 <p className="text-xs font-bold text-[color:var(--text-heading)]">{item.title}</p>
                 <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{item.body}</p>
               </div>
