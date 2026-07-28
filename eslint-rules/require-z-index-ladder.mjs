@@ -1,10 +1,13 @@
 /**
  * Local ESLint rule: enforce z-index ladder allowed rungs.
  * Validates all z-[<n>] utilities against allowed rungs:
- * 0, 10, 20, 30, 40, 60, 80-85, 95, 100
+ * 0, 5, 10, 20, 30, 40, 60, 80-85, 95, 100
+ *
+ * Rung 5 is reserved for interstitial chrome that must sit above a z-0
+ * backdrop but below the z-10 command/suggestion surface (privacy notice).
  */
 
-const ALLOWED_RUNGS = new Set([0, 10, 20, 30, 40, 60, 80, 81, 82, 83, 84, 85, 95, 100]);
+const ALLOWED_RUNGS = new Set([0, 5, 10, 20, 30, 40, 60, 80, 81, 82, 83, 84, 85, 95, 100]);
 
 /** @type {import("eslint").Rule.RuleModule} */
 const rule = {
@@ -15,7 +18,7 @@ const rule = {
     },
     schema: [],
     messages: {
-      invalid: "Z-index value z-[{{value}}] is not allowed. Allowed rungs: 0, 10, 20, 30, 40, 60, 80-85, 95, 100.",
+      invalid: "Z-index value z-[{{value}}] is not allowed. Allowed rungs: 0, 5, 10, 20, 30, 40, 60, 80-85, 95, 100.",
     },
   },
   create(context) {
