@@ -4146,7 +4146,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // Missing/unowned documents now resolve through the segment not-found boundary
     // (page.tsx calls notFound() on PublicApiError 404) instead of DocumentViewer.
-    await expect(page.getByRole("status")).toContainText("Document Not Found", { timeout: 30000 });
+    await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
+      timeout: 30000,
+    });
     await expect(page.locator("body")).toContainText(/could not be found or has been deleted/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("loading source");
