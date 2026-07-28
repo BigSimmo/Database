@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CalculatorsPopupSheetMockup } from "@/components/calculators";
+import { CalculatorsPopupSheetMockup } from "@/components/calculator-mockups";
 
 export const metadata: Metadata = {
   title: "Calculators Popup Sheet Mockup - Clinical KB",
