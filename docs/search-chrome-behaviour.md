@@ -12,6 +12,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 | Document detail/source routes       | `DocumentViewer` floating composer                                                                | `DocumentViewer` content padding                                               |
 | Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                                             | Calculators page pad; shell reserve stays `0`                                  |
 | Info/detail pages with no composer  | No fixed composer                                                                                 | Idle shell padding only                                                        |
+
 ## Invariants
 
 1. Use `src/components/clinical-dashboard/mobile-composer-reserve.ts` as the TypeScript source of truth for phone composer clearances.
