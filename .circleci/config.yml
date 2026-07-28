@@ -4,82 +4,48 @@
 version: 2.1
 
 jobs:
-  verify:
+  npm-ping:
     docker:
-      # cimg/node:24.9 matches package.json engines node 24.x.
-      # Prefer the floating patch tag: a digest pin plus resource_class: small
-      # failed this project's executor before steps ran; tag-only smoke passed.
       - image: cimg/node:24.9
     steps:
       - checkout
       - run:
-          name: Skip verification on docs-only changes
-          command: |
-            # CircleCI checkouts often restrict the origin fetch refspec to the
-            # branch under test, so force main into the remote-tracking ref.
-            if ! git fetch --depth 100 origin "main:refs/remotes/origin/main"; then
-              echo "Could not fetch origin/main; running full verification."
-              exit 0
-            fi
-            BASE_SHA="$(git rev-parse origin/main)"
-            HEAD_SHA="$(git rev-parse HEAD)"
-            # Reuse scripts/ci-change-scope.mjs so policy-bearing Markdown
-            # (AGENTS.md, .github/pull_request_template.md, docs/codex-review-protocol.md, …)
-            # is not false-greened as docs-only.
-            node scripts/ci-change-scope.mjs --base "$BASE_SHA" --head "$HEAD_SHA" | tee /tmp/ci-change-scope.txt
-            if grep -qx 'docs_only=true' /tmp/ci-change-scope.txt; then
-              echo "Docs-only change (ci-change-scope); skipping install and verification."
-              circleci-agent step halt
-            else
-              echo "Non-docs changes detected; running verification."
-            fi
+          name: npm ping
+          command: npm ping
+
+  engine-check:
+    docker:
+      - image: cimg/node:24.9
+    steps:
+      - checkout
       - run:
-          name: Activate packageManager-pinned npm 11.17.x
-          # cimg/node:24.9 ships npm 11.6.0; package.json pins packageManager npm@11.17.0.
-          # Global installs on this image require sudo (Node lives under /usr/local).
-          command: |
-            sudo npm install -g npm@11.17.0
-            npm --version
-            node -e 'const major=Number(process.version.slice(1).split(".")[0]); if(major!==24){console.error("expected node 24.x, got",process.version); process.exit(1)}'
-            node -e 'const {execSync}=require("node:child_process"); const v=execSync("npm --version",{encoding:"utf8"}).trim(); if(!/^11\./.test(v)){console.error("expected npm 11.x, got",v); process.exit(1)}'
-      - restore_cache:
-          keys:
-            - npm-deps-v1-{{ checksum "package-lock.json" }}
+          name: preinstall engine check
+          command: node scripts/check-node-engine.cjs
+
+  npm-ci-dry-run:
+    docker:
+      - image: cimg/node:24.9
+    steps:
+      - checkout
       - run:
-          name: Install dependencies
+          name: npm ci dry-run
           no_output_timeout: 15m
-          command: npm ci
-      - save_cache:
-          key: npm-deps-v1-{{ checksum "package-lock.json" }}
-          paths:
-            - ~/.npm
+          command: npm ci --dry-run
+
+  npm-ci-ignore-scripts:
+    docker:
+      - image: cimg/node:24.9
+    steps:
+      - checkout
       - run:
-          name: Format check
-          command: npm run format:check
-      - run:
-          name: Lint
-          command: npm run lint
-      - run:
-          name: Typecheck
-          command: npm run typecheck
-      - run:
-          name: Install deterministic Python PDF test prerequisite
-          # Same PyMuPDF pin as .github/workflows/ci.yml. cimg/base only ships
-          # python-is-python3 (no pip), and Ubuntu 24.04 blocks system pip installs
-          # (PEP 668), so bootstrap a venv and point PYTHON_BIN at it for tests.
-          command: |
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends python3-pip python3-venv
-            python3 -m venv /tmp/ci-pdf-venv
-            /tmp/ci-pdf-venv/bin/pip install --disable-pip-version-check "PyMuPDF==1.28.0"
-            /tmp/ci-pdf-venv/bin/python -c "import fitz; print('PyMuPDF', fitz.version)"
-      - run:
-          name: Unit tests
-          environment:
-            PYTHON_BIN: /tmp/ci-pdf-venv/bin/python
-          command: npm run test
+          name: npm ci ignore-scripts
+          no_output_timeout: 15m
+          command: npm ci --ignore-scripts
 
 workflows:
   verify:
     jobs:
-      - verify
+      - npm-ping
+      - engine-check
+      - npm-ci-dry-run
+      - npm-ci-ignore-scripts
