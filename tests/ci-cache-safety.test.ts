@@ -7,12 +7,12 @@ const uiSetup = readFileSync(new URL("../.github/actions/setup-ui-e2e/action.yml
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
-  it("invalidates cached node_modules for every install-contract input", () => {
-    const cacheKey = nodeSetup.match(/^\s*key:\s*(node-modules-.*)$/m)?.[1] ?? "";
-    expect(cacheKey).toContain(".nvmrc");
-    expect(cacheKey).toContain("package.json");
-    expect(cacheKey).toContain("package-lock.json");
-    expect(cacheKey).toContain(".npmrc");
+  it("uses npm's download cache but recreates node_modules on every job", () => {
+    expect(nodeSetup).toContain("cache: npm");
+    expect(nodeSetup).toContain("cache-dependency-path: package-lock.json");
+    expect(nodeSetup).toContain("run: npm ci --include=dev");
+    expect(nodeSetup).not.toContain("path: node_modules");
+    expect(nodeSetup).not.toContain("cache-hit");
   });
 
   it("keeps quarantined and mockup UI specs in one advisory lane", () => {
