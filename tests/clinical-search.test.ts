@@ -437,6 +437,25 @@ describe("clinical search query normalization", () => {
     expect(ranked.map((item) => item.id)).toEqual(["clozaril-monitoring", "unrelated-monitoring"]);
   });
 
+  it("does not let one medication alias satisfy another named medication subject", () => {
+    const ranked = rankClinicalResults("What monitoring is required for clozapine and olanzapine therapy?", [
+      result({
+        id: "clozapine-only",
+        title: "Clozaril Monitoring",
+        content: "Monitor Clozaril with regular blood tests and ANC thresholds.",
+        hybrid_score: 0.9,
+      }),
+      result({
+        id: "both-medications",
+        title: "Clozapine and Olanzapine Monitoring",
+        content: "Monitor clozapine and olanzapine therapy with regular blood tests.",
+        hybrid_score: 0.7,
+      }),
+    ]);
+
+    expect(ranked.map((item) => item.id)).toEqual(["both-medications", "clozapine-only"]);
+  });
+
   it("anchors generic discharge summaries to mental health discharge sources", () => {
     expect(buildClinicalTextSearchQuery("Summarize the discharge guidance")).toBe("mental health discharge");
   });

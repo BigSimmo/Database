@@ -1435,20 +1435,23 @@ export function medicationDoseQueryContext(query: string, result: SearchResult) 
   }
   const evidenceTokens = new Set(normalizedClinicalSearchTokens(clinicalResultEvidenceHaystack(result)));
   const namedMedications = medicationTerms(normalizeAnalysisText(query));
-  // Accept brand/generic aliases (e.g. Clozaril evidence for a clozapine query).
-  const namedMedicationAliasTokens = new Set(
-    namedMedications.flatMap((medication) =>
-      [medication, ...medicationAliasesForEntity(medication)].flatMap((alias) => normalizedClinicalSearchTokens(alias)),
-    ),
-  );
+  // Accept brand/generic aliases per named medication (e.g. Clozaril ↔ clozapine).
+  // Keep each medication's alias set separate so one drug's evidence cannot satisfy
+  // another named subject token in multi-medication queries.
+  const aliasTokensByMedication = namedMedications.map((medication) => {
+    const aliasTokens = new Set(
+      [medication, ...medicationAliasesForEntity(medication)].flatMap((alias) =>
+        normalizedClinicalSearchTokens(alias),
+      ),
+    );
+    return aliasTokens;
+  });
+  const evidenceHasAlias = (aliasTokens: Set<string>) =>
+    [...aliasTokens].some((aliasToken) => evidenceTokens.has(aliasToken));
   const evidenceHasSubjectToken = (token: string) => {
     if (evidenceTokens.has(token)) return true;
-    if (
-      namedMedicationAliasTokens.has(token) &&
-      [...namedMedicationAliasTokens].some((aliasToken) => evidenceTokens.has(aliasToken))
-    ) {
-      return true;
-    }
+    const owningAliases = aliasTokensByMedication.find((aliasTokens) => aliasTokens.has(token));
+    if (owningAliases && evidenceHasAlias(owningAliases)) return true;
     return (
       token.startsWith("monitor") &&
       Array.from(evidenceTokens).some((evidenceToken) => evidenceToken.startsWith("monitor"))
@@ -1457,8 +1460,7 @@ export function medicationDoseQueryContext(query: string, result: SearchResult) 
   const hitCount = subjectTokens.filter(evidenceHasSubjectToken).length;
   const requiredHits = Math.min(2, subjectTokens.length);
   const hasNamedMedication =
-    namedMedications.length === 0 ||
-    [...namedMedicationAliasTokens].some((aliasToken) => evidenceTokens.has(aliasToken));
+    namedMedications.length === 0 || aliasTokensByMedication.every((aliasTokens) => evidenceHasAlias(aliasTokens));
   return {
     hasClinicalSubject: true,
     matched: hasNamedMedication && hitCount >= requiredHits,
