@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { installedLockParity } from "../scripts/check-installed-lock-parity.mjs";
+import { criticalInstalledPackages, installedLockParity } from "../scripts/check-installed-lock-parity.mjs";
 
 const temporaryRoots: string[] = [];
 
@@ -28,6 +28,12 @@ afterEach(() => {
 });
 
 describe("installedLockParity", () => {
+  it("covers the local validation toolchain as well as runtime packages", () => {
+    expect(criticalInstalledPackages).toEqual(
+      expect.arrayContaining(["eslint", "playwright", "typescript", "vitest"]),
+    );
+  });
+
   it("accepts an installed package that exactly matches the lockfile", () => {
     expect(installedLockParity(fixture("16.2.11", "16.2.11"), ["next"])).toEqual([
       expect.objectContaining({ packageName: "next", lockedVersion: "16.2.11", installedVersion: "16.2.11", ok: true }),

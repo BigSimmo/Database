@@ -3,7 +3,15 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const criticalInstalledPackages = ["next", "react", "react-dom", "playwright", "typescript"];
+export const criticalInstalledPackages = [
+  "next",
+  "react",
+  "react-dom",
+  "eslint",
+  "playwright",
+  "typescript",
+  "vitest",
+];
 
 function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, "utf8"));

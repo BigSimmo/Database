@@ -2,17 +2,14 @@
 #
 # CodeRabbit configuration.
 #
-# Intent: keep CodeRabbit's review as a non-blocking, advisory check. CodeRabbit
-# still reviews PRs whenever credits are available, but it must never post a
-# *failing* commit status that blocks a PR — most importantly when prepaid
-# credits are exhausted ("Prepaid credits exhausted — enable usage-based
-# reviews"). That failure previously surfaced as a red ✗ check and acted as a
-# barrier on the PR; the settings below prevent it.
+# Intent: keep normal automatic review and chat enabled while ensuring a
+# CodeRabbit service error cannot make its advisory progress surface fail.
 reviews:
-  # Do not post a CodeRabbit commit status check at all. This is what turns the
-  # review into a blocking check, so disabling it keeps the review advisory.
+  auto_review:
+    enabled: true
+  # Keep legacy commit-status mirroring disabled. Normal review progress uses
+  # CodeRabbit's current progress surface and remains non-failing below.
   commit_status: false
-  # Belt-and-braces: even if a commit status were posted, never mark it as a
-  # failure when CodeRabbit cannot review a PR (e.g. credits exhausted).
-  # This is the default, but we set it explicitly to document the intent.
   fail_commit_status: false
+chat:
+  auto_reply: true
