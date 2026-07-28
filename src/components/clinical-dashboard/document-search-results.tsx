@@ -4,6 +4,7 @@ import { memo, useMemo, useState } from "react";
 import {
   BookOpen,
   Clock3,
+  Eye,
   ExternalLink,
   FileImage,
   FileText,
@@ -38,6 +39,7 @@ import {
   DocumentActionLink,
   DocumentBadge,
   DocumentFileTile,
+  DocumentMetaRow,
   documentFileKind,
   documentTileTone,
 } from "@/components/clinical-dashboard/document-ui";
@@ -374,36 +376,56 @@ function SearchResultsHeader({
   trimmedQuery,
   sortValue,
   onSortChange,
+  onOpenLibrary,
   showSort = true,
+  showLibrary = false,
 }: {
   resultLabel: string;
   trimmedQuery: string;
   sortValue: ResultSortValue;
   onSortChange: (value: ResultSortValue) => void;
+  onOpenLibrary: () => void;
   showSort?: boolean;
+  showLibrary?: boolean;
 }) {
   return (
-    <section className="flex items-start justify-between gap-3" aria-label="Document search results">
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <span className="grid h-tap w-tap shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-            <FileText aria-hidden="true" className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{resultLabel}</h3>
-            {trimmedQuery ? (
-              <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:truncate">
-                <span className="block sm:inline">Results for</span>{" "}
-                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-accent)] sm:inline sm:line-clamp-none">
-                  {trimmedQuery}
-                </span>
-              </p>
-            ) : null}
-          </div>
+    <div className="flex min-w-0 items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3">
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11">
+          <FileText aria-hidden="true" className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="truncate text-base font-bold leading-5 text-[color:var(--text-heading)] sm:text-lg sm:leading-6">
+            {resultLabel}
+          </h3>
+          {trimmedQuery ? (
+            <p className="truncate text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+              Results for <span className="font-bold text-[color:var(--clinical-accent)]">{trimmedQuery}</span>
+            </p>
+          ) : null}
         </div>
       </div>
-      {showSort ? <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0" /> : null}
-    </section>
+      <div className="flex shrink-0 items-center gap-1.5">
+        {showSort ? (
+          <ResultSortControl value={sortValue} onChange={onSortChange} compact className="min-h-tap shrink-0" />
+        ) : null}
+        {showLibrary ? (
+          <button
+            type="button"
+            onClick={onOpenLibrary}
+            aria-label="Open document library"
+            title="Open document library"
+            className={cn(
+              floatingControl,
+              "min-h-tap min-w-tap shrink-0 gap-1.5 rounded-xl px-2.5 text-xs min-[430px]:px-3",
+            )}
+          >
+            <FolderOpen aria-hidden="true" className="size-icon-md shrink-0" />
+            <span className="hidden min-[430px]:inline">Library</span>
+          </button>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -413,22 +435,19 @@ function DocumentResultsControls({
   onResultTypeChange,
   sortValue,
   onSortChange,
-  onOpenLibrary,
 }: {
   resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
   activeResultType: ResultTypeFilter;
   onResultTypeChange: (value: ResultTypeFilter) => void;
   sortValue: ResultSortValue;
   onSortChange: (value: ResultSortValue) => void;
-  onOpenLibrary: () => void;
 }) {
   const showTypeFilters = resultTabs.length > 1;
 
   return (
     <section
       aria-label="Sort and filter documents"
-      data-testid="document-results-controls"
-      className="flex flex-nowrap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
+      className="flex flex-nowrap items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/75 p-1.5"
     >
       {showTypeFilters ? (
         <div
@@ -445,10 +464,10 @@ function DocumentResultsControls({
                 aria-pressed={active}
                 onClick={() => onResultTypeChange(tab.key)}
                 className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition motion-reduce:transition-none",
+                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-md border border-transparent px-2.5 text-2xs font-bold transition motion-reduce:transition-none",
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                   active
-                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    ? "border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
                     : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
                 )}
               >
@@ -461,32 +480,16 @@ function DocumentResultsControls({
       ) : (
         <div className="min-w-0 flex-1" aria-hidden="true" />
       )}
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex shrink-0 items-center">
         <ResultSortControl
           value={sortValue}
           onChange={onSortChange}
           compact
-          className="min-h-tap border-[color:var(--border)] bg-[color:var(--surface)]"
+          className="min-h-tap rounded-xl border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]"
         />
-        <button
-          type="button"
-          onClick={onOpenLibrary}
-          aria-label="Open document library"
-          title="Open document library"
-          className={cn(floatingControl, "min-h-tap min-w-tap gap-1.5 rounded-lg px-2.5 text-xs sm:px-3")}
-        >
-          <FolderOpen aria-hidden="true" className="size-icon-md shrink-0" />
-          <span className="hidden sm:inline">Library</span>
-        </button>
       </div>
     </section>
   );
-}
-
-function metadataBadgeLabel(document: DocumentMatch) {
-  const kind = documentKindLabel(document);
-  const page = documentPageLabel(document);
-  return `${kind} - ${page}`;
 }
 
 function cautionBadgeLabel(document: DocumentMatch) {
@@ -499,9 +502,9 @@ function cautionBadgeLabel(document: DocumentMatch) {
 
 function EvidencePanelRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
-      <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
+    <div className="grid gap-1 border-t border-[color:var(--border)] px-3 py-2.5 first:border-t-0 sm:grid-cols-[6.5rem_minmax(0,1fr)] sm:items-start sm:gap-3">
+      <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)] sm:text-right">{value}</p>
     </div>
   );
 }
@@ -530,10 +533,10 @@ function SelectedDocumentEvidencePanel({
   return (
     <aside
       aria-label="Selected document evidence"
-      className="sticky top-3 grid gap-3 self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-soft)]"
+      className="sticky top-3 self-start overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]"
     >
-      <div className="flex items-start gap-2">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+      <div className="flex items-start gap-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)]/75 p-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
           <Sparkles className="size-icon-lg" aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -546,11 +549,11 @@ function SelectedDocumentEvidencePanel({
         </div>
       </div>
 
-      <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/65 p-3">
-        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+      <div className="border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/55 px-3 py-3">
+        <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">
           Why this result
         </p>
-        <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
+        <p className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
           {sourceSupportLabel(document)}. {compactMatchReason(document)}
         </p>
         {query.trim() ? (
@@ -560,7 +563,7 @@ function SelectedDocumentEvidencePanel({
         ) : null}
       </div>
 
-      <div className="grid gap-2">
+      <div>
         <EvidencePanelRow
           label="Open target"
           value={document.bestChunkIds[0] ? `${documentPageLabel(document)} with chunk` : documentPageLabel(document)}
@@ -571,10 +574,10 @@ function SelectedDocumentEvidencePanel({
         {missingTerms.length ? <EvidencePanelRow label="Nearby terms" value={missingTerms.join(", ")} /> : null}
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid gap-2 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 p-3">
         <DocumentActionLink
           href={openHref}
-          className="min-h-tap rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+          className="min-h-tap rounded-xl bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)]"
           aria-label={`Open exact evidence for ${document.title}`}
         >
           Open exact evidence
@@ -583,7 +586,7 @@ function SelectedDocumentEvidencePanel({
           <DocumentActionButton
             onClick={() => onScopeDocument(document.document_id)}
             icon={Filter}
-            className="min-h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs"
+            className="min-h-tap rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs shadow-[var(--shadow-inset)]"
             aria-label={`Scope search to ${document.title}`}
           >
             Scope
@@ -591,7 +594,7 @@ function SelectedDocumentEvidencePanel({
           <DocumentActionButton
             onClick={() => onAnswerFromDocument(document.document_id)}
             icon={Sparkles}
-            className="min-h-tap rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs text-[color:var(--clinical-accent)]"
+            className="min-h-tap rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
             aria-label={`Answer from ${document.title}`}
           >
             Answer
@@ -926,24 +929,30 @@ function DocumentSearchResultsPanelImpl({
   return (
     <div data-testid="document-search-workspace" className="w-full space-y-3">
       {showIdentityHeader ? (
-        <SearchResultsHeader
-          resultLabel={resultLabel}
-          trimmedQuery={trimmedQuery}
-          sortValue={sortValue}
-          onSortChange={setSortValue}
-          showSort={!showResultsControls}
-        />
-      ) : null}
-
-      {showResultsControls ? (
-        <DocumentResultsControls
-          resultTabs={resultTabs}
-          activeResultType={effectiveResultType}
-          onResultTypeChange={setActiveResultType}
-          sortValue={sortValue}
-          onSortChange={setSortValue}
-          onOpenLibrary={onOpenLibrary}
-        />
+        <section
+          aria-label="Document search results"
+          data-testid="document-results-controls"
+          className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]"
+        >
+          <SearchResultsHeader
+            resultLabel={resultLabel}
+            trimmedQuery={trimmedQuery}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+            onOpenLibrary={onOpenLibrary}
+            showSort={!showResultsControls}
+            showLibrary={showResultsControls}
+          />
+          {showResultsControls ? (
+            <DocumentResultsControls
+              resultTabs={resultTabs}
+              activeResultType={effectiveResultType}
+              onResultTypeChange={setActiveResultType}
+              sortValue={sortValue}
+              onSortChange={setSortValue}
+            />
+          ) : null}
+        </section>
       ) : null}
 
       {unavailableMessage ? (
@@ -1024,84 +1033,96 @@ function DocumentSearchResultsPanelImpl({
                     key={document.document_id}
                     className={cn(
                       sourceCard,
-                      "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
+                      "group relative overflow-hidden rounded-xl p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
                       selected &&
                         "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
                     )}
                   >
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
-                      <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "absolute inset-y-0 left-0 w-1 bg-transparent transition-colors motion-reduce:transition-none",
+                        selected
+                          ? "bg-[color:var(--clinical-accent)]"
+                          : "group-hover:bg-[color:var(--clinical-accent-border)]",
+                      )}
+                    />
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3.5 pl-4 sm:gap-3.5 sm:px-4 sm:py-4 sm:pl-5">
+                      <DocumentFileTile
+                        kind={fileKind}
+                        tone={documentTileTone(fileKind)}
+                        compact
+                        className="h-11 w-11 rounded-xl"
+                      />
                       <div className="min-w-0">
-                        <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-3">
                           <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-                              <span>{documentKindLabel(document)}</span>
-                              {index === 0 ? (
-                                <>
-                                  <span
-                                    className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span className="text-[color:var(--clinical-accent)]">Best match</span>
-                                </>
-                              ) : null}
-                            </p>
+                            <DocumentMetaRow
+                              className="mb-1 text-2xs font-bold uppercase tracking-[0.05em]"
+                              items={[
+                                index === 0 ? (
+                                  <span key="best" className="text-[color:var(--clinical-accent)]">
+                                    Best match
+                                  </span>
+                                ) : null,
+                                documentKindLabel(document),
+                                documentPageLabel(document),
+                                cautionBadgeLabel(document),
+                              ]}
+                            />
                             <a
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                              className="inline-flex min-h-tap items-center rounded-md text-base font-bold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none sm:min-h-7"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </a>
                           </div>
+                          <span className="hidden shrink-0 sm:inline-flex">
+                            <DocumentBadge
+                              variant={relevanceVariant}
+                              icon={Target}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs"
+                            >
+                              {relevanceDisplay.short}
+                              <span className="sr-only">, {relevanceDisplay.detail}</span>
+                            </DocumentBadge>
+                          </span>
                         </div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          <DocumentBadge
-                            variant={relevanceVariant}
-                            icon={Target}
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {relevanceDisplay.short}
-                            <span className="sr-only">, {relevanceDisplay.detail}</span>
-                          </DocumentBadge>
-                          <DocumentBadge
-                            variant="neutral"
-                            icon={BookOpen}
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {metadataBadgeLabel(document)}
-                          </DocumentBadge>
-                          <DocumentBadge
-                            variant={document.tableCount > 0 || document.imageCount > 0 ? "relevant" : "neutral"}
-                            icon={
-                              document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
-                            }
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {cautionBadgeLabel(document)}
-                          </DocumentBadge>
-                        </div>
-                        <p className={cn("mt-1.5 line-clamp-2 text-sm leading-6", textMuted)}>
+                        <p className={cn("mt-1 line-clamp-2 text-sm leading-6", textMuted)}>
                           <SafeBoldText text={summaryText} />
                         </p>
-                        <DocumentTagCloud
-                          labels={document.labels}
-                          query={query}
-                          limit={2}
-                          compact
-                          className="mt-2"
-                          onTagClick={onTagSearch}
-                        />
+                        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+                          <span className="sm:hidden">
+                            <DocumentBadge
+                              variant={relevanceVariant}
+                              icon={Target}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs"
+                            >
+                              {relevanceDisplay.short}
+                              <span className="sr-only">, {relevanceDisplay.detail}</span>
+                            </DocumentBadge>
+                          </span>
+                          <DocumentTagCloud
+                            labels={document.labels}
+                            query={query}
+                            limit={2}
+                            compact
+                            className="min-w-0"
+                            onTagClick={onTagSearch}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
+                    <div className="grid grid-cols-2 gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 p-2 sm:flex sm:flex-wrap sm:items-center sm:gap-1 sm:px-3 sm:py-2">
                       <DocumentActionButton
                         onClick={() => setSelectedDocumentId(document.document_id)}
-                        icon={Sparkles}
+                        icon={Eye}
+                        aria-pressed={selected}
                         className={cn(
                           "min-h-tap rounded-lg px-2.5 text-xs",
                           selected
-                            ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "text-[color:var(--text)]",
+                            ? "border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                            : "border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)]",
                         )}
                         aria-label={`Preview evidence for ${document.title}`}
                       >
@@ -1109,7 +1130,7 @@ function DocumentSearchResultsPanelImpl({
                       </DocumentActionButton>
                       <DocumentActionLink
                         href={openHref}
-                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        className="min-h-tap rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--clinical-accent-soft)]"
                         aria-label={`Open ${document.title}`}
                       >
                         {contextualOpenLabel(document)}
@@ -1117,7 +1138,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onScopeDocument(document.document_id)}
                         icon={Filter}
-                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        className="min-h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2.5 text-xs text-[color:var(--text)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
                         aria-label={`Scope search to ${document.title}`}
                       >
                         Scope
@@ -1125,7 +1146,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onAnswerFromDocument(document.document_id)}
                         icon={Sparkles}
-                        className="ml-auto min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+                        className="min-h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2.5 text-xs text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:ml-auto"
                         aria-label={`Answer from ${document.title}`}
                       >
                         Answer
