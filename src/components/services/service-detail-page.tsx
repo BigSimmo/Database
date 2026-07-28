@@ -216,12 +216,14 @@ function ActionIconButton({
 }
 
 function Section({
+  id,
   icon: Icon,
   title,
   description,
   action,
   children,
 }: {
+  id?: string;
   icon: LucideIcon;
   title: string;
   description?: string;
@@ -229,7 +231,10 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]">
+    <section
+      id={id}
+      className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)]"
+    >
       <div className="border-b border-[color:var(--border)] px-3 py-3 sm:px-4">
         <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -536,7 +541,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
 
       <div className="mt-3 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
         <div className="min-w-0 space-y-4">
-          <section className="rounded-lg bg-[color:var(--surface-lux)]">
+          <section id="service-overview" className="rounded-lg bg-[color:var(--surface-lux)]">
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
@@ -623,19 +628,24 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             </div>
           </section>
 
-          <section aria-label="Service quick facts" className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4">
+          <section
+            id="service-quick-facts"
+            aria-label="Service quick facts"
+            className="grid gap-3 pt-3 sm:grid-cols-2 sm:pt-0 xl:grid-cols-4"
+          >
             {compactSummaryCards.map((card) => (
               <SummaryCard key={card.id} card={card} />
             ))}
           </section>
 
           <div className="grid gap-4 xl:grid-cols-[minmax(28rem,0.86fr)_minmax(0,1fr)]">
-            <Section icon={Clipboard} title="Referral information">
+            <Section id="service-referral" icon={Clipboard} title="Referral information">
               <ReferralTable rows={referralRows} onCopy={copyValue} />
             </Section>
 
             <div className="min-w-0 space-y-3">
               <Section
+                id="service-criteria"
                 icon={ShieldCheck}
                 title="Referral criteria"
                 action={
@@ -655,7 +665,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 <CriteriaBoard criteria={service.criteria ?? []} />
               </Section>
 
-              <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
+              <section
+                id="service-verification"
+                className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+              >
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                     <ShieldCheck className="h-5 w-5" aria-hidden />
