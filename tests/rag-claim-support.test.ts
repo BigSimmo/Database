@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { assessAndEnforceClaimSupport, assessClaimSupport } from "@/lib/rag/rag-claim-support";
+import {
+  assessAndEnforceClaimSupport,
+  assessClaimSupport,
+  enforceLabelledNumericBandCoherence,
+  sourceDirectlySupportsAnswerText,
+  sourceHasLabelledNumericBandConflict,
+} from "@/lib/rag/rag-claim-support";
+import { reflowBoundedSourceLines } from "@/lib/rag/rag-source-segmentation";
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
 function source(id: string, content: string, overrides: Partial<SearchResult> = {}): SearchResult {
@@ -59,6 +66,754 @@ function answer(text: string, sources: SearchResult[], citations = sources.map((
 }
 
 describe("deterministic claim support", () => {
+  it("keeps an ordinal repeat-dose interval atomic when matching the observed wrapped source", () => {
+    const claim =
+      "Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the first dose if required — Total of 3 doses or 30mg maximum in 24 hours (10mg maximum in 24 hours for older adults over 65 years) whichever occurs first.";
+    const evidence = source(
+      "olanzapine-repeat-dose",
+      [
+        "Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the",
+        "first dose if required. Total of 3 doses or 30mg maximum in 24 hours (10mg",
+        "maximum in 24 hours for older adults over 65 years) whichever occurs first.",
+      ].join("\n"),
+    );
+
+    expect(sourceDirectlySupportsAnswerText(claim, evidence)).toBe(true);
+  });
+
+  it("reflows visual wraps while preserving bullets and numbered headings", () => {
+    expect(
+      reflowBoundedSourceLines(
+        [
+          "Where the ANC is below",
+          "1.0 x10^9/L.",
+          "",
+          "- First requirement",
+          "continued line",
+          "- Second requirement",
+          "2.2 Admissions Accompanied by Police",
+          "Section label:",
+          "Final line",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      "Where the ANC is below 1.0 x10^9/L.",
+      "- First requirement continued line",
+      "- Second requirement",
+      "2.2 Admissions Accompanied by Police",
+      "Section label:",
+      "Final line",
+    ]);
+  });
+
+  it("keeps a wrapped escalation recipient in the directly supporting source segment", () => {
+    const wrappedRule = source(
+      "wrapped-escalation-rule",
+      [
+        "• Side effects are noted as causing distress to the patient, the LUNSERS should be repeated",
+        "3-monthly. Any side effect which is causing distress irrespective of score should be escalated",
+        "to the treating doctor and reviewed.",
+      ].join("\n"),
+      {
+        title: "Neuroleptic Side Effects (AKG)",
+        file_name: "Neuroleptic Side Effects (AKG).pdf",
+      },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Any side effect which is causing distress irrespective of score should be escalated to the treating doctor and reviewed.",
+        wrappedRule,
+      ),
+    ).toBe(true);
+  });
+
+  it("preserves inline comparison operators while removing true blockquote markup", () => {
+    const exact = source(
+      "exact",
+      "Escalate when the score is very high (>101). Review a level below <2.0 with the treating doctor.",
+    );
+    const missingComparator = source(
+      "missing-comparator",
+      "Escalate when the score is very high (101). Review a level of 2.0 with the treating doctor.",
+    );
+
+    expect(sourceDirectlySupportsAnswerText("> Escalate when the score is very high (>101).", exact)).toBe(true);
+    expect(assessClaimSupport(answer("> Escalate when the score is very high (>101).", [exact])).claims[0]?.text).toBe(
+      "Escalate when the score is very high (>101).",
+    );
+    expect(
+      sourceDirectlySupportsAnswerText(">101 requires escalation.", source("line-start", ">101 requires escalation.")),
+    ).toBe(true);
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "> 101 requires escalation.",
+        source("line-start-spaced", "> 101 requires escalation."),
+      ),
+    ).toBe(true);
+    expect(sourceDirectlySupportsAnswerText("Review a level below <2.0 with the treating doctor.", exact)).toBe(true);
+    expect(sourceDirectlySupportsAnswerText("Escalate when the score is very high (>101).", missingComparator)).toBe(
+      false,
+    );
+    expect(
+      sourceDirectlySupportsAnswerText("Review a level below <2.0 with the treating doctor.", missingComparator),
+    ).toBe(false);
+  });
+
+  it("does not recover conflicting bands from review-only evidence", () => {
+    const evidence = source(
+      "review",
+      "Scores are medium (41-89) or high (81-100). Any side effect causing distress should be escalated.",
+    );
+    const input = answer(
+      "Escalate when the score is medium (41-89) or high (81-100), or whenever a side effect causes distress.",
+      [evidence],
+      [citation(evidence, "review_only")],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input)).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+      citations: [],
+    });
+  });
+
+  it("fails closed when overlapping bands have no explicit nonnumeric alternative", () => {
+    const evidence = source("conflict", "Escalate when the score is medium (41-89) or high (81-100).");
+    const input = answer(evidence.content, [evidence], [citation(evidence)]);
+
+    expect(enforceLabelledNumericBandCoherence(input)).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+      citations: [],
+    });
+  });
+
+  it("does not treat positive escalation evidence as support for a negative instruction", () => {
+    const positive = source(
+      "positive-escalation",
+      "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Do not escalate a neuroleptic side effect causing distress to the treating doctor.",
+        positive,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    "Escalation is not indicated for a neuroleptic side effect causing distress.",
+    "No escalation is required for a neuroleptic side effect causing distress.",
+    "Escalation should not be undertaken for a neuroleptic side effect causing distress.",
+    "Escalation is unnecessary for a neuroleptic side effect causing distress.",
+    "Need not escalate a neuroleptic side effect causing distress.",
+    "Neuroleptic side effects should not be escalated when they cause distress.",
+    "Neuroleptic side effects are not to be escalated when they cause distress.",
+    "Do not urgently escalate neuroleptic side effects causing distress.",
+    "Neuroleptic side effects should never be escalated when they cause distress.",
+  ])("recognizes negative escalation wording: %s", (claim) => {
+    const positive = source(
+      "positive-escalation-variant",
+      "Escalation is indicated for any neuroleptic side effect causing distress.",
+    );
+
+    expect(sourceDirectlySupportsAnswerText(claim, positive)).toBe(false);
+  });
+
+  it.each([
+    [
+      "Clozapine should not be stopped when myocarditis is suspected.",
+      "Clozapine should be stopped when myocarditis is suspected.",
+    ],
+    [
+      "Clozapine should definitely not be stopped when myocarditis is suspected.",
+      "Clozapine should be stopped when myocarditis is suspected.",
+    ],
+    [
+      "Clozapine should under no circumstances be stopped when myocarditis is suspected.",
+      "Clozapine should be stopped when myocarditis is suspected.",
+    ],
+    [
+      "Valproate should not be used during pregnancy.",
+      "Valproate may be used during pregnancy after specialist review.",
+    ],
+    [
+      "Valproate is not to be used during pregnancy.",
+      "Valproate may be used during pregnancy after specialist review.",
+    ],
+    ["Do not continue clozapine when myocarditis is suspected.", "Continue clozapine when myocarditis is suspected."],
+    [
+      "Clozapine should not be continued when myocarditis is suspected.",
+      "Clozapine should be continued when myocarditis is suspected.",
+    ],
+    ["Do not administer clozapine for agitation.", "Administer clozapine for agitation."],
+    ["Clozapine should not be administered for agitation.", "Clozapine should be administered for agitation."],
+    [
+      "Stopping clozapine is not recommended when myocarditis is suspected.",
+      "Stopping clozapine is recommended when myocarditis is suspected.",
+    ],
+    ["Refrain from stopping clozapine when myocarditis is suspected.", "Stop clozapine when myocarditis is suspected."],
+    [
+      "Clozapine discontinuation is not indicated for myocarditis.",
+      "Clozapine discontinuation is indicated for myocarditis.",
+    ],
+    [
+      "Administration of clozapine is not recommended for agitation.",
+      "Administration of clozapine is recommended for agitation.",
+    ],
+    [
+      "Continuing clozapine is not recommended for myocarditis.",
+      "Continuing clozapine is recommended for myocarditis.",
+    ],
+    [
+      "Stopping clozapine is generally not recommended when myocarditis is suspected.",
+      "Stopping clozapine is recommended when myocarditis is suspected.",
+    ],
+    [
+      "Stopping clozapine is not usually recommended when myocarditis is suspected.",
+      "Stopping clozapine is recommended when myocarditis is suspected.",
+    ],
+    [
+      "Stopping clozapine is certainly not indicated when myocarditis is suspected.",
+      "Stopping clozapine is indicated when myocarditis is suspected.",
+    ],
+    ["Sedation is unnecessary for an agitated patient.", "Sedation is necessary for an agitated patient."],
+    ["No restraint is needed for an agitated patient.", "Restraint is needed for an agitated patient."],
+    ["Transfer is unwarranted after assessment.", "Transfer is warranted after assessment."],
+    ["Sedation is not needed for an agitated patient.", "Sedation is needed for an agitated patient."],
+    ["No need to sedate an agitated patient.", "Sedate an agitated patient."],
+    [
+      "It is not indicated to administer clozapine after myocarditis.",
+      "Administration of clozapine is indicated after myocarditis.",
+    ],
+    [
+      "There is no indication to administer clozapine after myocarditis.",
+      "Administration of clozapine is indicated after myocarditis.",
+    ],
+    [
+      "There is no indication for administration of clozapine after myocarditis.",
+      "Administration of clozapine is indicated after myocarditis.",
+    ],
+    ["Do not need to administer clozapine after myocarditis.", "Administer clozapine after myocarditis."],
+    [
+      "Clozapine should not ever be stopped when myocarditis is suspected.",
+      "Clozapine should be stopped when myocarditis is suspected.",
+    ],
+  ])("does not invert a negated clinical directive: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("opposite-directive", evidenceText))).toBe(false);
+  });
+
+  it("requires normative escalation evidence rather than a descriptive noun mention", () => {
+    const descriptive = source(
+      "escalation-record",
+      "The neuroleptic side effect escalation record includes patient distress and treating doctor contact.",
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+        descriptive,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+      "In one audit case, a neuroleptic side effect causing distress was escalated to the treating doctor.",
+    ],
+    [
+      "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+      "The record states that a neuroleptic side effect causing distress is escalated to the treating doctor.",
+    ],
+    ["Sedate the agitated patient.", "The agitated patient sedation record was completed."],
+    ["Admit the agitated patient.", "The agitated patient admission record was completed."],
+    ["Restraint is required for agitation.", "Document restraint used for agitation."],
+    ["Sedation is required for agitation.", "Document sedation used for agitation."],
+    ["Admission is required after assessment.", "Document admission decisions after assessment."],
+    ["Referral is required after review.", "Document referral outcomes after review."],
+  ])("does not treat a descriptive action record as prescriptive support: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("descriptive-action", evidenceText))).toBe(false);
+  });
+
+  it.each([
+    ["Sedate the agitated patient.", "Sedate the agitated patient."],
+    ["Admission is required after assessment.", "Admission is required after assessment."],
+    ["Referral is required after review.", "Referral is required after review."],
+    [
+      "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+      "Whenever a neuroleptic side effect causes distress, escalate it to the treating doctor.",
+    ],
+    [
+      "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+      "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    ],
+  ])("retains direct support for a genuinely prescriptive action: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("prescriptive-action", evidenceText))).toBe(true);
+  });
+
+  it.each([
+    ["Admit patients with severe agitation.", "Patients with severe agitation are admitted."],
+    ["Refer patients after specialist review.", "Patients are referred after specialist review."],
+    ["Transfer the patient after assessment.", "The patient is transferred after assessment."],
+    ["Escalate side effects causing distress.", "Side effects causing distress are escalated."],
+  ])("accepts generic present-passive policy guidance: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("present-passive-policy", evidenceText))).toBe(true);
+  });
+
+  it.each([
+    ["Restrain the agitated patient.", "A historical audit found restraint was required for agitation."],
+    ["Sedate the agitated patient.", "The case record stated sedation was necessary for agitation."],
+    ["Transfer the patient after assessment.", "A historical audit found transfer was warranted after assessment."],
+    ["Admit the patient after assessment.", "The case report said admission was indicated after assessment."],
+  ])("rejects historical noun-predicate action evidence: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("historical-action", evidenceText))).toBe(false);
+  });
+
+  it.each([
+    [
+      "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+      "The patient chart shows that a neuroleptic side effect causing distress is escalated to the treating doctor.",
+    ],
+    ["Sedate the agitated patient.", "The progress note says the agitated patient is sedated."],
+    ["Restrain the agitated patient.", "The EHR shows that the agitated patient is restrained."],
+    ["Refer the patient after review.", "At this visit the patient is referred after review."],
+  ])("rejects patient-record present-passive action evidence: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("patient-record-action", evidenceText))).toBe(false);
+  });
+
+  it.each([
+    "When neuroleptic side effects cause distress, assessment and escalation are recommended.",
+    "When neuroleptic side effects cause distress, review is required and escalation is recommended.",
+  ])("retains a shared condition for coordinated prescriptive actions: %s", (evidenceText) => {
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Escalate neuroleptic side effects whenever distress occurs.",
+        source("coordinated-action", evidenceText),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not treat topical-only evidence as direct support for escalation", () => {
+    const topical = source(
+      "topical-only",
+      "Neuroleptic side effects causing distress are recorded during routine monitoring.",
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Escalate any neuroleptic side effect causing distress to the treating doctor.",
+        topical,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    "Any neuroleptic side effect causing a rash should be escalated to the treating doctor.",
+    "Any mild neuroleptic side effect should be escalated to the treating doctor.",
+    "Any neuroleptic side effect that is recorded should be escalated to the treating doctor.",
+  ])("does not substitute a different trigger for whenever-distress escalation: %s", (content) => {
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Escalate neuroleptic side effects whenever any side effect is causing the patient distress.",
+        source("different-trigger", content),
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    "A neuroleptic side effect causing distress is recorded during monitoring. Escalate neuroleptic side effects whenever a rash occurs.",
+    "A neuroleptic side effect causing distress is recorded, but a rash should be escalated.",
+    "Escalate chest pain to the treating doctor, while a neuroleptic side effect causing distress should be recorded.",
+    "Distress occurs during neuroleptic side-effect monitoring and escalation is recommended only for rash.",
+    "Any neuroleptic side effect causes distress during monitoring and escalation is recommended only for rash.",
+  ])("does not combine action and trigger support across evidence clauses: %s", (content) => {
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Escalate neuroleptic side effects whenever any side effect is causing distress.",
+        source("split-support", content),
+      ),
+    ).toBe(false);
+  });
+
+  it("requires every action in a compound generated answer", () => {
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Escalate neuroleptic side effects causing distress; stop the medicine.",
+        source("stop-only", "Stop the medicine when clinically indicated."),
+      ),
+    ).toBe(false);
+  });
+
+  it("does not treat descriptive restraint evidence as support for sedation", () => {
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Sedate the agitated patient using physical restraint.",
+        source("restraint-record", "Assess the agitated patient and document any physical restraint."),
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    ["Give diazepam 10 mg orally.", "Give lorazepam 10 mg orally."],
+    ["Give acamprosate 333 mg three times daily.", "Give naltrexone 333 mg three times daily."],
+    ["Administer promethazine 25 mg intramuscularly.", "Administer droperidol 25 mg intramuscularly."],
+    ["Start mirtazapine 15 mg nightly.", "Start trazodone 15 mg nightly."],
+  ])("does not bind a medication value to a different medicine: %s", (claim, evidenceText) => {
+    expect(sourceDirectlySupportsAnswerText(claim, source("foreign-medication", evidenceText))).toBe(false);
+  });
+
+  it("does not borrow the requested medication from a mixed-document title", () => {
+    const mixed = source("mixed-title-medication", "Give lorazepam 10 mg orally.", {
+      title: "Diazepam and lorazepam guidance",
+    });
+    expect(sourceDirectlySupportsAnswerText("Give diazepam 10 mg orally.", mixed)).toBe(false);
+  });
+
+  it("does not manufacture support by reflowing unrelated high-risk source lines", () => {
+    const stopAndStart = source("separate-stop-start", "Stop clozapine\nStarting dose 12.5 mg");
+    expect(sourceDirectlySupportsAnswerText("Stop clozapine at 12.5 mg.", stopAndStart)).toBe(false);
+
+    const crossRoute = source(
+      "separate-route-lines",
+      "Oral olanzapine 10 mg\nRestraint protocol\nIntramuscular administration is required.",
+      {
+        title: "Olanzapine clinical guidance",
+        section_heading: "Dosing and restraint",
+      },
+    );
+    expect(sourceDirectlySupportsAnswerText("Give olanzapine 10 mg intramuscularly.", crossRoute)).toBe(false);
+  });
+
+  it("reflows the bounded admission-policy requirement used by the comparison fallback", () => {
+    const admissionPolicy = source(
+      "admission-policy-wrap",
+      [
+        "When emergency admission is required, the referring clinician will",
+        "provide a medical clearance before transfer.",
+        "2.2 Admissions Accompanied by Police",
+      ].join("\n"),
+      {
+        title: "Admission Of Community Patients",
+        file_name: "MHSP.AdmissionCommunityPts.pdf",
+      },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "When emergency admission is required, the referring clinician will provide a medical clearance before transfer.",
+        admissionPolicy,
+      ),
+    ).toBe(true);
+  });
+
+  it("reflows the actual hosted AKG admission filename without weakening unrelated line boundaries", () => {
+    const admissionPolicy = source(
+      "hosted-admission-policy-wrap",
+      [
+        "Where there are indications of intoxication or physical health issues, the referring clinician will",
+        "provide a medical clearance or if the consumer is a being referred from AKG Community Mental",
+        "health team member then they are to be referred to the Armadale Health Service Emergency",
+        "Department (AHS-ED) to obtain medical clearance.",
+        "The Bed flow coordinator will arrange the prioritisation of beds.",
+      ].join("\n"),
+      {
+        title: "Admission Of Community Patients(AKG)",
+        file_name: "Admission of Community Patients (AKG).pdf",
+      },
+    );
+
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Where there are indications of intoxication or physical health issues, the referring clinician will provide a medical clearance or if the consumer is a being referred from AKG Community Mental health team member then they are to be referred to the Armadale Health Service Emergency Department (AHS-ED) to obtain medical clearance.",
+        admissionPolicy,
+      ),
+    ).toBe(true);
+    expect(sourceDirectlySupportsAnswerText("The clinician must sedate the patient.", admissionPolicy)).toBe(false);
+  });
+
+  it.each([
+    "Do not use routine restraint. Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    "Stop the questionnaire if incomplete. Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+  ])("finds directly supporting escalation in a mixed-directive chunk: %s", (content) => {
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+        source("mixed-directives", content),
+      ),
+    ).toBe(true);
+  });
+
+  it("fails closed when a generated single band comes from a source with contradictory bands", () => {
+    const evidence = source(
+      "contradictory-source",
+      "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). Escalate neuroleptic side effects when the score is high (81-100).",
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the score is high (81-100).",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+      citations: [],
+    });
+  });
+
+  it("checks contradictory review-due sources rather than treating weak governance as safe", () => {
+    const evidence = source(
+      "review-due-source",
+      "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). Escalate neuroleptic side effects when the score is high (81-100).",
+      {
+        source_metadata: {
+          ...source("metadata", "metadata").source_metadata!,
+          document_status: "review_due",
+        },
+      },
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the score is high (81-100).",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+    });
+  });
+
+  it("checks an unlabelled score range against the cited source's full bands", () => {
+    const evidence = source(
+      "unlabelled-range-source",
+      "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). Escalate neuroleptic side effects when the LUNSERS score is 81-100.",
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the LUNSERS score is 81-100.",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+    });
+  });
+
+  it("detects contradictory bands split across rows of one structured table", () => {
+    const evidence = source(
+      "table-bands",
+      "Escalate neuroleptic side effects when the LUNSERS score is high (81-100).",
+      {
+        table_facts: [
+          ["medium", "41-89"],
+          ["high", "81-100"],
+          ["very high", ">101"],
+        ].map(([label, threshold], index) => ({
+          id: `fact-${index}`,
+          document_id: "doc-table-bands",
+          source_chunk_id: "table-bands",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "LUNSERS score bands",
+          row_label: label,
+          clinical_parameter: "LUNSERS score",
+          threshold_value: threshold,
+          action: "Escalate to the treating doctor",
+        })),
+      },
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the LUNSERS score is high (81-100).",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+    });
+  });
+
+  it("detects same-scale conflicts split across content and structured table facts", () => {
+    const evidence = source("cross-representation-bands", "LUNSERS score bands list medium (41-89).", {
+      table_facts: [
+        {
+          id: "fact-high",
+          document_id: "doc-cross-representation-bands",
+          source_chunk_id: "cross-representation-bands",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "LUNSERS score bands",
+          row_label: "high",
+          clinical_parameter: "LUNSERS score",
+          threshold_value: "81-100",
+          action: "Escalate neuroleptic side effects when the score is high (81-100).",
+        },
+      ],
+    });
+    const input = answer(
+      "Escalate neuroleptic side effects when the score is high (81-100).",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+    });
+  });
+
+  it("does not merge a different prose scale with a table merely because its name appears elsewhere", () => {
+    const evidence = source(
+      "distinct-cross-representation-scales",
+      "The LUNSERS score was recorded. Depression score bands are medium (41-89).",
+      {
+        table_facts: [
+          {
+            id: "fact-lunsers-high",
+            document_id: "doc-distinct-cross-representation-scales",
+            source_chunk_id: "distinct-cross-representation-scales",
+            source_image_id: null,
+            page_number: 1,
+            table_title: "LUNSERS score bands",
+            row_label: "high",
+            clinical_parameter: "LUNSERS score",
+            threshold_value: "81-100",
+            action: "Escalate neuroleptic side effects when the score is high (81-100).",
+          },
+        ],
+      },
+    );
+
+    expect(sourceHasLabelledNumericBandConflict(evidence)).toBe(false);
+  });
+
+  it("withholds a single-band quote when its full cited source has contradictory bands", () => {
+    const evidence = source(
+      "quote-source",
+      "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). A high score of 81-100 requires escalation. Any neuroleptic side effect causing distress should be escalated.",
+    );
+    const input = {
+      ...answer("Any neuroleptic side effect causing distress should be escalated.", [evidence], [citation(evidence)]),
+      quoteCards: [
+        {
+          ...citation(evidence, "exact_quote"),
+          quote: "A high score of 81-100 requires escalation.",
+          section_heading: "LUNSERS",
+        },
+      ],
+    };
+
+    expect(enforceLabelledNumericBandCoherence(input)).toMatchObject({
+      grounded: true,
+      confidence: "medium",
+      quoteCards: [],
+    });
+  });
+
+  it("withholds an actionable bare-range quote when its full cited source has contradictory bands", () => {
+    const evidence = source(
+      "bare-quote-source",
+      "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). Escalate at 81-100.",
+    );
+    const input = {
+      ...answer("Monitor for distress.", [evidence], [citation(evidence)]),
+      quoteCards: [
+        {
+          ...citation(evidence, "exact_quote"),
+          quote: "Escalate at 81-100.",
+          section_heading: "LUNSERS",
+        },
+      ],
+    };
+
+    expect(enforceLabelledNumericBandCoherence(input)).toMatchObject({
+      grounded: true,
+      confidence: "medium",
+      quoteCards: [],
+    });
+  });
+
+  it("rejects a recovered alternative with a second directive", () => {
+    const evidence = source(
+      "distress-only",
+      "Whenever a neuroleptic side effect occurs and causes distress, escalate it to the treating doctor.",
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the score is medium (41-89) or high (81-100), or whenever distress occurs, and sedate the patient.",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+    });
+  });
+
+  it("rejects a recovered alternative with a noun-form second directive", () => {
+    const evidence = source(
+      "distress-and-restraint",
+      "Whenever distress occurs, escalate to the treating doctor and document any restraint used.",
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the score is medium (41-89) or high (81-100), or whenever distress occurs: restraint is required.",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+    });
+  });
+
+  it("recovers the safe nonnumeric alternative when provider emphasis surrounds the conflicting bands", () => {
+    const evidence = source(
+      "bold-distress-only",
+      "Whenever a neuroleptic side effect occurs and causes distress, escalate it to the treating doctor, irrespective of score.",
+    );
+    const input = answer(
+      "Escalate neuroleptic side effects when the score is **medium** (**41-89**) or **high** (**81-100**), or whenever distress occurs, irrespective of score.",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    expect(enforceLabelledNumericBandCoherence(input, { answerText: input.answer })).toMatchObject({
+      grounded: true,
+      confidence: "medium",
+      answer: expect.stringMatching(/whenever distress occurs, irrespective of score/i),
+    });
+  });
+
+  it("sanitizes and revalidates a recovered nonnumeric alternative before output", () => {
+    const evidence = source(
+      "recovery",
+      "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    );
+    const input = answer(
+      "CLINICAL GUIDELINE. Escalate neuroleptic side effects when the LUNSERS score is medium (41-89) or high (81-100), or whenever distress occurs.",
+      [evidence],
+      [citation(evidence)],
+    );
+
+    const recovered = enforceLabelledNumericBandCoherence(input, { answerText: input.answer });
+
+    expect(recovered).toMatchObject({ grounded: true, confidence: "medium" });
+    expect(recovered.answer).toBe("Escalate neuroleptic side effects whenever distress occurs.");
+    expect(recovered.answer).not.toContain("CLINICAL GUIDELINE");
+  });
+
   it("rejects a valid citation id whose chunk does not support a high-risk claim", () => {
     const cited = source("c1", "Clozapine monitoring includes regular blood counts.");
     const result = assessClaimSupport(answer("Stop clozapine when ANC is below 1.0 x10^9/L.", [cited]));
@@ -125,6 +880,24 @@ describe("deterministic claim support", () => {
     );
   });
 
+  it("withholds an unsupported high-risk section without discarding a directly supported main answer", () => {
+    const cited = source("section-withhold", "Monitor clozapine with regular blood counts.");
+    const input = answer("Monitor clozapine with regular blood counts.", [cited]);
+    input.answerSections = [
+      {
+        heading: "Threshold",
+        body: "Stop clozapine below ANC 1.0 x10^9/L.",
+        citation_chunk_ids: [cited.id],
+      },
+    ];
+
+    const result = assessAndEnforceClaimSupport(input);
+    expect(result).toMatchObject({ grounded: true, confidence: "medium" });
+    expect(result.answer).toBe(input.answer);
+    expect(result.answerSections).toEqual([]);
+    expect(result.routingReason).toContain("claim_support_unsupported_sections_withheld");
+  });
+
   it("accepts exact quote and deterministic support but never review-only enrichment", () => {
     const exact = source("exact", "Stop clozapine below ANC 1.0 x10^9/L.");
     const review = source("review", "Stop lithium below a level of 1.0 x10^9/L.");
@@ -182,6 +955,26 @@ describe("deterministic claim support", () => {
       ]),
     );
     expect(assessAndEnforceClaimSupport(input).responseMode).not.toBe("evidence_gap");
+  });
+
+  it("fails closed when a numeric claim falls beyond the 24-claim assessment cap", () => {
+    const routineClaims =
+      "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey"
+        .split(" ")
+        .map((label) => `Routine ${label} appointments are available.`);
+    const assessedClaims = ["Give Drug A 300 mg.", ...routineClaims];
+    const cited = source("c1", assessedClaims.join(" "));
+    const input = answer([...assessedClaims, "Give Drug B 300 mg."].join("\n"), [cited]);
+
+    const result = assessAndEnforceClaimSupport(input);
+    expect(result.supportedClaims).toHaveLength(24);
+    expect(result).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+      unverifiedNumericTokens: ["300mg"],
+    });
+    expect(result.routingReason).toContain("numeric_faithfulness_gate_source_gap");
   });
 
   it("ignores incidental outdated or poor retrieval-only sources but fails closed when direct support is dangerous", () => {
@@ -351,6 +1144,44 @@ describe("deterministic claim support", () => {
     expect(result.responseMode).toBe("comparison_matrix");
     expect(result.supportedClaims?.[0]?.supportStatus).toBe("direct");
     expect(result.supportedClaims?.[0]?.supportingChunkIds).toEqual([protocolA.id, protocolB.id]);
+  });
+
+  it("fails closed when one attributed matrix entry comes from an internally contradictory source", () => {
+    const protocolC = source(
+      "matrix-band-conflict",
+      "LUNSERS score bands are medium (41-89) and high (81-100). Protocol C reports high (81-100).",
+    );
+    const input = answer(
+      "Conflict — LUNSERS band: Protocol C: high (81-100).",
+      [protocolC],
+      [citation(protocolC, "deterministic_support")],
+    );
+    input.preformatted = true;
+    input.responseMode = "comparison_matrix";
+    input.comparisonEvaluationState = "evaluated";
+    input.comparisonMatrix = {
+      documents: [{ documentId: protocolC.document_id, title: "Protocol C", fileName: protocolC.file_name }],
+      rows: [
+        {
+          parameter: "LUNSERS band",
+          status: "conflict",
+          entries: [
+            {
+              documentId: protocolC.document_id,
+              chunkIds: [protocolC.id],
+              value: "high (81-100)",
+              qualifiers: [],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(enforceLabelledNumericBandCoherence(input)).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+    });
   });
 
   it("uses ordinary section citations for non-preformatted comparison answers", () => {

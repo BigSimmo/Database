@@ -8,6 +8,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -2337,7 +2338,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByTestId("answer-empty-state")).toHaveCount(0);
     await expect(page.getByText("How can I help?", { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("Loading answer")).toBeVisible();
+    // Prefer :visible — a useSearchParams() Suspense ancestor can leave a persistent
+    // hidden S: clone (search-chrome invariant 17), which makes getByLabel strict-mode fail.
+    await expect(page.locator('[aria-label="Loading answer"]:visible')).toBeVisible();
     await expect.poll(() => answerRequests[0]).toBe(question);
 
     const questionBubble = page.getByTestId("user-question-bubble");
@@ -2741,7 +2744,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     expect(redirectMeasureErrors).toEqual([]);
   });
@@ -2752,7 +2755,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
 
     await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
-    await expect(page.getByTestId("differentials-home")).toBeVisible();
+    // Production hydration can briefly overlap the outgoing server tree and the
+    // settled client tree on this redirect; wait for one owner before strict
+    // locators (same guard as the mode-home loop in ui-tools).
+    await expectSingleSettledOwner(page.getByTestId("differentials-home"), {
+      message: "differentials redirect home owner",
+    });
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
@@ -2935,7 +2943,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites?q=lithium%20set&focus=1&run=1");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
@@ -2952,7 +2960,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search favourites...");
     await expect(globalSearchInput).toHaveValue("lithium set");
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    await expectSingleSettledOwner(page.getByTestId("favourites-hub"), { message: "favourites hub owner" });
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     const queryRibbon = page.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
@@ -2983,9 +2991,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/favourites");
 
-    await expect(page.getByTestId("favourites-hub")).toBeVisible();
+    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
+      message: "favourites hub owner",
+    });
     // The saved service slug is hydrated to its registry title in the hub.
-    await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
+    await expect(hub.getByText("13YARN").first()).toBeVisible();
   });
 
   test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
@@ -3026,7 +3036,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
-    const hub = page.getByTestId("favourites-hub");
+    const hub = await expectSingleSettledOwner(page.getByTestId("favourites-hub"), {
+      message: "favourites hub owner",
+    });
     await expect(hub.locator('article[role="button"]')).toHaveCount(0);
     const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
     const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
@@ -3268,9 +3280,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mobileTypeFilter.selectOption("all");
     }
 
-    await queryRibbon.getByLabel("Sort results").selectOption("alpha");
+    // Sort is a segmented group of pressed buttons, not a select: the active order
+    // is readable without opening anything.
+    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
+    await documentSort.getByRole("button", { name: "A–Z" }).click();
     await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await queryRibbon.getByLabel("Sort results").selectOption("relevance");
+    await expect(documentSort.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
+    await documentSort.getByRole("button", { name: "Relevance" }).click();
 
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })

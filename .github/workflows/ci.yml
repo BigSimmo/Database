@@ -251,6 +251,9 @@ jobs:
       - name: Therapy data index drift
         run: npm run check:therapy-data-index
 
+      - name: Cross-mode differentials index drift
+        run: npm run check:cross-mode-index
+
       - name: Design-system contract
         run: npm run check:design-system-contract
 

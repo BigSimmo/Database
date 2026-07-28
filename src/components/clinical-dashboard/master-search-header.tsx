@@ -852,9 +852,22 @@ export function MasterSearchHeader({
     setScopeSheetOpen(false);
   }
 
+  // Mode options are buttons (not Links), so Next cannot discover destinations.
+  // Prefetch only the mode the user is about to choose — the highlighted option
+  // on open, then whichever option receives focus/pointer while scanning.
+  function prefetchModeHome(modeId: AppModeId) {
+    if (modeId === searchMode) return;
+    const href = appModeHomeHref(modeId);
+    if (prefetchedModeHrefsRef.current.has(href)) return;
+    prefetchedModeHrefsRef.current.add(href);
+    router.prefetch(href);
+  }
+
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    const highlighted = visibleAppModeOptions[nextIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
@@ -872,6 +885,8 @@ export function MasterSearchHeader({
       setModeMenuOpen(false);
       return;
     }
+    const highlighted = visibleAppModeOptions[selectedModeIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
     setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
@@ -921,14 +936,6 @@ export function MasterSearchHeader({
         setModeMenuOpen(false);
       }
     }
-  }
-
-  function prefetchModeHome(modeId: AppModeId) {
-    if (modeId === searchMode) return;
-    const href = appModeHomeHref(modeId);
-    if (prefetchedModeHrefsRef.current.has(href)) return;
-    prefetchedModeHrefsRef.current.add(href);
-    router.prefetch(href);
   }
 
   function renderModeMenuOptions() {
