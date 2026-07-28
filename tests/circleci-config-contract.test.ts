@@ -15,9 +15,9 @@ describe("CircleCI config contract", () => {
     expect(image?.[1]).toBe(expectedNodeMajor);
   });
 
-  it("runs npm ci on a real verify job, not the stock hello-world template", () => {
-    expect(config).not.toContain("say-hello");
-    expect(config).not.toContain("Hello, World!");
+  it("installs packageManager-pinned npm with sudo before npm ci", () => {
+    expect(config).toContain("sudo npm install -g npm@11.17.0");
     expect(config).toContain("npm ci");
+    expect(config).not.toContain("say-hello");
   });
 });

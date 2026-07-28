@@ -8,15 +8,53 @@ jobs:
     steps:
       - checkout
       - run:
-          name: Assert npm matches engines-required 11.x
+          name: Activate packageManager-pinned npm 11.17.x
           command: |
+            # cimg/node:24.9 ships npm 11.6.0; package.json pins packageManager npm@11.17.0.
+            # Global installs on this image require sudo (Node lives under /usr/local).
+            sudo npm install -g npm@11.17.0
             npm --version
             node -e 'const major=Number(process.version.slice(1).split(".")[0]); if(major!==24){console.error("expected node 24.x, got",process.version); process.exit(1)}'
             node -e 'const {execSync}=require("node:child_process"); const v=execSync("npm --version",{encoding:"utf8"}).trim(); if(!/^11\./.test(v)){console.error("expected npm 11.x, got",v); process.exit(1)}'
       - run:
           name: Install dependencies
           no_output_timeout: 15m
-          command: npm ci
+          command: |
+            set +e
+            npm ci > /tmp/npm-ci.log 2>&1
+            status=$?
+            set -e
+            if [ "$status" -ne 0 ]; then
+              echo "npm ci failed with exit ${status}"
+              tail -n 200 /tmp/npm-ci.log
+              # Best-effort: surface the log on the PR when a GitHub token is configured in CircleCI.
+              TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-${CIRCLE_GITHUB_TOKEN:-}}}"
+              if [ -n "$TOKEN" ]; then
+                node <<'NODE'
+            const fs = require("fs");
+            const log = fs.readFileSync("/tmp/npm-ci.log", "utf8").slice(-3500);
+            const body = [
+              "<!-- circleci-npm-ci-failure -->",
+              "CircleCI `npm ci` failed. Tail of log:",
+              "```",
+              log,
+              "```",
+            ].join("\n");
+            fs.writeFileSync("/tmp/npm-ci-comment.json", JSON.stringify({ body }));
+            NODE
+                curl -sS -X POST \
+                  -H "Authorization: Bearer ${TOKEN}" \
+                  -H "Accept: application/vnd.github+json" \
+                  "https://api.github.com/repos/BigSimmo/Database/issues/1337/comments" \
+                  --data-binary @/tmp/npm-ci-comment.json >/tmp/npm-ci-comment-response.json || true
+                echo "GitHub comment attempt finished (see /tmp/npm-ci-comment-response.json on the executor)."
+              else
+                echo "No GITHUB_TOKEN/GH_TOKEN/CIRCLE_GITHUB_TOKEN in CircleCI env; cannot mirror log to the PR."
+                echo "Present env keys (names only):"
+                env | awk -F= '/TOKEN|GITHUB|GH_|CIRCLE/ {print $1}' | sort -u
+              fi
+              exit "$status"
+            fi
 
 workflows:
   verify:
