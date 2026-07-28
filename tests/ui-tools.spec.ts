@@ -1192,7 +1192,12 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/differentials?q=acute+confusion&run=1", resultsTestId: "differentials-search-results" },
     ] as const) {
       await gotoLauncher(page, route.path);
-      await expect(page.getByTestId(route.resultsTestId)).toBeVisible({ timeout: 20_000 });
+      const results = page.getByTestId(route.resultsTestId);
+      // A soft navigation can briefly retain the previous reserve-pad owner.
+      // Wait for the new route to settle to the single-owner contract before
+      // making a strict visibility assertion.
+      await expect(results).toHaveCount(1, { timeout: 20_000 });
+      await expect(results).toBeVisible();
       const dock = page.locator("form.answer-footer-search-dock");
       await expect(dock, route.path).toBeVisible();
       await expect(dock, route.path).not.toHaveAttribute("data-scroll-hidden", "true");
