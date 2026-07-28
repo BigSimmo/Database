@@ -1,22 +1,94 @@
 "use client";
 
-import { Bookmark, CheckCircle2, ChevronsUpDown, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
-import { cn } from "@/components/ui-primitives";
+import { AsyncButton, cn } from "@/components/ui-primitives";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-import type { AppModeId } from "@/lib/app-modes";
+import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
+
+/**
+ * How far the count can be trusted. This is a union rather than a pair of
+ * booleans because `loading && error` is otherwise representable and undefined,
+ * and because the clinical invariant — a faulted search must never assert a
+ * number — is then one guard instead of a boolean-precedence puzzle repeated at
+ * every call site. It mirrors `RegistryRequestStatus` so most callers can pass a
+ * near-identity map of the status they already hold.
+ */
+export type SearchResultsBandStatus =
+  /** The count is trustworthy. `0` is a real answer. */
+  | "ready"
+  /** First load. There is no trustworthy prior count to show. */
+  | "loading"
+  /** Background refresh. The prior count is still trustworthy. */
+  | "refetching"
+  /** The search failed. The count is NOT trustworthy and must not be rendered. */
+  | "error"
+  /** Sign-in required. The count is NOT trustworthy and must not be rendered. */
+  | "unauthorized";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+/** Sort is a two-state choice, so it reads as a segmented control rather than a
+    select: a dropdown over two values makes you open a menu to learn nothing. */
+const sortOptions: ReadonlyArray<{ value: ResultSortValue; label: string }> = [
+  { value: "relevance", label: "Relevance" },
+  { value: "alpha", label: "A–Z" },
+];
+
+/** Below `lg` the utility group is a swipe rail rather than a wrapping block, so a
+    sixth control lands off the right edge instead of growing the band. Fade that
+    edge only while it actually overflows — a permanent mask would dim the last
+    control on the common case where everything fits. */
+function useRailOverflow<Element extends HTMLElement>() {
+  const ref = useRef<Element | null>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  const measure = useCallback(() => {
+    const node = ref.current;
+    if (!node) return;
+    setOverflowing(node.scrollWidth - node.clientWidth > 1);
+  }, []);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    measure();
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(node);
+    for (const child of Array.from(node.children)) resizeObserver.observe(child);
+    // Child add/remove (scope chips, utility controls) can change scrollWidth without
+    // resizing the rail box; keep the fade mask honest when the child list mutates.
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            measure();
+            for (const child of Array.from(node.children)) resizeObserver.observe(child);
+          });
+    mutationObserver?.observe(node, { childList: true });
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, [measure]);
+
+  return { ref, overflowing } as const;
+}
 
 export function SearchResultsHeaderBand({
   modeId,
   query,
   matchCount,
+  status,
   loading = false,
+  faultTitle,
+  faultBody,
+  onRetry,
+  faultAction,
   view = "table",
   onViewChange,
   sortValue = "relevance",
@@ -32,7 +104,20 @@ export function SearchResultsHeaderBand({
   modeId: AppModeId;
   query: string;
   matchCount: number;
+  /** Result trustworthiness. Defaults to `ready`, or `loading` when the legacy
+      `loading` prop is set. A faulted status never renders a number. */
+  status?: SearchResultsBandStatus;
+  /** @deprecated Pass `status="loading"`. Retained so the pages with no async
+      source need no edit; ignored whenever `status` is supplied. */
   loading?: boolean;
+  /** Fault panel heading. Defaults to mode-specific copy. */
+  faultTitle?: string;
+  /** Fault panel body. Defaults to mode-specific copy. */
+  faultBody?: string;
+  /** Renders an in-panel Retry through the shared busy contract. */
+  onRetry?: () => void | Promise<void>;
+  /** Replaces Retry when recovery is not a re-request (e.g. a sign-in link). */
+  faultAction?: ReactNode;
   view?: "table" | "list";
   onViewChange?: (view: "table" | "list") => void;
   sortValue?: ResultSortValue;
@@ -57,79 +142,161 @@ export function SearchResultsHeaderBand({
     return scope ? [scope] : [];
   });
   const displayQuery = query.trim() || "All";
-  const statusLabel = loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+  // `status` wins when both are passed; `loading` is the deprecated shim.
+  const resolvedStatus: SearchResultsBandStatus = status ?? (loading ? "loading" : "ready");
+  // The clinical invariant, expressed once: a search that failed has no count to
+  // report, so no number may reach the DOM. "0 matches" on a failed services
+  // search reads as "there are no crisis services" rather than "we could not check".
+  const faulted = resolvedStatus === "error" || resolvedStatus === "unauthorized";
+  const busy = resolvedStatus === "loading" || resolvedStatus === "refetching";
+  // "Service matches" -> "Services", leaving already-plural headings ("Favourites",
+  // "DSM diagnoses") untouched. Phrasing the title as "<noun> could not be loaded"
+  // rather than "Could not load <noun>" avoids having to lower-case the leading
+  // word, which would mangle the acronym in "DSM diagnoses".
+  const searchConfig = appModeSearchConfig(modeId);
+  const resultNoun = searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
+  const resolvedFaultTitle =
+    faultTitle ?? (resolvedStatus === "unauthorized" ? "Sign in to continue" : `${resultNoun} could not be loaded`);
+  const resolvedFaultBody =
+    faultBody ??
+    (resolvedStatus === "unauthorized"
+      ? "Your session has expired. Sign in again to run this search."
+      : "The search could not be completed. Try again shortly.");
+  const [retrying, setRetrying] = useState(false);
+  // Page-supplied filter/mobile controls carry their own result counts ("Forms 0",
+  // "All (0)"). Suppressing the number in the spine while those still render it
+  // defeats the whole invariant — the reader still sees a zero asserted about a
+  // search that never ran. A filter over a result set that failed to load is
+  // meaningless anyway, so the faulted band drops them entirely.
+  // `loading` means no trustworthy count exists yet, exactly like a fault: forms
+  // forces `displayedMatches` to [] until the registry is ready, so ResultTabs
+  // would assert "Forms 0" beneath a "Searching…" spine. `refetching` is
+  // deliberately excluded — there the prior count is still correct.
+  const countUntrusted = faulted || resolvedStatus === "loading";
+  const pageControls = countUntrusted ? null : filterControls;
+  const pageMobileControls = countUntrusted ? null : mobileControls;
   const hasUtilities =
     visibleScopes.length > 0 ||
-    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || mobileControls);
+    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls);
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
+  const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
 
   return (
     <section
       aria-label={`Search results for ${displayQuery}`}
-      aria-busy={loading}
+      aria-busy={busy}
+      data-status={resolvedStatus}
       data-testid="search-query-ribbon"
       className={cn(
-        "relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
+        // `search-band` carries the accent as a real border-top; there is no
+        // overlay bar to be clipped by the corner arc any more.
+        "search-band relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
         className,
       )}
     >
-      <span
-        className={cn(
-          "absolute inset-x-0 top-0 h-0.5 bg-[color:var(--clinical-accent)] lg:inset-y-0 lg:left-0 lg:right-auto lg:h-auto lg:w-1",
-          loading && "motion-safe:animate-pulse",
-        )}
-        aria-hidden
-      />
-      <div className="flex min-w-0 flex-col lg:min-h-[4.5rem] lg:flex-row lg:items-center">
-        <div className="flex min-w-0 items-start gap-2.5 p-3 pt-3.5 lg:flex-1 lg:items-center lg:gap-3 lg:px-4 lg:py-2.5 lg:pl-5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] lg:h-10 lg:w-10">
-            <Search className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-              <span className="lg:hidden">Query</span>
-              <span className="hidden lg:inline">{loading ? "Searching for" : "Results for"}</span>
-            </span>
-            <QueryHeading
-              className="mt-0.5 truncate text-base font-extrabold text-[color:var(--text-heading)] lg:max-w-[32rem] lg:text-lg"
-              title={displayQuery}
-            >
-              {displayQuery}
-            </QueryHeading>
-          </span>
+      <div className="flex min-w-0 flex-col sm:min-h-[3.75rem] sm:flex-row sm:items-center">
+        <div className="flex min-w-0 items-center gap-2.5 p-3 sm:gap-3 sm:px-4 sm:py-2.5 sm:pl-5">
           <span
             className={cn(
-              "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-extrabold",
-              loading
-                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+              "grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10",
+              faulted
+                ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+            )}
+          >
+            {faulted ? (
+              <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
+            ) : (
+              <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
+            )}
+          </span>
+          {/* No eyebrow: the icon already says "search", and the query is the only
+              thing in this band set at heading weight. */}
+          <QueryHeading
+            className="search-band-query min-w-0 truncate text-[color:var(--text-heading)] lg:max-w-[32rem]"
+            title={displayQuery}
+          >
+            {displayQuery}
+          </QueryHeading>
+          <span className="search-band-rule mx-0.5 h-[0.9375rem] w-px shrink-0" aria-hidden />
+          {/* Neutral, not a success pill: a count is not a state that was achieved,
+              and green has to keep meaning something where it does appear. */}
+          {/* One unconditional `role="status"` in every state. Playwright asserts it
+              is visible on every search route, so it must never be swapped out or
+              wrapped in a state branch. While faulted the live region is silenced
+              (`aria-live="off"`) and the freshly-mounted fault `role="alert"` below
+              makes the single announcement, rather than both speaking. */}
+          <span
+            className={cn(
+              "shrink-0 whitespace-nowrap",
+              faulted ? "search-band-fault" : "search-band-count-word",
+              busy && "text-[color:var(--clinical-accent)]",
+              faulted && "text-[color:var(--warning)]",
+              !busy && !faulted && "text-[color:var(--text-muted)]",
             )}
             role="status"
-            aria-live="polite"
+            aria-live={faulted ? "off" : "polite"}
             aria-atomic="true"
           >
-            {loading ? (
-              <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
+            {resolvedStatus === "loading" ? (
+              <span className="inline-flex items-center gap-1.5">
+                <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
+                Searching…
+              </span>
+            ) : resolvedStatus === "error" ? (
+              "Couldn’t search"
+            ) : resolvedStatus === "unauthorized" ? (
+              "Sign in to search"
             ) : (
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+              // `refetching` keeps text content identical to `ready` so the atomic
+              // live region does not re-announce an unchanged count; the dot is
+              // decorative and the dimming is CSS via `data-status`.
+              <span className="inline-flex items-center gap-1.5">
+                {resolvedStatus === "refetching" ? (
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)] motion-safe:animate-pulse"
+                    aria-hidden
+                  />
+                ) : null}
+                <span>
+                  <span
+                    className="search-band-count text-[color:var(--text-heading)]"
+                    data-zero={matchCount === 0 ? "true" : undefined}
+                  >
+                    {matchCount}
+                  </span>{" "}
+                  {matchCount === 1 ? "match" : "matches"}
+                </span>
+              </span>
             )}
-            <span className="max-[359px]:sr-only">{statusLabel}</span>
           </span>
         </div>
 
         {hasUtilities ? (
           <div
+            ref={railRef}
             data-testid="search-query-ribbon-utilities"
-            className="flex min-w-0 flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 lg:ml-auto lg:flex-nowrap lg:border-l lg:border-t-0 lg:bg-transparent lg:pl-3 lg:pr-3"
+            data-overflowing={railOverflowing ? "true" : undefined}
+            className={cn(
+              "flex min-w-0 items-center gap-1.5 overflow-x-auto px-3 pb-3 lg:flex-1 lg:overflow-x-visible lg:px-0 lg:pb-0 lg:pr-3",
+              "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
+            )}
           >
+            {/* Scope reads as a removable chip beside the query — it is a constraint on
+                the list, the same kind of thing the query is. */}
             {visibleScopes.map((scope) => (
               <button
                 key={scope.id}
                 type="button"
                 onClick={() => command?.onRemoveScope(scope.id)}
                 aria-label={`Remove ${scope.label} filter`}
+                data-selected="true"
                 className={cn(
-                  "inline-flex min-h-tap max-w-full items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                  // Hover deepens the chip's own accent rather than swapping to the
+                  // neutral border the surface controls use — an accent-soft chip
+                  // going grey on hover reads as losing its active state.
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -137,39 +304,30 @@ export function SearchResultsHeaderBand({
                 <X className="h-3 w-3 shrink-0" aria-hidden />
               </button>
             ))}
-            {onSortChange && mobileControls ? (
+            {/* Desktop only: pushes the controls to the trailing edge while the chips
+                stay next to the query. On the phone rail this collapses away. */}
+            <span className="hidden lg:block lg:flex-1" aria-hidden />
+            {onSortChange && pageMobileControls ? (
               <div
                 data-testid="search-query-ribbon-mobile-control-pair"
-                className="grid min-w-[15rem] flex-1 grid-cols-2 gap-1.5 sm:flex sm:min-w-0 sm:flex-none sm:items-center"
+                className="flex min-w-0 shrink-0 items-center gap-1.5"
               >
-                <ResultSortControl
-                  value={sortValue}
-                  onChange={onSortChange}
-                  compact
-                  className="w-full min-w-0 sm:w-auto sm:min-w-[8.5rem]"
-                />
+                <ResultSortControl value={sortValue} onChange={onSortChange} />
                 <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
-                  {mobileControls}
+                  {pageMobileControls}
                 </div>
               </div>
             ) : (
               <>
-                {onSortChange ? (
-                  <ResultSortControl
-                    value={sortValue}
-                    onChange={onSortChange}
-                    compact
-                    className="min-w-[8.5rem] flex-1 sm:flex-none"
-                  />
-                ) : null}
-                {mobileControls ? (
+                {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
+                {pageMobileControls ? (
                   <div
                     data-testid="search-query-ribbon-mobile-controls"
                     role="group"
                     aria-label={filterLabel}
-                    className="min-w-0 flex-1 sm:hidden"
+                    className="min-w-0 shrink-0 sm:hidden"
                   >
-                    {mobileControls}
+                    {pageMobileControls}
                   </div>
                 ) : null}
               </>
@@ -177,7 +335,7 @@ export function SearchResultsHeaderBand({
             {utilityControls}
             {onViewChange ? (
               <div
-                className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
+                className="inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
                 role="group"
                 aria-label="Results view"
               >
@@ -218,7 +376,7 @@ export function SearchResultsHeaderBand({
                 type="button"
                 onClick={onSaveSearch}
                 className={cn(
-                  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-[color:var(--text-muted)] search-band-ghost shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -229,17 +387,64 @@ export function SearchResultsHeaderBand({
           </div>
         ) : null}
       </div>
-      {filterControls ? (
+      {pageControls ? (
         <div
           data-testid="search-query-ribbon-filters"
           role="group"
           aria-label={filterLabel}
           className={cn(
             "min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3",
-            Boolean(mobileControls) && "hidden sm:block",
+            Boolean(pageMobileControls) && "hidden sm:block",
           )}
         >
-          {filterControls}
+          {pageControls}
+        </div>
+      ) : null}
+      {/* The fault panel carries the announcement and the recovery affordance.
+          `role="alert"` is a distinct role from the spine's `role="status"`, so
+          singular role queries in jsdom and Playwright still resolve to exactly
+          one node each. */}
+      {faulted ? (
+        <div
+          role="alert"
+          data-testid="search-query-ribbon-fault"
+          className="search-band-fault-panel border-t border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-3 text-center sm:px-4"
+        >
+          <p className="search-band-fault text-[color:var(--warning)]">{resolvedFaultTitle}</p>
+          <p className="search-band-count-word mt-0.5 text-[color:var(--warning)]">{resolvedFaultBody}</p>
+          {/* Wrapping is load-bearing: differentials passes Retry plus two
+              "Browse …" links, and the band root is `overflow-hidden`, so on a
+              narrow phone a non-wrapping row clips the trailing action away
+              rather than pushing it to a second line. */}
+          {onRetry || faultAction ? (
+            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
+              {onRetry ? (
+                <AsyncButton
+                  type="button"
+                  busy={retrying}
+                  busyLabel="Retrying…"
+                  onClick={async () => {
+                    setRetrying(true);
+                    try {
+                      await onRetry();
+                    } catch {
+                      // The fault panel is already the failure surface; a rejected
+                      // retry leaves it in place rather than escaping unhandled.
+                    } finally {
+                      setRetrying(false);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                    focusRing,
+                  )}
+                >
+                  Retry
+                </AsyncButton>
+              ) : null}
+              {faultAction}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -250,39 +455,42 @@ export function ResultSortControl({
   value,
   onChange,
   className,
-  compact = false,
 }: {
   value: ResultSortValue;
   onChange: (value: ResultSortValue) => void;
   className?: string;
-  /** Hide the visual "Sort" label on narrow viewports; the select keeps its accessible name. */
-  compact?: boolean;
 }) {
   return (
-    <label
+    <div
+      role="group"
+      aria-label="Sort results"
       className={cn(
-        "relative inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
-        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
+        "inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10",
         className,
       )}
     >
-      <span className={cn("text-[color:var(--text-soft)]", compact && "max-[359px]:sr-only")}>Sort</span>
-      {/* appearance-none strips the native control chrome so "Relevance" renders at the
-          same size/weight as the rest of the band and the caret sits in a fixed slot. */}
-      <select
-        value={value}
-        onChange={(event) => onChange(readResultSort(event.target.value))}
-        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
-        aria-label="Sort results"
-      >
-        <option value="relevance">Relevance</option>
-        <option value="alpha">A–Z</option>
-      </select>
-      <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
-        aria-hidden
-      />
-    </label>
+      {sortOptions.map((option, index) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(readResultSort(option.value))}
+            className={cn(
+              "search-band-sort-option min-h-tap whitespace-nowrap px-3 sm:min-h-10",
+              index > 0 && "border-l border-[color:var(--border)]",
+              focusRing,
+              selected
+                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -312,12 +520,18 @@ export function MobileResultFilterControl<Value extends string>({
       )}
     >
       <span className="shrink-0 text-[color:var(--text-soft)] max-[359px]:sr-only">{label}</span>
+      {/* Two things keep this readable. `truncate` ends a long option ("Current
+          search", a service name) in an ellipsis instead of the mid-word cut it used
+          to get. And the weight steps down to semibold because the size cannot: the
+          unlayered iOS anti-zoom rule in globals.css pins every native select to 16px
+          below `sm`, so weight and colour are the only hierarchy left against the
+          18px query heading. */}
       <select
         data-testid={testId}
         value={value}
         onChange={(event) => onChange(event.target.value as Value)}
         aria-label={ariaLabel}
-        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
+        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value} disabled={option.disabled}>

@@ -11,7 +11,7 @@ export default function NotFound() {
         icon={FileQuestion}
         title="Document Not Found"
         body="The requested document could not be found or has been deleted."
-        action={
+        actions={
           <Link href="/documents" className="text-sm font-medium text-blue-600 hover:underline">
             Return to document library
           </Link>

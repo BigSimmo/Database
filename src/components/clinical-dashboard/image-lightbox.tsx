@@ -153,7 +153,7 @@ export function ImageLightbox({
 
         {/* Control bar. stopPropagation keeps button taps from starting a pan/pinch on the stage. */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-3 z-[1] flex justify-center"
+          className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center"
           onPointerDown={(event) => event.stopPropagation()}
         >
           <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-1 shadow-[var(--shadow-tight)] backdrop-blur-md">

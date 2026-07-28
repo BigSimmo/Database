@@ -852,9 +852,22 @@ export function MasterSearchHeader({
     setScopeSheetOpen(false);
   }
 
+  // Mode options are buttons (not Links), so Next cannot discover destinations.
+  // Prefetch only the mode the user is about to choose — the highlighted option
+  // on open, then whichever option receives focus/pointer while scanning.
+  function prefetchModeHome(modeId: AppModeId) {
+    if (modeId === searchMode) return;
+    const href = appModeHomeHref(modeId);
+    if (prefetchedModeHrefsRef.current.has(href)) return;
+    prefetchedModeHrefsRef.current.add(href);
+    router.prefetch(href);
+  }
+
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    const highlighted = visibleAppModeOptions[nextIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
@@ -872,6 +885,8 @@ export function MasterSearchHeader({
       setModeMenuOpen(false);
       return;
     }
+    const highlighted = visibleAppModeOptions[selectedModeIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
     setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
@@ -921,14 +936,6 @@ export function MasterSearchHeader({
         setModeMenuOpen(false);
       }
     }
-  }
-
-  function prefetchModeHome(modeId: AppModeId) {
-    if (modeId === searchMode) return;
-    const href = appModeHomeHref(modeId);
-    if (prefetchedModeHrefsRef.current.has(href)) return;
-    prefetchedModeHrefsRef.current.add(href);
-    router.prefetch(href);
   }
 
   function renderModeMenuOptions() {
@@ -2141,7 +2148,7 @@ export function MasterSearchHeader({
           // header row's timing to avoid a one-frame gap during hide/reveal.
           // sm+ keeps its pinned inset because the sticky [bar | search] stack
           // is a separate wide-layout contract.
-          "relative z-[32] shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          "relative z-40 shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
           headerChromeHidden
             ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
             : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",

@@ -13,8 +13,12 @@ questions with source citations that link back to the original PDF/document.
 2. Install dependencies:
 
 ```bash
-npm install
+npm ci --include=dev
 ```
+
+This is the clean-checkout and validation install contract. Use `npm install`
+only when intentionally changing dependencies and regenerating
+`package-lock.json`.
 
 3. Copy the full `.env.example` to `.env.local` and fill in Supabase and OpenAI
    values. Copy the worker and upload defaults too — they are conservative

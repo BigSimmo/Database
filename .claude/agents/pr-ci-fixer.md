@@ -11,7 +11,7 @@ Use this agent when a pull request's CI or required checks are failing and the g
 
 ## Repository Review Protocol
 
-Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, and record completed branch/PR reviews with `npm run ledger:append` (check `npm run ledger:lookup` first; never hand-edit the ledger).
 
 ## Provider / GitHub boundary (hard rule)
 

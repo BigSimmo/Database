@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CalculatorsClinicalConsoleMockup } from "@/components/calculators";
+import { CalculatorsClinicalConsoleMockup } from "@/components/calculator-mockups";
 
 export const metadata: Metadata = {
   title: "Calculators Clinical Console Mockup - Clinical KB",

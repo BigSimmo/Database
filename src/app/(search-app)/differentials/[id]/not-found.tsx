@@ -11,7 +11,7 @@ export default function NotFound() {
         icon={FileQuestion}
         title="Differential Not Found"
         body="The requested differential diagnosis could not be found or has been deleted."
-        action={
+        actions={
           <Link href="/differentials" className="text-sm font-medium text-blue-600 hover:underline">
             Return to differentials
           </Link>

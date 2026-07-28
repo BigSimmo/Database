@@ -1032,11 +1032,19 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
   const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const {
+    items: savedRegistryFavourites,
+    status: favouritesHookStatus,
+    refetch: refetchFavouritesRegistry,
+  } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
   );
+  // Demo prototypes live outside the hook. If they are the only items while a
+  // registry/account read failed, keep the band ready so the table's nonzero
+  // list is not contradicted by a whole-band fault.
+  const favouritesRegistryStatus = items.length > 0 ? "ready" : favouritesHookStatus;
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -1195,6 +1203,13 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               modeId="favourites"
               query={query}
               matchCount={scopedItems.length}
+              // Without this a failed registry read renders as "0 matches", which
+              // reads as "you have no saved favourites" rather than "we could not
+              // load them". `status` stays ready when unaffected items already
+              // exist (local differentials, etc.) so a partial registry fault
+              // does not hide a valid nonzero count.
+              status={favouritesRegistryStatus}
+              onRetry={favouritesRegistryStatus === "error" ? refetchFavouritesRegistry : undefined}
               filterLabel="Active favourites filters"
               filterControls={
                 selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
@@ -1233,7 +1248,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
 
-            {query.trim() && scopedItems.length === 0 ? (
+            {/* Only a successful read can say "no matches". While loading or
+                faulted an empty list means we could not look, not that the
+                library is empty; the band's fault panel reports that. */}
+            {query.trim() && scopedItems.length === 0 && favouritesRegistryStatus === "ready" ? (
               <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
             ) : (
               <FavouritesTable
