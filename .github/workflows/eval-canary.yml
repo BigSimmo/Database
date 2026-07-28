@@ -143,7 +143,7 @@ jobs:
 
       - name: Install dependencies
         id: install
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Guard Supabase project identity
         id: project_guard
