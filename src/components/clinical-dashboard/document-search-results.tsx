@@ -32,6 +32,7 @@ import {
   MobileResultFilterControl,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -862,15 +863,20 @@ function DocumentSearchResultsPanelImpl({
     });
   }
 
-  const unavailableMessage = apiUnavailable
-    ? isDeployedClinicalKb()
-      ? "Clinical KB could not be reached. Check your connection and try again shortly."
-      : "The local API is unavailable. Check the app server before searching documents."
-    : authUnavailable
-      ? "Your session expired. Sign in again to view private indexed documents."
-      : !realDataReady
-        ? setupWarning || "Complete the search setup before using Documents mode."
-        : null;
+  const unavailable = deriveDocumentSearchUnavailable({
+    apiUnavailable,
+    authUnavailable,
+    realDataReady,
+    setupWarning,
+    deployedClinicalKb: isDeployedClinicalKb(),
+  });
+  const unavailableMessage = unavailable?.message ?? null;
+  // On the record path the band's fault panel now reports a failed registry, so
+  // RecordRegistryNotice would repeat that verbatim two lines below — the same
+  // double-reporting removed from the standalone services/forms pages. Loading
+  // is still the notice's to own: the band only says "Searching…" there.
+  const recordBandOwnsFault =
+    showRecordMatches && (recordStatus === "error" || recordStatus === "not_found" || recordStatus === "unauthorized");
   const showResultsControls = matches.length > 0 && !loading;
   const showIdentityHeader =
     recordMatchCount > 0 ||
@@ -886,7 +892,24 @@ function DocumentSearchResultsPanelImpl({
           modeId={showRecordMatches ? recordMode : "documents"}
           query={trimmedQuery}
           matchCount={recordMatchCount + sortedMatches.length}
-          loading={loading}
+          // Derive the fault from whichever source this ribbon is actually
+          // counting. On the services/forms path the registry has its own status
+          // and can be perfectly healthy while the unrelated document API is
+          // down; letting that invalidate the ribbon would announce "Couldn't
+          // search" and hide a valid recordMatchCount while SearchRecordResults
+          // renders those very matches below.
+          status={
+            showRecordMatches
+              ? recordStatus === "unauthorized"
+                ? "unauthorized"
+                : recordStatus === "error" || recordStatus === "not_found"
+                  ? "error"
+                  : recordStatus === "loading"
+                    ? "loading"
+                    : "ready"
+              : (unavailable?.status ?? (loading ? "loading" : "ready"))
+          }
+          faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
           onSortChange={matches.length > 0 ? setSortValue : undefined}
           utilityControls={
@@ -934,7 +957,13 @@ function DocumentSearchResultsPanelImpl({
         />
       ) : null}
 
-      {unavailableMessage ? (
+      {/* When the ribbon is shown it owns this message in its fault panel. This
+          standalone alert remains for the routes that render no ribbon, so the
+          message is never lost. */}
+      {/* The ribbon only carries this message on the documents path; in record
+          mode its fault comes from the registry, so the notice must still
+          render or an auth/API/setup warning is reported nowhere. */}
+      {unavailableMessage && (showRecordMatches || !showIdentityHeader) ? (
         <div
           role="alert"
           className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 p-4 text-sm font-semibold leading-6 text-[color:var(--warning)]"
@@ -949,7 +978,7 @@ function DocumentSearchResultsPanelImpl({
 
       {showRecordMatches ? (
         <>
-          <RecordRegistryNotice status={recordStatus} mode={recordMode} />
+          {recordBandOwnsFault ? null : <RecordRegistryNotice status={recordStatus} mode={recordMode} />}
           <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} />
         </>
       ) : null}
