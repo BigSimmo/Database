@@ -122,12 +122,29 @@ describe("audit navigation and auth regressions", () => {
       "function renderModeMenuOptions()",
       "const restoreActionMenuFocusRef",
     );
+    const openModeMenuWithFocus = sourceSegment(
+      masterSearchHeaderSource,
+      "function openModeMenuWithFocus(",
+      "function toggleModeMenu(",
+    );
+    const toggleModeMenu = sourceSegment(
+      masterSearchHeaderSource,
+      "function toggleModeMenu(",
+      "function handleModeTriggerKeyDown(",
+    );
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeHome(modeId: AppModeId)");
     expect(masterSearchHeaderSource).toContain("router.prefetch(href)");
     expect(modeOptions).toContain("onFocus={() => prefetchModeHome(mode.id)}");
     expect(modeOptions).toContain("onPointerEnter={() => prefetchModeHome(mode.id)}");
+    // Menu-open paths warm only the highlighted option — never every visible home.
+    expect(openModeMenuWithFocus).toContain("prefetchModeHome(highlighted.id)");
+    expect(toggleModeMenu).toContain("prefetchModeHome(highlighted.id)");
+    expect(masterSearchHeaderSource).not.toContain("function prefetchModeHomes(");
     expect(masterSearchHeaderSource).not.toContain("visibleAppModeOptions.forEach((mode) => router.prefetch");
+    expect(masterSearchHeaderSource).not.toContain(
+      "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
+    );
   });
 
   it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
