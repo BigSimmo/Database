@@ -222,6 +222,47 @@ The shared search chrome must adapt by page ownership, not by ad-hoc padding or 
 
 <!-- END:search-chrome-behaviour -->
 
+<!-- BEGIN:external-skill-precedence -->
+
+# External skill precedence
+
+User-global skills and output-style plugins are installed outside this repo and know nothing about
+its contracts. Repo docs and committed tests always win. This section is the tie-breaker.
+
+- **Repo contracts outrank generic rules.** The Front-End Checklist skill corpus (~390 user-global
+  skills: `alt-text`, `touch-targets`, `focus-styles`, `reduced-motion`, `color-contrast`, and so
+  on) is generic guidance. On any conflict these win: `docs/wiring-conventions.md`,
+  `docs/search-chrome-behaviour.md`, `docs/rag-behaviour/`, the `@theme` tokens in
+  `src/app/globals.css`, and any committed test.
+- **Never regress a fixed flake to satisfy a generic rule.** Known collision: generic touch-target
+  guidance often teaches the WCAG 2.1/2.2 AAA-level "enhanced" criterion (2.5.5: 44×44 px, which is
+  `min-h-11` in Tailwind), though the AA-level minimum is 24×24 px (2.5.8). This repo's production
+  tap targets use `min-h-12` (48 px) — exceeding both the AA minimum and the AAA enhanced criterion —
+  because `min-h-11` (44 px) hit a sub-pixel rounding flake in `ui-smoke`. Design-scratch mockups
+  (`*-mockups.tsx`) still carry `min-h-11` and are gate-exempt. Do not "fix" production back to
+  `min-h-11` to satisfy the generic rule.
+- **Unlayered CSS is deliberate.** Component classes in `globals.css` intentionally override
+  Tailwind utilities. Generic specificity and utility-first advice does not apply here.
+- **Cite the source when applying an external rule.** If a checklist rule drives a change, name the
+  rule and confirm it contradicts no repo doc or test.
+
+## Evidence and calibration are never compressed
+
+Output-style plugins such as caveman mode may compress prose. They must never compress proof.
+
+- **Always paste the decisive line.** Report gates with real output, not a summary. `npm run
+verify:ui` exits 0 without running a single Playwright test when another worktree holds the heavy
+  lock, so grep for the "N passed" line; exit 0 alone is not proof.
+- **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
+  read, and what is inferred. Do not drop uncertainty to save tokens.
+- **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
+  must be verified against the actual ref/commit content before being repeated as fact. Prioritize
+  inspecting already-fetched local refs (`git log`, `git show`) first; `git fetch` or other
+  network/provider access requires explicit user confirmation per the "API and provider confirmation
+  boundary" section.
+
+<!-- END:external-skill-precedence -->
+
 <!-- BEGIN:supabase-project-safety -->
 
 # Supabase project safety
