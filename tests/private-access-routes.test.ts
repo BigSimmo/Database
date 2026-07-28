@@ -3154,6 +3154,53 @@ describe("private document API access", () => {
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
   });
 
+  it("does not treat a query term embedded inside another word as a document-search hit", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === "search_document_chunks") {
+        return ok([
+          {
+            id: "embedded-term",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Endocrine",
+            content: "Adrenal monitoring only.",
+            image_ids: [],
+            text_rank: 0.8,
+          },
+          {
+            id: "word-boundary-term",
+            page_number: 2,
+            chunk_index: 1,
+            section_heading: "Renal monitoring",
+            content: "Check renal function before treatment.",
+            image_ids: [],
+            text_rank: 0.7,
+          },
+        ]);
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/search/route");
+
+    const response = await GET(request(`/api/documents/${documentId}/search?q=renal`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { results: Array<{ id: string; matched_terms: string[] }> };
+
+    expect(response.status).toBe(200);
+    expect(body.results).toEqual([expect.objectContaining({ id: "word-boundary-term", matched_terms: ["renal"] })]);
+  });
+
   it("filters table fact review rows to the committed index generation", async () => {
     const committedGeneration = "11111111-1111-4111-8111-111111111111";
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
