@@ -2230,8 +2230,9 @@ function sourceBoundComparisonFacts(args: {
   return facts;
 }
 
-/** Build the narrow two-sided fallback for admission/discharge comparisons. */
-function buildAdmissionDischargeComparisonAnswer(args: { query: string; results: SearchResult[] }) {
+/** Build the narrow two-sided fallback for admission/discharge comparisons.
+ *  Exported as a test seam for the #019 conservative-fallback regression guard; no behaviour change. */
+export function buildAdmissionDischargeComparisonAnswer(args: { query: string; results: SearchResult[] }) {
   const admissionFacts = sourceBoundComparisonFacts({
     results: args.results,
     subjectPattern: admissionComparisonTermPattern,
