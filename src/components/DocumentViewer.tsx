@@ -1625,7 +1625,7 @@ export function DocumentViewer({
               data-testid="high-yield-summary"
               className={cn(
                 panel,
-                "group scroll-mt-[var(--document-anchor-offset,6rem)]source-print md:col-span-2 lg:col-span-1",
+                "group scroll-mt-[var(--document-anchor-offset,6rem)] source-print md:col-span-2 lg:col-span-1",
               )}
             >
               <DocumentSectionSummary
@@ -1711,7 +1711,7 @@ export function DocumentViewer({
           <details
             id="source-images"
             name="document-viewer-section"
-            className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)]md:col-span-2 lg:col-span-1")}
+            className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1")}
           >
             <DocumentSectionSummary
               icon={FileImage}

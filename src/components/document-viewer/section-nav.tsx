@@ -6,6 +6,7 @@ import type { RefObject } from "react";
 import { cn } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import type { DocumentSection } from "@/components/document-viewer/section-index";
+import { resolveSectionElement } from "@/components/document-viewer/use-section-spy";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 
 const focusRing =
@@ -22,7 +23,9 @@ const focusRing =
  */
 export function jumpToDocumentSection(id: string) {
   if (typeof window === "undefined") return;
-  const target = window.document.getElementById(id);
+  // The displayed copy, not just the first match: a section can be rendered for
+  // one breakpoint and hidden for another.
+  const target = resolveSectionElement(id) ?? window.document.getElementById(id);
 
   window.document
     .querySelectorAll<HTMLDetailsElement>('details[name="document-viewer-section"]')
