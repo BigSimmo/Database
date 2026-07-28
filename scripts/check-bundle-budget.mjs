@@ -26,6 +26,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CHUNKS_DIR = path.join(root, ".next", "static", "chunks");
 const BUDGET_PATH = path.join(root, "bundle-budget.json");
+const HISTORY_PATH = path.join(root, ".next", "bundle-history.json");
 const APP_BUILD_MANIFEST_PATH = path.join(root, ".next", "app-build-manifest.json");
 const BUILD_MANIFEST_PATH = path.join(root, ".next", "build-manifest.json");
 const ROOT_PAGE_CLIENT_REFERENCE_MANIFEST_PATH = path.join(
@@ -150,6 +151,24 @@ function loadBudget() {
   }
 }
 
+function updateHistory(currentGzipBytes) {
+  try {
+    let history = [];
+    if (existsSync(HISTORY_PATH)) {
+      history = JSON.parse(readFileSync(HISTORY_PATH, "utf8"));
+    }
+    const last = history[history.length - 1];
+    if (!last || last.totalGzipBytes !== currentGzipBytes) {
+      history.push({ totalGzipBytes: currentGzipBytes, timestamp: new Date().toISOString() });
+      if (history.length > 10) history = history.slice(-10);
+      writeFileSync(HISTORY_PATH, JSON.stringify(history, null, 2) + "\n");
+    }
+    return last?.totalGzipBytes ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function main() {
   const asJson = process.argv.includes("--json");
   const update = process.argv.includes("--update");
@@ -200,11 +219,16 @@ function main() {
   }
 
   const verdict = compareToBudget(current, budget);
+  const previousGzip = updateHistory(current.totalGzipBytes);
+  const deltaStr = previousGzip != null 
+    ? ` (${current.totalGzipBytes >= previousGzip ? "+" : ""}${kb(current.totalGzipBytes - previousGzip)} since last run)`
+    : "";
+
   if (asJson) {
     console.log(JSON.stringify({ current, verdict, initialDashboardChunks: initialDashboardChunks.length }, null, 2));
   } else {
     console.log(
-      `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip (${kb(current.totalRawBytes)} raw).`,
+      `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip${deltaStr} (${kb(current.totalRawBytes)} raw).`,
     );
     if (verdict.baseline != null)
       console.log(`[bundle-budget] baseline ${kb(verdict.baseline)} gzip; ${verdict.reason}.`);

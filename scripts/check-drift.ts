@@ -1,6 +1,19 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { loadEnvConfig } from "@next/env";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
+
+type AdminDatabase = Omit<Database, "public"> & {
+  public: Database["public"] & {
+    Functions: Database["public"]["Functions"] & {
+      schema_drift_snapshot: {
+        Args: Record<string, never>;
+        Returns: unknown;
+      };
+    };
+  };
+};
 
 loadEnvConfig(process.cwd());
 
@@ -243,8 +256,8 @@ async function main() {
     );
   }
 
-  const supabase = createAdminClient();
-  const { data: liveSnapshot, error } = await supabase.rpc("schema_drift_snapshot" as never);
+  const supabase = createAdminClient() as unknown as SupabaseClient<AdminDatabase>;
+  const { data: liveSnapshot, error } = await supabase.rpc("schema_drift_snapshot");
   if (error) {
     const message = String(error.message ?? error);
     if (/could not find the function|schema cache|PGRST202/i.test(message)) {

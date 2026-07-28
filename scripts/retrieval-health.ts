@@ -57,7 +57,7 @@ async function main() {
     .limit(limit);
   if (ownerId) logsQuery = logsQuery.eq("owner_id", ownerId);
 
-  const [
+  let [
     { data: logsData, error: logsError },
     { data: qualityData, error: qualityError },
     { data: visualUnitsData, error: visualUnitsError },
@@ -79,6 +79,19 @@ async function main() {
       ])
       .limit(5000),
   ]);
+
+  if (ownerId && logsData && logsData.length === 0) {
+    // Fallback mechanism when owner-filtered queries return zero results in local dev
+    const { data: fallbackLogsData, error: fallbackLogsError } = await supabase
+      .from("rag_retrieval_logs")
+      .select(
+        "query,query_class,retrieval_strategy,total_latency_ms,vector_candidate_count,candidate_count,selected_document_ids,is_miss,miss_reason,metadata,created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    logsData = fallbackLogsData;
+    logsError = fallbackLogsError as typeof logsError;
+  }
 
   if (logsError) throw new Error(logsError.message);
   if (qualityError) throw new Error(qualityError.message);

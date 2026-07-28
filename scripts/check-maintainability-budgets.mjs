@@ -15,16 +15,30 @@ function sourceLineCount(file) {
 }
 
 const failures = [];
+const summary = [];
+
 for (const [file, maximum] of budgets) {
   const actual = sourceLineCount(file);
+  const percentage = Math.round((actual / maximum) * 100);
+  const headroom = maximum - actual;
+  
+  // Progress bar visualization (20 chars wide)
+  const filledLength = Math.floor((actual / maximum) * 20);
+  const emptyLength = Math.max(0, 20 - filledLength);
+  const progressBar = `[${"█".repeat(Math.min(20, filledLength))}${"░".repeat(emptyLength)}]`;
+
+  summary.push(`${progressBar} ${percentage}% | ${String(headroom).padStart(4)} lines left | ${file}`);
+
   if (actual > maximum) failures.push(`${file}: ${actual} lines exceeds the ${maximum}-line no-growth budget`);
-  else console.log(`[maintainability] ${file}: ${actual}/${maximum} lines`);
 }
 
+console.log("Maintainability Budgets Headroom Summary:");
+for (const line of summary) console.log(`  ${line}`);
+
 if (failures.length) {
-  console.error("Maintainability hotspot budget exceeded. Extract a cohesive module instead of growing the monolith:");
+  console.error("\nMaintainability hotspot budget exceeded. Extract a cohesive module instead of growing the monolith:");
   for (const failure of failures) console.error(`  ${failure}`);
   process.exit(1);
 }
 
-console.log("Maintainability hotspot budgets passed.");
+console.log("\nMaintainability hotspot budgets passed.");
