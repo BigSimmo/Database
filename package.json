@@ -228,7 +228,8 @@
     "tmp": "^0.2.7",
     "uuid": "^11.1.1",
     "brace-expansion@1": "^1.1.16",
-    "brace-expansion@2": "^2.1.2"
+    "brace-expansion@2": "^2.1.2",
+    "brace-expansion@5": "^5.0.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
