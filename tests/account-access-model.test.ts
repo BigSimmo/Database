@@ -78,12 +78,13 @@ describe("public content and account authorization model", () => {
 
   it("does not load or display administrative dashboard surfaces for ordinary accounts", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
+    const compact = dashboard.replace(/\s+/g, " ");
     expect(dashboard).toContain("if (!canUseAdministrativeApis)");
-    expect(dashboard).toContain(
-      'canUseAdministrativeApis && (uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin"))',
+    expect(compact).toContain(
+      'canUseAdministrativeApis && (settingsState.uploadDrawerOpen || (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"))',
     );
-    expect(dashboard).toContain(
-      'const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;',
+    expect(compact).toContain(
+      'const documentsDrawerIsAdmin = settingsState.documentsDrawerMode === "admin" && canUseAdministrativeApis;',
     );
   });
 });

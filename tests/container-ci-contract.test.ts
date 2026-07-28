@@ -31,6 +31,12 @@ describe("container delivery contract", () => {
     expect(read("Dockerfile")).toContain("exec node node_modules/next/dist/bin/next start");
   });
 
+  it("lets CI Docker app builds opt out of the local low-RAM hard-fail", () => {
+    // Hosted buildx runners often report ~7–8 GiB; local Docker Desktop keeps the hard-fail.
+    expect(read("Dockerfile")).toMatch(/ARG ALLOW_LOW_RAM_BUILD=0/);
+    expect(read(".github/workflows/docker-image.yml")).toMatch(/ALLOW_LOW_RAM_BUILD=1/);
+  });
+
   it("keeps sensitive and machine-local files out of Docker build contexts", () => {
     const dockerignore = read(".dockerignore").split(/\r?\n/);
 
