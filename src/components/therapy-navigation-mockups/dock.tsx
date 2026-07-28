@@ -371,7 +371,9 @@ function PhoneFrame({ state }: { state: PhoneState }) {
           blocks={3}
         />
       </div>
-      {expanded ? <span aria-hidden="true" className="absolute inset-0 z-40 bg-[color:var(--text-heading)]/35" /> : null}
+      {expanded ? (
+        <span aria-hidden="true" className="absolute inset-0 z-40 bg-[color:var(--text-heading)]/35" />
+      ) : null}
       {hidden ? null : (
         <div
           className={cn(

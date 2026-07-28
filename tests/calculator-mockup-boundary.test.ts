@@ -30,17 +30,12 @@ describe("calculator mockup import boundary", () => {
   it("keeps production source independent from calculator mockups", () => {
     const productionFiles = sourceFiles(resolve(process.cwd(), "src")).filter((file) => {
       const normalized = file.replaceAll("\\", "/");
-      return (
-        !normalized.includes("/src/app/mockups/") &&
-        !normalized.includes("/src/components/calculator-mockups/")
-      );
+      return !normalized.includes("/src/app/mockups/") && !normalized.includes("/src/components/calculator-mockups/");
     });
 
     for (const file of productionFiles) {
       const source = readFileSync(file, "utf8");
-      expect(source, `${file} imports calculator mockups`).not.toContain(
-        "@/components/calculator-mockups",
-      );
+      expect(source, `${file} imports calculator mockups`).not.toContain("@/components/calculator-mockups");
     }
   });
 });

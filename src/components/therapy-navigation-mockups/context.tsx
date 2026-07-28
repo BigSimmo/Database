@@ -361,7 +361,10 @@ function JumpSheet({ id, activeId }: { id: string; activeId: string }) {
         aria-label="Jump to a therapy destination"
         className="absolute inset-x-0 bottom-0 z-50 max-h-[76%] overflow-y-auto rounded-t-[1rem] border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 pb-4 pt-2 shadow-[var(--shadow-lux)]"
       >
-        <span aria-hidden="true" className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60" />
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60"
+        />
         <p className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{selectedTherapy.name}</p>
         <p className="mb-2 mt-0.5 text-3xs font-semibold text-[color:var(--text-soft)]">
           {selectedTherapy.category} · every destination below acts on this record
@@ -399,13 +402,7 @@ function PhoneFrame({ state }: { state: PhoneState }) {
       {hidden ? null : (
         <>
           <UniversalTopBar device="phone" />
-          <ContextRow
-            device="phone"
-            activeId={activeId}
-            expanded={sheet}
-            panelId={panelId}
-            workspace={workspace}
-          />
+          <ContextRow device="phone" activeId={activeId} expanded={sheet} panelId={panelId} workspace={workspace} />
         </>
       )}
       <div className="min-h-0 flex-1 overflow-hidden bg-[color:var(--background)]">

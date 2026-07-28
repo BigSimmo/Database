@@ -196,10 +196,7 @@ const filterChips: { id: DomainFilter; label: string }[] = [
 
 function CalculatorMockupHero() {
   return (
-    <section
-      data-testid="calculators-search"
-      className="mx-auto grid max-w-3xl justify-items-center gap-3 text-center"
-    >
+    <section data-testid="calculators-search" className="mx-auto grid max-w-3xl justify-items-center gap-3 text-center">
       <span className="grid size-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
         <Calculator className="size-7" aria-hidden="true" />
       </span>

@@ -28,7 +28,9 @@ test.describe("Therapy navigation mockups @mockup", () => {
         await page.setViewportSize(viewport);
         await page.goto(route.path, { waitUntil: "domcontentloaded" });
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByRole("navigation", { name: /Therapy sections|Therapy navigation/ }).first()).toBeVisible();
+        await expect(
+          page.getByRole("navigation", { name: /Therapy sections|Therapy navigation/ }).first(),
+        ).toBeVisible();
         await expectNoHorizontalOverflow(page);
       }
     });

@@ -112,7 +112,13 @@ export const destinations: Destination[] = [
   { id: "browse", label: "Browse by category", icon: Layers, group: "library", meta: `${CATEGORY_COUNT}` },
   { id: "recommend", label: "Recommend", icon: Sparkles, group: "library", meta: "Guided" },
   { id: "pathways", label: "Pathways", icon: Waypoints, group: "library", meta: `${PATHWAY_COUNT}` },
-  { id: "compare", label: "Compare", icon: Columns3, group: "workspace", meta: `${compareBasket.length}/${MAX_COMPARE}` },
+  {
+    id: "compare",
+    label: "Compare",
+    icon: Columns3,
+    group: "workspace",
+    meta: `${compareBasket.length}/${MAX_COMPARE}`,
+  },
   { id: "review", label: "Review queue", icon: ClipboardList, group: "workspace", meta: `${REVIEW_COUNT}` },
   { id: "detail", label: "Overview", icon: Compass, group: "therapy" },
   { id: "brief", label: "Brief intervention", icon: Timer, group: "therapy", meta: "5 · 15 min" },
@@ -277,10 +283,7 @@ export function MockupSection({
   divider?: boolean;
 }) {
   return (
-    <section
-      aria-labelledby={id}
-      className={cn("mt-10", divider && "border-t border-[color:var(--border)] pt-8")}
-    >
+    <section aria-labelledby={id} className={cn("mt-10", divider && "border-t border-[color:var(--border)] pt-8")}>
       <h2 id={id} className="text-lg font-semibold text-[color:var(--text-heading)]">
         {title}
       </h2>

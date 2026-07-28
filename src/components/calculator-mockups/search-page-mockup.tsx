@@ -60,11 +60,7 @@ function MockupSuggestionChips({
   testId?: string;
 }) {
   return (
-    <div
-      aria-label={label}
-      data-testid={testId}
-      className={cn("flex gap-2 overflow-x-auto pb-1", className)}
-    >
+    <div aria-label={label} data-testid={testId} className={cn("flex gap-2 overflow-x-auto pb-1", className)}>
       {suggestions.map((suggestion) => (
         <button
           key={suggestion}
@@ -110,7 +106,10 @@ function MockupSearchResultsLayout({
 }) {
   return (
     <main data-testid={testId} className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-40 pt-5 sm:px-6 lg:px-8">
-      <header aria-label={`${resultsLabel} search`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
+      <header
+        aria-label={`${resultsLabel} search`}
+        className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+      >
         {header}
       </header>
       {summary}
