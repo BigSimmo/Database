@@ -6,8 +6,10 @@ const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`
 const therapyPath = "src/components/therapy-compass";
 
 const therapyCssSource = read(`${therapyPath}/therapy-compass.css`);
+const therapyNavSource = read(`${therapyPath}/nav.tsx`);
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
 const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
+const modeHomeComposerSource = read("src/lib/mode-home-composer.ts");
 const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
 const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
@@ -47,6 +49,37 @@ function contrastRatio(firstHex: string, secondHex: string) {
 }
 
 describe("Therapy Compass responsive contract", () => {
+  it("uses the shared page canvas and centers the top navigation without breaking phone overflow", () => {
+    const rootRule = therapyCssSource.match(/\.tc-root\s*\{([^}]*)\}/)?.[1] ?? "";
+    const workspaceRule = therapyCssSource.match(/\.tc-root \.tc-workspace-006\s*\{([^}]*)\}/)?.[1] ?? "";
+    const navShellRule = therapyCssSource.match(/\.tc-root \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
+    const navScrollerRule = therapyCssSource.match(/\.tc-root \.tc-nav-007\s*\{([^}]*)\}/)?.[1] ?? "";
+    const portaledNavRule =
+      therapyCssSource.match(/#phone-header-collapse-addon-slot \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(rootRule).toContain("background: var(--background);");
+    expect(workspaceRule).toContain("background: var(--background);");
+    expect(rootRule).not.toContain("var(--surface-chrome)");
+    expect(workspaceRule).not.toContain("var(--surface-chrome)");
+    expect(navShellRule).toContain("justify-content: center;");
+    expect(navScrollerRule).toContain("flex: 0 1 auto;");
+    expect(navScrollerRule).toContain("width: fit-content;");
+    expect(navScrollerRule).toContain("max-width: 100%;");
+    expect(navScrollerRule).toContain("margin-inline: auto;");
+    expect(navScrollerRule).toContain("overflow-x: auto;");
+    // Portaled phone chrome must not keep sticky — the collapse row owns hide.
+    expect(portaledNavRule).toContain("position: relative;");
+    expect(portaledNavRule).toContain("top: auto;");
+  });
+
+  it("portals the section nav into the header collapse host on phones", () => {
+    expect(modeHomeComposerSource).toContain(
+      'export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot"',
+    );
+    expect(therapyNavSource).toContain("PhoneHeaderCollapsePortal");
+    expect(therapyNavSource).toContain('data-testid="therapy-compass-section-nav"');
+  });
+
   it("defines one scoped phone reflow and a local comparison scroller", () => {
     expect(therapyCssSource).toMatch(/@media \(max-width: 640px\)/);
     expect(therapyCssSource).toContain(".tc-root .tc-mobile-stack");
@@ -61,7 +94,7 @@ describe("Therapy Compass responsive contract", () => {
     expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
-    expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
+    expect(modeHomeTemplateSource).toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");

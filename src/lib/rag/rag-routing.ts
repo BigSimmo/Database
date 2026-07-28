@@ -1,4 +1,13 @@
-import { classifyRagQuery } from "@/lib/clinical-search";
+import {
+  classifyRagQuery,
+  hasForeignThresholdLabel,
+  hasMedicationMonitoringSubjectText,
+  medicationMonitoringSubjectAliases,
+  medicationMonitoringQuerySubjects,
+  medicationMonitoringQuerySubjectTokens,
+} from "@/lib/clinical-search";
+import { explicitlyBindsEntityToClinicalValue } from "@/lib/clinical-value-binding";
+import { hasForeignMedicationClinicalValueBinding } from "@/lib/medication-entities";
 import { canBuildDeterministicComparison } from "@/lib/rag/rag-comparison";
 import type { ConflictOrGap, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
@@ -46,6 +55,151 @@ const clozapineBloodWithholdThresholdPattern = /\bclozapine\b/i;
 const bloodCountTermPattern = /\b(?:anc|fbc|wbc|wcc|white cell|white blood cell|neutrophil|neutrophils)\b/i;
 const withholdThresholdIntentPattern =
   /\b(?:threshold|cut ?off|cutoff|withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i;
+const numericMedicationThresholdLookupPattern =
+  /\b(?:cut[\s-]?offs?|minimum|maximum)\b|\b(?:therapeutic|target|toxic|trough)\s+(?:levels?|ranges?|concentrations?)\b/i;
+const explicitNumericClinicalParameterPattern = /\b(?:anc|wbc|wcc|white (?:blood )?cells?|neutrophils?|qtc)\b/i;
+const explicitNumericThresholdRequestPattern =
+  /\b(?:numeric|numerical|numbers?|values?|exact value|measured value|units?)\b|[<>≤≥]|\d+(?:\.\d+)?|(?:[x×]\s*)?10(?:\^?\s*(?:9|12)|⁹|¹²)\s*\/\s*l|\b(?:msec|ms|mmol|mol|mg|mcg|ng|cells?)\s*\/\s*(?:ml|l)\b/i;
+const narrativeRangeContextPattern =
+  /\b(?:adult\s+)?age\s+ranges?\b|\branges?\s+of\s+(?:baseline\s+)?(?:tests?|checks?|monitoring|ages?)\b/i;
+const naturalMedicationLevelValueLookupPattern =
+  /\b(?:levels?|concentrations?)\s+(?:is|are)\s+(?:used|recommended|targeted|maintained)\b|\blevels?\s+ranges?\b/i;
+const thresholdAtomClinicalFigurePattern =
+  /\d+(?:\.\d+)?(?:\s*(?:-|–|—|to)\s*\d+(?:\.\d+)?)?\s*(?:msec|ms|ng\s*\/\s*ml|(?:mcg|[µμ]g|ug|mg|meq|mmol|mol|units?)\s*\/\s*l|mcg|[µμ]g|ug|mg|micrograms?|milligrams?|[x×]\s*10(?:\^?\s*9|⁹)\s*\/\s*l|10(?:\^?\s*9|⁹)\s*\/\s*l|cells?\s*\/\s*l|mmhg|bpm|%)\b/i;
+const thresholdAtomBetweenClinicalFigurePattern =
+  /\bbetween\s+\d+(?:\.\d+)?\s+and\s+\d+(?:\.\d+)?\s*(?:msec|ms|ng\s*\/\s*ml|(?:mcg|[µμ]g|ug|mg|meq|mmol|mol|units?)\s*\/\s*l|mcg|[µμ]g|ug|mg|micrograms?|milligrams?|[x×]\s*10(?:\^?\s*9|⁹)\s*\/\s*l|10(?:\^?\s*9|⁹)\s*\/\s*l|cells?\s*\/\s*l|mmhg|bpm|%)\b/i;
+const thresholdAtomComparatorOrRangePattern =
+  /(?:[<>≤≥]=?\s*\d+(?:\.\d+)?|\b(?:less|greater)\s+than\s+\d+(?:\.\d+)?|\b(?:below|above)\s+\d+(?:\.\d+)?|\bbetween\s+\d+(?:\.\d+)?\s+and\s+\d+(?:\.\d+)?|\b\d+(?:\.\d+)?\s*(?:-|–|—|to)\s*\d+(?:\.\d+)?)/i;
+const calendarYearRangePattern = /\b(?:19|20)\d{2}\s*(?:-|–|—|to)\s*(?:19|20)\d{2}\b/gi;
+const administrativePageRangePattern = /\b(?:pages?|pp?\.?)\s+\d+\s*(?:-|–|—|to)\s*\d+\b/gi;
+const concentrationLookupQueryPattern = /\b(?:levels?|ranges?|therapeutic|target|trough|concentrations?)\b/i;
+const concentrationThresholdValuePattern =
+  /\b(?:ng|mcg|[µμ]g|ug|mg|g|meq|mmol|[µμ]mol|umol|mol|miu|iu|u|units?)\s*\/\s*(?:ml|l)\b/i;
+const qtcThresholdValuePattern = /\b(?:msec|ms)\b/i;
+const bloodCountThresholdValuePattern =
+  /(?:[x×]\s*10(?:\^?\s*(?:9|12)|⁹|¹²)\s*\/\s*l|10(?:\^?\s*(?:9|12)|⁹|¹²)\s*\/\s*l|cells?\s*\/\s*l)/i;
+const genericThresholdAnchorTokens = new Set([
+  "what",
+  "which",
+  "when",
+  "used",
+  "use",
+  "for",
+  "the",
+  "should",
+  "does",
+  "monitor",
+  "monitoring",
+  "medication",
+  "therapy",
+  "treatment",
+  "level",
+  "range",
+  "threshold",
+  "cutoff",
+  "withhold",
+  "stop",
+  "cease",
+  "minimum",
+  "maximum",
+  "required",
+  "require",
+]);
+const localThresholdScopePattern =
+  /\b(?:maintenance|therapeutic|target|reference|trough|red range|amber range|anc|fbc|wbc|wcc|neutrophils?|qtc)\b/i;
+const thresholdAnalyteGroups = [
+  { id: "lithium", pattern: /\blithium\b/i },
+  { id: "blood_count", pattern: /\b(?:anc|fbc|wbc|wcc|white blood cells?|neutrophils?)\b/i },
+  { id: "blood_glucose", pattern: /\b(?:blood glucose|bgl|glucose|hba1c)\b/i },
+  { id: "qtc", pattern: /\bqtc\b/i },
+  { id: "sodium", pattern: /\bsodium\b/i },
+  { id: "potassium", pattern: /\bpotassium\b/i },
+  { id: "calcium", pattern: /\bcalcium\b/i },
+  { id: "renal", pattern: /\b(?:creatinine|egfr|renal function)\b/i },
+  { id: "blood_pressure", pattern: /\b(?:blood pressure|systolic|diastolic)\b/i },
+  { id: "temperature", pattern: /\btemperature\b/i },
+  { id: "oxygen", pattern: /\b(?:oxygen saturation|spo2)\b/i },
+  { id: "prolactin", pattern: /\bprolactin\b/i },
+  { id: "thyroid", pattern: /\b(?:thyroid|tsh|thyroid stimulating hormone)\b/i },
+] as const;
+const genericScopedThresholdTokens = new Set([
+  "a",
+  "above",
+  "amber",
+  "and",
+  "anc",
+  "are",
+  "at",
+  "below",
+  "between",
+  "blood",
+  "bpm",
+  "cell",
+  "cells",
+  "cease",
+  "concentration",
+  "continue",
+  "count",
+  "cutoff",
+  "fbc",
+  "for",
+  "from",
+  "greater",
+  "is",
+  "l",
+  "less",
+  "level",
+  "maintenance",
+  "maintain",
+  "maximum",
+  "mcg",
+  "meq",
+  "mg",
+  "microgram",
+  "micrograms",
+  "milligram",
+  "milligrams",
+  "minimum",
+  "miu",
+  "mmhg",
+  "mmol",
+  "monitor",
+  "monitoring",
+  "must",
+  "neutrophil",
+  "neutrophils",
+  "ng",
+  "of",
+  "or",
+  "plasma",
+  "range",
+  "reaches",
+  "red",
+  "reference",
+  "result",
+  "results",
+  "serum",
+  "should",
+  "stop",
+  "target",
+  "than",
+  "the",
+  "therapeutic",
+  "threshold",
+  "to",
+  "toxic",
+  "treatment",
+  "trough",
+  "ug",
+  "unit",
+  "units",
+  "value",
+  "was",
+  "wbc",
+  "wcc",
+  "when",
+  "white",
+]);
 const queryStopWords = new Set([
   "what",
   "when",
@@ -263,6 +417,254 @@ function querySpecificTitleTokens(query: string) {
     .split(/\s+/)
     .map((token) => token.replace(/s$/, ""))
     .filter((token) => token.length > 2 && !specificTitleStopWords.has(token));
+}
+
+type ThresholdEvidenceAtom = {
+  body: string;
+  scope: string;
+  localScope: string;
+};
+
+function splitThresholdEvidenceBody(value: string | null | undefined) {
+  return (value ?? "")
+    .split(/(?<=[.!?;])\s+|\r?\n+|,\s*(?=(?:but|however|while|whereas)\b)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function thresholdEvidenceAtoms(result: SearchResult): ThresholdEvidenceAtom[] {
+  const documentScope = [result.title, result.file_name, result.section_heading, ...(result.section_path ?? [])]
+    .filter(Boolean)
+    .join(" ");
+  const atoms: ThresholdEvidenceAtom[] = [];
+  const addBodies = (bodies: Array<string | null | undefined>, scope: string, localScope = "") => {
+    for (const body of bodies.flatMap((value) => splitThresholdEvidenceBody(value))) {
+      atoms.push({ body, scope, localScope });
+    }
+  };
+  const addSequentialBody = (value: string | null | undefined, scope: string) => {
+    let localThresholdScope = "";
+    for (const body of splitThresholdEvidenceBody(value)) {
+      const isBullet = /^[•*-]\s*/.test(body);
+      atoms.push({
+        body,
+        scope: [isBullet ? localThresholdScope : "", scope].filter(Boolean).join(" "),
+        localScope: isBullet ? localThresholdScope : "",
+      });
+      if (/\b(?:ranges?|thresholds?|cut[\s-]?offs?|levels?|concentrations?)\b.{0,60}:\s*$/i.test(body)) {
+        localThresholdScope = body;
+      } else if (!isBullet) {
+        localThresholdScope = "";
+      }
+    }
+  };
+  addSequentialBody(result.content, documentScope);
+  addSequentialBody(result.retrieval_synopsis, documentScope);
+  for (const fact of result.table_facts ?? []) {
+    atoms.push({
+      body: [fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action].filter(Boolean).join(" "),
+      scope: [fact.table_title, documentScope].filter(Boolean).join(" "),
+      localScope: fact.table_title ?? "",
+    });
+  }
+  if (result.index_unit) {
+    const indexUnitScope = [
+      result.index_unit.title,
+      ...(result.index_unit.heading_path ?? []),
+      ...(result.index_unit.normalized_terms ?? []),
+    ]
+      .filter(Boolean)
+      .join(" ");
+    addBodies([result.index_unit.content], [indexUnitScope, documentScope].filter(Boolean).join(" "), indexUnitScope);
+  }
+  for (const sourceImage of result.images ?? []) {
+    const imageScope = [sourceImage.caption, sourceImage.tableTitle, sourceImage.tableLabel, documentScope]
+      .filter(Boolean)
+      .join(" ");
+    const localImageScope = [sourceImage.caption, sourceImage.tableTitle, sourceImage.tableLabel]
+      .filter(Boolean)
+      .join(" ");
+    addBodies([sourceImage.accessibleTableMarkdown, sourceImage.tableTextSnippet], imageScope, localImageScope);
+    for (const row of sourceImage.tableRows ?? []) {
+      addBodies([[...(sourceImage.tableColumns ?? []), ...row].join(" ")], imageScope, localImageScope);
+    }
+  }
+  return atoms.filter((atom) => atom.body.trim().length > 0);
+}
+
+type EvidenceSpan = { start: number; end: number };
+
+function thresholdValueSpans(body: string): EvidenceSpan[] {
+  const withoutAdministrativeRanges = body
+    .replace(calendarYearRangePattern, (match) => " ".repeat(match.length))
+    .replace(administrativePageRangePattern, (match) => " ".repeat(match.length));
+  const valuePattern = new RegExp(
+    `(?:${thresholdAtomBetweenClinicalFigurePattern.source})|(?:${thresholdAtomClinicalFigurePattern.source})|(?:${thresholdAtomComparatorOrRangePattern.source})`,
+    "gi",
+  );
+  return Array.from(withoutAdministrativeRanges.matchAll(valuePattern), (match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+  }));
+}
+
+function atomHasThresholdValue(atom: ThresholdEvidenceAtom) {
+  return thresholdValueSpans(atom.body).length > 0;
+}
+
+function atomHasQueryAnchor(query: string, body: string) {
+  if (bloodCountTermPattern.test(query) && bloodCountTermPattern.test(body)) return true;
+
+  const subjectTokens = new Set(medicationMonitoringQuerySubjectTokens(query));
+  const queryAnchors = normalizeLookupText(query)
+    .split(/\s+/)
+    .filter((token) => token.length > 2 && !subjectTokens.has(token) && !genericThresholdAnchorTokens.has(token));
+  const bodyTokens = new Set(normalizeLookupText(body).split(/\s+/));
+  return queryAnchors.some((token) => bodyTokens.has(token));
+}
+
+function atomHasIncompatibleAnalyte(query: string, body: string) {
+  const queryAnalyteText = `${query} ${medicationMonitoringQuerySubjects(query).join(" ")}`;
+  const queryAnalytes = new Set(
+    thresholdAnalyteGroups.filter((group) => group.pattern.test(queryAnalyteText)).map((group) => group.id),
+  );
+  return thresholdAnalyteGroups.some((group) => group.pattern.test(body) && !queryAnalytes.has(group.id));
+}
+
+function escapedPhrasePattern(phrases: string[]) {
+  const alternatives = phrases
+    .sort((left, right) => right.length - left.length)
+    .map((phrase) => phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"));
+  return alternatives.length > 0 ? new RegExp(`\\b(?:${alternatives.join("|")})\\b`, "gi") : null;
+}
+
+function matchingSpans(pattern: RegExp | null, text: string): EvidenceSpan[] {
+  if (!pattern) return [];
+  return Array.from(text.matchAll(pattern), (match) => ({ start: match.index, end: match.index + match[0].length }));
+}
+
+function hasForeignAnalyteValueBinding(query: string, body: string, value: EvidenceSpan) {
+  const queryAnalyteText = `${query} ${medicationMonitoringQuerySubjects(query).join(" ")}`;
+  const queryAnalytes = new Set(
+    thresholdAnalyteGroups.filter((group) => group.pattern.test(queryAnalyteText)).map((group) => group.id),
+  );
+  return thresholdAnalyteGroups
+    .filter((group) => !queryAnalytes.has(group.id))
+    .flatMap((group) => matchingSpans(new RegExp(group.pattern.source, "gi"), body))
+    .some((analyte) => explicitlyBindsEntityToClinicalValue(analyte, value, body));
+}
+
+function atomHasQueryParameterValueBinding(query: string, atom: ThresholdEvidenceAtom, value: EvidenceSpan) {
+  const valueText = atom.body.slice(value.start, value.end);
+  const nearbyText = atom.body.slice(Math.max(0, value.start - 96), Math.min(atom.body.length, value.end + 48));
+
+  if (/\bqtc\b/i.test(query)) {
+    return /\bqtc\b/i.test(`${nearbyText} ${atom.scope}`) && qtcThresholdValuePattern.test(valueText);
+  }
+
+  if (bloodCountTermPattern.test(query)) {
+    return (
+      bloodCountTermPattern.test(nearbyText) ||
+      (bloodCountTermPattern.test(atom.scope) && bloodCountThresholdValuePattern.test(nearbyText))
+    );
+  }
+
+  const queryParameterGroups = thresholdAnalyteGroups.filter(
+    (group) => group.id !== "lithium" && group.pattern.test(query),
+  );
+  if (queryParameterGroups.length > 0) {
+    return queryParameterGroups.some(
+      (group) =>
+        group.pattern.test(nearbyText) ||
+        (group.pattern.test(atom.scope) && concentrationThresholdValuePattern.test(valueText)),
+    );
+  }
+
+  if (concentrationLookupQueryPattern.test(query)) {
+    return (
+      concentrationThresholdValuePattern.test(valueText) &&
+      !/\b(?:dose|dosage|daily|weekly|monthly)\b/i.test(nearbyText)
+    );
+  }
+
+  return (
+    atomHasQueryAnchor(query, nearbyText) ||
+    localThresholdScopePattern.test(atom.scope) ||
+    /\b(?:threshold|cut[\s-]?off|withhold|stop|cease|minimum|maximum)\b/i.test(nearbyText)
+  );
+}
+
+function atomHasDirectMedicationValueBinding(query: string, subject: string, atom: ThresholdEvidenceAtom) {
+  const subjectSpans = matchingSpans(escapedPhrasePattern(medicationMonitoringSubjectAliases(subject)), atom.body);
+  if (subjectSpans.length === 0) return false;
+
+  return thresholdValueSpans(atom.body).some(
+    (value) =>
+      atomHasQueryParameterValueBinding(query, atom, value) && !hasForeignAnalyteValueBinding(query, atom.body, value),
+  );
+}
+
+function atomHasOnlyScopedQueryLabels(query: string, body: string) {
+  const queryTokens = new Set(normalizeLookupText(query).split(/\s+/));
+  return normalizeLookupText(body)
+    .split(/\s+/)
+    .filter(Boolean)
+    .every(
+      (token) =>
+        /^\d+$/.test(token) || token.length <= 2 || queryTokens.has(token) || genericScopedThresholdTokens.has(token),
+    );
+}
+
+function atomSupportsMedicationSubject(query: string, subject: string, atom: ThresholdEvidenceAtom) {
+  if (hasForeignMedicationClinicalValueBinding(query, `${atom.body} ${atom.localScope}`)) return false;
+  if (hasForeignThresholdLabel(query, `${atom.body} ${atom.localScope}`)) return false;
+  if (atomHasDirectMedicationValueBinding(query, subject, atom)) return true;
+  if (hasMedicationMonitoringSubjectText(subject, atom.body)) return false;
+  if (!hasMedicationMonitoringSubjectText(subject, atom.scope)) return false;
+
+  const bodySubjects = medicationMonitoringQuerySubjects(atom.body);
+  if (bodySubjects.length > 0 && !bodySubjects.includes(subject)) return false;
+  if (atomHasIncompatibleAnalyte(query, atom.body)) return false;
+  if (!thresholdValueSpans(atom.body).some((value) => atomHasQueryParameterValueBinding(query, atom, value)))
+    return false;
+  if (!atomHasOnlyScopedQueryLabels(query, atom.body)) return false;
+  return atomHasQueryAnchor(query, atom.body) || localThresholdScopePattern.test(atom.scope);
+}
+
+function hasAtomicMedicationThresholdEvidence(query: string, results: SearchResult[]) {
+  const subjects = medicationMonitoringQuerySubjects(query);
+  return subjects.every((subject) =>
+    results.some((result) =>
+      thresholdEvidenceAtoms(result).some(
+        (atom) => atomHasThresholdValue(atom) && atomSupportsMedicationSubject(query, subject, atom),
+      ),
+    ),
+  );
+}
+
+function requiresAtomicMedicationThresholdEvidence(query: string) {
+  // Coloured blood-result ranges are categorical action bands, not requests for
+  // a numeric value. Preserve those established extractive paths while making
+  // level/range lookups (and explicitly numeric ANC/QTc threshold lookups) prove
+  // that the value and medication subject occur in the same evidence atom.
+  const withoutColourRanges = query.replace(/\b(?:red|amber|green)\s+range\b/gi, "");
+  if (numericMedicationThresholdLookupPattern.test(withoutColourRanges)) return true;
+  if (naturalMedicationLevelValueLookupPattern.test(withoutColourRanges)) return true;
+  if (
+    /\branges?\b/i.test(withoutColourRanges) &&
+    medicationMonitoringQuerySubjects(withoutColourRanges).length > 0 &&
+    !narrativeRangeContextPattern.test(withoutColourRanges)
+  ) {
+    return true;
+  }
+  if (/\bthresholds?\b/i.test(withoutColourRanges)) {
+    return (
+      !/\b(?:fbc|full blood count|blood count)\b/i.test(withoutColourRanges) ||
+      explicitNumericClinicalParameterPattern.test(withoutColourRanges) ||
+      explicitNumericThresholdRequestPattern.test(withoutColourRanges)
+    );
+  }
+  return false;
 }
 
 /** Has direct title support. */
@@ -514,6 +916,21 @@ export function chooseAnswerRoute(args: {
     };
   }
 
+  if (
+    queryClass === "table_threshold" &&
+    requiresAtomicMedicationThresholdEvidence(args.query) &&
+    medicationMonitoringQuerySubjectTokens(args.query).length > 0 &&
+    !hasAtomicMedicationThresholdEvidence(args.query, args.results)
+  ) {
+    return {
+      mode: "unsupported",
+      model: null,
+      reason: "missing_structured_threshold_subject_evidence",
+      strongestScore,
+      documentCount: documents,
+    };
+  }
+
   if (strongestScore < unsupportedSimilarityThreshold && !hasTextSupport(args.results) && !directTitleSupport) {
     return {
       mode: "unsupported",
@@ -666,6 +1083,26 @@ export function chooseAnswerRoute(args: {
         mode: "strong",
         model: args.strongModel,
         reason: "clinical_risk_or_complex_query",
+        strongestScore,
+        documentCount: documents,
+      };
+    }
+
+    // A top-ranked atom that binds the queried medication, parameter and value
+    // is stronger evidence than the result's blended retrieval score alone.
+    // Keep this provider-free route tightly scoped to the first result and its
+    // title so a lower-ranked match cannot rescue a foreign top result.
+    if (
+      queryClass === "table_threshold" &&
+      requiresAtomicMedicationThresholdEvidence(args.query) &&
+      hasDirectTitleSupport(args.query, args.results.slice(0, 1)) &&
+      hasAtomicMedicationThresholdEvidence(args.query, args.results.slice(0, 1)) &&
+      !actionableConflictOrGap
+    ) {
+      return {
+        mode: "extractive",
+        model: null,
+        reason: "high_confidence_extractive_retrieval",
         strongestScore,
         documentCount: documents,
       };

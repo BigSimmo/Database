@@ -42,7 +42,7 @@ import {
 } from "@/components/clinical-dashboard/clinical-output-helpers";
 import { SectionHeading } from "@/components/clinical-dashboard/dashboard-shell";
 import { cleanDisplayTitle, compactSourceSnippet } from "@/components/clinical-dashboard/display-text";
-import { SourceActionRow } from "@/components/clinical-dashboard/source-actions";
+import { SourceActionRow, logCitationOpen } from "@/components/clinical-dashboard/source-actions";
 import {
   chatMicroAction,
   clinicalDivider,
@@ -62,7 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
+import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
   extractSafetyFindings,
@@ -585,13 +585,15 @@ export function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
 ): RagAnswer {
-  if (answer.relevance?.isSourceBacked === true) {
+  if (isAnswerSourceBacked(answer)) {
     return {
       ...answer,
       visualEvidence,
       smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
     };
   }
+  // Clear free-text answer too: labeled Action/Monitoring prose can rebuild
+  // clinical-notes sections even after structured fields are stripped.
   return {
     ...answer,
     answer: "",
@@ -629,14 +631,15 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
 }
 
 export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
-  const gated = trustGatedAnswerForClinicalNotes(answer);
-  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(gated, viewMode));
+  const tabs = clinicalNotesAvailableTabs(
+    clinicalNotesDetailSectionsForAnswer(trustGatedAnswerForClinicalNotes(answer), viewMode),
+  );
   const largestTabCount = tabs.reduce((largest, tab) => Math.max(largest, tab.count), 0);
   return Math.max(1, largestTabCount || fallback);
 }
 
 export function ClinicalNotesChecklistPanel({
-  answer: rawAnswer,
+  answer,
   visualEvidence,
   viewMode,
   evidenceMapRows,
@@ -647,7 +650,7 @@ export function ClinicalNotesChecklistPanel({
   onOpenTables,
 }: {
   answer: RagAnswer;
-  visualEvidence?: VisualEvidenceCard[];
+  visualEvidence: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
@@ -656,8 +659,8 @@ export function ClinicalNotesChecklistPanel({
   onCopy: () => void;
   onOpenTables?: () => void;
 }) {
-  const answer = trustGatedAnswerForClinicalNotes(rawAnswer, visualEvidence);
-  const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
+  const renderableAnswer = trustGatedAnswerForClinicalNotes(answer, visualEvidence);
+  const detailSections = clinicalNotesDetailSectionsForAnswer(renderableAnswer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
@@ -667,14 +670,18 @@ export function ClinicalNotesChecklistPanel({
   const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
-  const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
-  const [added, setAdded] = useState(false);
+  const tableEvidenceCount = clinicalNotesTableEvidenceCount(renderableAnswer);
   const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
     return (
-      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
+      <ClinicalOutputPanel
+        answer={renderableAnswer}
+        showLead={false}
+        viewMode={viewMode}
+        evidenceMapRows={evidenceMapRows}
+      />
     );
   }
 
@@ -880,12 +887,18 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+            disabled
+            aria-disabled="true"
+            aria-describedby="clinical-notes-add-unavailable"
+            title="Add to favourites — coming soon"
+            className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)] opacity-60"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
+            Add
           </button>
+          <span id="clinical-notes-add-unavailable" className="sr-only">
+            Adding clinical notes to favourites is coming soon.
+          </span>
         </div>
       </div>
     </section>
@@ -920,7 +933,7 @@ function safetyFindingGovernanceLabels(citation: SafetyFinding["citation"]): str
   return labels;
 }
 
-export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
+export function SafetyFindingsListContent({ findings, query }: { findings: SafetyFinding[]; query?: string }) {
   if (findings.length === 0) return null;
 
   const sortedFindings = sortSafetyFindingsBySeverity(findings);
@@ -954,6 +967,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
               </span>
               <Link
                 href={finding.href}
+                onClick={() => query && logCitationOpen(query, finding.citation)}
                 className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-8"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
@@ -1062,7 +1076,7 @@ export function evidenceTabCount({
 }
 
 export function clinicalNotesCount(answer: RagAnswer) {
-  return buildHighYieldClinicalOutputSections(answer).filter((section) =>
+  return buildHighYieldClinicalOutputSections(trustGatedAnswerForClinicalNotes(answer)).filter((section) =>
     ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
   ).length;
 }
@@ -1305,12 +1319,14 @@ export function QuoteCards({
   onCopyQuotes,
   onFollowUp,
   onScopeDocument,
+  query,
 }: {
   quotes: QuoteCard[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onFollowUp?: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
+  query?: string;
 }) {
   return (
     <section id="quotes" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
@@ -1365,6 +1381,7 @@ export function QuoteCards({
                       documentId={quote.document_id}
                       onScopeDocument={onScopeDocument}
                       onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
+                      onOpenSource={() => query && logCitationOpen(query, quote, quote.source_strength)}
                       divider={false}
                     />
                   </div>

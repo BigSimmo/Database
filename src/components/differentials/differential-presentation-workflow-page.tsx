@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { cn } from "@/components/ui-primitives";
 import {
   acuteConfusionPresentationWorkflow,
@@ -567,36 +568,51 @@ function MobileComparison({
           <MobileCandidateCard key={candidate.record.slug} workflow={workflow} candidate={candidate} index={index} />
         ))}
       </div>
-      <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
-        <Link
-          href={`/differentials/presentations/${workflow.id}`}
-          className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
+      <PhoneFooterLayerPortal>
+        <div
+          role="group"
+          aria-label="Differential comparison actions"
+          data-testid="differential-presentation-phone-footer"
+          className="phone-footer-layer inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)] sm:fixed"
         >
-          <GitCompareArrows className="h-4 w-4" aria-hidden />
-          Compare ({workflow.selectedCount} selected)
-        </Link>
-        <CopyAfterReviewButton
-          text={comparisonCopy(workflow, candidates)}
-          className="min-h-tap bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
-        />
-      </div>
+          <span
+            aria-current="page"
+            className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
+          >
+            <GitCompareArrows className="h-4 w-4" aria-hidden />
+            Comparing ({workflow.selectedCount})
+          </span>
+          <CopyAfterReviewButton
+            text={comparisonCopy(workflow, candidates)}
+            className="min-h-tap bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
+          />
+        </div>
+      </PhoneFooterLayerPortal>
     </section>
   );
 }
 
 function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }) {
   const firstCandidate = workflow.candidates[0]?.slug ?? "delirium";
+  const diagnosisBase = `/differentials/diagnoses/${firstCandidate}`;
+  const tabs = [
+    { label: "Overview", href: diagnosisBase },
+    { label: "Compare", href: `/differentials/presentations/${workflow.id}` },
+    { label: "Map", href: `${diagnosisBase}?tab=map` },
+    { label: "Related", href: `${diagnosisBase}?tab=related` },
+  ] as const;
+
   return (
     <nav
       aria-label="Differential presentation sections"
       className="mb-4 grid grid-cols-4 border-b border-[color:var(--border)] text-center text-sm font-bold xl:hidden"
     >
-      {["Overview", "Compare", "Map", "Related"].map((item) => {
-        const active = item === "Compare";
+      {tabs.map((tab) => {
+        const active = tab.label === "Compare";
         return (
           <Link
-            key={item}
-            href={active ? `/differentials/presentations/${workflow.id}` : `/differentials/diagnoses/${firstCandidate}`}
+            key={tab.label}
+            href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
               "min-h-tap border-b-2 px-1 py-3",
@@ -605,7 +621,7 @@ function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }
                 : "border-transparent text-[color:var(--text-muted)]",
             )}
           >
-            {item}
+            {tab.label}
           </Link>
         );
       })}
@@ -693,31 +709,33 @@ export function DifferentialPresentationWorkflowPage({
               <span className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-[color:var(--text-muted)]">
                 {workflow.selectedCount} selected
               </span>
-              <div className="grid gap-1">
-                <div
-                  className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-                  aria-describedby="density-controls-unavailable"
+              <div
+                className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+                role="group"
+                aria-label="Comparison density"
+              >
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  aria-describedby="presentation-density-unavailable"
+                  title="Density controls — coming soon"
+                  className="min-h-9 cursor-not-allowed rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60"
                 >
-                  <button
-                    type="button"
-                    disabled
-                    className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Detailed
-                  </button>
-                </div>
-                <span
-                  id="density-controls-unavailable"
-                  className="px-1 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  aria-describedby="presentation-density-unavailable"
+                  title="Density controls — coming soon"
+                  className="min-h-9 cursor-not-allowed rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] opacity-60"
                 >
-                  Density controls coming soon
+                  Detailed
+                </button>
+                <span id="presentation-density-unavailable" className="sr-only">
+                  Compact and detailed density controls are coming soon.
                 </span>
               </div>
             </div>

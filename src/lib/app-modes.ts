@@ -291,7 +291,9 @@ export const appModeDefinitions = [
     id: "tools",
     label: "Tools",
     description: "Clinical tools and applications",
-    href: "/?mode=tools",
+    // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a
+    // dashboard-mode alias for bookmarks and deep links.
+    href: "/tools",
     search: {
       kind: "tools",
       placeholder: "Search tools...",
@@ -311,7 +313,7 @@ export const appModeDefinitions = [
   },
   {
     id: "therapy-compass",
-    label: "Therapy mode",
+    label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
     // Cleared for production discovery: the re-curated therapy pathways have
@@ -324,15 +326,15 @@ export const appModeDefinitions = [
       kind: "tools",
       placeholder: "Search therapies, symptoms, or skills...",
       inputAriaLabel: "Search therapies by problem, symptom, skill, or population",
-      submitIdleLabel: "Therapy mode",
-      submitBusyLabel: "Therapy mode",
-      submitAriaLabel: "Open Therapy mode",
+      submitIdleLabel: "Therapy",
+      submitBusyLabel: "Therapy",
+      submitAriaLabel: "Open Therapy",
       emptyTitle: "Browse the therapy library",
       readyTitle: "Search source-grounded therapies",
       progressLabel: "Loading the therapy library.",
       resultKind: "tools",
       resultHeading: "Therapies",
-      statusLabel: "Therapy mode",
+      statusLabel: "Therapy",
       nextStep: "Open a therapy record",
       badgeLabel: null,
     },
@@ -396,6 +398,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "tools",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

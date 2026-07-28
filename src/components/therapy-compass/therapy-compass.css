@@ -1,18 +1,7 @@
 .tc-root {
-  min-height: calc(100dvh - var(--shell-header-h));
-  background: var(--surface-chrome);
-  color: var(--text);
-}
-
-/*
- * The home route renders ModeHomeMain, which owns a full-height --background
- * (white) canvas exactly like every other mode home. The workspace shell must
- * not paint its grey --surface-chrome behind it: on phones ModeHomeMain is only
- * content-height, so the chrome showed through below the fold as a mismatched
- * grey block. Match the other mode homes by using --background on home.
- */
-.tc-root.tc-root--home {
+  min-height: 0;
   background: var(--background);
+  color: var(--text);
 }
 
 .tc-root .tc-main {
@@ -1054,18 +1043,30 @@
   z-index: 20;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   padding: 14px 40px;
   background: var(--surface-glass);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
+
+/* Portaled under the universal header on phones: the collapse row owns
+   stacking/hide, so sticky would fight the shared chrome geometry. */
+#phone-header-collapse-addon-slot .tc-nav-001 {
+  position: relative;
+  top: auto;
+  z-index: auto;
+}
 .tc-root .tc-nav-007 {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
+  margin-inline: auto;
   overflow-x: auto;
   padding-bottom: 2px;
 }
@@ -1293,9 +1294,15 @@
   padding: 32px 40px 40px;
 }
 .tc-root .tc-workspace-006 {
-  min-height: calc(100dvh - var(--shell-header-h));
-  background: var(--surface-chrome);
+  min-height: 0;
+  background: var(--background);
   color: var(--text);
+}
+@media (min-width: 640px) {
+  .tc-root,
+  .tc-root .tc-workspace-006 {
+    min-height: calc(100dvh - var(--shell-header-h));
+  }
 }
 .tc-root .tc-screens-brief-screen-001 {
   max-width: 1240px;
@@ -2980,49 +2987,6 @@
 .tc-root .tc-screens-search-screen-001 {
   max-width: 1180px;
   margin: 0 auto;
-}
-.tc-root .tc-screens-search-screen-002 {
-  margin: 0 0 6px;
-  font-size: 27px;
-  font-weight: 680;
-  color: var(--text-heading);
-  letter-spacing: -0.02em;
-}
-.tc-root .tc-screens-search-screen-003 {
-  margin: 0 0 22px;
-  font-size: 14.5px;
-  color: var(--text-muted);
-}
-.tc-root .tc-screens-search-screen-004 {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.tc-root .tc-screens-search-screen-005 {
-  flex: 1;
-  min-width: 260px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.tc-root .tc-screens-search-screen-006 {
-  position: absolute;
-  left: 16px;
-  color: var(--text-soft);
-}
-.tc-root .tc-screens-search-screen-007 {
-  width: 100%;
-  height: 52px;
-  padding: 0 16px 0 46px;
-  border: 1px solid var(--border-strong);
-  border-radius: 13px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 16px;
-  font-family: inherit;
-  box-shadow: var(--shadow-tight);
 }
 .tc-root .tc-screens-search-screen-008 {
   display: flex;

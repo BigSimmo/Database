@@ -2,6 +2,7 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 import { type LucideIcon, ArrowRight } from "lucide-react";
 
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export type ModeHomeAction = {
@@ -252,7 +253,7 @@ export function ModeHomeTemplate({
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
-        <div
+        <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
           className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
         />
@@ -286,7 +287,9 @@ export function ModeHomeTemplate({
             );
             const actionClassName = cn(
               "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:px-4 sm:py-3 lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:rounded-lg lg:border lg:border-[color:var(--border)] lg:px-5 lg:py-3.5 lg:shadow-[var(--shadow-card)]",
-              index > 0 && "border-t border-[color:var(--border)]",
+              // Phone stack separator only — at lg each action is its own card
+              // with `lg:border`, so do not zero the card's top edge.
+              index > 0 && "max-lg:border-t max-lg:border-[color:var(--border)]",
             );
 
             if (action.href) {

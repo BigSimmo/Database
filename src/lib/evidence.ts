@@ -488,13 +488,99 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
     pattern: /\b(?:wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?)\b/i,
   },
   { key: "platelet", label: "platelet count", pattern: /\bplatelets?\b/i },
+  {
+    key: "lithium",
+    label: "Lithium serum level",
+    pattern: /\b(?:lithium(?: serum)? levels?|serum lithium|li\+? levels?)\b/i,
+  },
+  {
+    key: "qtc",
+    label: "QTc interval",
+    pattern: /\b(?:qtc|qt interval)\b/i,
+  },
+  {
+    key: "clozapine_dose",
+    label: "Clozapine dose",
+    // Bare "clozapine" is only accepted when the span matcher already required a
+    // nearby mg cue, so ANC/withhold prose cannot be mis-attributed here.
+    pattern: /\bclozapine(?:\s+dose)?\b/i,
+  },
+  {
+    key: "egfr",
+    label: "Renal function (eGFR/CrCl)",
+    pattern: /\b(?:egfr|crcl|creatinine clearance|glomerular filtration rate)\b/i,
+  },
 ];
 
-// A threshold parameter within a short window of a "below" comparator and a
-// numeric value. Only "below"-type comparators (a floor for stopping therapy)
-// are matched — an upper ceiling is a different clinical statement.
-const THRESHOLD_SPAN_PATTERN =
-  /\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?)\b[^.\n;]{0,32}?(?:<|≤|<=|less than|below|under|lower than|fall(?:s|ing)? below|drops? below)\s*(\d+(?:\.\d+)?)/gi;
+const THRESHOLD_COMPARATOR_PATTERN =
+  "<|>|≤|≥|<=|>=|less than|greater than|below|above|under|over|lower than|higher than|fall(?:s|ing)? below|drops? below|exceeds?";
+
+// A threshold parameter within a short window of a comparator and a numeric value.
+// Group 1 = parameter, group 2 = comparator phrase, group 3 = number.
+const THRESHOLD_SPAN_PATTERN = new RegExp(
+  `\\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?|lithium(?: serum)? levels?|serum lithium|li\\+? levels?|qtc|qt interval|clozapine dose|clozapine(?=[^.\\n;]{0,40}?(?:${THRESHOLD_COMPARATOR_PATTERN})\\s*\\d+(?:\\.\\d+)?\\s*mg\\b)|egfr|crcl|creatinine clearance|glomerular filtration rate)\\b[^.\\n;]{0,48}?(${THRESHOLD_COMPARATOR_PATTERN})\\s*(\\d+(?:\\.\\d+)?)`,
+  "gi",
+);
+
+type ThresholdComparator = "lt" | "lte" | "gt" | "gte" | "unknown";
+
+function normalizeThresholdComparator(raw: string | undefined): ThresholdComparator {
+  if (!raw) return "unknown";
+  const token = raw.toLowerCase();
+  if (
+    token === "<" ||
+    token === "less than" ||
+    token === "below" ||
+    token === "under" ||
+    token === "lower than" ||
+    token === "falls below" ||
+    token === "falling below" ||
+    token === "drop below" ||
+    token === "drops below"
+  ) {
+    return "lt";
+  }
+  if (token === "≤" || token === "<=") {
+    return "lte";
+  }
+  if (
+    token === ">" ||
+    token === "greater than" ||
+    token === "above" ||
+    token === "over" ||
+    token === "higher than" ||
+    token === "exceeds"
+  ) {
+    return "gt";
+  }
+  if (token === "≥" || token === ">=") {
+    return "gte";
+  }
+  return "unknown";
+}
+
+function thresholdObservationKey(value: string, comparator: ThresholdComparator): string {
+  return comparator === "unknown" ? value : `${comparator}:${value}`;
+}
+
+function formatThresholdObservation(value: string, comparator: ThresholdComparator): string {
+  if (comparator === "lt") return `< ${value}`;
+  if (comparator === "lte") return `≤ ${value}`;
+  if (comparator === "gt") return `> ${value}`;
+  if (comparator === "gte") return `≥ ${value}`;
+  return value;
+}
+
+function thresholdObservationsCompatible(left: ThresholdObservation, right: ThresholdObservation) {
+  if (left.value !== right.value) return false;
+  return left.comparator === "unknown" || right.comparator === "unknown" || left.comparator === right.comparator;
+}
+
+function thresholdObservationsConflict(left: ThresholdObservation, right: ThresholdObservation) {
+  if (left.value !== right.value) return true;
+  if (left.comparator === "unknown" || right.comparator === "unknown") return false;
+  return left.comparator !== right.comparator;
+}
 
 function thresholdParameterFor(raw: string): ThresholdParameter | undefined {
   return THRESHOLD_PARAMETERS.find((parameter) => parameter.pattern.test(raw));
@@ -507,14 +593,25 @@ function canonicalThresholdValue(raw: string): string | null {
   return Number.isFinite(value) ? String(value) : null;
 }
 
-type ThresholdObservation = { value: string; documentId: string; chunkId: string };
+type ThresholdObservation = {
+  value: string;
+  comparator: ThresholdComparator;
+  documentId: string;
+  chunkId: string;
+};
 
 function collectWithholdThresholds(results: SearchResult[]): Map<string, ThresholdObservation[]> {
   const byParameter = new Map<string, ThresholdObservation[]>();
-  const record = (parameterKey: string, value: string | null, documentId: string, chunkId: string) => {
+  const record = (
+    parameterKey: string,
+    value: string | null,
+    comparator: ThresholdComparator,
+    documentId: string,
+    chunkId: string,
+  ) => {
     if (!value) return;
     const list = byParameter.get(parameterKey) ?? [];
-    list.push({ value, documentId, chunkId });
+    list.push({ value, comparator, documentId, chunkId });
     byParameter.set(parameterKey, list);
   };
 
@@ -526,7 +623,15 @@ function collectWithholdThresholds(results: SearchResult[]): Map<string, Thresho
       if (!WITHHOLD_ACTION_PATTERN.test(sentence)) continue;
       for (const match of sentence.matchAll(THRESHOLD_SPAN_PATTERN)) {
         const parameter = thresholdParameterFor(match[1]);
-        if (parameter) record(parameter.key, canonicalThresholdValue(match[2]), result.document_id, result.id);
+        if (parameter) {
+          record(
+            parameter.key,
+            canonicalThresholdValue(match[3]),
+            normalizeThresholdComparator(match[2]),
+            result.document_id,
+            result.id,
+          );
+        }
       }
     }
 
@@ -540,6 +645,7 @@ function collectWithholdThresholds(results: SearchResult[]): Map<string, Thresho
         record(
           parameter.key,
           canonicalThresholdValue(fact.threshold_value),
+          "unknown",
           result.document_id,
           fact.source_chunk_id ?? result.id,
         );
@@ -553,21 +659,55 @@ function collectWithholdThresholds(results: SearchResult[]): Map<string, Thresho
 function detectThresholdDisagreements(results: SearchResult[]): ConflictOrGap[] {
   const conflicts: ConflictOrGap[] = [];
   for (const [parameterKey, observations] of collectWithholdThresholds(results)) {
-    const distinctValues = new Set(observations.map((observation) => observation.value));
-    const distinctDocuments = new Set(observations.map((observation) => observation.documentId));
-    // A cross-source conflict needs two different values reported by two
-    // different documents; one document that contradicts itself, or agreeing
-    // sources, are not flagged here.
-    if (distinctValues.size < 2 || distinctDocuments.size < 2) continue;
+    const byDocument = new Map<string, ThresholdObservation[]>();
+    for (const observation of observations) {
+      const list = byDocument.get(observation.documentId) ?? [];
+      list.push(observation);
+      byDocument.set(observation.documentId, list);
+    }
+
+    const conflictingObservations: ThresholdObservation[] = [];
+    const documentEntries = [...byDocument.entries()];
+    for (let leftIndex = 0; leftIndex < documentEntries.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < documentEntries.length; rightIndex += 1) {
+        const leftObservations = documentEntries[leftIndex][1];
+        const rightObservations = documentEntries[rightIndex][1];
+        const hasCompatibleObservation = leftObservations.some((left) =>
+          rightObservations.some((right) => thresholdObservationsCompatible(left, right)),
+        );
+        const conflictPair = leftObservations
+          .flatMap((left) =>
+            rightObservations
+              .filter((right) => thresholdObservationsConflict(left, right))
+              .map((right) => [left, right] as const),
+          )
+          .at(0);
+        if (!hasCompatibleObservation && conflictPair) {
+          conflictingObservations.push(...conflictPair);
+        }
+      }
+    }
+    if (conflictingObservations.length === 0) continue;
+
+    const distinctKeys = new Set(
+      conflictingObservations.map((observation) => thresholdObservationKey(observation.value, observation.comparator)),
+    );
     const label =
       THRESHOLD_PARAMETERS.find((candidate) => candidate.key === parameterKey)?.label ?? "clinical threshold";
-    const values = [...distinctValues].sort((a, b) => Number(a) - Number(b));
+    const values = [...distinctKeys]
+      .map((key) => {
+        const observation = conflictingObservations.find(
+          (candidate) => thresholdObservationKey(candidate.value, candidate.comparator) === key,
+        );
+        return observation ? formatThresholdObservation(observation.value, observation.comparator) : key;
+      })
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     conflicts.push({
       type: "conflict",
       message: `Sources disagree on the ${label} withholding threshold (${values.join(
         " vs ",
       )}). Confirm the correct cut-off against the primary guideline before acting on any single source.`,
-      source_chunk_ids: [...new Set(observations.map((observation) => observation.chunkId))].slice(0, 4),
+      source_chunk_ids: [...new Set(conflictingObservations.map((observation) => observation.chunkId))].slice(0, 4),
     });
   }
   return conflicts;

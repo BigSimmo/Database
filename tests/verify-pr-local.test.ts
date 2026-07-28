@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -11,12 +12,23 @@ function dryRun(files: string, ...args: string[]) {
 }
 
 describe("verify-pr-local CLI", () => {
+  it("lets each selected stage acquire its own run lease", () => {
+    const source = readFileSync(script, "utf8");
+    const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    expect(source).not.toContain("acquireHeavyRunLock");
+    expect(source).not.toContain("lock.environment");
+    expect(packageJson.scripts["verify:cheap"]).toBe("npm run verify:cheap:internal");
+  });
+
   it("uses the explicit file list and does not execute checks in dry-run mode", () => {
     const output = dryRun("docs/frontend-architecture.md");
 
     expect(output).toContain("Changed files: docs/frontend-architecture.md");
     expect(output).toContain("PR-local verification plan (dry run)");
     expect(output).toContain("- npm run check:runtime");
+    expect(output).toContain("- npm run check:installed-lock-parity");
     expect(output).toContain("- npm run format:changed");
     expect(output).toContain("- build skipped");
     expect(output).not.toContain("\n> npm run ");

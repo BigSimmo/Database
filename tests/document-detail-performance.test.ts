@@ -10,7 +10,7 @@ describe("document detail loading contract", () => {
   it("uses one server-only authorized loader from both the route and page", () => {
     const loader = source("src/lib/document-detail.ts");
     const route = source("src/app/api/documents/[id]/route.ts");
-    const page = source("src/app/documents/[id]/page.tsx");
+    const page = source("src/app/(search-app)/documents/[id]/page.tsx");
 
     expect(loader).toContain('import "server-only"');
     expect(loader).toContain("loadAuthorizedDocumentDetail");
@@ -18,7 +18,10 @@ describe("document detail loading contract", () => {
     expect(page).toContain("loadAuthorizedDocumentDetail");
     expect(page).toContain("initialDetail={initialDetail}");
     expect(page).toContain("initialError={initialError}");
-    expect(page).toContain('key={`${id}:${initialPage}:${query.chunk ?? ""}`}');
+    // Page/chunk updates stay inside DocumentViewer via URL sync — remounting
+    // on every page flip reloaded the PDF and felt like loading lag.
+    expect(page).toContain("key={id}");
+    expect(page).not.toContain('key={`${id}:${initialPage}:${query.chunk ?? ""}`}');
   });
 
   it("supports document and window asset scopes and starts independent detail reads together", () => {
@@ -34,7 +37,11 @@ describe("document detail loading contract", () => {
     expect(loader).toContain("summaryRequest");
     expect(loader).toContain("selectedImageIds(selectedChunk)");
     expect(loader).toContain("imagesRequest.or(imageWindowFilter");
-    expect(loader).toContain("and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop)");
+    expect(loader).toContain("documentViewImageVisibility");
+    expect(loader).toContain(
+      "or(searchable.eq.true,source_kind.eq.table_crop,metadata->>retained_for_document_view.eq.true)",
+    );
+    expect(loader).toContain("and(image_type.neq.logo_decorative,${documentViewImageVisibility},page_number.gte.");
     expect(loader).toContain("id.in.(${imageIds.join");
     expect(loader).toContain("tableFactsRequest.or(tableFactWindowFilter");
     expect(loader).toContain("page_number.is.null");
@@ -120,5 +127,21 @@ describe("document viewer latency guards", () => {
     expect(viewer).toContain("downloadActionRef");
     expect(viewer.indexOf("?download=true")).toBeGreaterThan(viewer.indexOf("openSourceDownload"));
     expect(viewer).not.toContain("fetchSignedUrlPair");
+  });
+
+  it("keeps indexed-text search separate from answer generation and discards stale hits", () => {
+    const viewer = source("src/components/DocumentViewer.tsx");
+    const panels = source("src/components/document-viewer/source-panels.tsx");
+
+    expect(viewer).toContain("const currentDocumentSearchResults =");
+    expect(viewer).toContain("documentSearchState.query === normalizedSourceSearch");
+    expect(viewer).toContain("submitSourceSearch");
+    expect(viewer).toContain("sourceSearchInputRef.current?.focus()");
+    expect(viewer).toContain("Search within this document");
+    expect(viewer).toContain("documentsSearchHref({ query: tag.searchText || tag.label, run: true })");
+    expect(viewer).not.toContain("Search or answer from this document");
+    expect(panels).toContain("Enter at least 2 characters to search all indexed passages.");
+    expect(panels).toContain("const searchEligible = normalizedSearch.length >= 2;");
+    expect(panels).toContain("const displayChunks = useMemo(");
   });
 });

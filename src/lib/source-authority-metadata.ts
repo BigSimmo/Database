@@ -63,12 +63,19 @@ const registeredCodes = sourceAuthorityRegistry
 
 const caseSensitiveIdentityCodes = new Set(["WHO"]);
 
+const compiledRegisteredCodes = registeredCodes.map((candidate) => {
+  const flags = caseSensitiveIdentityCodes.has(candidate.code) ? "" : "i";
+  const pattern = new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(candidate.code)}(?=$|[^A-Za-z0-9])`, flags);
+  return { ...candidate, pattern };
+});
+
 function authorityMatchesInField(field: string) {
-  return registeredCodes.filter((candidate) => {
-    const flags = caseSensitiveIdentityCodes.has(candidate.code) ? "" : "i";
-    const token = new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(candidate.code)}(?=$|[^A-Za-z0-9])`, flags);
-    return token.test(field);
-  });
+  return compiledRegisteredCodes
+    .filter((candidate) => {
+      candidate.pattern.lastIndex = 0;
+      return candidate.pattern.test(field);
+    })
+    .map((candidate) => ({ code: candidate.code, authority: candidate.authority }));
 }
 
 function preferredIdentityMatches(identity: SourceAuthorityDocumentIdentity) {
@@ -257,6 +264,21 @@ function compactAuthorityDocument(document: SourceAuthorityDocument, analysis: S
   };
 }
 
+/** Merge the full safe locality patch so audit designations match proposed corrections. */
+function metadataWithProposedLocality(document: SourceAuthorityDocument, analysis: SourceLocalityAnalysis) {
+  const metadata = { ...metadataRecord(document.metadata) };
+  for (const key of localityMetadataKeys) {
+    const next = analysis.changes[key];
+    if (next !== undefined) metadata[key] = next;
+  }
+  return metadata;
+}
+
+function designationForAudit(document: SourceAuthorityDocument, analysis: SourceLocalityAnalysis) {
+  if (analysis.excludedReason === "registry_record") return "unclassified";
+  return classifySourceAuthority(metadataWithProposedLocality(document, analysis)).designation;
+}
+
 export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument[]) {
   const analyses = documents.map((document) => ({ document, analysis: analyzeSourceLocality(document) }));
   const recognized = analyses.filter(({ analysis }) => analysis.authority);
@@ -268,22 +290,14 @@ export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument
   );
   const designationCounts = analyses.reduce<Record<string, number>>(
     (counts, { document, analysis }) => {
-      const metadata = analysis.changes.publisher_code
-        ? { ...metadataRecord(document.metadata), publisher_code: analysis.changes.publisher_code }
-        : document.metadata;
-      const designation =
-        analysis.excludedReason === "registry_record" ? "unclassified" : classifySourceAuthority(metadata).designation;
+      const designation = designationForAudit(document, analysis);
       counts[designation] = (counts[designation] ?? 0) + 1;
       return counts;
     },
     { official: 0, trusted: 0, unclassified: 0 },
   );
   const unclassifiedSamples = analyses
-    .filter(
-      ({ document, analysis }) =>
-        analysis.excludedReason === "registry_record" ||
-        classifySourceAuthority(document.metadata).designation === "unclassified",
-    )
+    .filter(({ document, analysis }) => designationForAudit(document, analysis) === "unclassified")
     .slice(0, 20);
   const conflictReasonCounts = conflicts.reduce<Record<string, number>>((counts, { analysis }) => {
     for (const conflict of analysis.conflicts) counts[conflict] = (counts[conflict] ?? 0) + 1;

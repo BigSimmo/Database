@@ -26,19 +26,32 @@ const readySetupChecks = [
 
 const problemsByPage = new WeakMap<Page, string[]>();
 
-async function blockExternalRequests(page: Page, problems: string[]) {
-  await page.route("**/*", async (route) => {
+function externalHttpUrlPattern(baseURL: string) {
+  const localOrigin = new URL(baseURL).origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^(?!${localOrigin}(?:/|$))https?://`);
+}
+
+async function blockExternalRequests(page: Page, problems: string[], baseURL: string) {
+  await page.route(externalHttpUrlPattern(baseURL), async (route) => {
     const url = new URL(route.request().url());
-    if (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      !["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)
-    ) {
-      problems.push(`external ${route.request().method()} ${url.origin}${url.pathname}`);
-      await route.abort("blockedbyclient");
-      return;
-    }
-    await route.fallback();
+    problems.push(`external ${route.request().method()} ${url.origin}${url.pathname}`);
+    await route.abort("blockedbyclient");
   });
+}
+
+async function proveExternalRequestGuard(page: Page, problems: string[]) {
+  const problemCountBeforeProbe = problems.length;
+  const outcome = await page.evaluate(async () => {
+    try {
+      await fetch("https://example.invalid/route-coverage-acl-probe");
+      return "resolved";
+    } catch {
+      return "blocked";
+    }
+  });
+  const records = problems.splice(problemCountBeforeProbe);
+  expect(outcome).toBe("blocked");
+  expect(records).toEqual(["external GET https://example.invalid/route-coverage-acl-probe"]);
 }
 
 async function fulfillDocumentRequest(route: Route, pathname: string, url: URL) {
@@ -184,9 +197,10 @@ async function proveRenderedRoute(
   assertReady: (page: Page) => Promise<void>,
   provePhoneAction: (page: Page) => Promise<void>,
 ) {
+  await page.setViewportSize(routeViewports[0]);
+  await gotoApp(page, path);
   for (const viewport of routeViewports) {
     await page.setViewportSize(viewport);
-    await gotoApp(page, path);
     await assertReady(page);
     await expectNoHorizontalOverflow(page);
   }
@@ -196,11 +210,13 @@ async function proveRenderedRoute(
 test.describe("previously uncovered production routes", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, baseURL }) => {
     const problems: string[] = [];
     problemsByPage.set(page, problems);
+    if (!baseURL) throw new Error("ui-route-coverage requires the verified Playwright base URL.");
     page.on("pageerror", (error) => problems.push(`pageerror ${error.message}`));
-    await blockExternalRequests(page, problems);
+    await blockExternalRequests(page, problems, baseURL);
+    await proveExternalRequestGuard(page, problems);
     await installOfflineApiFixtures(page, problems);
     await installTherapyFixtures(page);
   });
@@ -218,7 +234,7 @@ test.describe("previously uncovered production routes", () => {
       "/therapy-compass",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Therapy mode", level: 1, exact: true })).toBeVisible({
+        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible({
           timeout: 30_000,
         });
       },
@@ -228,7 +244,29 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
         await expect(search).toBeEnabled();
         await search.click();
-        await expect(currentPage.getByRole("heading", { name: "Therapy Search", level: 1 })).toBeVisible();
+        await expect(
+          currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
+        ).toBeVisible();
+        await expect(currentPage.getByTestId("search-query-ribbon")).toBeVisible();
+        const nav = currentPage.getByRole("navigation", { name: "Therapy sections" });
+        // Phone: section nav portals into the header collapse host (outside
+        // .tc-root). Read canvas colour from the workspace root still in the
+        // page, and prove the strip is anchored under the collapsing top bar.
+        const layout = await nav.evaluate((element) => {
+          const navRect = element.getBoundingClientRect();
+          const shellRect = element.parentElement?.getBoundingClientRect();
+          const root = document.querySelector(".tc-root");
+          return {
+            centerDelta: shellRect
+              ? navRect.left + navRect.width / 2 - (shellRect.left + shellRect.width / 2)
+              : Number.POSITIVE_INFINITY,
+            backgroundColor: root ? getComputedStyle(root).backgroundColor : "",
+            portaledIntoCollapse: Boolean(element.closest('[data-testid="universal-header-collapse"]')),
+          };
+        });
+        expect(Math.abs(layout.centerDelta)).toBeLessThanOrEqual(1);
+        expect(layout.backgroundColor).toBe("rgb(255, 255, 255)");
+        expect(layout.portaledIntoCollapse).toBe(true);
       },
     );
   });
@@ -327,10 +365,13 @@ test.describe("previously uncovered production routes", () => {
     );
   });
 
-  test("Differential diagnosis stream renders responsively and opens a local entry", async ({ page }) => {
+  test("Differential diagnosis stream renders responsively and opens a local entry", async ({ page, browserName }) => {
     const consoleErrors: string[] = [];
     page.on("console", (message) => {
-      if (message.type() === "error") consoleErrors.push(message.text());
+      const text = message.text();
+      const isWebKitViewportDiagnostic =
+        browserName === "webkit" && text === 'Viewport argument key "interactive-widget" not recognized and ignored.';
+      if (message.type() === "error" && !isWebKitViewportDiagnostic) consoleErrors.push(text);
     });
     const action =
       differentialDiagnosesCards.find((card) => !card.href.endsWith("/delirium")) ?? differentialDiagnosesCards[0];

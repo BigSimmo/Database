@@ -9,7 +9,13 @@ import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medi
 import { sortResultItems } from "../src/lib/result-sort";
 import { serviceRecords } from "../src/lib/services";
 import { openAppModeMenu } from "./playwright-app-mode";
-import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
+import {
+  appendPrimaryScrollSpacer,
+  readMobileComposerReservePx,
+  readPrimaryScrollGeometry,
+  scrollPrimarySurface,
+} from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -265,7 +271,7 @@ async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
-async function waitForReactEventHandler(locator: Locator, eventName: "onClick" | "onSubmit" = "onClick") {
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onSubmit" = "onClick") {
   await expect
     .poll(
       async () =>
@@ -301,18 +307,39 @@ function visibleGlobalSearchInput(page: Page) {
   return page.locator('[data-testid="global-search-input"]:visible');
 }
 
+async function fillHydratedGlobalSearch(page: Page, value: string) {
+  const input = visibleGlobalSearchInput(page).first();
+  await expect(input).toBeVisible();
+  await waitForReactEventHandler(input, "onChange");
+  await input.fill(value);
+  await expect(input).toHaveValue(value);
+}
+
 async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
   return visibleGlobalSearchInput(page)
     .first()
     .evaluate((input, homeTestId) => {
       const form = input.closest("form");
       const pill = input.closest(".answer-footer-search-pill");
-      const home = homeTestId ? document.querySelector(`[data-testid="${homeTestId}"]`) : null;
+      const home = homeTestId
+        ? [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((candidate) => {
+            const rect = candidate.getBoundingClientRect();
+            const style = window.getComputedStyle(candidate);
+            return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+          })
+        : null;
       if (!form) return null;
 
       const formRect = form.getBoundingClientRect();
       const homeRect = home?.getBoundingClientRect();
       const style = window.getComputedStyle(form);
+      // Sticky-stack hosts (`wide: "sticky"`) keep the composer `relative` inside
+      // an outer sticky [top bar | search] wrapper — do not require the form itself
+      // to be `position: sticky`.
+      let stickyAncestor = style.position === "sticky";
+      for (let node: HTMLElement | null = form.parentElement; node && !stickyAncestor; node = node.parentElement) {
+        if (window.getComputedStyle(node).position === "sticky") stickyAncestor = true;
+      }
 
       return {
         formLeft: formRect.left,
@@ -326,6 +353,9 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
         homeRight: homeRect?.right ?? null,
         homeCenterX: homeRect ? homeRect.left + homeRect.width / 2 : null,
         position: style.position,
+        stickyAncestor,
+        composerPlacement: form.dataset.composerPlacement ?? null,
+        insideDesktopPageSlot: Boolean(form.closest('[data-testid="desktop-page-search-composer-slot"]')),
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         pillClassName: pill?.className?.toString() ?? "",
@@ -370,6 +400,12 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
       if (viewport.name === "mobile") {
+        const categorySelect = page.getByTestId("tool-category-select");
+        await expect(categorySelect).toBeVisible();
+        await expect(categorySelect).toHaveAccessibleName("Filter by tool category");
+        await categorySelect.selectOption("assessment");
+        await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "Assess tools");
+        await categorySelect.selectOption("all");
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
         await expect(selectedSheet).toBeVisible();
@@ -386,8 +422,9 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
       if (viewport.name === "mobile") {
-        // Phones dock the compact shared search at the bottom edge.
-        await expect(page.locator("form.answer-footer-search-dock").getByTestId("global-search-input")).toBeVisible();
+        // Phones keep the compact shared search in the tools-home hero slot.
+        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       } else {
         await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
       }
@@ -406,7 +443,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
 
     // Typing in the shared composer live-filters the tools grid, matching /?mode=tools.
-    await visibleGlobalSearchInput(page).fill("medication");
+    await fillHydratedGlobalSearch(page, "medication");
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
@@ -439,7 +476,7 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    await visibleGlobalSearchInput(page).fill("medication");
+    await fillHydratedGlobalSearch(page, "medication");
 
     await expect(page.getByTestId("application-card-medication-prescribing")).toBeVisible();
     await expect(page.getByTestId("application-card-documents")).toBeHidden();
@@ -458,7 +495,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(toolsHub.getByTestId("tools-home")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
+    const queryRibbon = toolsHub.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { name: "medication" })).toBeVisible();
+    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
     const medicationDetails = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
     await expect(medicationDetails).toHaveAttribute("aria-haspopup", "dialog");
     await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
@@ -612,8 +651,14 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/tools", testId: "tools-home" },
     ] as const) {
       await gotoLauncher(page, home.path);
-      await expect(page.getByTestId(home.testId)).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+      const homeSurface = page.getByTestId(home.testId);
+      // Production hydration can briefly overlap the outgoing server tree and
+      // the settled client tree. Require the DOM to converge to one owner
+      // before using strict locators; duplicate settled homes still fail.
+      await expectSingleSettledOwner(homeSurface, { message: `${home.path} home owner` });
+      await expectSingleSettledOwner(page.getByTestId("global-search-input"), {
+        message: `${home.path} composer owner`,
+      });
 
       // The composer sits in the middle of the hero (in-flow) at phone width too,
       // not docked to the bottom edge: it renders inside the mode-home composer
@@ -664,12 +709,14 @@ test.describe("Clinical KB tools launcher", () => {
         await mockAnswerDashboardApi(page);
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, home.path);
-        await expect(page.getByTestId(home.testId)).toBeVisible();
+        const homeSurface = page.getByTestId(home.testId);
+        await expect(homeSurface).toHaveCount(1, { timeout: 15_000 });
+        await expect(homeSurface).toBeVisible();
         // The composer must never vanish: exactly one visible search input.
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
         // The hero owns the composer at every width: the answer home and every
         // standalone mode home keep the in-flow hero pill, phones included.
-        await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
+        await expect(homeSurface.getByTestId("global-search-input")).toBeVisible();
       });
     }
   }
@@ -712,6 +759,7 @@ test.describe("Clinical KB tools launcher", () => {
       await page.setViewportSize({ width: 390, height: 820 });
       await gotoLauncher(page, home.path);
       const homeRegion = page.getByTestId(home.testId);
+      await expect(homeRegion).toHaveCount(1, { timeout: 15_000 });
       await expect(homeRegion).toBeVisible();
 
       const icon = homeRegion.locator(".mode-home-icon").first();
@@ -749,6 +797,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
+    const quickFilter = page.getByTestId("service-quick-filter-select");
+    await expect(quickFilter).toBeVisible();
+    await expect(quickFilter).toHaveAccessibleName("Apply a quick service filter");
+    await quickFilter.selectOption("crisis");
+    await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -813,12 +866,13 @@ test.describe("Clinical KB tools launcher", () => {
         await mockAnswerDashboardApi(page);
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, home.path);
-        await expect(page.getByTestId(home.testId)).toBeVisible();
+        const homeRoot = page.locator(`[data-testid="${home.testId}"]:visible`).last();
+        await expect(homeRoot).toBeVisible();
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
 
         // From the tablet breakpoint up the composer is portaled into the hero
         // (inside the mode-home container) rather than floated over the heading.
-        const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
+        const heroSearch = homeRoot.getByTestId("global-search-input");
         await expect(heroSearch).toBeVisible();
 
         const searchBox = await heroSearch.boundingBox();
@@ -826,7 +880,8 @@ test.describe("Clinical KB tools launcher", () => {
         // "Medication" hero title is otherwise a substring of the answer
         // section's sr-only "Medication matches" heading (strict-mode clash).
         const headingBox = await page
-          .getByTestId(home.testId)
+          .locator(`[data-testid="${home.testId}"]:visible`)
+          .last()
           .getByRole("heading", { level: home.headingLevel, name: home.heading, exact: true })
           .boundingBox();
         expect(searchBox).not.toBeNull();
@@ -856,14 +911,35 @@ test.describe("Clinical KB tools launcher", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const route of [
-      { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
-      { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
+      {
+        path: "/services?q=13YARN&focus=1&run=1",
+        modeButton: "Mode Services",
+        compactBottomSearch: true,
+        ribbonQuery: "13YARN",
+      },
+      {
+        path: "/services/13yarn",
+        modeButton: "Mode Services",
+        compactBottomSearch: true,
+        ribbonQuery: undefined,
+      },
+      {
+        path: "/forms?q=transport&focus=1&run=1",
+        modeButton: "Mode Forms",
+        compactBottomSearch: true,
+        ribbonQuery: "transport",
+      },
+      {
+        path: "/favourites?q=lithium&focus=1&run=1",
+        modeButton: "Mode Favourites",
+        compactBottomSearch: true,
+        ribbonQuery: "lithium",
+      },
       {
         path: "/differentials?q=acute+confusion&focus=1&run=1",
         modeButton: "Mode Differentials",
         compactBottomSearch: true,
+        ribbonQuery: "acute confusion",
       },
     ] as const) {
       test(`search route keeps the correct composer at ${viewport.name} width on ${route.path}`, async ({ page }) => {
@@ -873,6 +949,12 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });
+        if (route.ribbonQuery) {
+          const ribbon = page.getByTestId("search-query-ribbon");
+          await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
+          await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
+          await expect(ribbon.getByRole("status")).toBeVisible();
+        }
 
         const metrics = await globalSearchComposerMetrics(page);
         expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
@@ -888,9 +970,21 @@ test.describe("Clinical KB tools launcher", () => {
             // bottom (safe-area is padding inside the form, not a `bottom` gap).
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
-        } else {
-          expect(metrics?.position).toBe("sticky");
+        } else if (viewport.width < 1024) {
+          // Sticky-stack shells pin via an outer wrapper; collapse-everywhere hosts
+          // still self-sticky the form. Tablet behaviour stays unchanged.
+          expect(
+            metrics?.position === "sticky" || metrics?.stickyAncestor,
+            `${route.path} at ${viewport.name} should stick via the form or its sticky stack`,
+          ).toBe(true);
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
+          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+        } else {
+          expect(metrics?.composerPlacement).toBe("desktop-page");
+          expect(metrics?.insideDesktopPageSlot).toBe(true);
+          expect(metrics?.position).toBe("relative");
+          expect(metrics?.stickyAncestor).toBe(false);
+          expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.35);
           await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         }
 
@@ -930,12 +1024,14 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
-    await expect(page.getByRole("heading", { level: 1, name: /referral matches/i })).toBeVisible();
+    // Eyebrow copy is "Referral matches"; the H1 is "{n} referral match(es)".
+    await expect(page.getByText("Referral matches", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /\d+\s+referral match(?:es)?/i })).toBeVisible();
     await expect(
       page.getByText("Prioritised for crisis support, culturally safe access, and phone referral."),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Advanced service filters" })).toBeDisabled();
-    await expect(page.getByText("Advanced service filters are coming soon.")).toHaveCount(1);
+    await expect(page.getByRole("group", { name: "Quick service filters" })).toBeVisible();
+    await expect(page.getByText("Quick filters")).toBeVisible();
 
     const culturallySafe = page.getByRole("button", { name: "Culturally safe" });
     await expect(culturallySafe).toBeVisible();
@@ -985,7 +1081,10 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     const results = page.getByTestId("form-search-results");
-    const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    // Sort is a segmented group; the persisted order reads off aria-pressed rather
+    // than a select value, including after history navigation.
+    const visibleSort = page.locator('[role="group"][aria-label="Sort results"]:visible');
+    const sortOption = (name: string) => visibleSort.getByRole("button", { name });
     const expectedAlphaFirstTestId = `form-search-result-${
       sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
         ?.service.slug
@@ -995,7 +1094,7 @@ test.describe("Clinical KB tools launcher", () => {
       "form-search-result-transport-crisis-form",
     );
 
-    await visibleSort.selectOption("alpha");
+    await sortOption("A–Z").click();
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
@@ -1003,14 +1102,14 @@ test.describe("Clinical KB tools launcher", () => {
     );
 
     await page.goBack();
-    await expect(visibleSort).toHaveValue("relevance");
+    await expect(sortOption("Relevance")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
     );
 
     await page.goForward();
-    await expect(visibleSort).toHaveValue("alpha");
+    await expect(sortOption("A–Z")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       expectedAlphaFirstTestId,
@@ -1144,14 +1243,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
     const visibleMainGeometry = await main.evaluate((node) => {
       const style = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
       return {
-        bottom: Math.round(node.getBoundingClientRect().bottom),
+        bottom: Math.round(rect.bottom),
         marginBottom: Number.parseFloat(style.marginBottom),
+        overflowY: style.overflowY,
+        top: Math.round(rect.top),
         viewportHeight: window.innerHeight,
       };
     });
     expect(visibleMainGeometry.marginBottom).toBe(0);
-    expect(Math.abs(visibleMainGeometry.bottom - visibleMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
+    expect(visibleMainGeometry.overflowY).toBe("visible");
+    expect(visibleMainGeometry.top).toBeLessThan(visibleMainGeometry.viewportHeight);
+    expect(visibleMainGeometry.bottom).toBeGreaterThanOrEqual(visibleMainGeometry.viewportHeight - 1);
     const transition = await dock.evaluate((node) => {
       const style = window.getComputedStyle(node);
       const durationMs = Math.max(
@@ -1173,18 +1277,10 @@ test.describe("Clinical KB tools launcher", () => {
     await input.blur();
     await expect(dock).not.toHaveAttribute("data-command-open", "true");
 
-    // Inject a spacer to ensure the container is scrollable even with minimal search results
-    await page.evaluate(() => {
-      const container = document.getElementById("main-content");
-      if (container) {
-        const spacer = document.createElement("div");
-        spacer.id = "test-scroll-spacer";
-        spacer.style.height = "2000px";
-        spacer.style.minHeight = "2000px";
-        spacer.style.display = "block";
-        container.appendChild(spacer);
-      }
-    });
+    // Inject content through the resolved owner so the browser document and
+    // standalone-PWA inner scroller exercise the same directional behavior.
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "test-scroll-spacer" });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
 
     // Treat the deliberate scroll and its resulting UI state as one retriable
     // action. Firefox/WebKit can finish the focus=1 hydration effect after the
@@ -1204,19 +1300,29 @@ test.describe("Clinical KB tools launcher", () => {
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
     const hiddenMainGeometry = await main.evaluate((node) => {
       const style = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
       return {
-        bottom: Math.round(node.getBoundingClientRect().bottom),
+        bottom: Math.round(rect.bottom),
         marginBottom: Number.parseFloat(style.marginBottom),
+        top: Math.round(rect.top),
         viewportHeight: window.innerHeight,
       };
     });
     expect(hiddenMainGeometry.marginBottom).toBe(0);
-    expect(Math.abs(hiddenMainGeometry.bottom - hiddenMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
+    expect(hiddenMainGeometry.top).toBeLessThan(hiddenMainGeometry.viewportHeight);
+    expect(hiddenMainGeometry.bottom).toBeGreaterThanOrEqual(hiddenMainGeometry.viewportHeight - 1);
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Resting edge docks may use translateY(calc(-1 * var(--keyboard-height))) with
+    // height 0, which computes to an identity matrix rather than "none".
     await expect
-      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
+      .poll(async () =>
+        dock.evaluate((node) => {
+          const transform = window.getComputedStyle(node).transform;
+          return transform === "none" || transform === "matrix(1, 0, 0, 1, 0, 0)";
+        }),
+      )
       .toBe(true);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
   });
@@ -1461,23 +1567,27 @@ test.describe("Clinical KB tools launcher", () => {
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
-    const tabs = page.getByTestId("differential-result-type-tabs");
-    await expect(tabs).toBeVisible();
-    await expect(tabs).toHaveAttribute("role", "group");
-    await expect(tabs).toHaveAttribute("aria-label", "Result type");
-    await expect(tabs.getByRole("button", { name: /All \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: /Presentations \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+    const typeSelect = page.getByTestId("differential-result-type-select");
+    await expect(typeSelect).toBeVisible();
+    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
+    await expect(typeSelect).toHaveValue("all");
+    await typeSelect.selectOption("diagnosis");
+    await expect(typeSelect).toHaveValue("diagnosis");
+    await typeSelect.selectOption("all");
 
-    const tabMetrics = await tabs.getByRole("button").evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const rect = button.getBoundingClientRect();
-        return { height: rect.height, scrollHeight: button.scrollHeight };
-      }),
-    );
-    for (const tab of tabMetrics) {
-      expect(tab.scrollHeight).toBeLessThanOrEqual(tab.height + 1);
-    }
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
+    const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
+    const pairMetrics = await mobilePair.evaluate((element) => ({
+      width: element.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
+    }));
+    expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
+    expect(pairMetrics.controlHeights).toHaveLength(2);
+    expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1559,23 +1669,27 @@ test.describe("Clinical KB tools launcher", () => {
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
-    const tabs = page.getByTestId("differential-result-type-tabs");
-    await expect(tabs).toBeVisible();
-    await expect(tabs).toHaveAttribute("role", "group");
-    await expect(tabs).toHaveAttribute("aria-label", "Result type");
-    await expect(tabs.getByRole("button", { name: "All (8)" })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: "Presentations (1)" })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: "Diagnoses (7)" })).toBeVisible();
+    const typeSelect = page.getByTestId("differential-result-type-select");
+    await expect(typeSelect).toBeVisible();
+    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
+    await expect(typeSelect).toHaveValue("all");
+    await typeSelect.selectOption("presentation");
+    await expect(typeSelect).toHaveValue("presentation");
+    await typeSelect.selectOption("all");
 
-    const tabMetrics = await tabs.getByRole("button").evaluateAll((tabElements) =>
-      tabElements.map((tab) => {
-        const rect = tab.getBoundingClientRect();
-        return { height: rect.height, scrollHeight: tab.scrollHeight };
-      }),
-    );
-    for (const tab of tabMetrics) {
-      expect(tab.scrollHeight).toBeLessThanOrEqual(tab.height + 1);
-    }
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
+    const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
+    const pairMetrics = await mobilePair.evaluate((element) => ({
+      width: element.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
+    }));
+    expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
+    expect(pairMetrics.controlHeights).toHaveLength(2);
+    expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1587,9 +1701,10 @@ test.describe("Clinical KB tools launcher", () => {
     expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
 
-    // Tall results must be top-aligned: Best Answer stays reachable at scrollTop 0.
-    const mainContent = page.locator("#main-content");
-    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBe(0);
+    // Tall browser-phone results must be top-aligned in the document owner:
+    // Best Answer stays reachable at scrollTop 0 without a competing inner offset.
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBe(0);
     const bestAnswer = page.getByTestId("differential-best-answer");
     await expect(bestAnswer).toBeVisible();
     const foldLayout = await bestAnswer.evaluate((best) => {
@@ -1599,7 +1714,6 @@ test.describe("Clinical KB tools launcher", () => {
       const bestRect = best.getBoundingClientRect();
       const headerBottom = header?.getBoundingClientRect().bottom ?? main.getBoundingClientRect().top;
       return {
-        scrollTop: main.scrollTop,
         bestTop: bestRect.top,
         bestBottom: bestRect.bottom,
         headerBottom,
@@ -1607,13 +1721,10 @@ test.describe("Clinical KB tools launcher", () => {
       };
     });
     expect(foldLayout).not.toBeNull();
-    expect(foldLayout!.scrollTop).toBe(0);
-    // Best Answer must start in the visible fold under the chrome — not clipped
-    // above the scrollport (the ModeHomeMain justify-center regression). Bound
-    // to the header band rather than a tight viewport fraction so tall chrome /
-    // safe-area insets do not flake the upper-half check.
+    // Best Answer must start in the visible upper fold under the consolidated
+    // query, sort, and result-type controls — never clipped above the scrollport.
     expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
-    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.headerBottom + 240);
+    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.viewportHeight * 0.5);
 
     // Phone list hides the featured best answer, so ranks must start at 1.
     const mobileCards = page.getByTestId("differential-mobile-result-card");
@@ -1670,8 +1781,12 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await expect(input).toHaveCount(1, { timeout: 15_000 });
+    await expect(submit).toHaveCount(1, { timeout: 15_000 });
+    await waitForReactEventHandler(input, "onChange");
+    await waitForReactEventHandler(input.locator("xpath=ancestor::form[1]"), "onSubmit");
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
     const searchResponse = page.waitForResponse(
@@ -1690,12 +1805,24 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toContainText("Compare selected");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
-    // Keep the composer focused while measuring end-of-list clearance so
-    // hide-on-scroll cannot collapse --mobile-composer-reserve mid-check.
+    // Begin with the visible composer reserve. Document scrolling deliberately
+    // blurs the focused composer, and the resulting chrome transition can
+    // change the document range after the first endpoint scroll. Re-issue the
+    // endpoint action while asserting so the position converges with the
+    // settled range instead of polling a stale scrollTop.
     await input.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
-    await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    // The visible dock/reserve can finish its layout commit after the first
+    // endpoint scroll, increasing document height. Treat scrolling to the live
+    // endpoint and measuring it as one retriable action; a persistent clearance
+    // regression still fails this assertion.
+    await expect(async () => {
+      await scrollPrimarySurface(page, "end");
+      const geometry = await readPrimaryScrollGeometry(page);
+      expect(geometry.owner).toBe("document");
+      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 15_000 });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
     const clearance = await page.evaluate(() => {
@@ -1749,17 +1876,8 @@ test.describe("Clinical KB tools launcher", () => {
     const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
     expect(reservePx).toBeGreaterThanOrEqual(dockHeight);
 
-    // Ensure enough scroll room for hide thresholds even with a short result list.
-    await page.evaluate(() => {
-      const container = document.getElementById("main-content");
-      if (!container) return;
-      const spacer = document.createElement("div");
-      spacer.id = "test-scroll-spacer";
-      spacer.style.height = "2000px";
-      spacer.style.minHeight = "2000px";
-      spacer.style.display = "block";
-      container.appendChild(spacer);
-    });
+    // Ensure enough owner scroll room for hide thresholds even with a short result list.
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "test-scroll-spacer" });
 
     // Apply the Safari toolbar simulation after the visible-dock clearance
     // checks above. A collapsed reserve that still includes the toolbar inset
@@ -1874,7 +1992,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-    await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
+    await expect(
+      page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-presentation-page"),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     await expect(
       page
@@ -1915,8 +2035,15 @@ test.describe("Clinical KB tools launcher", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/presentations");
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
-    await expect(page.getByTestId("differential-presentation-page")).toBeVisible({ timeout: 30_000 });
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load, which would make a
+    // document-wide getByTestId strict-mode fail.
+    const presentationPage = page
+      .getByTestId("mobile-composer-reserve-pad")
+      .getByTestId("differential-presentation-page");
+    await expect(presentationPage).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
@@ -1960,11 +2087,11 @@ test.describe("Clinical KB service detail page", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoLauncher(page, "/services/13yarn");
 
-      const servicePage = page.getByTestId("service-detail-page");
+      const servicePage = page.locator('[data-testid="service-detail-page"]:visible').last();
       const copyContactButton = servicePage.getByRole("button", { name: "Copy contact" }).last();
       await expect(servicePage).toBeVisible();
       await expect(servicePage.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Back to services" })).toBeVisible();
+      await expect(servicePage.getByRole("link", { name: "Services" })).toBeVisible();
       await expect(servicePage.getByRole("button", { name: "Save service" })).toBeVisible();
       await expect(copyContactButton).toBeVisible();
       await expect(servicePage.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
@@ -1982,9 +2109,11 @@ test.describe("Clinical KB service detail page", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services/city-east-community-mental-health-service");
 
-    const servicePage = page.getByTestId("service-detail-page");
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load.
+    const servicePage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("service-detail-page");
     const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
-    const scrollport = page.locator("#main-content");
+    const mainContent = page.locator("#main-content");
     const dock = page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge").first();
     const dockInput = visibleGlobalSearchInput(page).first();
     await expect(servicePage).toBeVisible();
@@ -1994,44 +2123,47 @@ test.describe("Clinical KB service detail page", () => {
     await dockInput.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     // The compact dock reserve is 5.5rem (88px) plus any safe-area inset.
-    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThanOrEqual(80);
-    await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThanOrEqual(80);
+    await scrollPrimarySurface(page, "end");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
     await expect
-      .poll(() => scrollport.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
+      .poll(async () => {
+        const geometry = await readPrimaryScrollGeometry(page);
+        return geometry.maxScrollTop - geometry.scrollTop;
+      })
       .toBeLessThanOrEqual(1);
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
 
     const clearance = await footer.evaluate((element) => {
-      const scrollElement = document.querySelector<HTMLElement>("#main-content");
+      const mainElement = document.querySelector<HTMLElement>("#main-content");
       const dockElement = document.querySelector<HTMLElement>(
         "form.answer-footer-search-dock, form.answer-footer-search-edge",
       );
       const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
-      if (!scrollElement || !dockElement) return null;
-      const scrollStyle = window.getComputedStyle(scrollElement);
-      const pad = scrollElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+      if (!mainElement || !dockElement) return null;
+      const mainStyle = window.getComputedStyle(mainElement);
+      const pad = mainElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
       return {
         footerBottom: element.getBoundingClientRect().bottom,
-        scrollBottom: scrollElement.getBoundingClientRect().bottom,
         dockTop: dockElement.getBoundingClientRect().top,
         dockHeight: dockElement.getBoundingClientRect().height,
         reservePx: pad
           ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
-          : Number.parseFloat(scrollStyle.paddingBottom),
-        reserve: scrollStyle.getPropertyValue("--mobile-composer-reserve").trim(),
-        scrollTop: scrollElement.scrollTop,
-        scrollHeight: scrollElement.scrollHeight,
-        clientHeight: scrollElement.clientHeight,
+          : Number.parseFloat(mainStyle.paddingBottom),
+        reserve: mainStyle.getPropertyValue("--mobile-composer-reserve").trim(),
         serviceBottom: servicePage?.getBoundingClientRect().bottom ?? null,
         serviceHeight: servicePage?.getBoundingClientRect().height ?? null,
         scrollHidden: dockElement.getAttribute("data-scroll-hidden"),
       };
     });
 
-    expect(clearance, JSON.stringify(clearance)).not.toBeNull();
-    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThanOrEqual(80);
-    expect(clearance!.footerBottom, JSON.stringify(clearance)).toBeLessThanOrEqual(clearance!.dockTop - 8);
+    expect(scrollGeometry.owner).toBe("document");
+    expect(clearance, JSON.stringify({ clearance, scrollGeometry })).not.toBeNull();
+    expect(clearance!.reservePx, JSON.stringify({ clearance, scrollGeometry })).toBeGreaterThanOrEqual(80);
+    expect(clearance!.footerBottom, JSON.stringify({ clearance, scrollGeometry })).toBeLessThanOrEqual(
+      clearance!.dockTop - 8,
+    );
   });
 
   test("service navigator action uses the shared global search route", async ({ page }) => {
@@ -2058,7 +2190,7 @@ test.describe("Clinical KB service detail page", () => {
     await servicePage.getByRole("button", { name: "Copy contact" }).last().click();
     await expect(page.getByRole("status")).toContainText("Contact copied");
 
-    await page.getByRole("button", { name: "Back to services" }).click();
+    await servicePage.getByRole("link", { name: "Services" }).click();
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
   });
 });
@@ -2203,13 +2335,75 @@ test.describe("Responsive layout guards", () => {
     const resultCard = page.getByTestId("medication-result-acamprosate-phone");
     const bottomDock = page.locator("form.answer-footer-search-dock");
     await expect(resultCard).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon).toBeVisible();
+    await expect(queryRibbon.getByRole("heading", { name: "acamprosate renal dose" })).toBeVisible();
+    await expect(queryRibbon.getByRole("status")).toBeVisible();
+    const resultFilter = queryRibbon.getByTestId("medication-result-filter-select");
+    await expect(resultFilter).toBeVisible();
+    await expect(resultFilter).toHaveAccessibleName("Filter medication results");
     await expect(bottomDock).toBeVisible();
-    await page.locator("main#main-content").evaluate((main) => main.scrollTo({ top: main.scrollHeight }));
+    await scrollPrimarySurface(page, "end");
+    await expect
+      .poll(async () => {
+        const geometry = await readPrimaryScrollGeometry(page);
+        return geometry.maxScrollTop - geometry.scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+    expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
     const resultBox = await resultCard.boundingBox();
     const dockBox = await bottomDock.boundingBox();
     expect(resultBox).not.toBeNull();
     expect(dockBox).not.toBeNull();
     expect(resultBox!.y + resultBox!.height).toBeLessThanOrEqual(dockBox!.y + 2);
+  });
+
+  test("safety-plan working content stays local until an explicit export", async ({ page }) => {
+    const appRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "fetch" || request.resourceType() === "xhr") appRequests.push(request.url());
+    });
+
+    await page.goto("/safety-plan");
+    await expect(page.getByLabel(/Patient \(name or initials\)/i)).toHaveCount(0);
+    await expect(page.getByText(/kept only in this browser tab/i)).toBeVisible();
+    await expect(
+      page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+    ).toBeVisible();
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & { __copiedPlan?: string; __printCalled?: boolean };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            testWindow.__copiedPlan = value;
+          },
+        },
+      });
+      window.print = () => {
+        testWindow.__printCalled = true;
+      };
+    });
+    appRequests.length = 0;
+
+    await page.getByLabel("e.g. Not sleeping for a couple of nights").fill("Not sleeping");
+    await page.getByRole("button", { name: "Add" }).first().click();
+    await page.getByRole("button", { name: "Copy" }).click();
+
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan))
+      .toContain("Not sleeping");
+    expect(await page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan)).not.toMatch(
+      /^For:/m,
+    );
+
+    await page.getByRole("button", { name: "Print / PDF" }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __printCalled?: boolean }).__printCalled))
+      .toBe(true);
+    expect(appRequests).toEqual([]);
   });
 
   test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {

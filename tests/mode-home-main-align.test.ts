@@ -70,14 +70,16 @@ describe("ModeHomeMain alignment contract", () => {
       expect(source).not.toMatch(/ModeHomeMain[^>]*className="[^"]*justify-/);
     }
 
-    // Forms/services only top-align when the registry is seeded; short empty /
-    // loading notices stay centred so the phone canvas does not look sparse.
+    // Forms/services top-align while loading or seeded so the registry ready
+    // flip does not jump center → start; confirmed empty/error stay centred.
     for (const path of [
       resolve(SRC_ROOT, "components/forms/forms-home-page.tsx"),
       resolve(SRC_ROOT, "components/services/services-home-page.tsx"),
     ]) {
       const source = readFileSync(path, "utf8");
-      expect(source).toMatch(/contentAlign=\{hasRegistryRecords \? "startOnPhone" : "center"\}/);
+      expect(source).toMatch(
+        /contentAlign=\{registry\.status === "loading" \|\| hasRegistryRecords \? "startOnPhone" : "center"\}/,
+      );
       expect(source).not.toMatch(/ModeHomeMain[^>]*className="[^"]*justify-/);
     }
   });

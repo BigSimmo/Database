@@ -15,6 +15,10 @@ import {
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
+import {
   CategoryTag,
   ReviewStatusBadge,
   SpecifierBreadcrumbs,
@@ -29,7 +33,7 @@ import {
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { searchSpecifiers, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
+import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
 
 // The curated set covers a small number of high-signal mood-episode specifiers.
@@ -255,25 +259,39 @@ function SpecifierResults({ query }: { query: string }) {
         <SpecifierSubnav active="search" />
       </div>
 
-      <header className="grid gap-1 border-b border-[color:var(--border)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-3 sm:pb-5">
-        <div className="grid gap-1">
-          <p className={eyebrowText}>Specifier search</p>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-            Matches for &ldquo;{query}&rdquo;
-          </h1>
-        </div>
-        <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
-          {totalMatches} {totalMatches === 1 ? "match" : "matches"}
-        </p>
-      </header>
-
-      <section
-        aria-label="Filter specifier results"
-        className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5"
-      >
-        <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
-        <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
-      </section>
+      <SearchResultsHeaderBand
+        modeId="specifiers"
+        query={query}
+        matchCount={totalMatches}
+        headingLevel={1}
+        filterLabel="Filter specifier results"
+        mobileControls={
+          <div className="grid min-w-0 grid-cols-2 gap-1.5">
+            <MobileResultFilterControl
+              label="Family"
+              ariaLabel="Filter by specifier family"
+              testId="specifier-family-select"
+              value={family}
+              options={specifierFamilies.map((option) => ({ value: option.id, label: option.shortLabel }))}
+              onChange={setFamily}
+            />
+            <MobileResultFilterControl
+              label="Diagnosis"
+              ariaLabel="Filter by diagnosis"
+              testId="specifier-diagnosis-select"
+              value={diagnosis}
+              options={diagnosisOptions}
+              onChange={setDiagnosis}
+            />
+          </div>
+        }
+        filterControls={
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
+            <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
+            <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
+          </div>
+        }
+      />
 
       {totalMatches === 0 ? (
         <EmptySearchResults query={query} />

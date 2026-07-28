@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-23T23:41:25.333Z",
+  "generated_at": "2026-07-27T18:49:27.107Z",
   "generator": "scripts/generate-drift-manifest.ts",
-  "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "19b45be58ad5999f6df80429cd66097e14ab8ad727cc90cd97f3917b0f9e8d6c",
-  "replay_seconds": 16,
+  "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
+  "schema_sha256": "0255ea652fe8334afeca899246568964c44bb6eb1153884053ff6867bf818fb0",
+  "replay_seconds": 17,
   "snapshot": {
     "views": [
       {
@@ -4384,6 +4384,14 @@
             "generated": ""
           },
           {
+            "name": "policy_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "prior_document_status",
             "type": "text",
             "default": null,
@@ -4429,6 +4437,14 @@
             "default": null,
             "identity": "",
             "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reviewer_qualification",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           }
         ],
@@ -6661,7 +6677,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "55f95e3b799f7716a7fd264d2b3cdd5a",
+        "def_hash": "d061668633026acc816e1d63403765d1",
         "signature": "public.claim_indexing_v3_agent_jobs(text,integer,integer)"
       },
       {
@@ -6779,6 +6795,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "54f1ab21c9d7cee9555b187dec088371",
+        "signature": "public.create_uploaded_document_with_ingestion_job(jsonb,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "f0835bb6f4314fb9704af9ff56950d58",
         "signature": "public.default_privileges_status(text,text)"
       },
@@ -6890,7 +6914,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "5028a7406b7014ea8e274d29c8bbf6f9",
+        "def_hash": "066ef1277bc11fa8092086fc66352d15",
         "signature": "public.invoke_ingestion_worker(integer)"
       },
       {
@@ -7090,7 +7114,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b8569b910ab5fb3b6b23af78eeeed374",
+        "def_hash": "f68e03ca96f8403d171509a59a769682",
         "signature": "public.match_document_table_facts_text(text,integer,uuid[],uuid)"
       },
       {
@@ -7178,6 +7202,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "d9875e7dbcdf19b56945c9d8de05d7c2",
+        "signature": "public.record_source_review_v2(uuid,uuid,text,text,text[],date,uuid,text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "874163cf5aa0b818f3e88ca1ac6f90b2",
         "signature": "public.record_source_review(uuid,uuid,text,text,text[],date,uuid)"
       },
@@ -7212,6 +7244,14 @@
         ],
         "def_hash": "baa8c0bda37cc561026baecdf1cca1c2",
         "signature": "public.request_indexing_v3_enrichment(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "608a60e6ec287dda67f9ae93c5889ceb",
+        "signature": "public.request_ingestion_reindex_if_agent_idle(uuid,uuid,timestamp with time zone,integer)"
       },
       {
         "acl": [
@@ -8144,7 +8184,7 @@
         "table": "rag_visual_eval_runs"
       },
       {
-        "def": "CHECK ((decision = ANY (ARRAY['locally_reviewed'::text, 'approved'::text, 'rejected'::text, 'decommissioned'::text, 'superseded'::text])))",
+        "def": "CHECK ((decision = ANY (ARRAY['locally_reviewed'::text, 'approved'::text, 'third_party_reference_attested'::text, 'rejected'::text, 'decommissioned'::text, 'superseded'::text])))",
         "name": "source_review_events_decision_check",
         "table": "source_review_events"
       },

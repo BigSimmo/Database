@@ -22,14 +22,14 @@ describe("DocumentViewer PDF reader loading", () => {
       '() => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed)',
     );
 
-    const canvasBlock = viewerSource.slice(
-      viewerSource.indexOf("const PdfCanvasViewer = dynamic("),
-      viewerSource.indexOf("const NativePdfEmbed = dynamic("),
+    expect(viewerSource).toContain(
+      'import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading"',
     );
-    const nativeBlock = viewerSource.slice(
-      viewerSource.indexOf("const NativePdfEmbed = dynamic("),
-      viewerSource.indexOf("function PdfPreviewLoading"),
-    );
+
+    const canvasStart = viewerSource.indexOf("const PdfCanvasViewer = dynamic(");
+    const nativeStart = viewerSource.indexOf("const NativePdfEmbed = dynamic(");
+    const canvasBlock = viewerSource.slice(canvasStart, nativeStart);
+    const nativeBlock = viewerSource.slice(nativeStart, viewerSource.indexOf("const secondaryButton", nativeStart));
     expect(canvasBlock).toContain("ssr: false");
     expect(nativeBlock).toContain("ssr: false");
     expect(canvasBlock).toContain("loading: () => <PdfPreviewLoading />");

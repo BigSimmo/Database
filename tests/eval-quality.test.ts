@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -5,16 +6,51 @@ import {
   configureEvalProviderEnvironment,
   deliveredGroundedAfterSourceGovernancePolicy,
   evalQualityRunContext,
+  parseEvalQualityArgs,
   qualityFailureCategory,
   ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
   retrievalCasesForProviderMode,
+  selectRagQualityCasesForQuestion,
   sourceGovernanceResultsFromArtifact,
   sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
 } from "../scripts/eval-quality";
 import { evaluateGoldenRetrievalCase, type GoldenRetrievalResult } from "../scripts/eval-retrieval";
+
+describe("eval quality diagnostic arguments", () => {
+  it("keeps provider execution behind the import-safe main guard", () => {
+    const source = readFileSync(new URL("../scripts/eval-quality.ts", import.meta.url), "utf8");
+    expect(source).toContain("import.meta.url === pathToFileURL(process.argv[1]).href");
+    expect(typeof parseEvalQualityArgs).toBe("function");
+  });
+
+  it("keeps RAG case dumping opt-in and restricted to rag-only runs", () => {
+    expect(parseEvalQualityArgs(["--rag-only"]).dumpRagCases).toBeUndefined();
+    expect(parseEvalQualityArgs(["--rag-only", "--dump-rag-cases", ".local/case.json"]).dumpRagCases).toBe(
+      ".local/case.json",
+    );
+    expect(() => parseEvalQualityArgs(["--dump-rag-cases", ".local/case.json"])).toThrow(
+      "--dump-rag-cases requires --rag-only.",
+    );
+    expect(() => parseEvalQualityArgs(["--rag-only", "--dump-rag-cases", "docs/case.json"])).toThrow(
+      "repo-local file under .local/ or output/",
+    );
+    expect(() => parseEvalQualityArgs(["--rag-only", "--dump-rag-cases", ".local/../../case.json"])).toThrow(
+      "repo-local file under .local/ or output/",
+    );
+  });
+
+  it("selects a named full RAG case exactly by fixture ID", () => {
+    const selected = selectRagQualityCasesForQuestion("agitation-arousal-typo-dosing");
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toMatchObject({
+      id: "agitation-arousal-typo-dosing",
+      question: "What agitaton and arousl dosing guidance applies to psychiatric inpatients?",
+    });
+  });
+});
 
 describe("eval quality run context", () => {
   it("records stable run identity without requiring GitHub Actions", () => {
@@ -89,6 +125,8 @@ function retrievalResult(overrides: Partial<GoldenRetrievalResult> = {}): Golden
         similarity: 0.82,
         text_rank: 0.6,
         rrf_score: 0.03,
+        relevanceGrade: 2,
+        matchedDeclaredSignals: ["document:clozapine.pdf", "content:anc"],
         content_preview: "Withhold clozapine at the source threshold.",
       },
     ],
@@ -118,7 +156,8 @@ function ragResult(overrides: Partial<RagQualityResult> = {}): RagQualityResult 
     rpcLatencyMs: 150,
     embeddingLatencyMs: 25,
     route: "fast",
-    latencyRoute: "fast",
+    executionType: "api",
+    latencyRoute: "generation",
     model: "test-model",
     citations: 2,
     visualEvidence: 0,
@@ -335,6 +374,37 @@ describe("eval quality reporting", () => {
     );
   });
 
+  it("does not apply the supported-answer grounding gate to an unsupported-only run", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-27T00:00:00.000Z",
+      retrievalResults: [],
+      ragResults: [
+        ragResult({
+          id: "unsupported-only",
+          supported: false,
+          grounded: false,
+          expectedHit: false,
+          route: "unsupported",
+          latencyRoute: "unsupported",
+          model: null,
+          citations: 0,
+          executionType: "rule-based",
+          estimatedCostUsd: 0,
+        }),
+      ],
+    });
+
+    expect(report.rag.summary).toMatchObject({
+      supported_count: 0,
+      unsupported_count: 1,
+      grounded_supported_rate: 0,
+      unsupported_correct_rate: 1,
+    });
+    expect(report.blocking_threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("grounded_supported_rate")]),
+    );
+  });
+
   it("budgets a model-attempt extractive fallback against the fallback latency route", () => {
     // A failed generation followed by a source-backed fallback structurally costs the
     // generation timeout plus the fallback work, so it is budgeted in its own "fallback"
@@ -360,6 +430,47 @@ describe("eval quality reporting", () => {
       expect.arrayContaining([expect.stringContaining("route extractive")]),
     );
     expect(report.threshold_failures).not.toEqual(expect.arrayContaining([expect.stringContaining("route fallback")]));
+  });
+
+  it("reports fallback stubs separately from comparison and other generation fallbacks", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-27T00:00:00.000Z",
+      retrievalResults: [],
+      ragResults: [
+        ragResult({
+          id: "community-home-visits",
+          routingReason:
+            "strong_routine_retrieval; generation_fallback:generation_quality_failed; source_backed_review_fallback; extractive_quality_gate:ungrounded_extractive_fallback",
+        }),
+        ragResult({
+          id: "clozapine-fbc-acronym-threshold",
+          routingReason: "high_confidence_extractive_retrieval; source_backed_review_fallback",
+        }),
+        ragResult({
+          id: "agitation-arousal-typo-dosing",
+          routingReason:
+            "clinical_fast_grounded_synthesis; generation_fallback:provider_timeout; source_backed_review_fallback; extractive_quality_gate:fragment_like_answer",
+        }),
+        ragResult({
+          id: "comparison-fallback",
+          routingReason:
+            "multi_document_comparison_synthesis; generation_fallback:generation_quality_failed; comparison_source_extractive_fallback",
+        }),
+        ragResult({ id: "ordinary-answer", routingReason: "strong_routine_retrieval" }),
+      ],
+    });
+
+    expect(report.rag.summary).toMatchObject({
+      generation_fallback_count: 3,
+      source_backed_review_fallback_count: 3,
+      source_backed_review_fallback_rate: 0.6,
+      substantive_grounded_count: 2,
+      substantive_grounded_rate: 0.4,
+      comparison_source_extractive_fallback_count: 1,
+    });
+    expect(report.blocking_threshold_failures).toContain("RAG source_backed_review_fallback_count 3 above 0");
+    expect(renderEvalQualityMarkdown(report)).toContain("| Source-backed review fallbacks | 3 |");
+    expect(renderEvalQualityMarkdown(report)).toContain("| Substantive grounded answers | 2 |");
   });
 
   it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {
@@ -689,7 +800,7 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Answer Metrics");
     expect(markdown).toContain("## Answer Case Diagnostics");
     expect(markdown).toContain(
-      "| rag-1 | fast | fast | test_route | 900 | 500 | 10 | 200 | 650 | 40 | 150 | 25 | 25000 | no | test-model | passed |",
+      "| rag-1 | fast | generation | test_route | 900 | 500 | 10 | 200 | 650 | 40 | 150 | 25 | 25000 | no | test-model | passed |",
     );
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");

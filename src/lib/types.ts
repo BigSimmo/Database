@@ -132,20 +132,28 @@ export type SearchScopeSummary = {
   queryMode?: ClinicalQueryMode;
 };
 
+export const SOURCE_GOVERNANCE_CODES = {
+  OUTDATED: "outdated_source",
+  REVIEW_DUE: "review_due_source",
+  NON_LOCAL: "non_local_source",
+  UNVERIFIED: "unverified_source",
+  POOR_EXTRACTION: "poor_extraction",
+  PARTIAL_EXTRACTION: "partial_extraction",
+  LOW_INDEX_QUALITY: "low_index_quality",
+  WEAK_EVIDENCE: "weak_evidence",
+  WEAK_TABLE_EXTRACTION: "weak_table_extraction",
+  REGISTRY_RECORD: "registry_record_source",
+} as const;
+
+export type SourceGovernanceCode = (typeof SOURCE_GOVERNANCE_CODES)[keyof typeof SOURCE_GOVERNANCE_CODES];
+
+export type SourceGovernanceUiToken = "destructive" | "warning" | "caution" | "neutral" | "muted";
+
 export type SourceGovernanceWarning = {
-  code:
-    | "outdated_source"
-    | "review_due_source"
-    | "non_local_source"
-    | "unverified_source"
-    | "poor_extraction"
-    | "partial_extraction"
-    | "low_index_quality"
-    | "weak_evidence"
-    | "weak_table_extraction"
-    | "registry_record_source";
+  code: SourceGovernanceCode;
   severity: "info" | "warning" | "danger";
   message: string;
+  uiToken?: SourceGovernanceUiToken;
   document_id?: string;
   title?: string;
 };

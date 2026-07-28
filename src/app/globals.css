@@ -99,19 +99,25 @@
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
      clinical codes and IDs (guideline refs, chunk/page numbers, versions). */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1);
 
+  --spring-tight: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+  --spring-bouncy: cubic-bezier(0.34, 1.3, 0.64, 1);
+  --spring-gentle: cubic-bezier(0.25, 1, 0.5, 1);
+
   --animate-fade-up: fade-up 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-overlay-in: overlay-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-sheet-up: sheet-up 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-sheet-left: sheet-left 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-sheet-up: sheet-up var(--swipe-duration, 250ms) cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-sheet-left: sheet-left var(--swipe-duration, 220ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-pop-in: pop-in 180ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-action-tray-in: action-tray-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-action-tray-in: action-tray-in var(--swipe-duration, 160ms) cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
 }
 
@@ -263,6 +269,7 @@
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   --shadow-card: var(--shadow-tight);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   /* Active left-rail marker (nav/list "current" indicator). One token so the
      accent rail is a consistent 2px everywhere instead of hand-inlined at 2px/3px. */
   --shadow-rail-active: inset 2px 0 0 var(--clinical-accent);
@@ -279,6 +286,7 @@
      header height and those page-fill floors cannot silently drift apart. */
   --shell-header-h: 4rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
+  --keyboard-height: 0px;
   --phone-dock-hidden-pad: 0rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
   --phone-dock-differentials-compare-compact-clearance: 12.25rem;
@@ -424,6 +432,7 @@
   --shadow-elevated: 0 2px 8px rgb(0 0 0 / 46%), 0 12px 30px rgb(0 0 0 / 48%), 0 28px 58px rgb(0 0 0 / 50%);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 4%), 0 18px 44px rgb(0 0 0 / 64%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   color-scheme: dark;
 }
 
@@ -475,12 +484,14 @@ body {
   overscroll-behavior-x: none;
 }
 
-/* Interactive element defaults */
-button,
-input,
-textarea,
-select {
-  font: inherit;
+@layer base {
+  /* Interactive element defaults */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 }
 
 /*
@@ -502,7 +513,8 @@ a,
 summary,
 input,
 textarea,
-select {
+select,
+.touch-card {
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -574,17 +586,20 @@ summary::-webkit-details-marker {
        beat @layer components, so a literal there would reintroduce drift. */
     padding-left: max(var(--header-edge-pad), var(--safe-area-left));
     padding-right: max(var(--header-edge-pad), var(--safe-area-right));
-    /* Translucent glass bar: the header's backdrop-blur utilities frost the
-       content scrolling beneath it (they were inert over the old opaque
-       var(--surface)). The .edge-glass-header-backdrop scrim supersedes the
-       old hard border-bottom and below-header ::after gradient. Keep this
-       value in lock-step with .universal-header below (chrome parity). */
+    /* Wide layouts retain the glass treatment. Phones override this with a
+       solid surface below: a translucent scrim extending past the bar veils
+       mode-home titles instead of behaving like bounded chrome. */
     background: color-mix(in srgb, var(--surface) 72%, transparent);
     box-shadow: none;
   }
 
   .universal-header {
     background: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+
+  .modal-landscape-container {
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
   }
 
   .universal-header-mode-button {
@@ -664,9 +679,9 @@ summary::-webkit-details-marker {
       0 8px 24px rgb(16 24 40 / 8%);
     backdrop-filter: blur(18px) saturate(140%);
     transition:
-      border-color 180ms ease,
-      box-shadow 180ms ease,
-      transform 180ms ease;
+      border-color 180ms var(--ease-out-soft),
+      box-shadow 180ms var(--ease-out-soft),
+      transform 180ms var(--ease-spring);
   }
 }
 
@@ -798,13 +813,14 @@ summary::-webkit-details-marker {
     0 0 0 1px color-mix(in srgb, var(--clinical-accent-contrast) 10%, transparent) inset;
   touch-action: manipulation;
   transition:
-    transform 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease;
+    transform 160ms var(--ease-spring),
+    background-color 160ms var(--ease-out-soft),
+    box-shadow 160ms var(--ease-out-soft);
 }
 
 .differentials-mobile-compare-fab__button:active {
   transform: translateY(1px) scale(0.99);
+  transition: transform 160ms var(--ease-spring);
 }
 
 .differentials-mobile-compare-fab__button:focus-visible {
@@ -847,26 +863,46 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop {
-  position: fixed;
+  position: absolute;
   inset-inline: 0;
   bottom: 0;
   top: auto;
   z-index: 0;
   height: var(--footer-scrim-height);
   overflow: hidden;
-  /* Bottom of the scrim must reach near-opaque so the safe-area band under the
-     pill reads as continuous dock chrome (edge-to-edge), not a white strip. */
+  /* Localized glass only: tint around the pill, then return to true zero at
+     the physical edge. A high terminal tint reads as an opaque safe-area bar
+     on light pages even though color-mix technically contains transparency. */
   background: linear-gradient(
     180deg,
     transparent 0%,
-    color-mix(in srgb, var(--background) 12%, transparent) 32%,
-    color-mix(in srgb, var(--background) 48%, transparent) 62%,
-    color-mix(in srgb, var(--background) 82%, transparent) 84%,
-    var(--background) 100%
+    color-mix(in srgb, var(--background) 8%, transparent) 30%,
+    color-mix(in srgb, var(--background) 28%, transparent) 58%,
+    color-mix(in srgb, var(--background) 18%, transparent) 78%,
+    transparent 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 32%) 26%,
+    black 50%,
+    rgb(0 0 0 / 45%) 78%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 32%) 26%,
+    black 50%,
+    rgb(0 0 0 / 45%) 78%,
+    transparent 100%
+  );
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 180ms var(--ease-out-soft),
+    visibility 0s linear;
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before,
@@ -878,22 +914,43 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before {
-  backdrop-filter: blur(8px) saturate(130%);
-  mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
+  backdrop-filter: blur(6px) saturate(125%);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 30%) 24%,
+    black 48%,
+    rgb(0 0 0 / 40%) 72%,
+    transparent 100%
+  );
   -webkit-mask-image: linear-gradient(
     180deg,
     transparent 0%,
-    rgb(0 0 0 / 35%) 20%,
-    black 45%,
-    black 80%,
+    rgb(0 0 0 / 30%) 24%,
+    black 48%,
+    rgb(0 0 0 / 40%) 72%,
     transparent 100%
   );
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::after {
-  backdrop-filter: blur(22px) saturate(140%);
-  mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
+  backdrop-filter: blur(12px) saturate(130%);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 46%,
+    black 64%,
+    rgb(0 0 0 / 35%) 80%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 46%,
+    black 64%,
+    rgb(0 0 0 / 35%) 80%,
+    transparent 100%
+  );
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -907,9 +964,10 @@ summary::-webkit-details-marker {
     background: linear-gradient(
       180deg,
       transparent 0%,
-      color-mix(in srgb, var(--background) 45%, transparent) 36%,
-      color-mix(in srgb, var(--background) 82%, transparent) 68%,
-      var(--background) 100%
+      color-mix(in srgb, var(--background) 16%, transparent) 34%,
+      color-mix(in srgb, var(--background) 38%, transparent) 62%,
+      color-mix(in srgb, var(--background) 20%, transparent) 80%,
+      transparent 100%
     );
   }
 
@@ -952,9 +1010,10 @@ summary::-webkit-details-marker {
     background: linear-gradient(
       180deg,
       transparent 0%,
-      color-mix(in srgb, var(--background) 50%, transparent) 36%,
-      color-mix(in srgb, var(--background) 86%, transparent) 72%,
-      var(--background) 100%
+      color-mix(in srgb, var(--background) 24%, transparent) 34%,
+      color-mix(in srgb, var(--background) 52%, transparent) 62%,
+      color-mix(in srgb, var(--background) 32%, transparent) 80%,
+      transparent 100%
     );
   }
 
@@ -1106,9 +1165,9 @@ summary::-webkit-details-marker {
   text-align: left;
   color: var(--text-muted);
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    color 150ms ease;
+    background-color 150ms var(--ease-out-soft),
+    border-color 150ms var(--ease-out-soft),
+    color 150ms var(--ease-out-soft);
 }
 
 .mode-action-mode-option:hover {
@@ -1156,6 +1215,7 @@ summary::-webkit-details-marker {
 
 .chat-composer-shell-delta:focus-within {
   border-color: var(--clinical-accent);
+  box-shadow: var(--shadow-focus);
 }
 
 .chat-composer-input {
@@ -1184,10 +1244,10 @@ summary::-webkit-details-marker {
   place-items: center;
   border-radius: 999px;
   transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease,
-    transform 150ms ease;
+    background-color 150ms var(--ease-out-soft),
+    color 150ms var(--ease-out-soft),
+    box-shadow 150ms var(--ease-out-soft),
+    transform 150ms var(--ease-spring);
 }
 
 .chat-composer-icon-button {
@@ -1253,11 +1313,11 @@ summary::-webkit-details-marker {
 }
 @media (prefers-reduced-motion: no-preference) {
   .mode-action-surface[data-placement="up"] {
-    animation: mode-action-fold-up 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: mode-action-fold-up 170ms var(--ease-out-soft) both;
   }
 
   .mode-action-surface[data-placement="down"] {
-    animation: mode-action-fold-down 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: mode-action-fold-down 170ms var(--ease-out-soft) both;
   }
 }
 
@@ -1326,9 +1386,9 @@ summary::-webkit-details-marker {
   box-shadow: 0 2px 10px rgb(16 24 40 / 6%);
   backdrop-filter: blur(14px);
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease;
+    border-color 160ms var(--ease-out-soft),
+    background-color 160ms var(--ease-out-soft),
+    color 160ms var(--ease-out-soft);
 }
 
 .answer-footer-search-chip:hover {
@@ -1363,6 +1423,24 @@ summary::-webkit-details-marker {
    because its override also changes other properties. A single mobile-scoped
    rule leaves nothing for the compiler to merge away. */
 @media (max-width: 639px) {
+  /* Phone baseline: a full-width opaque header. Controls still respect the
+     side safe areas, but no blur or tint extends below the actual bar. */
+  .edge-glass-header,
+  .universal-header {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+
+  .edge-glass-header-backdrop,
+  .edge-glass-header-backdrop::before,
+  .edge-glass-header-backdrop::after {
+    display: none;
+    background: none;
+    backdrop-filter: none;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
   .answer-suggestion-row-scroll {
     mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
     -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
@@ -1572,9 +1650,9 @@ summary::-webkit-details-marker {
   text-overflow: ellipsis;
   white-space: nowrap;
   transition:
-    border-color 160ms ease,
-    background-color 160ms ease,
-    color 160ms ease;
+    border-color 160ms var(--ease-out-soft),
+    background-color 160ms var(--ease-out-soft),
+    color 160ms var(--ease-out-soft);
 }
 
 .answer-suggestion-chip:hover:not(:disabled) {
@@ -1796,10 +1874,8 @@ summary::-webkit-details-marker {
       0 8px 22px rgb(16 24 40 / 8%);
   }
 
-  /* Edge-to-edge phone dock: full-width footer flush to the glass. The pill is
-     inset via padding-bottom only — never by a non-zero `bottom` offset (that
-     reintroduces a white strip under the bar). Form background paints the
-     safe-area pad so it reads as dock chrome, not empty page margin. */
+  /* Edge-to-edge phone dock: the form remains transparent while its localized
+     child backdrop tints the pill and safe area. Never add a bottom offset. */
   .answer-footer-search-dock.answer-footer-search-edge,
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge,
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge {
@@ -1808,17 +1884,11 @@ summary::-webkit-details-marker {
     bottom: 0;
     width: 100%;
     max-width: none;
-    transform: none;
+    transform: translateY(calc(-1 * var(--keyboard-height, 0px)));
     padding-inline: max(0.75rem, var(--safe-area-left)) max(0.75rem, var(--safe-area-right));
     padding-top: 0.5rem;
     padding-bottom: max(0.5rem, var(--safe-area-bottom));
-    background: linear-gradient(
-      180deg,
-      transparent 0%,
-      color-mix(in srgb, var(--background) 72%, transparent) 42%,
-      color-mix(in srgb, var(--background) 94%, transparent) 72%,
-      var(--background) 100%
-    );
+    background: transparent;
   }
 
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact,
@@ -1828,18 +1898,39 @@ summary::-webkit-details-marker {
   }
 
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
-     actually slides the bar off-screen once data-scroll-hidden is set. */
+     actually slides the bar off-screen once data-scroll-hidden is set.
+     Use --safe-area-bottom (not env() alone) so Playwright/PWA inset simulation
+     and the visible dock's padding-bottom clear the same distance — otherwise
+     a white safe-area rail can peep after hide on simulated/notched phones. */
   .answer-footer-search-dock.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+    transform: translateY(calc(100% + var(--safe-area-bottom)));
+    opacity: 0;
     pointer-events: none;
+  }
+
+  /* WebKit can retain a backdrop-filter compositor layer after its translated
+     parent reaches opacity: 0. Fade the scrim with the dock, then make that
+     paint layer non-rendering at the end of the hide transition. Visibility
+     becomes visible immediately on reveal, so the reverse path stays smooth. */
+  .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
+    opacity: 0;
+    visibility: hidden;
+    transition-delay: 0ms, 240ms;
   }
 
   /* Compare addon adds in-flow chrome above the pill; clear a little extra so
      the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
+    transform: translateY(calc(100% + 0.75rem + var(--safe-area-bottom)));
+  }
+
+  /* Document viewer owns its floating composer (not the shared dock). Lift it
+     with the same --keyboard-height signal so overlay/visual keyboards do not
+     cover the focused input on document detail/source routes. */
+  .document-viewer-composer.floating-composer-edge:not([data-scroll-hidden="true"]) {
+    transform: translateY(calc(-1 * var(--keyboard-height, 0px)));
   }
 
   /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
@@ -1848,16 +1939,18 @@ summary::-webkit-details-marker {
      that gap. translateY-only: this form centres with mx-auto, not translateX. */
   .document-viewer-composer[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + max(0.75rem, var(--safe-area-bottom))));
+    opacity: 0;
     pointer-events: none;
+  }
+
+  .answer-footer-search-dock .answer-footer-search-backdrop {
+    display: block;
+    position: absolute;
   }
 
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
-    background: var(--surface);
-    /* The dock repaints the pill opaque, so the inherited blur has nothing
-       translucent to sample — drop it to save a compositing layer per scroll
-       frame (matches the chip override just below). */
-    backdrop-filter: none;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
     box-shadow:
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 1px 3px rgb(16 24 40 / 5%);
@@ -1886,6 +1979,18 @@ summary::-webkit-details-marker {
       0 0 0 3px color-mix(in srgb, var(--clinical-accent) 10%, transparent),
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 2px 8px rgb(16 24 40 / 8%);
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
+    transition-delay: 0ms;
+  }
+}
+
+@media (max-width: 639px) {
+  html[data-motion="reduced"] .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
+    transition-delay: 0ms;
   }
 }
 
@@ -2226,28 +2331,139 @@ html[data-motion="reduced"] .pwa-notice-card {
     height: 100svh;
   }
 
+  /*
+   * Safari only collapses its browser chrome for document scrolling, so phone
+   * browser tabs keep the shared shell in normal flow and let the document own
+   * vertical scrolling. `overflow-x: clip` prevents horizontal spill without
+   * turning `overflow-y: visible` into an implicit element scrollport.
+   *
+   * Installed iOS web apps do not have collapsible browser chrome and can
+   * under-report svh/dvh. Their final override therefore uses the established
+   * 100vh standalone workaround, still in normal flow, with a bounded inner
+   * scroll surface. Controls alone consume safe-area padding; hidden chrome
+   * never adds a content-facing reserve here.
+   */
+  @media (max-width: 639px) {
+    .mobile-app-shell,
+    .phone-viewport-shell {
+      min-height: 100svh;
+      height: auto;
+    }
+
+    .phone-viewport-shell {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      overflow: visible;
+    }
+
+    .phone-viewport-frame {
+      min-height: 100svh;
+      height: auto;
+      overflow: visible;
+    }
+
+    .phone-scroll-surface {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+
+    .phone-sticky-header-stack {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .phone-footer-layer {
+      position: fixed;
+    }
+
+    .phone-overlay-header {
+      position: fixed;
+      inset-inline: 0;
+      top: 0;
+      width: 100%;
+    }
+
+    html:has([data-chrome-transitioning="true"]),
+    html:has([data-reserve-transitioning="true"]),
+    html:has([data-chrome-transitioning="true"]) body,
+    html:has([data-reserve-transitioning="true"]) body,
+    .phone-scroll-surface[data-chrome-transitioning="true"],
+    .phone-scroll-surface[data-reserve-transitioning="true"],
+    .phone-scroll-surface:has([data-reserve-transitioning="true"]) {
+      overflow-anchor: none;
+    }
+
+    /* Browser tabs scroll the document, while installed PWAs scroll this
+       surface. Focus targets therefore own their clearance via scroll-margin,
+       which follows whichever ancestor is the active scroller. Keep the
+       scroll-padding utilities on the surface as the standalone enhancement. */
+    .phone-scroll-surface
+      :where(
+        a[href],
+        button,
+        input,
+        select,
+        textarea,
+        [contenteditable="true"],
+        [tabindex]:not([tabindex="-1"])
+      ):focus {
+      scroll-margin-block-start: calc(4.5rem + max(0.5rem, var(--safe-area-top)));
+      scroll-margin-block-end: var(--phone-focus-bottom-clearance, var(--mobile-composer-reserve, 0rem));
+    }
+  }
+
+  @media (max-width: 639px) and (display-mode: standalone) {
+    .mobile-app-shell,
+    .phone-viewport-shell {
+      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .phone-viewport-frame {
+      position: relative;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .phone-scroll-surface {
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .phone-overlay-header {
+      position: absolute;
+    }
+
+    .phone-sticky-header-stack {
+      position: static;
+    }
+
+    .phone-footer-layer {
+      position: absolute;
+    }
+  }
+
   .mobile-popover-scroll {
     max-height: min(70svh, 28rem);
   }
 
   @supports (height: 100dvh) {
-    .mobile-app-shell {
-      min-height: 100dvh;
-      height: 100dvh;
+    @media (min-width: 640px) {
+      .mobile-app-shell {
+        min-height: 100dvh;
+        height: 100dvh;
+      }
     }
 
     .mobile-popover-scroll {
       max-height: min(70dvh, 28rem);
-    }
-  }
-
-  /* Phones: ClinicalDashboard pins with fixed inset-0 utilities. Do not keep a
-     dvh height clamp here — it recreates the Safari toolbar dead band under
-     the shell even when inset-0 is present if height still resolves to dvh. */
-  @media (max-width: 639px) {
-    .mobile-app-shell {
-      min-height: 0;
-      height: auto;
     }
   }
 
@@ -2265,8 +2481,10 @@ html[data-motion="reduced"] .pwa-notice-card {
     right: -10px;
   }
 
-  /* Premium Skeleton Shimmer animation with custom easing */
+  /* Premium Skeleton Shimmer animation with custom easing and GPU compositing layer hints */
   .animate-skeleton-shimmer {
+    will-change: transform, opacity;
+    transform: translateZ(0);
     animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
@@ -2299,9 +2517,9 @@ html[data-motion="reduced"] .pwa-notice-card {
   .source-capsule-face {
     border-color: var(--border);
     transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease;
+      border-color 150ms var(--ease-out-soft),
+      box-shadow 150ms var(--ease-out-soft),
+      transform 150ms var(--ease-spring);
   }
 
   .source-capsule-hit:hover .source-capsule-face {
@@ -2396,6 +2614,11 @@ html[data-motion="reduced"] .pwa-notice-card {
   .source-capsule-hit:hover .source-capsule-face,
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
+  }
+
+  /* Opt-in soft opacity fade for critical feedback state changes */
+  .fade-accessible-reduced {
+    transition: opacity 120ms var(--ease-out-soft) !important;
   }
 }
 
@@ -2619,37 +2842,70 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
-/* iOS Safari bottom reserve transitions to match the composer's hide/show motion.
-   Shell routes animate the inner reserve pad; dashboard/answer animates
-   #main-content padding; DocumentViewer animates its own content pad. */
+/* Phone reserve padding animates while the short-lived reserve-transition
+   marker is active (hide and reveal). Mode/route flips of
+   --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
+   immediately. DocumentViewer keeps its own Tailwind duration classes. */
 @media (max-width: 639px) {
-  #main-content {
-    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  #main-content[data-reserve-transitioning="true"] {
+    will-change: padding-bottom;
+    transition: padding-bottom 240ms var(--ease-out-soft);
   }
-  #main-content[data-bottom-composer-hidden="true"] {
-    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"] {
+    will-change: padding-bottom;
+    transition: padding-bottom 240ms var(--ease-out-soft);
   }
-  #main-content [data-testid="mobile-composer-reserve-pad"] {
-    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
+    will-change: padding-bottom;
+    transition: padding-bottom 240ms var(--ease-out-soft);
   }
-  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"] {
-    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* A page-owned reserve changes scroll height below the current viewport.
+     Suspend browser anchoring only for that transition so Chrome cannot turn
+     the intended padding release into a synthetic upward scroll/reveal loop. */
+  #main-content:has([data-reserve-owner][data-reserve-transitioning="true"]) {
+    overflow-anchor: none;
   }
-  [data-testid="document-viewer-content"] {
-    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
-    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  [data-reserve-owner][data-reserve-transitioning="true"] {
+    will-change: padding-bottom;
+    transition: padding-bottom 240ms var(--ease-out-soft);
   }
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) {
-  #main-content,
-  #main-content[data-bottom-composer-hidden="true"],
-  #main-content [data-testid="mobile-composer-reserve-pad"],
-  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"],
-  [data-testid="document-viewer-content"],
-  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+  #main-content[data-reserve-transitioning="true"],
+  #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"],
+  [data-testid="document-viewer-content"][data-reserve-transitioning="true"],
+  [data-reserve-owner][data-reserve-transitioning="true"] {
     transition: none;
+  }
+}
+
+/* Theme switch micro-interaction (Improvement 2.2) */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *:before,
+html.theme-transitioning *:after {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
+  transition-duration: 200ms !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *:before,
+  html.theme-transitioning *:after {
+    transition: none !important;
+  }
+}
+
+/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3) */
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --border: CanvasText;
+    --border-lux: CanvasText;
+    --border-strong: CanvasText;
+    --focus: Highlight;
   }
 }

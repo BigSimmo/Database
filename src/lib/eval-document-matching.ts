@@ -32,13 +32,12 @@ const clinicalDocumentAliases: Record<string, string[]> = {
   AdmissionCommunityPts: [
     "Admission of Community Patients",
     "Admission Community Patients",
-    // Ground-truth widening (user-approved 2026-07-21, eval baseline run #57 triage): the live
-    // corpus carries several legitimately on-point admission policies; the NMHS
-    // admission-to-discharge pair satisfies the admission expectation for the
-    // admission-discharge comparison cases. Deliberately EXCLUDES discharge-only documents
-    // (they must not satisfy the admission slot) and the HITH programme policy (too narrow).
-    "Admission to Discharge for Community Mental Health",
+    // #080: these two real NMHS policies replaced the synthetic AdmissionCommunityPts name
+    // and contain admission requirements as well as discharge guidance. They intentionally
+    // overlap the Discharge tier; expectedFileCoverage's document-identity dedupe + maximum
+    // matching still requires a second physical source before a two-slot case can reach allHit.
     "Admission to Discharge for Mental Health Inpatients",
+    "Admission to Discharge for Community Mental Health",
   ],
   AgitationArousalPharmaMgt: [
     "Agitation and Arousal Pharmacological Management",
@@ -62,6 +61,8 @@ const clinicalDocumentAliases: Record<string, string[]> = {
   ],
   CommunityHomeVisit: ["Community Home Visit", "Home Visit", "Community Visits"],
   Discharge: [
+    // These two titles also represent the AdmissionCommunityPts slot (#080). Maximum matching
+    // below prevents one dual-listed document from satisfying both comparison sides (#030).
     "Admission to Discharge for Mental Health Inpatients",
     "Admission to Discharge for Community Mental Health",
     "Referral Admission and Discharge Mental Health Hospital in the Home",
@@ -107,26 +108,79 @@ export function documentExpectationAlternatives(expectation: string) {
   return Array.from(new Set([expectation, ...aliasValues].map(normalizedDocumentName).filter(Boolean)));
 }
 
-function resultDocumentText(source: Pick<SearchResult, "file_name" | "title">) {
+type ExpectedCoverageSource = Pick<SearchResult, "file_name" | "title"> & Partial<Pick<SearchResult, "document_id">>;
+
+function resultDocumentText(source: ExpectedCoverageSource) {
   return normalizedDocumentName(`${source.title} ${source.file_name}`);
+}
+
+function resultDocumentIdentity(source: ExpectedCoverageSource) {
+  const documentId = source.document_id?.trim();
+  if (documentId) return `document_id:${documentId}`;
+  const stableName = normalizedDocumentName(source.file_name) || normalizedDocumentName(source.title);
+  return `document_name:${stableName}`;
 }
 
 export function expectedFileCoverage(
   expectedFiles: string[],
-  sources: Array<Pick<SearchResult, "file_name" | "title">>,
+  sources: ExpectedCoverageSource[],
   limit = 3,
 ): ExpectedFileCoverage {
-  const topFiles = sources.slice(0, limit).map(resultDocumentText);
-  const matchedFiles = expectedFiles.filter((expected) =>
-    documentExpectationAlternatives(expected).some((alternative) =>
-      topFiles.some((file) => file.includes(alternative)),
-    ),
+  // Distinct source identities (#030): answer.citations contains one entry per chunk and the
+  // title attached to those chunks may vary. Prefer the canonical document_id; older captured
+  // evidence without one falls back to the stable filename (then title). Aggregate all text
+  // variants for one identity while retaining its first-ranked position, so one physical
+  // document can match either overlapping alias but can never fill both slots.
+  const topFiles = Array.from(
+    sources
+      .slice(0, limit)
+      .reduce((documents, source) => {
+        const identity = resultDocumentIdentity(source);
+        const existing = documents.get(identity);
+        if (existing) {
+          existing.texts.add(resultDocumentText(source));
+        } else {
+          documents.set(identity, { texts: new Set([resultDocumentText(source)]) });
+        }
+        return documents;
+      }, new Map<string, { texts: Set<string> }>())
+      .values(),
   );
+  const candidateSourcesByExpectation = expectedFiles.map((expected) => {
+    const alternatives = documentExpectationAlternatives(expected);
+    return topFiles.reduce<number[]>((indexes, file, index) => {
+      if ([...file.texts].some((text) => alternatives.some((alternative) => text.includes(alternative)))) {
+        indexes.push(index);
+      }
+      return indexes;
+    }, []);
+  });
+
+  // Maximum bipartite matching (Kuhn's augmenting path) rather than first-come assignment:
+  // a combo-titled document that matches two expectations must not consume the only source a
+  // narrower expectation could have used, which would make coverage depend on expectedFiles order.
+  const expectationBySource = new Map<number, number>();
+  const claimSource = (expectationIndex: number, visitedSources: Set<number>): boolean => {
+    for (const sourceIndex of candidateSourcesByExpectation[expectationIndex]) {
+      if (visitedSources.has(sourceIndex)) continue;
+      visitedSources.add(sourceIndex);
+      const holder = expectationBySource.get(sourceIndex);
+      if (holder === undefined || claimSource(holder, visitedSources)) {
+        expectationBySource.set(sourceIndex, expectationIndex);
+        return true;
+      }
+    }
+    return false;
+  };
+  expectedFiles.forEach((_, expectationIndex) => claimSource(expectationIndex, new Set()));
+
+  const matchedExpectations = new Set(expectationBySource.values());
+  const matchedFiles = expectedFiles.filter((_, index) => matchedExpectations.has(index));
 
   return {
     expectedFiles,
     matchedFiles,
-    missingFiles: expectedFiles.filter((expected) => !matchedFiles.includes(expected)),
+    missingFiles: expectedFiles.filter((_, index) => !matchedExpectations.has(index)),
     anyHit: matchedFiles.length > 0,
     allHit: expectedFiles.length > 0 && matchedFiles.length === expectedFiles.length,
   };

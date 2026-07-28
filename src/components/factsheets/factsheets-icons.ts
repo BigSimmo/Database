@@ -18,7 +18,7 @@ import { createElement } from "react";
 import type { FactsheetCategory, FactsheetIconKey } from "@/components/factsheets/factsheets-data";
 
 /** Stable icon-key → Lucide component map for per-sheet icons. */
-export const factsheetIcons: Record<FactsheetIconKey, LucideIcon> = {
+const factsheetIcons: Record<FactsheetIconKey, LucideIcon> = {
   capsule: Pill,
   pill: Pill,
   layers: Layers,
@@ -33,16 +33,12 @@ export const factsheetIcons: Record<FactsheetIconKey, LucideIcon> = {
 };
 
 /** Category browse icons for the home topic pills. */
-export const factsheetCategoryIcons: Record<FactsheetCategory, LucideIcon> = {
+const factsheetCategoryIcons: Record<FactsheetCategory, LucideIcon> = {
   Medications: Pill,
   Conditions: BrainCircuit,
   Therapies: MessagesSquare,
   "Tests & procedures": ClipboardList,
 };
-
-export function factsheetIcon(key: FactsheetIconKey): LucideIcon {
-  return factsheetIcons[key];
-}
 
 /**
  * Render a Lucide glyph without binding a capitalised component to a render-body

@@ -1,10 +1,26 @@
 import type { Route } from "playwright-core";
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
 const longTitle =
   "Extremely long synthetic shared-care guideline title covering lithium clozapine perinatal risk ADHD medication review emergency escalation and outpatient monitoring pathways";
+
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onSubmit") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
 
 function makeDocument(index: number) {
   return {
@@ -344,7 +360,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(dailyActions).toBeHidden();
         await expect(
           page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." }),
-        ).toContainText("Use the source library to open indexed documents.");
+        ).toContainText("Use Sources to open indexed documents.");
         await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
@@ -355,11 +371,21 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
 
-      await page
-        .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
-        .first()
-        .fill("Show all stress citations and source cards");
-      await page.locator('[aria-label="Generate source-backed answer"]:visible').first().click();
+      // Production hydration can briefly replace the server-rendered composer.
+      // Require one settled owner with live React handlers before typing, or the
+      // replacement can lose the value and leave the submit button disabled.
+      const answerSurface = page.getByTestId("answer-empty-state");
+      await expect(answerSurface).toHaveCount(1, { timeout: 15_000 });
+      const questionInput = answerSurface.locator('[aria-label^="Search indexed guidelines by question or keyword"]');
+      await expect(questionInput).toHaveCount(1);
+      const answerForm = questionInput.locator("xpath=ancestor::form[1]");
+      await waitForReactEventHandler(questionInput, "onChange");
+      await waitForReactEventHandler(answerForm, "onSubmit");
+      await questionInput.fill("Show all stress citations and source cards");
+      await expect(questionInput).toHaveValue("Show all stress citations and source cards");
+      const submit = answerForm.getByRole("button", { name: "Generate source-backed answer" });
+      await expect(submit).toBeEnabled({ timeout: 15_000 });
+      await submit.click();
 
       await expect(page.getByLabel("Source-backed answer")).toBeVisible();
       await expect(page.getByTestId("plain-answer-response")).toBeVisible();
@@ -442,12 +468,15 @@ test.describe("Medication responsive stress coverage", () => {
         await expect(phoneResult).toBeVisible();
         await expect(desktopResult).toBeHidden();
 
-        const metrics = await page.evaluate(() => {
+        const metrics = await page.evaluate((viewportWidth) => {
           const workspace = document.querySelector<HTMLElement>(".medication-results-workspace");
           const patient = document.querySelector<HTMLElement>(".medication-patient-strip");
           const filters = document.querySelector<HTMLElement>(".medication-filter-strip");
           const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
-          const firstFilter = filters?.querySelector<HTMLElement>("button");
+          const firstFilter =
+            viewportWidth < 640
+              ? document.querySelector<HTMLElement>('[data-testid="medication-result-filter-select"]')
+              : filters?.querySelector<HTMLElement>("button");
           if (!workspace || !patient || !filters || !card || !firstFilter) return null;
           const workspaceRect = workspace.getBoundingClientRect();
           const patientRect = patient.getBoundingClientRect();
@@ -466,7 +495,7 @@ test.describe("Medication responsive stress coverage", () => {
             filterLeft: filterRect.left,
             filterHeight: filterRect.height,
           };
-        });
+        }, viewport.width);
         expect(metrics).not.toBeNull();
         expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
 
@@ -491,13 +520,17 @@ test.describe("Medication responsive stress coverage", () => {
     }
 
     await page.setViewportSize({ width: 320, height: 720 });
-    const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
-      clientHeight: main.clientHeight,
-      scrollHeight: main.scrollHeight,
-      pageHeight: document.documentElement.scrollHeight,
-      viewportHeight: document.documentElement.clientHeight,
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const chromeGeometry = await page.locator("main#main-content").evaluate((main) => ({
+      keyboardHeight: document.documentElement.style.getPropertyValue("--keyboard-height").trim(),
+      overflowY: window.getComputedStyle(main).overflowY,
     }));
-    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
-    expect(scrollGeometry.pageHeight - scrollGeometry.viewportHeight).toBeLessThanOrEqual(2);
+    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
+    expect(chromeGeometry.overflowY).toBe("visible");
+    expect(chromeGeometry.keyboardHeight === "" || chromeGeometry.keyboardHeight === "0px").toBe(true);
   });
 });

@@ -16,8 +16,8 @@ describe("Database skill catalog", () => {
     const result = validateSkillCatalog();
 
     expect(result.errors).toEqual([]);
-    expect(result.canonical).toHaveLength(32);
-    expect(new Set(result.canonical.map((skill: { name: string }) => skill.name))).toHaveProperty("size", 32);
+    expect(result.canonical).toHaveLength(33);
+    expect(new Set(result.canonical.map((skill: { name: string }) => skill.name))).toHaveProperty("size", 33);
     expect(result.aliases).toHaveLength(8);
     for (const category of catalog.categories) {
       expect(category.skills.every((skill: unknown) => typeof skill === "string")).toBe(true);
@@ -27,7 +27,7 @@ describe("Database skill catalog", () => {
   it("discovers each declared skill from its folder metadata", () => {
     const discovered = discoverSkillDefinitions();
 
-    expect(discovered).toHaveLength(40);
+    expect(discovered).toHaveLength(41);
     for (const skill of discovered) {
       if (!skill) continue;
       const metadataPath = path.join(skillsRoot, skill.name, "agents", "openai.yaml");
@@ -67,7 +67,12 @@ describe("Database skill catalog", () => {
     const catalog = loadSkillCatalog();
     const rendered = renderSkillCatalog(catalog);
 
-    expect(rendered).toContain("Database skills (32)");
+    expect(rendered).toContain(
+      `Database skills (${catalog.categories.reduce(
+        (acc: number, cat: { skills: string[] }) => acc + cat.skills.length,
+        0,
+      )})`,
+    );
     expect(rendered).toContain("- skills — List every unique Database-specific skill with a clear explanation");
     expect(rendered).not.toContain("- workflows —");
     for (const category of catalog.categories) expect(rendered).toContain(category.name);

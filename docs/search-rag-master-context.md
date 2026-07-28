@@ -116,7 +116,7 @@ Answer rendering and evidence UI:
 
 Document/source targets:
 
-- `src/app/documents/[id]/page.tsx`
+- `src/app/(search-app)/documents/[id]/page.tsx`
 - `src/components/DocumentViewer.tsx`
 
 API validation route families:

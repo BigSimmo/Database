@@ -7,6 +7,8 @@ import { yamlBlock } from "./yaml-contract.mjs";
 const workflowDir = path.join(process.cwd(), ".github", "workflows");
 
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
+const workflowBranchMutationPattern =
+  /\bgithub\s*\.\s*rest\s*\.\s*pulls\s*\.\s*updateBranch\b|\/pulls\/[^\s"']+\/update-branch\b|\bgh\s+pr\s+update-branch\b|\bsync:pr-branches(?::apply|\s+--\s+--apply)\b|\bsync-open-pr-branches\.mjs\s+--apply\b/;
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
 const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -45,7 +47,14 @@ function collectPinFailures(root) {
   const failures = [];
   for (const filePath of discoverGitHubActionFiles(root)) {
     const fileName = path.relative(root, filePath).replaceAll("\\", "/");
-    const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
+    const source = readFileSync(filePath, "utf8");
+    const lines = source.split(/\r?\n/);
+
+    if (workflowBranchMutationPattern.test(source)) {
+      failures.push(
+        `${fileName}: workflow-authored PR branch updates are prohibited because bot-authored heads leave required checks awaiting approval. Use npm run sync:pr-branches:apply with explicit human/operator auth.`,
+      );
+    }
 
     lines.forEach((line, index) => {
       if (runsOnLatestPattern.test(line)) {
@@ -70,6 +79,16 @@ function selfTest() {
     mkdirSync(actionDir, { recursive: true });
     writeFileSync(path.join(workflowDir, "ok.yml"), "name: ok\n", "utf8");
     writeFileSync(
+      path.join(workflowDir, "unsafe-sync.yml"),
+      "name: unsafe\njobs:\n  sync:\n    steps:\n      - run: github.rest.pulls.updateBranch({})\n",
+      "utf8",
+    );
+    writeFileSync(
+      path.join(workflowDir, "unsafe-helper-sync.yml"),
+      "name: unsafe helper\njobs:\n  sync:\n    steps:\n      - run: npm run sync:pr-branches:apply\n",
+      "utf8",
+    );
+    writeFileSync(
       path.join(actionDir, "action.yml"),
       "name: fixture\nruns:\n  using: composite\n  steps:\n    - uses: actions/cache@v6\n",
       "utf8",
@@ -82,6 +101,12 @@ function selfTest() {
       )
     ) {
       throw new Error("self-test failed: composite action uses entries were not scanned");
+    }
+    if (!failures.some((failure) => failure.includes("unsafe-sync.yml") && failure.includes("branch updates"))) {
+      throw new Error("self-test failed: workflow-authored PR branch mutation was not rejected");
+    }
+    if (!failures.some((failure) => failure.includes("unsafe-helper-sync.yml") && failure.includes("branch updates"))) {
+      throw new Error("self-test failed: workflow invocation of the operator apply helper was not rejected");
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -173,10 +198,9 @@ if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJ
 // the per-line validation above only covers workflows, a composite skew (e.g.
 // setup-node v5 vs v7) was previously invisible. Assert each action name resolves
 // to a single SHA everywhere it is used.
-
 const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
 const shasByAction = new Map();
-for (const filePath of [...discoverGitHubActionFiles(process.cwd()), ...discoverCompositeActionFiles(process.cwd())]) {
+for (const filePath of discoverGitHubActionFiles(process.cwd())) {
   const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
   // Workflow lines are already run through validateActionReference in the first
   // pass; composite files are not, so validate them here. Without this, a

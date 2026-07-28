@@ -41,12 +41,10 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 2. Run `node scripts/check-node-engine.cjs`.
 3. Run `npm ci` without changing package manager or lockfile.
 4. Confirm:
-
    - `node -v && npm -v`
    - `test -f node_modules/typescript/bin/tsc`
    - `test -f node_modules/next/dist/bin/next`
    - `test -d node_modules/next/dist/docs`
-
 5. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
 
 **Verification ladder**
@@ -102,12 +100,10 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 
 1. Add `"release/**"` to PR Policy `pull_request_target.branches`.
 2. Extend checker discovery to include workflow YAML plus composite action definitions:
-
    - `.github/workflows/*.yml`
    - `.github/workflows/*.yaml`
    - `.github/actions/**/action.yml`
    - `.github/actions/**/action.yaml`
-
 3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
 
 **Focused proof**

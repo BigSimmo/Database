@@ -1,13 +1,15 @@
 "use client";
 
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+
 import { useTcBindings } from "./bindings";
 
 /** Core Therapy destinations for non-home screens. */
 export function TherapyCompassNav() {
   const b = useTcBindings();
 
-  return (
-    <div className="tc-topnav tc-no-print tc-nav-001">
+  const navShell = (
+    <div className="tc-topnav tc-no-print tc-nav-001" data-testid="therapy-compass-section-nav">
       <nav className="tc-scroll tc-nav-007" aria-label="Therapy sections">
         <button
           type="button"
@@ -159,4 +161,8 @@ export function TherapyCompassNav() {
       </nav>
     </div>
   );
+
+  // Phones: portal into the collapsing top-bar track so the strip hides/reveals
+  // with the universal header. sm+: keep in-flow sticky inside the workspace.
+  return <PhoneHeaderCollapsePortal>{navShell}</PhoneHeaderCollapsePortal>;
 }

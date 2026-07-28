@@ -157,7 +157,7 @@ const modeActionSets = {
       icon: MessageSquarePlus,
       primary: true,
     },
-    { id: "documents-upload", label: "Add document", description: "Upload a source to the library", icon: UploadCloud },
+    { id: "documents-upload", label: "Add document", description: "Upload a source", icon: UploadCloud },
     { id: "documents-scope", label: "Scope", description: "Limit answers to chosen sources", icon: Filter },
     {
       id: "answer-evidence-map",
@@ -165,14 +165,14 @@ const modeActionSets = {
       description: "Trace quotes and source support",
       icon: ListChecks,
     },
-    { id: "documents-search", label: "Search library", description: "Find indexed sources", icon: Search },
+    { id: "documents-search", label: "Search sources", description: "Find indexed sources", icon: Search },
     { id: "tools-browse", label: "Clinical tools", description: "Open clinical tools", icon: Wrench },
   ],
   documents: [
     {
       id: "documents-upload",
       label: "Upload PDF",
-      description: "Add a source to the library",
+      description: "Add an indexed source",
       icon: UploadCloud,
       primary: true,
     },
