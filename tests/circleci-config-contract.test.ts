@@ -36,14 +36,17 @@ describe("CircleCI config contract", () => {
   it("reuses scripts/ci-change-scope.mjs for the docs-only skip (no naive md regex)", () => {
     expect(config).toContain("scripts/ci-change-scope.mjs");
     expect(config).toContain("docs_only=true");
+    // Force the remote-tracking ref; CircleCI branch checkouts often omit origin/main.
+    expect(config).toContain("main:refs/remotes/origin/main");
     // The previous hello-world replacement used a path regex that false-greened
     // policy Markdown (AGENTS.md, pull_request_template, codex-review-protocol).
     expect(config).not.toMatch(/\^\(docs\/\|\.\*\\?\.md\$\)/);
   });
 
-  it("bootstraps pip then installs the same pinned PyMuPDF as GitHub Actions", () => {
-    expect(config).toContain("python3-pip");
+  it("bootstraps a venv + pinned PyMuPDF and exports PYTHON_BIN for tests", () => {
+    expect(config).toContain("python3-venv");
     expect(config).toContain("PyMuPDF==1.28.0");
+    expect(config).toContain("PYTHON_BIN: /tmp/ci-pdf-venv/bin/python");
     const actions = read(".github/workflows/ci.yml");
     const actionsPin = actions.match(/PyMuPDF==[\d.]+/)?.[0];
     const circlePin = config.match(/PyMuPDF==[\d.]+/)?.[0];

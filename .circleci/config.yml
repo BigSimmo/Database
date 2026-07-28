@@ -14,7 +14,13 @@ jobs:
       - run:
           name: Skip verification on docs-only changes
           command: |
-            git fetch --depth 100 origin main
+            # CircleCI checkouts often restrict the origin fetch refspec to the
+            # branch under test, so `git fetch origin main` alone may leave
+            # origin/main missing. Force the remote-tracking ref explicitly.
+            if ! git fetch --depth 100 origin "main:refs/remotes/origin/main"; then
+              echo "Could not fetch origin/main; running full verification."
+              exit 0
+            fi
             BASE_SHA="$(git rev-parse origin/main)"
             HEAD_SHA="$(git rev-parse HEAD)"
             # Reuse scripts/ci-change-scope.mjs so policy-bearing Markdown
@@ -59,13 +65,18 @@ jobs:
       - run:
           name: Install deterministic Python PDF test prerequisite
           # Same PyMuPDF pin as .github/workflows/ci.yml. cimg/base only ships
-          # python-is-python3 (no pip), so bootstrap pip first.
+          # python-is-python3 (no pip), and Ubuntu 24.04 blocks system pip installs
+          # (PEP 668), so bootstrap a venv and point PYTHON_BIN at it for tests.
           command: |
             sudo apt-get update
-            sudo apt-get install -y --no-install-recommends python3-pip
-            python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
+            sudo apt-get install -y --no-install-recommends python3-pip python3-venv
+            python3 -m venv /tmp/ci-pdf-venv
+            /tmp/ci-pdf-venv/bin/pip install --disable-pip-version-check "PyMuPDF==1.28.0"
+            /tmp/ci-pdf-venv/bin/python -c "import fitz; print('PyMuPDF', fitz.version)"
       - run:
           name: Unit tests
+          environment:
+            PYTHON_BIN: /tmp/ci-pdf-venv/bin/python
           command: npm run test
 
 workflows:
