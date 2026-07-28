@@ -957,6 +957,26 @@ describe("deterministic claim support", () => {
     expect(assessAndEnforceClaimSupport(input).responseMode).not.toBe("evidence_gap");
   });
 
+  it("fails closed when a numeric claim falls beyond the 24-claim assessment cap", () => {
+    const routineClaims =
+      "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima mike november oscar papa quebec romeo sierra tango uniform victor whiskey"
+        .split(" ")
+        .map((label) => `Routine ${label} appointments are available.`);
+    const assessedClaims = ["Give Drug A 300 mg.", ...routineClaims];
+    const cited = source("c1", assessedClaims.join(" "));
+    const input = answer([...assessedClaims, "Give Drug B 300 mg."].join("\n"), [cited]);
+
+    const result = assessAndEnforceClaimSupport(input);
+    expect(result.supportedClaims).toHaveLength(24);
+    expect(result).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      responseMode: "evidence_gap",
+      unverifiedNumericTokens: ["300mg"],
+    });
+    expect(result.routingReason).toContain("numeric_faithfulness_gate_source_gap");
+  });
+
   it("ignores incidental outdated or poor retrieval-only sources but fails closed when direct support is dangerous", () => {
     const direct = source("direct", "Stop clozapine below ANC 1.0 x10^9/L.");
     const incidental = source("incidental", "An old unrelated administrative note.", {

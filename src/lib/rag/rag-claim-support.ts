@@ -1,5 +1,6 @@
 import {
   adjacentLabelledNumericBandConflicts,
+  applyNumericVerification,
   containsLabelledNumericBand,
   containsNumericBandReference,
   detectLabelledNumericBandConflicts,
@@ -100,6 +101,8 @@ function cleanText(value: string) {
     .trim();
 }
 
+const maximumAssessedClaimCount = 24;
+
 function splitClaims(value: string) {
   // Preserve model-authored line boundaries until after splitting. Calling
   // cleanText first collapses newlines, which can merge independently cited
@@ -112,16 +115,14 @@ function splitClaims(value: string) {
       /\s*;\s*|(?<=[.!?])(?:[ \t]+|\n+)|\n+|,\s*(?:and|but|then)\s+(?=(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|sedate|start|stop|use|withhold)\b)|\s+(?:and|then)\s+(?=(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|sedate|start|stop|use|withhold)\b)/i,
     )
     .map(cleanText)
-    .filter((claim) => claim.length >= 8)
-    .slice(0, 24);
+    .filter((claim) => claim.length >= 8);
 }
 
 function splitComparisonClaims(value: string) {
   return splitClaims(value)
     .flatMap((claim) => claim.split(/\s*;\s*|\s+(?:whereas|while)\s+/i))
     .map((claim) => claim.trim())
-    .filter((claim) => claim.length >= 8)
-    .slice(0, 24);
+    .filter((claim) => claim.length >= 8);
 }
 
 /**
@@ -960,7 +961,7 @@ function comparisonRows(answer: RagAnswer, claim: string) {
   });
 }
 
-function claimInputs(answer: RagAnswer): ClaimInput[] {
+function claimInputs(answer: RagAnswer): { inputs: ClaimInput[]; unassessedClaims: string[] } {
   const eligibleCitationIds = (answer.citations ?? [])
     .filter((citation) => acceptedProvenance.has(citation.provenance ?? "model_selected"))
     .map((citation) => citation.chunk_id);
@@ -1006,11 +1007,27 @@ function claimInputs(answer: RagAnswer): ClaimInput[] {
           }
         : splitComparisonClaims
       : splitClaims;
-  const topLevel = split(answer.answer).map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
-  const sections = (answer.answerSections ?? []).flatMap((section, sectionIndex) =>
-    split(section.body).map((text) => scopedInput(text, section.citation_chunk_ids, "section_selected", sectionIndex)),
+  const topLevelClaims = split(answer.answer);
+  const topLevel = topLevelClaims
+    .slice(0, maximumAssessedClaimCount)
+    .map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
+  const sectionSplits = (answer.answerSections ?? []).map((section, sectionIndex) => ({
+    claims: split(section.body),
+    chunkIds: section.citation_chunk_ids,
+    sectionIndex,
+  }));
+  const sections = sectionSplits.flatMap(({ claims: sectionClaims, chunkIds, sectionIndex }) =>
+    sectionClaims
+      .slice(0, maximumAssessedClaimCount)
+      .map((text) => scopedInput(text, chunkIds, "section_selected", sectionIndex)),
   );
-  return [...topLevel, ...sections];
+  return {
+    inputs: [...topLevel, ...sections],
+    unassessedClaims: [
+      ...topLevelClaims.slice(maximumAssessedClaimCount),
+      ...sectionSplits.flatMap(({ claims: sectionClaims }) => sectionClaims.slice(maximumAssessedClaimCount)),
+    ],
+  };
 }
 
 function claimAssessment(
@@ -1081,14 +1098,14 @@ function assessClaimSupportDetails(answer: RagAnswer) {
       (answer.answerSections?.length ?? 0) > 0 &&
       (answer.answerSections ?? []).every((section) => section.kind === "documentation"));
   const sourceBackedReviewAnswer = (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON);
-  const inputs = claimInputs(answer);
+  const { inputs, unassessedClaims } = claimInputs(answer);
   const claims = inputs.map((input, index) =>
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
   );
   const evidenceAssessments = Object.fromEntries(
     answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
   );
-  return { claims, evidenceAssessments, inputs };
+  return { claims, evidenceAssessments, inputs, unassessedClaims };
 }
 
 export function assessClaimSupport(answer: RagAnswer) {
@@ -1096,8 +1113,15 @@ export function assessClaimSupport(answer: RagAnswer) {
   return { claims, evidenceAssessments };
 }
 
+function enforceUnassessedNumericClaims(answer: RagAnswer, unassessedClaims: string[]): RagAnswer {
+  const unassessedNumericClaims = unassessedClaims.filter((claim) => extractClinicalValueAtoms(claim).length > 0);
+  return unassessedNumericClaims.length > 0
+    ? applyNumericVerification(answer, undefined, { unassessedClaimTexts: unassessedNumericClaims })
+    : answer;
+}
+
 export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
-  const { claims, evidenceAssessments, inputs } = assessClaimSupportDetails(answer);
+  const { claims, evidenceAssessments, inputs, unassessedClaims } = assessClaimSupportDetails(answer);
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {
     return { ...answer, supportedClaims: claims, evidenceAssessments };
   }
@@ -1163,18 +1187,24 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
     };
     const retained = assessClaimSupportDetails(retainedAnswer);
     const retainedRoutineGap = retained.claims.some((claim) => claim.supportStatus !== "direct");
-    return {
-      ...retainedAnswer,
-      confidence: retainedRoutineGap && retainedAnswer.confidence === "high" ? "medium" : retainedAnswer.confidence,
-      supportedClaims: retained.claims,
-      evidenceAssessments: retained.evidenceAssessments,
-    };
+    return enforceUnassessedNumericClaims(
+      {
+        ...retainedAnswer,
+        confidence: retainedRoutineGap && retainedAnswer.confidence === "high" ? "medium" : retainedAnswer.confidence,
+        supportedClaims: retained.claims,
+        evidenceAssessments: retained.evidenceAssessments,
+      },
+      retained.unassessedClaims,
+    );
   }
   const routineGap = claims.some((claim) => claim.supportStatus !== "direct");
-  return {
-    ...answer,
-    confidence: routineGap && answer.confidence === "high" ? "medium" : answer.confidence,
-    supportedClaims: claims,
-    evidenceAssessments,
-  };
+  return enforceUnassessedNumericClaims(
+    {
+      ...answer,
+      confidence: routineGap && answer.confidence === "high" ? "medium" : answer.confidence,
+      supportedClaims: claims,
+      evidenceAssessments,
+    },
+    unassessedClaims,
+  );
 }
