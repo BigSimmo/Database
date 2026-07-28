@@ -11,8 +11,6 @@ import {
   FileText,
   Loader2,
   Quote,
-  Search,
-  Sparkles,
   Target,
   type LucideIcon,
 } from "lucide-react";
@@ -421,54 +419,6 @@ export function TableReviewPanel({
         })}
       </div>
     </details>
-  );
-}
-
-export function DocumentViewerAnchors({
-  evidenceHref,
-  textHref,
-  className,
-}: {
-  evidenceHref: "#source-evidence" | "#source-evidence-rail";
-  textHref: "#source-text";
-  className?: string;
-}) {
-  const anchors = [
-    { label: "PDF", href: "#pdf-preview-section", icon: FileText },
-    { label: "Evidence", href: evidenceHref, icon: Quote },
-    { label: "Text", href: textHref, icon: Search },
-    { label: "Summary", href: "#source-summary", icon: Sparkles },
-    { label: "Images", href: "#source-images", icon: FileImage },
-  ];
-
-  return (
-    <nav
-      aria-label="Document viewer sections"
-      className={cn("flex gap-2 overflow-x-auto pb-1 polished-scroll", className)}
-    >
-      {anchors.map((anchor) => {
-        const Icon = anchor.icon;
-        return (
-          <a
-            key={anchor.href}
-            href={anchor.href}
-            onClick={() => {
-              const target = window.document.querySelector(anchor.href);
-              window.document
-                .querySelectorAll<HTMLDetailsElement>('details[name="document-viewer-section"]')
-                .forEach((disclosure) => {
-                  if (disclosure !== target) disclosure.open = false;
-                });
-              if (target instanceof HTMLDetailsElement) target.open = true;
-            }}
-            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {anchor.label}
-          </a>
-        );
-      })}
-    </nav>
   );
 }
 

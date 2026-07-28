@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { DifferentialDetailContext } from "@/lib/differential-detail";
 import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/lib/differential-records";
@@ -101,7 +101,12 @@ export function clearDifferentialSearchCacheForTests() {
  *  diagnosis and presentation matches in parallel from /api/differentials.
  *  Empty queries resolve immediately without a request. Debounced + abortable
  *  with an auth-keyed client LRU (parity with useUniversalSearch). */
-export function useDifferentialSearch(query: string): DifferentialSearchState {
+/** State plus a `refetch` for Retry affordances, mirroring `useRegistryRecords`.
+    A failed request is never written to the cache, so re-running the effect is
+    enough to re-request; no eviction is needed. */
+export type DifferentialSearchResult = DifferentialSearchState & { refetch: () => void };
+
+export function useDifferentialSearch(query: string): DifferentialSearchResult {
   const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
   const requestKey = query.trim().toLowerCase();
   const authSignature = JSON.stringify(authorizationHeader ?? {});
@@ -133,6 +138,16 @@ export function useDifferentialSearch(query: string): DifferentialSearchState {
       setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
     }
   }
+
+  // Retry bumps this so the fetch effect re-runs on an unchanged query. Without
+  // it a Retry button is inert: the hook keys on query + auth identity, neither
+  // of which changes when the reader asks to try again.
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const refetch = useCallback(() => {
+    if (!requestKey) return;
+    setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+    setRetryAttempt((attempt) => attempt + 1);
+  }, [requestKey]);
 
   useEffect(() => {
     if (!requestKey || !cacheKey) return undefined;
@@ -197,15 +212,15 @@ export function useDifferentialSearch(query: string): DifferentialSearchState {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [requestKey, cacheKey, authStatus, authorizationHeader, markSessionExpired]);
+  }, [requestKey, cacheKey, authStatus, authorizationHeader, markSessionExpired, retryAttempt]);
 
   if (!requestKey) {
-    return { status: "ready", matches: emptyDifferentialMatches, demoMode: false };
+    return { status: "ready", matches: emptyDifferentialMatches, demoMode: false, refetch };
   }
   if (cached && state.status !== "unauthorized" && state.status !== "error") {
-    return { status: "ready", matches: cached.matches, demoMode: cached.demoMode };
+    return { status: "ready", matches: cached.matches, demoMode: cached.demoMode, refetch };
   }
-  return state;
+  return { ...state, refetch };
 }
 
 export function useDifferentialRecord(slug: string): DifferentialRecordState {

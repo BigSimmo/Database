@@ -657,7 +657,7 @@ test("Services results keep a continuous browser viewport after shared chrome re
   // relaunched Home Screen PWA's notched-phone safe area.
   await gotoPhoneSurface(page, "/services?q=clinic&run=1&focus=1", 112);
   await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
+  await expect(page.locator('[data-testid="global-search-input"]:visible').first()).not.toBeFocused({ timeout: 5_000 });
   await expect(page.getByTestId("services-navigator")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("service-search-results")).toBeVisible({ timeout: 20_000 });
 
@@ -1206,7 +1206,7 @@ test("phone forms search hides header and footer after submit without stale focu
   await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
 
   // Stale focus=1 on a submitted result view must not win — the shell blurs.
-  const input = page.getByTestId("global-search-input");
+  const input = page.locator('[data-testid="global-search-input"]:visible').first();
   await expect(input).not.toBeFocused({ timeout: 5_000 });
 
   const initial = await readGeometry(page);
