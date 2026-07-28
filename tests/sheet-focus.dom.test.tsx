@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/sheet-focus";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   if (typeof document !== "undefined" && document.body) {
     document.body.style.overflow = "";
   }
@@ -258,7 +259,7 @@ describe("Sheet open focus", () => {
 
 describe("Sheet Tab cycle", () => {
   it("skips visible controls explicitly removed from the tab order", async () => {
-    const rects = vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue({
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue({
       length: 1,
       item: () => null,
       [Symbol.iterator]: function* () {
@@ -291,6 +292,5 @@ describe("Sheet Tab cycle", () => {
 
     expect(document.activeElement).toBe(last);
     expect(document.activeElement).not.toBe(excluded);
-    rects.mockRestore();
   });
 });
