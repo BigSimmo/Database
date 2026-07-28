@@ -16,6 +16,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
+  // The Therapy navigation directions draw their own universal top bar and their
+  // own composer inside every device frame, so the shared chrome would read as a
+  // second, real header stacked above the study it is meant to illustrate.
+  const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -28,9 +32,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
           ? "tools"
           : isFavouritesPageMockup
             ? "favourites"
-            : isDocumentSearchMockup || isDocumentTopNavigationMockup
-              ? "documents"
-              : "answer"
+            : isTherapyNavigationMockup
+              ? "therapy-compass"
+              : isDocumentSearchMockup || isDocumentTopNavigationMockup
+                ? "documents"
+                : "answer"
       }
       searchComposerVisible={
         !isToolsPageMockup &&
@@ -39,9 +45,15 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDocumentTopNavigationMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
-        !isPhoneInPageNavigationMockup
+        !isPhoneInPageNavigationMockup &&
+        !isTherapyNavigationMockup
       }
-      chromeVisible={!isSourceOverlayRedesignMockup && !isSearchHeadingMockup && !isPhoneInPageNavigationMockup}
+      chromeVisible={
+        !isSourceOverlayRedesignMockup &&
+        !isSearchHeadingMockup &&
+        !isPhoneInPageNavigationMockup &&
+        !isTherapyNavigationMockup
+      }
     >
       {children}
     </GlobalMockupSearchShell>
