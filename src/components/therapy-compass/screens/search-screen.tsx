@@ -28,7 +28,9 @@ export function SearchScreen() {
         modeId="therapy-compass"
         query={q}
         matchCount={results.length}
-        loading={b.loading}
+        status={b.error ? "error" : b.loading ? "loading" : "ready"}
+        faultBody={b.error ?? undefined}
+        onRetry={b.retryData}
         headingLevel={1}
         filterLabel="Filter therapy results"
         mobileControls={
@@ -120,7 +122,10 @@ export function SearchScreen() {
         }
       />
 
-      {b.loading ? (
+      {/* The band's fault panel owns the failure. Without this guard an error
+          also renders the empty state, so the page says both "we couldn't
+          search" and "nothing matched" at once. */}
+      {b.error ? null : b.loading ? (
         <LoadingState />
       ) : (
         <>
