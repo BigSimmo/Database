@@ -5,9 +5,9 @@ description: Pick the smallest correct verification gate for a change in this re
 
 # gates — prove it ran, then report it
 
-A green exit code is not proof. In this repo several gates exit `0` without doing any work, and a
-stale worktree makes healthy-looking runs meaningless. This skill exists because those failures have
-cost real time more than once.
+A green exit code is not proof. Contended gates can wait a long time before failing, early stops
+leave later checks unrun, and a stale worktree makes healthy-looking runs meaningless. This skill
+exists because those failures have cost real time more than once.
 
 **Rule: never report a gate as passing without quoting the line that proves it ran.**
 
@@ -15,9 +15,11 @@ cost real time more than once.
 
 Check these before believing any result.
 
-- **`verify:ui` exits 0 without running a single Playwright test** when another worktree holds the
-  heavy lock. The output says nothing failed because nothing ran. Grep the output for the
-  `N passed` line. Exit `0` alone is never proof for this gate.
+- **`verify:ui` under heavy-lock contention waits, then fails — it does not soft-skip green.** When
+  another worktree holds the exclusive lease, `acquireHeavyRunLock` queues Playwright admission for
+  up to 15 minutes and throws on timeout; `run-playwright.mjs` catches that error and exits `1`. Do
+  not treat a long wait or a red contention timeout as a false-green soft-skip. When the gate does
+  run, grep the output for the `N passed` line — exit `0` alone is never proof.
 - **A stale worktree makes every downstream gate a lie.** `check:installed-lock-parity` fails closed
   for exactly this reason — if installed packages do not match `package-lock.json`, treat any test,
   lint, or typecheck result as void until `npm ci` has run. Its own failure message says as much.
@@ -26,8 +28,8 @@ Check these before believing any result.
 - **`format:check` is required in CI but is not part of `verify:cheap`.** A locally green
   `verify:cheap` can still fail CI on formatting. Run `npx prettier --write <changed files>` before
   pushing — scoped to your files, never `prettier --write .`, which sweeps the whole tree.
-- **Piping a gate into `tail` or `head` masks its exit code.** Capture `${PIPESTATUS[0]}`, or check
-  the exit status before piping.
+- **Piping a gate into `tail` or `head` masks its exit code.** In Bash, capture `${PIPESTATUS[0]}`,
+  or check the exit status before piping.
 
 ## Pick the smallest gate that can fail
 

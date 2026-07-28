@@ -252,9 +252,10 @@ system, developer, user, security, or compliance requirements, which remain high
 
 Output-style plugins such as caveman mode may compress prose. They must never compress proof.
 
-- **Always paste the decisive line.** Report gates with real output, not a summary. `npm run
-verify:ui` exits 0 without running a single Playwright test when another worktree holds the heavy
-  lock, so grep for the "N passed" line; exit 0 alone is not proof.
+- **Always paste the decisive line.** Report gates with real output, not a summary. Under heavy-lock
+  contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and exits `1` on
+  timeout (`run-playwright.mjs`) — it does not soft-skip green. When the gate does run, grep for the
+  "N passed" line; exit 0 alone is not proof.
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
