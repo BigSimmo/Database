@@ -29,9 +29,7 @@ afterEach(() => {
 
 describe("installedLockParity", () => {
   it("covers the local validation toolchain as well as runtime packages", () => {
-    expect(criticalInstalledPackages).toEqual(
-      expect.arrayContaining(["eslint", "playwright", "typescript", "vitest"]),
-    );
+    expect(criticalInstalledPackages).toEqual(expect.arrayContaining(["eslint", "playwright", "typescript", "vitest"]));
   });
 
   it("accepts an installed package that exactly matches the lockfile", () => {
