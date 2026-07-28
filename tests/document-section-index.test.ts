@@ -29,10 +29,10 @@ describe("buildDocumentSectionIndex", () => {
   it("lists the full document in reading order", () => {
     expect(buildDocumentSectionIndex(input()).map((section) => section.id)).toEqual([
       documentOverviewSectionId,
-      "source-summary",
       "pdf-preview-section",
       "source-evidence",
       "source-text",
+      "source-summary",
       "source-images",
       documentIndexingSectionId,
     ]);
@@ -92,6 +92,9 @@ describe("buildDocumentSectionIndex", () => {
       .filter((section) => section.collapsible)
       .map((section) => section.id);
 
-    expect(collapsible).toEqual(["source-summary", "source-text", "source-images", documentIndexingSectionId]);
+    expect(collapsible).toEqual(["source-summary", "source-images", documentIndexingSectionId]);
+    expect(buildDocumentSectionIndex(input()).find((section) => section.id === "source-text")?.collapsible).toBe(
+      false,
+    );
   });
 });

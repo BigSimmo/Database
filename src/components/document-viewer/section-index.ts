@@ -76,6 +76,10 @@ function rawWeight(id: string, input: DocumentSectionIndexInput): number {
 export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): DocumentSection[] {
   if (!input.hasDocument) return [];
 
+  // Match DocumentViewer DOM / scroll order: main column (overview → PDF →
+  // evidence → text) then the aside rail (summary → visuals → indexing). Putting
+  // summary earlier makes the phone/tablet position track jump backward when the
+  // reader reaches the PDF after Overview.
   const present: Array<Omit<DocumentSection, "weight">> = [
     {
       id: documentOverviewSectionId,
@@ -83,6 +87,30 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
       icon: Compass,
       detail: input.pageCount > 0 ? plural(input.pageCount, "page") : "Document",
       collapsible: false,
+    },
+    {
+      id: "pdf-preview-section",
+      label: "PDF preview",
+      icon: FileText,
+      detail: input.pageCount > 0 ? plural(input.pageCount, "page") : "Preview",
+      collapsible: false,
+    },
+    {
+      id: "source-evidence",
+      label: "Pinned evidence",
+      icon: Quote,
+      detail: input.pinnedPage ? `Page ${input.pinnedPage}` : "No passage pinned",
+      collapsible: false,
+    },
+    {
+      id: "source-text",
+      label: "Indexed source text",
+      icon: FileSearch,
+      detail: input.loading ? "Indexing" : plural(input.chunkCount, "chunk"),
+      // IndexedTextPanel is a <section>, not a details disclosure — a chevron
+      // would advertise an open action that never happens.
+      collapsible: false,
+      pending: input.loading,
     },
   ];
 
@@ -95,31 +123,6 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
       collapsible: true,
     });
   }
-
-  present.push({
-    id: "pdf-preview-section",
-    label: "PDF preview",
-    icon: FileText,
-    detail: input.pageCount > 0 ? plural(input.pageCount, "page") : "Preview",
-    collapsible: false,
-  });
-
-  present.push({
-    id: "source-evidence",
-    label: "Pinned evidence",
-    icon: Quote,
-    detail: input.pinnedPage ? `Page ${input.pinnedPage}` : "No passage pinned",
-    collapsible: false,
-  });
-
-  present.push({
-    id: "source-text",
-    label: "Indexed source text",
-    icon: FileSearch,
-    detail: input.loading ? "Indexing" : plural(input.chunkCount, "chunk"),
-    collapsible: true,
-    pending: input.loading,
-  });
 
   // Omitted entirely when the document has no indexed visuals: there is nothing
   // to navigate to, and a disabled row would claim otherwise.
