@@ -95,7 +95,7 @@ function UniversalHeader() {
  * The document header exactly as it ships: back, title, scope, actions — 48 px.
  * The single change is that the title is now a disclosure for the sections sheet.
  */
-function DocumentHeader({ expanded, sheetId }: { expanded: boolean; sheetId: string }) {
+function DocumentHeader({ expanded, sheetId }: { expanded: boolean; sheetId?: string }) {
   return (
     <div className="flex h-12 shrink-0 items-center gap-1 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-1.5">
       <span className="grid h-11 w-10 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)]">
@@ -299,7 +299,8 @@ function Canvas({ offset = false }: { offset?: boolean }) {
 }
 
 function PhoneFrame({ state }: { state: FrameState }) {
-  const sheetId = useId();
+  const sectionsSheetId = useId();
+  const actionsSheetId = useId();
   const { label, note } = frameCopy[state];
   const chromeHidden = state === "scrolled";
 
@@ -315,12 +316,17 @@ function PhoneFrame({ state }: { state: FrameState }) {
         {chromeHidden ? null : (
           <>
             <UniversalHeader />
-            <DocumentHeader expanded={state === "sheet"} sheetId={sheetId} />
+            <DocumentHeader
+              expanded={state === "sheet"}
+              // Title disclosure owns only the sections sheet; the actions sheet
+              // is a separate surface and must not share this controlled id.
+              sheetId={state === "sheet" ? sectionsSheetId : undefined}
+            />
           </>
         )}
         <Canvas offset={chromeHidden} />
-        {state === "sheet" ? <SectionsSheet id={sheetId} /> : null}
-        {state === "actions" ? <ActionsSheet id={sheetId} /> : null}
+        {state === "sheet" ? <SectionsSheet id={sectionsSheetId} /> : null}
+        {state === "actions" ? <ActionsSheet id={actionsSheetId} /> : null}
       </div>
       <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]">{note}</p>
     </figure>
