@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces
@@ -12,12 +13,20 @@ import { useEffect, useRef, useState } from "react";
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+    };
+  }, []);
 
   const handleCopyDiagnostics = () => {
     const diagnosticPayload = {
@@ -28,10 +37,17 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
       timestamp: new Date().toISOString(),
     };
-    navigator.clipboard.writeText(JSON.stringify(diagnosticPayload, null, 2)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    void copyTextToClipboard(JSON.stringify(diagnosticPayload, null, 2))
+      .then(() => {
+        setCopyFailed(false);
+        setCopied(true);
+        if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+        copiedResetTimerRef.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        setCopied(false);
+        setCopyFailed(true);
+      });
   };
 
   return (
@@ -151,7 +167,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 gap: "0.5rem",
               }}
             >
-              {copied ? "Copied Diagnostics" : "Copy Diagnostics"}
+              {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
             </button>
           </div>
         </div>

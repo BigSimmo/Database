@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 export type RouteErrorBoundaryProps = {
   /** The error thrown by the segment, forwarded by Next.js. */
@@ -39,12 +40,20 @@ export function RouteErrorBoundary({
   minHeightClass = "min-h-[50vh]",
 }: RouteErrorBoundaryProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   useEffect(() => {
     console.error(logLabel, error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+    };
+  }, []);
 
   const handleCopyDiagnostics = () => {
     const diagnosticPayload = {
@@ -55,10 +64,17 @@ export function RouteErrorBoundary({
       userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
       timestamp: new Date().toISOString(),
     };
-    navigator.clipboard.writeText(JSON.stringify(diagnosticPayload, null, 2)).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    void copyTextToClipboard(JSON.stringify(diagnosticPayload, null, 2))
+      .then(() => {
+        setCopyFailed(false);
+        setCopied(true);
+        if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+        copiedResetTimerRef.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        setCopied(false);
+        setCopyFailed(true);
+      });
   };
 
   return (
@@ -121,7 +137,7 @@ export function RouteErrorBoundary({
             ) : (
               <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
             )}
-            {copied ? "Copied Diagnostics" : "Copy Diagnostics"}
+            {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
           </button>
         </div>
       </div>

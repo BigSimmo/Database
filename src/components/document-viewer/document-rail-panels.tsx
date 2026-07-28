@@ -241,7 +241,7 @@ export function DocumentViewerRail({
             <LoadingPanel label="Loading extracted tables" />
           ) : clinicalImages.length === 0 ? (
             <EmptyState
-              title="No tables or diagrams"
+              title="No clinically useful tables or diagrams"
               body="No indexed clinically useful tables or diagrams."
               tone="neutral"
             />

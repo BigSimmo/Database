@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui-primitives";
 import { FileQuestion } from "lucide-react";
+import { appModeHomeHref } from "@/lib/app-modes";
 
 export default function NotFound() {
   return (
@@ -12,7 +13,7 @@ export default function NotFound() {
         title="Differential Not Found"
         body="The requested differential diagnosis could not be found or has been deleted."
         actions={
-          <Link href="/differentials" className="text-sm font-medium text-blue-600 hover:underline">
+          <Link href={appModeHomeHref("differentials")} className="text-sm font-medium text-blue-600 hover:underline">
             Return to differentials
           </Link>
         }

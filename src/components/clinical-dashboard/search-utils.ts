@@ -328,12 +328,13 @@ export function generateQuerySuggestions(query: string): string[] {
     suggestions.push("Use fewer words");
   }
 
-  if (trimmed.includes('"') || trimmed.includes("'")) {
+  const hasQuotedPhrase = /"[^"]+"|(?:^|\s)'[^']+'(?=\s|$)/.test(trimmed);
+  if (hasQuotedPhrase) {
     suggestions.push("Remove quotes for a broader search");
   }
 
-  const upperQuery = trimmed.toUpperCase();
-  if (upperQuery.includes(" AND ") || upperQuery.includes(" OR ") || upperQuery.includes(" NOT ")) {
+  const booleanQuery = trimmed.replace(/"[^"]*"|(?:^|\s)'[^']+'(?=\s|$)/g, " ");
+  if (/(^|[\s(])(AND|OR|NOT)(?=$|[\s),.;:!?])/i.test(booleanQuery)) {
     suggestions.push("Check boolean operators (AND, OR, NOT)");
   } else {
     suggestions.push("Try more general medical terms");

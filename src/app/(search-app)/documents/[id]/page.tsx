@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import { DocumentViewerLazy as DocumentViewer } from "@/components/document-viewer-lazy";
 import {
   documentDetailQuerySchema,
@@ -6,6 +7,7 @@ import {
   sanitizeDocumentDetailError,
 } from "@/lib/document-detail";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
+import { PublicApiError } from "@/lib/http";
 
 export default async function DocumentPage({
   params,
@@ -32,6 +34,9 @@ export default async function DocumentPage({
     });
     initialDetail = await loadAuthorizedDocumentDetail({ request, rawId: id, query: detailQuery });
   } catch (error) {
+    if (error instanceof PublicApiError && error.status === 404) {
+      notFound();
+    }
     initialError = sanitizeDocumentDetailError(error);
   }
 

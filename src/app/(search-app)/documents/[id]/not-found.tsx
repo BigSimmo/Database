@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/ui-primitives";
 import { FileQuestion } from "lucide-react";
+import { appModeHomeHref } from "@/lib/app-modes";
 
 export default function NotFound() {
   return (
@@ -12,7 +13,7 @@ export default function NotFound() {
         title="Document Not Found"
         body="The requested document could not be found or has been deleted."
         actions={
-          <Link href="/documents" className="text-sm font-medium text-blue-600 hover:underline">
+          <Link href={appModeHomeHref("documents")} className="text-sm font-medium text-blue-600 hover:underline">
             Return to document library
           </Link>
         }
