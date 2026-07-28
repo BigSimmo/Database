@@ -55,6 +55,7 @@
     "verify:ui": "npm run check:runtime && npm run check:installed-lock-parity && npm run test:e2e:pr",
     "verify:release": "npm run check:runtime && npm run check:installed-lock-parity && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e && npm run check:production-readiness && npm run governance:release && npm run eval:quality:release",
     "verify:release:offline": "node scripts/verify-release-offline.mjs",
+    "drift:simulate": "node scripts/run-tsx.mjs scripts/drift-simulator.ts",
     "ci:env-check": "node scripts/check-ci-env.mjs",
     "check:github-actions": "node scripts/check-github-action-pins.mjs",
     "check:client-bundle-secrets": "node scripts/check-client-bundle-secrets.mjs",
