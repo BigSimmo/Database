@@ -366,11 +366,7 @@ export function DocumentClinicalSummary({
 
   return (
     <>
-      <article
-        id="document-overview"
-        data-testid="document-clinical-summary"
-        className={cn(panel, "scroll-mt-24 overflow-hidden lg:col-span-3")}
-      >
+      <article data-testid="document-clinical-summary" className={cn(panel, "overflow-hidden lg:col-span-3")}>
         <div className="bg-[linear-gradient(105deg,color-mix(in_srgb,var(--clinical-accent-soft)_82%,var(--surface-raised)),var(--surface-raised)_32%)] px-4 pb-3 pt-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">

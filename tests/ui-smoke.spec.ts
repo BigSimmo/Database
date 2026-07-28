@@ -3535,7 +3535,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const preview = page.getByTestId("pdf-preview");
     const toolbar = page.getByTestId("pdf-toolbar");
     const pdfScroller = page.getByTestId("pdf-canvas-scroll");
-    const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
+    // Phone owns section navigation via the title disclosure + sheet, not the
+    // retired in-flow "Document viewer sections" link row.
+    const sectionTrigger = page.getByTestId("document-section-trigger");
+    const openSection = async (label: RegExp) => {
+      await sectionTrigger.click();
+      const sheet = page.getByTestId("document-section-sheet");
+      await expect(sheet).toBeVisible();
+      const row = sheet.getByRole("button", { name: label });
+      await waitForReactEventHandler(row, "onClick");
+      await activateFocusedControl(page, row);
+      await expect(sheet).toHaveCount(0);
+    };
 
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
@@ -3543,9 +3554,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
+    await expect(sectionTrigger).toBeVisible();
+    await sectionTrigger.click();
+    const sectionSheet = page.getByTestId("document-section-sheet");
+    await expect(sectionSheet.getByRole("button", { name: /Pinned evidence/ })).toBeVisible();
+    await expect(sectionSheet.getByRole("button", { name: /PDF preview/ })).toBeVisible();
+    await expect(sectionSheet.getByRole("button", { name: /Indexed source text/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(sectionSheet).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     await expect(preview).toBeVisible();
     const switchToCanvasMode = page.getByRole("button", { name: "Switch to canvas zoom mode" });
@@ -3588,11 +3604,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(passageToggle).toHaveText("Show passage preview");
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
+    await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Text" }));
+    await openSection(/Indexed source text/);
     await expect(indexedTextHeading).toBeInViewport();
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
+    await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
 
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
@@ -3706,11 +3722,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const summary = page.getByTestId("high-yield-summary");
     const images = page.locator("#source-images");
     const indexingDetails = page.getByTestId("indexing-details");
-    const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
-    const clickViewerNav = async (name: "Images" | "Summary" | "Text") => {
-      const link = viewerNav.getByRole("link", { name });
-      await waitForReactEventHandler(link, "onClick");
-      await activateFocusedControl(page, link);
+    const sectionTrigger = page.getByTestId("document-section-trigger");
+    const clickSectionNav = async (label: RegExp) => {
+      await sectionTrigger.click();
+      const sheet = page.getByTestId("document-section-sheet");
+      await expect(sheet).toBeVisible();
+      const row = sheet.getByRole("button", { name: label });
+      await waitForReactEventHandler(row, "onClick");
+      await activateFocusedControl(page, row);
+      await expect(sheet).toHaveCount(0);
+    };
+    // Demo docs with no extracted visuals omit Images from the section sheet;
+    // open that disclosure from its own summary so exclusivity still covers
+    // the always-present #source-images details.
+    const openImagesDisclosure = async () => {
+      await images.locator("summary").click();
+      await expect(images).toHaveJSProperty("open", true);
     };
 
     await expect(indexedText).toBeVisible();
@@ -3720,8 +3747,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const summaryContent = summary.getByTestId("formatted-high-yield-summary");
     await expect(summaryContent).toBeHidden();
-    await clickViewerNav("Images");
-    await expect(images).toHaveJSProperty("open", true);
+    await openImagesDisclosure();
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
     await page.emulateMedia({ media: "print" });
     await expect(summaryContent).toBeVisible();
@@ -3730,15 +3756,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(summaryContent).toBeHidden();
     await expect(images).toHaveJSProperty("open", true);
 
-    await clickViewerNav("Text");
+    await clickSectionNav(/Indexed source text/);
     await expect(indexedText).toBeInViewport();
     await expect(images).toHaveJSProperty("open", false);
 
-    await clickViewerNav("Summary");
+    await clickSectionNav(/High-yield summary/);
     await expect(summary).toHaveJSProperty("open", true);
     await expect(indexedText).toBeVisible();
 
-    await clickViewerNav("Images");
+    await openImagesDisclosure();
     await expect(images).toHaveJSProperty("open", true);
     await expect(summary).toHaveJSProperty("open", false);
 
