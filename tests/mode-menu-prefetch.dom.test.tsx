@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -64,18 +64,8 @@ function headerProps() {
   };
 }
 
-function expectedModeHomeHrefs() {
-  return [
-    ...new Set(
-      visibleAppModeDefinitionsForSession({ authenticated: false, demoMode: false }).map((mode) =>
-        appModeHomeHref(mode.id),
-      ),
-    ),
-  ];
-}
-
-function prefetchedHrefs() {
-  return router.prefetch.mock.calls.map(([href]) => href as string);
+function guestModeHomes() {
+  return visibleAppModeDefinitionsForSession({ authenticated: false, demoMode: false });
 }
 
 describe("mode menu home prefetch", () => {
@@ -85,33 +75,41 @@ describe("mode menu home prefetch", () => {
     router.prefetch.mockReset();
   });
 
-  it("prefetches distinct mode homes when toggleModeMenu opens the menu", async () => {
+  it("prefetches a mode home when the user points at that option", async () => {
     const user = userEvent.setup();
-    const expected = expectedModeHomeHrefs();
-    expect(expected.length).toBeGreaterThan(1);
+    const documents = guestModeHomes().find((mode) => mode.id === "documents");
+    expect(documents).toBeTruthy();
+    const documentsHref = appModeHomeHref("documents");
 
     render(<MasterSearchHeader {...headerProps()} />);
-
     await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
-    await screen.findByRole("menu", { name: "Choose app mode" });
+    const menu = await screen.findByRole("menu", { name: "Choose app mode" });
 
-    expect(prefetchedHrefs().sort()).toEqual([...expected].sort());
-    expect(new Set(prefetchedHrefs()).size).toBe(expected.length);
+    // Opening on the current mode is a no-op; scanning another option warms it.
+    expect(router.prefetch).not.toHaveBeenCalledWith(documentsHref);
+    await user.hover(within(menu).getByRole("menuitemradio", { name: /Documents/i }));
+    expect(router.prefetch).toHaveBeenCalledWith(documentsHref);
+    const prefetched = new Set(router.prefetch.mock.calls.map(([href]) => href as string));
+    expect(prefetched.has(documentsHref)).toBe(true);
+    expect(prefetched.size).toBeLessThan(guestModeHomes().length);
   });
 
-  it("prefetches distinct mode homes when openModeMenuWithFocus opens via ArrowDown", async () => {
+  it("prefetches the highlighted mode when openModeMenuWithFocus targets another home", async () => {
     const user = userEvent.setup();
-    const expected = expectedModeHomeHrefs();
-    expect(expected.length).toBeGreaterThan(1);
+    const modes = guestModeHomes();
+    const answerIndex = modes.findIndex((mode) => mode.id === "answer");
+    expect(answerIndex).toBeGreaterThanOrEqual(0);
+    const previous = modes[(answerIndex - 1 + modes.length) % modes.length];
+    expect(previous.id).not.toBe("answer");
+    const previousHref = appModeHomeHref(previous.id);
 
     render(<MasterSearchHeader {...headerProps()} />);
-
     const trigger = screen.getByRole("button", { name: /Mode Answer/i });
     trigger.focus();
-    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{ArrowUp}");
     await screen.findByRole("menu", { name: "Choose app mode" });
 
-    expect(prefetchedHrefs().sort()).toEqual([...expected].sort());
-    expect(new Set(prefetchedHrefs()).size).toBe(expected.length);
+    expect(router.prefetch).toHaveBeenCalledWith(previousHref);
+    expect(new Set(router.prefetch.mock.calls.map(([href]) => href)).size).toBe(1);
   });
 });

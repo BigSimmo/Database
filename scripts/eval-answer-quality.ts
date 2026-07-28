@@ -6,7 +6,7 @@
 // or add spend to any existing run. All metrics are reported informationally; the script exits 0
 // unless --fail-on-threshold is passed with an explicit floor, so it can be calibrated safely.
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import {
@@ -19,7 +19,7 @@ import {
   type AnswerQualityMetric,
 } from "@/lib/rag/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
-import { loadAdminClient, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
+import { estimateCostUsd, loadAdminClient, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
 
@@ -28,7 +28,9 @@ type Args = {
   ownerId?: string;
   limit?: number;
   intent?: string;
+  caseIds: string[];
   json: boolean;
+  failOnThreshold: boolean;
   targetingFloor?: number;
   dumpAnswers?: string;
 };
@@ -37,24 +39,226 @@ export function parseArgs(argv: string[]): Args {
   const args: Args = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
+    caseIds: [],
     json: false,
+    failOnThreshold: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (!token.startsWith("--")) continue;
     if (token === "--json") {
       args.json = true;
       continue;
     }
+    if (token === "--fail-on-threshold") {
+      args.failOnThreshold = true;
+      continue;
+    }
     const value = argv[index + 1];
+    if (!token.startsWith("--")) throw new Error(`Unexpected argument: ${token}`);
+    if (!value || value.startsWith("--")) throw new Error(`Missing value for ${token}`);
+    index += 1;
     if (token === "--owner-id") args.ownerId = value;
-    if (token === "--owner-email") args.ownerEmail = value;
-    if (token === "--intent") args.intent = value;
-    if (token === "--limit") args.limit = Number.parseInt(value, 10);
-    if (token === "--targeting-floor") args.targetingFloor = Number.parseFloat(value);
-    if (token === "--dump-answers") args.dumpAnswers = value;
+    else if (token === "--owner-email") args.ownerEmail = value;
+    else if (token === "--intent") args.intent = value;
+    else if (token === "--case-id") {
+      if (!value.trim()) throw new Error("--case-id must be a non-empty exact case ID.");
+      args.caseIds.push(value.trim());
+    } else if (token === "--limit") args.limit = Number(value);
+    else if (token === "--targeting-floor") args.targetingFloor = Number(value);
+    else if (token === "--dump-answers") args.dumpAnswers = value;
+    else throw new Error(`Unknown option: ${token}`);
   }
+  if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
+    throw new Error("--limit must be a positive integer.");
+  }
+  if (args.targetingFloor !== undefined && !Number.isFinite(args.targetingFloor)) {
+    throw new Error("--targeting-floor must be a number.");
+  }
+  if (args.failOnThreshold && args.targetingFloor === undefined) {
+    throw new Error("--fail-on-threshold requires --targeting-floor.");
+  }
+  if (args.dumpAnswers) resolveLocalDiagnosticOutputPath(args.dumpAnswers);
   return args;
+}
+
+export function answerTargetingThresholdFailure(args: {
+  failOnThreshold: boolean;
+  targetingFloor?: number;
+  targetingRate: number | null;
+}) {
+  if (
+    !args.failOnThreshold ||
+    args.targetingFloor === undefined ||
+    args.targetingRate === null ||
+    args.targetingRate >= args.targetingFloor
+  ) {
+    return null;
+  }
+  return `targeting_rate ${args.targetingRate} < floor ${args.targetingFloor}`;
+}
+
+export function selectAnswerQualityCases(args: { caseIds?: string[]; intent?: string; limit?: number }) {
+  const suppliedIds = args.caseIds ?? [];
+  if (suppliedIds.some((id) => !id.trim())) throw new Error("--case-id must be a non-empty exact case ID.");
+  const requestedIds = [...new Set(suppliedIds.map((id) => id.trim()))];
+  const byId = new Map(answerQualityEvalCases.map((testCase) => [testCase.id, testCase] as const));
+  const unknownIds = requestedIds.filter((id) => !byId.has(id));
+  if (unknownIds.length) throw new Error(`Unknown answer-quality case ID: ${unknownIds.join(", ")}`);
+
+  let cases = requestedIds.length
+    ? requestedIds.map((id) => byId.get(id)!)
+    : ([...answerQualityEvalCases] as AnswerQualityEvalCase[]);
+  if (args.intent) cases = cases.filter((testCase) => testCase.expectedIntent === args.intent);
+  return cases.slice(0, args.limit ?? cases.length);
+}
+
+const MAX_DIAGNOSTIC_SOURCES = 10;
+const MAX_SOURCE_PREVIEW_CHARS = 800;
+const MAX_IMAGE_PREVIEW_CHARS = 800;
+const MAX_DIAGNOSTIC_QUESTION_CHARS = 1_000;
+const MAX_DIAGNOSTIC_ANSWER_CHARS = 12_000;
+const MAX_DIAGNOSTIC_SECTION_CHARS = 4_000;
+const diagnosticUrlPattern =
+  /\b(?:https?|file|ftp|mailto|data|javascript|s3|gs|supabase|postgres(?:ql)?|ssh):(?:\/\/)?[^\s<>()]+|\bwww\.[^\s<>()]+/gi;
+const diagnosticBareDomainPattern =
+  /\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|org|net|edu|gov|health|nhs|au|uk|io|app|dev|test)(?:\/[^\s<>()]*)?/gi;
+const diagnosticEmailPattern = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const diagnosticUuidPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const diagnosticFormattingControlPattern =
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]+/g;
+
+export function displaySafeDiagnosticText(value: unknown, maxCharacters: number) {
+  if (!Number.isInteger(maxCharacters) || maxCharacters <= 0) throw new Error("Diagnostic text cap must be positive.");
+  const normalized = String(value ?? "")
+    .replace(diagnosticUrlPattern, "[URL]")
+    .replace(diagnosticEmailPattern, "[EMAIL]")
+    .replace(diagnosticBareDomainPattern, "[URL]")
+    .replace(diagnosticUuidPattern, "[ID]")
+    .replace(diagnosticFormattingControlPattern, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (normalized.length <= maxCharacters) return normalized;
+  if (maxCharacters <= 3) return normalized.slice(0, maxCharacters);
+  return `${normalized.slice(0, maxCharacters - 3)}...`;
+}
+
+export function resolveLocalDiagnosticOutputPath(requestedPath: string, cwd = process.cwd()) {
+  const candidate = requestedPath.trim();
+  if (!candidate) throw new Error("Diagnostic output path must not be empty.");
+  const resolvedPath = resolve(cwd, candidate);
+  const allowedRoots = [resolve(cwd, ".local"), resolve(cwd, "output")];
+  const allowed = allowedRoots.some((root) => {
+    const fromRoot = relative(root, resolvedPath);
+    return Boolean(fromRoot) && !fromRoot.startsWith("..") && !isAbsolute(fromRoot);
+  });
+  if (!allowed) {
+    throw new Error("Diagnostic output must be a repo-local file under .local/ or output/.");
+  }
+  return resolvedPath;
+}
+
+export function buildBoundedRagSourceDiagnostics(sources: RagAnswer["sources"]) {
+  return sources.slice(0, MAX_DIAGNOSTIC_SOURCES).map((source, index) => {
+    const tableFacts = source.table_facts ?? [];
+    const images = source.images ?? [];
+    const tableImages = images.filter(
+      (image) =>
+        image.source_kind === "table_crop" ||
+        image.sourceKind === "table_crop" ||
+        image.image_type === "clinical_table" ||
+        Boolean(image.accessibleTableMarkdown?.trim()) ||
+        Boolean(image.tableTextSnippet?.trim()),
+    );
+    const imageTablePreview = tableImages
+      .flatMap((image) => [image.tableTitle, image.accessibleTableMarkdown, image.tableTextSnippet, image.caption])
+      .filter((value): value is string => Boolean(value?.trim()))
+      .join(" ");
+    const indexUnitType = source.index_unit?.unit_type ?? source.match_explanation?.indexUnitType ?? null;
+    return {
+      rank: index + 1,
+      title: displaySafeDiagnosticText(source.title, 240),
+      filename: displaySafeDiagnosticText(source.file_name, 240),
+      page: source.page_number,
+      section_heading: source.section_heading ? displaySafeDiagnosticText(source.section_heading, 240) : null,
+      index_unit: indexUnitType
+        ? {
+            type: displaySafeDiagnosticText(indexUnitType, 80),
+            heading_depth: source.index_unit?.heading_path?.length ?? 0,
+            page_span:
+              source.index_unit?.page_start !== null && source.index_unit?.page_start !== undefined
+                ? {
+                    start: source.index_unit.page_start,
+                    end: source.index_unit.page_end ?? source.index_unit.page_start,
+                  }
+                : null,
+          }
+        : null,
+      table_shape: {
+        fact_count: tableFacts.length,
+        labelled_row_count: tableFacts.filter((fact) => Boolean(fact.row_label?.trim())).length,
+        parameter_count: tableFacts.filter((fact) => Boolean(fact.clinical_parameter?.trim())).length,
+        threshold_count: tableFacts.filter((fact) => Boolean(fact.threshold_value?.trim())).length,
+        action_count: tableFacts.filter((fact) => Boolean(fact.action?.trim())).length,
+      },
+      image_shape: {
+        image_count: images.length,
+        table_image_count: tableImages.length,
+        accessible_table_count: tableImages.filter((image) => Boolean(image.accessibleTableMarkdown?.trim())).length,
+      },
+      image_table_preview: imageTablePreview
+        ? displaySafeDiagnosticText(imageTablePreview, MAX_IMAGE_PREVIEW_CHARS)
+        : null,
+      content_preview: displaySafeDiagnosticText(source.content, MAX_SOURCE_PREVIEW_CHARS),
+    };
+  });
+}
+
+export function buildRagDiagnosticDumpRecord(id: string, question: string, answer: RagAnswer) {
+  const openAIUsage = {
+    input_tokens: answer.openAIUsage?.input_tokens ?? 0,
+    cached_input_tokens: answer.openAIUsage?.cached_input_tokens ?? 0,
+    output_tokens: answer.openAIUsage?.output_tokens ?? 0,
+  };
+  const hasOpenAIUsage = openAIUsage.input_tokens + openAIUsage.cached_input_tokens + openAIUsage.output_tokens > 0;
+  const observedProviderRequestIdCount = answer.openAIRequestIds?.filter(Boolean).length ?? 0;
+  const generationLatencyMs = answer.latencyTimings?.generation_latency_ms ?? 0;
+  const providerAttempted = Boolean(
+    hasOpenAIUsage ||
+    observedProviderRequestIdCount > 0 ||
+    answer.modelUsed ||
+    generationLatencyMs > 0 ||
+    /(?:^|;\s*)generation_fallback:provider_/i.test(answer.routingReason ?? ""),
+  );
+  return {
+    id: displaySafeDiagnosticText(id, 160),
+    question: displaySafeDiagnosticText(question, MAX_DIAGNOSTIC_QUESTION_CHARS),
+    route: answer.routingMode ?? null,
+    routing_reason: answer.routingReason ? displaySafeDiagnosticText(answer.routingReason, 2_000) : null,
+    query_class: answer.queryClass ? displaySafeDiagnosticText(answer.queryClass, 160) : null,
+    grounded: answer.grounded,
+    confidence: answer.confidence,
+    model: answer.modelUsed ? displaySafeDiagnosticText(answer.modelUsed, 160) : null,
+    provider_attempted: providerAttempted,
+    observed_provider_request_id_count: observedProviderRequestIdCount,
+    openai_usage: openAIUsage,
+    estimated_cost_usd: hasOpenAIUsage
+      ? estimateCostUsd({
+          inputTokens: openAIUsage.input_tokens,
+          cachedInputTokens: openAIUsage.cached_input_tokens,
+          outputTokens: openAIUsage.output_tokens,
+        })
+      : providerAttempted
+        ? null
+        : 0,
+    citation_count: answer.citations.length,
+    answer_length: answer.answer?.length ?? 0,
+    answer: displaySafeDiagnosticText(answer.answer ?? "", MAX_DIAGNOSTIC_ANSWER_CHARS),
+    answer_sections: (answer.answerSections ?? []).map((section) => ({
+      heading: displaySafeDiagnosticText(section.heading, 240),
+      body: displaySafeDiagnosticText(section.body, MAX_DIAGNOSTIC_SECTION_CHARS),
+    })),
+    sources: buildBoundedRagSourceDiagnostics(answer.sources),
+  };
 }
 
 // Per-case answer-text record for the --dump-answers artifact (E-3c instrument): answers are
@@ -67,22 +271,9 @@ export function buildAnswerDumpRecord(
   targeting: ReturnType<typeof scoreAnswerTargeting>,
 ) {
   return {
-    id: testCase.id,
-    question: testCase.question,
+    ...buildRagDiagnosticDumpRecord(testCase.id, testCase.question, answer),
     intent: testCase.expectedIntent,
-    route: answer.routingMode ?? null,
-    routing_reason: answer.routingReason ?? null,
-    query_class: answer.queryClass ?? null,
-    grounded: answer.grounded,
-    confidence: answer.confidence,
-    citation_count: answer.citations.length,
-    answer_length: answer.answer?.length ?? 0,
     targeting: { applicable: targeting.applicable, score: targeting.score, reason: targeting.reason },
-    answer: answer.answer ?? "",
-    answer_sections: (answer.answerSections ?? []).map((section) => ({
-      heading: section.heading,
-      body: section.body,
-    })),
   };
 }
 
@@ -90,6 +281,7 @@ const METRICS: AnswerQualityMetric[] = ["relevance", "readability", "artifact_le
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const cases = selectAnswerQualityCases(args);
   const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
     import("@/lib/env"),
     import("@/lib/rag/rag"),
@@ -99,10 +291,6 @@ async function main() {
   requireOpenAIEnv();
 
   const ownerId = await resolveEvalOwnerId(supabase, args);
-  let cases: AnswerQualityEvalCase[] = answerQualityEvalCases;
-  if (args.intent) cases = cases.filter((testCase) => testCase.expectedIntent === args.intent);
-  if (args.limit) cases = cases.slice(0, args.limit);
-
   const metricTotals: Record<AnswerQualityMetric, number> = {
     relevance: 0,
     readability: 0,
@@ -207,17 +395,23 @@ async function main() {
   }
 
   if (args.dumpAnswers) {
-    await mkdir(dirname(args.dumpAnswers), { recursive: true });
+    const dumpPath = resolveLocalDiagnosticOutputPath(args.dumpAnswers);
+    await mkdir(dirname(dumpPath), { recursive: true });
     await writeFile(
-      args.dumpAnswers,
-      JSON.stringify({ generated_at: new Date().toISOString(), case_count: caseCount, cases: dumpRecords }, null, 2),
+      dumpPath,
+      `${JSON.stringify({ generated_at: new Date().toISOString(), case_count: caseCount, cases: dumpRecords }, null, 2)}\n`,
     );
     // Non-JSON mode only, mirroring the --json-out no-stdout-interference convention.
-    if (!args.json) console.log(`  answer dump written: ${args.dumpAnswers} (${dumpRecords.length} case(s))`);
+    if (!args.json) console.log(`  answer dump written: ${dumpPath} (${dumpRecords.length} case(s))`);
   }
 
-  if (args.targetingFloor !== undefined && targetingRate !== null && targetingRate < args.targetingFloor) {
-    console.error(`FAIL: targeting_rate ${targetingRate} < floor ${args.targetingFloor}`);
+  const thresholdFailure = answerTargetingThresholdFailure({
+    failOnThreshold: args.failOnThreshold,
+    targetingFloor: args.targetingFloor,
+    targetingRate,
+  });
+  if (thresholdFailure) {
+    console.error(`FAIL: ${thresholdFailure}`);
     process.exit(1);
   }
 }

@@ -470,6 +470,7 @@ export function MasterSearchHeader({
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
@@ -818,15 +819,6 @@ export function MasterSearchHeader({
     if (mode) selectAppMode(mode);
   }
 
-  function prefetchModeHomes() {
-    // Mode options are buttons (rather than Links), so Next cannot discover and
-    // prefetch their destinations automatically. Opening the menu is a strong
-    // navigation-intent signal; warm each distinct home while the user scans the
-    // choices so the subsequent router.push can use the cached RSC payload.
-    const hrefs = new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)));
-    for (const href of hrefs) router.prefetch(href);
-  }
-
   const selectedModeIndex = Math.max(
     0,
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
@@ -860,10 +852,22 @@ export function MasterSearchHeader({
     setScopeSheetOpen(false);
   }
 
+  // Mode options are buttons (not Links), so Next cannot discover destinations.
+  // Prefetch only the mode the user is about to choose — the highlighted option
+  // on open, then whichever option receives focus/pointer while scanning.
+  function prefetchModeHome(modeId: AppModeId) {
+    if (modeId === searchMode) return;
+    const href = appModeHomeHref(modeId);
+    if (prefetchedModeHrefsRef.current.has(href)) return;
+    prefetchedModeHrefsRef.current.add(href);
+    router.prefetch(href);
+  }
+
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
-    prefetchModeHomes();
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    const highlighted = visibleAppModeOptions[nextIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
@@ -881,7 +885,8 @@ export function MasterSearchHeader({
       setModeMenuOpen(false);
       return;
     }
-    prefetchModeHomes();
+    const highlighted = visibleAppModeOptions[selectedModeIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
     setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
@@ -948,6 +953,8 @@ export function MasterSearchHeader({
           aria-checked={active}
           tabIndex={active ? 0 : -1}
           data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
+          onFocus={() => prefetchModeHome(mode.id)}
+          onPointerEnter={() => prefetchModeHome(mode.id)}
           onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
           onClick={() => {
             selectAppMode(mode);
