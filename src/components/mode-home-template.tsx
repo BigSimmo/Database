@@ -2,6 +2,7 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 import { type LucideIcon, ArrowRight } from "lucide-react";
 
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export type ModeHomeAction = {
@@ -252,7 +253,7 @@ export function ModeHomeTemplate({
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
-        <div
+        <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
           className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
         />
