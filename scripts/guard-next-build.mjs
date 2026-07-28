@@ -15,10 +15,16 @@ if (totalRamBytes < tenGiB) {
     "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
     "If you are using Docker Desktop, increase the memory limit in settings.",
   ].join("\n");
-  // GitHub-hosted ubuntu runners commonly report ~7–8 GiB even when the Build
-  // job succeeds; hard-failing here makes CI flake. Keep the hard stop for
-  // local/dev hosts where Docker Desktop memory limits are the usual cause.
-  if (process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true") {
+  // GitHub-hosted ubuntu runners and Docker build stages commonly report
+  // ~7–8 GiB even when the Build job succeeds; hard-failing here makes CI /
+  // image builds flake. Keep the hard stop for interactive local/dev hosts
+  // where Docker Desktop memory limits are the usual cause.
+  const allowLowMemoryBuild =
+    process.env.CI === "true" ||
+    process.env.GITHUB_ACTIONS === "true" ||
+    process.env.DOCKER_BUILD === "1" ||
+    process.env.ALLOW_LOW_MEMORY_NEXT_BUILD === "1";
+  if (allowLowMemoryBuild) {
     console.warn(message);
   } else {
     console.error(message);
