@@ -48,6 +48,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDocumentTopNavigationMockup &&
         !isDocumentNavigationPaneMockup &&
         !isDocumentPhoneTitleMockup &&
+        !isDocumentNavigationContractMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup
