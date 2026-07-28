@@ -279,6 +279,9 @@ export function Sheet({
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
   const defaultSheetUsesViewportSize = placement !== "left" && mobileSize === "viewport";
+  const contentClassTokens = contentClassName?.split(/\s+/) ?? [];
+  const hasMobileMaxHeight = contentClassTokens.some((token) => /^!?max-h-/.test(token));
+  const hasSmallScreenMaxHeight = contentClassTokens.some((token) => /^sm:!?max-h-/.test(token));
 
   const sheet = (
     <div
@@ -340,7 +343,10 @@ export function Sheet({
                             "rounded-t-2xl motion-safe:animate-sheet-up",
                             defaultSheetUsesViewportSize
                               ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : "max-h-[calc(100dvh-2rem)] sm:max-h-[88dvh]",
+                              : cn(
+                                  !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
+                                  !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
+                                ),
                           ),
                     ),
               ),
