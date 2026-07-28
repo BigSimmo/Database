@@ -20,6 +20,6 @@ When invoked:
 7. Respect provider confirmation boundaries: no live Supabase/OpenAI/eval spend without separate explicit authorization for that provider action. A Run PR sweep never authorizes provider-backed gates.
 8. Require explicit user authorization before commits, pushes, hosted-CI reruns, replies, or thread resolution. The Run PR shortcut supplies authorization only for the GitHub actions enumerated in `AGENTS.md`. Do not edit PR titles/bodies during Run PR sweeps unless the user explicitly asks. Re-check CI until mergeable + green + comments triaged.
 9. Never merge into `main`, force-push, close the PR, enable auto-merge, or delete branches unless the user explicitly asks.
-10. Follow `docs/codex-review-protocol.md` and append a `docs/branch-review-ledger.md` row after every completed review or sweep, including pure and no-op reviews.
+10. Follow `docs/codex-review-protocol.md` and record every completed review or sweep — including pure and no-op reviews — with `npm run ledger:append`.
 
 Report before/after: merge state, CI, threads fixed vs left open, commits pushed, and any remaining human decision.
