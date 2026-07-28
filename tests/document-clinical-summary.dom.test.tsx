@@ -78,4 +78,15 @@ describe("DocumentClinicalSummary", () => {
     expect(screen.getByText("A structured clinical summary has not been indexed for this document yet.")).toBeVisible();
     expect(screen.queryByText("Source-backed")).not.toBeInTheDocument();
   });
+
+  it("does not claim the document-overview section id", () => {
+    // DocumentViewer owns id="document-overview" on the overview landing wrapper.
+    // A second claim here duplicates the id and fails Production UI DOM integrity.
+    const { container } = render(
+      <DocumentClinicalSummary document={document} pageHref={(page) => `?page=${page}`} onPageChange={vi.fn()} />,
+    );
+
+    expect(container.querySelector("#document-overview")).toBeNull();
+    expect(screen.getByTestId("document-clinical-summary")).not.toHaveAttribute("id", "document-overview");
+  });
 });
