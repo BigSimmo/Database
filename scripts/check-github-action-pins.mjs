@@ -173,19 +173,6 @@ if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJ
 // the per-line validation above only covers workflows, a composite skew (e.g.
 // setup-node v5 vs v7) was previously invisible. Assert each action name resolves
 // to a single SHA everywhere it is used.
-function discoverCompositeActionFiles(workflowRoot) {
-  const actionsRoot = path.join(workflowRoot, ".github", "actions");
-  if (!existsSync(actionsRoot)) return [];
-  const files = [];
-  for (const entry of readdirSync(actionsRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    for (const name of ["action.yml", "action.yaml"]) {
-      const candidate = path.join(actionsRoot, entry.name, name);
-      if (existsSync(candidate)) files.push(candidate);
-    }
-  }
-  return files;
-}
 
 const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
 const shasByAction = new Map();

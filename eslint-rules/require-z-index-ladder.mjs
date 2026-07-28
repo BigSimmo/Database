@@ -4,13 +4,7 @@
  * 0, 10, 20, 30, 40, 60, 80-85, 95, 100
  */
 
-const ALLOWED_RUNGS = new Set([
-  0, 10, 20, 30, 40,
-  60,
-  80, 81, 82, 83, 84, 85,
-  95,
-  100
-]);
+const ALLOWED_RUNGS = new Set([0, 10, 20, 30, 40, 60, 80, 81, 82, 83, 84, 85, 95, 100]);
 
 /** @type {import("eslint").Rule.RuleModule} */
 const rule = {

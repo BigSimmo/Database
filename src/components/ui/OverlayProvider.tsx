@@ -1,57 +1,60 @@
-import * as React from "react"
+import * as React from "react";
 
 type OverlayContextType = {
   activeOverlays: Set<string>;
   registerOverlay: (id: string) => void;
   unregisterOverlay: (id: string) => void;
   isTopOverlay: (id: string) => boolean;
-}
+};
 
-const OverlayContext = React.createContext<OverlayContextType | null>(null)
+const OverlayContext = React.createContext<OverlayContextType | null>(null);
 
 export function OverlayProvider({ children }: { children: React.ReactNode }) {
-  const [activeOverlays, setActiveOverlays] = React.useState<Set<string>>(new Set())
+  const [activeOverlays, setActiveOverlays] = React.useState<Set<string>>(new Set());
 
   const registerOverlay = React.useCallback((id: string) => {
     setActiveOverlays((prev) => {
-      const next = new Set(prev)
-      next.add(id)
-      return next
-    })
-  }, [])
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const unregisterOverlay = React.useCallback((id: string) => {
     setActiveOverlays((prev) => {
-      const next = new Set(prev)
-      next.delete(id)
-      return next
-    })
-  }, [])
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
 
-  const isTopOverlay = React.useCallback((id: string) => {
-    const activeArray = Array.from(activeOverlays)
-    return activeArray[activeArray.length - 1] === id
-  }, [activeOverlays])
+  const isTopOverlay = React.useCallback(
+    (id: string) => {
+      const activeArray = Array.from(activeOverlays);
+      return activeArray[activeArray.length - 1] === id;
+    },
+    [activeOverlays],
+  );
 
   return (
     <OverlayContext.Provider value={{ activeOverlays, registerOverlay, unregisterOverlay, isTopOverlay }}>
       {children}
     </OverlayContext.Provider>
-  )
+  );
 }
 
 export function useOverlay(id: string) {
-  const context = React.useContext(OverlayContext)
+  const context = React.useContext(OverlayContext);
   if (!context) {
-    throw new Error("useOverlay must be used within an OverlayProvider")
+    throw new Error("useOverlay must be used within an OverlayProvider");
   }
 
   React.useEffect(() => {
-    context.registerOverlay(id)
-    return () => context.unregisterOverlay(id)
-  }, [id, context])
+    context.registerOverlay(id);
+    return () => context.unregisterOverlay(id);
+  }, [id, context]);
 
   return {
-    isTopOverlay: context.isTopOverlay(id)
-  }
+    isTopOverlay: context.isTopOverlay(id),
+  };
 }

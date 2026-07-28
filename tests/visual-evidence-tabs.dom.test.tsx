@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { ClinicalNotesChecklistPanel } from "@/components/clinical-dashboard/evidence-panels";
 import { MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import type { AnswerRenderModel } from "@/lib/answer-render-policy";
 import type { RagAnswer } from "@/lib/types";
@@ -137,8 +138,6 @@ describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
     expect(claims).toHaveAttribute("tabindex", "-1");
   });
 });
-<<<<<<< ours
-=======
 
 describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
   it("does not expose raw table evidence suppressed by the render model", () => {
@@ -217,7 +216,7 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     const untrusted: RagAnswer = {
       ...answer,
       grounded: true,
-      // Missing relevance.isSourceBacked → fail closed for structured clinical UI.
+      // Missing relevance.isSourceBacked -> fail closed for structured clinical UI.
       answerSections: [
         {
           heading: "Monitoring",
@@ -269,7 +268,7 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     const untrusted: RagAnswer = {
       ...answer,
       grounded: true,
-      // Missing relevance.isSourceBacked → fail closed for parsed clinical UI.
+      // Missing relevance.isSourceBacked -> fail closed for parsed clinical UI.
       answer: [
         "Action: Withhold lithium and arrange urgent same-day clinical review.",
         "Monitoring: Repeat lithium level, renal function, and electrolytes within 24 hours.",
@@ -299,7 +298,7 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     const comparisonAnswer: RagAnswer = {
       ...answer,
       grounded: true,
-      // Missing relevance.isSourceBacked → fail closed; documentBreakdown/comparison
+      // Missing relevance.isSourceBacked -> fail closed; documentBreakdown/comparison
       // metadata must not rebuild ClinicalOutputPanel comparison-detail tables.
       responseMode: "comparison_matrix",
       queryClass: "comparison",
@@ -376,4 +375,3 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("monthly when stable")).not.toBeInTheDocument();
   });
 });
->>>>>>> theirs

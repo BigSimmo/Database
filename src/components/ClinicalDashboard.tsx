@@ -1,6 +1,5 @@
-import { useSettingsState } from "./clinical-dashboard/SettingsStateProvider";
 "use client";
-
+import { useSettingsState } from "./clinical-dashboard/SettingsStateProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -56,7 +55,6 @@ import { useEventCallback } from "@/components/clinical-dashboard/use-event-call
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
-import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   deriveSidebarIdentity,
@@ -547,17 +545,26 @@ export function ClinicalDashboard({
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
   const {
-    guideOpen, setGuideOpen,
-    settingsOpen, setSettingsOpen,
-    mobileSidebarOpen, setMobileSidebarOpen,
-    sidebarCollapsed, setSidebarCollapsed,
-    documentsDrawerOpen, setDocumentsDrawerOpen,
-    documentScopeOpen, setDocumentScopeOpen,
-    documentsDrawerMode, setDocumentsDrawerMode,
-    uploadDrawerOpen, setUploadDrawerOpen,
-    uploadMobileTab, setUploadMobileTab
+    guideOpen,
+    setGuideOpen,
+    settingsOpen,
+    setSettingsOpen,
+    mobileSidebarOpen,
+    setMobileSidebarOpen,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    documentsDrawerOpen,
+    setDocumentsDrawerOpen,
+    documentScopeOpen,
+    setDocumentScopeOpen,
+    documentsDrawerMode,
+    setDocumentsDrawerMode,
+    uploadDrawerOpen,
+    setUploadDrawerOpen,
+    uploadMobileTab,
+    setUploadMobileTab,
   } = useSettingsState();
-                    const uploadUsesDesktopRegions = useUploadDesktopLayout();
+  const uploadUsesDesktopRegions = useUploadDesktopLayout();
   const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
@@ -829,7 +836,14 @@ export function ClinicalDashboard({
         document.getElementById(targetId)?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
       }, 0);
     },
-    [canUseAdministrativeApis, closeDashboardTransientSurfaces],
+    [
+      canUseAdministrativeApis,
+      closeDashboardTransientSurfaces,
+      setDocumentsDrawerMode,
+      setDocumentsDrawerOpen,
+      setUploadDrawerOpen,
+      setUploadMobileTab,
+    ],
   );
 
   useEffect(() => {

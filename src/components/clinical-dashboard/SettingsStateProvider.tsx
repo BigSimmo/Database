@@ -1,6 +1,7 @@
 import * as React from "react";
-import { useSidebarCollapsed } from "@/lib/hooks";
-import { DocumentDrawerMode, UploadIndexingTab } from "@/lib/types";
+import { useSidebarCollapsed } from "./use-sidebar-collapsed";
+import { DocumentDrawerMode } from "./dashboard-contracts";
+import { UploadIndexingTab } from "./document-admin";
 
 type SettingsStateContextType = {
   guideOpen: boolean;
@@ -10,7 +11,7 @@ type SettingsStateContextType = {
   mobileSidebarOpen: boolean;
   setMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   sidebarCollapsed: boolean;
-  setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  setSidebarCollapsed: (next: boolean) => void;
   documentsDrawerOpen: boolean;
   setDocumentsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   documentScopeOpen: boolean;

@@ -736,3 +736,11 @@ This file is append-only. Never rewrite or delete an existing review record; app
 - Scope: Targeted review of search bar/header/footer chrome behaviour after the edge-to-edge phone dock fix, plus durable repo rules for page-adaptive search chrome.
 - Outcome: No new P0/P1 search chrome defect found in the static review. Fixed one regression hazard: a stale ClinicalDashboard comment still instructed a 0.75rem hidden dock pad despite the implementation/tests requiring 0rem. Added durable search chrome behaviour rules in AGENTS.md and docs/search-chrome-behaviour.md, with a static guard tying the remembered rules to the hidden-reserve contract.
 - Checks: dependency shortcut section count; git diff --check; targeted rg for stale 0.75rem hidden-pad source wording (only negative test assertions remain); targeted Vitest command attempted but blocked by missing node_modules/vitest under Node 20.20.2 in this container. No provider-backed checks run.
+
+## 2026-07-26 — execute-audit-remediation-fixes RAG safety & conflict remediation review
+
+- Branch/ref: execute-audit-remediation-fixes
+- HEAD: 599cc563d7ff9df3aaff605f392a3d57d483ef40
+- Scope: Deep review and bug hunt across Phase 1 & Phase 2 audit remediation changes, git conflict resolutions, RAG UI governance fail-closed checks, privacy routing mocks, and offline RAG evaluation suites.
+- Outcome: Discovered and remediated a fail-closed governance defect in `src/components/clinical-dashboard/evidence-panels.tsx`, where a loose `isSourceBacked !== false` check allowed untrusted answers with missing relevance evaluations to pass through, and where `ClinicalNotesChecklistPanel` and `clinicalNotesDisplayCountForAnswer` were not trust-gating visual evidence before rendering tables or calculating tab counts. Replaced with explicit `=== true` check and wired `trustGatedAnswerForClinicalNotes` into the components and helpers. Also confirmed merge conflict resolutions in `service-catalog-mapper.ts` and `api/answer/route.ts` are spotless, and `privacy-ui.test.ts` static Next router mocks are functioning correctly.
+- Checks: `npx vitest run tests/visual-evidence-tabs.dom.test.tsx` (6/6 passed); `npm run eval:rag:offline` (21/21 suites passed, 308 tests passed). No provider-backed checks run.

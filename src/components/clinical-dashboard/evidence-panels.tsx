@@ -575,19 +575,17 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
-<<<<<<< ours
-=======
  * Align clinical-notes inputs with the fail-closed render model: when an answer
  * is not explicitly source-backed, strip structured clinical payloads so the
  * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
  * content from untrusted sections, quotes, or documentBreakdown (visual
  * evidence is passed separately).
  */
-function trustGatedAnswerForClinicalNotes(
+export function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
 ): RagAnswer {
-  if (isAnswerSourceBacked(answer)) {
+  if (answer.relevance?.isSourceBacked === true) {
     return {
       ...answer,
       visualEvidence,
@@ -608,7 +606,6 @@ function trustGatedAnswerForClinicalNotes(
 }
 
 /**
->>>>>>> theirs
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *
  * @param answer - The answer from which to derive clinical detail sections.
@@ -632,13 +629,15 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
 }
 
 export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
-  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(answer, viewMode));
+  const gated = trustGatedAnswerForClinicalNotes(answer);
+  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(gated, viewMode));
   const largestTabCount = tabs.reduce((largest, tab) => Math.max(largest, tab.count), 0);
   return Math.max(1, largestTabCount || fallback);
 }
 
 export function ClinicalNotesChecklistPanel({
-  answer,
+  answer: rawAnswer,
+  visualEvidence,
   viewMode,
   evidenceMapRows,
   sourceLinks = [],
@@ -648,6 +647,7 @@ export function ClinicalNotesChecklistPanel({
   onOpenTables,
 }: {
   answer: RagAnswer;
+  visualEvidence?: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
@@ -656,6 +656,7 @@ export function ClinicalNotesChecklistPanel({
   onCopy: () => void;
   onOpenTables?: () => void;
 }) {
+  const answer = trustGatedAnswerForClinicalNotes(rawAnswer, visualEvidence);
   const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
