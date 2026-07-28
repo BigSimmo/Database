@@ -1,13 +1,33 @@
 "use client";
 
-import { Bookmark, ChevronsUpDown, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
-import { cn } from "@/components/ui-primitives";
+import { AsyncButton, cn } from "@/components/ui-primitives";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-import type { AppModeId } from "@/lib/app-modes";
+import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
+
+/**
+ * How far the count can be trusted. This is a union rather than a pair of
+ * booleans because `loading && error` is otherwise representable and undefined,
+ * and because the clinical invariant — a faulted search must never assert a
+ * number — is then one guard instead of a boolean-precedence puzzle repeated at
+ * every call site. It mirrors `RegistryRequestStatus` so most callers can pass a
+ * near-identity map of the status they already hold.
+ */
+export type SearchResultsBandStatus =
+  /** The count is trustworthy. `0` is a real answer. */
+  | "ready"
+  /** First load. There is no trustworthy prior count to show. */
+  | "loading"
+  /** Background refresh. The prior count is still trustworthy. */
+  | "refetching"
+  /** The search failed. The count is NOT trustworthy and must not be rendered. */
+  | "error"
+  /** Sign-in required. The count is NOT trustworthy and must not be rendered. */
+  | "unauthorized";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -63,7 +83,12 @@ export function SearchResultsHeaderBand({
   modeId,
   query,
   matchCount,
+  status,
   loading = false,
+  faultTitle,
+  faultBody,
+  onRetry,
+  faultAction,
   view = "table",
   onViewChange,
   sortValue = "relevance",
@@ -79,7 +104,20 @@ export function SearchResultsHeaderBand({
   modeId: AppModeId;
   query: string;
   matchCount: number;
+  /** Result trustworthiness. Defaults to `ready`, or `loading` when the legacy
+      `loading` prop is set. A faulted status never renders a number. */
+  status?: SearchResultsBandStatus;
+  /** @deprecated Pass `status="loading"`. Retained so the pages with no async
+      source need no edit; ignored whenever `status` is supplied. */
   loading?: boolean;
+  /** Fault panel heading. Defaults to mode-specific copy. */
+  faultTitle?: string;
+  /** Fault panel body. Defaults to mode-specific copy. */
+  faultBody?: string;
+  /** Renders an in-panel Retry through the shared busy contract. */
+  onRetry?: () => void | Promise<void>;
+  /** Replaces Retry when recovery is not a re-request (e.g. a sign-in link). */
+  faultAction?: ReactNode;
   view?: "table" | "list";
   onViewChange?: (view: "table" | "list") => void;
   sortValue?: ResultSortValue;
@@ -104,6 +142,27 @@ export function SearchResultsHeaderBand({
     return scope ? [scope] : [];
   });
   const displayQuery = query.trim() || "All";
+  // `status` wins when both are passed; `loading` is the deprecated shim.
+  const resolvedStatus: SearchResultsBandStatus = status ?? (loading ? "loading" : "ready");
+  // The clinical invariant, expressed once: a search that failed has no count to
+  // report, so no number may reach the DOM. "0 matches" on a failed services
+  // search reads as "there are no crisis services" rather than "we could not check".
+  const faulted = resolvedStatus === "error" || resolvedStatus === "unauthorized";
+  const busy = resolvedStatus === "loading" || resolvedStatus === "refetching";
+  // "Service matches" -> "Services", leaving already-plural headings ("Favourites",
+  // "DSM diagnoses") untouched. Phrasing the title as "<noun> could not be loaded"
+  // rather than "Could not load <noun>" avoids having to lower-case the leading
+  // word, which would mangle the acronym in "DSM diagnoses".
+  const searchConfig = appModeSearchConfig(modeId);
+  const resultNoun = searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results";
+  const resolvedFaultTitle =
+    faultTitle ?? (resolvedStatus === "unauthorized" ? "Sign in to continue" : `${resultNoun} could not be loaded`);
+  const resolvedFaultBody =
+    faultBody ??
+    (resolvedStatus === "unauthorized"
+      ? "Your session has expired. Sign in again to run this search."
+      : "The search could not be completed. Try again shortly.");
+  const [retrying, setRetrying] = useState(false);
   const hasUtilities =
     visibleScopes.length > 0 ||
     Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || mobileControls);
@@ -113,7 +172,8 @@ export function SearchResultsHeaderBand({
   return (
     <section
       aria-label={`Search results for ${displayQuery}`}
-      aria-busy={loading}
+      aria-busy={busy}
+      data-status={resolvedStatus}
       data-testid="search-query-ribbon"
       className={cn(
         "relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
@@ -122,15 +182,27 @@ export function SearchResultsHeaderBand({
     >
       <span
         className={cn(
-          "absolute inset-x-0 top-0 h-0.5 bg-[color:var(--clinical-accent)] lg:inset-y-0 lg:left-0 lg:right-auto lg:h-auto lg:w-1",
-          loading && "motion-safe:animate-pulse",
+          "absolute inset-x-0 top-0 h-0.5 lg:inset-y-0 lg:left-0 lg:right-auto lg:h-auto lg:w-1",
+          faulted ? "bg-[color:var(--warning)]" : "bg-[color:var(--clinical-accent)]",
+          busy && "motion-safe:animate-pulse",
         )}
         aria-hidden
       />
       <div className="flex min-w-0 flex-col lg:min-h-[3.75rem] lg:flex-row lg:items-center">
         <div className="flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:px-4 lg:py-2.5 lg:pl-5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] lg:h-10 lg:w-10">
-            <Search className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
+          <span
+            className={cn(
+              "grid h-9 w-9 shrink-0 place-items-center rounded-lg lg:h-10 lg:w-10",
+              faulted
+                ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+                : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+            )}
+          >
+            {faulted ? (
+              <CircleAlert className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
+            ) : (
+              <Search className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
+            )}
           </span>
           {/* No eyebrow: the icon already says "search", and the query is the only
               thing in this band set at heading weight. */}
@@ -143,25 +215,47 @@ export function SearchResultsHeaderBand({
           <span className="h-4 w-px shrink-0 bg-[color:var(--border-strong)]" aria-hidden />
           {/* Neutral, not a success pill: a count is not a state that was achieved,
               and green has to keep meaning something where it does appear. */}
+          {/* One unconditional `role="status"` in every state. Playwright asserts it
+              is visible on every search route, so it must never be swapped out or
+              wrapped in a state branch. While faulted the live region is silenced
+              (`aria-live="off"`) and the freshly-mounted fault `role="alert"` below
+              makes the single announcement, rather than both speaking. */}
           <span
             className={cn(
               "shrink-0 whitespace-nowrap text-xs font-bold",
-              loading ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
+              busy && "text-[color:var(--clinical-accent)]",
+              faulted && "text-[color:var(--warning)]",
+              !busy && !faulted && "text-[color:var(--text-muted)]",
             )}
             role="status"
-            aria-live="polite"
+            aria-live={faulted ? "off" : "polite"}
             aria-atomic="true"
           >
-            {loading ? (
+            {resolvedStatus === "loading" ? (
               <span className="inline-flex items-center gap-1.5">
                 <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
                 Searching…
               </span>
+            ) : resolvedStatus === "error" ? (
+              "Couldn’t search"
+            ) : resolvedStatus === "unauthorized" ? (
+              "Sign in to search"
             ) : (
-              <>
-                <span className="font-extrabold tabular-nums text-[color:var(--text-heading)]">{matchCount}</span>{" "}
-                {matchCount === 1 ? "match" : "matches"}
-              </>
+              // `refetching` keeps text content identical to `ready` so the atomic
+              // live region does not re-announce an unchanged count; the dot is
+              // decorative and the dimming is CSS via `data-status`.
+              <span className="inline-flex items-center gap-1.5">
+                {resolvedStatus === "refetching" ? (
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)] motion-safe:animate-pulse"
+                    aria-hidden
+                  />
+                ) : null}
+                <span>
+                  <span className="font-extrabold tabular-nums text-[color:var(--text-heading)]">{matchCount}</span>{" "}
+                  {matchCount === 1 ? "match" : "matches"}
+                </span>
+              </span>
             )}
           </span>
         </div>
@@ -291,6 +385,46 @@ export function SearchResultsHeaderBand({
           )}
         >
           {filterControls}
+        </div>
+      ) : null}
+      {/* The fault panel carries the announcement and the recovery affordance.
+          `role="alert"` is a distinct role from the spine's `role="status"`, so
+          singular role queries in jsdom and Playwright still resolve to exactly
+          one node each. */}
+      {faulted ? (
+        <div
+          role="alert"
+          data-testid="search-query-ribbon-fault"
+          className="border-t border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-3 text-center sm:px-4"
+        >
+          <p className="text-sm font-extrabold text-[color:var(--warning)]">{resolvedFaultTitle}</p>
+          <p className="mt-0.5 text-xs font-medium text-[color:var(--warning)]">{resolvedFaultBody}</p>
+          {onRetry || faultAction ? (
+            <div className="mt-2.5 flex justify-center gap-2">
+              {onRetry ? (
+                <AsyncButton
+                  type="button"
+                  busy={retrying}
+                  busyLabel="Retrying…"
+                  onClick={async () => {
+                    setRetrying(true);
+                    try {
+                      await onRetry();
+                    } finally {
+                      setRetrying(false);
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                    focusRing,
+                  )}
+                >
+                  Retry
+                </AsyncButton>
+              ) : null}
+              {faultAction}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
