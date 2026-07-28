@@ -17,6 +17,7 @@ import {
 
 import dynamic from "next/dynamic";
 
+import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -192,14 +193,19 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     pathname,
   });
 
+  // PatientProfileProvider already wraps this gate in GlobalSearchShell.
+  // SettingsStateProvider keeps dashboard settings/drawer state extracted for the
+  // ClinicalDashboard tree only.
   if (rendersClinicalDashboard) {
     return (
-      <ClinicalDashboard
-        initialSearchMode={resolvedSearchMode}
-        initialQuery={requestedQuery}
-        focusSearch={searchParams.get("focus") === "1"}
-        autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
-      />
+      <SettingsStateProvider>
+        <ClinicalDashboard
+          initialSearchMode={resolvedSearchMode}
+          initialQuery={requestedQuery}
+          focusSearch={searchParams.get("focus") === "1"}
+          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+        />
+      </SettingsStateProvider>
     );
   }
 
