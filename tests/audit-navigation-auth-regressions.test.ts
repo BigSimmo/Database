@@ -27,6 +27,7 @@ function sourceSegment(contents: string, startMarker: string, endMarker: string)
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
+const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 
 describe("audit navigation and auth regressions", () => {
   it("redirects exact legacy route handlers at request time while retaining useful query state", () => {
@@ -113,6 +114,46 @@ describe("audit navigation and auth regressions", () => {
       "const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);",
     );
     expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
+  });
+
+  it("prefetches only the mode a user focuses or points at", () => {
+    const modeOptions = sourceSegment(
+      masterSearchHeaderSource,
+      "function renderModeMenuOptions()",
+      "const restoreActionMenuFocusRef",
+    );
+    const openModeMenuWithFocus = sourceSegment(
+      masterSearchHeaderSource,
+      "function openModeMenuWithFocus(",
+      "function toggleModeMenu(",
+    );
+    const toggleModeMenu = sourceSegment(
+      masterSearchHeaderSource,
+      "function toggleModeMenu(",
+      "function handleModeTriggerKeyDown(",
+    );
+
+    expect(masterSearchHeaderSource).toContain("function prefetchModeHome(modeId: AppModeId)");
+    expect(masterSearchHeaderSource).toContain("router.prefetch(href)");
+    expect(modeOptions).toContain("onFocus={() => prefetchModeHome(mode.id)}");
+    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeHome(mode.id)}");
+    // Menu-open paths warm only the highlighted option — never every visible home.
+    expect(openModeMenuWithFocus).toContain("prefetchModeHome(highlighted.id)");
+    expect(toggleModeMenu).toContain("prefetchModeHome(highlighted.id)");
+    expect(masterSearchHeaderSource).not.toContain("function prefetchModeHomes(");
+    expect(masterSearchHeaderSource).not.toContain("visibleAppModeOptions.forEach((mode) => router.prefetch");
+    expect(masterSearchHeaderSource).not.toContain(
+      "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
+    );
+  });
+
+  it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
+    expect(universalAlsoMatchesSource).toContain('const searchActive = isWide || modeId === "answer" || expanded;');
+    expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
+    expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
+    expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
+    expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
+    expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {

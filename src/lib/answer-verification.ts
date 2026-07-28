@@ -33,7 +33,7 @@ import type {
 // a trailing \b after it can never match (it would require a word char to its
 // right), which previously dropped every percentage token.
 const NUMERIC_TOKEN_PATTERN =
-  /\b\d+\s*:\s*\d+\b|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×10\^?\d*\/?l?|x10\^?\d*\/?l?|mg\/(?:day|hour|hr|h|kg|m2|dose)|mg|mcg|ug|microgram(?:s)?|micrograms?|μg|g\b|kg|ml\/(?:day|hour|hr|h)|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
+  /\b\d+\s*:\s*\d+\b|\b\d+(?:[.,]\d+)?(?:\s*[-–—]\s*\d+(?:[.,]\d+)?)?\s*(?:×\s*10\^?\d*\/?l?|x\s*10\^?\d*\/?l?|mg\/(?:day|hour|hr|h|kg|m2|dose)|mg|mcg|ug|microgram(?:s)?|micrograms?|μg|g\b|kg|ml\/(?:day|hour|hr|h)|ml|mL|l\b|mmol\/l|mmol\/L|mmol|mol\/l|umol\/l|µmol\/l|ng\/ml|units?\/?\w*|iu\b|hours?|hrs?|h\b|days?|weeks?|wk\b|months?|minutes?|mins?|years?|°c|mmhg|bpm)\b|\b\d+(?:[.,]\d+)?\s*%/giu;
 
 // Decimal numbers and ranges that, while not unit-bearing, are very likely
 // clinical thresholds in context (e.g. "ANC 2.0", "INR 2-3"). We only treat a
@@ -90,10 +90,18 @@ export type ClinicalValueAtom = {
   frequency?: string;
 };
 
+export type LabelledNumericBandConflict = {
+  reason: "overlap" | "reversed_range";
+  labels: string[];
+  start: number;
+  end: number;
+  text: string;
+};
+
 const clinicalQuantityPattern =
   /\b(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+)?(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*(\d+(?:[.,]\d+)?))?\s*(ug|µg|μg|mcg|micrograms?|mg|g|kg|ml|l|mmol|mol|umol|µmol|ng|units?|iu|hours?|hrs?|h|days?|weeks?|wk|months?|minutes?|mins?|years?|°c|mmhg|bpm|%)\b((?:\s*\/\s*(?:kg|m2|dose|seconds?|secs?|minutes?|mins?|hours?|hrs?|h|days?|weeks?|wk|ml|l)){0,3})/giu;
 const scientificQuantityPattern =
-  /(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)\s*[×x]10\^?(\d+)\s*\/\s*([a-z])/giu;
+  /(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)\s*[×x]\s*10\^?(\d+)\s*\/\s*([a-z])/giu;
 const unitlessThresholdPattern =
   /(?:\b(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most)\s+|(<=|>=|<|>|≤|≥)\s*)(\d+(?:[.,]\d+)?)(?:\s*[-–—]\s*(\d+(?:[.,]\d+)?))?/giu;
 const ratioPattern = /\b(\d+(?:[.,]\d+)?)\s*:\s*(\d+(?:[.,]\d+)?)\b/gu;
@@ -288,6 +296,944 @@ export function extractClinicalValueAtoms(text: string): ClinicalValueAtom[] {
   );
 }
 
+type LabelledNumericBand = {
+  label: string;
+  start: number;
+  end: number;
+  lower: number;
+  upper: number;
+  lowerInclusive: boolean;
+  upperInclusive: boolean;
+  unit: string;
+};
+
+const labelledNumericBandPattern =
+  /\b(very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b(?:\s+(?:scores?|ranges?|bands?|categor(?:y|ies)|zones?|severit(?:y|ies)|risks?|levels?))?\s*(?:(?:is|are|of|:|=|\|)\s*|(?:ranges?\s+)?from\s*)?\(?\s*(?:scores?\s*)?(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)(?:\s*(?:[-–—]|\bto\b|\bthrough\b)\s*(\d+(?:[.,]\d+)?))?(?:\s*(%|points?|mg|mcg|ug|µg|μg|g|kg|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?))?\s*\)?/giu;
+const numericBeforeLabelBandPattern =
+  /(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)(?:\s*(?:[-–—]|\bto\b|\bthrough\b)\s*(\d+(?:[.,]\d+)?))?(?:\s*(%|points?|mg|mcg|ug|µg|μg|g|kg|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?))?\s*(?:\(\s*|\|\s*)(very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\s*(?:\)|\|)/giu;
+const numericBandPredicatePattern =
+  /(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)(?:\s*(?:[-–—]|\bto\b|\bthrough\b)\s*(\d+(?:[.,]\d+)?))?(?:\s*(%|points?|mg|mcg|ug|µg|μg|g|kg|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?))?\s+(?:is|are|means?|indicates?|corresponds?\s+to)\s+(very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b/giu;
+const labelFirstBetweenBandPattern =
+  /\b(very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b(?:\s+(?:scores?|ranges?|bands?|categor(?:y|ies)|zones?|severit(?:y|ies)|risks?|levels?))?\s*(?:(?:is|are|of|:|=|\|)\s*)?\(?\s*(?:scores?\s*)?between\s+(\d+(?:[.,]\d+)?)\s+and\s+(\d+(?:[.,]\d+)?)(?:\s*(%|points?|mg|mcg|ug|µg|μg|g|kg|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?))?\s*\)?/giu;
+const betweenFirstLabelBandPattern =
+  /\bbetween\s+(\d+(?:[.,]\d+)?)\s+and\s+(\d+(?:[.,]\d+)?)(?:\s*(%|points?|mg|mcg|ug|µg|μg|g|kg|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?))?\s+(?:is|are|means?|indicates?|corresponds?\s+to)\s+(very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b/giu;
+
+function normalizedBandUnit(value: string | undefined) {
+  return (value ?? "").toLowerCase().replace(/\s+/g, "").replace(/µ/g, "μ");
+}
+
+function labelledNumericBand(input: {
+  label: string;
+  comparator?: string;
+  first: string;
+  second?: string;
+  unit?: string;
+  start: number;
+  end: number;
+}): LabelledNumericBand | null {
+  const comparator = canonicalComparator(input.comparator);
+  const first = Number(input.first.replace(",", "."));
+  const second = input.second ? Number(input.second.replace(",", ".")) : null;
+  if (!Number.isFinite(first) || (!comparator && second === null)) return null;
+
+  let lower = first;
+  let upper = second ?? first;
+  let lowerInclusive = true;
+  let upperInclusive = true;
+  if (comparator === "above" || comparator === "at_least") {
+    upper = Number.POSITIVE_INFINITY;
+    lowerInclusive = comparator === "at_least";
+  } else if (comparator === "below" || comparator === "at_most") {
+    lower = Number.NEGATIVE_INFINITY;
+    upper = first;
+    upperInclusive = comparator === "at_most";
+  }
+
+  return {
+    label: input.label.toLowerCase().replace(/\s+/g, " "),
+    start: input.start,
+    end: input.end,
+    lower,
+    upper,
+    lowerInclusive,
+    upperInclusive,
+    unit: normalizedBandUnit(input.unit),
+  };
+}
+
+function labelledNumericBands(text: string): LabelledNumericBand[] {
+  // Replace lightweight emphasis markers with same-width whitespace. This
+  // keeps raw offsets valid for safe recovery while accepting model-authored
+  // partial bold around labels, comparators, or values.
+  const parsingText = text.replace(/[*_`]/g, " ");
+  const bands: LabelledNumericBand[] = [];
+  const append = (band: LabelledNumericBand | null) => {
+    if (band) bands.push(band);
+  };
+  for (const match of parsingText.matchAll(labelledNumericBandPattern)) {
+    append(
+      labelledNumericBand({
+        label: match[1],
+        comparator: match[2],
+        first: match[3],
+        second: match[4],
+        unit: match[5],
+        start: match.index,
+        end: match.index + match[0].length,
+      }),
+    );
+  }
+  for (const pattern of [numericBeforeLabelBandPattern, numericBandPredicatePattern]) {
+    for (const match of parsingText.matchAll(pattern)) {
+      append(
+        labelledNumericBand({
+          label: match[5],
+          comparator: match[1],
+          first: match[2],
+          second: match[3],
+          unit: match[4],
+          start: match.index,
+          end: match.index + match[0].length,
+        }),
+      );
+    }
+  }
+  for (const match of parsingText.matchAll(labelFirstBetweenBandPattern)) {
+    append(
+      labelledNumericBand({
+        label: match[1],
+        first: match[2],
+        second: match[3],
+        unit: match[4],
+        start: match.index,
+        end: match.index + match[0].length,
+      }),
+    );
+  }
+  for (const match of parsingText.matchAll(betweenFirstLabelBandPattern)) {
+    append(
+      labelledNumericBand({
+        label: match[4],
+        first: match[1],
+        second: match[2],
+        unit: match[3],
+        start: match.index,
+        end: match.index + match[0].length,
+      }),
+    );
+  }
+
+  return bands
+    .sort((left, right) => left.start - right.start || left.end - right.end)
+    .filter(
+      (band, index, sorted) =>
+        sorted.findIndex(
+          (candidate) => candidate.start === band.start && candidate.end === band.end && candidate.label === band.label,
+        ) === index,
+    );
+}
+
+export function containsLabelledNumericBand(text: string) {
+  return labelledNumericBands(text).length > 0;
+}
+
+export function containsNumericBandReference(text: string) {
+  if (containsLabelledNumericBand(text)) return true;
+  const parsingText = text.replace(/[*_`]/g, " ");
+  const value =
+    "(?:(?:below|under|less\\s+than|above|over|greater\\s+than|at\\s+least|at\\s+most|<=|>=|<|>|≤|≥)\\s*\\d+(?:[.,]\\d+)?|between\\s+\\d+(?:[.,]\\d+)?\\s+and\\s+\\d+(?:[.,]\\d+)?|\\d+(?:[.,]\\d+)?\\s*(?:[-–—]|\\bto\\b|\\bthrough\\b)\\s*\\d+(?:[.,]\\d+)?)";
+  return (
+    new RegExp(
+      `\\b(?:scores?|results?|points?|ranges?|values?|levels?|bands?|severit(?:y|ies))\\b[^.!?\\n]{0,80}?${value}`,
+      "iu",
+    ).test(parsingText) ||
+    new RegExp(
+      `${value}[^.!?\\n]{0,60}?\\b(?:scores?|results?|points?|ranges?|values?|levels?|bands?|severit(?:y|ies))\\b`,
+      "iu",
+    ).test(parsingText)
+  );
+}
+
+function bandIntervalsOverlap(left: LabelledNumericBand, right: LabelledNumericBand) {
+  const lower = Math.max(left.lower, right.lower);
+  const upper = Math.min(left.upper, right.upper);
+  if (lower < upper) return true;
+  if (lower > upper) return false;
+  const includes = (band: LabelledNumericBand, value: number) => {
+    if (value < band.lower || value > band.upper) return false;
+    if (value === band.lower && !band.lowerInclusive) return false;
+    if (value === band.upper && !band.upperInclusive) return false;
+    return true;
+  };
+  return includes(left, lower) && includes(right, lower);
+}
+
+export function bandScopeIdentities(value: string) {
+  const identities = new Set<string>();
+  const structuralIdentityWords = new Set([
+    "band",
+    "bands",
+    "category",
+    "categories",
+    "high",
+    "index",
+    "level",
+    "levels",
+    "low",
+    "medium",
+    "moderate",
+    "range",
+    "ranges",
+    "risk",
+    "risks",
+    "scale",
+    "score",
+    "scores",
+    "severity",
+    "very",
+    "zone",
+    "zones",
+  ]);
+  const append = (identity: string | undefined) => {
+    const normalized = identity?.toLowerCase().replace(/\s+/g, " ").trim();
+    if (!normalized) return;
+    if (normalized.split(" ").every((word) => structuralIdentityWords.has(word))) return;
+    identities.add(normalized);
+  };
+  for (const match of value.matchAll(
+    /\b((?:guideline|source|document|policy|protocol|clinic|service|authority|scale)\s+[a-z0-9-]+)\b/gi,
+  )) {
+    append(match[1]);
+  }
+  for (const match of value.matchAll(/\b([A-Z][A-Z0-9-]{2,})\b/g)) append(match[1]);
+  for (const match of value.matchAll(fullScaleNamePattern)) {
+    for (const identity of fullScaleNameIdentities(match[1])) append(identity);
+  }
+  for (const match of value.matchAll(/\b([A-Z][a-z][A-Za-z0-9-]{2,})\s+(?:uses?|reports?|defines?|sets?)\b/g)) {
+    append(match[1]);
+  }
+  const genericIdentityWords = new Set([
+    "a",
+    "accepted",
+    "an",
+    "and",
+    "according",
+    "applicable",
+    "assessment",
+    "at",
+    "but",
+    "clinical",
+    "current",
+    "expected",
+    "for",
+    "green",
+    "high",
+    "low",
+    "medium",
+    "mild",
+    "minimal",
+    "moderate",
+    "normal",
+    "of",
+    "on",
+    "overall",
+    "questionnaire",
+    "rating",
+    "red",
+    "recommended",
+    "relevant",
+    "same",
+    "stated",
+    "that",
+    "the",
+    "this",
+    "to",
+    "target",
+    "total",
+    "very",
+    "severe",
+    "borderline",
+    "amber",
+    "when",
+    "while",
+    "whereas",
+    "with",
+  ]);
+  const appendIdentityPhrase = (phrase: string | undefined) =>
+    append(
+      (phrase ?? "")
+        .trim()
+        .split(/\s+/)
+        .filter((word) => !genericIdentityWords.has(word.toLowerCase()))
+        .slice(-3)
+        .join(" "),
+    );
+  for (const match of value.matchAll(
+    /\b((?:[A-Z][A-Za-z0-9-]*\s+){1,5})(?:Scores?|Risks?|Scales?|Indexes?|Indices|Severit(?:y|ies)|Levels?|Bands?|Zones?|Categor(?:y|ies)|Ranges?)\b/g,
+  )) {
+    appendIdentityPhrase(match[1]);
+  }
+  for (const match of value.matchAll(
+    /\b([a-z][a-z0-9-]*)\s+(?:scores?|risks?|scales?|indexes?|indices|severit(?:y|ies)|levels?|bands?|zones?|categor(?:y|ies)|ranges?)\b/gi,
+  )) {
+    appendIdentityPhrase(match[1]);
+  }
+  return identities;
+}
+
+const fullScaleNamePattern = /\b((?:(?:[A-Z][A-Za-z0-9-]*|and|of|the)\s+){2,9}Scale)\b/g;
+
+function fullScaleNameIdentities(value: string) {
+  const words = value.split(/\s+/);
+  return new Set(
+    [
+      value,
+      words.map((word) => word[0]).join(""),
+      words
+        .filter((word) => !/^(?:and|of|the)$/i.test(word))
+        .map((word) => word[0])
+        .join(""),
+    ]
+      .filter((identity) => identity.length >= 3)
+      .map((identity) => identity.toLowerCase().replace(/\s+/g, " ").trim()),
+  );
+}
+
+function acronymIsScaleAssociated(value: string, match: RegExpMatchArray, current: Set<string>) {
+  const identity = match[1].toLowerCase();
+  if (current.has(identity)) return true;
+  const matchIndex = match.index ?? 0;
+  const before = value.slice(Math.max(0, matchIndex - 40), matchIndex);
+  const after = value.slice(matchIndex + match[0].length, matchIndex + match[0].length + 40);
+  const directBandCue =
+    /^\s+(?:(?:scores?|bands?|scales?|ranges?|zones?|levels?|categor(?:y|ies)|risks?|severit(?:y|ies))\b|(?:uses?|reports?|defines?|sets?|has|differs?)\b)/i.test(
+      after,
+    );
+  const punctuationBoundBandCue =
+    /^\s*(?:[,;:]|[-–—]|[()])\s*(?:the\s+)?(?:scores?|bands?|scales?|ranges?|zones?|levels?|categor(?:y|ies)|risks?|severit(?:y|ies))\b/i.test(
+      after,
+    );
+  const postpositiveBandCue =
+    /\b(?:scores?|bands?|scales?|ranges?|zones?|levels?|categor(?:y|ies)|risks?|severit(?:y|ies))\b[^.!?\n]{0,40}(?:[,;:]|[-–—]|\()?\s*$/i.test(
+      before,
+    );
+  return (
+    directBandCue ||
+    punctuationBoundBandCue ||
+    postpositiveBandCue ||
+    /\b(?:unlike|versus|vs\.?|compared\s+(?:with|to)|differs?\s+from)\s*$/i.test(before)
+  );
+}
+
+function explicitScaleIdentityMentions(value: string, current: Set<string>) {
+  const mentions = [
+    ...[...value.matchAll(/\b([A-Z][A-Z0-9-]{2,})\b/g)]
+      .filter((match) => acronymIsScaleAssociated(value, match, current))
+      .map((match) => ({
+        index: match.index,
+        identities: new Set([match[1].toLowerCase()]),
+      })),
+    ...[...value.matchAll(fullScaleNamePattern)].map((match) => ({
+      index: match.index,
+      identities: fullScaleNameIdentities(match[1]),
+    })),
+  ];
+  return mentions.sort((left, right) => left.index - right.index);
+}
+
+function trailingBandScaleSwitch(value: string, current: Set<string>) {
+  const groups = [...value.matchAll(fullScaleNamePattern)].map((match) => fullScaleNameIdentities(match[1]));
+  for (const match of value.matchAll(
+    /\b(?:(?:applies?|belongs?|maps?|corresponds?)\s+(?:on|to|for)|(?:is|are)\s+(?:on|for)|(?:scores?|bands?|scales?)\s+(?:is\s+)?(?:on|for))\s+(?:the\s+)?([A-Z][A-Z0-9-]{2,})\b/gi,
+  )) {
+    if (/^[A-Z][A-Z0-9-]{2,}$/.test(match[1])) groups.push(new Set([match[1].toLowerCase()]));
+  }
+  for (const match of value.matchAll(/\b([A-Z][A-Z0-9-]{2,})\b\s+(?:scores?|bands?|scales?)\b/g)) {
+    groups.push(new Set([match[1].toLowerCase()]));
+  }
+  return groups.some((group) => ![...group].some((identity) => current.has(identity)));
+}
+
+function introducesDistinctBandScaleOrSource(value: string, current: Set<string>) {
+  const introduced = bandScopeIdentities(value);
+  if (introduced.size === 0) return false;
+  for (const match of value.matchAll(/\b([A-Z][A-Z0-9-]{2,})\b/g)) {
+    if (!acronymIsScaleAssociated(value, match, current)) introduced.delete(match[1].toLowerCase());
+  }
+  if (introduced.size === 0) return false;
+  return ![...current].some((identity) => introduced.has(identity));
+}
+
+function hasExplicitBandScaleCue(value: string) {
+  return (
+    /\b(?:scores?|ranges?|bands?|zones?|severit(?:y|ies)|risks?|levels?|categor(?:y|ies))\b/i.test(value) ||
+    /\b[A-Za-z][A-Za-z0-9-]{2,}(?:\s+(?:scores?|scale|index|questionnaire))?\s*:/i.test(value)
+  );
+}
+
+/**
+ * Detect explicit labelled numeric bands whose intervals contradict each
+ * other. The detector is intentionally narrow: at least two distinct labels
+ * must form one nearby list, share a scale cue and use compatible units.
+ * Values are never corrected or inferred.
+ */
+export function detectLabelledNumericBandConflicts(text: string): LabelledNumericBandConflict[] {
+  if (!text) return [];
+  const bands = labelledNumericBands(text);
+  const groups: LabelledNumericBand[][] = [];
+  for (const band of bands) {
+    const current = groups.at(-1);
+    const previous = current?.at(-1);
+    const between = previous ? text.slice(previous.end, band.start) : "";
+    const markdownBulletContinuation = /^\s*\.\s*(?:\r?\n\s*)?(?:[-*+]|\d+[.)])\s*$/.test(between);
+    const currentPrefix = current ? text.slice(Math.max(0, current[0].start - 120), current[0].start) : "";
+    const allCurrentIdentities = bandScopeIdentities(currentPrefix);
+    const activeCurrentIdentities =
+      explicitScaleIdentityMentions(currentPrefix, new Set()).at(-1)?.identities ?? allCurrentIdentities;
+    const nearestExplicitIdentity = explicitScaleIdentityMentions(between, activeCurrentIdentities).at(-1);
+    const distinctScaleOrSource = nearestExplicitIdentity
+      ? ![...nearestExplicitIdentity.identities].some((identity) => activeCurrentIdentities.has(identity))
+      : introducesDistinctBandScaleOrSource(between, activeCurrentIdentities);
+    const boundedBandSuffix = text.slice(band.end).match(/^[^.!?\n]{0,100}/)?.[0] ?? "";
+    const trailingDistinctScaleOrSource = trailingBandScaleSwitch(boundedBandSuffix, activeCurrentIdentities);
+    const sameScaleSentenceContinuation = /^\s*[.!?]\s*$/.test(between) && hasExplicitBandScaleCue(currentPrefix);
+    if (
+      current &&
+      previous &&
+      between.length <= 100 &&
+      !distinctScaleOrSource &&
+      !trailingDistinctScaleOrSource &&
+      (markdownBulletContinuation || sameScaleSentenceContinuation || !/[.!?](?:\s|$)/.test(between))
+    ) {
+      current.push(band);
+    } else {
+      groups.push([band]);
+    }
+  }
+
+  const conflicts: LabelledNumericBandConflict[] = [];
+  for (const band of bands.filter((candidate) => candidate.lower > candidate.upper)) {
+    const context = text.slice(Math.max(0, band.start - 100), Math.min(text.length, band.end + 40));
+    if (!hasExplicitBandScaleCue(context)) {
+      continue;
+    }
+    conflicts.push({
+      reason: "reversed_range",
+      labels: [band.label],
+      start: band.start,
+      end: band.end,
+      text: text.slice(band.start, band.end),
+    });
+  }
+  for (const group of groups) {
+    const orderedGroup = group.filter((band) => band.lower <= band.upper);
+    if (orderedGroup.length < 2 || new Set(orderedGroup.map((band) => band.label)).size < 2) continue;
+    const groupStart = orderedGroup[0].start;
+    const groupEnd = orderedGroup.at(-1)!.end;
+    const context = text.slice(Math.max(0, groupStart - 100), Math.min(text.length, groupEnd + 40));
+    if (!hasExplicitBandScaleCue(context)) {
+      continue;
+    }
+    const units = new Set(orderedGroup.map((band) => band.unit).filter(Boolean));
+    const compatibleUnitGroups =
+      units.size <= 1 ? [orderedGroup] : [...units].map((unit) => orderedGroup.filter((band) => band.unit === unit));
+    for (const compatibleUnitGroup of compatibleUnitGroups) {
+      if (compatibleUnitGroup.length < 2) continue;
+      const overlap = compatibleUnitGroup.some((left, index) =>
+        compatibleUnitGroup.slice(index + 1).some((right) => bandIntervalsOverlap(left, right)),
+      );
+      if (!overlap) continue;
+      const conflictStart = compatibleUnitGroup[0].start;
+      const conflictEnd = compatibleUnitGroup.at(-1)!.end;
+      conflicts.push({
+        reason: "overlap",
+        labels: compatibleUnitGroup.map((band) => band.label),
+        start: conflictStart,
+        end: conflictEnd,
+        text: text.slice(conflictStart, conflictEnd),
+      });
+    }
+  }
+  return conflicts;
+}
+
+export type AdjacentLabelledNumericBandConflict = {
+  chunkIds: [string, string];
+  conflicts: LabelledNumericBandConflict[];
+  identities: string[];
+  numericTokens: string[];
+  endpointValues: number[];
+  memberBands: Array<{
+    label: string;
+    unit: string;
+    lower: number;
+    upper: number;
+    lowerInclusive: boolean;
+    upperInclusive: boolean;
+  }>;
+  overlapIntervals: Array<{
+    lower: number;
+    upper: number;
+    lowerInclusive: boolean;
+    upperInclusive: boolean;
+  }>;
+};
+
+function normalizedBandStructuralScope(values: Array<string | null | undefined>) {
+  const normalized = values
+    .filter((value): value is string => Boolean(value?.trim()))
+    .map((value) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim(),
+    );
+  return normalized.length > 0 ? normalized.join(" > ") : null;
+}
+
+function comparableBandStructuralScope(result: SearchResult) {
+  const attachedIndexUnitHeadingPath =
+    result.index_unit?.source_chunk_id === result.id ? result.index_unit.heading_path : undefined;
+  return {
+    anchor: normalizedBandStructuralScope([result.anchor_id]),
+    sectionPath: normalizedBandStructuralScope(result.section_path ?? []),
+    indexUnitPath: normalizedBandStructuralScope(attachedIndexUnitHeadingPath ?? []),
+    heading: normalizedBandStructuralScope([result.parent_heading, result.section_heading]),
+  };
+}
+
+function adjacentBandScopesAreCompatible(left: SearchResult, right: SearchResult) {
+  const leftScope = comparableBandStructuralScope(left);
+  const rightScope = comparableBandStructuralScope(right);
+  const leftPathIdentities = bandScopeIdentities((left.section_path ?? []).join(" "));
+  const rightPathIdentities = bandScopeIdentities((right.section_path ?? []).join(" "));
+  const leftContentIdentities = bandScopeIdentities((left.content ?? "").slice(-320));
+  const rightContentIdentities = bandScopeIdentities((right.content ?? "").slice(0, 320));
+  if (leftScope.sectionPath && rightScope.sectionPath) {
+    if (leftScope.sectionPath !== rightScope.sectionPath) return false;
+    if (
+      [...leftPathIdentities].some(
+        (identity) =>
+          rightPathIdentities.has(identity) &&
+          (leftContentIdentities.has(identity) || rightContentIdentities.has(identity)),
+      )
+    ) {
+      return true;
+    }
+  }
+  if (leftScope.indexUnitPath && rightScope.indexUnitPath && leftScope.indexUnitPath !== rightScope.indexUnitPath) {
+    return false;
+  }
+  const leftHeadingIdentities = bandScopeIdentities(
+    [left.parent_heading, left.section_heading].filter(Boolean).join(" "),
+  );
+  const rightHeadingIdentities = bandScopeIdentities(
+    [right.parent_heading, right.section_heading].filter(Boolean).join(" "),
+  );
+  if (leftHeadingIdentities.size > 0 && rightHeadingIdentities.size > 0) {
+    const sharedHeadingIdentities = new Set(
+      [...leftHeadingIdentities].filter((identity) => rightHeadingIdentities.has(identity)),
+    );
+    const leftDistinct = [...leftHeadingIdentities].filter((identity) => !sharedHeadingIdentities.has(identity));
+    const rightDistinct = [...rightHeadingIdentities].filter((identity) => !sharedHeadingIdentities.has(identity));
+    if (sharedHeadingIdentities.size === 0 || (leftDistinct.length > 0 && rightDistinct.length > 0)) return false;
+    return true;
+  }
+  if (leftScope.sectionPath && rightScope.sectionPath) return true;
+  if (leftScope.indexUnitPath && rightScope.indexUnitPath) return true;
+  if (leftScope.heading && rightScope.heading) return leftScope.heading === rightScope.heading;
+
+  const repairedChunkAnchor = /^p(?:\d+|na) c\d+ /i;
+  const comparableAnchors =
+    leftScope.anchor &&
+    rightScope.anchor &&
+    !repairedChunkAnchor.test(leftScope.anchor) &&
+    !repairedChunkAnchor.test(rightScope.anchor);
+  if (comparableAnchors) return leftScope.anchor === rightScope.anchor;
+  return null;
+}
+
+type NumericBandReference = {
+  raw: string;
+  normalized: string;
+  unit: string;
+  start: number;
+  end: number;
+  lower: number;
+  upper: number;
+  lowerInclusive: boolean;
+  upperInclusive: boolean;
+};
+
+const numericBandReferencePattern =
+  /\bbetween\s+(\d+(?:[.,]\d+)?)\s+and\s+(\d+(?:[.,]\d+)?)|(?:(below|under|less\s+than|above|over|greater\s+than|at\s+least|at\s+most|<=|>=|<|>|≤|≥)\s*)?(\d+(?:[.,]\d+)?)(?:\s*(?:[-–—]|\bto\b|\bthrough\b)\s*(\d+(?:[.,]\d+)?))?/giu;
+
+function numericBandReferences(text: string): NumericBandReference[] {
+  return Array.from(text.matchAll(numericBandReferencePattern), (match) => {
+    const isBetween = Boolean(match[1] && match[2]);
+    const first = canonicalNumber(isBetween ? match[1] : match[4]);
+    const second = isBetween ? canonicalNumber(match[2]) : match[5] ? canonicalNumber(match[5]) : null;
+    const comparator = isBetween ? null : canonicalComparator(match[3]);
+    let lower = Number(first);
+    let upper = second === null ? lower : Number(second);
+    let lowerInclusive = true;
+    let upperInclusive = true;
+    let normalized = second === null ? first : `${first}-${second}`;
+    if (comparator === "above" || comparator === "at_least") {
+      upper = Number.POSITIVE_INFINITY;
+      lowerInclusive = comparator === "at_least";
+      normalized = `${lowerInclusive ? ">=" : ">"}${first}`;
+    } else if (comparator === "below" || comparator === "at_most") {
+      lower = Number.NEGATIVE_INFINITY;
+      upperInclusive = comparator === "at_most";
+      normalized = `${upperInclusive ? "<=" : "<"}${first}`;
+    }
+    if (lower > upper) [lower, upper] = [upper, lower];
+    const unitMatch = text
+      .slice(match.index + match[0].length, match.index + match[0].length + 24)
+      .match(
+        /^\s*(%|points?|mg|milligrams?|mcg|ug|µg|μg|micrograms?|g|kg|mL|ml|l|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?|mmHg|bpm|hours?|hrs?|days?|weeks?|months?|years?|minutes?|mins?|tablets?|doses?|participants?|patients?|subjects?)\b/i,
+      );
+    return {
+      raw: match[0],
+      normalized,
+      unit: normalizedBandUnit(unitMatch?.[1]),
+      start: match.index,
+      end: match.index + match[0].length,
+      lower,
+      upper,
+      lowerInclusive,
+      upperInclusive,
+    };
+  }).filter((reference) => Number.isFinite(reference.lower) || Number.isFinite(reference.upper));
+}
+
+function numericBandTokens(text: string) {
+  return new Set(numericBandReferences(text).map((reference) => reference.normalized));
+}
+
+function conflictingBandMembers(text: string, conflicts: LabelledNumericBandConflict[]) {
+  return conflicts.flatMap((conflict) =>
+    labelledNumericBands(text)
+      .filter((band) => band.start >= conflict.start && band.end <= conflict.end)
+      .map(({ label, unit, lower, upper, lowerInclusive, upperInclusive }) => ({
+        label,
+        unit,
+        lower,
+        upper,
+        lowerInclusive,
+        upperInclusive,
+      })),
+  );
+}
+
+function conflictingBandOverlapIntervals(text: string, conflicts: LabelledNumericBandConflict[]) {
+  return conflicts.flatMap((conflict) => {
+    const bands = labelledNumericBands(text).filter((band) => band.start >= conflict.start && band.end <= conflict.end);
+    return bands.flatMap((left, index) =>
+      bands.slice(index + 1).flatMap((right) => {
+        if (left.label === right.label || left.unit !== right.unit || !bandIntervalsOverlap(left, right)) return [];
+        const lower = Math.max(left.lower, right.lower);
+        const upper = Math.min(left.upper, right.upper);
+        return [
+          {
+            lower,
+            upper,
+            lowerInclusive:
+              (lower !== left.lower || left.lowerInclusive) && (lower !== right.lower || right.lowerInclusive),
+            upperInclusive:
+              (upper !== left.upper || left.upperInclusive) && (upper !== right.upper || right.upperInclusive),
+          },
+        ];
+      }),
+    );
+  });
+}
+
+function conflictScopeIdentities(text: string, conflicts: LabelledNumericBandConflict[]) {
+  return [
+    ...new Set(
+      conflicts.flatMap((conflict) => [
+        ...bandScopeIdentities(text.slice(Math.max(0, conflict.start - 160), conflict.end)),
+      ]),
+    ),
+  ];
+}
+
+function labelledNumericBandConflictContext(
+  text: string,
+  chunkIds: [string, string],
+  fallbackIdentities: string[] = [],
+): AdjacentLabelledNumericBandConflict | null {
+  const conflicts = detectLabelledNumericBandConflicts(text);
+  if (conflicts.length === 0) return null;
+  const memberBands = conflictingBandMembers(text, conflicts);
+  const overlapIntervals = conflictingBandOverlapIntervals(text, conflicts);
+  const scopedIdentities = conflictScopeIdentities(text, conflicts);
+  return {
+    chunkIds,
+    conflicts,
+    identities: [...new Set([...scopedIdentities, ...fallbackIdentities])],
+    numericTokens: [...numericBandTokens(conflicts.map((conflict) => conflict.text).join(" "))],
+    endpointValues: [
+      ...new Set(
+        [
+          ...overlapIntervals.flatMap((interval) => [interval.lower, interval.upper]),
+          ...memberBands.filter((band) => band.lower > band.upper).flatMap((band) => [band.lower, band.upper]),
+        ].filter((value) => Number.isFinite(value)),
+      ),
+    ],
+    memberBands,
+    overlapIntervals,
+  };
+}
+
+/** Contradictory labelled bands split across one bounded adjacent chunk boundary. */
+export function adjacentLabelledNumericBandConflicts(results: SearchResult[]) {
+  const resultsByDocument = new Map<string, SearchResult[]>();
+  for (const result of results) {
+    resultsByDocument.set(result.document_id, [...(resultsByDocument.get(result.document_id) ?? []), result]);
+  }
+
+  const detected: AdjacentLabelledNumericBandConflict[] = [];
+  for (const documentResults of resultsByDocument.values()) {
+    const ordered = [...documentResults].sort((left, right) => left.chunk_index - right.chunk_index);
+    for (let index = 1; index < ordered.length; index += 1) {
+      const left = ordered[index - 1]!;
+      const right = ordered[index]!;
+      if (right.chunk_index - left.chunk_index !== 1) continue;
+      if (
+        left.page_number !== null &&
+        right.page_number !== null &&
+        Math.abs(right.page_number - left.page_number) > 1
+      ) {
+        continue;
+      }
+
+      const explicitScopeCompatible = adjacentBandScopesAreCompatible(left, right);
+      if (explicitScopeCompatible === false) continue;
+      const leftTail = (left.content ?? "").slice(-320);
+      const rightHead = (right.content ?? "").slice(0, 320);
+      const leftIdentities = bandScopeIdentities(leftTail);
+      const rightIdentities = bandScopeIdentities(rightHead);
+      const sharedIdentities = [...leftIdentities].filter((identity) => rightIdentities.has(identity));
+      if (leftIdentities.size > 0 && rightIdentities.size > 0 && sharedIdentities.length === 0) continue;
+      const conflictIdentities =
+        leftIdentities.size > 0 && rightIdentities.size > 0
+          ? sharedIdentities
+          : [...new Set([...leftIdentities, ...rightIdentities])];
+      if (explicitScopeCompatible === null && sharedIdentities.length === 0) continue;
+
+      const boundary = `${leftTail}\n${rightHead}`;
+      const context = labelledNumericBandConflictContext(boundary, [left.id, right.id], conflictIdentities);
+      if (context) detected.push(context);
+    }
+  }
+  return detected;
+}
+
+export function labelledNumericBandConflictChunkIds(results: SearchResult[]) {
+  return new Set(adjacentLabelledNumericBandConflicts(results).flatMap((conflict) => conflict.chunkIds));
+}
+
+/** Whether text refers to the conflicting scale/value set at one adjacent chunk boundary. */
+export function textReferencesAdjacentBandConflict(
+  text: string,
+  chunkId: string,
+  conflicts: AdjacentLabelledNumericBandConflict[],
+  bandContext = "",
+) {
+  const references = numericBandReferences(text);
+  if (references.length === 0) return false;
+  const contextIdentities = bandScopeIdentities(bandContext);
+  const contextHasCoreBandCue =
+    /\b(?:scores?|bands?|zones?|categor(?:y|ies)|severit(?:y|ies)|risks?|scales?|indexes?|indices|levels?)\b/i.test(
+      bandContext,
+    );
+  const contextHasRangeCue = /\branges?\b/i.test(bandContext);
+  const clauseForReference = (reference: NumericBandReference) => {
+    const boundaryBefore = Math.max(
+      text.lastIndexOf(".", reference.start - 1),
+      text.lastIndexOf(";", reference.start - 1),
+      text.lastIndexOf("!", reference.start - 1),
+      text.lastIndexOf("?", reference.start - 1),
+      text.lastIndexOf("\n", reference.start - 1),
+    );
+    const followingBoundaries = [".", ";", "!", "?", "\n"]
+      .map((separator) => text.indexOf(separator, reference.end))
+      .filter((index) => index >= 0);
+    const boundaryAfter = followingBoundaries.length > 0 ? Math.min(...followingBoundaries) : text.length;
+    return { text: text.slice(boundaryBefore + 1, boundaryAfter), start: boundaryBefore + 1 };
+  };
+  const severityLabelPattern =
+    /\b(very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b/gi;
+  const intervalsOverlap = (
+    left: Pick<NumericBandReference, "lower" | "upper" | "lowerInclusive" | "upperInclusive">,
+    right: Pick<NumericBandReference, "lower" | "upper" | "lowerInclusive" | "upperInclusive">,
+  ) => {
+    const lower = Math.max(left.lower, right.lower);
+    const upper = Math.min(left.upper, right.upper);
+    if (lower < upper) return true;
+    if (lower > upper) return false;
+    const includes = (interval: typeof left, value: number) =>
+      value >= interval.lower &&
+      value <= interval.upper &&
+      (value !== interval.lower || interval.lowerInclusive) &&
+      (value !== interval.upper || interval.upperInclusive);
+    return includes(left, lower) && includes(right, lower);
+  };
+  return conflicts.some((conflict) => {
+    if (!conflict.chunkIds.includes(chunkId)) return false;
+    const contextHasCompatibleIdentity =
+      conflict.identities.length > 0 && conflict.identities.some((identity) => contextIdentities.has(identity));
+    const contextHasBandCue = contextHasCoreBandCue || (contextHasCompatibleIdentity && contextHasRangeCue);
+    return references.some((reference) => {
+      const clauseScope = clauseForReference(reference);
+      const clause = clauseScope.text;
+      const localPrefix = text.slice(Math.max(clauseScope.start, reference.start - 32), reference.start);
+      const localSuffix = text.slice(reference.end, Math.min(clauseScope.start + clause.length, reference.end + 32));
+      const conflictUnits = new Set(conflict.memberBands.map((band) => band.unit).filter(Boolean));
+      if (
+        (reference.unit && reference.unit !== "points" && !conflictUnits.has(reference.unit)) ||
+        /\b(?:age|aged|page|pages?|table|tables?|appendix|section|sections?|forms?|codes?|identifiers?|ids?|extensions?|ext|telephone|phone|tel|call(?:ing)?|switchboard|interval|cases?|examples?|sample(?:\s+size)?|participants?|patients?|subjects?|blood\s+pressure|oxygen\s+saturation|heart\s+rate|respiratory\s+rate|pulse|temperature|dose|dosage|reliability|validity|sensitivity|specificity|items?|questions?)\b[^,;.!?\n]{0,20}$/i.test(
+          localPrefix,
+        ) ||
+        /\breferences?\b(?!\s+(?:ranges?|scores?|bands?|scales?|levels?|values?))[^,;.!?\n]{0,20}$/i.test(
+          localPrefix,
+        ) ||
+        /^\s*(?:mg|milligrams?|mcg|ug|µg|μg|micrograms?|g|kg|mL|ml|l|mmol(?:\s*\/\s*l)?|mol(?:\s*\/\s*l)?|ng(?:\s*\/\s*ml)?|mmHg|bpm|hours?|hrs?|days?|weeks?|months?|years?|minutes?|mins?|tablets?|doses?|participants?|patients?|subjects?|people|persons?|items?|questions?|forms?|codes?|identifiers?|ids?|extensions?|cases?|examples?)\b/i.test(
+          localSuffix,
+        )
+      ) {
+        return false;
+      }
+      const identityHardBoundaryBefore = Math.max(
+        text.lastIndexOf(".", reference.start - 1),
+        text.lastIndexOf("!", reference.start - 1),
+        text.lastIndexOf("?", reference.start - 1),
+        text.lastIndexOf("\n", reference.start - 1),
+      );
+      const identityFollowingBoundaries = [".", "!", "?", "\n"]
+        .map((separator) => text.indexOf(separator, reference.end))
+        .filter((index) => index >= 0);
+      const identityHardBoundaryAfter =
+        identityFollowingBoundaries.length > 0 ? Math.min(...identityFollowingBoundaries) : text.length;
+      const identityWindowStart = Math.max(identityHardBoundaryBefore + 1, reference.start - 80);
+      const identityWindowEnd = Math.min(identityHardBoundaryAfter, reference.end + 48);
+      const identityWindow = text.slice(identityWindowStart, identityWindowEnd);
+      const referenceOffsetInIdentityWindow = reference.start - identityWindowStart;
+      const windowIdentities = [...bandScopeIdentities(identityWindow)].filter((identity) => {
+        const escapedIdentity = identity
+          .split(" ")
+          .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+          .join("\\s+");
+        return (
+          new RegExp(
+            `\\b${escapedIdentity}\\b(?:\\s+|\\s*(?:[,;:]|[-–—]|[()])\\s*(?:the\\s+)?)(?:(?:rating|assessment)\\s+)?(?:scores?|risks?|scales?|indexes?|indices|severit(?:y|ies)|levels?|bands?|zones?|categor(?:y|ies)|ranges?|[<>≤≥]?\\s*\\d)`,
+            "i",
+          ).test(identityWindow) ||
+          new RegExp(
+            `(?:scores?|risks?|scales?|indexes?|indices|severit(?:y|ies)|levels?|bands?|zones?|categor(?:y|ies)|ranges?)\\s+(?:for|on|from)\\s+${escapedIdentity}\\b`,
+            "i",
+          ).test(identityWindow) ||
+          new RegExp(
+            `(?:scores?|risks?|scales?|indexes?|indices|severit(?:y|ies)|levels?|bands?|zones?|categor(?:y|ies)|ranges?)\\b[^.!?\\n]{0,48}\\b${escapedIdentity}\\b`,
+            "i",
+          ).test(identityWindow)
+        );
+      });
+      const strongWindowIdentities = new Set(
+        explicitScaleIdentityMentions(identityWindow, new Set()).flatMap((mention) => [...mention.identities]),
+      );
+      const normalizedWindow = identityWindow.toLowerCase();
+      const nearestIdentity = windowIdentities
+        .map((identity) => {
+          const before = normalizedWindow.lastIndexOf(identity, Math.max(0, referenceOffsetInIdentityWindow));
+          const after = normalizedWindow.indexOf(identity, Math.max(0, referenceOffsetInIdentityWindow));
+          const beforeDistance =
+            before >= 0
+              ? Math.max(0, referenceOffsetInIdentityWindow - (before + identity.length))
+              : Number.POSITIVE_INFINITY;
+          const afterDistance =
+            after >= 0
+              ? Math.max(0, after - (referenceOffsetInIdentityWindow + reference.raw.length))
+              : Number.POSITIVE_INFINITY;
+          return { identity, distance: Math.min(beforeDistance, afterDistance) };
+        })
+        .sort((left, right) => left.distance - right.distance)[0]?.identity;
+      const hasCompatibleIdentity = Boolean(nearestIdentity && conflict.identities.includes(nearestIdentity));
+      // Query-bound scale context remains authoritative for phrases such as
+      // "the applicable range". A genuine local acronym or full scale name
+      // (for example PANSS) still overrides that context.
+      if (
+        nearestIdentity &&
+        !hasCompatibleIdentity &&
+        (!contextHasCompatibleIdentity || strongWindowIdentities.has(nearestIdentity))
+      ) {
+        return false;
+      }
+      const hasCompatibleContext =
+        contextHasBandCue && (conflict.identities.length === 0 || contextHasCompatibleIdentity);
+      const nearbyLabels = Array.from(identityWindow.matchAll(severityLabelPattern)).map((match) =>
+        match[1].toLowerCase().replace(/\s+/g, " "),
+      );
+      const hasScoreBandCue =
+        /\b(?:scores?|bands?|zones?|categor(?:y|ies)|severit(?:y|ies)|risks?|scales?|indexes?|indices|levels?)\b/i.test(
+          identityWindow,
+        ) ||
+        /\b(?:score|band|risk|scale|level)\s*\d/i.test(identityWindow) ||
+        nearbyLabels.length > 0;
+      const exactConflictToken = conflict.numericTokens.includes(reference.normalized);
+      const actionableBandContext =
+        /\b(?:escalat\w*|contact|notify|inform|consult)\b[^,;.!?\n]{0,32}$/i.test(localPrefix) ||
+        /^\s*(?:[,;:]\s*)?(?:(?:escalat\w*|contact|notify|inform|consult|report)\b|(?:requires?|required|should|must)\s+(?:be\s+)?(?:escalat\w*|reported|reviewed)|(?:triggers?|warrants?)\s+escalation)\b/i.test(
+          localSuffix,
+        ) ||
+        /\b(?:escalat\w*|contact|notify|inform|consult)\b/i.test(clause) ||
+        /\b(?:requires?|required|should|must)\b[^,;.!?\n]{0,80}\b(?:escalat\w*|reported|reviewed)\b/i.test(clause) ||
+        /\b(?:triggers?|warrants?)\s+escalation\b/i.test(clause);
+      const hasBoundBandContext = hasScoreBandCue || hasCompatibleIdentity || hasCompatibleContext;
+      if (exactConflictToken && (hasBoundBandContext || actionableBandContext)) return true;
+      const isScalar = reference.lower === reference.upper;
+      if (
+        isScalar &&
+        conflict.endpointValues.includes(reference.lower) &&
+        (hasBoundBandContext || actionableBandContext)
+      ) {
+        return true;
+      }
+      if (
+        conflict.overlapIntervals.some((interval) => intervalsOverlap(reference, interval)) &&
+        (hasBoundBandContext || actionableBandContext)
+      ) {
+        return true;
+      }
+      if (!hasBoundBandContext && !actionableBandContext) return false;
+      if (
+        nearbyLabels.some((label) =>
+          conflict.memberBands.some((band) => band.label === label && intervalsOverlap(reference, band)),
+        )
+      ) {
+        return true;
+      }
+      if (
+        (hasBoundBandContext || actionableBandContext) &&
+        conflict.memberBands.some((band) => intervalsOverlap(reference, band))
+      ) {
+        return true;
+      }
+      return false;
+    });
+  });
+}
+
+/** Conflicts in one source segment that affect the supplied answer/quote text. */
+export function labelledNumericBandConflictsAffectingText(text: string, sourceSegment: string, bandContext = "") {
+  const context = labelledNumericBandConflictContext(sourceSegment, ["source-segment", "source-segment"]);
+  if (!context || !textReferencesAdjacentBandConflict(text, "source-segment", [context], bandContext)) return [];
+  return context.conflicts;
+}
+
 function clinicalValueAtomKey(atom: ClinicalValueAtom) {
   return [
     atom.kind,
@@ -457,6 +1403,48 @@ function sourceClinicalValueAtomSet(results: SearchResult[]): Set<string> {
 export const VERIFY_AGAINST_SOURCE_NOTE =
   "CRITICAL: Some figures in this answer could not be matched verbatim to the cited sources — verify against the source documents before acting.";
 
+export const LABELLED_NUMERIC_BAND_CONFLICT_NOTE =
+  "The answer or its supporting source contained overlapping or reversed labelled numeric bands. The system has withheld those numeric bands rather than infer a correction.";
+
+export function failClosedForLabelledNumericBandConflict(
+  answer: RagAnswer,
+  conflicts: LabelledNumericBandConflict[],
+  supportingConflictChunkIds: string[] = [],
+): RagAnswer {
+  const citedChunkIds = [
+    ...new Set([...answer.citations.map((citation) => citation.chunk_id), ...supportingConflictChunkIds]),
+  ];
+  const affectedLabels = [...new Set(conflicts.flatMap((item) => item.labels))];
+  const conflict: ConflictOrGap = {
+    type: "conflict",
+    message:
+      affectedLabels.length > 0
+        ? `${LABELLED_NUMERIC_BAND_CONFLICT_NOTE} Affected labels: ${affectedLabels.join(", ")}.`
+        : LABELLED_NUMERIC_BAND_CONFLICT_NOTE,
+    ...(citedChunkIds.length > 0 ? { source_chunk_ids: citedChunkIds } : {}),
+  };
+  return {
+    ...answer,
+    answer:
+      "I found relevant source material, but the answer or its supporting source contained internally inconsistent labelled numeric bands. Review the source material and obtain clinical clarification before using those score, range, or severity bands.",
+    grounded: false,
+    confidence: "unsupported",
+    citations: [],
+    answerSections: [],
+    quoteCards: [],
+    bestSource: null,
+    responseMode: "evidence_gap",
+    routingMode: "unsupported",
+    routingReason: appendRoutingReason(answer.routingReason, "numeric_band_coherence_gate_source_conflict"),
+    conflictsOrGaps: [
+      ...(answer.conflictsOrGaps ?? []).filter((item) => !item.message.startsWith(LABELLED_NUMERIC_BAND_CONFLICT_NOTE)),
+      conflict,
+    ],
+    supportedClaims: undefined,
+    evidenceAssessments: undefined,
+  };
+}
+
 // GEN-C2 / GEN-H2: verify every numeric/dose/threshold token in the generated
 // answer against the text of its cited chunks. Unsupported figures are recorded
 // on the answer and an explicit "verify against source" caveat is appended so a
@@ -495,6 +1483,14 @@ function hasActionableNumericContext(answer: RagAnswer) {
 // answer-input set for the client/eval boundary); other callers omit it and verify against
 // answer.sources as before.
 export function applyNumericVerification(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
+  // Answer fields are independent prose scopes. Combining them can make two
+  // unrelated scales look like one overlapping list (for example, a renal
+  // score in the lead and a cardiac score in a section).
+  const bandConflicts = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].flatMap(
+    (text) => detectLabelledNumericBandConflicts(text),
+  );
+  if (bandConflicts.length > 0) return failClosedForLabelledNumericBandConflict(answer, bandConflicts);
+
   const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();
 

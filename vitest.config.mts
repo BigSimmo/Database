@@ -33,6 +33,35 @@ const config = {
           functions: 43,
           lines: 50,
         },
+        // Aggregate behavioral floors ratchet the full post-fixture group rather
+        // than making individual large RAG modules brittle. Each value is the
+        // greater of the measured whole-group floor or the broad floor + 5pp.
+        "src/lib/{clinical-search,retrieval-selection,answer-ranking,clinical-value-binding,medication-entities,rag/rag-candidate-sources,rag/rag-context-selection,rag/rag-retrieval-variants,rag/rag-routing}.ts":
+          {
+            statements: 86,
+            branches: 78,
+            functions: 88,
+            lines: 90,
+          },
+        "src/lib/{answer-verification,evidence,evidence-relevance,rag/rag-claim-support,rag/rag-evidence-gates,rag/rag-quote-verification,rag/rag-source-segmentation}.ts":
+          {
+            statements: 92,
+            branches: 81,
+            functions: 94,
+            lines: 94,
+          },
+        "src/lib/rag/{rag,rag-extractive-answer,rag-comparison,rag-answer-support}.ts": {
+          statements: 83,
+          branches: 72,
+          functions: 90,
+          lines: 88,
+        },
+        "src/lib/{clinical-safety,source-governance,source-review,clinical-review-queue,answer-response}.ts": {
+          statements: 94,
+          branches: 83,
+          functions: 96,
+          lines: 97,
+        },
       },
     },
     // Two projects run under one `npm run test` invocation. `extends: true` makes
