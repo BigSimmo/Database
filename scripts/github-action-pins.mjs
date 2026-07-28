@@ -20,6 +20,7 @@ const reviewedActionPins = new Map([
     new Map([
       ["af0559ee4f514d1ef21826982bed13f7edc3c35e", "v1.0.178"],
       ["b76a0776ae74036e77cd11018083743453d7ad35", "v1.0.179"],
+      ["be7b93b1907a4abad570368f3c74b6fe3807510b", "v1.0.183"],
     ]),
   ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
