@@ -71,10 +71,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   // Only a registry that was actually requested can report a fault: a disabled
   // hook sits in its initial state forever and must not be read as a failure.
   // Unauthorized outranks error because it is the one the reader can act on.
-  const requested = [
-    savedServices.length > 0 ? services.status : null,
-    savedForms.length > 0 ? forms.status : null,
-  ];
+  const requested = [savedServices.length > 0 ? services.status : null, savedForms.length > 0 ? forms.status : null];
   const status = requested.includes("unauthorized")
     ? "unauthorized"
     : requested.includes("error") || requested.includes("not_found")

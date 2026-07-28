@@ -126,8 +126,7 @@ describe("search results band adoption", () => {
       const imported = [...routeSource.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
       const reaches = imported.some((specifier) =>
         [...componentSources.entries()].some(
-          ([componentPath, source]) =>
-            componentPath === `src/${specifier}.tsx` && source.includes(BAND_IDENTIFIER),
+          ([componentPath, source]) => componentPath === `src/${specifier}.tsx` && source.includes(BAND_IDENTIFIER),
         ),
       );
       if (!reaches) orphans.push(key);

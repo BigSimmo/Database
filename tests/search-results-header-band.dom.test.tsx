@@ -72,9 +72,7 @@ describe("SearchResultsHeaderBand", () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
 
-    render(
-      <SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" onRetry={onRetry} />,
-    );
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" onRetry={onRetry} />);
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
