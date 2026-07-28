@@ -2753,7 +2753,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=differentials&q=acute+confusion&focus=1");
 
     await expect(page).toHaveURL(/\/differentials\?q=acute\+confusion&focus=1$/);
-    await expect(page.getByTestId("differentials-home")).toBeVisible();
+    // Production hydration can briefly overlap the outgoing server tree and the
+    // settled client tree on this redirect; wait for one owner before strict
+    // locators (same guard as the mode-home loop in ui-tools).
+    await expectSingleSettledOwner(page.getByTestId("differentials-home"), {
+      message: "differentials redirect home owner",
+    });
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
