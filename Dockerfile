@@ -41,7 +41,9 @@ ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
-# The repo build script allocates an 8 GiB heap; give the builder >= 10 GiB.
+# Image builds often run on ~8 GiB hosts (GitHub runners / constrained builders).
+# Prefer more RAM when available; otherwise allow the guarded Next build to proceed.
+ENV DOCKER_BUILD=1
 RUN npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
