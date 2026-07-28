@@ -454,6 +454,14 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 **recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
 not, so anything worth remembering after a session ends belongs there.
 
+`docs/task-ledger.md` is the shared, prioritised execution view containing only work that remains
+recommended. Use it for dependency order, acuity, required capability, timing, effort, approvals,
+success criteria, verification, and stop rules. Keep evidence/resolution history in
+`docs/outstanding-issues.md` and detailed provider actions in `docs/operator-backlog.md`; update the
+affected records together when work is completed, dropped, superseded, or materially re-scoped.
+Never copy completed, stale, duplicate, speculative, or rejected work back into the recommended
+ledger.
+
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
   `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
   is read-only — it mutates and commits nothing.

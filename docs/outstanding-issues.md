@@ -7,6 +7,10 @@ Durable, cross-session memory of everything still outstanding for this repo: ope
 
 **Rule of thumb:** if it is worth remembering after this session ends, it belongs here.
 
+The prioritised execution view containing only work that remains recommended is
+[`task-ledger.md`](task-ledger.md). This file remains the canonical evidence and resolution history;
+the task ledger owns order, acuity, capability, timing, and effort estimates.
+
 ## How this is used
 
 - Say `/issues` in Claude Code → the skill reads this file and states the open items back,
