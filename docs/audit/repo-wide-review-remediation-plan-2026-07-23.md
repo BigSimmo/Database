@@ -1,28 +1,3 @@
-# Repository-wide review remediation plan — 2026-07-23
-
-## Goal
-
-Resolve the outstanding issues from the repository-wide review sweep with the smallest safe fixes, minimal regression risk, and clear offline-first verification. Do not combine unrelated fixes in one patch unless they share the same verification surface.
-
-## Current constraints
-
-- Current branch: `work`.
-- Current local shell is Node 20 while the repo requires Node 24/npm 11.
-- `node_modules` is absent, so Next docs under `node_modules/next/dist/docs/`, local TypeScript, lint, tests, and build are unavailable until dependencies are installed under the correct runtime.
-- Provider-backed gates remain approval-required: Supabase project checks, production-readiness, live retrieval/answer evals, hosted CI interactions, and release gates.
-- Existing formatting drift spans 27 files; treat it as a dedicated formatting-only change, not as incidental churn in behavior fixes.
-
-## Batch 0 — Restore local verification prerequisites
-
-**Purpose:** Make later checks representative before changing behavior.
-
-**Smallest actions**
-
-1. Switch local runtime to Node 24 and npm 11 using the repo's configured toolchain (`.nvmrc`/host tool manager/container image).
-2. Run `node scripts/check-node-engine.cjs`.
-3. Run `npm ci` only after Node 24 is active.
-4. Confirm dependency/tool presence:
-
 # Repository-wide review remediation completion plan — 2026-07-24
 
 ## Objective
@@ -70,68 +45,13 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
    - `test -f node_modules/typescript/bin/tsc`
    - `test -f node_modules/next/dist/bin/next`
    - `test -d node_modules/next/dist/docs`
-5. Read only the relevant installed Next docs before any Next/config code change.
-
-**Verification**
-
-- `npm run check:runtime`
-- `npm run typecheck`
-
-**Risk control**
-
-- Do not modify lockfiles during this batch unless `npm ci` reports lockfile/package inconsistency.
-- Do not run provider-backed checks.
-
-## Batch 1 — Fix answer `summaryMode` contract drift
-
-**Purpose:** Remove the clinical/source-governance mismatch first.
-
-**Smallest preferred fix**
-
-1. In `src/lib/validation/answer-request.ts`, tighten summary mode so `summaryMode: true` requires exactly one `documentId` and rejects `documentIds` unless it is absent or exactly `[documentId]`. Reject filters in summary mode unless product explicitly wants filtered document summaries.
-2. In `src/app/api/answer/route.ts`, either:
-   - preferred: call the same governed `summarizeDocument(documentId, ownerId, { signal })` path used by streaming; or
-   - fallback: reject `summaryMode` on the non-stream endpoint with a clear 400.
-3. In `src/app/api/answer/stream/route.ts`, validate summary scope against the exact `documentId` before `resolveSearchScope` can use a conflicting `documentIds` array.
-4. Add focused tests in `tests/private-access-routes.test.ts`:
-   - non-stream `summaryMode` uses `summarizeDocument` or rejects clearly;
-   - stream `summaryMode` rejects mismatched `documentId`/`documentIds`;
-   - stream `summaryMode` rejects filters that exclude/conflict with the selected document, if filters are disallowed.
-
-**Verification**
-
-- `npm run test -- tests/private-access-routes.test.ts -t "summaryMode"`
-- `npm run test -- tests/rag-answer-fallback.test.ts tests/answer-response.test.ts`
-- `npm run eval:rag:offline`
-
-**Risk control**
-
-- Do not change answer prompts, ranking, citation formatting, or retrieval algorithms in this batch.
-- Preserve owner/access-scope behavior and fail closed on ambiguous summary scope.
-
-## Batch 2 — Fix CI governance coverage gaps
-
-**Purpose:** Make release PR governance and action pin enforcement match actual executable CI surface.
-
-**Smallest actions**
-
-1. In `.github/workflows/pr-policy.yml`, add `"release/**"` to `pull_request_target.branches` so PR Policy mirrors CI PR branches.
-2. In `scripts/check-github-action-pins.mjs`, extend discovery to include:
-   - `.github/workflows/*.yml`
-   - `.github/workflows/*.yaml`
-   - `.github/actions/**/action.yml`
-   - `.github/actions/**/action.yaml`
-3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
-4. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
+5. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
 
 **Verification ladder**
 
 1. `npm run check:runtime`
 2. `npm run typecheck`
-3. Checker self-test or direct script test for composite action discovery.
-4. `npm run check:github-actions`
-5. `npm run check:pr-policy`
-6. Stop and triage if either fails before touching product code.
+3. Stop and triage if either fails before touching product code.
 
 **Regression guard:** No lockfile or dependency edits unless `npm ci` proves the manifest/lockfile is inconsistent.
 
@@ -184,102 +104,15 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
    - `.github/workflows/*.yaml`
    - `.github/actions/**/action.yml`
    - `.github/actions/**/action.yaml`
-3. Add a self-test or fixture to prove unpinned external `uses:` inside a composite action fails the checker.
+3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
 
-**Verification**
+**Focused proof**
 
-- `npm run check:github-actions`
-- `npm run check:pr-policy`
-- If a script self-test is added: run the focused test/script directly before the broad checks.
+1. Checker self-test or direct script test for composite action discovery.
+2. `npm run check:github-actions`
+3. `npm run check:pr-policy`
 
-**Risk control**
-
-- Do not change workflow job permissions, tokens, checkout refs, or hosted CI behavior beyond branch coverage and local static checking.
-- Do not call GitHub APIs or rerun hosted CI without explicit confirmation.
-
-## Batch 3 — Fix small UI/accessibility remnants
-
-**Purpose:** Remove low-risk misleading controls without broad redesign.
-
-**Smallest actions**
-
-1. Replace the href-less mockup `Table 3` anchor with a real in-page link if a target exists, otherwise a styled `span`.
-2. For favourites “Recent” and “Add favourite”, use native `disabled` or a non-button status pattern. Keep the existing visual treatment as much as possible.
-3. For differential `Compact`/`Detailed`, replace `title="Soon"` as the only explanation with visible accessible text or remove the disabled toggle until implemented.
-
-**Verification**
-
-- `npm run test:focused -- --files src/components/master-document-flow-mockups.tsx,src/components/clinical-dashboard/favourites-hub.tsx,src/components/differentials/differential-presentation-workflow-page.tsx`
-- If UI tests are selected or behavior is visibly changed: `npm run ensure`, then `npm run verify:ui`.
-
-**Risk control**
-
-- Do not redesign the surfaces.
-- Do not introduce new state, routing, or feature activation.
-
-## Batch 4 — Decide `.npmrc` `allow-scripts=true`
-
-**Purpose:** Remove noisy/future-fragile npm config only after confirming intent.
-
-**Smallest actions**
-
-1. Search for repo tooling that reads `allowScripts` or `allow-scripts`.
-2. If no repo tool consumes `.npmrc` `allow-scripts=true`, remove only that `.npmrc` line.
-3. If it is intentional, keep it and add a short docs comment/README note explaining the consumer and warning tradeoff.
-
-**Verification**
-
-- `npm -v`
-- `npm run check:runtime`
-- `npm run format:check -- --ignore-unknown` is not an existing script; do not invent flags. Use `npm run format:check` only after dependencies are installed.
-
-**Risk control**
-
-- Do not change package manager, lockfile, install strategy, or dependency versions.
-
-## Batch 5 — Dedicated formatting-only pass
-
-**Purpose:** Eliminate Prettier drift without hiding behavior changes.
-
-**Smallest actions**
-
-1. Start from a clean worktree after Batches 1-4 are merged or parked.
-2. Run `npm run format`.
-3. Review that only formatting changes occurred.
-
-**Verification**
-
-- `npm run format:check`
-- `git diff --check`
-- If formatted source files include behavior-sensitive areas, run their focused tests from previous batches.
-
-**Risk control**
-
-- Keep this as its own commit/PR.
-- Do not mix with clinical/RAG or CI logic changes.
-
-## Final handoff gate after all local batches
-
-Run only after Node 24, dependencies, and focused checks are clean:
-
-1. `npm run verify:cheap`
-2. `npm run verify:pr-local`
-3. If UI batch changed visible behavior: `npm run ensure` then `npm run verify:ui`
-4. If answer/RAG behavior changed: `npm run eval:rag:offline`
-
-## Approval-required follow-up gates
-
-Ask before running any of these provider-backed or live-service operations:
-
-1. `npm run check:supabase-project`
-2. `npm run check:drift` / live schema drift against the hosted project
-3. `npm run eval:rag` / live retrieval canaries
-4. `npm run verify:release` (includes provider-backed gates)
-5. Hosted CI reruns that exercise live Supabase or OpenAI secrets
-
-Local Batch 2 checker self-tests (`check:github-actions`, composite-action discovery) are not approval-gated — run them offline as part of Batch 2 verification.
-
-**Done criteria (Batch 2 CI governance)**
+**Done criteria**
 
 - Release PRs are covered by PR Policy.
 - Composite action `uses:` lines are scanned.
@@ -384,18 +217,6 @@ Do not run these without explicit confirmation:
 - `npm run eval:rag -- --limit 15`
 - `npm run eval:quality -- --rag-only`
 - `npm run verify:release`
-
-## Recommended execution order
-
-1. Batch 0 — prerequisites.
-2. Batch 1 — answer `summaryMode` clinical contract.
-3. Batch 2 — CI governance/static supply-chain guardrails.
-4. Batch 3 — UI/accessibility polish.
-5. Batch 4 — `.npmrc` warning decision.
-6. Batch 5 — formatting-only pass.
-7. Final handoff gate.
-
-This order fixes the highest clinical/governance risk first, avoids formatting noise during logic review, and keeps provider-backed uncertainty outside local development until explicit approval is given.
 
 ## Recommended PR split
 

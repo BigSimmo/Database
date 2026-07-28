@@ -1,4 +1,4 @@
 interface:
   display_name: "Prompt Perfector"
-  short_description: "Refine, structure, and optimize user prompts safely"
-  default_prompt: "Use $prompt-perfector to polish and optimize prompts in an isolated environment."
+  short_description: "Refine prompts and evaluate them in isolation"
+  default_prompt: "Use $prompt-perfector to refine this prompt for clarity, constraints, and safe isolated evaluation."
