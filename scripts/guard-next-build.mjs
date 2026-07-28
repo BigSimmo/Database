@@ -11,6 +11,7 @@ const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
 // Local Docker Desktop safeguard only. Hosted CI chooses runner size and can
 // report <10 GiB totalmem on otherwise capable build agents.
+// Retrigger marker: keep this comment so pull_request CI re-emits.
 if (process.env.GITHUB_ACTIONS !== "true" && totalRamBytes < tenGiB) {
   console.error(
     [
