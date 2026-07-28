@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page, type Route } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
 // mocked so this spec exercises the UI contract (grouped sections, navigation,
@@ -129,12 +130,11 @@ async function waitForReactChangeHandler(locator: Locator) {
 
 async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
   await page.goto(href, { waitUntil: "domcontentloaded" });
-  // Do not hide a transient server/client overlap with `.first()`. Wait for one
-  // settled composer and its React handler so a hydration replacement cannot
-  // discard the subsequent fill while the full browser suite is under load.
-  const input = page.getByTestId("global-search-input");
-  await expect(input).toHaveCount(1, { timeout: 15_000 });
-  await expect(input).toBeVisible();
+  // Production hydration can briefly overlap server and client composers. Poll
+  // until exactly one settled owner exists — never mask that with `.first()`.
+  const input = await expectSingleSettledOwner(page.getByTestId("global-search-input"), {
+    message: "documents composer owner",
+  });
   await expect(input).toBeEnabled();
   await waitForReactChangeHandler(input);
   await input.click();
