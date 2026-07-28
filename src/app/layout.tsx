@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { cookies, headers } from "next/headers";
+import ReactDOM from "react-dom";
 import { AuthProvider } from "@/lib/supabase/client";
 import { AccountDataProvider } from "@/components/account-data-provider";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
@@ -84,6 +85,8 @@ export default async function RootLayout({
   const clinicalTheme = cookieStore.get(THEME_COOKIE_NAME)?.value;
   const isDark = clinicalTheme === "dark";
   const themeClass = isDark ? "dark" : "";
+
+  ReactDOM.preload("/icon.svg", { as: "image", type: "image/svg+xml", fetchPriority: "high" });
 
   return (
     <html

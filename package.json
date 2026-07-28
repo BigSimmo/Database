@@ -199,7 +199,8 @@
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts",
     "sync:pr-branches": "node scripts/sync-open-pr-branches.mjs",
     "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply",
-    "check:assets": "node scripts/check-assets.mjs"
+    "check:assets": "node scripts/check-assets.mjs",
+    "optimize:images": "node scripts/optimize-public-images.mjs"
   },
   "dependencies": {
     "@next/env": "16.2.11",
@@ -218,6 +219,7 @@
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "server-only": "^0.0.1",
+    "sharp": "0.35.3",
     "zod": "^4.4.3"
   },
   "overrides": {

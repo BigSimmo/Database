@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import sharp from "sharp";
 import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
 import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/document-enrichment";
@@ -1127,6 +1128,18 @@ async function uploadAndCaptionImages(
 
     const ext = path.extname(image.path) || ".png";
     const bytes = await readFile(image.path);
+    
+    let placeholderBase64 = null;
+    try {
+      const placeholderBuffer = await sharp(bytes)
+        .resize(16, null, { withoutEnlargement: true })
+        .webp({ quality: 20 })
+        .toBuffer();
+      placeholderBase64 = `data:image/webp;base64,${placeholderBuffer.toString("base64")}`;
+    } catch (e) {
+      console.warn(`Failed to generate placeholder for ${image.path}`, e);
+    }
+
     const imagePrefix = job.documents.owner_id
       ? `${job.documents.owner_id}/images/${job.document_id}`
       : `local/${job.document_id}`;
@@ -1157,6 +1170,7 @@ async function uploadAndCaptionImages(
         labels: classification.labels.map(cleanString),
         metadata: sanitizeJsonbRecord({
           ...(image.metadata ?? {}),
+          placeholder_base64: placeholderBase64,
           extractor: "local-worker",
           index_generation_id: indexGenerationId,
           image_hash: imageHash,

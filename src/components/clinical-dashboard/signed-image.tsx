@@ -32,6 +32,8 @@ export const SignedImage = memo(function SignedImage({
   zoomable = false,
   caption,
   aspectRatio,
+  thumbnail = false,
+  placeholderBase64,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -51,13 +53,20 @@ export const SignedImage = memo(function SignedImage({
   caption?: string;
   /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
   aspectRatio?: number | null;
+  /** If true, appends ?w=400 to request a smaller optimized thumbnail. */
+  thumbnail?: boolean;
+  /** Tiny base64 Blurhash/LQIP placeholder to show while loading. */
+  placeholderBase64?: string | null;
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
+  const resolvedEndpoint = thumbnail 
+    ? endpoint.includes("?") ? `${endpoint}&w=400` : `${endpoint}?w=400`
+    : endpoint;
+  const { url, failed, retry, markFailed } = useSignedImageUrl(resolvedEndpoint, shouldLoad);
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
@@ -187,9 +196,17 @@ export const SignedImage = memo(function SignedImage({
         </>
       ) : null}
       {!url || !loaded ? (
-        <div className="absolute inset-0 flex items-center justify-center text-center text-xs font-semibold text-[color:var(--text-muted)]">
+        <div className="absolute inset-0 flex items-center justify-center text-center text-xs font-semibold text-[color:var(--text-muted)] overflow-hidden">
           {shouldLoad ? (
-            <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+            placeholderBase64 ? (
+              <div 
+                className="absolute inset-0 h-full w-full bg-cover bg-center bg-no-repeat opacity-50 blur-md transform scale-110"
+                style={{ backgroundImage: `url(${placeholderBase64})` }}
+                aria-hidden="true"
+              />
+            ) : (
+              <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
+            )
           ) : (
             <div className="grid place-items-center gap-1">Image preview will load when visible</div>
           )}

@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 const signedUrlTtlSeconds = env.DOCUMENT_SIGNED_URL_TTL_SECONDS;
 const routeIdSchema = z.string().uuid();
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     if (isDemoMode()) {
@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!routeIdSchema.safeParse(id).success) throw new PublicApiError("Invalid image id.");
 
     const supabase = createAdminClient();
-    const { access, rateLimit } = await enforceDocumentReadRateLimit(_request, supabase);
+    const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
@@ -62,9 +62,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Image not found." }, { status: 404 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const widthParam = searchParams.get("w");
+    const transform = widthParam
+      ? { width: parseInt(widthParam, 10), resize: "contain" as const }
+      : undefined;
+
     const signed = await supabase.storage
       .from(env.SUPABASE_IMAGE_BUCKET)
-      .createSignedUrl(image.storage_path, signedUrlTtlSeconds);
+      .createSignedUrl(image.storage_path, signedUrlTtlSeconds, { transform });
 
     if (signed.error) throw new Error(signed.error.message);
     return NextResponse.json({
