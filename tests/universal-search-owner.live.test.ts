@@ -29,33 +29,50 @@ describe("GET /api/search/universal (live owner auth)", () => {
     });
     if (error) throw new Error(`Live owner-auth sign-in failed: ${error.message}`);
     const token = data.session?.access_token;
-    expect(token).toBeTruthy();
-
-    const { GET } = await import("../src/app/api/search/universal/route");
-    const response = await GET(
-      new Request("http://localhost/api/search/universal?q=acamprosate&limit=3", {
-        headers: { Authorization: `Bearer ${token}` },
-      }),
-    );
-    expect(response.status).toBe(200);
-
-    const payload = (await response.json()) as {
+    type SearchPayload = {
       demoMode?: boolean;
       publicAccess?: boolean;
       groups: Array<{ kind: string; error?: boolean; items: Array<{ href: string }> }>;
     };
-    expect(payload.demoMode).toBeUndefined();
-    expect(payload.publicAccess).toBeUndefined();
 
-    const medications = payload.groups.find((group) => group.kind === "medications");
-    expect(medications?.error).toBeUndefined();
-    expect(medications?.items.length ?? 0).toBeGreaterThan(0);
-    expect(medications?.items[0]?.href).toContain("/medications/");
+    try {
+      expect(token).toBeTruthy();
 
-    const documents = payload.groups.find((group) => group.kind === "documents");
-    expect(documents?.error).toBeUndefined();
+      const { GET } = await import("../src/app/api/search/universal/route");
+      const response = await GET(
+        new Request("http://localhost/api/search/universal?q=acamprosate&limit=3", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+      expect(response.status).toBe(200);
 
-    const signOut = await supabase.auth.signOut();
-    if (signOut.error) throw new Error(`Live owner-auth sign-out failed: ${signOut.error.message}`);
+      const payload = (await response.json()) as SearchPayload;
+      expect(payload.demoMode).toBeUndefined();
+      expect(payload.publicAccess).toBeUndefined();
+
+      const medications = payload.groups.find((group) => group.kind === "medications");
+      expect(medications?.error).toBeUndefined();
+      expect(medications?.items.length ?? 0).toBeGreaterThan(0);
+      expect(medications?.items[0]?.href).toContain("/medications/");
+
+      // Federated search intentionally gives documents a short latency budget. Prove the
+      // authenticated document path separately so a valid federated timeout is not a failure.
+      const focusedResponse = await GET(
+        new Request("http://localhost/api/search/universal?q=acamprosate&limit=3&domains=documents", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      );
+      expect(focusedResponse.status).toBe(200);
+
+      const focusedPayload = (await focusedResponse.json()) as SearchPayload;
+      expect(focusedPayload.demoMode).toBeUndefined();
+      expect(focusedPayload.publicAccess).toBeUndefined();
+      const documents = focusedPayload.groups.find((group) => group.kind === "documents");
+      expect(documents).toBeDefined();
+      expect(documents?.error).toBeUndefined();
+    } finally {
+      const signOut = await supabase.auth.signOut();
+      if (signOut.error) throw new Error(`Live owner-auth sign-out failed: ${signOut.error.message}`);
+    }
   });
 });
