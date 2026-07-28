@@ -390,7 +390,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       className={cn(
         "bg-[color:var(--surface-inset)]",
         fullscreenActive &&
-          "fixed inset-0 z-[80] flex flex-col overflow-hidden bg-[color:var(--surface)] supports-[selector(:fullscreen)]:fixed",
+          "fixed inset-0 z-tooltip flex flex-col overflow-hidden bg-[color:var(--surface)] supports-[selector(:fullscreen)]:fixed",
       )}
     >
       <div

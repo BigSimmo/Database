@@ -117,6 +117,10 @@
 
 /* Theme tokens */
 :root {
+  /* Layout constraints */
+  --content-max-width: 1440px;
+  --rail-width: 480px;
+
   /* Stacking Context Tokens (W3C Stacking Engine Standard) */
   --z-negative: -1;
   --z-elevated: 1;
@@ -1743,7 +1747,7 @@ summary::-webkit-details-marker {
      beside the main column. */
   .document-viewer-composer.floating-composer-edge {
     left: max(2rem, var(--safe-area-left));
-    right: calc(max(0px, (100vw - 1440px) / 2) + 480px + 3.5rem + var(--safe-area-right));
+    right: calc(max(0px, (100vw - var(--content-max-width)) / 2) + var(--rail-width) + 3.5rem + var(--safe-area-right));
   }
 }
 
@@ -1966,7 +1970,7 @@ summary::-webkit-details-marker {
   --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
 
   position: fixed;
-  z-index: 95;
+  z-index: var(--z-toast);
   left: max(0.75rem, var(--safe-area-left));
   right: max(0.75rem, var(--safe-area-right));
   bottom: var(--pwa-notice-bottom-gap);
