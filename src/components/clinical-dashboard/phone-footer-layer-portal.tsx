@@ -1,29 +1,51 @@
 "use client";
 
-import { createContext, useCallback, useContext, useLayoutEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-const PhoneFooterLayerHostContext = createContext<HTMLElement | null>(null);
+interface PhoneFooterLayerContextValue {
+  host: HTMLElement | null;
+  scrollHidden: boolean | undefined;
+}
+
+const PhoneFooterLayerContext = createContext<PhoneFooterLayerContextValue>({
+  host: null,
+  scrollHidden: undefined,
+});
 
 /**
  * Provides one paint-free footer host inside the current phone viewport frame.
  * The host is rendered after the frame's scroll surface so standalone footer
  * layers can anchor to the frame instead of scrolling with page content.
  */
-export function PhoneFooterLayerFrame({ children, className }: { children: ReactNode; className: string }) {
+export function PhoneFooterLayerFrame({
+  children,
+  className,
+  scrollHidden,
+}: {
+  children: ReactNode;
+  className: string;
+  scrollHidden?: boolean;
+}) {
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const assignHost = useCallback((node: HTMLDivElement | null) => {
     setHost((current) => (current === node ? current : node));
   }, []);
+  const contextValue = useMemo(() => ({ host, scrollHidden }), [host, scrollHidden]);
 
   return (
-    <PhoneFooterLayerHostContext.Provider value={host}>
+    <PhoneFooterLayerContext.Provider value={contextValue}>
       <div className={className}>
         {children}
         <div ref={assignHost} className="phone-footer-layer-host contents" data-testid="phone-footer-layer-host" />
       </div>
-    </PhoneFooterLayerHostContext.Provider>
+    </PhoneFooterLayerContext.Provider>
   );
+}
+
+/** Authoritative frame scroll decision for page-owned phone footer layers. */
+export function usePhoneFooterLayerScrollHidden() {
+  return useContext(PhoneFooterLayerContext).scrollHidden;
 }
 
 /**
@@ -32,7 +54,7 @@ export function PhoneFooterLayerFrame({ children, className }: { children: React
  * existing tablet/desktop placement and a safe shell-less fallback.
  */
 export function PhoneFooterLayerPortal({ children }: { children: ReactNode }) {
-  const host = useContext(PhoneFooterLayerHostContext);
+  const { host } = useContext(PhoneFooterLayerContext);
   const [isPhone, setIsPhone] = useState(false);
 
   useLayoutEffect(() => {

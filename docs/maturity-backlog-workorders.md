@@ -2,6 +2,7 @@
 
 Living tracker that turns the deferred backlog from
 [`docs/audit/2026-07-20-repository-maturity.md`](audit/2026-07-20-repository-maturity.md) §10
+(plus the §8 repository-host checklist, mirrored under "Maintainer host actions" below)
 into actionable, sequenced work orders. Each item states its **outcome**, **approach**, **key
 files**, **risk**, **verification**, and **status**. High-risk items are deliberately kept as
 their own work order — the audit's rule is one dedicated PR + full-suite verification per
@@ -141,6 +142,20 @@ structural change, not a single mixed PR.
 - **Risk:** MEDIUM — needs real tests, not just a threshold bump.
 - **Verification:** `npm run test:coverage` meets the new per-path floors.
 
+### X7 · Complete the `src/lib` domain-directory reorg — `OPEN`
+
+- **Outcome:** finish what the X2 rag pilot started — give the remaining ~176 flat `src/lib/*.ts`
+  files real domain directories (answer, ingestion, document, source-governance clusters), which
+  unblocks directory-scoped import-boundary rules for the whole library layer.
+- **Approach:** one cohesive cluster per PR, following the X2 pattern (#994): `git mv` the cluster
+  into `src/lib/<domain>/`, codemod every importer, update the budgets keys + client-bundle/worker
+  fixtures + `docs/codebase-index.md`. Pure moves + path rewrites, no logic change.
+- **Files:** `src/lib/**` and importers across `src/`, `scripts/`, `tests/`, `worker/`.
+- **Risk:** MEDIUM-HIGH — high import-churn; the answer/retrieval clusters touch RAG-ranking
+  protected surfaces, so **flag before editing** and add the `RAG impact:` line where applicable.
+- **Verification:** `npm run typecheck` + `npm run test` + `npm run docs:check-index` +
+  `npm run docs:check-links` + maintainability budgets, per cluster.
+
 ---
 
 ## Later — useful, non-essential
@@ -213,6 +228,20 @@ structural change, not a single mixed PR.
 
 ---
 
+## Maintainer host actions (GitHub UI — not repo files)
+
+These are repository-host settings only the maintainer can apply in the GitHub UI; they are not
+code and cannot be delivered by a PR. Full checklist in
+[`docs/audit/2026-07-20-repository-maturity.md`](audit/2026-07-20-repository-maturity.md) §8.
+
+- **M1 · Repo-host hardening — `OPEN` (maintainer):** branch-protection rulesets + required-check
+  selection (the `pr-required` aggregate + Gitleaks); private vulnerability reporting; secret
+  scanning + push protection; Dependabot alerts; auto-delete merged branches; environment
+  protections; merge method; tag protection. (The `sharp <0.35.0` advisory item from §8 is now
+  resolved on `main`.)
+
+---
+
 ## Not recommended (disproportionate for this repo)
 
 A formal architecture-docs folder + numbered-ADR process · `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` /
@@ -224,18 +253,20 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 
 ## Progress summary
 
-| Item                           | Priority | Status                                                                             |
-| ------------------------------ | -------- | ---------------------------------------------------------------------------------- |
-| N1 Dependabot grouping         | Now      | **DONE** (#985)                                                                    |
-| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                                                           |
-| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped)                                         |
-| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                                                                    |
-| X3 Monolith decomposition      | Next     | IN PROGRESS (DocumentViewer #1025 + Dashboard #1034/#1042/#1047 done; rag.ts open) |
-| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)                                                     |
-| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                                                          |
-| X6 Coverage floors             | Next     | OPEN                                                                               |
-| L1 Archive one-shot scripts    | Later    | IN PROGRESS (#1033 archived m13/july8; refs reconciled; backfills open)            |
-| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                                                                    |
-| L3 Single gate manifest        | Later    | **DONE** (#1002)                                                                   |
-| L4 Ledger rotation             | Later    | OPEN                                                                               |
-| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                                                        |
+| Item                             | Priority   | Status                                                                             |
+| -------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| N1 Dependabot grouping           | Now        | **DONE** (#985)                                                                    |
+| N2 Dependency-report decision    | Now        | **DONE** (#986, enabled)                                                           |
+| X1 Import-boundary linter        | Next       | **DONE** (#986; service-role rule dropped)                                         |
+| X2 `src/lib` rag extraction      | Next       | **DONE** (#994)                                                                    |
+| X3 Monolith decomposition        | Next       | IN PROGRESS (DocumentViewer #1025 + Dashboard #1034/#1042/#1047 done; rag.ts open) |
+| X4 SAST-blocking on parser       | Next       | **DONE** (gate + policy check)                                                     |
+| X5 ACL-migration consolidation   | Next       | PROVIDER-GATED (DB owner)                                                          |
+| X6 Coverage floors               | Next       | OPEN                                                                               |
+| X7 `src/lib` domain reorg (rest) | Next       | OPEN (follow-on to X2; needs RAG flag on answer/retrieval clusters)                |
+| L1 Archive one-shot scripts      | Later      | IN PROGRESS (#1033 archived m13/july8; refs reconciled; backfills open)            |
+| L2 Action-SHA uniformity         | Later      | **DONE** (#992)                                                                    |
+| L3 Single gate manifest          | Later      | **DONE** (#1002)                                                                   |
+| L4 Ledger rotation               | Later      | OPEN                                                                               |
+| L5 AI map / WCAG / RPO-RTO       | Later      | **DONE / SATISFIED** (#985)                                                        |
+| M1 Repo-host hardening           | Maintainer | OPEN (GitHub UI; audit §8; not a repo file)                                        |

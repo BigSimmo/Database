@@ -15,6 +15,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -654,9 +655,10 @@ test.describe("Clinical KB tools launcher", () => {
       // Production hydration can briefly overlap the outgoing server tree and
       // the settled client tree. Require the DOM to converge to one owner
       // before using strict locators; duplicate settled homes still fail.
-      await expect(homeSurface).toHaveCount(1, { timeout: 15_000 });
-      await expect(homeSurface).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+      await expectSingleSettledOwner(homeSurface, { message: `${home.path} home owner` });
+      await expectSingleSettledOwner(page.getByTestId("global-search-input"), {
+        message: `${home.path} composer owner`,
+      });
 
       // The composer sits in the middle of the hero (in-flow) at phone width too,
       // not docked to the bottom edge: it renders inside the mode-home composer
@@ -1079,7 +1081,10 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     const results = page.getByTestId("form-search-results");
-    const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    // Sort is a segmented group; the persisted order reads off aria-pressed rather
+    // than a select value, including after history navigation.
+    const visibleSort = page.locator('[role="group"][aria-label="Sort results"]:visible');
+    const sortOption = (name: string) => visibleSort.getByRole("button", { name });
     const expectedAlphaFirstTestId = `form-search-result-${
       sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
         ?.service.slug
@@ -1089,7 +1094,7 @@ test.describe("Clinical KB tools launcher", () => {
       "form-search-result-transport-crisis-form",
     );
 
-    await visibleSort.selectOption("alpha");
+    await sortOption("A–Z").click();
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
@@ -1097,14 +1102,14 @@ test.describe("Clinical KB tools launcher", () => {
     );
 
     await page.goBack();
-    await expect(visibleSort).toHaveValue("relevance");
+    await expect(sortOption("Relevance")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
     );
 
     await page.goForward();
-    await expect(visibleSort).toHaveValue("alpha");
+    await expect(sortOption("A–Z")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       expectedAlphaFirstTestId,
@@ -1570,17 +1575,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("diagnosis");
     await typeSelect.selectOption("all");
 
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
     const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
     const pairMetrics = await mobilePair.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.querySelectorAll("label")).map(
-        (label) => label.getBoundingClientRect().height,
-      ),
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
     }));
     expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
     expect(pairMetrics.controlHeights).toHaveLength(2);
     expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1670,17 +1677,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("presentation");
     await typeSelect.selectOption("all");
 
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
     const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
     const pairMetrics = await mobilePair.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.querySelectorAll("label")).map(
-        (label) => label.getBoundingClientRect().height,
-      ),
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
     }));
     expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
     expect(pairMetrics.controlHeights).toHaveLength(2);
     expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1772,8 +1781,12 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await expect(input).toHaveCount(1, { timeout: 15_000 });
+    await expect(submit).toHaveCount(1, { timeout: 15_000 });
+    await waitForReactEventHandler(input, "onChange");
+    await waitForReactEventHandler(input.locator("xpath=ancestor::form[1]"), "onSubmit");
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
     const searchResponse = page.waitForResponse(
@@ -1792,19 +1805,24 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toContainText("Compare selected");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
-    // Keep the composer focused while measuring end-of-list clearance so
-    // hide-on-scroll cannot collapse --mobile-composer-reserve mid-check.
+    // Begin with the visible composer reserve. Document scrolling deliberately
+    // blurs the focused composer, and the resulting chrome transition can
+    // change the document range after the first endpoint scroll. Re-issue the
+    // endpoint action while asserting so the position converges with the
+    // settled range instead of polling a stale scrollTop.
     await input.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
-    await scrollPrimarySurface(page, "end");
-    await expect
-      .poll(async () => {
-        const geometry = await readPrimaryScrollGeometry(page);
-        return geometry.maxScrollTop - geometry.scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
-    expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    // The visible dock/reserve can finish its layout commit after the first
+    // endpoint scroll, increasing document height. Treat scrolling to the live
+    // endpoint and measuring it as one retriable action; a persistent clearance
+    // regression still fails this assertion.
+    await expect(async () => {
+      await scrollPrimarySurface(page, "end");
+      const geometry = await readPrimaryScrollGeometry(page);
+      expect(geometry.owner).toBe("document");
+      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 15_000 });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
     const clearance = await page.evaluate(() => {
@@ -1926,16 +1944,20 @@ test.describe("Clinical KB tools launcher", () => {
   test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {
     await page.setViewportSize({ width: 1024, height: 800 });
     await gotoLauncher(page, "/differentials/diagnoses/delirium");
-    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load, which would make a
+    // document-wide getByTestId strict-mode fail.
+    const detailPage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-detail-page");
+    await expect(detailPage).toBeVisible();
     // The desktop action cluster must keep its intrinsic width (shrink-0) so the
     // icon action does not get crushed below the 44px tap standard.
-    await expectMinTouchTarget(page.getByRole("button", { name: "Save diagnosis" }));
+    await expectMinTouchTarget(detailPage.getByRole("button", { name: "Save diagnosis" }));
 
     // Tabs: no page overflow and single-line labels at the narrowest width.
     await page.setViewportSize({ width: 320, height: 700 });
-    await expect(page.getByTestId("differential-detail-page")).toBeVisible();
+    await expect(detailPage).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
-    const overviewTab = page.getByRole("tab", { name: "Overview" });
+    const overviewTab = detailPage.getByRole("tab", { name: "Overview" });
     await expect(overviewTab).toBeVisible();
     // Count rendered label lines from text-node rects (an icon rect would bridge
     // two wrapped lines and mask a wrap); the tab label must stay on one line.

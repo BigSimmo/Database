@@ -25,6 +25,7 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 | `npm run test:e2e:advisory`               | Quarantined and mockup journeys in one advisory invocation.                                                                                             |
 | `npm run verify:cheap`                    | Broad offline local gate: runtime/config checks, lint, typecheck, and the full unit suite.                                                              |
 | `npm run verify:pr-local`                 | PR-like local gate. Formatting is checked on the changed set, the full unit suite runs once, and RAG scope adds fixture/manifest validation.            |
+| `npm run verify:phone-chrome`             | Smart phone-chrome gate: lock parity, affected contracts, browser/PWA owners and exact journeys, then full UI only for shared foundations.              |
 | `npm run verify:ui`                       | Complete required production Chromium gate.                                                                                                             |
 
 Set `FAST_CHECK_SEED` to reproduce a property-test run. Local and ordinary CI runs default to `424242`; scheduled CI may derive a bounded seed from the run ID.
@@ -50,6 +51,8 @@ Reference examples: `tests/icon-button.dom.test.tsx` (accessible-name contract),
 The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target.
 
 Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports. Failed-test classification parses JUnit test cases and uses exact spec/title matches; a job name is never enough to classify a failure as a known flake.
+
+Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification with `-- --dry-run` or provide an explicit changed set with `-- --files pathA,pathB`. The default `--full=auto` escalates shared shell/header/footer, scroll-coordinator, reserve, or global-style changes to `verify:ui` only after focused ownership and journey checks pass. Page-local owners and test-helper changes remain focused; use `--full=always` for deliberate extra confidence or `--full=never` only when the dry run records why the recommended broad gate is unavailable. Physical Safari and cold-launch PWA paint still follow [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
 ## Flake policy
 

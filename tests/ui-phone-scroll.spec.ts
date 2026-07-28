@@ -1,4 +1,6 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 /**
  * Phone scroll-geometry guardrail (the #964 regression class).
@@ -97,7 +99,7 @@ const standalonePageOwnedFooterRoutes = [
     name: "document composer",
     route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
     selector: "form.document-viewer-composer",
-    focusSelector: 'input[placeholder="Search or answer from this document..."]',
+    focusSelector: 'input[placeholder="Search within this document..."]',
     reserveSelector: '[data-testid="document-viewer-content"]',
     flushBottom: false,
   },
@@ -170,6 +172,7 @@ function forceCompiledStandalonePhoneCss(page: Page): Promise<number> {
     style.dataset.testid = "forced-standalone-phone-css";
     style.textContent = `@layer components { ${standaloneRules.join("\n")} }`;
     document.head.append(style);
+    window.dispatchEvent(new Event("resize"));
     return standaloneRules.length;
   });
 }
@@ -347,32 +350,32 @@ test("phone browser results use document scrolling so Safari can minimize its br
   await expect(page.getByTestId("service-search-results")).toBeVisible({ timeout: 20_000 });
   await addPhoneScrollRunway(page);
 
-  const initial = await page.evaluate(() => {
-    const main = document.getElementById("main-content");
-    const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
-    const scrollingElement = document.scrollingElement ?? document.documentElement;
-    return {
-      shellPosition: shell ? getComputedStyle(shell).position : "missing",
-      shellOverflowY: shell ? getComputedStyle(shell).overflowY : "missing",
-      mainOverflowX: main ? getComputedStyle(main).overflowX : "missing",
-      mainOverflowY: main ? getComputedStyle(main).overflowY : "missing",
-      documentRunway: scrollingElement.scrollHeight - window.innerHeight,
-      windowScrollY: window.scrollY,
-      mainScrollTop: main?.scrollTop ?? -1,
-    };
+  await expectSingleSettledOwner(page.locator("#main-content"), { message: "Services result scroll owner" });
+  const initial = await readPrimaryScrollAndDomGeometry(page, {
+    main: "#main-content",
+    shell: ".phone-viewport-shell",
+    footer: "form.answer-footer-search-dock",
   });
 
-  expect(initial.shellPosition, "the phone browser canvas must not use WebKit's fixed-root compositor path").not.toBe(
-    "fixed",
-  );
-  expect(initial.shellOverflowY).toBe("visible");
-  expect(initial.mainOverflowX, "x clipping must not silently turn the main surface back into a y scroller").toBe(
-    "clip",
-  );
-  expect(initial.mainOverflowY).toBe("visible");
-  expect(initial.documentRunway, "the document must own the Services result runway").toBeGreaterThan(500);
-  expect(initial.windowScrollY).toBe(0);
-  expect(initial.mainScrollTop).toBe(0);
+  expect(
+    initial.nodes.shell.style?.position,
+    "the phone browser canvas must not use WebKit's fixed-root compositor path",
+  ).not.toBe("fixed");
+  expect(initial.nodes.shell.style?.overflowY).toBe("visible");
+  expect(
+    initial.nodes.main.style?.overflowX,
+    "x clipping must not silently turn the main surface back into a y scroller",
+  ).toBe("clip");
+  expect(initial.nodes.main.style?.overflowY).toBe("visible");
+  expect(initial.scroll.owner).toBe("document");
+  expect(initial.scroll.maxScrollTop, "the document must own the Services result runway").toBeGreaterThan(500);
+  expect(initial.scroll.scrollTop).toBe(0);
+  expect(initial.nodes.main.count).toBe(1);
+  expect(initial.nodes.footer.count).toBe(1);
+  expect(initial.nodes.main.data.phoneScrollOwner).toBe("document");
+  expect(initial.nodes.main.data.phoneFooterOwner).toBe("shell");
+  expect(initial.nodes.main.data.phoneComposerReserve).not.toBe("0rem");
+  expect(initial.nodes.main.data.phoneChromeTransition).toBe("idle");
 
   await page.evaluate(async () => {
     for (let step = 0; step < 32; step += 1) {
@@ -411,6 +414,11 @@ test("document detail header and footer follow Safari document scrolling togethe
   await page.setViewportSize(phoneViewport);
   await gotoPhoneSurface(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
   await expect(page.locator("form.document-viewer-composer")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("document-viewer-content")).toHaveAttribute("data-phone-scroll-owner", "document");
+  await expect(page.getByTestId("document-viewer-content")).toHaveAttribute(
+    "data-phone-footer-owner",
+    "document-viewer",
+  );
   await addPhoneScrollRunway(page);
 
   await dragScrollBy(page, 720, 24);
@@ -435,6 +443,8 @@ test("compiled standalone PWA rules bind full-height footer chrome to the inner 
     "compiled CSS must expose the standalone media rules",
   ).toBeGreaterThanOrEqual(4);
   await addPhoneScrollRunway(page);
+  await expect(page.locator("#main-content")).toHaveAttribute("data-phone-scroll-owner", "main");
+  await expect(page.locator("#main-content")).toHaveAttribute("data-phone-footer-owner", "shell");
 
   const initial = await page.evaluate(() => {
     const main = document.getElementById("main-content");

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-25T15:45:24.778Z",
+  "generated_at": "2026-07-27T18:49:27.107Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "81240cb662ec8a9da27eca60a3908587f565c3eb67981aa0c21961d6b333a3d5",
-  "replay_seconds": 15,
+  "schema_sha256": "0255ea652fe8334afeca899246568964c44bb6eb1153884053ff6867bf818fb0",
+  "replay_seconds": 17,
   "snapshot": {
     "views": [
       {
@@ -4384,6 +4384,14 @@
             "generated": ""
           },
           {
+            "name": "policy_version",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
             "name": "prior_document_status",
             "type": "text",
             "default": null,
@@ -4429,6 +4437,14 @@
             "default": null,
             "identity": "",
             "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reviewer_qualification",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           }
         ],
@@ -7186,6 +7202,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "d9875e7dbcdf19b56945c9d8de05d7c2",
+        "signature": "public.record_source_review_v2(uuid,uuid,text,text,text[],date,uuid,text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "874163cf5aa0b818f3e88ca1ac6f90b2",
         "signature": "public.record_source_review(uuid,uuid,text,text,text[],date,uuid)"
       },
@@ -8160,7 +8184,7 @@
         "table": "rag_visual_eval_runs"
       },
       {
-        "def": "CHECK ((decision = ANY (ARRAY['locally_reviewed'::text, 'approved'::text, 'rejected'::text, 'decommissioned'::text, 'superseded'::text])))",
+        "def": "CHECK ((decision = ANY (ARRAY['locally_reviewed'::text, 'approved'::text, 'third_party_reference_attested'::text, 'rejected'::text, 'decommissioned'::text, 'superseded'::text])))",
         "name": "source_review_events_decision_check",
         "table": "source_review_events"
       },

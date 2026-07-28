@@ -4,6 +4,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoChunks, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
+import { matchesTermAtWordBoundary } from "@/lib/keyword-query";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -64,7 +65,7 @@ function searchTermsFor(query: string) {
     new Set(
       query
         .toLowerCase()
-        .replace(/[^a-z0-9/+\-. ]+/g, " ")
+        .replace(/[^a-z0-9]+/g, " ")
         .split(/\s+/)
         .map((term) => term.trim())
         .filter((term) => term.length >= 2),
@@ -82,16 +83,17 @@ function importantTermsFor(terms: string[]) {
 
 function coveredTermsFor(row: DocumentChunkSearchRow, terms: string[]) {
   const haystack = `${row.section_heading ?? ""} ${row.content}`.toLowerCase();
-  return terms.filter((term) => haystack.includes(term));
+  return terms.filter((term) => matchesTermAtWordBoundary(haystack, term));
 }
 
 function snippetFor(content: string, terms: string[], limit = 320) {
   const compact = content.replace(/\s+/g, " ").trim();
   if (!compact) return "";
 
-  const lower = compact.toLowerCase();
   const hitIndex = terms.reduce((best, term) => {
-    const index = lower.indexOf(term.toLowerCase());
+    const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = new RegExp(`(^|[^a-z0-9])(${escapedTerm})`, "i").exec(compact);
+    const index = match ? match.index + (match[1]?.length ?? 0) : -1;
     return index >= 0 && (best < 0 || index < best) ? index : best;
   }, -1);
 
@@ -112,11 +114,13 @@ function scoreChunk(row: DocumentChunkSearchRow, query: string, terms: string[])
   const coveredImportantTerms = coveredTermsFor(row, importantTerms);
   const textRank = Number(row.text_rank ?? 0);
   const trigramScore = Number(row.trigram_score ?? 0);
-  let score = content.includes(normalizedQuery) ? 2.4 : 0;
+  const hasExactPhrase =
+    content.includes(normalizedQuery) && terms.every((term) => matchesTermAtWordBoundary(content, term));
+  let score = hasExactPhrase ? 2.4 : 0;
 
   for (const term of terms) {
-    if (heading.includes(term)) score += 1.2;
-    if (content.includes(term)) score += 0.55;
+    if (matchesTermAtWordBoundary(heading, term)) score += 1.2;
+    if (matchesTermAtWordBoundary(content, term)) score += 0.55;
   }
   if (importantTerms.length > 1) {
     score += (coveredImportantTerms.length / importantTerms.length) * 0.9;
@@ -130,9 +134,7 @@ function scoreChunk(row: DocumentChunkSearchRow, query: string, terms: string[])
 }
 
 function resultFromChunk(row: DocumentChunkSearchRow, query: string, terms: string[]) {
-  const matchedTerms = terms.filter((term) =>
-    `${row.section_heading ?? ""} ${row.content}`.toLowerCase().includes(term),
-  );
+  const matchedTerms = coveredTermsFor(row, terms);
 
   return {
     id: row.id,
@@ -212,7 +214,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           }),
         )
         .map((row) => resultFromChunk(row, query, terms))
-        .filter((result) => result.score > 0)
+        .filter((result) => result.matched_terms.length > 0 && result.score > 0)
         .sort(
           (a, b) =>
             b.score - a.score ||
@@ -262,7 +264,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const results = fallbackRows
       .map((row) => resultFromChunk(row, query, terms))
       .filter((result) => {
-        if (importantTerms.length <= 1) return result.score > 0;
+        if (importantTerms.length <= 1) return result.matched_terms.length > 0 && result.score > 0;
         const covered = importantTerms.filter((term) => result.matched_terms.includes(term)).length;
         return covered >= Math.min(importantTerms.length, 2) && result.score > 0;
       })

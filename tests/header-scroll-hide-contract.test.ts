@@ -21,6 +21,8 @@ const hookSource = read("src/components/clinical-dashboard/use-hide-on-scroll.ts
 const headerSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
+const dashboardCoordinatorSource = read("src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts");
+const activeScrollOwnerSource = read("src/components/clinical-dashboard/use-active-scroll-owner.ts");
 const dashboardResultComposerSlotSource = read(
   "src/components/clinical-dashboard/dashboard-desktop-result-composer-slot.tsx",
 );
@@ -42,7 +44,8 @@ describe("shared header hide/reveal wiring", () => {
     // GlobalSearchShell also passes pathname as resetKey so shared mode homes
     // do not inherit a collapsed top bar across routes.
     expect(shellSource).toContain("useScrollHideReporter(false, true, pathname)");
-    expect(dashboardSource).toContain("useScrollHideReporter(false, true, searchMode)");
+    expect(dashboardSource).toContain("useDashboardChromeCoordinator(searchMode)");
+    expect(dashboardCoordinatorSource).toContain("useScrollHideReporter(false, true, resetKey)");
     expect(hookSource).toContain("export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false");
   });
 
@@ -53,7 +56,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain(
       "useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainElement, inputRef)",
     );
-    expect(dashboardSource).toContain(
+    expect(dashboardCoordinatorSource).toContain(
       "useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainScrollRoot, composerInputRef)",
     );
   });
@@ -187,8 +190,22 @@ describe("shared header hide/reveal wiring", () => {
     expect(calculatorSearchSource).toContain("phone-footer-layer answer-footer-search-dock");
   });
 
+  it("exposes one stable diagnostic contract across each phone chrome owner", () => {
+    for (const source of [shellSource, dashboardSource, documentViewerSource]) {
+      expect(source).toContain("data-phone-scroll-owner");
+      expect(source).toContain("data-phone-footer-owner");
+      expect(source).toContain("data-phone-composer-reserve");
+      expect(source).toContain("data-phone-chrome-transition");
+    }
+    expect(dashboardCoordinatorSource).toContain("useActiveScrollOwner(mainScrollRoot, resetKey)");
+    expect(activeScrollOwnerSource).toContain('export type ActiveScrollOwner = "pending" | "main" | "document"');
+    expect(activeScrollOwnerSource).toContain('window.matchMedia("(display-mode: standalone)")');
+    expect(activeScrollOwnerSource).toContain("new ResizeObserver(update)");
+    expect(activeScrollOwnerSource).toContain("new MutationObserver(update)");
+  });
+
   it("portals every page-owned phone footer beside the standalone scroller", () => {
-    expect(phoneFooterPortalSource).toContain("PhoneFooterLayerHostContext");
+    expect(phoneFooterPortalSource).toContain("PhoneFooterLayerContext");
     expect(phoneFooterPortalSource).toContain('className="phone-footer-layer-host contents"');
     expect(phoneFooterPortalSource).toContain('data-testid="phone-footer-layer-host"');
     expect(phoneFooterPortalSource).toMatch(/\{children\}[\s\S]*phone-footer-layer-host/);
@@ -202,6 +219,16 @@ describe("shared header hide/reveal wiring", () => {
     expect(documentViewerSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain('data-testid="differential-presentation-phone-footer"');
+  });
+
+  it("shares the frame's authoritative scroll decision with the calculator footer", () => {
+    expect(phoneFooterPortalSource).toContain("export function usePhoneFooterLayerScrollHidden");
+    expect(shellSource).toContain("scrollHidden={chromeScrollHide.hidden}");
+    expect(dashboardSource).toContain("scrollHidden={chromeScrollHidden}");
+    expect(calculatorSearchSource).toContain("const frameScrollHidden = usePhoneFooterLayerScrollHidden()");
+    expect(calculatorSearchSource).toContain(
+      "const footerHidden = frameScrollHidden ?? (innerFooterHidden || documentFooterHidden)",
+    );
   });
 
   it("releases the phone top safe-area with hidden chrome while retaining the wide inset", () => {
