@@ -123,6 +123,10 @@
 
 /* Theme tokens */
 :root {
+  /* Layout constraints */
+  --content-max-width: 1440px;
+  --rail-width: 480px;
+
   /* Clinical White: true-neutral graphite-to-ash ramp (de-blued). */
   --neutral-0: #ffffff;
   --neutral-50: #f7f8fa;
@@ -1809,7 +1813,7 @@ summary::-webkit-details-marker {
      beside the main column. */
   .document-viewer-composer.floating-composer-edge {
     left: max(2rem, var(--safe-area-left));
-    right: calc(max(0px, (100vw - 1440px) / 2) + 480px + 3.5rem + var(--safe-area-right));
+    right: calc(max(0px, (100vw - var(--content-max-width)) / 2) + var(--rail-width) + 3.5rem + var(--safe-area-right));
   }
 }
 
@@ -2481,11 +2485,31 @@ html[data-motion="reduced"] .pwa-notice-card {
     right: -10px;
   }
 
-  /* Premium Skeleton Shimmer animation with custom easing and GPU compositing layer hints */
+  /* Premium skeleton shimmer: GPU translateX sweep on ::after (IMP-04).
+     The highlight rides the compositor; the host keeps a solid fill so call sites
+     only need background colour + this class. Entrance stagger can still use the
+     host `animation` via .stagger-item without fighting the sweep. */
   .animate-skeleton-shimmer {
-    will-change: transform, opacity;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     transform: translateZ(0);
-    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .animate-skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--surface-highlight) 55%, transparent) 50%,
+      transparent 80%
+    );
+    will-change: transform;
+    animation: shimmer-sweep 1.4s linear infinite;
+    pointer-events: none;
   }
 
   /* Premium Double-Ring Focus style */
@@ -2590,14 +2614,43 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 }
 
-@keyframes skeleton-pulse {
-  0%,
+/* IMP-04: Compositor-thread sweep used by .animate-skeleton-shimmer::after. */
+@keyframes shimmer-sweep {
   100% {
+    transform: translateX(100%);
+  }
+}
+
+/* IMP-02: Staggered cascade entrance for search results and card grids.
+   Apply .stagger-item to each list child and set --stagger-index via inline style
+   or a :nth-child selector to sequence each card entrance at 35ms intervals.
+   Reduced-motion guard stops the animation while keeping items fully visible. */
+@keyframes cascade-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
-  50% {
-    opacity: 0.35;
+}
+
+.stagger-item {
+  animation: cascade-fade-up 200ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--stagger-index, 0) * 35ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-shimmer::after,
+  .stagger-item {
+    animation: none !important;
   }
+}
+
+html[data-motion="reduced"] .animate-skeleton-shimmer::after,
+html[data-motion="reduced"] .stagger-item {
+  animation: none !important;
 }
 
 /* User preference and alternate output modes */
@@ -2899,7 +2952,10 @@ html.theme-transitioning *:after {
   }
 }
 
-/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3) */
+/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3).
+   Token remap only — glass-header Canvas fills live in the earlier
+   forced-colors block; do not blanket-reset [aria-selected="true"] or
+   invent unused .surface-raised selectors with !important. */
 @media (forced-colors: active) {
   :root,
   .dark {
@@ -2907,5 +2963,126 @@ html.theme-transitioning *:after {
     --border-lux: CanvasText;
     --border-strong: CanvasText;
     --focus: Highlight;
+  }
+}
+
+/* ─── SEARCH RESULTS BAND ──────────────────────────────────────────────────
+   Weight comes down across this surface: nothing is bold, the heaviest step is
+   580, and the query and the figure share it — they are separated by tabular
+   numerals and a hairline rather than by shouting. Expressed here as numeric
+   `font-weight` on named classes rather than Tailwind arbitrary values because
+   (a) that is the existing idiom in this file, and (b) `check:type-scale
+   --strict` is a zero gate on arbitrary `text-[Npx]` utilities. Geist is a
+   variable face, so these interpolate instead of snapping to 700. */
+/* Deliberately UNLAYERED. Tailwind's utilities layer outranks @layer
+   components regardless of selector specificity, and the band root also
+   carries the `border` / `border-[color:var(--border)]` utilities — inside a
+   layer these rules lose and the accent rail silently renders as a neutral
+   1px border. Verify with computed styles, not class presence. */
+/* The accent is the card's real border-top. As an absolutely-positioned bar
+   inside an overflow:hidden 12px-radius card the corner arc sliced its ends —
+   at y=0 the arc is 12px in, at y=2px it is 5.4px in — so the rail started
+   short and tapered while the 1px border curved past it. A border mitres into
+   the side borders and follows the radius by construction. */
+.search-band {
+  border-top: 2px solid var(--clinical-accent);
+}
+.search-band[data-status="error"],
+.search-band[data-status="unauthorized"] {
+  border-top-color: var(--warning);
+}
+
+.search-band-query {
+  font-size: 1.21875rem;
+  font-weight: 560;
+  letter-spacing: -0.023em;
+}
+.search-band-count {
+  font-size: 1.21875rem;
+  font-weight: 580;
+  letter-spacing: -0.016em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+/* A zero is a real answer, but it is not news; it steps down in weight and
+   colour rather than shouting a result that is not there. */
+.search-band-count[data-zero="true"] {
+  font-weight: 470;
+  color: var(--text-muted);
+}
+.search-band-count-word {
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.search-band-fault {
+  font-size: 0.84375rem;
+  font-weight: 520;
+}
+.search-band-chip {
+  font-size: 0.78125rem;
+  font-weight: 470;
+}
+.search-band-chip[data-selected="true"] {
+  font-weight: 540;
+}
+.search-band-sort-option {
+  font-size: 0.78125rem;
+  font-weight: 470;
+}
+.search-band-sort-option[aria-pressed="true"] {
+  font-weight: 560;
+}
+.search-band-ghost {
+  font-size: 0.78125rem;
+  font-weight: 480;
+}
+/* A gradient hairline, so it fades out at both ends rather than butting into
+   the vertical padding. Gradients are not forced-colors mapped; see below. */
+.search-band-rule {
+  background: linear-gradient(180deg, transparent, var(--border-strong) 50%, transparent);
+}
+
+/* MUST remain the last rules in this stylesheet. At equal specificity a later
+   rule wins, so a forced-colors block placed earlier is silently overridden
+   while still looking correct in review. Rendering (not reading) exposed three
+   losses that colour alone was hiding. */
+@media (forced-colors: active) {
+  /* 1 — the rail survives as thickness, not hue: --clinical-accent resolves to
+     LinkText and --border-strong to CanvasText, so "accented" would otherwise
+     collapse into the other three borders. */
+  .search-band {
+    border-top-width: 3px;
+  }
+  /* 2 — a fault becomes a doubled top edge. Structural, not chromatic. This is
+     the one distinction that matters clinically: without it a failed search is
+     visually identical to a successful one. */
+  .search-band[data-status="error"],
+  .search-band[data-status="unauthorized"] {
+    border-top-width: 6px;
+    border-top-style: double;
+  }
+  .search-band-fault {
+    font-weight: 640;
+  }
+  /* 3 — selected sort/chip lose their fill, so carry them on the system's own
+     selection pair. forced-color-adjust is required: Highlight resolves
+     semi-transparent and Chromium otherwise paints a Canvas backplate straight
+     over the label. */
+  .search-band-chip[data-selected="true"],
+  .search-band-sort-option[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+    box-shadow: none;
+    forced-color-adjust: none;
+  }
+  .search-band-rule {
+    background: CanvasText;
+    opacity: 1;
+  }
+  /* --warning-border is not remapped by the token block above, so pin it here
+     or the fault panel keeps a raw hex border under forced colors. */
+  .search-band-fault-panel {
+    border-color: CanvasText;
   }
 }
