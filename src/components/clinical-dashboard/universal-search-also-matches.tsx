@@ -6,7 +6,7 @@ import { useEffect, useId, useState } from "react";
 
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
-import { cn } from "@/components/ui-primitives";
+import { cn, textMuted } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
@@ -34,13 +34,6 @@ export function UniversalSearchAlsoMatches({
   });
   const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const trimmedQuery = query.trim();
-  const universal = useUniversalSearch({
-    query: trimmedQuery,
-    enabled: trimmedQuery.length >= 2,
-    contextMode: modeId,
-    excludeDomains: universalSearchPreferredDomains(modeId),
-    limitPerDomain: 2,
-  });
   const panelId = useId();
   // Collapsed by default on phones so this cross-mode panel does not push the
   // primary results down; desktop always shows the grid (see the sm: rules below),
@@ -51,13 +44,29 @@ export function UniversalSearchAlsoMatches({
   // expanded and drops out of the interaction/tab flow rather than claiming to
   // be a collapsed control the user can toggle to no effect.
   const [isWide, setIsWide] = useState(false);
+  const [viewportReady, setViewportReady] = useState(false);
   useEffect(() => {
     const query = window.matchMedia("(min-width: 640px)");
-    const sync = () => setIsWide(query.matches);
+    const sync = () => {
+      setIsWide(query.matches);
+      setViewportReady(true);
+    };
     sync();
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
   }, []);
+  // Answer mounts this panel only after generation completes, so its request is
+  // not competing with typeahead or answer work. Keep that result panel eager
+  // and invisible until real matches arrive; a speculative phone disclosure
+  // would add dead space to short answers that have no cross-mode matches.
+  const searchActive = isWide || modeId === "answer" || expanded;
+  const universal = useUniversalSearch({
+    query: trimmedQuery,
+    enabled: trimmedQuery.length >= 2 && searchActive,
+    contextMode: modeId,
+    excludeDomains: universalSearchPreferredDomains(modeId),
+    limitPerDomain: 2,
+  });
   const preferred = new Set(universal.preferredDomains ?? []);
   const groups = (() => {
     const groupByDomain = new Map(universal.groups.map((group) => [group.kind, group]));
@@ -87,7 +96,13 @@ export function UniversalSearchAlsoMatches({
     return [...byMode.values()].filter((group) => group.items.length > 0).slice(0, 4);
   })();
 
-  if (universal.query !== trimmedQuery || groups.length === 0) return null;
+  const currentGroups = universal.query === trimmedQuery ? groups : [];
+  const searchPending = searchActive && (universal.loading || universal.query !== trimmedQuery);
+  const panelStatus = searchPending ? "Searching other modes" : "No additional matches in other modes.";
+
+  if (!viewportReady || trimmedQuery.length < 2) return null;
+  if (modeId === "answer" && currentGroups.length === 0) return null;
+  if (isWide && !searchPending && currentGroups.length === 0) return null;
 
   return (
     <section
@@ -116,7 +131,7 @@ export function UniversalSearchAlsoMatches({
         <span className="flex min-w-0 items-center gap-2">
           <span className="text-xs font-extrabold text-[color:var(--text-heading)]">Also matches in other modes</span>
           <span className="inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)] sm:hidden">
-            {groups.length}
+            {currentGroups.length || "…"}
           </span>
         </span>
         <span className="hidden text-2xs font-bold text-[color:var(--text-soft)] sm:inline">Across Clinical KB</span>
@@ -132,7 +147,12 @@ export function UniversalSearchAlsoMatches({
         id={panelId}
         className={cn("gap-1 sm:grid sm:grid-cols-2 xl:grid-cols-4", expanded ? "mt-2 grid sm:mt-0" : "hidden")}
       >
-        {groups.map((group) => {
+        {searchPending || currentGroups.length === 0 ? (
+          <p className={cn("rounded-md px-2 py-3 text-xs font-semibold", textMuted)} aria-live="polite">
+            {panelStatus}
+          </p>
+        ) : null}
+        {currentGroups.map((group) => {
           const targetModeId = group.modeId;
           const targetMode = appModeDefinition(targetModeId);
           const TargetIcon = appModeIcons[targetModeId];

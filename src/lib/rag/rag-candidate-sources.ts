@@ -577,10 +577,27 @@ export async function searchDocumentLookupFastPath(args: {
 
   const documentById = new Map(rankedDocuments.map((item) => [item.document.id, item.document]));
   const scoreByDocument = new Map(rankedDocuments.map((item) => [item.document.id, item.score]));
+  // Expanded variants are intentionally broad enough to find a document, but
+  // can discard intent-bearing words needed to choose a chunk inside it (for
+  // example "documentation required" -> "mental health discharge"). Keep the
+  // raw wording for explicit variant fanout except for the measured clozapine
+  // blood-count threshold shape whose source rows use WBC/ANC and stop/cease
+  // rather than the user's FBC and withhold wording.
+  const useExpandedBloodCountQuery =
+    Boolean(args.queryVariants?.length && primaryVariant) &&
+    /\bclozapin(?:e)?\b/i.test(args.query) &&
+    /\b(?:fbc|wbc|anc|blood\s+count|neutrophils?)\b/i.test(args.query) &&
+    /\b(?:wbc|anc|neutrophils?)\b/i.test(primaryVariant ?? "") &&
+    /\b(?:withhold|cease|stop|red\s+range)\b/i.test(primaryVariant ?? "");
+  const chunkQuery = useExpandedBloodCountQuery
+    ? (primaryVariant ?? args.query)
+    : args.queryVariants?.length
+      ? args.query
+      : (primaryVariant ?? args.query);
   const { chunks, terms } = await fetchBestDocumentLookupChunks({
     supabase: args.supabase,
     documentIds: rankedDocuments.map((item) => item.document.id),
-    query: args.query,
+    query: chunkQuery,
     limit: Math.max(args.matchCount, rankedDocuments.length * 4),
     ownerId: args.ownerId,
     accessScope: args.accessScope,

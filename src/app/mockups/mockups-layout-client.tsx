@@ -15,6 +15,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
+  const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -37,9 +38,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
         !isUniversalSearchRedesignMockup &&
-        !isCalculatorsSearchPageMockup
+        !isCalculatorsSearchPageMockup &&
+        !isPhoneInPageNavigationMockup
       }
-      chromeVisible={!isSourceOverlayRedesignMockup && !isSearchHeadingMockup}
+      chromeVisible={!isSourceOverlayRedesignMockup && !isSearchHeadingMockup && !isPhoneInPageNavigationMockup}
     >
       {children}
     </GlobalMockupSearchShell>
