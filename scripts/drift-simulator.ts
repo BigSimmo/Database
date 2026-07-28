@@ -1,4 +1,4 @@
-import { compareDriftSnapshots } from "./check-drift.ts";
+import { compareDriftSnapshots } from "./check-drift";
 
 function runSimulation() {
   console.log("[Drift Simulator] Injecting synthetic schema drift...");
