@@ -39,6 +39,133 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.queryByText("8 matches")).toBeNull();
   });
 
+  // The clinical invariant. A failed services search that renders "0 matches"
+  // asserts "there are no crisis services" when the truth is "we could not
+  // check", so no digit may reach the DOM while faulted.
+  it("asserts no count when the search failed", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" />);
+
+    const region = screen.getByRole("region", { name: "Search results for CMHT" });
+    expect(region).toHaveAttribute("aria-busy", "false");
+    expect(screen.getByRole("status")).toHaveTextContent("Couldn’t search");
+    // No digit may reach the DOM: that is the whole invariant.
+    expect(within(region).queryByText(/\d/)).toBeNull();
+  });
+
+  // Suppressing the count in the spine is worthless if a page-supplied filter
+  // chip still renders "Forms 0" beside it — the reader still sees a zero
+  // asserted about a search that never ran.
+  it("drops count-bearing page controls while faulted", () => {
+    const { rerender } = render(
+      <SearchResultsHeaderBand
+        modeId="forms"
+        query="transport order"
+        matchCount={0}
+        status="ready"
+        filterControls={<span>Forms 0</span>}
+      />,
+    );
+    expect(screen.getByText("Forms 0")).toBeVisible();
+
+    rerender(
+      <SearchResultsHeaderBand
+        modeId="forms"
+        query="transport order"
+        matchCount={0}
+        status="error"
+        filterControls={<span>Forms 0</span>}
+      />,
+    );
+    const region = screen.getByRole("region", { name: "Search results for transport order" });
+    expect(screen.queryByText("Forms 0")).toBeNull();
+    // Belt and braces: no digit anywhere in the ribbon, not just in the spine.
+    expect(within(region).queryByText(/\d/)).toBeNull();
+  });
+
+  // Initial loading is the same untrue-zero risk: forms forces matches to [] until
+  // the registry is ready, so ResultTabs would assert "Forms 0" under Searching….
+  it("drops count-bearing page controls while loading", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="forms"
+        query="transport order"
+        matchCount={0}
+        status="loading"
+        filterControls={<span>Forms 0</span>}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Searching…");
+    expect(screen.queryByText("Forms 0")).toBeNull();
+  });
+
+  it("keeps exactly one status region and one alert while faulted", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" />);
+
+    // Singular role queries throw when they match more than one node, so these
+    // also prove the spine's status was not duplicated by the fault panel.
+    expect(screen.getByRole("status")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("Services could not be loaded");
+  });
+
+  it("distinguishes an expired session from a broken search", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="unauthorized" />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("Sign in to search");
+    expect(screen.getByRole("alert")).toHaveTextContent("Sign in to continue");
+  });
+
+  it("offers retry through the shared busy contract when a recovery handler exists", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" onRetry={onRetry} />);
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("omits the retry affordance when no recovery handler is supplied", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={0} status="error" />);
+
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  // Zero is a real answer and must stay distinguishable from a failure.
+  it("reports a genuine zero result without raising a fault", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="clozapine rechallenge" matchCount={0} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("0 matches");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps the prior count visible while refetching", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={8} status="refetching" />);
+
+    expect(screen.getByRole("region", { name: "Search results for CMHT" })).toHaveAttribute("aria-busy", "true");
+    // Text content must match the ready state exactly so the atomic live region
+    // does not re-announce an unchanged count.
+    expect(screen.getByRole("status")).toHaveTextContent("8 matches");
+  });
+
+  // The accent used to be an absolutely-positioned bar inside an overflow:hidden
+  // rounded card, so the corner arc sliced its ends and it tapered away from the
+  // corner while the 1px border curved past it. It is now the card's own
+  // border-top, which mitres into the side borders by construction.
+  it("carries the accent as a border rather than a clipped overlay bar", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={10} />);
+
+    const region = screen.getByRole("region", { name: "Search results for CMHT" });
+    expect(region).toHaveClass("search-band");
+    expect(region.querySelector("span.absolute")).toBeNull();
+  });
+
+  it("lets an explicit status override the deprecated loading shim", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={4} loading status="ready" />);
+
+    expect(screen.getByRole("region", { name: "Search results for CMHT" })).toHaveAttribute("aria-busy", "false");
+    expect(screen.getByRole("status")).toHaveTextContent("4 matches");
+  });
+
   it("does not render an empty utility strip for a stale scope from another mode", () => {
     render(
       <SearchCommandProvider
