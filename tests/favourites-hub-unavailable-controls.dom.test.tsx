@@ -66,12 +66,12 @@ describe("FavouritesHub unavailable controls", () => {
 
     const hub = screen.getByTestId("favourites-hub");
     expect(within(hub).getByText("Could not load your favourites")).toBeInTheDocument();
-    expect(
-      within(hub).getByLabelText("Items unavailable because favourites could not be loaded"),
-    ).toHaveTextContent("—");
-    expect(
-      within(hub).getByLabelText("Sets unavailable because favourites could not be loaded"),
-    ).toHaveTextContent("—");
+    expect(within(hub).getByLabelText("Items unavailable because favourites could not be loaded")).toHaveTextContent(
+      "—",
+    );
+    expect(within(hub).getByLabelText("Sets unavailable because favourites could not be loaded")).toHaveTextContent(
+      "—",
+    );
     expect(within(hub).getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(within(hub).queryByText("All · 0")).not.toBeInTheDocument();
   });
