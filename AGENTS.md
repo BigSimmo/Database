@@ -165,8 +165,8 @@ When a branch or PR review completes, append the reviewed branch/ref, HEAD SHA, 
 # Process hardening phases
 
 - For non-trivial source/config/test changes, prefer `npm run verify:cheap` as the first broad gate and `npm run verify:pr-local` before PR handoff when the change is ready. The PR-local gate runs the full unit suite once, then conditionally adds the production build/client-bundle scan and RAG fixture/manifest validation. Browser, dependency-audit, Docker/Supabase replay, and provider-backed checks remain separate gates. Use `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` to inspect selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
-- Run one heavy Database command at a time across all worktrees. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
-- For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors changes, run `npm run ensure` before browser work and use `npm run verify:ui` as the Chromium UI gate.
+- Let the repository run coordinator control cross-worktree verification. It permits at most two focused Vitest/read-only typecheck leases from different worktrees; full Vitest, coverage, lint, build, Playwright, and live-provider tests remain exclusive. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
+- For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors changes, run `npm run ensure` before browser work and use `npm run verify:ui` as the Chromium UI gate. For phone-chrome changes, run `npm run verify:phone-chrome` first: it checks installed-lock parity, selects the affected browser/PWA owners and exact journeys, and adds `verify:ui` last only when shared chrome foundations make the broad gate necessary. Inspect uncertain scope with `-- --dry-run`.
 - For release or handoff confidence, use `npm run verify:release`; this includes the full Playwright project set.
 - For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
 - For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
@@ -218,9 +218,50 @@ The shared search chrome must adapt by page ownership, not by ad-hoc padding or 
 - **Hidden means zero reserve.** When phone search/header/footer chrome scroll-hides, the content-facing reserve is `0rem`; do not restore `0.75rem`, `env(safe-area-inset-bottom)`, or `var(--safe-area-bottom)` as hidden padding. Visible composer chrome may still consume safe-area inset.
 - **Header/footer symmetry.** Top header and bottom composer hide/reveal from the same scroll signal where they share a scroll container. If one is hidden, page content behind that edge must be fully visible rather than covered by an opaque white/surface band.
 - **Page adaptation.** Standalone mode homes keep the composer in-flow in the hero on phones; submitted/search-result views use the compact bottom dock; answer mode may use overlaid glass header behaviour with matching top reserve; document detail/source routes let `DocumentViewer` own its composer.
-- **Guards.** Update the reserve helper, CSS tokens, Playwright phone-scroll coverage, and static contract tests together. Do not silence the existing reserve/overlay tests; add a narrower guard for any new page-specific exception.
+- **Guards.** Update the reserve helper, CSS tokens, Playwright phone-scroll coverage, and static contract tests together. Do not silence the existing reserve/overlay tests; add a narrower guard for any new page-specific exception. Run `npm run verify:phone-chrome`; its smart selector must keep focused owner/journey proof before any recommended full `verify:ui` escalation.
 
 <!-- END:search-chrome-behaviour -->
+
+<!-- BEGIN:external-skill-precedence -->
+
+# External skill precedence
+
+User-global skills and output-style plugins are installed outside this repo and know nothing about
+its contracts. Repo docs and committed tests always win. This section is the tie-breaker.
+
+- **Repo contracts outrank generic rules.** The Front-End Checklist skill corpus (~390 user-global
+  skills: `alt-text`, `touch-targets`, `focus-styles`, `reduced-motion`, `color-contrast`, and so
+  on) is generic guidance. On any conflict these win: `docs/wiring-conventions.md`,
+  `docs/search-chrome-behaviour.md`, `docs/rag-behaviour/`, the `@theme` tokens in
+  `src/app/globals.css`, and any committed test.
+- **Never regress a fixed flake to satisfy a generic rule.** Known collision: generic touch-target
+  guidance often teaches the WCAG 2.1/2.2 AAA-level "enhanced" criterion (2.5.5: 44×44 px, which is
+  `min-h-11` in Tailwind), though the AA-level minimum is 24×24 px (2.5.8). This repo's production
+  tap targets use `min-h-12` (48 px) — exceeding both the AA minimum and the AAA enhanced criterion —
+  because `min-h-11` (44 px) hit a sub-pixel rounding flake in `ui-smoke`. Design-scratch mockups
+  (`*-mockups.tsx`) still carry `min-h-11` and are gate-exempt. Do not "fix" production back to
+  `min-h-11` to satisfy the generic rule.
+- **Unlayered CSS is deliberate.** Component classes in `globals.css` intentionally override
+  Tailwind utilities. Generic specificity and utility-first advice does not apply here.
+- **Cite the source when applying an external rule.** If a checklist rule drives a change, name the
+  rule and confirm it contradicts no repo doc or test.
+
+## Evidence and calibration are never compressed
+
+Output-style plugins such as caveman mode may compress prose. They must never compress proof.
+
+- **Always paste the decisive line.** Report gates with real output, not a summary. `npm run
+verify:ui` exits 0 without running a single Playwright test when another worktree holds the heavy
+  lock, so grep for the "N passed" line; exit 0 alone is not proof.
+- **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
+  read, and what is inferred. Do not drop uncertainty to save tokens.
+- **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
+  must be verified against the actual ref/commit content before being repeated as fact. Prioritize
+  inspecting already-fetched local refs (`git log`, `git show`) first; `git fetch` or other
+  network/provider access requires explicit user confirmation per the "API and provider confirmation
+  boundary" section.
+
+<!-- END:external-skill-precedence -->
 
 <!-- BEGIN:supabase-project-safety -->
 
@@ -405,11 +446,14 @@ staleness, not an unresolvable content fight, and it blocks squash auto-merge.
 
 Durable mitigations in this repo:
 
-- `.github/workflows/pr-branch-sync.yml` runs on every push to `main` (and on
-  `workflow_dispatch`) and calls GitHub's update-branch API for every open
-  same-repo PR that is behind `main`. Opt out per PR with labels `hold`,
-  `do-not-merge`, or `skip-branch-sync`, or a `WIP` / `do not merge` title.
-- Local/operator dry-run: `npm run sync:pr-branches`. Apply: `npm run sync:pr-branches:apply`.
+- Automatic `GITHUB_TOKEN` branch updates are prohibited: bot-authored heads
+  leave required checks awaiting approval. `npm run check:github-actions`
+  guards this policy.
+- Local/operator dry-run: `npm run sync:pr-branches`. Apply with the current
+  human/operator `gh` identity: `npm run sync:pr-branches:apply`; the helper
+  refuses missing or bot identities. Opt out per PR
+  with labels `hold`, `do-not-merge`, or `skip-branch-sync`, or a `WIP` /
+  `do not merge` title.
 - Prefer fewer long-lived open PRs; land or close queue items rather than
   repeatedly re-merging `main` by hand.
 - `docs/branch-review-ledger.md` stays append-only with the `union` merge driver;
@@ -417,7 +461,8 @@ Durable mitigations in this repo:
 
 When diagnosing "merge conflicts on every PR", first compare `behind_by` and
 `git merge-tree --write-tree origin/main <tip>`. If the tree merge is clean,
-sync the branch (workflow, `update-branch`, or `git merge origin/main` + push)
+sync the branch with an explicitly authenticated human/operator `update-branch`
+call or `git merge origin/main` + push
 instead of rewriting product code.
 
 <!-- END:pr-branch-sync -->
@@ -444,8 +489,8 @@ Hard guardrails (never, even during a sweep):
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
 - Preserve unrelated staged, unstaged, and untracked work; never commit secrets.
-- Resolve branch drift with `git merge origin/main` only; skip and report non-trivial conflicts instead of guessing.
-- Before treating GitHub `DIRTY`/`CONFLICTING` as a real conflict, confirm with `git merge-tree` (see "## Open PR branch sync (anti-churn)"). Prefer the hosted `pr-branch-sync` workflow / update-branch API when the token can write; otherwise merge `origin/main` in a worktree and push.
+- Resolve branch drift only with an explicitly authenticated update-branch call or `git merge origin/main`; skip and report non-trivial conflicts instead of guessing.
+- Before treating GitHub `DIRTY`/`CONFLICTING` as a real conflict, confirm with `git merge-tree` (see "## Open PR branch sync (anti-churn)"). Use the update-branch API only through the explicitly authenticated human/operator identity; otherwise merge `origin/main` in a worktree and push.
 
 Procedure: in Claude Code sessions, invoke the `run-pr` skill (`.claude/skills/run-pr/SKILL.md`) — it is the canonical detailed procedure. In sessions without GitHub MCP write tooling, degrade to read-only diagnosis and a per-PR report; do not attempt pushes or thread resolution through other means.
 
@@ -475,7 +520,7 @@ Record one `docs/branch-review-ledger.md` row per PR touched, and end with the p
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 32 canonical single-word skills and `npm run check:skills` to verify catalog integrity. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 33 canonical single-word skills and `npm run check:skills` to verify catalog integrity. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 

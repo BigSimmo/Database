@@ -204,6 +204,7 @@ function StagedAnswerResultSurfaceImpl({
           <div className="min-w-0 space-y-3">
             <NaturalLanguageAnswer
               text={answer.answer}
+              query={query}
               preformatted={isPreformattedGroundedAnswer(answer)}
               sourceCount={sourceCount}
               sourceOnly={answer.answerQualityTier === "source_only"}

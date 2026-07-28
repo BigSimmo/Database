@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ClipboardCheck,
@@ -588,6 +588,12 @@ export function DocumentDrawer({
     sourceType: "",
     category: "",
   });
+  const findInputRef = useRef<HTMLInputElement>(null);
+  // Sheet open-focus can land on Close before this drawer mounts; claim Find as
+  // soon as the field is in the DOM (Sources ribbon + empty-home Browse paths).
+  useLayoutEffect(() => {
+    findInputRef.current?.focus({ preventScroll: true });
+  }, [mode]);
 
   const allTypes = useMemo(() => {
     const types = new Set<string>();
@@ -744,6 +750,7 @@ export function DocumentDrawer({
       <label className="relative block">
         <Search aria-hidden="true" className={fieldIcon} />
         <input
+          ref={findInputRef}
           autoFocus
           data-sheet-autofocus="true"
           value={filter}

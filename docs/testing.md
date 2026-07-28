@@ -2,9 +2,13 @@
 
 ## Safe local execution
 
-Heavy commands (`lint`, `typecheck`, `build`, Vitest, Playwright, `verify:cheap`, and `verify:pr-local`) share one lock derived from Git's common directory. The lock therefore covers every worktree for this repository. Nested commands reuse their parent's token; an unrelated command fails immediately and prints the current owner. A lock with an owner is reclaimed only when its recorded process is demonstrably dead; an ownerless initialization lock is reclaimed only after its initialization grace period.
+Repository verification uses a local run coordinator derived from Git's common directory, so admission covers every worktree for this repository. It permits at most two shared leases from different worktrees for fail-closed focused Vitest selections and read-only typechecking. Full Vitest, coverage, lint, build, Playwright, and live-provider tests retain exclusive admission. Unknown Vitest selections fail closed to exclusive mode, and shared Vitest runs are capped at two workers each.
 
-Run one heavy Database command at a time. Do not install packages while a repository test, build, lint, typecheck, or server command is active. Avoid short-interval polling, and do not repeat an unchanged broad gate after it has already passed.
+Composite gates do not hold an umbrella lease: `verify:cheap` and `verify:pr-local` let each lint, typecheck, unit, build, or browser stage acquire the appropriate lease. This lets focused work proceed during lightweight stages without allowing it to overlap an exclusive stage. Waiting admission is queue-ordered, so later focused runs cannot jump ahead of a queued exclusive command. Exclusive stages wait up to 15 minutes for long browser or build owners; shared focused work retains a 30-second admission timeout so an interactive check reports contention promptly.
+
+Nested commands reuse their parent's token. Shared typechecks override the repository's `node_modules/.cache` incremental path with worktree-specific temporary `.tsbuildinfo` state, so junctioned dependency directories are not written concurrently. The coordinator retains the legacy lock path and a live sentinel owner so older worktrees safely wait instead of bypassing newer shared leases. Dead owners and abandoned queue entries are reclaimed; live owners heartbeat and command text is redacted before persistence or contention output. Do not bypass or delete coordinator state manually.
+
+Vitest's Vite transform cache is outside the commonly-junctioned `node_modules` tree and keyed by worktree. Two focused runs from the same worktree are not admitted concurrently. Do not install packages while a repository test, build, lint, typecheck, or server command is active. Avoid short-interval polling, and do not repeat an unchanged broad gate after it has already passed.
 
 Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E credentials and force demo/offline mode. Provider tests use the `*.live.test.ts` suffix, are excluded from default discovery, and can only be started explicitly with `ALLOW_PROVIDER_TESTS=true npm run test:live`.
 
@@ -21,6 +25,7 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 | `npm run test:e2e:advisory`               | Quarantined and mockup journeys in one advisory invocation.                                                                                             |
 | `npm run verify:cheap`                    | Broad offline local gate: runtime/config checks, lint, typecheck, and the full unit suite.                                                              |
 | `npm run verify:pr-local`                 | PR-like local gate. Formatting is checked on the changed set, the full unit suite runs once, and RAG scope adds fixture/manifest validation.            |
+| `npm run verify:phone-chrome`             | Smart phone-chrome gate: lock parity, affected contracts, browser/PWA owners and exact journeys, then full UI only for shared foundations.              |
 | `npm run verify:ui`                       | Complete required production Chromium gate.                                                                                                             |
 
 Set `FAST_CHECK_SEED` to reproduce a property-test run. Local and ordinary CI runs default to `424242`; scheduled CI may derive a bounded seed from the run ID.
@@ -46,6 +51,8 @@ Reference examples: `tests/icon-button.dom.test.tsx` (accessible-name contract),
 The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target.
 
 Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports. Failed-test classification parses JUnit test cases and uses exact spec/title matches; a job name is never enough to classify a failure as a known flake.
+
+Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification with `-- --dry-run` or provide an explicit changed set with `-- --files pathA,pathB`. The default `--full=auto` escalates shared shell/header/footer, scroll-coordinator, reserve, or global-style changes to `verify:ui` only after focused ownership and journey checks pass. Page-local owners and test-helper changes remain focused; use `--full=always` for deliberate extra confidence or `--full=never` only when the dry run records why the recommended broad gate is unavailable. Physical Safari and cold-launch PWA paint still follow [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
 ## Flake policy
 

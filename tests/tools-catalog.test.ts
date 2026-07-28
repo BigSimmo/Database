@@ -11,9 +11,20 @@ describe("tools catalog", () => {
   it("has unique ids and the launcher staples", () => {
     const ids = toolCatalogRecords.map((tool) => tool.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const staple of ["clinical-kb-search", "documents", "medication-prescribing", "services", "forms"]) {
+    for (const staple of [
+      "clinical-kb-search",
+      "documents",
+      "medication-prescribing",
+      "services",
+      "forms",
+      "calculators",
+    ]) {
       expect(ids).toContain(staple);
     }
+  });
+
+  it("links calculators to the production calculators page", () => {
+    expect(toolCatalogRecordById("calculators").href).toBe("/calculators");
   });
 
   it("ranks title matches above keyword-only matches", () => {

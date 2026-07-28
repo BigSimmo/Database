@@ -118,6 +118,8 @@ export type GoldenRetrievalResult = {
     text_rank: number | null;
     rrf_score: number | null;
     score_explanation?: SearchResult["score_explanation"];
+    relevanceGrade: number | null;
+    matchedDeclaredSignals: string[];
     content_preview: string;
   }>;
 };
@@ -403,6 +405,15 @@ type RetrievalSignalMetrics = {
   ndcgAt10: number;
   irrelevantSourceRateAt10: number;
   requiredSignalCoverageAt10: number;
+  topResultSignalMatches: Array<{
+    relevanceGrade: number | null;
+    matchedDeclaredSignals: string[];
+  }>;
+};
+
+type DeclaredRetrievalSignal = {
+  label: string;
+  matches: (result: SearchResult) => boolean;
 };
 
 /**
@@ -413,42 +424,62 @@ type RetrievalSignalMetrics = {
  */
 function retrievalSignalMetricsAt10(testCase: GoldenRetrievalCase, results: SearchResult[]): RetrievalSignalMetrics {
   const top = results.slice(0, 10);
-  const documentSignals = testCase.expectedDocumentSubstrings.map((expectation) => (result: SearchResult) => {
-    const text =
-      !clinicalDocumentAliases[expectation] && !/\.pdf$/i.test(expectation)
-        ? resultDocumentEvidenceText(result)
-        : resultDocumentText(result);
-    return documentExpectationAlternatives(expectation).some((alternative) => text.includes(alternative));
-  });
-  const contentSignals = testCase.expectedContentTerms.map(
-    (expectation) => (result: SearchResult) => contentExpectationMatchesResult(expectation, result),
-  );
-  const signals = [
+  const documentSignals: DeclaredRetrievalSignal[] = testCase.expectedDocumentSubstrings.map((expectation) => ({
+    label: `document:${expectation}`,
+    matches: (result: SearchResult) => {
+      const text =
+        !clinicalDocumentAliases[expectation] && !/\.pdf$/i.test(expectation)
+          ? resultDocumentEvidenceText(result)
+          : resultDocumentText(result);
+      return documentExpectationAlternatives(expectation).some((alternative) => text.includes(alternative));
+    },
+  }));
+  const contentSignals: DeclaredRetrievalSignal[] = testCase.expectedContentTerms.map((expectation) => ({
+    label: `content:${contentExpectationLabel(expectation)}`,
+    matches: (result: SearchResult) => contentExpectationMatchesResult(expectation, result),
+  }));
+  const signals: DeclaredRetrievalSignal[] = [
     ...documentSignals,
     ...contentSignals,
-    ...(testCase.expectTableEvidence ? [(result: SearchResult) => hasTableEvidence([result], 1)] : []),
+    ...(testCase.expectTableEvidence
+      ? [{ label: "table_evidence", matches: (result: SearchResult) => hasTableEvidence([result], 1) }]
+      : []),
   ];
   const declaredSignalCount = signals.length;
+  const resultSignalMatches = top.map((result) => signals.map((signal) => signal.matches(result)));
+  const topResultSignalMatches = resultSignalMatches.map((matches) => {
+    const matchedDeclaredSignals = signals
+      .filter((_, signalIndex) => matches[signalIndex])
+      .map((signal) => signal.label);
+    return {
+      relevanceGrade: declaredSignalCount === 0 ? null : matchedDeclaredSignals.length,
+      matchedDeclaredSignals,
+    };
+  });
   if (declaredSignalCount === 0) {
     return {
       declaredSignalCount: 0,
       ndcgAt10: 1,
       irrelevantSourceRateAt10: 0,
       requiredSignalCoverageAt10: 1,
+      topResultSignalMatches,
     };
   }
 
-  const grades = top.map((result) => signals.filter((matches) => matches(result)).length);
+  const grades = topResultSignalMatches.map((result) => result.relevanceGrade ?? 0);
   const dcg = (values: number[]) =>
     values.reduce((sum, grade, index) => sum + (2 ** grade - 1) / Math.log2(index + 2), 0);
   const idealDcg = dcg([...grades].sort((left, right) => right - left));
-  const matchedSignals = signals.filter((matches) => top.some((result) => matches(result))).length;
+  const matchedSignals = signals.filter((_, signalIndex) =>
+    resultSignalMatches.some((matches) => matches[signalIndex]),
+  ).length;
 
   return {
     declaredSignalCount,
     ndcgAt10: idealDcg > 0 ? dcg(grades) / idealDcg : 0,
     irrelevantSourceRateAt10: top.length > 0 ? grades.filter((grade) => grade === 0).length / top.length : 0,
     requiredSignalCoverageAt10: matchedSignals / declaredSignalCount,
+    topResultSignalMatches,
   };
 }
 
@@ -491,7 +522,7 @@ function hasTableEvidence(results: SearchResult[], limit = 5) {
   });
 }
 
-function topResultSummary(results: SearchResult[]) {
+function topResultSummary(results: SearchResult[], signalMatches: RetrievalSignalMetrics["topResultSignalMatches"]) {
   // Top 10, not 5: irrelevant_source_rate@10 and rr@10 are top-10 metrics, so the artifact
   // must carry the rows those metrics saw — enabling the offline irrelevant@10 labeling
   // audit (docs/observability-slos.md §3.1) and deeper trend drill-downs without a live rerun.
@@ -524,6 +555,8 @@ function topResultSummary(results: SearchResult[]) {
       text_rank: result.text_rank ?? null,
       rrf_score: result.rrf_score ?? null,
       score_explanation: result.score_explanation,
+      relevanceGrade: signalMatches[index]?.relevanceGrade ?? null,
+      matchedDeclaredSignals: signalMatches[index]?.matchedDeclaredSignals ?? [],
       content_preview: (result.retrieval_synopsis || result.content).replace(/\s+/g, " ").trim().slice(0, 220),
     };
   });
@@ -575,7 +608,7 @@ export function evaluateGoldenRetrievalCase(args: {
       : contentHits.hits.length / args.testCase.expectedContentTerms.length;
   const tableEvidenceFound = hasTableEvidence(args.results, 5);
   const tableEvidenceFoundAtK = hasTableEvidence(args.results, topK);
-  const signalMetrics = retrievalSignalMetricsAt10(args.testCase, args.results);
+  const { topResultSignalMatches, ...signalMetrics } = retrievalSignalMetricsAt10(args.testCase, args.results);
   const actualQueryClass = args.telemetry.query_class ?? null;
   const failures: string[] = [];
   const vectorLayerCount = Object.entries(args.telemetry.retrieval_layer_counts ?? {}).reduce(
@@ -655,7 +688,7 @@ export function evaluateGoldenRetrievalCase(args: {
     timedOut: args.timedOut ?? false,
     latencyFailures: args.latencyFailures ?? [],
     failures,
-    topResults: topResultSummary(args.results),
+    topResults: topResultSummary(args.results, topResultSignalMatches),
   };
 }
 
@@ -902,7 +935,6 @@ async function main() {
     ? allCases.filter((item) => item.query.toLowerCase().includes(args.query!.toLowerCase()) || item.id === args.query)
     : allCases;
   const cases = filteredCases.slice(0, args.limit ?? filteredCases.length);
-  const results: GoldenRetrievalResult[] = [];
   const readinessWarnings = await visualReadinessWarnings(supabase, cases);
 
   if (!args.json) {
@@ -912,70 +944,92 @@ async function main() {
     for (const warning of readinessWarnings) console.warn(`WARN ${warning}`);
   }
 
-  for (let caseIndex = 0; caseIndex < cases.length; caseIndex += 1) {
-    const testCase = cases[caseIndex]!;
-    await pauseBetweenEvalCases({
-      caseIndex,
-      forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
-    });
-    const startedAt = Date.now();
-    const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
-      searchChunksWithTelemetry({
-        query: testCase.query,
-        ownerId,
-        topK: retrievalLimitForGoldenCase(testCase),
-        minSimilarity: 0.12,
-        skipCache: args.mode !== "latency",
-        forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
-      }),
-    );
-    const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
-    const search = searchOutcome.timedOut
-      ? {
-          results: [] as SearchResult[],
-          telemetry: {
-            query_class: testCase.expectedQueryClass,
-            retrieval_strategy: "timeout",
-            embedding_skipped: false,
-            text_fast_path_latency_ms: 0,
-            embedding_latency_ms: 0,
-            supabase_rpc_latency_ms: args.caseTimeoutMs,
-            rerank_latency_ms: 0,
-            retrieval_layer_counts: {},
-            retrieval_layer_top_scores: {},
-            retrieval_layer_latencies_ms: {},
-          },
-        }
-      : searchOutcome.value;
-    const latencyMs = searchOutcome.timedOut
-      ? args.caseTimeoutMs
-      : latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
-    const latencyFailures = latencyFailuresForCase({ latencyMs, timedOut: searchOutcome.timedOut }, args);
-    const result = evaluateGoldenRetrievalCase({
-      testCase,
-      results: search.results,
-      telemetry: search.telemetry,
-      latencyMs,
-      timedOut: searchOutcome.timedOut,
-      latencyFailures,
-      globalForceEmbedding: args.forceEmbedding,
-    });
-    results.push(result);
-
-    if (!args.json) {
-      const status =
-        args.mode === "latency"
-          ? result.latencyFailures?.length
-            ? "SLOW"
-            : "OK"
-          : result.failures.length
-            ? "FAIL"
-            : "PASS";
-      console.log(
-        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} ndcg@10=${result.ndcgAt10.toFixed(2)} irrelevant@10=${result.irrelevantSourceRateAt10.toFixed(2)} signalCoverage@10=${result.requiredSignalCoverageAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
-      );
-    }
+  function pLimit(concurrency: number) {
+    let active = 0;
+    const queue: Array<() => void> = [];
+    return async <T>(fn: () => Promise<T>): Promise<T> => {
+      if (active >= concurrency) await new Promise<void>((resolve) => queue.push(resolve));
+      active += 1;
+      try {
+        return await fn();
+      } finally {
+        active -= 1;
+        queue.shift()?.();
+      }
+    };
   }
+
+  // Latency mode stays serial so p50/p90 timing is not distorted by concurrent load.
+  const concurrency = args.mode === "latency" ? 1 : 5;
+  const limitEvaluations = pLimit(concurrency);
+
+  const results: GoldenRetrievalResult[] = await Promise.all(
+    cases.map((testCase, caseIndex) =>
+      limitEvaluations(async () => {
+        await pauseBetweenEvalCases({
+          caseIndex,
+          forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
+        });
+        const startedAt = Date.now();
+        const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
+          searchChunksWithTelemetry({
+            query: testCase.query,
+            ownerId,
+            topK: retrievalLimitForGoldenCase(testCase),
+            minSimilarity: 0.12,
+            skipCache: args.mode !== "latency",
+            forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
+          }),
+        );
+        const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
+        const search = searchOutcome.timedOut
+          ? {
+              results: [] as SearchResult[],
+              telemetry: {
+                query_class: testCase.expectedQueryClass,
+                retrieval_strategy: "timeout",
+                embedding_skipped: false,
+                text_fast_path_latency_ms: 0,
+                embedding_latency_ms: 0,
+                supabase_rpc_latency_ms: args.caseTimeoutMs,
+                rerank_latency_ms: 0,
+                retrieval_layer_counts: {},
+                retrieval_layer_top_scores: {},
+                retrieval_layer_latencies_ms: {},
+              },
+            }
+          : searchOutcome.value;
+        const latencyMs = searchOutcome.timedOut
+          ? args.caseTimeoutMs
+          : latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
+        const latencyFailures = latencyFailuresForCase({ latencyMs, timedOut: searchOutcome.timedOut }, args);
+        const result = evaluateGoldenRetrievalCase({
+          testCase,
+          results: search.results,
+          telemetry: search.telemetry,
+          latencyMs,
+          timedOut: searchOutcome.timedOut,
+          latencyFailures,
+          globalForceEmbedding: args.forceEmbedding,
+        });
+
+        if (!args.json) {
+          const status =
+            args.mode === "latency"
+              ? result.latencyFailures?.length
+                ? "SLOW"
+                : "OK"
+              : result.failures.length
+                ? "FAIL"
+                : "PASS";
+          console.log(
+            `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} ndcg@10=${result.ndcgAt10.toFixed(2)} irrelevant@10=${result.irrelevantSourceRateAt10.toFixed(2)} signalCoverage@10=${result.requiredSignalCoverageAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
+          );
+        }
+        return result;
+      }),
+    ),
+  );
 
   const summary = summarizeGoldenRetrievalResults(results);
   const latencyThresholdFailures =

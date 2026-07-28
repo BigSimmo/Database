@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -269,6 +269,64 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
         error: null,
       };
     }
+    if (name === "create_uploaded_document_with_ingestion_job") {
+      const document = (args?.p_document ?? {}) as Record<string, unknown>;
+      const documentCall: QueryCall = {
+        table: "documents",
+        operation: "insert",
+        orFilters: [],
+        filters: [],
+        inFilters: [],
+        overlapsFilters: [],
+        insertPayload: document,
+        maybeSingle: false,
+        single: true,
+      };
+      calls.push(documentCall);
+      const documentResult = resolveWithDefaultScope(documentCall);
+      if (documentResult.error) return documentResult;
+
+      const insertedDocument = {
+        ...document,
+        ...(typeof documentResult.data === "object" && documentResult.data ? documentResult.data : {}),
+        status: "queued",
+        page_count: 0,
+        chunk_count: 0,
+        image_count: 0,
+        created_at: "2026-07-24T00:00:00.000Z",
+      };
+      const jobPayload = {
+        document_id: document.id,
+        batch_id: null,
+        status: "pending",
+        stage: "queued",
+        progress: 0,
+        max_attempts: args?.p_max_attempts,
+      };
+      const jobCall: QueryCall = {
+        table: "ingestion_jobs",
+        operation: "insert",
+        orFilters: [],
+        filters: [],
+        inFilters: [],
+        overlapsFilters: [],
+        insertPayload: jobPayload,
+        maybeSingle: false,
+        single: true,
+      };
+      calls.push(jobCall);
+      const jobResult = resolveWithDefaultScope(jobCall);
+      if (jobResult.error) return jobResult;
+
+      return ok({
+        document: insertedDocument,
+        job: {
+          id: "job-1",
+          ...jobPayload,
+          ...(typeof jobResult.data === "object" && jobResult.data ? jobResult.data : {}),
+        },
+      });
+    }
     if (name === "request_ingestion_reindex_if_agent_idle") {
       return ok({ outcome: "queued", job: { id: "reindex-job" } });
     }
@@ -337,6 +395,7 @@ function mockRuntime(
       MAX_IN_FLIGHT_UPLOAD_MB: options.maxInFlightUploadMb ?? 151,
       SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
       SUPABASE_IMAGE_BUCKET: "clinical-images",
+      DOCUMENT_SIGNED_URL_TTL_SECONDS: 600,
       RAG_SEARCH_CACHE_TTL_MS: 0,
       RAG_SEARCH_CACHE_SIZE: 0,
       RAG_ANSWER_CACHE_TTL_MS: 0,
@@ -455,7 +514,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual([{ id: documentId, title: "Public guideline" }]);
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
@@ -524,7 +583,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual([{ id: documentId, title: "Public guideline", status: "indexed" }]);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.calls[0].filters).not.toContainEqual({ column: "owner_id", value: userId });
@@ -879,7 +938,7 @@ describe("private document API access", () => {
   });
 
   it("omits internal document list fields for anonymous callers", async () => {
-    const documents = [{ id: documentId, owner_id: null, title: "Public guideline", status: "indexed" }];
+    const documents = [{ id: documentId, title: "Public guideline", status: "indexed" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/route");
@@ -1452,7 +1511,7 @@ describe("private document API access", () => {
     expect(client.storageMocks.upload).toHaveBeenCalledTimes(1);
   });
 
-  it("cleans up document and storage when aborted after document insert", async () => {
+  it("cleans up document and storage when aborted after the atomic upload enqueue", async () => {
     const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
@@ -1473,7 +1532,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(499);
     expect(client.calls.filter((call) => call.table === "documents" && call.operation === "insert")).toHaveLength(1);
-    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(true);
     expect(client.calls.filter((call) => call.table === "documents" && call.operation === "delete")).toHaveLength(1);
     expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
   });
@@ -2254,7 +2313,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toMatchObject({
-      error: "Reindex is paused while enrichment is active.",
+      error: "Document has an active agent-enrichment pass. Wait for it to finish before reindexing.",
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
@@ -2686,7 +2745,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toMatchObject({
-      error: "Bulk reindex is paused while enrichment is active for one or more selected documents.",
+      error: "Document has an active agent-enrichment pass. Wait for it to finish before reindexing.",
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
@@ -2868,14 +2927,29 @@ describe("private document API access", () => {
   it("cleans up uploaded storage when job insert fails", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
-        return ok({ id: documentId });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "insert") {
         return fail("job insert failed");
       }
       return ok([]);
     });
     mockRuntime(client);
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "create_uploaded_document_with_ingestion_job") {
+        return fail("job insert failed");
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return {
+          data: [
+            rateLimitRow({
+              limited: false,
+              limit_value: Number(args?.p_limit ?? 60),
+              remaining: Number(args?.p_limit ?? 60) - 1,
+            }),
+          ],
+          error: null,
+        };
+      }
+      return ok([]);
+    });
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
@@ -2890,24 +2964,18 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
-    expect(
-      client.calls.some(
-        (call) =>
-          call.table === "documents" &&
-          call.operation === "delete" &&
-          call.filters.some((filter) => filter.column === "id" && typeof filter.value === "string") &&
-          call.filters.some((filter) => filter.column === "owner_id" && filter.value === userId),
-      ),
-    ).toBe(true);
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
   });
 
-  it("still runs catch cleanup when upload cleanup calls return non-throwing errors", async () => {
+  it("still runs catch cleanup when post-enqueue cleanup calls return non-throwing errors", async () => {
+    const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
+        controller.abort();
         return ok({ id: documentId });
       }
       if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        return fail("job insert failed");
+        return ok({ id: "job-1", document_id: documentId });
       }
       if (call.table === "documents" && call.operation === "delete") {
         return fail("document cleanup returned error");
@@ -2927,13 +2995,14 @@ describe("private document API access", () => {
       authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       }),
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
     const documentDeletes = client.calls.filter((call) => call.table === "documents" && call.operation === "delete");
 
-    expect(response.status).toBe(500);
-    expect(documentDeletes.length).toBeGreaterThanOrEqual(2);
+    expect(response.status).toBe(499);
+    expect(documentDeletes).toHaveLength(1);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -3083,6 +3152,53 @@ describe("private document API access", () => {
     expect(body.results.map((result: { id: string }) => result.id)).toEqual(["chunk-old"]);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
+  });
+
+  it("does not treat a query term embedded inside another word as a document-search hit", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === "search_document_chunks") {
+        return ok([
+          {
+            id: "embedded-term",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Endocrine",
+            content: "Adrenal monitoring only.",
+            image_ids: [],
+            text_rank: 0.8,
+          },
+          {
+            id: "word-boundary-term",
+            page_number: 2,
+            chunk_index: 1,
+            section_heading: "Renal monitoring",
+            content: "Check renal function before treatment.",
+            image_ids: [],
+            text_rank: 0.7,
+          },
+        ]);
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/search/route");
+
+    const response = await GET(request(`/api/documents/${documentId}/search?q=renal`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { results: Array<{ id: string; matched_terms: string[] }> };
+
+    expect(response.status).toBe(200);
+    expect(body.results).toEqual([expect.objectContaining({ id: "word-boundary-term", matched_terms: ["renal"] })]);
   });
 
   it("filters table fact review rows to the committed index generation", async () => {
@@ -4071,6 +4187,45 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
+  it("logs failed search telemetry against the parsed query instead of an unknown placeholder", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Clozapine monitoring",
+          includeRelatedDocuments: false,
+          filters: { sourceStatuses: ["current"] },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await vi.waitFor(() => {
+      const insert = client.calls.find((call) => call.table === "rag_queries" && call.operation === "insert");
+      expect(insert).toBeTruthy();
+      const payload = insert?.insertPayload as Record<string, unknown>;
+      const expectedHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("clozapine monitoring")
+        .digest("hex");
+      const unknownHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("unknown")
+        .digest("hex");
+      expect(payload.query).toBe(`redacted-query:${expectedHash}`);
+      expect(payload.query).not.toBe(`redacted-query:${unknownHash}`);
+    });
+  });
+
   it("falls back to visible demo answers only outside production when Supabase rejects the API key", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Live answer",
@@ -4314,6 +4469,70 @@ describe("private document API access", () => {
     secondController.abort(new DOMException("second caller left", "AbortError"));
     await second;
     expect(providerSignal?.aborted).toBe(true);
+  });
+
+  it("does not poison a new healthy search caller after the last coalesced waiter disconnects", async () => {
+    let searchCalls = 0;
+    const searchChunksWithTelemetry = vi.fn(async (args: { signal?: AbortSignal }) => {
+      searchCalls += 1;
+      const signal = args.signal;
+      if (searchCalls === 1) {
+        return new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason ?? new DOMException("aborted", "AbortError")), {
+            once: true,
+          });
+          if (signal?.aborted) {
+            reject(signal.reason ?? new DOMException("aborted", "AbortError"));
+          }
+        });
+      }
+      return {
+        results: [],
+        telemetry: {
+          search_cache_hit: false,
+          text_fast_path_latency_ms: 0,
+          embedding_skipped: true,
+          embedding_latency_ms: 0,
+          embedding_cache_hit: false,
+          supabase_rpc_latency_ms: 0,
+          rerank_latency_ms: 0,
+          retrieval_strategy: "text_fast_path",
+          weighted_top_score: 0,
+          rrf_top_score: 0,
+        },
+      };
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const firstController = new AbortController();
+    const searchRequest = (signal: AbortSignal) =>
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({
+          query: "poison race monitoring search",
+          includeRelatedDocuments: false,
+        }),
+      });
+
+    const first = searchRoute.POST(searchRequest(firstController.signal));
+    for (let index = 0; index < 10 && searchCalls === 0; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchCalls).toBe(1);
+
+    firstController.abort(new DOMException("sole search waiter left", "AbortError"));
+    const firstResponse = await first;
+    expect(firstResponse.status).toBeGreaterThanOrEqual(400);
+
+    const healthyController = new AbortController();
+    const healthyResponse = await searchRoute.POST(searchRequest(healthyController.signal));
+    const healthyPayload = await payload(healthyResponse);
+    expect(healthyResponse.status).toBe(200);
+    expect(healthyController.signal.aborted).toBe(false);
+    expect(searchCalls).toBe(2);
+    expect(healthyPayload.telemetry).toMatchObject({ coalesced: false });
   });
 
   it("streams only public progress details and exactly one completion before the final answer", async () => {
@@ -4569,8 +4788,9 @@ describe("private document API access", () => {
 
   it("rejects document summary mode when documentIds selects a different document", async () => {
     const summarizeDocument = vi.fn();
+    const answerQuestionWithScope = vi.fn();
     const client = createSupabaseMock();
-    mockRuntime(client, { summarizeDocument });
+    mockRuntime(client, { summarizeDocument, answerQuestionWithScope });
     const { POST } = await import("../src/app/api/answer/stream/route");
 
     const response = await POST(
@@ -4588,6 +4808,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(400);
     expect(await payload(response)).toMatchObject({ code: "invalid_body" });
     expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
     expect(client.rpc).not.toHaveBeenCalled();
   });
 
@@ -5001,6 +5222,34 @@ describe("private document API access", () => {
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
     expectFeedbackTokenBoundToAnswer(body);
+  });
+
+  it("rejects non-stream document summaries before RAG/provider work", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(payload(response)).resolves.toMatchObject({
+      error: "Document summaries require the streaming answer endpoint.",
+      code: "summary_mode_stream_required",
+    });
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
   it("rate limits document summarization before OpenAI work", async () => {

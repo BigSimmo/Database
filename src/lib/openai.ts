@@ -703,13 +703,18 @@ function awaitWithCallerSignal<T>(promise: Promise<T>, signal?: AbortSignal): Pr
   });
 }
 
-async function awaitInflightEmbedding(entry: QueryEmbeddingInflight, signal?: AbortSignal) {
+async function awaitInflightEmbedding(key: string, entry: QueryEmbeddingInflight, signal?: AbortSignal) {
   entry.waiters += 1;
   try {
     return await awaitWithCallerSignal(entry.promise, signal);
   } finally {
     entry.waiters -= 1;
-    if (entry.waiters === 0 && !entry.settled) entry.controller.abort();
+    // Drop the map entry immediately on last-waiter abort so a new healthy
+    // caller cannot join the dying promise before the producer's .finally runs.
+    if (entry.waiters === 0 && !entry.settled) {
+      entry.controller.abort();
+      if (queryEmbeddingInflight.get(key) === entry) queryEmbeddingInflight.delete(key);
+    }
   }
 }
 
@@ -722,6 +727,11 @@ export async function embedTextWithTelemetry(text: string, options?: { signal?: 
 
   const key = queryEmbeddingCacheKey(text);
   let inflight = queryEmbeddingInflight.get(key);
+  // Skip a flight already aborted by its last waiter (owner-catalogue pattern).
+  if (inflight?.controller.signal.aborted) {
+    if (queryEmbeddingInflight.get(key) === inflight) queryEmbeddingInflight.delete(key);
+    inflight = undefined;
+  }
   let cacheHit = true;
   if (!inflight) {
     cacheHit = false;
@@ -750,7 +760,7 @@ export async function embedTextWithTelemetry(text: string, options?: { signal?: 
     queryEmbeddingInflight.set(key, entry);
     inflight = entry;
   }
-  return { embedding: await awaitInflightEmbedding(inflight, options?.signal), cacheHit };
+  return { embedding: await awaitInflightEmbedding(key, inflight, options?.signal), cacheHit };
 }
 
 export async function generateTextResult(

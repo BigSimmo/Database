@@ -1,7 +1,7 @@
 "use client";
 
-import { Bookmark, CheckCircle2, ChevronsUpDown, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { Bookmark, ChevronsUpDown, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { cn } from "@/components/ui-primitives";
@@ -11,6 +11,53 @@ import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+/** Sort is a two-state choice, so it reads as a segmented control rather than a
+    select: a dropdown over two values makes you open a menu to learn nothing. */
+const sortOptions: ReadonlyArray<{ value: ResultSortValue; label: string }> = [
+  { value: "relevance", label: "Relevance" },
+  { value: "alpha", label: "A–Z" },
+];
+
+/** Below `lg` the utility group is a swipe rail rather than a wrapping block, so a
+    sixth control lands off the right edge instead of growing the band. Fade that
+    edge only while it actually overflows — a permanent mask would dim the last
+    control on the common case where everything fits. */
+function useRailOverflow<Element extends HTMLElement>() {
+  const ref = useRef<Element | null>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  const measure = useCallback(() => {
+    const node = ref.current;
+    if (!node) return;
+    setOverflowing(node.scrollWidth - node.clientWidth > 1);
+  }, []);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    measure();
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(node);
+    for (const child of Array.from(node.children)) resizeObserver.observe(child);
+    // Child add/remove (scope chips, utility controls) can change scrollWidth without
+    // resizing the rail box; keep the fade mask honest when the child list mutates.
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            measure();
+            for (const child of Array.from(node.children)) resizeObserver.observe(child);
+          });
+    mutationObserver?.observe(node, { childList: true });
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver?.disconnect();
+    };
+  }, [measure]);
+
+  return { ref, overflowing } as const;
+}
 
 export function SearchResultsHeaderBand({
   modeId,
@@ -23,6 +70,7 @@ export function SearchResultsHeaderBand({
   onSortChange,
   onSaveSearch,
   utilityControls,
+  mobileControls,
   filterControls,
   filterLabel = "Filter search results",
   headingLevel = 2,
@@ -39,6 +87,8 @@ export function SearchResultsHeaderBand({
   onSaveSearch?: () => void;
   /** Page-specific actions that belong beside sort/view controls. */
   utilityControls?: ReactNode;
+  /** Compact page-specific controls shown in the utility row below `sm`. */
+  mobileControls?: ReactNode;
   /** Page-specific filters rendered as a full-width row within the shared ribbon. */
   filterControls?: ReactNode;
   filterLabel?: string;
@@ -54,10 +104,11 @@ export function SearchResultsHeaderBand({
     return scope ? [scope] : [];
   });
   const displayQuery = query.trim() || "All";
-  const statusLabel = loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
   const hasUtilities =
-    visibleScopes.length > 0 || Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls);
+    visibleScopes.length > 0 ||
+    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || mobileControls);
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
+  const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
 
   return (
     <section
@@ -76,48 +127,58 @@ export function SearchResultsHeaderBand({
         )}
         aria-hidden
       />
-      <div className="flex min-w-0 flex-col lg:min-h-[4.5rem] lg:flex-row lg:items-center">
-        <div className="flex min-w-0 items-start gap-2.5 p-3 pt-3.5 lg:flex-1 lg:items-center lg:gap-3 lg:px-4 lg:py-2.5 lg:pl-5">
+      <div className="flex min-w-0 flex-col lg:min-h-[3.75rem] lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:px-4 lg:py-2.5 lg:pl-5">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] lg:h-10 lg:w-10">
             <Search className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-              <span className="lg:hidden">Query</span>
-              <span className="hidden lg:inline">{loading ? "Searching for" : "Results for"}</span>
-            </span>
-            <QueryHeading
-              className="mt-0.5 truncate text-base font-extrabold text-[color:var(--text-heading)] lg:max-w-[32rem] lg:text-lg"
-              title={displayQuery}
-            >
-              {displayQuery}
-            </QueryHeading>
-          </span>
+          {/* No eyebrow: the icon already says "search", and the query is the only
+              thing in this band set at heading weight. */}
+          <QueryHeading
+            className="min-w-0 truncate text-lg font-extrabold text-[color:var(--text-heading)] lg:max-w-[32rem]"
+            title={displayQuery}
+          >
+            {displayQuery}
+          </QueryHeading>
+          <span className="h-4 w-px shrink-0 bg-[color:var(--border-strong)]" aria-hidden />
+          {/* Neutral, not a success pill: a count is not a state that was achieved,
+              and green has to keep meaning something where it does appear. */}
           <span
             className={cn(
-              "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-extrabold",
-              loading
-                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                : "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
+              "shrink-0 whitespace-nowrap text-xs font-bold",
+              loading ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
             )}
             role="status"
             aria-live="polite"
             aria-atomic="true"
           >
             {loading ? (
-              <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
+              <span className="inline-flex items-center gap-1.5">
+                <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
+                Searching…
+              </span>
             ) : (
-              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+              <>
+                <span className="font-extrabold tabular-nums text-[color:var(--text-heading)]">{matchCount}</span>{" "}
+                {matchCount === 1 ? "match" : "matches"}
+              </>
             )}
-            <span className="max-[359px]:sr-only">{statusLabel}</span>
           </span>
         </div>
 
         {hasUtilities ? (
           <div
+            ref={railRef}
             data-testid="search-query-ribbon-utilities"
-            className="flex min-w-0 flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 lg:ml-auto lg:flex-nowrap lg:border-l lg:border-t-0 lg:bg-transparent lg:pl-3 lg:pr-3"
+            data-overflowing={railOverflowing ? "true" : undefined}
+            className={cn(
+              "flex min-w-0 items-center gap-1.5 overflow-x-auto px-3 pb-3 lg:flex-1 lg:overflow-x-visible lg:px-0 lg:pb-0 lg:pr-3",
+              "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
+            )}
           >
+            {/* Scope reads as a removable chip beside the query — it is a constraint on
+                the list, the same kind of thing the query is. */}
             {visibleScopes.map((scope) => (
               <button
                 key={scope.id}
@@ -125,7 +186,10 @@ export function SearchResultsHeaderBand({
                 onClick={() => command?.onRemoveScope(scope.id)}
                 aria-label={`Remove ${scope.label} filter`}
                 className={cn(
-                  "inline-flex min-h-tap max-w-full items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                  // Hover deepens the chip's own accent rather than swapping to the
+                  // neutral border the surface controls use — an accent-soft chip
+                  // going grey on hover reads as losing its active state.
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -133,18 +197,38 @@ export function SearchResultsHeaderBand({
                 <X className="h-3 w-3 shrink-0" aria-hidden />
               </button>
             ))}
-            {onSortChange ? (
-              <ResultSortControl
-                value={sortValue}
-                onChange={onSortChange}
-                compact
-                className="min-w-[8.5rem] flex-1 sm:flex-none"
-              />
-            ) : null}
+            {/* Desktop only: pushes the controls to the trailing edge while the chips
+                stay next to the query. On the phone rail this collapses away. */}
+            <span className="hidden lg:block lg:flex-1" aria-hidden />
+            {onSortChange && mobileControls ? (
+              <div
+                data-testid="search-query-ribbon-mobile-control-pair"
+                className="flex min-w-0 shrink-0 items-center gap-1.5"
+              >
+                <ResultSortControl value={sortValue} onChange={onSortChange} />
+                <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
+                  {mobileControls}
+                </div>
+              </div>
+            ) : (
+              <>
+                {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
+                {mobileControls ? (
+                  <div
+                    data-testid="search-query-ribbon-mobile-controls"
+                    role="group"
+                    aria-label={filterLabel}
+                    className="min-w-0 shrink-0 sm:hidden"
+                  >
+                    {mobileControls}
+                  </div>
+                ) : null}
+              </>
+            )}
             {utilityControls}
             {onViewChange ? (
               <div
-                className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
+                className="inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
                 role="group"
                 aria-label="Results view"
               >
@@ -185,7 +269,7 @@ export function SearchResultsHeaderBand({
                 type="button"
                 onClick={onSaveSearch}
                 className={cn(
-                  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -201,7 +285,10 @@ export function SearchResultsHeaderBand({
           data-testid="search-query-ribbon-filters"
           role="group"
           aria-label={filterLabel}
-          className="min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3"
+          className={cn(
+            "min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3",
+            Boolean(mobileControls) && "hidden sm:block",
+          )}
         >
           {filterControls}
         </div>
@@ -214,33 +301,89 @@ export function ResultSortControl({
   value,
   onChange,
   className,
-  compact = false,
 }: {
   value: ResultSortValue;
   onChange: (value: ResultSortValue) => void;
   className?: string;
-  /** Hide the visual "Sort" label on narrow viewports; the select keeps its accessible name. */
-  compact?: boolean;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Sort results"
+      className={cn(
+        "inline-flex min-h-tap shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10",
+        className,
+      )}
+    >
+      {sortOptions.map((option, index) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(readResultSort(option.value))}
+            className={cn(
+              "min-h-tap whitespace-nowrap px-3 text-xs font-bold sm:min-h-10",
+              index > 0 && "border-l border-[color:var(--border)]",
+              focusRing,
+              selected
+                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function MobileResultFilterControl<Value extends string>({
+  label,
+  ariaLabel,
+  value,
+  options,
+  onChange,
+  testId,
+  className,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: Value;
+  options: ReadonlyArray<{ value: Value; label: string; disabled?: boolean }>;
+  onChange: (value: Value) => void;
+  testId?: string;
+  className?: string;
 }) {
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)] sm:min-h-10",
+        "relative inline-flex min-h-tap w-full min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         className,
       )}
     >
-      <span className={cn("text-[color:var(--text-soft)]", compact && "max-[359px]:sr-only")}>Sort</span>
-      {/* appearance-none strips the native control chrome so "Relevance" renders at the
-          same size/weight as the rest of the band and the caret sits in a fixed slot. */}
+      <span className="shrink-0 text-[color:var(--text-soft)] max-[359px]:sr-only">{label}</span>
+      {/* Two things keep this readable. `truncate` ends a long option ("Current
+          search", a service name) in an ellipsis instead of the mid-word cut it used
+          to get. And the weight steps down to semibold because the size cannot: the
+          unlayered iOS anti-zoom rule in globals.css pins every native select to 16px
+          below `sm`, so weight and colour are the only hierarchy left against the
+          18px query heading. */}
       <select
+        data-testid={testId}
         value={value}
-        onChange={(event) => onChange(readResultSort(event.target.value))}
-        className="cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
-        aria-label="Sort results"
+        onChange={(event) => onChange(event.target.value as Value)}
+        aria-label={ariaLabel}
+        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
       >
-        <option value="relevance">Relevance</option>
-        <option value="alpha">A–Z</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </option>
+        ))}
       </select>
       <ChevronsUpDown
         className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"

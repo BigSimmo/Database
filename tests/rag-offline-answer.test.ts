@@ -159,10 +159,10 @@ describe("source-only / offline answers", () => {
     expect(new Set(answer.sources.map((item) => item.id))).toEqual(
       new Set(answer.citations.map((citation) => citation.chunk_id)),
     );
-    expect(answer.answer.replaceAll("**", "")).toContain(
-      "guidance on ANC threshold for the decision to withhold clozapine",
+    expect(answer.answer.replaceAll("**", "")).toMatch(
+      /withhold clozapine.*(?:ANC|absolute neutrophil count).*below 1\.5 x10\^9\/L/i,
     );
-    expect(answer.answer).toContain("review them directly");
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
     // quality signalling for the UI disclosure
     expect(answer.answerQualityTier).toBe("source_only");
     expect(answer.providerMode).toBe("offline");

@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { validateActionReference } from "./github-action-pins.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
@@ -6,33 +7,120 @@ import { yamlBlock } from "./yaml-contract.mjs";
 const workflowDir = path.join(process.cwd(), ".github", "workflows");
 
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
+const workflowBranchMutationPattern =
+  /\bgithub\s*\.\s*rest\s*\.\s*pulls\s*\.\s*updateBranch\b|\/pulls\/[^\s"']+\/update-branch\b|\bgh\s+pr\s+update-branch\b|\bsync:pr-branches(?::apply|\s+--\s+--apply)\b|\bsync-open-pr-branches\.mjs\s+--apply\b/;
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
 const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function discoverGitHubActionFiles(workflowRoot) {
-  const workflowDir = path.join(workflowRoot, ".github", "workflows");
+function discoverWorkflowFiles(root) {
+  const workflowDir = path.join(root, ".github", "workflows");
   if (!existsSync(workflowDir)) return [];
   return readdirSync(workflowDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && /\.ya?ml$/i.test(entry.name))
     .map((entry) => path.join(workflowDir, entry.name));
 }
 
-for (const filePath of discoverGitHubActionFiles(process.cwd())) {
-  const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
-  const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
+function discoverCompositeActionFiles(root) {
+  const actionsDir = path.join(root, ".github", "actions");
+  if (!existsSync(actionsDir)) return [];
+  const files = [];
+  const visit = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(fullPath);
+      } else if (/^action\.ya?ml$/i.test(entry.name)) {
+        files.push(fullPath);
+      }
+    }
+  };
+  visit(actionsDir);
+  return files;
+}
 
-  lines.forEach((line, index) => {
-    if (runsOnLatestPattern.test(line)) {
+function discoverGitHubActionFiles(root) {
+  return [...discoverWorkflowFiles(root), ...discoverCompositeActionFiles(root)];
+}
+
+function collectPinFailures(root) {
+  const failures = [];
+  for (const filePath of discoverGitHubActionFiles(root)) {
+    const fileName = path.relative(root, filePath).replaceAll("\\", "/");
+    const source = readFileSync(filePath, "utf8");
+    const lines = source.split(/\r?\n/);
+
+    if (workflowBranchMutationPattern.test(source)) {
       failures.push(
-        `${fileName}:${index + 1}: runs-on uses ubuntu-latest. Pin GitHub-hosted Linux jobs to ubuntu-24.04 so CI is not tied to the moving ubuntu-latest alias.`,
+        `${fileName}: workflow-authored PR branch updates are prohibited because bot-authored heads leave required checks awaiting approval. Use npm run sync:pr-branches:apply with explicit human/operator auth.`,
       );
     }
 
-    const actionFailure = validateActionReference(line);
-    if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
-  });
+    lines.forEach((line, index) => {
+      if (runsOnLatestPattern.test(line)) {
+        failures.push(
+          `${fileName}:${index + 1}: runs-on uses ubuntu-latest. Pin GitHub-hosted Linux jobs to ubuntu-24.04 so CI is not tied to the moving ubuntu-latest alias.`,
+        );
+      }
+
+      const actionFailure = validateActionReference(line);
+      if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
+    });
+  }
+  return failures;
 }
+
+function selfTest() {
+  const root = mkdtempSync(path.join(os.tmpdir(), "github-action-pin-check-"));
+  try {
+    const workflowDir = path.join(root, ".github", "workflows");
+    const actionDir = path.join(root, ".github", "actions", "fixture");
+    mkdirSync(workflowDir, { recursive: true });
+    mkdirSync(actionDir, { recursive: true });
+    writeFileSync(path.join(workflowDir, "ok.yml"), "name: ok\n", "utf8");
+    writeFileSync(
+      path.join(workflowDir, "unsafe-sync.yml"),
+      "name: unsafe\njobs:\n  sync:\n    steps:\n      - run: github.rest.pulls.updateBranch({})\n",
+      "utf8",
+    );
+    writeFileSync(
+      path.join(workflowDir, "unsafe-helper-sync.yml"),
+      "name: unsafe helper\njobs:\n  sync:\n    steps:\n      - run: npm run sync:pr-branches:apply\n",
+      "utf8",
+    );
+    writeFileSync(
+      path.join(actionDir, "action.yml"),
+      "name: fixture\nruns:\n  using: composite\n  steps:\n    - uses: actions/cache@v6\n",
+      "utf8",
+    );
+
+    const failures = collectPinFailures(root);
+    if (
+      !failures.some(
+        (failure) => failure.includes(".github/actions/fixture/action.yml") && failure.includes("actions/cache@v6"),
+      )
+    ) {
+      throw new Error("self-test failed: composite action uses entries were not scanned");
+    }
+    if (!failures.some((failure) => failure.includes("unsafe-sync.yml") && failure.includes("branch updates"))) {
+      throw new Error("self-test failed: workflow-authored PR branch mutation was not rejected");
+    }
+    if (!failures.some((failure) => failure.includes("unsafe-helper-sync.yml") && failure.includes("branch updates"))) {
+      throw new Error("self-test failed: workflow invocation of the operator apply helper was not rejected");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+if (process.argv.includes("--self-test")) {
+  selfTest();
+  console.log("GitHub Actions pin check self-test passed.");
+  process.exit(0);
+}
+
+selfTest();
+failures.push(...collectPinFailures(process.cwd()));
 
 const ciWorkflowPath = path.join(workflowDir, "ci.yml");
 const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
@@ -110,23 +198,9 @@ if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJ
 // the per-line validation above only covers workflows, a composite skew (e.g.
 // setup-node v5 vs v7) was previously invisible. Assert each action name resolves
 // to a single SHA everywhere it is used.
-function discoverCompositeActionFiles(workflowRoot) {
-  const actionsRoot = path.join(workflowRoot, ".github", "actions");
-  if (!existsSync(actionsRoot)) return [];
-  const files = [];
-  for (const entry of readdirSync(actionsRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    for (const name of ["action.yml", "action.yaml"]) {
-      const candidate = path.join(actionsRoot, entry.name, name);
-      if (existsSync(candidate)) files.push(candidate);
-    }
-  }
-  return files;
-}
-
 const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
 const shasByAction = new Map();
-for (const filePath of [...discoverGitHubActionFiles(process.cwd()), ...discoverCompositeActionFiles(process.cwd())]) {
+for (const filePath of discoverGitHubActionFiles(process.cwd())) {
   const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
   // Workflow lines are already run through validateActionReference in the first
   // pass; composite files are not, so validate them here. Without this, a

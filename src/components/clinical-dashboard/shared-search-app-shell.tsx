@@ -4,6 +4,7 @@ import { Suspense, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 
 import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
+import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 import { searchShellPropsForPathname } from "@/lib/search-shell-props";
 
@@ -15,7 +16,7 @@ export function SharedSearchAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "/";
   const shellProps = searchShellPropsForPathname(pathname);
   const content = pathname.startsWith("/therapy-compass") ? (
-    <Suspense fallback={null}>
+    <Suspense fallback={<ModeHomeRouteLoading />}>
       <TherapyCompassWorkspace>{children}</TherapyCompassWorkspace>
     </Suspense>
   ) : (

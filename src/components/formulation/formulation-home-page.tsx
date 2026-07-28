@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useDeferredValue } from "react";
 import {
   ArrowRight,
@@ -23,7 +24,10 @@ import {
   formulationCard,
 } from "@/components/formulation/formulation-ui";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import {
@@ -177,6 +181,7 @@ function EmptySearchResults({ query }: { query: string }) {
 }
 
 function FormulationResults({ query }: { query: string }) {
+  const router = useRouter();
   const [domain, setDomain] = useState("all");
   const deferredQuery = useDeferredValue(query);
   const rankingReady = deferredQuery === query;
@@ -203,6 +208,37 @@ function FormulationResults({ query }: { query: string }) {
         loading={!rankingReady}
         headingLevel={1}
         filterLabel="Filter formulation mechanisms"
+        mobileControls={
+          <div className="grid min-w-0 grid-cols-2 gap-1.5">
+            <MobileResultFilterControl
+              label="Pattern"
+              ariaLabel="Try a formulation pattern"
+              testId="formulation-pattern-select"
+              value="current"
+              options={[
+                { value: "current", label: "Current search", disabled: true },
+                ...formulationSearchPresets.slice(0, 4).map((preset) => ({
+                  value: preset.query,
+                  label: preset.label,
+                })),
+              ]}
+              onChange={(value) => {
+                if (value !== "current") router.push(presetHref(value));
+              }}
+            />
+            <MobileResultFilterControl
+              label="Domain"
+              ariaLabel="Filter by formulation domain"
+              testId="formulation-domain-select"
+              value={domain}
+              options={[
+                { value: "all", label: "All domains" },
+                ...formulationDomains.map((item) => ({ value: item, label: item })),
+              ]}
+              onChange={setDomain}
+            />
+          </div>
+        }
         filterControls={
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center">
             <div className="polished-scroll flex gap-1.5 overflow-x-auto">

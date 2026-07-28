@@ -187,6 +187,9 @@ jobs:
       - name: Runtime alignment
         run: npm run check:runtime
 
+      - name: Installed dependency parity
+        run: npm run check:installed-lock-parity
+
       - name: GitHub Actions pin check
         run: npm run check:github-actions
 
@@ -234,6 +237,9 @@ jobs:
       - name: Brand asset check
         run: npm run brand:check
 
+      - name: Asset linting
+        run: npm run check:assets
+
       # More generated-output drift detectors that were local-only in
       # verify:cheap — same rationale as the design-system guards above. Without
       # them a stale site map, therapy index, or design-system contract merged
@@ -244,6 +250,9 @@ jobs:
 
       - name: Therapy data index drift
         run: npm run check:therapy-data-index
+
+      - name: Cross-mode differentials index drift
+        run: npm run check:cross-mode-index
 
       - name: Design-system contract
         run: npm run check:design-system-contract

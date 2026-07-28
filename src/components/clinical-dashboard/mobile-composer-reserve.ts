@@ -14,7 +14,7 @@
  * zero so content can paint all the way to the viewport edge once the dock is
  * invisible. The rem number is exported separately so the scroll-hide
  * collapse budget
- * (use-hide-on-scroll's readChromeCollapseBudget) measures against the same
+ * (use-hide-on-scroll's readChromeCollapseMetrics) measures against the same
  * value; tests/mobile-composer-reserve.test.ts pins the pair together.
  */
 export const mobileComposerHiddenReserveRem = 0;
@@ -24,19 +24,20 @@ export const mobileComposerHiddenReserve = "0rem";
 export const mobileComposerIdleReserve = "2rem";
 
 /** Differentials Compare selected bar + compact search pill. */
-export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))";
+export const mobileComposerDifferentialsCompareReserve =
+  "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
 // Every phone dock is the compact single-row pill (mode homes and result views
 // alike); only the answer dock with a follow-up chip row is taller. The answer
 // values are derived from the dock constants so the pairs cannot silently
 // diverge — master-search-header's compact styling assumes they stay equal.
-const shellCompactSingleRowReserve = "calc(5.5rem + var(--safe-area-bottom))";
-const dashboardCompactSingleRowReserve = "calc(5rem + var(--safe-area-bottom))";
+const shellCompactSingleRowReserve = "calc(5.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
+const dashboardCompactSingleRowReserve = "calc(5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
 export const mobileComposerVisibleReserve = {
   shellAnswer: shellCompactSingleRowReserve,
   shellDock: shellCompactSingleRowReserve,
-  dashboardAnswerWithFollowUps: "calc(7.5rem + var(--safe-area-bottom))",
+  dashboardAnswerWithFollowUps: "calc(7.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))",
   dashboardAnswer: dashboardCompactSingleRowReserve,
   dashboardDock: dashboardCompactSingleRowReserve,
   differentialsCompare: mobileComposerDifferentialsCompareReserve,
@@ -52,6 +53,16 @@ export function isDocumentViewerOwnedRoute(pathname: string): boolean {
   // /documents/search is the shell-owned index; every other /documents/* route
   // (detail, source, evidence) owns its floating composer in DocumentViewer.
   return pathname !== "/documents/search";
+}
+
+/** Calculators owns its desktop top + phone bottom search composer. */
+export function isCalculatorsOwnedRoute(pathname: string): boolean {
+  return pathname === "/calculators" || pathname.startsWith("/calculators/");
+}
+
+/** Routes that own a floating/page composer so the shell keeps only a zero pad. */
+export function isPageOwnedComposerRoute(pathname: string): boolean {
+  return isDocumentViewerOwnedRoute(pathname) || isCalculatorsOwnedRoute(pathname);
 }
 
 export function resolveDashboardVisibleMobileComposerReserve(input: {
@@ -80,14 +91,18 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
 
 export function resolveShellVisibleMobileComposerReserve(input: {
   shouldShowSearchComposer: boolean;
-  documentViewerOwnedRoute: boolean;
+  /** @deprecated Prefer pageOwnedComposerRoute */
+  documentViewerOwnedRoute?: boolean;
+  pageOwnedComposerRoute?: boolean;
   isStandaloneModeHome: boolean;
   searchMode: string;
   differentialsCompareAddonActive: boolean;
 }): string {
   if (!input.shouldShowSearchComposer) {
-    // DocumentViewer owns its dock; shell keeps only the hidden-size pad.
-    return input.documentViewerOwnedRoute ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
+    // Page-owned composers (DocumentViewer, Calculators) manage their own dock
+    // clearance; the shell keeps only the hidden-size pad.
+    const pageOwned = input.pageOwnedComposerRoute ?? input.documentViewerOwnedRoute ?? false;
+    return pageOwned ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
   }
   // Standalone mode homes keep the in-flow hero pill at every width (phones
   // included), so the composer sits in the content flow rather than docking to

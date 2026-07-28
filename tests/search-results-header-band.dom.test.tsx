@@ -5,7 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 
 describe("SearchResultsHeaderBand", () => {
   it("presents the query and completed count as one labelled results ribbon", () => {
@@ -85,7 +88,7 @@ describe("SearchResultsHeaderBand", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Remove Official only filter" }));
-    await user.selectOptions(screen.getByLabelText("Sort results"), "alpha");
+    await user.click(screen.getByRole("button", { name: "A–Z" }));
     await user.click(screen.getByRole("button", { name: "List view" }));
     await user.click(screen.getByRole("button", { name: "Save search" }));
 
@@ -93,6 +96,39 @@ describe("SearchResultsHeaderBand", () => {
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onViewChange).toHaveBeenCalledWith("list");
     expect(onSaveSearch).toHaveBeenCalledOnce();
+  });
+
+  it("offers sort as a segmented control that shows the active order without opening a menu", async () => {
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+
+    render(
+      <SearchResultsHeaderBand
+        modeId="services"
+        query="CMHT"
+        matchCount={10}
+        sortValue="relevance"
+        onSortChange={onSortChange}
+      />,
+    );
+
+    const sort = screen.getByRole("group", { name: "Sort results" });
+    expect(within(sort).getByRole("button", { name: "Relevance" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(sort).getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(within(sort).getByRole("button", { name: "A–Z" }));
+    expect(onSortChange).toHaveBeenCalledWith("alpha");
+  });
+
+  it("leads with the query and reports the count without spending success colour on it", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={10} />);
+
+    const heading = screen.getByRole("heading", { level: 2, name: "CMHT" });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("10 matches");
+    // The count is neutral text, not a success pill, and the band carries no eyebrow.
+    expect(status.className).not.toMatch(/success/);
+    expect(heading.parentElement?.textContent).not.toMatch(/Query|Results for/);
   });
 
   it("keeps page-specific actions and filters inside the shared ribbon", async () => {
@@ -127,5 +163,48 @@ describe("SearchResultsHeaderBand", () => {
 
     expect(onOpenSources).toHaveBeenCalledOnce();
     expect(onFilterTables).toHaveBeenCalledOnce();
+  });
+
+  it("pairs sort with a page-specific dropdown on mobile without changing either action", async () => {
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+    const onFilterChange = vi.fn();
+
+    render(
+      <SearchResultsHeaderBand
+        modeId="differentials"
+        query="acute confusion"
+        matchCount={8}
+        sortValue="relevance"
+        onSortChange={onSortChange}
+        filterLabel="Filter differential result type"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter by result type"
+            value="all"
+            options={[
+              { value: "all", label: "All (8)" },
+              { value: "presentation", label: "Presentations (1)" },
+              { value: "diagnosis", label: "Diagnoses (7)" },
+            ]}
+            onChange={onFilterChange}
+          />
+        }
+        filterControls={
+          <button type="button" onClick={vi.fn()}>
+            Desktop filters
+          </button>
+        }
+      />,
+    );
+
+    const pair = screen.getByTestId("search-query-ribbon-mobile-control-pair");
+    await user.click(within(pair).getByRole("button", { name: "A–Z" }));
+    await user.selectOptions(within(pair).getByLabelText("Filter by result type"), "diagnosis");
+
+    expect(onSortChange).toHaveBeenCalledWith("alpha");
+    expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
+    expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
   });
 });

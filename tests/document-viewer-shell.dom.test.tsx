@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // DocumentViewer resolves a four-way shell state (loading / ready / auth-required
@@ -7,7 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { push, authorizationHeader, registerAuthRequest, isAuthEpochCurrent, markSessionExpired } = vi.hoisted(() => ({
+  push: vi.fn(),
+  authorizationHeader: {},
+  registerAuthRequest: vi.fn(() => ({ epoch: 1, release: vi.fn() })),
+  isAuthEpochCurrent: vi.fn(() => true),
+  markSessionExpired: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -19,10 +25,10 @@ vi.mock("@/lib/supabase/client", () => ({
     status: "signed_out",
     session: null,
     isConfigured: true,
-    authorizationHeader: {},
-    registerAuthRequest: () => ({ epoch: 1, release: vi.fn() }),
-    isAuthEpochCurrent: () => true,
-    markSessionExpired: vi.fn(),
+    authorizationHeader,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    markSessionExpired,
     signInWithEmail: vi.fn(),
     signInWithPassword: vi.fn(),
     signUpWithPassword: vi.fn(),
@@ -103,6 +109,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
@@ -152,5 +159,76 @@ describe("DocumentViewer — shell states", () => {
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
+  });
+
+  it("requires two characters and ignores an aborted search response after the query changes", async () => {
+    const pendingSearches: Array<{
+      url: string;
+      resolve: (response: Response) => void;
+    }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.includes("/api/documents/doc-1/search?")) {
+          return Promise.resolve(new Response(JSON.stringify({ error: "Unexpected request" }), { status: 404 }));
+        }
+        return new Promise<Response>((resolve) => pendingSearches.push({ url, resolve }));
+      }),
+    );
+
+    render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detailPayload()} />);
+    const composerSearch = await screen.findByRole("textbox", { name: "Search within this document" });
+
+    fireEvent.change(composerSearch, { target: { value: "r" } });
+    expect(await screen.findByText("Enter at least 2 characters to search all indexed passages.")).toBeVisible();
+    expect(pendingSearches).toHaveLength(0);
+
+    fireEvent.change(composerSearch, { target: { value: "first query" } });
+    await waitFor(() => expect(pendingSearches).toHaveLength(1));
+    fireEvent.change(composerSearch, { target: { value: "second query" } });
+    await waitFor(() => expect(pendingSearches).toHaveLength(2));
+
+    pendingSearches[1]?.resolve(
+      Response.json({
+        query: "second query",
+        results: [
+          {
+            id: "second-hit",
+            page_number: 2,
+            chunk_index: 1,
+            section_heading: "Second result",
+            snippet: "Second query current result",
+            matched_terms: ["second", "query"],
+            image_ids: [],
+            score: 2,
+          },
+        ],
+      }),
+    );
+    const indexedTextPanel = screen.getByTestId("source-chunk-indexed-text-panel");
+    await waitFor(() => expect(indexedTextPanel).toHaveTextContent("Second query current result"));
+
+    pendingSearches[0]?.resolve(
+      Response.json({
+        query: "first query",
+        results: [
+          {
+            id: "first-hit",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Stale result",
+            snippet: "First query stale result",
+            matched_terms: ["first", "query"],
+            image_ids: [],
+            score: 3,
+          },
+        ],
+      }),
+    );
+    await waitFor(() => {
+      expect(indexedTextPanel).not.toHaveTextContent("First query stale result");
+      expect(indexedTextPanel).toHaveTextContent("Second query current result");
+    });
   });
 });

@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * sync-open-pr-branches — local/operator helper that mirrors
- * `.github/workflows/pr-branch-sync.yml`.
+ * sync-open-pr-branches — explicit local/operator helper for refreshing
+ * same-repository pull-request branches.
  *
  * Default is dry-run (report only). Pass `--apply` to call GitHub's
  * update-branch API for every open same-repo PR that is behind `main`.
  *
- * Requires `gh` auth with pull-requests:write (or a token in GITHUB_TOKEN /
- * GH_TOKEN). Never rebases, never merges into main, never force-pushes.
+ * Requires human/operator `gh` auth with pull-requests:write (or an explicitly
+ * supplied GH_TOKEN). Never rebases, never merges into main, never force-pushes.
+ * This intentionally is not an Actions workflow: heads authored by the default
+ * Actions bot leave this repository's required checks awaiting approval.
  *
  * Run:
  *   node scripts/sync-open-pr-branches.mjs
@@ -47,8 +49,30 @@ export function classifyPr(pr, behindBy) {
   return { action: "update", reason: `behind=${behindBy}` };
 }
 
+export function validateApplyIdentity(viewer) {
+  const login = String(viewer?.login ?? "").trim();
+  if (!login || /^github-actions(?:\[bot\])?$/i.test(login) || /\[bot\]$/i.test(login)) {
+    throw new Error(
+      "Refusing PR branch updates without an authenticated human/operator gh identity; bot-authored heads leave required checks awaiting approval.",
+    );
+  }
+  return login;
+}
+
+export function repositoryNameWithOwner(repository) {
+  const name = String(repository?.nameWithOwner ?? "").trim();
+  if (!/^[^/\s]+\/[^/\s]+$/.test(name)) {
+    throw new Error("Could not resolve the current GitHub repository nameWithOwner.");
+  }
+  return name;
+}
+
 function main() {
-  const repo = ghJson(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
+  const repo = repositoryNameWithOwner(ghJson(["repo", "view", "--json", "nameWithOwner"]));
+  if (APPLY) {
+    const login = validateApplyIdentity(ghJson(["api", "user"]));
+    console.log(`Apply identity: ${login}`);
+  }
   const prs = ghJson([
     "pr",
     "list",

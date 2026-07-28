@@ -2,6 +2,8 @@
 import { readFileSync } from "node:fs";
 
 const budgets = new Map([
+  // Chrome ownership/reporting lives in use-dashboard-chrome-coordinator; keep
+  // the reclaimed monolith budget so it cannot silently drift back to 4160.
   ["src/components/ClinicalDashboard.tsx", 4140],
   ["src/lib/rag/rag.ts", 5030],
   ["src/components/DocumentViewer.tsx", 1734],

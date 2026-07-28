@@ -42,7 +42,7 @@ import {
 } from "@/components/clinical-dashboard/clinical-output-helpers";
 import { SectionHeading } from "@/components/clinical-dashboard/dashboard-shell";
 import { cleanDisplayTitle, compactSourceSnippet } from "@/components/clinical-dashboard/display-text";
-import { SourceActionRow } from "@/components/clinical-dashboard/source-actions";
+import { SourceActionRow, logCitationOpen } from "@/components/clinical-dashboard/source-actions";
 import {
   chatMicroAction,
   clinicalDivider,
@@ -884,6 +884,7 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
+            disabled
             aria-disabled="true"
             aria-describedby="clinical-notes-add-unavailable"
             title="Add to favourites — coming soon"
@@ -929,7 +930,7 @@ function safetyFindingGovernanceLabels(citation: SafetyFinding["citation"]): str
   return labels;
 }
 
-export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
+export function SafetyFindingsListContent({ findings, query }: { findings: SafetyFinding[]; query?: string }) {
   if (findings.length === 0) return null;
 
   const sortedFindings = sortSafetyFindingsBySeverity(findings);
@@ -963,6 +964,7 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
               </span>
               <Link
                 href={finding.href}
+                onClick={() => query && logCitationOpen(query, finding.citation)}
                 className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-8"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
@@ -1314,12 +1316,14 @@ export function QuoteCards({
   onCopyQuotes,
   onFollowUp,
   onScopeDocument,
+  query,
 }: {
   quotes: QuoteCard[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onFollowUp?: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
+  query?: string;
 }) {
   return (
     <section id="quotes" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
@@ -1374,6 +1378,7 @@ export function QuoteCards({
                       documentId={quote.document_id}
                       onScopeDocument={onScopeDocument}
                       onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
+                      onOpenSource={() => query && logCitationOpen(query, quote, quote.source_strength)}
                       divider={false}
                     />
                   </div>

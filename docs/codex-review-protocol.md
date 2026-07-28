@@ -38,3 +38,13 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - P1: Broken core workflow, unsafe automation, privacy/auth failure, or repeatable defect that blocks merge/handoff.
 - P2: Real defect, missing guardrail, fragile process, or test gap that should be fixed before relying on the work.
 - P3: Low-risk cleanup, clarity, documentation, or future-proofing issue.
+
+## Final merge audit
+
+Before a protected-main merge, run the local audit from a clean PR checkout and pin the reviewed head:
+
+```powershell
+npm run audit:final-merge -- --dry-run --base-ref origin/main --head-ref HEAD --expected-head <head-sha>
+```
+
+The output records the local base/head and expected merge-tree. GitHub checks, labels, review threads, fresh remote refs, and deployment health are provider reads and require explicit authorization. Once authorized, add `--providers --pr <number> --repo BigSimmo/Database` and set `ALLOW_PROVIDER_READS=true`; the audit fails closed unless the repository's `pr-required` aggregate is present and settled successfully. After the squash merge, rerun with `--post-merge --expected-tree <pre-merge-tree> --health-url <production-origin>/api/health`; the audit compares the remote main tree and requires an HTTP success with JSON `status: "ok"`. The script is read-only: it never merges, pushes, reruns CI, resolves threads, or deploys.

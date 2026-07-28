@@ -291,7 +291,9 @@ export const appModeDefinitions = [
     id: "tools",
     label: "Tools",
     description: "Clinical tools and applications",
-    href: "/?mode=tools",
+    // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a
+    // dashboard-mode alias for bookmarks and deep links.
+    href: "/tools",
     search: {
       kind: "tools",
       placeholder: "Search tools...",
@@ -396,6 +398,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "tools",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

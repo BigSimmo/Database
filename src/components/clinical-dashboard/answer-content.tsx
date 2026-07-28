@@ -20,7 +20,7 @@ import {
   subtleStatusPill,
   textMuted,
 } from "@/components/ui-primitives";
-import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
+import { sourceResultHref, logSourceOpen } from "@/components/clinical-dashboard/source-actions";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
@@ -280,9 +280,12 @@ export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSource
 
 type CapsulePreviewSource = {
   id: string;
+  documentId: string;
   title: string;
+  fileName?: string;
   pageNumber: number | null;
   metadata: ReturnType<typeof normalizeSourceMetadata>;
+  sourceMetadata?: SearchResult["source_metadata"];
   score: number;
   href: string;
   snippet?: string;
@@ -342,9 +345,12 @@ function capsulePreviewSources(
   sourceLinks.slice(0, 5).forEach((source) => {
     pushRow({
       id: source.chunk_id,
+      documentId: source.document_id,
       title: source.title || source.file_name || "Source",
+      fileName: source.file_name,
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.sourceMetadata),
+      sourceMetadata: source.sourceMetadata,
       score: source.score ?? 0,
       href: source.href,
       snippet: source.snippet,
@@ -355,9 +361,12 @@ function capsulePreviewSources(
   if (bestSource) {
     pushRow({
       id: bestSource.chunk_id,
+      documentId: bestSource.document_id,
       title: bestSource.title || bestSource.file_name || "Source",
+      fileName: bestSource.file_name,
       pageNumber: bestSource.page_number,
       metadata: normalizeSourceMetadata(bestSource.source_metadata),
+      sourceMetadata: bestSource.source_metadata,
       score: bestSource.score,
       href: bestSource.viewer_href,
       sourceStrength: bestSource.source_strength,
@@ -367,9 +376,12 @@ function capsulePreviewSources(
   sources.slice(0, 5).forEach((source) => {
     pushRow({
       id: source.id,
+      documentId: source.document_id,
       title: source.title || source.file_name || "Source",
+      fileName: source.file_name,
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.source_metadata),
+      sourceMetadata: source.source_metadata,
       score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
       href: sourceResultHref(source),
       sourceStrength: source.source_strength,
@@ -380,12 +392,14 @@ function capsulePreviewSources(
 }
 
 function SourcePreviewContent({
+  query,
   previewSources,
   quoteText,
   copiedQuote,
   onCopyQuote,
   showHeader = true,
 }: {
+  query?: string;
   previewSources: CapsulePreviewSource[];
   quoteText?: string | null;
   copiedQuote: boolean;
@@ -447,6 +461,7 @@ function SourcePreviewContent({
               <span className="min-w-0">
                 <Link
                   href={source.href}
+                  onClick={() => query && logSourceOpen(query, source)}
                   data-testid="source-capsule-preview-row"
                   className="flex min-h-12 items-center rounded-md text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
@@ -471,6 +486,7 @@ function SourcePreviewContent({
               </span>
               <Link
                 href={source.href}
+                onClick={() => query && logSourceOpen(query, source)}
                 className={cn(
                   index === 0
                     ? "inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]"
@@ -495,6 +511,7 @@ function SourcePreviewContent({
         {primaryPreviewSource ? (
           <Link
             href={primaryPreviewSource.href}
+            onClick={() => query && logSourceOpen(query, primaryPreviewSource)}
             className={chatMicroAction}
             aria-label={`Open source page for ${primaryPreviewSource.title}`}
           >
@@ -528,6 +545,7 @@ function SourcePreviewContent({
         {primaryPreviewSource ? (
           <Link
             href={primaryPreviewSource.href}
+            onClick={() => query && logSourceOpen(query, primaryPreviewSource)}
             className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Evidence details
@@ -543,6 +561,7 @@ function SourcePreviewContent({
  * Displays a sanitized clinical answer with source status, source previews, and copy actions.
  *
  * @param text - The raw answer text to display.
+ * @param query - The user's query context for logging.
  * @param preformatted - Whether to preserve the supplied formatting during display processing.
  * @param sourceCount - The number of direct sources associated with the answer.
  * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
@@ -555,6 +574,7 @@ function SourcePreviewContent({
  */
 export function NaturalLanguageAnswer({
   text,
+  query,
   preformatted = false,
   sourceCount,
   sourceOnly,
@@ -567,6 +587,7 @@ export function NaturalLanguageAnswer({
   // Raw answer text (server bold intact); this component owns display
   // sanitization so <SafeBoldText> can render the high-yield emphasis.
   text: string;
+  query?: string;
   preformatted?: boolean;
   sourceCount: number;
   sourceOnly: boolean;
@@ -702,6 +723,7 @@ export function NaturalLanguageAnswer({
             anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
+              query={query}
               previewSources={previewSources}
               quoteText={quoteText}
               copiedQuote={copiedSourceQuote}
@@ -726,6 +748,7 @@ export function NaturalLanguageAnswer({
         >
           <div data-testid="source-capsule-preview">
             <SourcePreviewContent
+              query={query}
               previewSources={previewSources}
               quoteText={quoteText}
               copiedQuote={copiedSourceQuote}

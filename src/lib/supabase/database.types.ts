@@ -2018,11 +2018,13 @@ export type Database = {
           id: string;
           new_document_status: string;
           new_validation_status: string;
+          policy_version: string | null;
           prior_document_status: string;
           prior_validation_status: string;
           reason: string;
           replacement_document_id: string | null;
           review_date: string | null;
+          reviewer_qualification: string | null;
           reviewer_id: string;
         };
         Insert: {
@@ -2033,11 +2035,13 @@ export type Database = {
           id?: string;
           new_document_status: string;
           new_validation_status: string;
+          policy_version?: string | null;
           prior_document_status: string;
           prior_validation_status: string;
           reason: string;
           replacement_document_id?: string | null;
           review_date?: string | null;
+          reviewer_qualification?: string | null;
           reviewer_id: string;
         };
         Update: {
@@ -2048,11 +2052,13 @@ export type Database = {
           id?: string;
           new_document_status?: string;
           new_validation_status?: string;
+          policy_version?: string | null;
           prior_document_status?: string;
           prior_validation_status?: string;
           reason?: string;
           replacement_document_id?: string | null;
           review_date?: string | null;
+          reviewer_qualification?: string | null;
           reviewer_id?: string;
         };
         Relationships: [];
@@ -2200,6 +2206,20 @@ export type Database = {
         };
         Returns: Json;
       };
+      record_source_review_v2: {
+        Args: {
+          p_decision: string;
+          p_document_id: string;
+          p_evidence_references?: string[];
+          p_policy_version?: string | null;
+          p_reason: string;
+          p_replacement_document_id?: string | null;
+          p_review_date?: string | null;
+          p_reviewer_id: string;
+          p_reviewer_qualification?: string | null;
+        };
+        Returns: Json;
+      };
       purge_expired_rag_response_cache: {
         Args: { p_limit?: number };
         Returns: number;
@@ -2303,6 +2323,13 @@ export type Database = {
           p_document_id: string;
           p_job_id: string;
           p_stage?: string;
+        };
+        Returns: Json;
+      };
+      create_uploaded_document_with_ingestion_job: {
+        Args: {
+          p_document: Json;
+          p_max_attempts: number;
         };
         Returns: Json;
       };

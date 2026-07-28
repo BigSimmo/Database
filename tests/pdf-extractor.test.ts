@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 
 import { resolvePythonBin } from "@/lib/python-bin";
+import { extractPdf } from "@/lib/extractors/document";
 
 const pythonBin = resolvePythonBin();
 const hasPyMuPDF = spawnSync(pythonBin, ["-c", "import fitz"], { encoding: "utf8" }).status === 0;
@@ -198,5 +199,55 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
         : (payload.warnings ?? []).some((warning) => warning.includes("table_crop_edge_incomplete"));
     expect(hasScoreRow || incomplete).toBe(true);
     expect(tableCrop?.metadata?.edge_content_extended).toBe(true);
+  });
+});
+
+// Process-death paths use scriptPathOverride only — they must not depend on PyMuPDF
+// being installed, or the SIGKILL/137 regressions can silently skip outside CI.
+describe("Python extractor process failures", () => {
+  it.skipIf(process.platform === "win32")("rejects cleanly if the python process dies with SIGKILL", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
+    try {
+      const pdfPath = path.join(root, "table.pdf");
+      const scriptPath = path.join(root, "kill_self.py");
+
+      await mkdir(root, { recursive: true });
+      await writeSyntheticTablePdf(pdfPath);
+
+      // Write a python script that sends SIGKILL to itself immediately
+      await writeFile(scriptPath, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n");
+
+      const pdfBuffer = await readFile(pdfPath);
+
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toMatchObject({
+        name: "PdfExtractorProcessError",
+        message: expect.stringMatching(/PDF extractor exited with code/),
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("rejects cleanly when the python process exits with code 137", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
+    try {
+      const pdfPath = path.join(root, "table.pdf");
+      const scriptPath = path.join(root, "exit_137.py");
+
+      await mkdir(root, { recursive: true });
+      await writeSyntheticTablePdf(pdfPath);
+
+      // OOM killer often surfaces as exit code 137 with no Node signal.
+      await writeFile(scriptPath, "import sys\nsys.exit(137)\n");
+
+      const pdfBuffer = await readFile(pdfPath);
+
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toMatchObject({
+        name: "PdfExtractorProcessError",
+        message: expect.stringMatching(/PDF extractor exited with code 137 \(SIGKILL\)/),
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

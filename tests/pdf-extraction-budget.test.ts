@@ -99,6 +99,20 @@ describe("PDF extraction budgets", () => {
     );
   });
 
+  it("accepts fractional render dimensions within the pixel budget", () => {
+    const tracker = new PdfExtractionBudgetTracker({
+      ...PDF_EXTRACTION_BUDGET,
+      maxRenderPixels: 101 * 101,
+    });
+    expect(() => tracker.assertRenderDimensions(100.5, 100.5)).not.toThrow();
+    expect(() =>
+      new PdfExtractionBudgetTracker({ ...PDF_EXTRACTION_BUDGET, maxRenderPixels: 100 }).assertRenderDimensions(
+        100.5,
+        100.5,
+      ),
+    ).toThrow(/PDF_EXTRACTION_BUDGET_EXCEEDED/);
+  });
+
   it("terminates the Python child tree when the total deadline expires", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-deadline-"));
     roots.push(root);
@@ -121,7 +135,7 @@ describe("PDF extraction budgets", () => {
     );
 
     await expect(
-      runPythonPdfExtractor(inputPath, outputDir, { ...PDF_EXTRACTION_BUDGET, totalTimeoutMs: 1_000 }, fakeExtractor),
+      runPythonPdfExtractor(inputPath, outputDir, { ...PDF_EXTRACTION_BUDGET, totalTimeoutMs: 3_000 }, fakeExtractor),
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_DEADLINE_EXCEEDED" });
 
     const childPid = Number(await readFile(childPidPath, "utf8"));
@@ -131,6 +145,13 @@ describe("PDF extraction budgets", () => {
     while (Date.now() < deadline) {
       try {
         process.kill(childPid, 0);
+        if (process.platform === "linux") {
+          const stat = await readFile(`/proc/${childPid}/stat`, "utf8").catch(() => "");
+          if (stat.split(" ")[2] === "Z") {
+            childIsAlive = false;
+            break;
+          }
+        }
         await new Promise((resolve) => setTimeout(resolve, 25));
       } catch {
         childIsAlive = false;

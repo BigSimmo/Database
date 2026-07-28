@@ -48,6 +48,7 @@ import {
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
 import { useAccountData } from "@/components/account-data-provider";
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
   fit: CircleCheck,
@@ -812,28 +813,33 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
 
 function HeaderChrome() {
   return (
-    <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:px-6 lg:px-8">
-      <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/differentials"
-            aria-label="Back to differentials"
-            className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-          >
-            <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
-          </Link>
+    <PhoneHeaderCollapsePortal>
+      <header
+        data-testid="differential-detail-header"
+        className="z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 max-sm:static sm:sticky sm:top-0 sm:px-6 lg:px-8"
+      >
+        <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/differentials"
+              aria-label="Back to differentials"
+              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            >
+              <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={appModeHomeHref("differentials", { focus: true })}
+              aria-label="New differentials search"
+              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            >
+              <Plus className="h-5 w-5" aria-hidden />
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={appModeHomeHref("differentials", { focus: true })}
-            aria-label="New differentials search"
-            className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-          >
-            <Plus className="h-5 w-5" aria-hidden />
-          </Link>
-        </div>
-      </div>
-    </header>
+      </header>
+    </PhoneHeaderCollapsePortal>
   );
 }
 

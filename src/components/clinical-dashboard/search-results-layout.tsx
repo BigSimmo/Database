@@ -24,6 +24,9 @@ export function SearchResultsLayout({
   mainClassName,
   className,
   canvasClassName,
+  reserveOwner,
+  reserveHiddenPad,
+  reserveTransitioning,
 }: {
   testId?: string;
   header?: ReactNode;
@@ -37,11 +40,22 @@ export function SearchResultsLayout({
   className?: string;
   /** Override page canvas colours — e.g. Services keeps its legacy teal/slate shell. */
   canvasClassName?: string;
+  /** Named page-owned phone reserve for shared collapse metrics and transitions. */
+  reserveOwner?: string;
+  /** Reserve remaining after phone chrome hides (for example `0rem`). */
+  reserveHiddenPad?: string;
+  reserveTransitioning?: boolean;
 }) {
   const hasSidebar = Boolean(sidebar);
 
   return (
-    <main data-testid={testId} className={cn(searchPageShell, canvasClassName ?? searchPageCanvas, className)}>
+    <main
+      data-testid={testId}
+      data-reserve-owner={reserveOwner}
+      data-reserve-hidden-pad={reserveHiddenPad}
+      data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
+      className={cn(searchPageShell, canvasClassName ?? searchPageCanvas, className)}
+    >
       <div className={cn(searchPageContainer, "grid gap-4")}>
         {header}
         {summary}

@@ -1,4 +1,4 @@
--- Medical RAG Knowledge Base schema.
+﻿-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -3476,7 +3476,7 @@ grant execute on function public.purge_expired_rag_query_misses(integer) to serv
 do $$
 begin
   execute format('alter database %I set app.ingestion_worker_base_url = %L',
-                 current_database(), '[REDACTED]');
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
 exception
   when insufficient_privilege then
     raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
@@ -3506,7 +3506,7 @@ begin
 
   v_base_url := coalesce(
     nullif(current_setting('app.ingestion_worker_base_url', true), ''),
-    '[REDACTED]'
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
   );
 
   select "net"."http_post"(
@@ -5818,6 +5818,78 @@ revoke execute on function public.request_indexing_v3_enrichment(uuid, uuid) fro
 grant execute on function public.request_indexing_v3_enrichment(uuid, uuid) to service_role;
 
 
+-- Atomically create an uploaded document row and its initial ingestion job.
+-- The upload route has already stored the object and validated owner/file metadata;
+-- this RPC closes the process-crash window between `documents.insert` and
+-- `ingestion_jobs.insert` by doing both database writes in one transaction.
+create or replace function public.create_uploaded_document_with_ingestion_job(
+  p_document jsonb,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  insert into public.documents (
+    id,
+    owner_id,
+    title,
+    description,
+    file_name,
+    file_type,
+    file_size,
+    storage_path,
+    content_hash,
+    status,
+    metadata
+  ) values (
+    (p_document->>'id')::uuid,
+    (p_document->>'owner_id')::uuid,
+    p_document->>'title',
+    nullif(p_document->>'description', ''),
+    p_document->>'file_name',
+    p_document->>'file_type',
+    coalesce((p_document->>'file_size')::bigint, 0),
+    p_document->>'storage_path',
+    nullif(p_document->>'content_hash', ''),
+    'queued',
+    coalesce(p_document->'metadata', '{}'::jsonb)
+  )
+  returning * into v_document;
+
+  insert into public.ingestion_jobs (
+    document_id,
+    batch_id,
+    status,
+    stage,
+    progress,
+    max_attempts
+  ) values (
+    v_document.id,
+    null,
+    'pending',
+    'queued',
+    0,
+    p_max_attempts
+  )
+  returning * into v_job;
+
+  return jsonb_build_object(
+    'document', to_jsonb(v_document),
+    'job', to_jsonb(v_job)
+  );
+end;
+$$;
+
+revoke execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) from public, anon, authenticated;
+grant execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) to service_role;
+
+
 create table if not exists public.rag_visual_eval_cases (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -6043,7 +6115,7 @@ create table if not exists public.source_review_events (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null,
   reviewer_id uuid not null,
-  decision text not null check (decision in ('locally_reviewed', 'approved', 'rejected', 'decommissioned', 'superseded')),
+  decision text not null check (decision in ('locally_reviewed', 'approved', 'third_party_reference_attested', 'rejected', 'decommissioned', 'superseded')),
   reason text not null check (char_length(reason) between 3 and 2000),
   evidence_references text[] not null default '{}',
   prior_document_status text not null,
@@ -6052,6 +6124,8 @@ create table if not exists public.source_review_events (
   new_validation_status text not null,
   review_date date,
   replacement_document_id uuid,
+  policy_version text,
+  reviewer_qualification text,
   created_at timestamptz not null default now()
 );
 
@@ -6133,6 +6207,153 @@ $$;
 
 revoke all on function public.record_source_review(uuid, uuid, text, text, text[], date, uuid) from public, anon, authenticated;
 grant execute on function public.record_source_review(uuid, uuid, text, text, text[], date, uuid) to service_role;
+
+create or replace function public.record_source_review_v2(
+  p_document_id uuid,
+  p_reviewer_id uuid,
+  p_decision text,
+  p_reason text,
+  p_evidence_references text[] default '{}',
+  p_review_date date default null,
+  p_replacement_document_id uuid default null,
+  p_policy_version text default null,
+  p_reviewer_qualification text default null
+)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_document public.documents%rowtype;
+  v_metadata jsonb;
+  v_prior_status text;
+  v_prior_validation text;
+  v_new_status text;
+  v_new_validation text;
+  v_event public.source_review_events%rowtype;
+begin
+  if p_decision not in ('locally_reviewed', 'approved', 'third_party_reference_attested', 'rejected', 'decommissioned', 'superseded') then raise exception 'invalid source review decision'; end if;
+  if char_length(trim(coalesce(p_reason, ''))) < 3 then raise exception 'source review reason is required'; end if;
+  if p_decision in ('locally_reviewed', 'approved') and coalesce(cardinality(p_evidence_references), 0) = 0 then raise exception 'evidence references are required for source promotion'; end if;
+  if p_decision = 'superseded' and p_replacement_document_id is null then raise exception 'replacement document is required for supersession'; end if;
+  select * into v_document from public.documents
+  where id = p_document_id and (owner_id = p_reviewer_id or owner_id is null)
+  for update;
+  if not found then raise exception 'document not found'; end if;
+  if p_replacement_document_id is not null and (
+    p_replacement_document_id = p_document_id
+    or not exists (
+      select 1 from public.documents replacement
+      where replacement.id = p_replacement_document_id
+        and (
+          (v_document.owner_id is null and replacement.owner_id is null)
+          or (v_document.owner_id = p_reviewer_id and (replacement.owner_id = p_reviewer_id or replacement.owner_id is null))
+        )
+    )
+  ) then raise exception 'replacement document not found'; end if;
+  if v_document.owner_id is null and p_decision in ('locally_reviewed', 'approved') then
+    if p_review_date is null or p_review_date > (now() at time zone 'Australia/Perth')::date then raise exception 'public source promotion review date is invalid'; end if;
+    if char_length(trim(coalesce(p_reviewer_qualification, ''))) = 0 then raise exception 'public source promotion reviewer qualification is required'; end if;
+  end if;
+  v_metadata := coalesce(v_document.metadata, '{}'::jsonb);
+  v_prior_status := coalesce(v_metadata->>'document_status', 'unknown');
+  v_prior_validation := coalesce(v_metadata->>'clinical_validation_status', 'unverified');
+
+  if p_decision = 'third_party_reference_attested' then
+    if v_document.status <> 'indexed' then raise exception 'BMJ third-party attestation requires an indexed document'; end if;
+    if upper(trim(coalesce(v_metadata->>'publisher_code', ''))) <> 'BMJ'
+      or btrim(
+        regexp_replace(
+          replace(lower(coalesce(v_metadata->>'publisher', '')), '&', ' and '),
+          '[^a-z0-9/]+',
+          ' ',
+          'g'
+        )
+      ) not in ('bmj best practice', 'bmj publishing group')
+      or btrim(
+        regexp_replace(
+          replace(lower(coalesce(v_metadata->>'jurisdiction', '')), '&', ' and '),
+          '[^a-z0-9/]+',
+          ' ',
+          'g'
+        )
+      ) not in ('international', 'global', 'united kingdom', 'uk')
+    then raise exception 'BMJ third-party attestation requires compatible BMJ authority metadata'; end if;
+    if v_prior_validation <> 'unverified' then raise exception 'BMJ third-party attestation preserves unverified validation status'; end if;
+    if coalesce(cardinality(p_evidence_references), 0) = 0 or exists (
+      select 1 from unnest(coalesce(p_evidence_references, '{}'::text[])) as evidence(reference)
+      where char_length(trim(coalesce(evidence.reference, ''))) = 0
+    ) then raise exception 'BMJ third-party attestation evidence references are required'; end if;
+    if p_review_date is null or p_review_date > (now() at time zone 'Australia/Perth')::date then raise exception 'BMJ third-party attestation review date is invalid'; end if;
+    if p_policy_version is distinct from 'bmj-third-party-reference-attestation-v1' then raise exception 'BMJ third-party attestation policy version is invalid'; end if;
+    if char_length(trim(coalesce(p_reviewer_qualification, ''))) = 0 then raise exception 'BMJ third-party attestation reviewer qualification is required'; end if;
+
+    v_new_status := v_prior_status;
+    v_new_validation := 'unverified';
+    v_metadata := v_metadata || jsonb_build_object(
+      'clinical_validation_status', 'unverified',
+      'clinical_validation_evidence', jsonb_build_object(
+        'status', 'unverified',
+        'basis', 'third_party_reference_attested',
+        'evidence_type', 'structured_bmj_third_party_attestation',
+        'publisher_code', 'BMJ',
+        'policy_version', p_policy_version,
+        'reviewer_qualification', trim(p_reviewer_qualification),
+        'evidence_references', to_jsonb(p_evidence_references),
+        'review_date', to_jsonb(p_review_date),
+        'attested_at', now(),
+        'attested_by', p_reviewer_id
+      ),
+      'governance_disposition', 'third_party_reference_attested',
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  elsif p_decision in ('rejected', 'decommissioned', 'superseded') then
+    v_new_status := 'outdated';
+    v_new_validation := case when p_decision = 'rejected' then 'unverified' else v_prior_validation end;
+    v_metadata := v_metadata || jsonb_build_object(
+      'document_status', v_new_status,
+      'clinical_validation_status', v_new_validation,
+      'review_date', to_jsonb(p_review_date),
+      'provenance_basis', coalesce(v_metadata->>'provenance_basis', 'unknown'),
+      'governance_disposition', p_decision,
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  else
+    v_new_status := case when p_review_date is not null and p_review_date < (now() at time zone 'Australia/Perth')::date then 'review_due' else 'current' end;
+    v_new_validation := p_decision;
+    v_metadata := v_metadata || jsonb_build_object(
+      'document_status', v_new_status,
+      'clinical_validation_status', v_new_validation,
+      'review_date', to_jsonb(p_review_date),
+      'provenance_basis', 'reviewer_verified',
+      'governance_disposition', p_decision,
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  end if;
+
+  insert into public.source_review_events (
+    document_id, reviewer_id, decision, reason, evidence_references, prior_document_status,
+    new_document_status, prior_validation_status, new_validation_status, review_date,
+    replacement_document_id, policy_version, reviewer_qualification
+  ) values (
+    p_document_id, p_reviewer_id, p_decision, trim(p_reason), coalesce(p_evidence_references, '{}'),
+    v_prior_status, v_new_status, v_prior_validation, v_new_validation, p_review_date,
+    p_replacement_document_id,
+    case when p_decision = 'third_party_reference_attested' then p_policy_version else null end,
+    case
+      when p_decision = 'third_party_reference_attested'
+        or (v_document.owner_id is null and p_decision in ('locally_reviewed', 'approved'))
+      then trim(p_reviewer_qualification)
+      else null
+    end
+  ) returning * into v_event;
+  update public.documents set metadata = v_metadata, updated_at = now() where id = p_document_id;
+  return to_jsonb(v_event);
+end;
+$$;
+
+revoke all on function public.record_source_review_v2(uuid, uuid, text, text, text[], date, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.record_source_review_v2(uuid, uuid, text, text, text[], date, uuid, text, text) to service_role;
 
 create table if not exists public.rag_answer_feedback (
   id uuid primary key default gen_random_uuid(),
@@ -9063,3 +9284,13 @@ begin
   end if;
 end;
 $$;
+
+-- Explicit function revokes (ISSUE-05)
+revoke execute on function public.detect_legacy_ivfflat_indexes() from public, anon, authenticated;
+revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;
+grant execute on function public.detect_legacy_ivfflat_indexes() to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+grant execute on function public.set_document_embedding_field_content_hash() to service_role;

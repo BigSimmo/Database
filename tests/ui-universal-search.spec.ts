@@ -1,5 +1,6 @@
-import { expect, test, type Page, type Route } from "playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
 // mocked so this spec exercises the UI contract (grouped sections, navigation,
@@ -86,7 +87,9 @@ async function fulfillUniversalSearch(route: Route, response: typeof universalPa
 
 async function mockUniversalSearch(page: Page) {
   await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
-    const mode = new URL(route.request().url()).searchParams.get("mode") ?? "documents";
+    const requestUrl = new URL(route.request().url());
+    const mode = requestUrl.searchParams.get("mode") ?? "documents";
+    const query = requestUrl.searchParams.get("q") ?? "";
     const preferredByMode: Record<string, string[]> = {
       answer: ["documents"],
       documents: ["documents"],
@@ -102,6 +105,7 @@ async function mockUniversalSearch(page: Page) {
     const responseOrder = universalPayload.groups.map((group) => group.kind);
     await fulfillUniversalSearch(route, {
       ...universalPayload,
+      query,
       contextMode: mode,
       preferredDomains,
       domainOrder: [...preferredDomains, ...responseOrder.filter((domain) => !preferredDomains.includes(domain))],
@@ -109,10 +113,32 @@ async function mockUniversalSearch(page: Page) {
   });
 }
 
+async function waitForReactChangeHandler(locator: Locator) {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.onChange === "function";
+        }),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
 async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
   await page.goto(href, { waitUntil: "domcontentloaded" });
-  const input = page.getByTestId("global-search-input").first();
+  // Production hydration can briefly overlap server and client composers. Poll
+  // until exactly one settled owner exists — never mask that with `.first()`.
+  const input = await expectSingleSettledOwner(page.getByTestId("global-search-input"), {
+    message: "documents composer owner",
+  });
+  await expect(input).toBeEnabled();
+  await waitForReactChangeHandler(input);
   await input.click();
+  await expect(input).toBeFocused();
   return input;
 }
 
@@ -292,13 +318,23 @@ test.describe("universal search typeahead", () => {
     ).toBe(true);
   });
 
-  test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
+  test("loads submitted cross-mode matches on phones only after expansion", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    const universalRequests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/search/universal") universalRequests.push(request.url());
+    });
     await mockUniversalSearch(page);
     await page.goto("/forms?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(alsoMatches).toBeVisible();
+    await expect(alsoMatches).toHaveCount(1);
+    expect(universalRequests).toHaveLength(0);
+
+    await alsoMatches.getByRole("button", { name: /Also matches in other modes/ }).click();
+    await expect.poll(() => universalRequests.length).toBe(1);
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 
   test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
