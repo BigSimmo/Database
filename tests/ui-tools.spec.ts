@@ -1940,9 +1940,7 @@ test.describe("Clinical KB tools launcher", () => {
     // Scope to the live shell scrollport: Next may briefly retain a hidden
     // streaming `S:` clone of the page root under CI load, which would make a
     // document-wide getByTestId strict-mode fail.
-    const detailPage = page
-      .getByTestId("mobile-composer-reserve-pad")
-      .getByTestId("differential-detail-page");
+    const detailPage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-detail-page");
     await expect(detailPage).toBeVisible();
     // The desktop action cluster must keep its intrinsic width (shrink-0) so the
     // icon action does not get crushed below the 44px tap standard.
