@@ -37,32 +37,42 @@ export function SettingsStateProvider({ children }: { children: React.ReactNode 
   const [uploadDrawerOpen, setUploadDrawerOpen] = React.useState(false);
   const [uploadMobileTab, setUploadMobileTab] = React.useState<UploadIndexingTab>("upload");
 
-  return (
-    <SettingsStateContext.Provider
-      value={{
-        guideOpen,
-        setGuideOpen,
-        settingsOpen,
-        setSettingsOpen,
-        mobileSidebarOpen,
-        setMobileSidebarOpen,
-        sidebarCollapsed,
-        setSidebarCollapsed,
-        documentsDrawerOpen,
-        setDocumentsDrawerOpen,
-        documentScopeOpen,
-        setDocumentScopeOpen,
-        documentsDrawerMode,
-        setDocumentsDrawerMode,
-        uploadDrawerOpen,
-        setUploadDrawerOpen,
-        uploadMobileTab,
-        setUploadMobileTab,
-      }}
-    >
-      {children}
-    </SettingsStateContext.Provider>
+  const value = React.useMemo(
+    () => ({
+      guideOpen,
+      setGuideOpen,
+      settingsOpen,
+      setSettingsOpen,
+      mobileSidebarOpen,
+      setMobileSidebarOpen,
+      sidebarCollapsed,
+      setSidebarCollapsed,
+      documentsDrawerOpen,
+      setDocumentsDrawerOpen,
+      documentScopeOpen,
+      setDocumentScopeOpen,
+      documentsDrawerMode,
+      setDocumentsDrawerMode,
+      uploadDrawerOpen,
+      setUploadDrawerOpen,
+      uploadMobileTab,
+      setUploadMobileTab,
+    }),
+    [
+      guideOpen,
+      settingsOpen,
+      mobileSidebarOpen,
+      sidebarCollapsed,
+      documentsDrawerOpen,
+      documentScopeOpen,
+      documentsDrawerMode,
+      uploadDrawerOpen,
+      uploadMobileTab,
+      setSidebarCollapsed,
+    ],
   );
+
+  return <SettingsStateContext.Provider value={value}>{children}</SettingsStateContext.Provider>;
 }
 
 export function useSettingsState() {
