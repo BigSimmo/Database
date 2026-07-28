@@ -1,0 +1,205 @@
+{
+  "version": "top-local-review-evidence-v1",
+  "source_artifact": "github-actions/run-30216191889/eval-canary-output/golden-retrieval.json",
+  "source_generated_at": null,
+  "review_status": "pending_qualified_human_review",
+  "attestation_applied": false,
+  "entry_count": 10,
+  "entries": [
+    {
+      "key": "file:clozapine management by gp (nmhs).pdf",
+      "document_id": null,
+      "title": "Clozapine Management By GP(NMHS)",
+      "file_name": "Clozapine Management by GP (NMHS).pdf",
+      "publisher_code": "NMHS",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 11,
+      "best_rank": 2,
+      "case_ids": [
+        "clozapine-anc-threshold",
+        "clozapine-cbc-abbreviation-threshold",
+        "monitoring-threshold-from-chart",
+        "show-source-table-image"
+      ],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:alcohol and other drugs - addiction, toxicity and withdrawal (fsh).pdf",
+      "document_id": null,
+      "title": "Alcohol And Other Drugs - Addiction, Toxicity And Withdrawal(FSH)",
+      "file_name": "Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf",
+      "publisher_code": "FSH",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 6,
+      "best_rank": 1,
+      "case_ids": ["alcohol-ciwa-scoring", "alcohol-ciwa-threshold", "alcohol-withdrawal-management"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:mhatt assessment and treatment process (akg).pdf",
+      "document_id": null,
+      "title": "MHATT Assessment And Treatment Process(AKG)",
+      "file_name": "MHATT Assessment and Treatment Process (AKG).pdf",
+      "publisher_code": "AKG",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 4,
+      "best_rank": 4,
+      "case_ids": ["schizophrenia-overview"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:clozapine coordinator and clozapine clinic (nmhs).pdf",
+      "document_id": null,
+      "title": "Clozapine Coordinator And Clozapine Clinic(NMHS)",
+      "file_name": "Clozapine Coordinator and Clozapine Clinic (NMHS).pdf",
+      "publisher_code": "NMHS",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 3,
+      "best_rank": 1,
+      "case_ids": ["clozapine-anc-threshold", "clozapine-cbc-abbreviation-threshold", "show-source-table-image"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:women's and perinatal mental health referral and management guideline (kemh).pdf",
+      "document_id": null,
+      "title": "Women S And Perinatal Mental Health Referral And Management Guideline(KEMH)",
+      "file_name": "Women's and Perinatal Mental Health Referral and Management Guideline (KEMH).pdf",
+      "publisher_code": "KEMH",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 3,
+      "best_rank": 7,
+      "case_ids": ["bipolar-management-summary", "bipolar-vs-schizoaffective", "vector-bipolar"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:mother baby unit admissions (fsh).pdf",
+      "document_id": null,
+      "title": "Mother Baby Unit Admissions(FSH)",
+      "file_name": "Mother Baby Unit Admissions (FSH).pdf",
+      "publisher_code": "FSH",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 2,
+      "best_rank": 6,
+      "case_ids": ["bipolar-vs-schizoaffective"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:pressure injuries (akg).pdf",
+      "document_id": null,
+      "title": "Pressure Injuries(AKG)",
+      "file_name": "Pressure Injuries (AKG).pdf",
+      "publisher_code": "AKG",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 2,
+      "best_rank": 6,
+      "case_ids": ["flowchart-next-step"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:referral to the mother baby unit mr202.09 (kemh).pdf",
+      "document_id": null,
+      "title": "Referral To The Mother Baby Unit MR202.09(KEMH)",
+      "file_name": "Referral to the Mother Baby Unit MR202.09 (KEMH).pdf",
+      "publisher_code": "KEMH",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 2,
+      "best_rank": 8,
+      "case_ids": ["vector-postnatal"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["unknown"],
+        "clinical_validation_statuses": ["unverified"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:hampton house referral (fsh).pdf",
+      "document_id": null,
+      "title": "Hampton House Referral(FSH)",
+      "file_name": "Hampton House Referral (FSH).pdf",
+      "publisher_code": "FSH",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 2,
+      "best_rank": 9,
+      "case_ids": ["bipolar-vs-schizoaffective"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    },
+    {
+      "key": "file:arousal and agitation drug management (camhs).pdf",
+      "document_id": null,
+      "title": "Arousal And Agitation Drug Management(CAMHS)",
+      "file_name": "Arousal and Agitation Drug Management (CAMHS).pdf",
+      "publisher_code": "CAMHS",
+      "jurisdiction": "Australia/WA",
+      "top_result_slots": 1,
+      "best_rank": 2,
+      "case_ids": ["medication-chart-dose-route"],
+      "review_class": "local_wa",
+      "observed": {
+        "document_statuses": ["review_due"],
+        "clinical_validation_statuses": ["locally_reviewed"],
+        "extraction_qualities": ["good"]
+      },
+      "review_status": "pending_qualified_human_review",
+      "attestation_applied": false
+    }
+  ]
+}

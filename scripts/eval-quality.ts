@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 
@@ -22,6 +22,7 @@ import {
 import {
   loadCapturedRagEvalCases,
   mergeRagEvalCases,
+  ragEvalCases,
   selectRagEvalCases,
   type RagEvalCase,
   type SupabaseEvalCaseClient,
@@ -30,6 +31,7 @@ import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { answerRouteBudgetMs } from "@/lib/rag/rag-route-budget";
 import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
 import type { RagAnswer } from "@/lib/types";
+import { buildRagDiagnosticDumpRecord, resolveLocalDiagnosticOutputPath } from "./eval-answer-quality";
 
 loadEnvConfig(process.cwd());
 
@@ -43,6 +45,7 @@ type EvalQualityArgs = {
   limit?: number;
   query?: string;
   question?: string;
+  dumpRagCases?: string;
   outputDir: string;
   sourceMetadataDebt?: string;
   json: boolean;
@@ -212,6 +215,7 @@ const qualityThresholds = {
   ragGroundedSupportedRate: 0.9,
   ragUnsupportedCorrectRate: 1,
   ragCitationFailureRate: 0,
+  ragSourceBackedReviewFallbackCount: 0,
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
@@ -245,7 +249,7 @@ const qualityThresholds = {
   } as Record<string, number>,
 };
 
-function parseArgs(argv: string[]): EvalQualityArgs {
+export function parseEvalQualityArgs(argv: string[]): EvalQualityArgs {
   const args: EvalQualityArgs = {
     fixture: join(process.cwd(), "scripts", "fixtures", "rag-retrieval-golden.json"),
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
@@ -300,6 +304,7 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
     if (token === "--question") args.question = value;
+    if (token === "--dump-rag-cases") args.dumpRagCases = value;
     if (token === "--output-dir") args.outputDir = value;
     if (token === "--source-metadata-debt") args.sourceMetadataDebt = value;
     if (token === "--provider-mode") {
@@ -314,8 +319,18 @@ function parseArgs(argv: string[]): EvalQualityArgs {
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
     throw new Error("--limit must be a positive integer.");
   }
+  if (args.dumpRagCases && !args.ragOnly) {
+    throw new Error("--dump-rag-cases requires --rag-only.");
+  }
+  if (args.dumpRagCases) resolveLocalDiagnosticOutputPath(args.dumpRagCases);
 
   return args;
+}
+
+export function selectRagQualityCasesForQuestion(question?: string) {
+  if (!question) return selectRagEvalCases({});
+  const exactCase = ragEvalCases.find((testCase) => testCase.id === question.trim());
+  return exactCase ? [exactCase] : selectRagEvalCases({ question });
 }
 
 export function configureEvalProviderEnvironment(providerMode: EvalQualityProviderMode) {
@@ -389,6 +404,12 @@ export function sourceGovernanceDangerFailuresForAnswer(args: {
 
 function rate(numerator: number, denominator: number) {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(4));
+}
+
+function isSourceBackedReviewFallback(routingReason: string | undefined) {
+  return (routingReason ?? "")
+    .split(";")
+    .some((reason) => reason.trim().toLowerCase() === "source_backed_review_fallback");
 }
 
 function failureCategoryCounts(results: Array<{ failures: string[] }>) {
@@ -558,6 +579,18 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
     result.failures.includes("expected danger source governance warning missing"),
   ).length;
   const routeCeilingFailures = results.filter((result) => result.routeCeilingExceeded).length;
+  const generationFallbacks = results.filter((result) =>
+    /(?:^|;\s*)generation_fallback:/i.test(result.routingReason ?? ""),
+  ).length;
+  const sourceBackedReviewFallbacks = results.filter((result) =>
+    isSourceBackedReviewFallback(result.routingReason),
+  ).length;
+  const substantiveGrounded = supported.filter(
+    (result) => result.grounded === true && !isSourceBackedReviewFallback(result.routingReason),
+  ).length;
+  const comparisonSourceExtractiveFallbacks = results.filter((result) =>
+    /(?:^|;\s*)comparison_source_extractive_fallback(?:;|$)/i.test(result.routingReason ?? ""),
+  ).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -587,6 +620,12 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     expected_danger_warning_missing_count: expectedDangerWarningMissing,
     route_ceiling_failure_count: routeCeilingFailures,
+    generation_fallback_count: generationFallbacks,
+    source_backed_review_fallback_count: sourceBackedReviewFallbacks,
+    source_backed_review_fallback_rate: rate(sourceBackedReviewFallbacks, results.length),
+    substantive_grounded_count: substantiveGrounded,
+    substantive_grounded_rate: rate(substantiveGrounded, supported.length),
+    comparison_source_extractive_fallback_count: comparisonSourceExtractiveFallbacks,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -667,7 +706,10 @@ export function buildEvalQualityReport(args: {
   }
 
   if (args.ragResults.length > 0) {
-    if (ragSummary.grounded_supported_rate < qualityThresholds.ragGroundedSupportedRate) {
+    if (
+      ragSummary.supported_count > 0 &&
+      ragSummary.grounded_supported_rate < qualityThresholds.ragGroundedSupportedRate
+    ) {
       thresholdFailures.push(
         `RAG grounded_supported_rate ${ragSummary.grounded_supported_rate} below ${qualityThresholds.ragGroundedSupportedRate}`,
       );
@@ -682,6 +724,11 @@ export function buildEvalQualityReport(args: {
     }
     if (ragSummary.citation_failure_rate > qualityThresholds.ragCitationFailureRate) {
       thresholdFailures.push(`RAG citation_failure_rate ${ragSummary.citation_failure_rate} above 0`);
+    }
+    if (ragSummary.source_backed_review_fallback_count > qualityThresholds.ragSourceBackedReviewFallbackCount) {
+      thresholdFailures.push(
+        `RAG source_backed_review_fallback_count ${ragSummary.source_backed_review_fallback_count} above ${qualityThresholds.ragSourceBackedReviewFallbackCount}`,
+      );
     }
     if (ragSummary.numeric_grounding_failure_rate > qualityThresholds.numericGroundingFailureRate) {
       thresholdFailures.push(`RAG numeric_grounding_failure_rate ${ragSummary.numeric_grounding_failure_rate} above 0`);
@@ -984,6 +1031,8 @@ Policy: ${governance.metadata_policy}
 ${markdownTable([
   ["Cases", rag.case_count],
   ["Grounded supported rate", rag.grounded_supported_rate],
+  ["Substantive grounded answers", rag.substantive_grounded_count],
+  ["Substantive grounded rate", rag.substantive_grounded_rate],
   ["Unsupported correct rate", rag.unsupported_correct_rate],
   ["Expected source hit rate", rag.expected_hit_rate],
   ["Citation failure rate", rag.citation_failure_rate],
@@ -991,6 +1040,10 @@ ${markdownTable([
   ["Source governance warning rate", rag.source_governance_warning_rate],
   ["Source governance danger failure rate", rag.source_governance_danger_failure_rate],
   ["Route ceiling failures", rag.route_ceiling_failure_count],
+  ["Generation fallbacks", rag.generation_fallback_count],
+  ["Source-backed review fallbacks", rag.source_backed_review_fallback_count],
+  ["Source-backed review fallback rate", rag.source_backed_review_fallback_rate],
+  ["Comparison extractive fallbacks", rag.comparison_source_extractive_fallback_count],
   ["P95 latency ms", rag.p95_latency_ms],
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}
@@ -1080,6 +1133,7 @@ async function runRagQualityCases(args: {
   ownerId?: string;
   limit?: number;
   question?: string;
+  captureDiagnostics?: boolean;
   providerMode: EvalQualityProviderMode;
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
@@ -1091,10 +1145,11 @@ async function runRagQualityCases(args: {
       limit: args.limit,
     }),
   ]);
-  const baseCases = selectRagEvalCases({ question: args.question });
+  const baseCases = selectRagQualityCasesForQuestion(args.question);
   const allCases = args.question ? baseCases : mergeRagEvalCases(baseCases, capturedCases);
   const cases = allCases.slice(0, args.limit ?? allCases.length);
   const results: RagQualityResult[] = [];
+  const diagnosticCases: Array<ReturnType<typeof buildRagDiagnosticDumpRecord>> = [];
 
   for (const testCase of cases) {
     const answer = (await withProviderBackoff(`quality-rag:${testCase.id}`, () =>
@@ -1105,6 +1160,9 @@ async function runRagQualityCases(args: {
         skipCache: true,
       }),
     )) as RagAnswer;
+    if (args.captureDiagnostics) {
+      diagnosticCases.push(buildRagDiagnosticDumpRecord(testCase.id, testCase.question, answer));
+    }
     const validation = validateRagAnswer(testCase, answer);
     const failures = [...validation.failures];
     const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
@@ -1181,7 +1239,7 @@ async function runRagQualityCases(args: {
     });
   }
 
-  return results;
+  return { results, diagnosticCases };
 }
 
 async function writeReports(report: EvalQualityReport, outputDir: string) {
@@ -1274,7 +1332,7 @@ async function loadSourceMetadataDebtAcceptance(path: string): Promise<SourceMet
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseEvalQualityArgs(process.argv.slice(2));
   if (args.providerMode === "offline" && args.forceEmbedding) {
     throw new Error("--force-embedding cannot be used with --provider-mode offline.");
   }
@@ -1296,7 +1354,15 @@ async function main() {
 
   const ownerId = await resolveEvalOwnerId(supabase, args);
   const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
-  const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
+  const ragRun = args.retrievalOnly
+    ? { results: [] as RagQualityResult[], diagnosticCases: [] }
+    : await runRagQualityCases({
+        ...args,
+        ownerId,
+        supabase,
+        captureDiagnostics: Boolean(args.dumpRagCases),
+      });
+  const ragResults = ragRun.results;
   const report = buildEvalQualityReport({
     retrievalResults,
     sourceGovernanceResults,
@@ -1305,6 +1371,23 @@ async function main() {
     providerMode: args.providerMode,
   });
   const paths = await writeReports(report, args.outputDir);
+  if (args.dumpRagCases) {
+    const dumpPath = resolveLocalDiagnosticOutputPath(args.dumpRagCases);
+    await mkdir(dirname(dumpPath), { recursive: true });
+    await writeFile(
+      dumpPath,
+      `${JSON.stringify(
+        {
+          generated_at: new Date().toISOString(),
+          case_count: ragRun.diagnosticCases.length,
+          cases: ragRun.diagnosticCases,
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+  }
 
   if (args.json) {
     console.log(JSON.stringify({ ...report, output: paths }, null, 2));

@@ -64,11 +64,12 @@ npm run docs:check-links
 
 - [process-hardening.md](process-hardening.md) — verification gates, CI expectations, known debts
 - [testing.md](testing.md) — test execution, focused/live commands, Playwright ownership, flake policy
+- [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md) — labelled Safari and cold-launch PWA acceptance matrix
 - [productivity-workflows.md](productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
-- [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger (append after reviews)
+- [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read it with `npm run ledger:lookup`, write it with `npm run ledger:append` (never by hand)
 
 ## Plans and workstreams (living)
 
