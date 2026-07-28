@@ -631,6 +631,7 @@ function SearchRecordResults({
               data-testid={`${copy.testIdPrefix}-result-${service.slug}`}
               className={cn(
                 sourceCard,
+                "content-auto",
                 "grid gap-3 p-3 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
                 index === 0 && "ring-1 ring-[color:var(--clinical-accent)]/15",
               )}
@@ -1011,6 +1012,7 @@ function DocumentSearchResultsPanelImpl({
                     key={document.document_id}
                     className={cn(
                       sourceCard,
+                      "content-auto",
                       "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
                       selected &&
                         "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
