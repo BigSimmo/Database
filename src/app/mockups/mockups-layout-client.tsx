@@ -38,7 +38,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isStandaloneDocumentFlow &&
         !isDocumentTopNavigationMockup &&
         !isUniversalSearchRedesignMockup &&
-        !isCalculatorsSearchPageMockup
+        !isCalculatorsSearchPageMockup &&
+        !isPhoneInPageNavigationMockup
       }
       chromeVisible={!isSourceOverlayRedesignMockup && !isSearchHeadingMockup && !isPhoneInPageNavigationMockup}
     >
