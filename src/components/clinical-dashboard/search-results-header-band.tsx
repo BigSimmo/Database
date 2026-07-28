@@ -412,8 +412,12 @@ export function SearchResultsHeaderBand({
         >
           <p className="search-band-fault text-[color:var(--warning)]">{resolvedFaultTitle}</p>
           <p className="search-band-count-word mt-0.5 text-[color:var(--warning)]">{resolvedFaultBody}</p>
+          {/* Wrapping is load-bearing: differentials passes Retry plus two
+              "Browse …" links, and the band root is `overflow-hidden`, so on a
+              narrow phone a non-wrapping row clips the trailing action away
+              rather than pushing it to a second line. */}
           {onRetry || faultAction ? (
-            <div className="mt-2.5 flex justify-center gap-2">
+            <div className="mt-2.5 flex flex-wrap justify-center gap-2">
               {onRetry ? (
                 <AsyncButton
                   type="button"

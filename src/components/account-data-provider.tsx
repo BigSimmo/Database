@@ -38,6 +38,10 @@ type AccountDataContextValue = {
   error: string | null;
   isAuthenticated: boolean;
   isSaved: (contentType: FavouriteContentType, contentKey: string) => boolean;
+  /** Re-issue the account favourites request for the current identity. A failed
+      load clears every saved slug, so without this a Retry offered by a
+      favourites surface has nothing left to re-request and cannot recover. */
+  reload: () => void;
   setFavourite: (contentType: FavouriteContentType, contentKey: string, saved: boolean) => Promise<boolean>;
   clearFavourites: () => Promise<boolean>;
 };
@@ -67,6 +71,10 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
   const [favourites, setFavourites] = useState<FavouritesByType>(emptyFavourites);
   const [ready, setReady] = useState(auth.status !== "authenticated");
   const [error, setError] = useState<string | null>(null);
+  // Bumping this re-runs the load effect unchanged, so an explicit Retry gets
+  // exactly the same clearing and abort semantics as an auth transition.
+  const [reloadAttempt, setReloadAttempt] = useState(0);
+  const reload = useCallback(() => setReloadAttempt((attempt) => attempt + 1), []);
 
   useEffect(() => {
     if (auth.status !== "authenticated") {
@@ -110,7 +118,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       });
 
     return () => controller.abort();
-  }, [auth.authEpoch, auth.authorizationHeader, auth.status]);
+  }, [auth.authEpoch, auth.authorizationHeader, auth.status, reloadAttempt]);
 
   const setFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
@@ -186,8 +194,9 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       isSaved: (contentType, contentKey) => favourites[contentType].includes(contentKey),
       setFavourite,
       clearFavourites,
+      reload,
     }),
-    [auth.status, clearFavourites, error, favourites, ready, setFavourite],
+    [auth.status, clearFavourites, error, favourites, ready, reload, setFavourite],
   );
 
   return <AccountDataContext.Provider value={value}>{children}</AccountDataContext.Provider>;

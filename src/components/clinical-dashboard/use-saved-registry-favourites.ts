@@ -41,7 +41,13 @@ export type SavedRegistryFavouritesResult = {
 };
 
 export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
-  const { favourites, ready: accountReady, error: accountError, isAuthenticated } = useAccountData();
+  const {
+    favourites,
+    ready: accountReady,
+    error: accountError,
+    isAuthenticated,
+    reload: reloadAccount,
+  } = useAccountData();
   const savedServices = favourites.service;
   const savedForms = favourites.form;
   const savedDifferentials = favourites.differential;
@@ -99,9 +105,13 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const refetchServices = services.refetch;
   const refetchForms = forms.refetch;
   const refetch = useCallback(() => {
+    // The account request must be reissued first. When it is what failed it has
+    // already cleared every saved slug, so both registries are disabled and
+    // hold nothing to re-request — Retry would be a button that does nothing.
+    if (isAuthenticated) reloadAccount();
     if (savedServices.length > 0) refetchServices();
     if (savedForms.length > 0) refetchForms();
-  }, [savedServices.length, savedForms.length, refetchServices, refetchForms]);
+  }, [isAuthenticated, reloadAccount, savedServices.length, savedForms.length, refetchServices, refetchForms]);
 
   return { items, status, registryStatus, refetch };
 }

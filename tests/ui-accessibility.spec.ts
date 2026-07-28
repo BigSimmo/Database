@@ -635,4 +635,41 @@ test.describe("Clinical KB accessibility coverage", () => {
       .toBe("3px");
     await page.emulateMedia({ forcedColors: "none" });
   });
+
+  test("fault recovery actions wrap instead of clipping on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    // Differentials is the widest fault: Retry plus two "Browse …" links. Their
+    // combined width exceeds a 390px panel, and the band root is
+    // `overflow-hidden`, so without wrapping the trailing link is cut off.
+    await page.route("**/api/differentials**", (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
+
+    const fault = page.locator('[data-testid="search-query-ribbon-fault"]:visible').first();
+    await expect(fault).toBeVisible({ timeout: 20_000 });
+
+    const actions = fault.locator("a, button");
+    await expect(actions).toHaveCount(3);
+
+    const panelBox = await fault.boundingBox();
+    expect(panelBox).not.toBeNull();
+    const boxes = await actions.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top };
+      }),
+    );
+
+    for (const box of boxes) {
+      expect(box.left, "a recovery action must not start left of the fault panel").toBeGreaterThanOrEqual(
+        panelBox!.x - 1,
+      );
+      expect(box.right, "a recovery action must not be clipped by the overflow-hidden band").toBeLessThanOrEqual(
+        panelBox!.x + panelBox!.width + 1,
+      );
+    }
+
+    // Proof the row actually wrapped rather than merely fitting: three actions
+    // this wide cannot share one line at 390px.
+    expect(new Set(boxes.map((box) => Math.round(box.top))).size).toBeGreaterThan(1);
+  });
 });
