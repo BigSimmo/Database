@@ -116,7 +116,11 @@ export function RouteErrorBoundary({
             onClick={handleCopyDiagnostics}
             className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
-            {copied ? <Check aria-hidden="true" className="h-4 w-4 text-green-600" /> : <ClipboardCopy aria-hidden="true" className="h-4 w-4" />}
+            {copied ? (
+              <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+            ) : (
+              <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
+            )}
             {copied ? "Copied Diagnostics" : "Copy Diagnostics"}
           </button>
         </div>
