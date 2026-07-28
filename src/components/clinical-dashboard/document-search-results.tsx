@@ -32,6 +32,7 @@ import {
   MobileResultFilterControl,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -861,15 +862,14 @@ function DocumentSearchResultsPanelImpl({
     });
   }
 
-  const unavailableMessage = apiUnavailable
-    ? isDeployedClinicalKb()
-      ? "Clinical KB could not be reached. Check your connection and try again shortly."
-      : "The local API is unavailable. Check the app server before searching documents."
-    : authUnavailable
-      ? "Your session expired. Sign in again to view private indexed documents."
-      : !realDataReady
-        ? setupWarning || "Complete the search setup before using Documents mode."
-        : null;
+  const unavailable = deriveDocumentSearchUnavailable({
+    apiUnavailable,
+    authUnavailable,
+    realDataReady,
+    setupWarning,
+    deployedClinicalKb: isDeployedClinicalKb(),
+  });
+  const unavailableMessage = unavailable?.message ?? null;
   const showResultsControls = matches.length > 0 && !loading;
   const showIdentityHeader =
     recordMatchCount > 0 ||
@@ -900,11 +900,7 @@ function DocumentSearchResultsPanelImpl({
                   : recordStatus === "loading"
                     ? "loading"
                     : "ready"
-              : unavailableMessage
-                ? "error"
-                : loading
-                  ? "loading"
-                  : "ready"
+              : (unavailable?.status ?? (loading ? "loading" : "ready"))
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
