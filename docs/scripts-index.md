@@ -66,7 +66,8 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 
 ## Build & assets [live/infra]
 
-`build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`, `build-ranking-snapshot.ts`,
+`build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`,
+`build-cross-mode-differentials-index.mjs`, `build-ranking-snapshot.ts`,
 `generate-site-map.ts`, `generate-brand-assets.ts`, `generate-sample-documents.ts`,
 `check-sample-extraction.ts`.
 
