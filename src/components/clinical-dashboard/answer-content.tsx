@@ -87,36 +87,52 @@ export function ScopeAndGovernanceNotice({
     Boolean(scope?.warnings?.length) ||
     scope?.matchedDocumentCount === 0;
   if (!showScope && groupedWarnings.length === 0) return null;
+  // Phones get a quiet neutral card so the notice stops reading as an error band; the amber
+  // treatment returns from `sm` up. Every message stays visible on both — only the styling
+  // changes, never the governance content.
+  const warningListClass =
+    "grid gap-0.5 text-2xs font-medium text-[color:var(--text-muted)] sm:text-[color:var(--warning)]";
   return (
-    <div className="space-y-1.5 rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 px-2.5 py-2 text-xs text-[color:var(--text)]">
-      {showScope && scope ? (
-        <p className="font-semibold leading-5">
-          Scope: {scope.summary}
-          {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
-        </p>
-      ) : null}
-      {scope?.warnings?.length ? (
-        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
-          {scope.warnings.slice(0, 3).map((warning) => (
-            <li key={warning}>{warning}</li>
-          ))}
-        </ul>
-      ) : null}
-      {groupedWarnings.length ? (
-        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
-          {groupedWarnings.map((warning) => (
-            <li key={warning.code}>
-              {warning.message}
-              {warning.titles.length ? (
-                <details className="mt-0.5 font-normal text-[color:var(--text-muted)]">
-                  <summary className="cursor-pointer">Sources affected</summary>
-                  <span className="mt-0.5 block">{warning.titles.slice(0, 5).join(", ")}</span>
-                </details>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+    <div
+      data-testid="source-governance-notice"
+      className={cn(
+        "flex items-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs text-[color:var(--text)]",
+        "sm:gap-2.5 sm:rounded-md sm:border-[color:var(--warning)]/20 sm:border-l-2 sm:border-l-[color:var(--warning)] sm:bg-[color:var(--warning-soft)]/30 sm:px-2.5",
+      )}
+    >
+      <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        {showScope && scope ? (
+          <p className="font-semibold leading-5">
+            Scope: {scope.summary}
+            {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
+          </p>
+        ) : null}
+        {scope?.warnings?.length ? (
+          <ul className={warningListClass}>
+            {scope.warnings.slice(0, 3).map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        ) : null}
+        {groupedWarnings.length ? (
+          <ul className={warningListClass}>
+            {groupedWarnings.map((warning) => (
+              <li key={warning.code}>
+                {warning.message}
+                {warning.titles.length ? (
+                  <details className="font-normal text-[color:var(--text-muted)]">
+                    <summary className="cursor-pointer py-0.5 underline decoration-dotted underline-offset-2 hover:text-[color:var(--text)]">
+                      Sources affected
+                    </summary>
+                    <span className="mt-0.5 block">{warning.titles.slice(0, 5).join(", ")}</span>
+                  </details>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </div>
   );
 }

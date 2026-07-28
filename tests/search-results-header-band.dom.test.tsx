@@ -174,4 +174,39 @@ describe("SearchResultsHeaderBand", () => {
     expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
     expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
   });
+
+  it("keeps sort off phones so the page-specific dropdown owns the row", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="differentials"
+        query="acute confusion"
+        matchCount={8}
+        sortValue="relevance"
+        onSortChange={vi.fn()}
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter by result type"
+            value="all"
+            options={[
+              { value: "all", label: "All (8)" },
+              { value: "diagnosis", label: "Diagnoses (7)" },
+            ]}
+            onChange={vi.fn()}
+          />
+        }
+      />,
+    );
+
+    expect(screen.getByLabelText("Sort results").closest("label")).toHaveClass("hidden", "sm:inline-flex");
+    expect(screen.getByTestId("search-query-ribbon-mobile-control-pair")).toHaveClass("grid-cols-1", "sm:flex");
+  });
+
+  it("hides the whole utility strip on phones when sort is its only control", () => {
+    render(
+      <SearchResultsHeaderBand modeId="forms" query="transport order" matchCount={3} onSortChange={vi.fn()} />,
+    );
+
+    expect(screen.getByTestId("search-query-ribbon-utilities")).toHaveClass("hidden", "sm:flex");
+  });
 });

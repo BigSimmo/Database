@@ -3091,7 +3091,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(queryRibbon).toBeVisible();
     const resultsControls = queryRibbon.getByTestId("document-results-controls");
     await expect(resultsControls).toBeHidden();
-    await expect(queryRibbon.getByLabel("Sort results")).toBeVisible();
+    // Phones keep the default relevance order and drop the sort select entirely.
+    await expect(queryRibbon.getByLabel("Sort results")).toBeHidden();
     const mobileTypeFilter = queryRibbon.getByTestId("document-source-type-select");
     await expect(mobileTypeFilter).toBeVisible();
     await expect(mobileTypeFilter).toHaveAccessibleName("Filter by source type");
@@ -3115,10 +3116,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mobileTypeFilter.selectOption("all");
     }
 
-    await queryRibbon.getByLabel("Sort results").selectOption("alpha");
-    await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await queryRibbon.getByLabel("Sort results").selectOption("relevance");
-
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
       .last();
@@ -3129,12 +3126,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "href",
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
-    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
+    const evidencePanel = page.getByRole("complementary", { name: "Selected document evidence" });
+    // The evidence panel is an xl sidebar; below xl it would sit under the whole result
+    // list, so neither it nor the Preview action that opens it belongs on a phone.
+    await expect(evidencePanel).toBeHidden();
+    await expect(documentResults.getByRole("button", { name: /Preview evidence for/i })).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await expectNoPageHorizontalOverflow(page);
+    await expect(evidencePanel).toBeVisible();
     await expect(resultsControls).toBeVisible();
+    const desktopSort = queryRibbon.getByLabel("Sort results");
+    await expect(desktopSort).toBeVisible();
+    await desktopSort.selectOption("alpha");
+    await expect(page).toHaveURL(/[?&]sort=alpha/);
+    await desktopSort.selectOption("relevance");
     const typeFilters = resultsControls.getByLabel("Filter by source type");
     if ((await typeFilters.count()) > 0) {
       const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });

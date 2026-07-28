@@ -61,6 +61,10 @@ export function SearchResultsHeaderBand({
   const hasUtilities =
     visibleScopes.length > 0 ||
     Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || mobileControls);
+  // Sort is a desktop-only utility, so a ribbon whose only utility is sort would otherwise
+  // leave an empty strip above the phone results.
+  const hasPhoneUtilities =
+    visibleScopes.length > 0 || Boolean(onViewChange || onSaveSearch || utilityControls || mobileControls);
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
 
   return (
@@ -120,7 +124,10 @@ export function SearchResultsHeaderBand({
         {hasUtilities ? (
           <div
             data-testid="search-query-ribbon-utilities"
-            className="flex min-w-0 flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 lg:ml-auto lg:flex-nowrap lg:border-l lg:border-t-0 lg:bg-transparent lg:pl-3 lg:pr-3"
+            className={cn(
+              hasPhoneUtilities ? "flex" : "hidden sm:flex",
+              "min-w-0 flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 lg:ml-auto lg:flex-nowrap lg:border-l lg:border-t-0 lg:bg-transparent lg:pl-3 lg:pr-3",
+            )}
           >
             {visibleScopes.map((scope) => (
               <button
@@ -140,12 +147,11 @@ export function SearchResultsHeaderBand({
             {onSortChange && mobileControls ? (
               <div
                 data-testid="search-query-ribbon-mobile-control-pair"
-                className="grid min-w-[15rem] flex-1 grid-cols-2 gap-1.5 sm:flex sm:min-w-0 sm:flex-none sm:items-center"
+                className="grid min-w-[9rem] flex-1 grid-cols-1 gap-1.5 sm:flex sm:min-w-0 sm:flex-none sm:items-center"
               >
                 <ResultSortControl
                   value={sortValue}
                   onChange={onSortChange}
-                  compact
                   className="w-full min-w-0 sm:w-auto sm:min-w-[8.5rem]"
                 />
                 <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
@@ -158,7 +164,6 @@ export function SearchResultsHeaderBand({
                   <ResultSortControl
                     value={sortValue}
                     onChange={onSortChange}
-                    compact
                     className="min-w-[8.5rem] flex-1 sm:flex-none"
                   />
                 ) : null}
@@ -246,27 +251,27 @@ export function SearchResultsHeaderBand({
   );
 }
 
+/** Desktop-only control: phones keep the default relevance order and drop the select. */
 export function ResultSortControl({
   value,
   onChange,
   className,
-  compact = false,
 }: {
   value: ResultSortValue;
   onChange: (value: ResultSortValue) => void;
   className?: string;
-  /** Hide the visual "Sort" label on narrow viewports; the select keeps its accessible name. */
-  compact?: boolean;
 }) {
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        // Display lives on the base string, not in `className`: `cn` is a plain join, so a
+        // caller-supplied `hidden` would race the base `inline-flex` in the cascade.
+        "relative hidden min-h-tap min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)] sm:inline-flex",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         className,
       )}
     >
-      <span className={cn("text-[color:var(--text-soft)]", compact && "max-[359px]:sr-only")}>Sort</span>
+      <span className="text-[color:var(--text-soft)]">Sort</span>
       {/* appearance-none strips the native control chrome so "Relevance" renders at the
           same size/weight as the rest of the band and the caret sits in a fixed slot. */}
       <select

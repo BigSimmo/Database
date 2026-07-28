@@ -435,12 +435,23 @@ function metadataBadgeLabel(document: DocumentMatch) {
   return `${kind} - ${page}`;
 }
 
-function cautionBadgeLabel(document: DocumentMatch) {
-  if (document.tableCount > 0) return `${document.tableCount} table${document.tableCount === 1 ? "" : "s"}`;
-  if (document.imageCount > 0) return `${document.imageCount} image${document.imageCount === 1 ? "" : "s"}`;
+/**
+ * Evidence chip for a result card, or `null` when the document carries no evidence worth
+ * calling out. Returning `null` keeps every card's chip row to a single line and avoids a
+ * static badge that reads like the "Open source" action beside it.
+ */
+function evidenceBadge(document: DocumentMatch): { label: string; icon: LucideIcon } | null {
+  if (document.tableCount > 0) {
+    return { label: `${document.tableCount} table${document.tableCount === 1 ? "" : "s"}`, icon: ListChecks };
+  }
+  if (document.imageCount > 0) {
+    return { label: `${document.imageCount} image${document.imageCount === 1 ? "" : "s"}`, icon: FileImage };
+  }
   const missingTerms = document.relevance?.missingTerms?.length ?? 0;
-  if (missingTerms > 0) return `${missingTerms} term${missingTerms === 1 ? "" : "s"} nearby`;
-  return contextualOpenLabel(document);
+  if (missingTerms > 0) {
+    return { label: `${missingTerms} term${missingTerms === 1 ? "" : "s"} nearby`, icon: Tag };
+  }
+  return null;
 }
 
 function EvidencePanelRow({ label, value }: { label: string; value: string }) {
@@ -476,7 +487,9 @@ function SelectedDocumentEvidencePanel({
   return (
     <aside
       aria-label="Selected document evidence"
-      className="sticky top-3 grid gap-3 self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-soft)]"
+      // Sidebar-only surface: below xl it would land under the whole result list, far from
+      // the card that opened it, so it stays out of the phone and tablet layouts.
+      className="sticky top-3 hidden gap-3 self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-soft)] xl:grid"
     >
       <div className="flex items-start gap-2">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -1003,6 +1016,7 @@ function DocumentSearchResultsPanelImpl({
                 const relevanceDisplay = relevanceTone(document);
                 const fileKind = documentFileKind(document.file_name, "DOC");
                 const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
+                const evidence = evidenceBadge(document);
                 const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
                 const openHref = documentOpenHref(document);
                 const selected = selectedDocument?.document_id === document.document_id;
@@ -1012,36 +1026,31 @@ function DocumentSearchResultsPanelImpl({
                     className={cn(
                       sourceCard,
                       "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
+                      // Selection only drives the xl evidence panel, so the accent ring stays
+                      // off at widths where nothing is selectable.
                       selected &&
-                        "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
+                        "xl:border-[color:var(--clinical-accent-border)] xl:ring-1 xl:ring-[color:var(--clinical-accent)]/20",
                     )}
                   >
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 p-3 sm:px-4">
                       <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
                       <div className="min-w-0">
-                        <div className="flex min-w-0 items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-                              <span>{documentKindLabel(document)}</span>
-                              {index === 0 ? (
-                                <>
-                                  <span
-                                    className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span className="text-[color:var(--clinical-accent)]">Best match</span>
-                                </>
-                              ) : null}
-                            </p>
-                            <a
-                              href={openHref}
-                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
-                            >
-                              <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                            </a>
-                          </div>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <p className="flex flex-wrap items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                          <span>{documentKindLabel(document)}</span>
+                          {index === 0 ? (
+                            <>
+                              <span className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]" aria-hidden="true" />
+                              <span className="text-[color:var(--clinical-accent)]">Best match</span>
+                            </>
+                          ) : null}
+                        </p>
+                        <a
+                          href={openHref}
+                          className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                        >
+                          <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
+                        </a>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           <DocumentBadge
                             variant={relevanceVariant}
                             icon={Target}
@@ -1057,17 +1066,17 @@ function DocumentSearchResultsPanelImpl({
                           >
                             {metadataBadgeLabel(document)}
                           </DocumentBadge>
-                          <DocumentBadge
-                            variant={document.tableCount > 0 || document.imageCount > 0 ? "relevant" : "neutral"}
-                            icon={
-                              document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
-                            }
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {cautionBadgeLabel(document)}
-                          </DocumentBadge>
+                          {evidence ? (
+                            <DocumentBadge
+                              variant="relevant"
+                              icon={evidence.icon}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs"
+                            >
+                              {evidence.label}
+                            </DocumentBadge>
+                          ) : null}
                         </div>
-                        <p className={cn("mt-1.5 line-clamp-2 text-sm leading-6", textMuted)}>
+                        <p className={cn("mt-2 line-clamp-2 text-sm leading-6", textMuted)}>
                           <SafeBoldText text={summaryText} />
                         </p>
                         <DocumentTagCloud
@@ -1080,20 +1089,27 @@ function DocumentSearchResultsPanelImpl({
                         />
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
-                      <DocumentActionButton
-                        onClick={() => setSelectedDocumentId(document.document_id)}
-                        icon={Sparkles}
-                        className={cn(
-                          "min-h-tap rounded-lg px-2.5 text-xs",
-                          selected
-                            ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "text-[color:var(--text)]",
-                        )}
-                        aria-label={`Preview evidence for ${document.title}`}
-                      >
-                        Preview
-                      </DocumentActionButton>
+                    {/* Even 3-up split below `sm` so "Answer" never wraps onto its own line;
+                        the desktop row keeps Preview and pushes Answer to the far edge. */}
+                    <div className="grid grid-cols-3 items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:flex sm:flex-wrap sm:px-3">
+                      {/* `contents` wrapper rather than `hidden` on the button itself:
+                          `documentActionClass` already sets `inline-flex` and `cn` is a plain
+                          join, so the two display utilities would race in the cascade. */}
+                      <span className="hidden xl:contents">
+                        <DocumentActionButton
+                          onClick={() => setSelectedDocumentId(document.document_id)}
+                          icon={Sparkles}
+                          className={cn(
+                            "min-h-tap rounded-lg px-2.5 text-xs",
+                            selected
+                              ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                              : "text-[color:var(--text)]",
+                          )}
+                          aria-label={`Preview evidence for ${document.title}`}
+                        >
+                          Preview
+                        </DocumentActionButton>
+                      </span>
                       <DocumentActionLink
                         href={openHref}
                         className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
@@ -1112,7 +1128,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onAnswerFromDocument(document.document_id)}
                         icon={Sparkles}
-                        className="ml-auto min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:ml-auto"
                         aria-label={`Answer from ${document.title}`}
                       >
                         Answer
