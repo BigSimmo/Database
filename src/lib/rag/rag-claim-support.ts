@@ -1,5 +1,27 @@
-import { applyNumericVerification, extractClinicalValueAtoms, type ClinicalValueAtom } from "@/lib/answer-verification";
-import { SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag/rag-routing";
+import {
+  adjacentLabelledNumericBandConflicts,
+  applyNumericVerification,
+  containsLabelledNumericBand,
+  containsNumericBandReference,
+  detectLabelledNumericBandConflicts,
+  extractClinicalValueAtoms,
+  failClosedForLabelledNumericBandConflict,
+  labelledNumericBandConflictsAffectingText,
+  LABELLED_NUMERIC_BAND_CONFLICT_NOTE,
+  textReferencesAdjacentBandConflict,
+  type ClinicalValueAtom,
+  type LabelledNumericBandConflict,
+} from "@/lib/answer-verification";
+import { hasForeignMedicationClinicalValueBinding, medicationEntitiesInText } from "@/lib/medication-entities";
+import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
+import { appendRoutingReason, SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag/rag-routing";
+import {
+  atomicNmhsClozapineRedRangeSegment,
+  reflowBoundedSourceLines,
+  reflowWrappedAgitationDoseLines,
+  reflowWrappedEscalationRecipientLines,
+} from "@/lib/rag/rag-source-segmentation";
+import { sourceTextForClinicalProsePreservingBreaks } from "@/lib/source-text-sanitizer";
 import type { CitationProvenance, EvidenceAssessment, RagAnswer, SearchResult, SupportedClaim } from "@/lib/types";
 
 const acceptedProvenance = new Set<CitationProvenance>([
@@ -10,10 +32,9 @@ const acceptedProvenance = new Set<CitationProvenance>([
 ]);
 
 const highRiskPattern =
-  /\b(?:contraindicat(?:ed|ion)?|must\s+not|do\s+not\s+use|withhold|cease|stop|discontinue|continue|do\s+not\s+stop|urgent(?:ly)?|immediate(?:ly)?|emergency|pregnan(?:cy|t)|renal|hepatic|dose|dosage|route|oral(?:ly)?|intramuscular(?:ly)?|subcutaneous(?:ly)?|sublingual(?:ly)?|intravenous(?:ly)?|\bim\b|\bpo\b|daily|weekly|hourly|nightly|fortnightly|monthly|threshold|cut-?off|monitor(?:ing)?|repeat|review interval|mg|mcg|mmol|x10)\b/i;
+  /\b(?:administ(?:er|ered|ering|ration)|admit(?:ted|ting)?|avoid|contraindicat(?:ed|ion)?|must\s+not|do\s+not\s+use|withhold|cease|stop|discontinue|continue|do\s+not\s+stop|escalat(?:e|ed|es|ing|ion)|give|given|prescrib(?:e|ed|ing)|refer(?:red|ring|ral)?|restrain(?:ed|ing|t)?|sedat(?:e|ed|ing|ion)|start(?:ed|ing)?|transfer(?:red|ring)?|urgent(?:ly)?|immediate(?:ly)?|emergency|pregnan(?:cy|t)|renal|hepatic|dose|dosage|route|oral(?:ly)?|intramuscular(?:ly)?|subcutaneous(?:ly)?|sublingual(?:ly)?|intravenous(?:ly)?|\bim\b|\bpo\b|daily|weekly|hourly|nightly|fortnightly|monthly|threshold|cut-?off|monitor(?:ing)?|repeat|review interval|mg|mcg|mmol|x10)\b/i;
 
-const entityPattern =
-  /\b(?:clozapine|lithium|valproate|sodium valproate|olanzapine|quetiapine|risperidone|aripiprazole|haloperidol|lamotrigine|carbamazepine|fluoxetine|sertraline|escitalopram|venlafaxine|drug\s+[a-z])\b/gi;
+const genericDrugEntityPattern = /\bdrug\s+[a-z]\b/gi;
 
 const topicStopwords = new Set([
   "the",
@@ -31,6 +52,7 @@ const topicStopwords = new Set([
   "are",
   "be",
   "when",
+  "whenever",
   "below",
   "above",
   "at",
@@ -73,7 +95,8 @@ const triggerTopicStopwords = new Set([
 
 function cleanText(value: string) {
   return value
-    .replace(/[*_`#>]/g, "")
+    .replace(/^[ \t]*>[ \t]+(?=[A-Za-z*_`#])/gm, "")
+    .replace(/[*_`#]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -86,8 +109,11 @@ function splitClaims(value: string) {
   // bullet claims into one compound claim that no single chunk can support.
   return value
     .replace(/\r\n?/g, "\n")
-    .replace(/[*_`#>]/g, "")
-    .split(/(?<=[.!?])(?:[ \t]+|\n+)|\n+/)
+    .replace(/^[ \t]*>[ \t]+(?=[A-Za-z*_`#])/gm, "")
+    .replace(/[*_`#]/g, "")
+    .split(
+      /\s*;\s*|(?<=[.!?])(?:[ \t]+|\n+)|\n+|,\s*(?:and|but|then)\s+(?=(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|sedate|start|stop|use|withhold)\b)|\s+(?:and|then)\s+(?=(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|sedate|start|stop|use|withhold)\b)/i,
+    )
     .map(cleanText)
     .filter((claim) => claim.length >= 8);
 }
@@ -119,7 +145,10 @@ export function clinicalValueAtomKey(atom: ClinicalValueAtom) {
 }
 
 function entities(value: string) {
-  return new Set(Array.from(value.toLowerCase().matchAll(entityPattern), (match) => match[0].replace(/\s+/g, " ")));
+  return new Set([
+    ...medicationEntitiesInText(value),
+    ...Array.from(value.toLowerCase().matchAll(genericDrugEntityPattern), (match) => match[0].replace(/\s+/g, " ")),
+  ]);
 }
 
 function topicTokens(value: string) {
@@ -135,7 +164,7 @@ function topicTokens(value: string) {
 function highRiskTriggerTokens(value: string) {
   const tokens = new Set<string>();
   const triggerPatterns = [
-    /\b(?:when|if|unless|during|after|before)\b\s*([^,;.!?]+?)(?=\s*,|\s+\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b|[;.!?]|$)/gi,
+    /\b(?:when|whenever|if|unless|during|after|before)\b\s*([^,;.!?]+?)(?=\s*,|\s+\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b|[;.!?]|$)/gi,
     /\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b[^,;.!?]{0,80}?\bfor\b\s*([^,;.!?]+?)(?=\s+\bfor\b|\s*,|[;.!?]|$)/gi,
   ];
   for (const pattern of triggerPatterns) {
@@ -168,12 +197,46 @@ type ActionPolarity =
   | "use_allowed"
   | "urgent"
   | "urgent_not_required"
+  | "escalate"
+  | "do_not_escalate"
   | "routine"
   | "none";
 
 function hasNegatedUrgency(value: string) {
   return /\b(?:not urgent|no urgent escalation|urgent escalation (?:is )?not required|urgent escalation (?:is )?unnecessary)\b/i.test(
     value,
+  );
+}
+
+function hasNegatedEscalation(value: string) {
+  return (
+    /\b(?:(?:(?:do|must|should|need)\s+(?:[a-z]+ly\s+){0,2}not|(?:should\s+)?never)\s+(?:(?:urgently|immediately|routinely)\s+)?(?:be\s+)?escalat(?:e|ed|es|ing)|no\s+need\s+to\s+escalate)\b/i.test(
+      value,
+    ) ||
+    /\b(?:is|are|was|were)\s+not\s+to\s+be\s+escalated\b/i.test(value) ||
+    /\b(?:there\s+is\s+)?no\s+(?:need|requirement)\s+(?:for|to)\s+(?:urgent\s+)?escalat(?:e|ion)\b/i.test(value) ||
+    /\bno\s+(?:urgent\s+)?escalation\s+(?:(?:is|was)\s+)?(?:needed|required|indicated|necessary|appropriate|recommended)\b/i.test(
+      value,
+    ) ||
+    /\bescalation\s+(?:(?:is|was|remains)\s+)?(?:not\s+(?:needed|required|indicated|necessary|appropriate|recommended)|unnecessary|contraindicated)\b/i.test(
+      value,
+    ) ||
+    /\bescalation\s+(?:should|must)\s+not\s+(?:be\s+)?(?:undertaken|performed|required|occur|proceed)\b/i.test(value)
+  );
+}
+
+function hasPositiveEscalation(value: string) {
+  if (hasNegatedEscalation(value)) return false;
+  return (
+    /\b(?:escalate|escalates)\b/i.test(value) ||
+    /\b(?:should|must|need(?:s)?\s+to|is\s+to|are\s+to|can|may|is|are|was|were|be)\s+(?:urgently\s+)?escalated\b/i.test(
+      value,
+    ) ||
+    /\bescalation\s+(?:(?:is|are|was|were|remains?)\s+)?(?:needed|required|indicated|necessary|appropriate|recommended|warranted)\b/i.test(
+      value,
+    ) ||
+    /\b(?:requires?|needs?|warrants?)\s+(?:urgent\s+)?escalation\b/i.test(value) ||
+    /\b(?:consider|recommend(?:s|ed)?)\s+escalating\b/i.test(value)
   );
 }
 
@@ -185,7 +248,9 @@ function actionPolarity(value: string): ActionPolarity {
   if (/\bcontinue\b/i.test(value)) return "continue";
   if (/\b(?:may|can)\s+(?:be\s+)?use|not\s+contraindicated\b/i.test(value)) return "use_allowed";
   if (/\b(?:contraindicat(?:ed|ion)?|must\s+not|do\s+not\s+use|avoid)\b/i.test(value)) return "do_not_use";
+  if (hasNegatedEscalation(value)) return "do_not_escalate";
   if (hasNegatedUrgency(value)) return "urgent_not_required";
+  if (hasPositiveEscalation(value)) return "escalate";
   if (/\b(?:urgent(?:ly)?|immediate(?:ly)?|emergency)\b/i.test(value)) return "urgent";
   if (/\b(?:next appointment|routine|non-urgent)\b/i.test(value)) return "routine";
   return "none";
@@ -194,7 +259,17 @@ function actionPolarity(value: string): ActionPolarity {
 function compatiblePolarity(claim: string, evidence: string) {
   const expected = actionPolarity(claim);
   if (expected === "none") return true;
-  return actionPolarity(evidence) === expected;
+  // A retrieved chunk can contain several independent directives. Comparing
+  // against one chunk-global first match rejects a directly supporting later
+  // sentence merely because an unrelated earlier sentence says "stop" or
+  // "do not use". Compare the claim with each action clause instead.
+  const clauses = evidence
+    .split(
+      /(?:[.!?;\n]+|,\s+(?:but|and)\s+|\s+(?:but|and)\s+(?=(?:do|must|should|never|avoid|cease|continue|discontinue|escalat|give|stop|urgent|withhold)\b))/i,
+    )
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return clauses.some((clause) => actionPolarity(clause) === expected);
 }
 
 type SafetyDimension = "pregnancy" | "renal" | "hepatic" | "urgent_escalation" | "urgent_escalation_not_required";
@@ -215,6 +290,152 @@ function safetyDimensions(value: string) {
 function compatibleSafetyDimensions(claim: string, evidence: string) {
   const evidenceDimensions = safetyDimensions(evidence);
   return [...safetyDimensions(claim)].every((dimension) => evidenceDimensions.has(dimension));
+}
+
+type DirectiveAction =
+  | "give"
+  | "admit"
+  | "transfer"
+  | "refer"
+  | "restrain"
+  | "sedate"
+  | "start"
+  | "stop"
+  | "continue"
+  | "avoid"
+  | "monitor"
+  | "repeat"
+  | "escalate"
+  | "use";
+
+const boundedDirectiveNegation = String.raw`(?:not(?:\s+ever)?|never|under\s+no\s+circumstances|by\s+no\s+means)\s+(?:[a-z]+ly\s+){0,2}(?:(?:to\s+)?be\s+)?`;
+const boundedDirectiveAdverbs = String.raw`(?:[a-z]+ly\s+){0,2}`;
+const positiveDirectivePredicate = String.raw`(?:recommended|indicated|required|needed|appropriate|necessary|advised|warranted)`;
+const negativeDirectivePredicate = String.raw`(?:unnecessary|unwarranted|inadvisable|inappropriate|contraindicated)`;
+const directiveActionDefinitions: Array<{
+  action: DirectiveAction;
+  forms: string;
+  pattern: RegExp;
+  negatedPattern: RegExp;
+  postNegatedPattern: RegExp;
+}> = [
+  ["give", String.raw`administ(?:er|ered|ering|ration)|give|given|prescrib(?:e|ed|ing)`],
+  ["admit", String.raw`admit(?:ted|ting)?|admission`],
+  ["transfer", String.raw`transfer(?:red|ring)?`],
+  ["refer", String.raw`refer(?:red|ring|ral)?`],
+  ["restrain", String.raw`restrain(?:ed|ing|t)?`],
+  ["sedate", String.raw`sedat(?:e|ed|ing|ion)`],
+  ["start", String.raw`start(?:ed|ing)?`],
+  [
+    "stop",
+    String.raw`stop(?:ped|ping)?|cease(?:d|s|ing)?|discontinu(?:e|ed|es|ing|ation)|withhold|withheld|withholding`,
+  ],
+  ["continue", String.raw`continu(?:e|ed|es|ing|ation)`],
+  ["avoid", String.raw`avoid(?:ed|s|ing)?`],
+  ["monitor", String.raw`monitor(?:ed|s|ing)?`],
+  ["repeat", String.raw`repeat(?:ed|s|ing)?`],
+  ["escalate", String.raw`escalat(?:e|ed|es|ing|ion)`],
+  ["use", String.raw`use|used|using`],
+].map(([action, forms]) => ({
+  action: action as DirectiveAction,
+  forms,
+  pattern: new RegExp(String.raw`\b(?:${forms})\b`, "i"),
+  negatedPattern: new RegExp(String.raw`\b${boundedDirectiveNegation}(?:${forms})\b`, "i"),
+  postNegatedPattern: new RegExp(
+    String.raw`(?:\brefrain\s+from\s+(?:${forms})\b|\b(?:do|does|did)\s+not\s+need\s+to\s+(?:${forms})\b|\b(?:it\s+)?(?:is|was)\s+not\s+${boundedDirectiveAdverbs}${positiveDirectivePredicate}\s+to\s+(?:${forms})\b|\bthere\s+(?:is|was)\s+no\s+(?:indication|need|requirement|recommendation)\s+(?:to|for)\s+(?:${forms})\b|\bno\s+(?:need|requirement)\s+(?:to|for)\s+(?:${forms})\b|\bno\s+(?:${forms})\b[^.!?;\n]{0,60}\b(?:(?:is|are|was|were)\s+${boundedDirectiveAdverbs})?${positiveDirectivePredicate}\b|\b(?:${forms})\b[^.!?;\n]{0,60}\b(?:is|are|was|were)\s+${boundedDirectiveAdverbs}(?:not\s+(?:ever\s+)?${boundedDirectiveAdverbs}${positiveDirectivePredicate}|${negativeDirectivePredicate})\b)`,
+    "i",
+  ),
+}));
+
+function directiveActions(value: string) {
+  const actions = new Set<DirectiveAction>();
+  for (const definition of directiveActionDefinitions) {
+    if (definition.pattern.test(value)) actions.add(definition.action);
+  }
+  return actions;
+}
+
+function negatedDirectiveActions(value: string) {
+  const actions = new Set<DirectiveAction>();
+  for (const definition of directiveActionDefinitions) {
+    if (definition.negatedPattern.test(value) || definition.postNegatedPattern.test(value)) {
+      actions.add(definition.action);
+    }
+  }
+  if (hasNegatedEscalation(value)) actions.add("escalate");
+  return actions;
+}
+
+const directiveImperativeForms: Record<DirectiveAction, string> = {
+  give: String.raw`administer|give|prescribe`,
+  admit: "admit",
+  transfer: "transfer",
+  refer: "refer",
+  restrain: "restrain",
+  sedate: "sedate",
+  start: "start",
+  stop: String.raw`stop|cease|discontinue|withhold`,
+  continue: "continue",
+  avoid: "avoid",
+  monitor: "monitor",
+  repeat: "repeat",
+  escalate: "escalate",
+  use: "use",
+};
+
+function normativeDirectiveActions(value: string) {
+  const actions = new Set<DirectiveAction>();
+  const negated = negatedDirectiveActions(value);
+  for (const definition of directiveActionDefinitions) {
+    if (!definition.pattern.test(value)) continue;
+    if (negated.has(definition.action)) {
+      actions.add(definition.action);
+      continue;
+    }
+    const imperative = directiveImperativeForms[definition.action];
+    const descriptiveContext =
+      /\b(?:audit|case|record(?:ed|s)?|report(?:ed|s)?|histor(?:y|ical)|observed|patient\s+chart|progress\s+notes?|EHR|electronic\s+health\s+record|at\s+this\s+visit|visit\s+note|clinical\s+record)\b/i.test(
+        value,
+      );
+    const hasNormativeSignal =
+      new RegExp(
+        String.raw`(?:^|[.!?;:,]\s*|\b(?:and|then)\s+)${boundedDirectiveAdverbs}(?:${imperative})\b`,
+        "i",
+      ).test(value) ||
+      new RegExp(
+        String.raw`\b(?:should|must|need(?:s)?\s+to|recommended\s+to|required\s+to|is\s+to|are\s+to)\s+(?:${boundedDirectiveNegation})?${boundedDirectiveAdverbs}(?:be\s+)?(?:${definition.forms})\b`,
+        "i",
+      ).test(value) ||
+      (!descriptiveContext &&
+        new RegExp(
+          String.raw`\b(?:${definition.forms})\b[^.!?;\n]{0,60}\b(?:is|are|was|were|remains?)\s+${boundedDirectiveAdverbs}(?:${positiveDirectivePredicate}|${negativeDirectivePredicate})\b`,
+          "i",
+        ).test(value)) ||
+      new RegExp(
+        String.raw`\b(?:requires?|needs?|warrants?|recommends?)\s+(?:urgent\s+|immediate\s+)?(?:${definition.forms})\b`,
+        "i",
+      ).test(value) ||
+      (!descriptiveContext &&
+        new RegExp(String.raw`\b(?:is|are)\s+${boundedDirectiveAdverbs}(?:${definition.forms})\b`, "i").test(value));
+    if (hasNormativeSignal) actions.add(definition.action);
+  }
+  return actions;
+}
+
+function compatibleDirectiveActions(claim: string, evidence: string) {
+  const expected = directiveActions(claim);
+  if (expected.size === 0) return true;
+  const present = directiveActions(evidence);
+  const expectedNegated = negatedDirectiveActions(claim);
+  const presentNegated = negatedDirectiveActions(evidence);
+  const expectedNormative = normativeDirectiveActions(claim);
+  const presentNormative = normativeDirectiveActions(evidence);
+  return [...expected].every(
+    (action) =>
+      present.has(action) &&
+      expectedNegated.has(action) === presentNegated.has(action) &&
+      (!expectedNormative.has(action) || presentNormative.has(action)),
+  );
 }
 
 // Exported so the extractive figure-promotion guard (rag-extractive-answer.ts) can check a
@@ -246,12 +467,13 @@ export function sourceEvidenceText(source: SearchResult) {
     .join(" ");
 }
 
-function sourceSupportsClaim(claim: string, source: SearchResult) {
-  const evidence = sourceEvidenceText(source);
+function evidenceTextSupportsClaim(claim: string, evidence: string) {
   const claimEntities = entities(claim);
   const evidenceEntities = entities(evidence);
   if (claimEntities.size > 0 && [...claimEntities].some((entity) => !evidenceEntities.has(entity))) return false;
+  if (hasForeignMedicationClinicalValueBinding(claim, evidence)) return false;
   if (!compatiblePolarity(claim, evidence)) return false;
+  if (!compatibleDirectiveActions(claim, evidence)) return false;
   if (!compatibleSafetyDimensions(claim, evidence)) return false;
   if (!compatibleHighRiskTrigger(claim, evidence)) return false;
 
@@ -262,6 +484,392 @@ function sourceSupportsClaim(claim: string, source: SearchResult) {
   const evidenceTopics = topicTokens(evidence);
   const matchedTopics = [...claimTopics].filter((token) => evidenceTopics.has(token)).length;
   return claimTopics.size === 0 || matchedTopics / claimTopics.size >= 0.5;
+}
+
+function usesSourceBoundComparisonReflow(source: SearchResult, claim: string) {
+  const knownPolicySource =
+    /^(?:MHSP\.AdmissionCommunityPts|MHSP\.Discharge)\.pdf$/i.test(source.file_name) ||
+    /^(?:Admission of Community Patients|Discharge Planning for Community Patients)(?:\s*\([^)]+\))?\.pdf$/i.test(
+      source.file_name,
+    ) ||
+    /^(?:Admission Of Community Patients|Discharge Planning For Community Patients)(?:\s*\([^)]+\))?$/i.test(
+      source.title,
+    );
+  const knownRequirementClaim =
+    /\b(?:medical clearance|prioriti[sz]ation of beds?|locate (?:an? )?bed|high[\s-]observation beds?|discharge planning|discharge plans?|ongoing care arrangements?|admissions? accompanied by police)\b/i.test(
+      claim,
+    );
+  return knownPolicySource && knownRequirementClaim;
+}
+
+function sourceEvidenceClaimSegments(source: SearchResult, claim: string) {
+  const split = (value: string | null | undefined, context?: string | null, reflowVisualLines = false) => {
+    const rawValue = reflowWrappedAgitationDoseLines(reflowWrappedEscalationRecipientLines(value ?? ""));
+    const blocks = reflowVisualLines
+      ? reflowBoundedSourceLines(sourceTextForClinicalProsePreservingBreaks(rawValue))
+      : [rawValue];
+    return blocks.flatMap((block) => {
+      const sharedConditional = block.match(/^\s*((?:when|whenever|if|unless)\b[^,;.!?]+),?/i)?.[1];
+      return block
+        .split(
+          /\s*;\s*|(?<=[.!?])(?:[ \t]+|\n+)|\n+|,\s*(?:but|while|whereas)\s+|\s+(?:while|whereas)\s+|,?\s+and\s+(?!a\s+(?:second|third|fourth|\d+(?:st|nd|rd|th))\s+dose\s+\d+(?:\.\d+)?\s*(?:seconds?|minutes?|hours?|days?)\b)(?=(?:a|an|the|another|other|it|this|that|they|these|those|admission|escalation|referral|restraint|sedation|transfer)\b)/i,
+        )
+        .map((segment, index) =>
+          [context, index > 0 && sharedConditional ? `${sharedConditional}, ${segment.trim()}` : segment.trim()]
+            .filter(Boolean)
+            .join(". "),
+        )
+        .filter((segment) => segment.length >= 8);
+    });
+  };
+  const sourceContext = [source.title, source.section_heading].filter(Boolean).join(" ");
+  const reflowComparisonContent = usesSourceBoundComparisonReflow(source, claim);
+  const atomicClozapineRedRange = atomicNmhsClozapineRedRangeSegment({
+    sourceLabel: [source.title, source.file_name].filter(Boolean).join(" "),
+    content: source.content ?? "",
+  });
+  return [
+    ...(atomicClozapineRedRange ? [`${sourceContext}. ${atomicClozapineRedRange}`] : []),
+    ...split(source.content, sourceContext, reflowComparisonContent),
+    ...split(source.retrieval_synopsis, sourceContext),
+    ...(source.table_facts ?? []).flatMap((fact) =>
+      split(
+        [[fact.row_label, fact.clinical_parameter, fact.threshold_value].filter(Boolean).join(" "), fact.action]
+          .filter(Boolean)
+          .join(": "),
+        fact.table_title,
+      ),
+    ),
+    ...split(source.index_unit?.content, source.index_unit?.title),
+  ];
+}
+
+function sourceSupportsClaim(claim: string, source: SearchResult) {
+  if (!isHighRiskClaim(claim)) return evidenceTextSupportsClaim(claim, sourceEvidenceText(source));
+  return sourceEvidenceClaimSegments(source, claim).some((evidence) => evidenceTextSupportsClaim(claim, evidence));
+}
+
+/**
+ * Whether one source chunk independently supports every top-level claim in
+ * generated answer prose. This intentionally ignores answer sections: it is
+ * used only to decide whether a retrieved chunk may be promoted into the
+ * top-level citation list, so section-scoped support cannot piggyback on it.
+ */
+export function sourceDirectlySupportsAnswerText(answerText: string, source: SearchResult) {
+  const claims = splitClaims(answerText);
+  return claims.length > 0 && claims.every((claim) => sourceSupportsClaim(claim, source));
+}
+
+function currentGoodDirectSupportSource(source: SearchResult) {
+  const metadata = source.source_metadata;
+  if (metadata?.document_status !== "current" || metadata.extraction_quality !== "good") return false;
+  return !source.indexing_quality || source.indexing_quality.extraction_quality === "good";
+}
+
+function sourceBandConflictSegments(source: SearchResult) {
+  const groupedTableFacts = new Map<string, string[]>();
+  for (const fact of source.table_facts ?? []) {
+    const key = [fact.table_title ?? "", fact.clinical_parameter ?? ""].join("||");
+    const rows = groupedTableFacts.get(key) ?? [];
+    rows.push([fact.row_label, fact.threshold_value, fact.action].filter(Boolean).join(" "));
+    groupedTableFacts.set(key, rows);
+  }
+  const segments = [
+    source.content,
+    source.adjacent_context,
+    source.adjacent_context ? [source.content, source.adjacent_context].filter(Boolean).join("\n") : null,
+    source.adjacent_context ? [source.adjacent_context, source.content].filter(Boolean).join("\n") : null,
+    source.retrieval_synopsis,
+    ...[...groupedTableFacts.entries()].map(([key, rows]) => `${key.replace("||", " ")} ${rows.join("; ")}`),
+    source.index_unit?.content,
+  ].filter((value): value is string => Boolean(value));
+  for (const [key, rows] of groupedTableFacts) {
+    const [tableTitle, clinicalParameter] = key.split("||");
+    const scopeTerms = [tableTitle, clinicalParameter]
+      .map((value) => value.trim())
+      .filter((value) => value && !/^(?:scores?|risks?|severit(?:y|ies)|levels?|bands?|ranges?)$/i.test(value));
+    if (scopeTerms.length === 0) continue;
+    for (const representation of [source.content, source.retrieval_synopsis, source.index_unit?.content]) {
+      if (!representation) continue;
+      const scopedBandSegments = representation
+        .split(/\s*;\s*|(?<=[.!?])\s+|\n+|\s+(?:while|whereas)\s+/i)
+        .map((value) => value.trim())
+        .filter(
+          (value) =>
+            containsLabelledNumericBand(value) &&
+            scopeTerms.some((term) => value.toLowerCase().includes(term.toLowerCase())),
+        );
+      for (const scopedBandSegment of scopedBandSegments) {
+        segments.push(`${scopedBandSegment.replace(/[.!?]\s*$/, ";")} ${rows.join("; ")}`);
+      }
+    }
+  }
+  return segments;
+}
+
+function sourceBandConflicts(source: SearchResult) {
+  return sourceBandConflictSegments(source).flatMap((value) => detectLabelledNumericBandConflicts(value));
+}
+
+/** Same-chunk labelled-band conflicts that specifically affect delivered text. */
+export function sourceLabelledNumericBandConflictsAffectingText(source: SearchResult, text: string, bandContext = "") {
+  return sourceBandConflictSegments(source).flatMap((segment) =>
+    labelledNumericBandConflictsAffectingText(text, segment, bandContext),
+  );
+}
+
+export function sourceHasLabelledNumericBandConflict(source: SearchResult) {
+  return sourceBandConflicts(source).length > 0;
+}
+
+function nonNumericAlternativeAfterBandConflict(answerText: string, conflict: LabelledNumericBandConflict) {
+  let conflictStart = conflict.start;
+  let conflictEnd = conflict.end;
+  while (conflictStart > 0 && /[*_`]/.test(answerText[conflictStart - 1])) conflictStart -= 1;
+  while (conflictEnd < answerText.length && /[*_`]/.test(answerText[conflictEnd])) conflictEnd += 1;
+  const before = answerText.slice(0, conflictStart);
+  const after = answerText.slice(conflictEnd);
+  const actionMatch = before.match(/^(.+)\b(?:when|if)\b[^.!?\n]*$/i);
+  const alternativeMatch = after.match(/^[\s),;:\-]*or\s+(whenever|when|if)\s+([^.!?\n]+)[.!?]?\s*$/i);
+  if (!actionMatch || !alternativeMatch) return null;
+  const alternative = alternativeMatch[2].trim();
+  if (/^(?:it|this|that|they|these|those|otherwise)\b/i.test(alternative)) return null;
+  const condition = alternative.replace(/,\s*irrespective\s+of\s+(?:the\s+)?score\s*$/i, "").trim();
+  if (
+    !condition ||
+    /[,;:]/.test(condition) ||
+    /\b(?:and|but|or|then)\b/i.test(condition) ||
+    directiveActions(condition).size > 0
+  ) {
+    return null;
+  }
+  const candidate = `${actionMatch[1].trim()} ${alternativeMatch[1].toLowerCase()} ${alternative}`
+    .replace(/\s+/g, " ")
+    .replace(/[.!?]*$/, ".");
+  if (/\d/.test(candidate) || extractClinicalValueAtoms(candidate).length > 0) return null;
+  return candidate;
+}
+
+/**
+ * Withhold internally contradictory labelled bands. A single, explicitly
+ * alternative nonnumeric condition may survive only when an existing trusted
+ * citation independently supports the complete reconstructed claim.
+ */
+export function enforceLabelledNumericBandCoherence(
+  answer: RagAnswer,
+  original?: {
+    answerText?: string;
+    sectionTexts?: string[];
+    sectionFields?: Array<{ body: string; citationChunkIds: string[] }>;
+    verificationSources?: SearchResult[];
+    query?: string;
+  },
+): RagAnswer {
+  const answerText = original?.answerText ?? answer.answer;
+  const sectionFields =
+    original?.sectionFields ??
+    original?.sectionTexts?.map((body, index) => ({
+      body,
+      citationChunkIds: answer.answerSections?.[index]?.citation_chunk_ids ?? [],
+    })) ??
+    (answer.answerSections ?? []).map((section) => ({
+      body: section.body,
+      citationChunkIds: section.citation_chunk_ids,
+    }));
+  const sectionTexts = sectionFields.map((section) => section.body);
+  const topLevelConflicts = detectLabelledNumericBandConflicts(answerText);
+  const sectionConflicts = sectionTexts.flatMap((section) => detectLabelledNumericBandConflicts(section));
+  const directQuoteConflicts = (answer.quoteCards ?? []).flatMap((quote) =>
+    detectLabelledNumericBandConflicts(quote.quote),
+  );
+  const coherenceSources = original?.verificationSources ?? answer.sources;
+  const sourceById = new Map(coherenceSources.map((source) => [source.id, source]));
+  const adjacentSourceConflicts = adjacentLabelledNumericBandConflicts(coherenceSources);
+  // Conflict detection is defensive: inspect every cited supporting source,
+  // regardless of whether its provenance is strong enough for promotion.
+  const topLevelCitationIds = answer.citations.map((citation) => citation.chunk_id);
+  const actionableBareNumericBand = (claim: string) =>
+    (directiveActions(claim).size > 0 || /\b(?:urgent(?:ly)?|threshold|score|risk|result)\b/i.test(claim)) &&
+    /(?:[<>≤≥]\s*\d+(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?(?:\s*(?:[-–—]|\bto\b|\bthrough\b)\s*\d+(?:[.,]\d+)?)?)/i.test(claim);
+  const labelledScalarBand = (claim: string) =>
+    /(?:\b(?:very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b[^.!?\n]{0,48}\d|\d[^.!?\n]{0,48}\b(?:very\s+(?:high|low|severe)|borderline|moderate|medium|minimal|normal|high|low|mild|severe|green|amber|red)\b)/i.test(
+      claim,
+    );
+  const needsBandSourceInspection = (claim: string) =>
+    containsNumericBandReference(claim) || actionableBareNumericBand(claim) || labelledScalarBand(claim);
+  const comparisonBandScopes = (() => {
+    if (!answer.preformatted || answer.responseMode !== "comparison_matrix") return [];
+    const entries = (answer.comparisonMatrix?.rows ?? []).flatMap((row) =>
+      row.entries.map((entry) => ({
+        ...entry,
+        parameter: row.parameter,
+        label:
+          answer.comparisonMatrix?.documents.find((document) => document.documentId === entry.documentId)?.title ??
+          entry.documentId,
+      })),
+    );
+    return entries.flatMap((entry) => {
+      const segment = attributedEntrySegment(answerText, entry, entries);
+      return segment && needsBandSourceInspection(segment)
+        ? [{ claim: segment, citationChunkIds: entry.chunkIds }]
+        : [];
+    });
+  })();
+  const proseBandClaimScopes = [
+    ...comparisonBandScopes,
+    ...splitClaims(answerText)
+      .filter(needsBandSourceInspection)
+      .map((claim) => ({ claim, citationChunkIds: topLevelCitationIds })),
+    ...sectionFields.flatMap((section) =>
+      splitClaims(section.body)
+        .filter(needsBandSourceInspection)
+        .map((claim) => ({ claim, citationChunkIds: section.citationChunkIds })),
+    ),
+  ];
+  const quoteBandClaimScopes = (answer.quoteCards ?? [])
+    .map((quote, quoteIndex) => ({ quote, quoteIndex }))
+    .filter(({ quote }) => needsBandSourceInspection(quote.quote))
+    .map(({ quote, quoteIndex }) => ({
+      claim: quote.quote,
+      citationChunkIds: [quote.chunk_id],
+      quoteIndex,
+    }));
+  const sourceConflictsForScopes = (scopes: Array<{ claim: string; citationChunkIds: string[] }>) =>
+    scopes.flatMap(({ claim, citationChunkIds }) =>
+      citationChunkIds.flatMap((chunkId) => {
+        const source = sourceById.get(chunkId);
+        if (!source) return [];
+        const localConflicts = sourceDirectlySupportsAnswerText(claim, source)
+          ? sourceLabelledNumericBandConflictsAffectingText(source, claim, original?.query)
+          : [];
+        const adjacentConflicts = adjacentSourceConflicts
+          .filter(
+            (conflict) =>
+              conflict.chunkIds.includes(chunkId) &&
+              textReferencesAdjacentBandConflict(claim, chunkId, [conflict], original?.query),
+          )
+          .flatMap((conflict) => conflict.conflicts);
+        return [...localConflicts, ...adjacentConflicts];
+      }),
+    );
+  const adjacentConflictChunkIdsForScopes = (scopes: Array<{ claim: string; citationChunkIds: string[] }>) =>
+    scopes.flatMap(({ claim, citationChunkIds }) =>
+      citationChunkIds.flatMap((chunkId) =>
+        adjacentSourceConflicts
+          .filter(
+            (conflict) =>
+              conflict.chunkIds.includes(chunkId) &&
+              textReferencesAdjacentBandConflict(claim, chunkId, [conflict], original?.query),
+          )
+          .flatMap((conflict) => conflict.chunkIds),
+      ),
+    );
+  const citedSourceConflicts = sourceConflictsForScopes(proseBandClaimScopes);
+  const citedAdjacentConflictChunkIds = [...new Set(adjacentConflictChunkIdsForScopes(proseBandClaimScopes))];
+  const quoteScopeConflicts = quoteBandClaimScopes.map((scope) => ({
+    quoteIndex: scope.quoteIndex,
+    chunkId: scope.citationChunkIds[0],
+    conflicts: sourceConflictsForScopes([scope]),
+    adjacentChunkIds: adjacentConflictChunkIdsForScopes([scope]),
+  }));
+  const quoteSourceConflicts = quoteScopeConflicts.flatMap((item) => item.conflicts);
+  const quoteConflicts = [...directQuoteConflicts, ...quoteSourceConflicts];
+  const conflicts = [...topLevelConflicts, ...sectionConflicts, ...citedSourceConflicts];
+  if (conflicts.length === 0 && quoteConflicts.length === 0) return answer;
+
+  if (conflicts.length === 0) {
+    const unsafeQuoteIndexes = new Set([
+      ...(answer.quoteCards ?? [])
+        .map((quote, index) => ({ quote, index }))
+        .filter(({ quote }) => detectLabelledNumericBandConflicts(quote.quote).length > 0)
+        .map(({ index }) => index),
+      ...quoteScopeConflicts.filter((item) => item.conflicts.length > 0).map((item) => item.quoteIndex),
+    ]);
+    const retainedQuoteCards = (answer.quoteCards ?? []).filter((_, index) => !unsafeQuoteIndexes.has(index));
+    const removedChunkIds = [...unsafeQuoteIndexes]
+      .flatMap((index) => [
+        answer.quoteCards?.[index]?.chunk_id,
+        ...(quoteScopeConflicts.find((item) => item.quoteIndex === index)?.adjacentChunkIds ?? []),
+      ])
+      .filter((chunkId): chunkId is string => Boolean(chunkId));
+    return {
+      ...answer,
+      confidence: answer.confidence === "high" ? "medium" : answer.confidence,
+      quoteCards: retainedQuoteCards,
+      conflictsOrGaps: [
+        ...(answer.conflictsOrGaps ?? []).filter(
+          (item) => !item.message.startsWith(LABELLED_NUMERIC_BAND_CONFLICT_NOTE),
+        ),
+        {
+          type: "conflict",
+          message: `${LABELLED_NUMERIC_BAND_CONFLICT_NOTE} The conflicting quote excerpt was withheld.`,
+          ...(removedChunkIds.length > 0 ? { source_chunk_ids: [...new Set(removedChunkIds)] } : {}),
+        },
+      ],
+      routingReason: appendRoutingReason(answer.routingReason, "numeric_band_conflict_quote_withheld"),
+    };
+  }
+
+  const reconstructedCandidate =
+    answer.grounded &&
+    answer.confidence !== "unsupported" &&
+    !answer.preformatted &&
+    topLevelConflicts.length === 1 &&
+    sectionConflicts.length === 0
+      ? nonNumericAlternativeAfterBandConflict(answerText, topLevelConflicts[0])
+      : null;
+  if (!reconstructedCandidate) {
+    return failClosedForLabelledNumericBandConflict(answer, conflicts, citedAdjacentConflictChunkIds);
+  }
+
+  // Detection runs on the raw provider text so score-band syntax is not lost,
+  // but recovered prose must still cross the ordinary answer-text boundary.
+  // Revalidate after sanitizing because artifact removal can change the claim
+  // that is ultimately shown and cited.
+  const candidate = sanitizeAnswerText(reconstructedCandidate);
+  if (
+    !candidate ||
+    /\d/.test(candidate) ||
+    extractClinicalValueAtoms(candidate).length > 0 ||
+    detectLabelledNumericBandConflicts(candidate).length > 0
+  ) {
+    return failClosedForLabelledNumericBandConflict(answer, conflicts, citedAdjacentConflictChunkIds);
+  }
+
+  const retainedCitations = answer.citations.filter((citation) => {
+    if (!acceptedProvenance.has(citation.provenance ?? "model_selected")) return false;
+    const source = sourceById.get(citation.chunk_id);
+    if (!source) return false;
+    return currentGoodDirectSupportSource(source) && sourceDirectlySupportsAnswerText(candidate, source);
+  });
+  if (retainedCitations.length === 0) {
+    return failClosedForLabelledNumericBandConflict(answer, conflicts, citedAdjacentConflictChunkIds);
+  }
+
+  const affectedLabels = [...new Set(conflicts.flatMap((item) => item.labels))];
+  return {
+    ...answer,
+    answer: candidate,
+    confidence: answer.confidence === "high" ? "medium" : answer.confidence,
+    citations: retainedCitations,
+    answerSections: [],
+    quoteCards: [],
+    conflictsOrGaps: [
+      ...(answer.conflictsOrGaps ?? []).filter((item) => !item.message.startsWith(LABELLED_NUMERIC_BAND_CONFLICT_NOTE)),
+      {
+        type: "conflict",
+        message: `${LABELLED_NUMERIC_BAND_CONFLICT_NOTE} Only the independently supported nonnumeric alternative is shown.${
+          affectedLabels.length > 0 ? ` Affected labels: ${affectedLabels.join(", ")}.` : ""
+        }`,
+        source_chunk_ids: [...new Set(retainedCitations.map((citation) => citation.chunk_id))],
+      },
+    ],
+    routingReason: appendRoutingReason(answer.routingReason, "numeric_band_conflict_nonnumeric_recovery"),
+    supportedClaims: undefined,
+    evidenceAssessments: undefined,
+    unverifiedNumericTokens: undefined,
+    faithfulnessWarning: undefined,
+  };
 }
 
 function sourceIsRelated(claim: string, source: SearchResult) {
@@ -278,6 +886,7 @@ type ClaimInput = {
   text: string;
   chunkIds: string[];
   provenance: CitationProvenance;
+  sectionIndex?: number;
   comparisonEntries?: Array<{ label: string; parameter: string; value: string | null; chunkIds: string[] }>;
   requiresIndividualAttribution?: boolean;
 };
@@ -356,12 +965,18 @@ function claimInputs(answer: RagAnswer): { inputs: ClaimInput[]; unassessedClaim
   const eligibleCitationIds = (answer.citations ?? [])
     .filter((citation) => acceptedProvenance.has(citation.provenance ?? "model_selected"))
     .map((citation) => citation.chunk_id);
-  const scopedInput = (text: string, fallback: string[], provenance: CitationProvenance): ClaimInput => {
+  const scopedInput = (
+    text: string,
+    fallback: string[],
+    provenance: CitationProvenance,
+    sectionIndex?: number,
+  ): ClaimInput => {
     if (!answer.preformatted || answer.responseMode !== "comparison_matrix") {
       return {
         text,
         chunkIds: fallback,
         provenance,
+        sectionIndex,
         requiresIndividualAttribution: answer.responseMode === "comparison_matrix",
       };
     }
@@ -379,21 +994,32 @@ function claimInputs(answer: RagAnswer): { inputs: ClaimInput[]; unassessedClaim
       text,
       chunkIds: [...new Set(comparisonEntries.flatMap((entry) => entry.chunkIds))],
       provenance,
+      sectionIndex,
       comparisonEntries,
     };
   };
   const split =
-    answer.responseMode === "comparison_matrix" && !answer.preformatted ? splitComparisonClaims : splitClaims;
+    answer.responseMode === "comparison_matrix"
+      ? answer.preformatted
+        ? (value: string) => {
+            const claim = cleanText(value);
+            return claim.length >= 8 ? [claim] : [];
+          }
+        : splitComparisonClaims
+      : splitClaims;
   const topLevelClaims = split(answer.answer);
   const topLevel = topLevelClaims
     .slice(0, maximumAssessedClaimCount)
     .map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
-  const sectionSplits = (answer.answerSections ?? []).map((section) => ({
+  const sectionSplits = (answer.answerSections ?? []).map((section, sectionIndex) => ({
     claims: split(section.body),
     chunkIds: section.citation_chunk_ids,
+    sectionIndex,
   }));
-  const sections = sectionSplits.flatMap(({ claims: sectionClaims, chunkIds }) =>
-    sectionClaims.slice(0, maximumAssessedClaimCount).map((text) => scopedInput(text, chunkIds, "section_selected")),
+  const sections = sectionSplits.flatMap(({ claims: sectionClaims, chunkIds, sectionIndex }) =>
+    sectionClaims
+      .slice(0, maximumAssessedClaimCount)
+      .map((text) => scopedInput(text, chunkIds, "section_selected", sectionIndex)),
   );
   return {
     inputs: [...topLevel, ...sections],
@@ -463,7 +1089,7 @@ function evidenceAssessment(source: SearchResult, claims: SupportedClaim[], inpu
   };
 }
 
-export function assessClaimSupport(answer: RagAnswer) {
+function assessClaimSupportDetails(answer: RagAnswer) {
   const sourceById = new Map(answer.sources.map((source) => [source.id, source]));
   const documentLookupAnswer =
     answer.responseMode === "document_lookup" ||
@@ -479,24 +1105,41 @@ export function assessClaimSupport(answer: RagAnswer) {
   const evidenceAssessments = Object.fromEntries(
     answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
   );
-  return { claims, evidenceAssessments, unassessedClaims };
+  return { claims, evidenceAssessments, inputs, unassessedClaims };
+}
+
+export function assessClaimSupport(answer: RagAnswer) {
+  const { claims, evidenceAssessments } = assessClaimSupportDetails(answer);
+  return { claims, evidenceAssessments };
+}
+
+function enforceUnassessedNumericClaims(answer: RagAnswer, unassessedClaims: string[]): RagAnswer {
+  const unassessedNumericClaims = unassessedClaims.filter((claim) => extractClinicalValueAtoms(claim).length > 0);
+  return unassessedNumericClaims.length > 0
+    ? applyNumericVerification(answer, undefined, { unassessedClaimTexts: unassessedNumericClaims })
+    : answer;
 }
 
 export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
-  const { claims, evidenceAssessments, unassessedClaims } = assessClaimSupport(answer);
+  const { claims, evidenceAssessments, inputs, unassessedClaims } = assessClaimSupportDetails(answer);
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {
     return { ...answer, supportedClaims: claims, evidenceAssessments };
   }
-  const highRiskGap = claims.some((claim) => claim.riskClass === "high_risk" && claim.supportStatus !== "direct");
-  const materialGovernanceGap = claims.some(
-    (claim) =>
-      claim.riskClass === "high_risk" &&
-      claim.supportingChunkIds.some((chunkId) => {
-        const assessment = evidenceAssessments[chunkId];
-        return assessment?.currency === "outdated" || assessment?.extractionQuality === "poor";
-      }),
+  const claimHasHighRiskGap = (claim: SupportedClaim) =>
+    claim.riskClass === "high_risk" && claim.supportStatus !== "direct";
+  const claimHasMaterialGovernanceGap = (claim: SupportedClaim) =>
+    claim.riskClass === "high_risk" &&
+    claim.supportingChunkIds.some((chunkId) => {
+      const assessment = evidenceAssessments[chunkId];
+      return assessment?.currency === "outdated" || assessment?.extractionQuality === "poor";
+    });
+  const topLevelHighRiskGap = claims.some(
+    (claim, index) => inputs[index]?.sectionIndex === undefined && claimHasHighRiskGap(claim),
   );
-  if (highRiskGap || materialGovernanceGap) {
+  const topLevelMaterialGovernanceGap = claims.some(
+    (claim, index) => inputs[index]?.sectionIndex === undefined && claimHasMaterialGovernanceGap(claim),
+  );
+  if (topLevelHighRiskGap || topLevelMaterialGovernanceGap) {
     return {
       ...answer,
       answer:
@@ -511,7 +1154,7 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
       routingMode: "unsupported",
       routingReason: [
         answer.routingReason,
-        highRiskGap ? "claim_support_high_risk_gap" : "material_source_governance_gap",
+        topLevelHighRiskGap ? "claim_support_high_risk_gap" : "material_source_governance_gap",
       ]
         .filter(Boolean)
         .join("; "),
@@ -519,15 +1162,49 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
       evidenceAssessments,
     };
   }
+  const unsafeSectionIndexes = new Set(
+    claims.flatMap((claim, index) => {
+      const sectionIndex = inputs[index]?.sectionIndex;
+      return sectionIndex !== undefined && (claimHasHighRiskGap(claim) || claimHasMaterialGovernanceGap(claim))
+        ? [sectionIndex]
+        : [];
+    }),
+  );
+  if (unsafeSectionIndexes.size > 0) {
+    const retainedAnswer: RagAnswer = {
+      ...answer,
+      confidence: answer.confidence === "high" ? "medium" : answer.confidence,
+      answerSections: (answer.answerSections ?? []).filter((_, index) => !unsafeSectionIndexes.has(index)),
+      conflictsOrGaps: [
+        ...(answer.conflictsOrGaps ?? []),
+        {
+          type: "gap",
+          message:
+            "One or more answer sections were withheld because their cited evidence did not directly support every high-risk claim.",
+        },
+      ],
+      routingReason: appendRoutingReason(answer.routingReason, "claim_support_unsupported_sections_withheld"),
+    };
+    const retained = assessClaimSupportDetails(retainedAnswer);
+    const retainedRoutineGap = retained.claims.some((claim) => claim.supportStatus !== "direct");
+    return enforceUnassessedNumericClaims(
+      {
+        ...retainedAnswer,
+        confidence: retainedRoutineGap && retainedAnswer.confidence === "high" ? "medium" : retainedAnswer.confidence,
+        supportedClaims: retained.claims,
+        evidenceAssessments: retained.evidenceAssessments,
+      },
+      retained.unassessedClaims,
+    );
+  }
   const routineGap = claims.some((claim) => claim.supportStatus !== "direct");
-  const assessedAnswer = {
-    ...answer,
-    confidence: routineGap && answer.confidence === "high" ? "medium" : answer.confidence,
-    supportedClaims: claims,
-    evidenceAssessments,
-  };
-  const unassessedNumericClaims = unassessedClaims.filter((claim) => extractClinicalValueAtoms(claim).length > 0);
-  return unassessedNumericClaims.length > 0
-    ? applyNumericVerification(assessedAnswer, undefined, { unassessedClaimTexts: unassessedNumericClaims })
-    : assessedAnswer;
+  return enforceUnassessedNumericClaims(
+    {
+      ...answer,
+      confidence: routineGap && answer.confidence === "high" ? "medium" : answer.confidence,
+      supportedClaims: claims,
+      evidenceAssessments,
+    },
+    unassessedClaims,
+  );
 }
