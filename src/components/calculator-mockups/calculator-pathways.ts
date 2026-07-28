@@ -4,7 +4,7 @@ import type { DerivedCalculator } from "./calculator-ui";
 /**
  * Score-driven pathway content for the search/detail mockup: what to do next
  * at the current severity band, and which knowledge-base content to surface.
- * Local pathway fixtures — production can later resolve `related` through the live
+ * Mockup fixtures only — production would resolve `related` through the live
  * retrieval index instead of hand-authored hrefs.
  */
 

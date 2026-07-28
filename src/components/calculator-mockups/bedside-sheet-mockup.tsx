@@ -160,7 +160,9 @@ export function CalculatorsBedsideSheetMockup() {
               <ClipboardList className="size-icon-md" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-extrabold text-[color:var(--text-heading)]">Assessment sheet</h1>
+              <h1 className="truncate text-lg font-extrabold leading-tight text-[color:var(--text-heading)]">
+                Assessment sheet
+              </h1>
               <p className="truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                 Run several scales in one review — a summary builds as you go.
               </p>

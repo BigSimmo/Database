@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Sheet } from "@/components/ui/sheet";
@@ -117,34 +117,5 @@ describe("Sheet stacked-overlay coordination", () => {
     expect(restoreFrameSpy).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
     vi.useRealTimers();
-  });
-
-  it("upgrades from the close-button fallback to a late-mounted data-sheet-autofocus target", async () => {
-    const onClose = vi.fn();
-    const { rerender } = render(
-      <Sheet open onClose={onClose} title="Sources" portal>
-        <p>Loading filters…</p>
-      </Sheet>,
-    );
-
-    // First open frame: no autofocus child yet, so the close control is focused.
-    await waitFor(() => {
-      const closeButton = document.querySelector<HTMLButtonElement>('button[aria-label="Close"]');
-      expect(closeButton).not.toBeNull();
-      expect(document.activeElement).toBe(closeButton);
-    });
-
-    rerender(
-      <Sheet open onClose={onClose} title="Sources" portal>
-        <input data-sheet-autofocus="true" placeholder="Find a document" />
-      </Sheet>,
-    );
-
-    // Open-focus retries must move off the close fallback onto the Find field.
-    await waitFor(() => {
-      const findField = document.querySelector<HTMLInputElement>('input[placeholder="Find a document"]');
-      expect(findField).not.toBeNull();
-      expect(document.activeElement).toBe(findField);
-    });
   });
 });

@@ -1,17 +1,18 @@
 import { expect, test, type Page } from "playwright/test";
 
 /**
- * Tablet/desktop top-bar hide-and-return, with breakpoint-specific search ownership.
+ * Tablet/desktop top-bar hide-and-return, with the search field staying put.
  *
  * Two defects are guarded here:
  *
  *  1. Above the phone breakpoint the top bar used to scroll away with the page
  *     and only return at the very top (no scroll reporter / sticky travel).
- *  2. Search must stay pinned on tablets but belong to normal page flow on
- *     desktop, where it scrolls away independently from the sticky top bar.
+ *  2. The first cross-breakpoint fix wrapped the search composer inside the
+ *     same collapse/translate row as the top bar, so tablet/desktop search
+ *     disappeared with mode / new chat — only the top bar should hide.
  *
  * The load-bearing assertions are (a) the reveal *mid-page* and (b) the search
- * input staying pinned on tablet but leaving the viewport on desktop. Asserting only
+ * input remaining on screen while the top bar is hidden. Asserting only
  * `data-scroll-hidden` would miss both.
  *
  * The suite-wide `reducedMotion: "reduce"` is kept deliberately: the chrome
@@ -27,10 +28,12 @@ const breakpoints = [
 
 // One surface per scroll-ownership model above the phone breakpoint, chosen for
 // having real scroll runway at both sizes (short pages legitimately never hide).
-// These result/detail pages own the generic page-flow slot on desktop.
+// Dashboard results keep an inline header search; shell mode homes may portal
+// the composer into the hero (still covered by the search-visible assertion
+// when an input is present).
 const surfaces = [
-  { name: "shell results", route: "/forms?q=form%201A&run=1" },
-  { name: "shell service detail", route: "/services/13yarn" },
+  { name: "shell mode home", route: "/tools" },
+  { name: "shell detail page", route: "/formulation/worry" },
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
 ];
 
@@ -59,10 +62,6 @@ interface ChromeState {
   searchTop: number;
   searchBottom: number;
   searchVisible: boolean;
-  searchPlacement: string | null;
-  searchInsideDesktopPageSlot: boolean;
-  searchHasStickyAncestor: boolean;
-  desktopPageSearchClearsFollowingContent: boolean | null;
   hiddenBottomComposers: number;
 }
 
@@ -86,20 +85,6 @@ function readChromeState(page: Page): Promise<ChromeState> {
       document.querySelector<HTMLElement>('[data-testid="global-search-input"]') ??
       document.querySelector<HTMLElement>('input[type="search"], input[role="combobox"]');
     const searchRect = search?.getBoundingClientRect();
-    const searchForm = search?.closest("form");
-    const desktopPageSlot = searchForm?.closest<HTMLElement>('[data-testid="desktop-page-search-composer-slot"]');
-    const followingContent = desktopPageSlot
-      ? Array.from(desktopPageSlot.parentElement?.children ?? [])
-          .slice(Array.from(desktopPageSlot.parentElement?.children ?? []).indexOf(desktopPageSlot) + 1)
-          .find((element) => {
-            const candidateRect = element.getBoundingClientRect();
-            return candidateRect.width > 0 && candidateRect.height > 0;
-          })
-      : null;
-    let searchHasStickyAncestor = false;
-    for (let node = searchForm?.parentElement ?? null; node && !searchHasStickyAncestor; node = node.parentElement) {
-      searchHasStickyAncestor = window.getComputedStyle(node).position === "sticky";
-    }
     const searchOnScreen = Boolean(
       searchRect &&
       searchRect.width > 0 &&
@@ -118,13 +103,6 @@ function readChromeState(page: Page): Promise<ChromeState> {
       searchTop: searchRect ? Math.round(searchRect.top) : Number.NaN,
       searchBottom: searchRect ? Math.round(searchRect.bottom) : Number.NaN,
       searchVisible: searchOnScreen,
-      searchPlacement: searchForm?.dataset.composerPlacement ?? null,
-      searchInsideDesktopPageSlot: Boolean(searchForm?.closest('[data-testid="desktop-page-search-composer-slot"]')),
-      searchHasStickyAncestor,
-      desktopPageSearchClearsFollowingContent:
-        desktopPageSlot && followingContent
-          ? desktopPageSlot.getBoundingClientRect().bottom <= followingContent.getBoundingClientRect().top + 1
-          : null,
       hiddenBottomComposers: document.querySelectorAll('form[data-scroll-hidden="true"]').length,
     };
   });
@@ -185,13 +163,9 @@ for (const { name: sizeName, viewport } of breakpoints) {
       const atTop = await readChromeState(page);
       expect(atTop.hidden, "top bar visible at the top").toBe(false);
       expect(atTop.headerTop, "top bar starts at the viewport top").toBeLessThanOrEqual(8);
-      expect(atTop.searchVisible, "search starts on screen").toBe(true);
-      if (sizeName === "desktop") {
-        expect(atTop.searchPlacement).toBe("desktop-page");
-        expect(atTop.searchInsideDesktopPageSlot).toBe(true);
-        expect(atTop.searchHasStickyAncestor).toBe(false);
-        expect(atTop.desktopPageSearchClearsFollowingContent).toBe(true);
-      }
+      // Hero composers sit mid-page and scroll with content; only a search that
+      // starts in the chrome band must remain after the top bar collapses.
+      const searchStartedInChrome = atTop.searchVisible && atTop.searchTop <= 120;
 
       await scrollBy(page, atTop.maxOffset + 320, 160);
       await page.waitForTimeout(300);
@@ -200,14 +174,12 @@ for (const { name: sizeName, viewport } of breakpoints) {
       expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
       expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
       expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
-      if (sizeName === "tablet") {
+      if (searchStartedInChrome) {
         expect(scrolledDown.searchVisible, "header search stays on screen while the top bar is hidden").toBe(true);
         expect(
           scrolledDown.searchTop,
           "header search sits near the viewport top after the top bar collapses",
         ).toBeLessThanOrEqual(24);
-      } else {
-        expect(scrolledDown.searchVisible, "desktop page search scrolls away with page content").toBe(false);
       }
 
       // Three deliberate upward steps — nowhere near the top of the page.
@@ -219,16 +191,14 @@ for (const { name: sizeName, viewport } of breakpoints) {
       expect(scrolledUp.hidden, "top bar returns on a deliberate scroll up").toBe(false);
       expect(scrolledUp.headerBottom, "returned top bar is actually on screen").toBeGreaterThan(0);
       expect(scrolledUp.headerTop, "returned top bar sits at the viewport top").toBeLessThanOrEqual(8);
-      if (sizeName === "tablet") {
+      if (searchStartedInChrome) {
         expect(scrolledUp.searchVisible, "header search remains on screen after the top bar returns").toBe(true);
-      } else {
-        expect(scrolledUp.searchVisible, "returning the desktop top bar does not re-anchor page search").toBe(false);
       }
     });
 
-    test(`${sizeName}: search composer keeps its breakpoint owner on ${surfaceName}`, async ({ page }) => {
-      // data-scroll-hidden is reserved for the phone dock. Tablet search stays
-      // pinned; desktop search leaves by ordinary page scrolling instead.
+    test(`${sizeName}: search composer never scroll-hides on ${surfaceName}`, async ({ page }) => {
+      // The phone dock hide is phone-only by contract; above that breakpoint the
+      // composer lives in the hero or beside the top bar and must stay usable.
       await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
@@ -236,7 +206,7 @@ for (const { name: sizeName, viewport } of breakpoints) {
       await page.waitForTimeout(400);
 
       const atTop = await readChromeState(page);
-      expect(atTop.searchVisible).toBe(true);
+      const searchStartedInChrome = atTop.searchVisible && atTop.searchTop <= 120;
       await scrollBy(page, atTop.maxOffset + 320, 160);
       await page.waitForTimeout(300);
 
@@ -246,11 +216,8 @@ for (const { name: sizeName, viewport } of breakpoints) {
         scrolledDown.hiddenBottomComposers,
         "no composer flips data-scroll-hidden above the phone breakpoint",
       ).toBe(0);
-      if (sizeName === "tablet") {
+      if (searchStartedInChrome) {
         expect(scrolledDown.searchVisible, "header search geometry stays on screen").toBe(true);
-      } else {
-        expect(atTop.searchInsideDesktopPageSlot).toBe(true);
-        expect(scrolledDown.searchVisible, "desktop composer follows page flow off-screen").toBe(false);
       }
     });
   }

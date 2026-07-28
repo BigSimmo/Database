@@ -21,7 +21,7 @@ import {
   RelatedContentPanel,
   ScorePanel,
   type SessionAnswers,
-} from "./search-detail";
+} from "./search-detail-mockup";
 
 /**
  * Popup variant of the search flow: the individual calculator opens as a

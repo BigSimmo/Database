@@ -27,7 +27,7 @@ import { landingModeForPreference, readAppPreferences } from "@/components/clini
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import {
-  isPageOwnedComposerRoute,
+  isDocumentViewerOwnedRoute,
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
@@ -58,7 +58,6 @@ import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { isInformationPage } from "@/lib/information-pages";
 import {
-  desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
   modeHomeDesktopComposerSlotId,
   therapyHeaderCollapseAddonSlotId,
@@ -348,7 +347,7 @@ function GlobalStandaloneSearchShellClient({
     bottomComposerHidden,
     resolveShellVisibleMobileComposerReserve({
       shouldShowSearchComposer,
-      pageOwnedComposerRoute: isPageOwnedComposerRoute(pathname),
+      documentViewerOwnedRoute: isDocumentViewerOwnedRoute(pathname),
       isStandaloneModeHome,
       searchMode,
       differentialsCompareAddonActive,
@@ -745,9 +744,6 @@ function GlobalStandaloneSearchShellClient({
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            desktopPageComposerSlotId={
-              shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
-            }
             // Standalone mode homes keep the in-flow hero pill at every width,
             // phones included — the composer sits in the middle of the hero and
             // scrolls with the content, matching the answer home rather than
@@ -755,9 +751,9 @@ function GlobalStandaloneSearchShellClient({
             heroComposerBreakpoint="all"
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the top bar to hand space back to content.
-            // Tablet: the document scrolls, so an outer sticky stack pins
-            // [top bar | search]. Desktop portals search into normal page flow,
-            // leaving this stack to own only the auto-hiding top bar.
+            // Tablet/desktop: the document scrolls, so an outer sticky stack
+            // pins [top bar | search] and only the top-bar row collapses —
+            // translating the whole stack would take the search field with it.
             hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
             queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
@@ -787,7 +783,7 @@ function GlobalStandaloneSearchShellClient({
                 ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
                 : useCompactBottomSearch
                   ? "sm:pb-8"
-                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))] lg:pb-8",
+                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
           )}
         >
           {/*
@@ -797,13 +793,6 @@ function GlobalStandaloneSearchShellClient({
             its height, so end-of-page content clears the visible dock.
           */}
           <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
-            {shouldShowSearchComposer && !isStandaloneModeHome ? (
-              <div
-                id={desktopPageComposerSlotId}
-                data-testid="desktop-page-search-composer-slot"
-                className="hidden lg:block lg:empty:hidden"
-              />
-            ) : null}
             <ClientHydrationBoundary
               fallback={<div className="min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden" aria-hidden />}
             >

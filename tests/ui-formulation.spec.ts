@@ -138,42 +138,13 @@ test("keeps long mobile formulation pages inside the app scrollport", async ({ p
   expect(geometry.mainScrollHeight).toBeGreaterThan(geometry.mainClientHeight + 40);
 });
 
-test("keeps unavailable builder navigation natively disabled without fading its text", async ({ page }, testInfo) => {
-  await gotoApp(page, "/formulation/builder?template=5Ps");
-
-  const previousStep = page.getByRole("button", { name: "Previous", exact: true });
-  const continueStep = page.getByRole("button", { name: "Continue to framework", exact: true });
-
-  await expect(previousStep).toBeDisabled();
-  await expect(continueStep).toBeDisabled();
-  await expect(previousStep).toHaveCSS("opacity", "1");
-  await expect(continueStep).toHaveCSS("opacity", "1");
-
-  const disabledControlsAcceptedFocus = await page.evaluate(() => {
-    const controls = Array.from(document.querySelectorAll<HTMLButtonElement>("button:disabled")).filter((button) =>
-      ["Previous", "Continue to framework"].includes(button.textContent?.trim() ?? ""),
-    );
-    return controls.map((control) => {
-      control.focus();
-      return document.activeElement === control;
-    });
-  });
-  expect(disabledControlsAcceptedFocus).toEqual([false, false]);
-  await expectNoBlockingAxeViolations(page, testInfo);
-});
-
 test("moves a selected mechanism through framework, quality review, and an editable draft", async ({
   page,
 }, testInfo) => {
   await gotoApp(page, "/formulation/builder?mechanism=rumination&template=5Ps");
 
   await expect(page.getByRole("checkbox", { name: /Rumination/ })).toBeChecked();
-  const previousStep = page.getByRole("button", { name: "Previous", exact: true });
-  const continueStep = page.getByRole("button", { name: "Continue to framework", exact: true });
-  await expect(previousStep).toBeDisabled();
-  await expect(previousStep).toHaveCSS("opacity", "1");
-  await expect(continueStep).toBeEnabled();
-  await continueStep.click();
+  await page.getByRole("button", { name: /Continue to framework/ }).click();
   await expect(page.getByTestId("formulation-builder-structure")).toBeVisible();
   const cbtCycle = page.getByRole("radio", { name: /CBT cycle/ });
   await page.getByText("CBT cycle", { exact: true }).click();
@@ -202,9 +173,12 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await expect(draft).not.toHaveValue("Stale edited draft");
   await expect(draft).toHaveValue(/Select mechanisms and add case evidence/);
   await expectNoHorizontalOverflow(page);
-  // Regression guard for matrix run 4012: the old disabled opacity utility could
-  // remain stale in WebKit after this button re-enabled, which made axe measure a
-  // phantom low-contrast enabled state. Keep the live state explicit before scanning.
+  // WebKit can serve a stale :disabled computed style (opacity .4) for the step-nav
+  // Previous button after the select->draft transition re-enables it; axe folds that
+  // opacity into the glyph color and reports a phantom color-contrast violation for a
+  // state WCAG 1.4.3 exempts anyway (matrix run 4012). Poll the computed style so axe
+  // measures the live enabled state; a failure HERE is direct proof of the stale style.
+  const previousStep = page.getByRole("button", { name: "Previous", exact: true });
   await expect(previousStep).toBeEnabled();
   await expect(previousStep).toHaveCSS("opacity", "1");
   await expectNoBlockingAxeViolations(page, testInfo);

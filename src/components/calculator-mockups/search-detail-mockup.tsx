@@ -561,7 +561,7 @@ export function CalculatorDetailHeader({ calc }: { calc: CalculatorFixture }) {
   return (
     <header className="grid gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-card)] sm:p-5">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
-        <span className="grid size-tap shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-12">
+        <span className="grid size-11 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-12">
           <calc.icon className="size-icon-xl" aria-hidden="true" />
         </span>
         <div className="min-w-0">
