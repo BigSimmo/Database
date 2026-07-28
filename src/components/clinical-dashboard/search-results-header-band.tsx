@@ -176,43 +176,37 @@ export function SearchResultsHeaderBand({
       data-status={resolvedStatus}
       data-testid="search-query-ribbon"
       className={cn(
-        "relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
+        // `search-band` carries the accent as a real border-top; there is no
+        // overlay bar to be clipped by the corner arc any more.
+        "search-band relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
         className,
       )}
     >
-      <span
-        className={cn(
-          "absolute inset-x-0 top-0 h-0.5 lg:inset-y-0 lg:left-0 lg:right-auto lg:h-auto lg:w-1",
-          faulted ? "bg-[color:var(--warning)]" : "bg-[color:var(--clinical-accent)]",
-          busy && "motion-safe:animate-pulse",
-        )}
-        aria-hidden
-      />
-      <div className="flex min-w-0 flex-col lg:min-h-[3.75rem] lg:flex-row lg:items-center">
-        <div className="flex min-w-0 items-center gap-2.5 p-3 lg:gap-3 lg:px-4 lg:py-2.5 lg:pl-5">
+      <div className="flex min-w-0 flex-col sm:min-h-[3.75rem] sm:flex-row sm:items-center">
+        <div className="flex min-w-0 items-center gap-2.5 p-3 sm:gap-3 sm:px-4 sm:py-2.5 sm:pl-5">
           <span
             className={cn(
-              "grid h-9 w-9 shrink-0 place-items-center rounded-lg lg:h-10 lg:w-10",
+              "grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10",
               faulted
                 ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
                 : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
             )}
           >
             {faulted ? (
-              <CircleAlert className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
+              <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
-              <Search className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
+              <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             )}
           </span>
           {/* No eyebrow: the icon already says "search", and the query is the only
               thing in this band set at heading weight. */}
           <QueryHeading
-            className="min-w-0 truncate text-lg font-extrabold text-[color:var(--text-heading)] lg:max-w-[32rem]"
+            className="search-band-query min-w-0 truncate text-[color:var(--text-heading)] lg:max-w-[32rem]"
             title={displayQuery}
           >
             {displayQuery}
           </QueryHeading>
-          <span className="h-4 w-px shrink-0 bg-[color:var(--border-strong)]" aria-hidden />
+          <span className="search-band-rule mx-0.5 h-[0.9375rem] w-px shrink-0" aria-hidden />
           {/* Neutral, not a success pill: a count is not a state that was achieved,
               and green has to keep meaning something where it does appear. */}
           {/* One unconditional `role="status"` in every state. Playwright asserts it
@@ -222,7 +216,8 @@ export function SearchResultsHeaderBand({
               makes the single announcement, rather than both speaking. */}
           <span
             className={cn(
-              "shrink-0 whitespace-nowrap text-xs font-bold",
+              "shrink-0 whitespace-nowrap",
+              faulted ? "search-band-fault" : "search-band-count-word",
               busy && "text-[color:var(--clinical-accent)]",
               faulted && "text-[color:var(--warning)]",
               !busy && !faulted && "text-[color:var(--text-muted)]",
@@ -252,7 +247,12 @@ export function SearchResultsHeaderBand({
                   />
                 ) : null}
                 <span>
-                  <span className="font-extrabold tabular-nums text-[color:var(--text-heading)]">{matchCount}</span>{" "}
+                  <span
+                    className="search-band-count text-[color:var(--text-heading)]"
+                    data-zero={matchCount === 0 ? "true" : undefined}
+                  >
+                    {matchCount}
+                  </span>{" "}
                   {matchCount === 1 ? "match" : "matches"}
                 </span>
               </span>
@@ -279,11 +279,12 @@ export function SearchResultsHeaderBand({
                 type="button"
                 onClick={() => command?.onRemoveScope(scope.id)}
                 aria-label={`Remove ${scope.label} filter`}
+                data-selected="true"
                 className={cn(
                   // Hover deepens the chip's own accent rather than swapping to the
                   // neutral border the surface controls use — an accent-soft chip
                   // going grey on hover reads as losing its active state.
-                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -363,7 +364,7 @@ export function SearchResultsHeaderBand({
                 type="button"
                 onClick={onSaveSearch}
                 className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-[color:var(--text-muted)] search-band-ghost shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -395,10 +396,10 @@ export function SearchResultsHeaderBand({
         <div
           role="alert"
           data-testid="search-query-ribbon-fault"
-          className="border-t border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-3 text-center sm:px-4"
+          className="search-band-fault-panel border-t border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-3 text-center sm:px-4"
         >
-          <p className="text-sm font-extrabold text-[color:var(--warning)]">{resolvedFaultTitle}</p>
-          <p className="mt-0.5 text-xs font-medium text-[color:var(--warning)]">{resolvedFaultBody}</p>
+          <p className="search-band-fault text-[color:var(--warning)]">{resolvedFaultTitle}</p>
+          <p className="search-band-count-word mt-0.5 text-[color:var(--warning)]">{resolvedFaultBody}</p>
           {onRetry || faultAction ? (
             <div className="mt-2.5 flex justify-center gap-2">
               {onRetry ? (
@@ -415,7 +416,7 @@ export function SearchResultsHeaderBand({
                     }
                   }}
                   className={cn(
-                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
+                    "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                     focusRing,
                   )}
                 >
@@ -458,7 +459,7 @@ export function ResultSortControl({
             aria-pressed={selected}
             onClick={() => onChange(readResultSort(option.value))}
             className={cn(
-              "min-h-tap whitespace-nowrap px-3 text-xs font-bold sm:min-h-10",
+              "search-band-sort-option min-h-tap whitespace-nowrap px-3 sm:min-h-10",
               index > 0 && "border-l border-[color:var(--border)]",
               focusRing,
               selected

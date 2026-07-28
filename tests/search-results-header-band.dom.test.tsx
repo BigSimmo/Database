@@ -103,6 +103,18 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByRole("status")).toHaveTextContent("8 matches");
   });
 
+  // The accent used to be an absolutely-positioned bar inside an overflow:hidden
+  // rounded card, so the corner arc sliced its ends and it tapered away from the
+  // corner while the 1px border curved past it. It is now the card's own
+  // border-top, which mitres into the side borders by construction.
+  it("carries the accent as a border rather than a clipped overlay bar", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={10} />);
+
+    const region = screen.getByRole("region", { name: "Search results for CMHT" });
+    expect(region).toHaveClass("search-band");
+    expect(region.querySelector("span.absolute")).toBeNull();
+  });
+
   it("lets an explicit status override the deprecated loading shim", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={4} loading status="ready" />);
 

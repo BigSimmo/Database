@@ -205,7 +205,11 @@ function FormulationResults({ query }: { query: string }) {
         modeId="formulation"
         query={query}
         matchCount={results.length}
-        loading={!rankingReady}
+        // This is `useDeferredValue` lag over static data, not a network request:
+        // the previous count is still on screen and still correct, so it stays
+        // visible with a pulse rather than collapsing to a skeleton. Safe here
+        // precisely because nothing identity-scoped is being held across the gap.
+        status={rankingReady ? "ready" : "refetching"}
         headingLevel={1}
         filterLabel="Filter formulation mechanisms"
         mobileControls={

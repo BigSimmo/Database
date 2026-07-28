@@ -2909,3 +2909,121 @@ html.theme-transitioning *:after {
     --focus: Highlight;
   }
 }
+
+/* ─── SEARCH RESULTS BAND ──────────────────────────────────────────────────
+   Weight comes down across this surface: nothing is bold, the heaviest step is
+   580, and the query and the figure share it — they are separated by tabular
+   numerals and a hairline rather than by shouting. Expressed here as numeric
+   `font-weight` on named classes rather than Tailwind arbitrary values because
+   (a) that is the existing idiom in this file, and (b) `check:type-scale
+   --strict` is a zero gate on arbitrary `text-[Npx]` utilities. Geist is a
+   variable face, so these interpolate instead of snapping to 700. */
+@layer components {
+  /* The accent is the card's real border-top. As an absolutely-positioned bar
+     inside an overflow:hidden 12px-radius card the corner arc sliced its ends —
+     at y=0 the arc is 12px in, at y=2px it is 5.4px in — so the rail started
+     short and tapered while the 1px border curved past it. A border mitres into
+     the side borders and follows the radius by construction. */
+  .search-band {
+    border-top: 2px solid var(--clinical-accent);
+  }
+  .search-band[data-status="error"],
+  .search-band[data-status="unauthorized"] {
+    border-top-color: var(--warning);
+  }
+
+  .search-band-query {
+    font-size: 1.21875rem;
+    font-weight: 560;
+    letter-spacing: -0.023em;
+  }
+  .search-band-count {
+    font-size: 1.21875rem;
+    font-weight: 580;
+    letter-spacing: -0.016em;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  /* A zero is a real answer, but it is not news; it steps down in weight and
+     colour rather than shouting a result that is not there. */
+  .search-band-count[data-zero="true"] {
+    font-weight: 470;
+    color: var(--text-muted);
+  }
+  .search-band-count-word {
+    font-size: 0.8125rem;
+    font-weight: 400;
+  }
+  .search-band-fault {
+    font-size: 0.84375rem;
+    font-weight: 520;
+  }
+  .search-band-chip {
+    font-size: 0.78125rem;
+    font-weight: 470;
+  }
+  .search-band-chip[data-selected="true"] {
+    font-weight: 540;
+  }
+  .search-band-sort-option {
+    font-size: 0.78125rem;
+    font-weight: 470;
+  }
+  .search-band-sort-option[aria-pressed="true"] {
+    font-weight: 560;
+  }
+  .search-band-ghost {
+    font-size: 0.78125rem;
+    font-weight: 480;
+  }
+  /* A gradient hairline, so it fades out at both ends rather than butting into
+     the vertical padding. Gradients are not forced-colors mapped; see below. */
+  .search-band-rule {
+    background: linear-gradient(180deg, transparent, var(--border-strong) 50%, transparent);
+  }
+}
+
+/* MUST remain the last rules in this stylesheet. At equal specificity a later
+   rule wins, so a forced-colors block placed earlier is silently overridden
+   while still looking correct in review. Rendering (not reading) exposed three
+   losses that colour alone was hiding. */
+@media (forced-colors: active) {
+  /* 1 — the rail survives as thickness, not hue: --clinical-accent resolves to
+     LinkText and --border-strong to CanvasText, so "accented" would otherwise
+     collapse into the other three borders. */
+  .search-band {
+    border-top-width: 3px;
+  }
+  /* 2 — a fault becomes a doubled top edge. Structural, not chromatic. This is
+     the one distinction that matters clinically: without it a failed search is
+     visually identical to a successful one. */
+  .search-band[data-status="error"],
+  .search-band[data-status="unauthorized"] {
+    border-top-width: 6px;
+    border-top-style: double;
+  }
+  .search-band-fault {
+    font-weight: 640;
+  }
+  /* 3 — selected sort/chip lose their fill, so carry them on the system's own
+     selection pair. forced-color-adjust is required: Highlight resolves
+     semi-transparent and Chromium otherwise paints a Canvas backplate straight
+     over the label. */
+  .search-band-chip[data-selected="true"],
+  .search-band-sort-option[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    border-color: Highlight;
+    box-shadow: none;
+    forced-color-adjust: none;
+  }
+  .search-band-rule {
+    background: CanvasText;
+    opacity: 1;
+  }
+  /* --warning-border is not remapped by the token block above, so pin it here
+     or the fault panel keeps a raw hex border under forced colors. */
+  .search-band-fault-panel {
+    border-color: CanvasText;
+  }
+}
