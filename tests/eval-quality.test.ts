@@ -363,6 +363,38 @@ describe("eval quality reporting", () => {
     expect(report.threshold_failures).not.toEqual(expect.arrayContaining([expect.stringContaining("route fallback")]));
   });
 
+  it("reports fallback stubs separately from comparison and other generation fallbacks", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-27T00:00:00.000Z",
+      retrievalResults: [],
+      ragResults: [
+        ragResult({
+          id: "review-after-generation",
+          routingReason:
+            "strong_routine_retrieval; generation_fallback:generation_quality_failed; source_backed_review_fallback; extractive_quality_gate:weak",
+        }),
+        ragResult({
+          id: "review-without-generation",
+          routingReason: "high_confidence_extractive_retrieval; source_backed_review_fallback",
+        }),
+        ragResult({
+          id: "comparison-fallback",
+          routingReason:
+            "multi_document_comparison_synthesis; generation_fallback:generation_quality_failed; comparison_source_extractive_fallback",
+        }),
+        ragResult({ id: "ordinary-answer", routingReason: "strong_routine_retrieval" }),
+      ],
+    });
+
+    expect(report.rag.summary).toMatchObject({
+      generation_fallback_count: 2,
+      source_backed_review_fallback_count: 2,
+      source_backed_review_fallback_rate: 0.5,
+      comparison_source_extractive_fallback_count: 1,
+    });
+    expect(renderEvalQualityMarkdown(report)).toContain("| Source-backed review fallbacks | 2 |");
+  });
+
   it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {
     const result = evaluateGoldenRetrievalCase({
       testCase: {

@@ -1,7 +1,7 @@
 # RAG Hybrid Retrieval — Findings & To-Do (2026-07-01)
 
 Living list of issues found while fixing the live-only hybrid-RPC schema drift and optimising the
-online RAG. Grouped by priority. **Last reconciled: 2026-07-14.** `✅` is complete/closed, `🔶` is
+online RAG. Grouped by priority. **Last reconciled: 2026-07-27.** `✅` is complete/closed, `🔶` is
 partially complete with an explicit remaining action, and `⏳` is genuinely open. Historical
 measurements are evidence, not instructions to repeat provider-backed work without approval. See also the master plan
 (`C:\Users\joshs\.claude\plans\please-review-the-current-synthetic-pinwheel.md`) for RC IDs and
@@ -247,8 +247,9 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
 
 ## P2 — naturalness residual
 
-15. ⏳ One flattened-table run-on still slips through (TPR / postural-BP line). Mostly handled by v15 +
-    `separateSettingRunOns`; extend the deterministic separator or the prompt if it recurs.
+15. ✅ **Flattened TPR / postural-BP run-on — FIXED.** `polishClinicalAnswerProse` now separates the
+    inpatient/community clauses deterministically with and without the comma form. Focused coverage
+    in `tests/answer-prose-runons.test.ts` pins the original line and guards normal prose.
 
 ## Security (do outside this repo)
 
@@ -331,17 +332,19 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     that non-blocking performance debt remains tracked in item 25. Current productization boundary: there are no mutating registry
     edit routes today, so the re-embed-on-edit helper is present but not wired to a route; any future
     registry `POST`/`PATCH`/`PUT` path must call `bestEffortReembedRegistryRecordAfterEdit` after the
-    write commits. Remaining non-blocking UX follow-up: an answer-mode check that registry-backed
-    citations render as curated registry records rather than primary source documents.
+    write commits. The former citation UX follow-up is complete: `documentCitationHref` routes
+    registry-backed citations to their native service/differential detail pages, with focused tests
+    in `tests/citations.test.ts`.
 23. ✅ **Finding #11 full fix — CLOSED.** The corpus-grounded relevance implementation described in
     item 10 (2026-07-07) superseded the earlier classifier-memo-only state. In-corpus bare topics and
     corpus-absent invented terms now follow deterministic corpus evidence; no duplicate Phase-2 task
     remains. Item 17's broader alias-promotion privacy/design work remains separate.
-24. ⏳ **OCR dropped-letter corruption in table index units** — no reliable detector exists (82%
-    false positives; guard reverted). Next viable angle: dictionary-based repair at INGESTION
-    (compare table-cell tokens against the document's own clean chunk text — "p ycho ocial"
-    aligns to "psychosocial" within the same page's raw text) rather than heuristic detection at
-    query time. Scope to `worker/` table extraction; requires the Python OCR stack to test.
+24. ✅ **OCR dropped-letter corruption in table index units — bounded repair landed.** The broad
+    low-`s` heuristic remains rejected, but `repairOcrDropoutAgainstReference` now repairs only
+    whitespace-fragmented OCR words that align to the same page's clean source-chunk text and stamps
+    `ocr_repair_version=clean-chunk-fragment-v1`. `tests/document-index-units.test.ts` covers
+    `p ycho ocial` → `psychosocial` plus the single-letter clinical-token false-positive guard.
+    No broad provider-backed backfill was performed during this reconciliation.
 25. 🔶 **Retrieval/RAG latency — serial-depth fixes landed locally; live tail isolated to DB RPCs.**
     Post-registry retrieval stayed quality-clean (`top_k_hit_rate=1`, `document_recall_at_5=1`,
     `content_recall_at_5=1`, `force_embedding_failure_count=0`) with local `p90_latency_ms=13145`.
@@ -358,6 +361,11 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     statistics identify the legacy hybrid chunk/embedding-field RPC families as the tail source, with
     material temporary I/O. Forced-embedding/model-routing evaluation stopped after the provider
     returned quota exhaustion; no model or production configuration was changed.
+
+    **Scheduled evidence (2026-07-26 run `30216191889`):** quality stayed pinned (36/36,
+    document/content recall 1.0, no per-case document-RR regression), while retrieval median worsened
+    12,558 → 21,021 ms and p90 32,062 → 49,682 ms versus run `30018289898`. This reinforces the
+    DB/RPC profiling path in ledger #069; it is not evidence for a ranking or alias change.
 
     **Next smallest performance work:** capture `EXPLAIN (ANALYZE, BUFFERS)` for the slow RPC shapes
     with non-sensitive fixtures, optimise those plans, and then compare Micro versus Small primary

@@ -80,10 +80,13 @@ Ledger `#032` / source-governance audit (PR #1051) items that look like “gaps�
   superset by artifact replay (canary #53: 1,126 comparisons, 0 lost matches, 7 gained — the
   exact known punctuation-joined occurrences). The weekly scheduled canary provides the free
   live confirmation; a more-tolerant matcher cannot fail a previously-passing case.
-- **irrelevant@10 labeling audit — unblocked, not yet run.** The canary artifact now carries
-  the TOP 10 result rows per case (was 5), so the audit of broad/vector cases' extra top-10
-  documents for under-labeled relevant siblings can run offline against the next artifact.
-  Until it runs, treat the 0.108 rate as a labeling question, not ranking debt
-  (`docs/observability-slos.md` §3.1).
+- **irrelevant@10 labeling audit — reviewed 2026-07-27; no ranking action.** Scheduled run
+  `30216191889` kept irrelevant@10 exactly 0.0917 versus baseline `30018289898`. The 12 cases with
+  non-zero rates and their top-10 titles/previews showed no broad under-labelled-sibling pattern;
+  the obvious tail rows were off-topic service records, unrelated conditions, or generic policy
+  fragments. The artifact does not persist each row's computed grade/matched signals, so truncated
+  previews cannot reproduce all 33 zero-signal placements exactly; ledger #083 tracks that
+  diagnostic-only gap. Keep treating this as an evaluation-label audit surface, not permission to
+  change ranking (`docs/observability-slos.md` §3.1).
 - **Phase E (answer-side quality):** untouched by this cycle; requires its own approval and
   spend (~$2–5/run) per the master plan.

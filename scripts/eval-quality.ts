@@ -558,6 +558,15 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
     result.failures.includes("expected danger source governance warning missing"),
   ).length;
   const routeCeilingFailures = results.filter((result) => result.routeCeilingExceeded).length;
+  const generationFallbacks = results.filter((result) =>
+    /(?:^|;\s*)generation_fallback:/i.test(result.routingReason ?? ""),
+  ).length;
+  const sourceBackedReviewFallbacks = results.filter((result) =>
+    /(?:^|;\s*)source_backed_review_fallback(?:;|$)/i.test(result.routingReason ?? ""),
+  ).length;
+  const comparisonSourceExtractiveFallbacks = results.filter((result) =>
+    /(?:^|;\s*)comparison_source_extractive_fallback(?:;|$)/i.test(result.routingReason ?? ""),
+  ).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -587,6 +596,10 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     expected_danger_warning_missing_count: expectedDangerWarningMissing,
     route_ceiling_failure_count: routeCeilingFailures,
+    generation_fallback_count: generationFallbacks,
+    source_backed_review_fallback_count: sourceBackedReviewFallbacks,
+    source_backed_review_fallback_rate: rate(sourceBackedReviewFallbacks, results.length),
+    comparison_source_extractive_fallback_count: comparisonSourceExtractiveFallbacks,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -991,6 +1004,10 @@ ${markdownTable([
   ["Source governance warning rate", rag.source_governance_warning_rate],
   ["Source governance danger failure rate", rag.source_governance_danger_failure_rate],
   ["Route ceiling failures", rag.route_ceiling_failure_count],
+  ["Generation fallbacks", rag.generation_fallback_count],
+  ["Source-backed review fallbacks", rag.source_backed_review_fallback_count],
+  ["Source-backed review fallback rate", rag.source_backed_review_fallback_rate],
+  ["Comparison extractive fallbacks", rag.comparison_source_extractive_fallback_count],
   ["P95 latency ms", rag.p95_latency_ms],
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}

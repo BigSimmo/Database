@@ -243,6 +243,96 @@ describe("RAG structured-output fallback", () => {
     expect(answer.unverifiedNumericTokens).toBeUndefined();
   });
 
+  it.fails("retains the admission citation when the live comparison shape falls through generation", async () => {
+    // Known defect #019, reconfirmed by scheduled canary run 30216191889. Retrieval and
+    // deterministic comparison packing retain the admission and discharge documents, but
+    // the generation-quality fallback can return citations without the specific admission
+    // policy even while that source is still available. Keep this executable failure at the
+    // fallback boundary; remove `.fails` only when a canary-validated behavior fix lands.
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "combined-policy",
+          document_id: "combined-policy-doc",
+          title: "Referral, Admission And Discharge - Mental Health Hospital In The Home",
+          file_name: "Referral, Admission and Discharge - MHHITH.pdf",
+          content: "Referral procedure, consultant acceptance and patient-flow allocation.",
+          hybrid_score: 0.2898,
+          lexical_score: 0.99,
+          score_explanation: { rankScore: 1.5365 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "discharge-community",
+          document_id: "discharge-community-doc",
+          title: "Discharge Planning For Community Patients",
+          file_name: "MHSP.Discharge.pdf",
+          content: "Relapse and admission principles set expectations for community treatment and discharge planning.",
+          hybrid_score: 0.3892,
+          lexical_score: 0.99,
+          score_explanation: { rankScore: 1.1365 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "discharge-community-sibling",
+          document_id: "discharge-community-doc",
+          title: "Discharge Planning For Community Patients",
+          file_name: "MHSP.Discharge.pdf",
+          content: "Community staff document the discharge plan and ongoing care arrangements.",
+          hybrid_score: 0.3882,
+          lexical_score: 0.95,
+          score_explanation: { rankScore: 1.0204 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "admission-community",
+          document_id: "admission-community-doc",
+          title: "Admission Of Community Patients",
+          file_name: "MHSP.AdmissionCommunityPts.pdf",
+          content:
+            "The patient-flow framework covers police assistance, escorted admissions and high-observation bed capacity.",
+          hybrid_score: 0.376,
+          lexical_score: 0.95,
+          score_explanation: { rankScore: 1.3325 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "admission-community-sibling",
+          document_id: "admission-community-doc",
+          title: "Admission Of Community Patients",
+          file_name: "MHSP.AdmissionCommunityPts.pdf",
+          content: "All admissions escorted by Police go to high-observation bed capacity.",
+          hybrid_score: 0.3757,
+          lexical_score: 0.95,
+          score_explanation: { rankScore: 1.3082 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "patient-discharge",
+          document_id: "patient-discharge-doc",
+          title: "Patient Discharge Policy And Procedure",
+          file_name: "Patient Discharge Policy.pdf",
+          content: "Discharge requirements include clinical handover, referral and documented follow-up.",
+          hybrid_score: 0.2847,
+          lexical_score: 0.9,
+          score_explanation: { rankScore: 0.9318 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "falls-distractor",
+          document_id: "falls-doc",
+          title: "Falls Prevention And Management",
+          file_name: "Falls Prevention.pdf",
+          content: "Rehabilitation discharge planning and progress notes are documented after medical review.",
+          hybrid_score: 0.2361,
+          lexical_score: 0.82,
+          score_explanation: { rankScore: 0.6534 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: comparison coverage"),
+    );
+
+    expect(answer.routingReason).toContain("comparison_source_extractive_fallback");
+    expect(answer.sources.some((item) => item.file_name === "MHSP.AdmissionCommunityPts.pdf")).toBe(true);
+    expect(answer.citations.some((item) => item.file_name === "MHSP.AdmissionCommunityPts.pdf")).toBe(true);
+    expect(answer.citations.some((item) => item.file_name === "MHSP.Discharge.pdf")).toBe(true);
+  });
+
   it("keeps table-threshold questions on fact synthesis instead of source lookup", async () => {
     const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
       source({
