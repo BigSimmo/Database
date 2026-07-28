@@ -1402,7 +1402,10 @@ export function DocumentViewer({
         )}
 
         {readyDocument ? (
-          <div id={documentOverviewSectionId} className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2">
+          <div
+            id={documentOverviewSectionId}
+            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2"
+          >
             <DocumentOverviewLanding
               document={readyDocument}
               signedUrl={signedUrl}
@@ -1620,7 +1623,10 @@ export function DocumentViewer({
               id="source-summary"
               name="document-viewer-section"
               data-testid="high-yield-summary"
-              className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)]source-print md:col-span-2 lg:col-span-1")}
+              className={cn(
+                panel,
+                "group scroll-mt-[var(--document-anchor-offset,6rem)]source-print md:col-span-2 lg:col-span-1",
+              )}
             >
               <DocumentSectionSummary
                 icon={Sparkles}
@@ -1761,10 +1767,7 @@ export function DocumentViewer({
               id={documentIndexingSectionId}
               name="document-viewer-section"
               data-testid="indexing-details"
-              className={cn(
-                panel,
-                "group scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1",
-              )}
+              className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1")}
             >
               <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <span className={eyebrowText}>Indexing details</span>

@@ -1,13 +1,4 @@
-import {
-  Compass,
-  FileImage,
-  FileSearch,
-  FileText,
-  Quote,
-  ShieldCheck,
-  Sparkles,
-  type LucideIcon,
-} from "lucide-react";
+import { Compass, FileImage, FileSearch, FileText, Quote, ShieldCheck, Sparkles, type LucideIcon } from "lucide-react";
 
 /**
  * The document page's navigable sections, derived from the loaded detail payload.

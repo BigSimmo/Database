@@ -88,9 +88,7 @@ describe("shared header hide/reveal wiring", () => {
     // or hidden entirely.
     expect(documentViewerSource).not.toContain("scroll-mt-24");
     expect(documentViewerSource).toContain("scroll-mt-[var(--document-anchor-offset,6rem)]");
-    expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain(
-      "--document-anchor-offset",
-    );
+    expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain("--document-anchor-offset");
   });
 
   it("picks the hide mechanism from where each host's scrollport lives", () => {
