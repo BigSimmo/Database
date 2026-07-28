@@ -47,6 +47,13 @@ function refTokensFromCell(cell) {
 }
 
 /**
+ * Split a ledger row into cells. Prose pipes are escaped as `\|` and must not be
+ * treated as separators, or every column after them shifts and the cleanup lookup
+ * reads the wrong cell.
+ */
+const CELL_SPLIT = /(?<!\\)\|/;
+
+/**
  * Every branch name referenced anywhere in the review ledger (any scope, any HEAD),
  * across every namespace — claude/, codex/, copilot/, cursor/, fix/, and future ones.
  */
@@ -55,7 +62,7 @@ export function parseLedgerBranches(markdown) {
   for (const line of markdown.split("\n")) {
     if (!line.startsWith("|")) continue;
     // | date | branch/ref | head | scope | outcome | checks |  -> column index 2
-    const cell = (line.split("|")[2] ?? "").trim();
+    const cell = (line.split(CELL_SPLIT)[2] ?? "").trim();
     if (!cell) continue;
     for (const name of refTokensFromCell(cell)) names.add(name);
   }
@@ -64,18 +71,24 @@ export function parseLedgerBranches(markdown) {
 
 /**
  * Whether the ledger records a COMPLETED cleanup review that authorizes skipping this
- * branch, per docs/branch-cleanup-guide.md: an exact row match on branch name, current
- * HEAD, and scope `branch-cleanup`. Deliberately excludes `branch-cleanup-deletion-pending`
- * (and any other scope) and stale-HEAD rows, so a pending deletion or a moved HEAD is
- * surfaced for re-evaluation rather than reported as already handled.
+ * branch, per docs/branch-cleanup-guide.md: a row match on branch name, current HEAD, and
+ * scope `branch-cleanup`. Deliberately excludes `branch-cleanup-deletion-pending` (and any
+ * other scope) and stale-HEAD rows, so a pending deletion or a moved HEAD is surfaced for
+ * re-evaluation rather than reported as already handled.
+ *
+ * Historical rows recorded abbreviated SHAs, so an abbreviation of at least 7 characters
+ * that prefixes the current HEAD counts as the same commit. Anything shorter, or prose such
+ * as `see PR head`, matches nothing and forces a re-review.
  */
 export function hasCompletedCleanupReview(markdown, shortName, headSha) {
   if (!shortName || !headSha) return false;
   for (const line of markdown.split("\n")) {
     if (!line.startsWith("|")) continue;
-    const cols = line.split("|");
+    const cols = line.split(CELL_SPLIT);
     if ((cols[4] ?? "").trim() !== "branch-cleanup") continue;
-    if ((cols[3] ?? "").trim() !== headSha) continue;
+    const recorded = (cols[3] ?? "").trim().replace(/`/g, "");
+    const sameCommit = recorded === headSha || (/^[0-9a-f]{7,40}$/.test(recorded) && headSha.startsWith(recorded));
+    if (!sameCommit) continue;
     if (refTokensFromCell((cols[2] ?? "").trim()).includes(shortName)) return true;
   }
   return false;
