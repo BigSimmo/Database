@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import {
   Check,
   Circle,
@@ -114,6 +115,15 @@ export function AnswerEmptyState({
   );
 }
 
+function skeletonBar(className: string, staggerIndex: number) {
+  return (
+    <div
+      className={cn("animate-skeleton-shimmer stagger-item rounded bg-[color:var(--surface-inset)]", className)}
+      style={{ "--stagger-index": staggerIndex } as CSSProperties}
+    />
+  );
+}
+
 export function AnswerSkeleton() {
   // role=status (matching LoadingPanel) so the initial answer-pending window —
   // after submit but before the first progress event — is announced. Without it
@@ -122,24 +132,24 @@ export function AnswerSkeleton() {
   return (
     <div className="space-y-4" role="status" aria-label={answerLoading.ariaLabel}>
       <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
-        <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
-        <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
-        <div className="h-4 w-8/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+        {skeletonBar("h-4 w-10/12", 0)}
+        {skeletonBar("h-4 w-full", 1)}
+        {skeletonBar("h-4 w-8/12", 2)}
         <div className={cn(sourceCard, "mt-4 flex min-h-[60px] items-center justify-between gap-3 p-3")}>
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-24 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
-            <div className="h-4 w-48 max-w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+            {skeletonBar("h-3 w-24", 3)}
+            {skeletonBar("h-4 w-48 max-w-full", 4)}
           </div>
-          <div className="h-tap w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+          {skeletonBar("h-tap w-20 rounded-lg", 5)}
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="h-tap w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
-        <div className="h-tap w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        {skeletonBar("h-tap w-48 rounded-lg", 6)}
+        {skeletonBar("h-tap w-40 rounded-lg", 7)}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
-        <div className="hidden h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)] sm:block" />
+        {skeletonBar("h-28 rounded-lg", 8)}
+        {skeletonBar("hidden h-28 rounded-lg sm:block", 9)}
       </div>
       <span className="sr-only">{answerLoading.ariaLabel}</span>
     </div>

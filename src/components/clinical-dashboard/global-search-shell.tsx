@@ -17,6 +17,7 @@ import {
 
 import dynamic from "next/dynamic";
 
+import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -30,6 +31,7 @@ import { landingModeForPreference, readAppPreferences } from "@/components/clini
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
   isPageOwnedComposerRoute,
@@ -192,14 +194,19 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
     pathname,
   });
 
+  // PatientProfileProvider already wraps this gate in GlobalSearchShell.
+  // SettingsStateProvider keeps dashboard settings/drawer state extracted for the
+  // ClinicalDashboard tree only.
   if (rendersClinicalDashboard) {
     return (
-      <ClinicalDashboard
-        initialSearchMode={resolvedSearchMode}
-        initialQuery={requestedQuery}
-        focusSearch={searchParams.get("focus") === "1"}
-        autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
-      />
+      <SettingsStateProvider>
+        <ClinicalDashboard
+          initialSearchMode={resolvedSearchMode}
+          initialQuery={requestedQuery}
+          focusSearch={searchParams.get("focus") === "1"}
+          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+        />
+      </SettingsStateProvider>
     );
   }
 
@@ -910,6 +917,27 @@ function GlobalStandaloneSearchShellBody({
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
                 className="hidden lg:block lg:empty:hidden"
+              />
+            ) : null}
+            {/*
+              Shared, task-oriented mode/section navigation. It self-suppresses on
+              clean mode homes, locally-owned detail routes (medications,
+              factsheets, differentials diagnoses), and Therapy Compass, and only
+              renders an "On this page" bar where a record exposes the shared
+              section ids. Specifiers and Formulation keep their existing local
+              Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
+              is skipped for them to avoid a duplicate row on their workflow routes.
+              Rendered in normal flow (sticky={false}) so it never contends with
+              the universal collapsing header / pinned search chrome.
+            */}
+            {searchMode !== "specifiers" && searchMode !== "formulation" ? (
+              <PageSecondaryNavigation
+                modeId={searchMode}
+                pathname={pathname}
+                hasSubmittedSearch={hasSubmittedModeSearch}
+                searchParamString={searchParamString}
+                onSearch={() => inputRef.current?.focus({ preventScroll: true })}
+                sticky={false}
               />
             ) : null}
             {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here

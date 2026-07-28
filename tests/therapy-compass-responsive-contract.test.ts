@@ -94,7 +94,14 @@ describe("Therapy Compass responsive contract", () => {
     expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
-    expect(modeHomeTemplateSource).toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
+    // Mode-home action tiles switch to the auto-fit multi-column grid at `sm`
+    // (not `lg`) so tablet widths get a real grid before the large breakpoint.
+    // Stack separators must stop at the same breakpoint (`max-sm`) so they do
+    // not double `lg:border` card chrome once the grid is multi-column.
+    expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
+    expect(modeHomeTemplateSource).toContain("max-sm:border-t");
+    expect(modeHomeTemplateSource).toContain("sm:rounded-lg sm:border");
+    expect(modeHomeTemplateSource).not.toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
