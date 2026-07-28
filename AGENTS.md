@@ -235,10 +235,12 @@ its contracts. Repo docs and committed tests always win. This section is the tie
   `docs/search-chrome-behaviour.md`, `docs/rag-behaviour/`, the `@theme` tokens in
   `src/app/globals.css`, and any committed test.
 - **Never regress a fixed flake to satisfy a generic rule.** Known collision: generic touch-target
-  guidance teaches the WCAG 44px minimum, which is `min-h-11` in Tailwind, but `min-h-11` hit a
-  sub-pixel rounding flake in `ui-smoke`, so production tap targets use `min-h-12` (for example
-  `src/components/specifiers/`). Design-scratch mockups (`*-mockups.tsx`) still carry `min-h-11`
-  and are gate-exempt. Do not "fix" production back to `min-h-11` to satisfy the generic rule.
+  guidance often teaches the WCAG 2.1/2.2 AAA-level "enhanced" criterion (2.5.5: 44×44 px, which is
+  `min-h-11` in Tailwind), though the AA-level minimum is 24×24 px (2.5.8). This repo's production
+  tap targets use `min-h-12` (48 px) — exceeding both the AA minimum and the AAA enhanced criterion —
+  because `min-h-11` (44 px) hit a sub-pixel rounding flake in `ui-smoke`. Design-scratch mockups
+  (`*-mockups.tsx`) still carry `min-h-11` and are gate-exempt. Do not "fix" production back to
+  `min-h-11` to satisfy the generic rule.
 - **Unlayered CSS is deliberate.** Component classes in `globals.css` intentionally override
   Tailwind utilities. Generic specificity and utility-first advice does not apply here.
 - **Cite the source when applying an external rule.** If a checklist rule drives a change, name the
@@ -254,7 +256,10 @@ verify:ui` exits 0 without running a single Playwright test when another worktre
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
-  require `git fetch` plus inspection of the ref before they are repeated as fact.
+  must be verified against the actual ref/commit content before being repeated as fact. Prioritize
+  inspecting already-fetched local refs (`git log`, `git show`) first; `git fetch` or other
+  network/provider access requires explicit user confirmation per the "API and provider confirmation
+  boundary" section.
 
 <!-- END:external-skill-precedence -->
 
