@@ -463,7 +463,7 @@ function PhoneFrame({ state }: { state: PhoneState }) {
 }
 
 const phoneCopy: Record<PhoneState, string> = {
-  rest: "One-line row with the track on its bottom edge. Composer pill owns the footer, as it does today.",
+  rest: "Title, section label, and the track on the bottom edge. Composer pill owns the footer, as it does today.",
   sheet: "Grid opens as a sheet: composer blurred, scrim over the pill, nothing attached to a row that hides.",
   scrolled: "Header and track leave together on the scroll signal and release the reserve to zero.",
 };
@@ -480,9 +480,9 @@ export function DocumentNavigationFinalMockups() {
             Segment track on the row, two-column grid for the pane
           </h1>
           <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-            The two pieces that worked, composed and reconciled with the shipped chrome. Position is a two-pixel
-            hairline instead of a second text line, and the same two-column grid is the index on desktop and tablet and
-            the sheet body on phone.
+            The two pieces that worked, composed and reconciled with the shipped chrome. The row keeps both lines —
+            title, then the section it names — and the two-pixel hairline replaces the numerals rather than the label.
+            The same two-column grid is the index on desktop and tablet and the sheet body on phone.
           </p>
         </header>
 
