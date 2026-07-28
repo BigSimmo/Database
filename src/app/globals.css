@@ -99,7 +99,9 @@
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for
      clinical codes and IDs (guideline refs, chunk/page numbers, versions). */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, monospace;
 
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
@@ -584,11 +586,9 @@ summary::-webkit-details-marker {
        beat @layer components, so a literal there would reintroduce drift. */
     padding-left: max(var(--header-edge-pad), var(--safe-area-left));
     padding-right: max(var(--header-edge-pad), var(--safe-area-right));
-    /* Translucent glass bar: the header's backdrop-blur utilities frost the
-       content scrolling beneath it (they were inert over the old opaque
-       var(--surface)). The .edge-glass-header-backdrop scrim supersedes the
-       old hard border-bottom and below-header ::after gradient. Keep this
-       value in lock-step with .universal-header below (chrome parity). */
+    /* Wide layouts retain the glass treatment. Phones override this with a
+       solid surface below: a translucent scrim extending past the bar veils
+       mode-home titles instead of behaving like bounded chrome. */
     background: color-mix(in srgb, var(--surface) 72%, transparent);
     box-shadow: none;
   }
@@ -1380,6 +1380,24 @@ summary::-webkit-details-marker {
    because its override also changes other properties. A single mobile-scoped
    rule leaves nothing for the compiler to merge away. */
 @media (max-width: 639px) {
+  /* Phone baseline: a full-width opaque header. Controls still respect the
+     side safe areas, but no blur or tint extends below the actual bar. */
+  .edge-glass-header,
+  .universal-header {
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+
+  .edge-glass-header-backdrop,
+  .edge-glass-header-backdrop::before,
+  .edge-glass-header-backdrop::after {
+    display: none;
+    background: none;
+    backdrop-filter: none;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
   .answer-suggestion-row-scroll {
     mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
     -webkit-mask-image: linear-gradient(90deg, black calc(100% - 1rem), transparent);
@@ -1813,10 +1831,9 @@ summary::-webkit-details-marker {
       0 8px 22px rgb(16 24 40 / 8%);
   }
 
-  /* Edge-to-edge phone dock: full-width footer flush to the glass. The pill is
-     inset via padding-bottom only — never by a non-zero `bottom` offset (that
-     reintroduces a white strip under the bar). Form background paints the
-     safe-area pad so it reads as dock chrome, not empty page margin. */
+  /* Edge-to-edge phone dock: one full-width footer surface flush to the
+     viewport. The pill is the only translucent layer; the dock itself paints
+     the safe-area/home-indicator region. Never add a non-zero bottom offset. */
   .answer-footer-search-dock.answer-footer-search-edge,
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge,
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge {
@@ -1829,13 +1846,7 @@ summary::-webkit-details-marker {
     padding-inline: max(0.75rem, var(--safe-area-left)) max(0.75rem, var(--safe-area-right));
     padding-top: 0.5rem;
     padding-bottom: max(0.5rem, var(--safe-area-bottom));
-    background: linear-gradient(
-      180deg,
-      transparent 0%,
-      color-mix(in srgb, var(--background) 72%, transparent) 42%,
-      color-mix(in srgb, var(--background) 94%, transparent) 72%,
-      var(--background) 100%
-    );
+    background: var(--surface);
   }
 
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact,
@@ -1878,13 +1889,13 @@ summary::-webkit-details-marker {
     pointer-events: none;
   }
 
+  .answer-footer-search-dock .answer-footer-search-backdrop {
+    display: none;
+  }
+
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
-    background: var(--surface);
-    /* The dock repaints the pill opaque, so the inherited blur has nothing
-       translucent to sample — drop it to save a compositing layer per scroll
-       frame (matches the chip override just below). */
-    backdrop-filter: none;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
     box-shadow:
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 1px 3px rgb(16 24 40 / 5%);
