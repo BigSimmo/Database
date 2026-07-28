@@ -5,6 +5,7 @@ on:
     branches: [main, develop, "release/*"]
     paths:
       - "src/**"
+      - "data/**"
       - "public/**"
       - "package.json"
       - "package-lock.json"
@@ -17,7 +18,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   bundle-size:

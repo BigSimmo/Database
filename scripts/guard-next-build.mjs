@@ -10,14 +10,20 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
 if (totalRamBytes < tenGiB) {
-  console.error(
-    [
-      `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
-      "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
-      "If you are using Docker Desktop, increase the memory limit in settings.",
-    ].join("\n"),
-  );
-  process.exit(1);
+  const message = [
+    `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
+    "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
+    "If you are using Docker Desktop, increase the memory limit in settings.",
+  ].join("\n");
+  // GitHub-hosted standard runners often report ~7–8 GiB even though CI builds
+  // succeed with the configured 8 GiB heap. Keep the hard fail for local/dev
+  // hosts; warn-only under GITHUB_ACTIONS so hosted jobs are not flaky.
+  if (process.env.GITHUB_ACTIONS === "true") {
+    console.warn(message);
+  } else {
+    console.error(message);
+    process.exit(1);
+  }
 }
 const expectedProjectId = localProjectId(projectRoot);
 const identityPath = "/api/local-project-id";

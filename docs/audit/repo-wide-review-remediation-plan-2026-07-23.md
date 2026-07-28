@@ -117,13 +117,21 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 
 1. In `.github/workflows/pr-policy.yml`, add `"release/**"` to `pull_request_target.branches` so PR Policy mirrors CI PR branches.
 2. In `scripts/check-github-action-pins.mjs`, extend discovery to include:
-3. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
+   - `.github/workflows/*.yml`
+   - `.github/workflows/*.yaml`
+   - `.github/actions/**/action.yml`
+   - `.github/actions/**/action.yaml`
+3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
+4. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
 
 **Verification ladder**
 
 1. `npm run check:runtime`
 2. `npm run typecheck`
-3. Stop and triage if either fails before touching product code.
+3. Checker self-test or direct script test for composite action discovery.
+4. `npm run check:github-actions`
+5. `npm run check:pr-policy`
+6. Stop and triage if either fails before touching product code.
 
 **Regression guard:** No lockfile or dependency edits unless `npm ci` proves the manifest/lockfile is inconsistent.
 
@@ -261,15 +269,17 @@ Run only after Node 24, dependencies, and focused checks are clean:
 
 ## Approval-required follow-up gates
 
-Ask before running any of these: 3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
+Ask before running any of these provider-backed or live-service operations:
 
-**Focused proof**
+1. `npm run check:supabase-project`
+2. `npm run check:drift` / live schema drift against the hosted project
+3. `npm run eval:rag` / live retrieval canaries
+4. `npm run verify:release` (includes provider-backed gates)
+5. Hosted CI reruns that exercise live Supabase or OpenAI secrets
 
-1. Checker self-test or direct script test for composite action discovery.
-2. `npm run check:github-actions`
-3. `npm run check:pr-policy`
+Local Batch 2 checker self-tests (`check:github-actions`, composite-action discovery) are not approval-gated — run them offline as part of Batch 2 verification.
 
-**Done criteria**
+**Done criteria (Batch 2 CI governance)**
 
 - Release PRs are covered by PR Policy.
 - Composite action `uses:` lines are scanned.

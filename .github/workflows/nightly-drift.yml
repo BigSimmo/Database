@@ -12,12 +12,15 @@ concurrency:
 permissions:
   contents: read
 
+# Non-secret identity defaults only. SUPABASE_SERVICE_ROLE_KEY is injected
+# exclusively on the live Supabase steps below, and those steps are gated to
+# refs/heads/main so workflow_dispatch on a feature branch cannot run
+# attacker-controlled code against the live project with the service role.
 env:
   NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
   SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
   SUPABASE_PROJECT_NAME: Clinical KB Database
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
 jobs:
   nightly-suite:
@@ -49,22 +52,33 @@ jobs:
 
       - name: Preflight required secrets for drift check
         id: secret-check
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "missing_secrets=true" >> $GITHUB_OUTPUT
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "missing_secrets=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping live drift check outside refs/heads/main (ref=${GITHUB_REF})."
+          elif [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "missing_secrets=true" >> "$GITHUB_OUTPUT"
             echo "::warning::Skipping live drift check due to missing secrets."
           else
-            echo "missing_secrets=false" >> $GITHUB_OUTPUT
+            echo "missing_secrets=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Guard Supabase project identity
         if: steps.secret-check.outputs.missing_secrets != 'true'
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run check:supabase-project
 
       - name: Compare live schema drift
         if: steps.secret-check.outputs.missing_secrets != 'true'
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run check:drift
 
       - name: Align migration history for Supabase Preview
         if: steps.secret-check.outputs.missing_secrets != 'true'
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run check:migration-history
