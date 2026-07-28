@@ -28,8 +28,26 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
+      # Do not reuse setup-ui-e2e here: that composite only installs Chromium.
+      # This matrix must install the selected browser + its system deps.
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Restore browser cache
+        id: pw-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ matrix.project }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright browser
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps ${{ matrix.project }}
+            npx playwright install ${{ matrix.project }}
+          else
+            npx playwright install --with-deps ${{ matrix.project }}
+          fi
 
       - name: Run Playwright suite
         run: node scripts/run-playwright.mjs --project=${{ matrix.project }}
