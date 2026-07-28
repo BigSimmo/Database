@@ -443,7 +443,7 @@ export function UniversalSearchCommandSurface({
     enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
     contextMode: modeId,
   });
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const savedRegistryFavourites = useSavedRegistryFavourites().items;
   const allFavouriteItems = useMemo(
     () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
     [demoMode, savedRegistryFavourites],
