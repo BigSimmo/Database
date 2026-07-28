@@ -9,14 +9,17 @@ export type SavedFavouritesBandStatus = "ready" | "loading" | "unauthorized" | "
 export function foldSavedFavouritesStatus(input: {
   isAuthenticated: boolean;
   accountReady: boolean;
-  accountError: string | null;
+  /** Only GET /api/account/favourites failures. Mutation/save errors must not
+      pass through here — they would mark an already-loaded empty library as
+      unavailable and offer a GET Retry for a failed write. */
+  accountLoadError: string | null;
   registryStatus: SavedFavouritesBandStatus;
   itemCount: number;
 }): { status: SavedFavouritesBandStatus; registryStatus: SavedFavouritesBandStatus } {
   const accountStatus: SavedFavouritesBandStatus =
     input.isAuthenticated && !input.accountReady
       ? "loading"
-      : input.isAuthenticated && input.accountError
+      : input.isAuthenticated && input.accountLoadError
         ? "error"
         : "ready";
 

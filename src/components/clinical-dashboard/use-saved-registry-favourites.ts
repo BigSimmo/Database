@@ -44,7 +44,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const {
     favourites,
     ready: accountReady,
-    error: accountError,
+    loadError: accountLoadError,
     isAuthenticated,
     reload: reloadAccount,
   } = useAccountData();
@@ -97,7 +97,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
   const { status, registryStatus } = foldSavedFavouritesStatus({
     isAuthenticated,
     accountReady,
-    accountError,
+    accountLoadError,
     registryStatus: rawRegistryStatus,
     itemCount: items.length,
   });

@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -81,7 +81,51 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
     "src/app/(search-app)/documents/search/page.tsx",
     "Composer-driven landing stub with no result list of its own; the band is mounted by document-search-results.tsx inside the dashboard shell.",
   ],
+  [
+    "src/app/(search-app)/dsm/page.tsx",
+    "DSM mode home is a catalogue landing; result lists (and the band) live on /dsm/search.",
+  ],
+  [
+    "src/app/(search-app)/factsheets/page.tsx",
+    "Factsheets mode home is a catalogue landing; result lists (and the band) live on /factsheets/search.",
+  ],
+  [
+    "src/app/(search-app)/therapy-compass/page.tsx",
+    "Therapy home is the library landing; the search results band lives on /therapy-compass/search.",
+  ],
 ]);
+
+/** Resolve a mode href like `/services` to its App Router page file when present. */
+function modeHrefToPagePath(href: string): string | null {
+  const pathOnly = href.split("?")[0]?.trim() ?? "";
+  if (!pathOnly.startsWith("/") || pathOnly === "/") return null;
+  const candidate = path.join(APP_DIR, "(search-app)", pathOnly.slice(1), "page.tsx");
+  if (!existsSync(candidate)) return null;
+  return path.relative(REPO_ROOT, candidate).replaceAll(path.sep, "/");
+}
+
+/** One or two import hops from a route into `@/components/**` that mounts the band. */
+function routeReachesBand(routeSource: string, componentSources: Map<string, string>) {
+  if (rendersBand(routeSource)) return true;
+  const imported = [...routeSource.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
+  for (const specifier of imported) {
+    const componentPath = `src/${specifier}.tsx`;
+    const source = componentSources.get(componentPath);
+    if (!source) continue;
+    if (rendersBand(source)) return true;
+    // Page wrappers often re-export a child that mounts the band (e.g. differentials).
+    const nested = [...source.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
+    if (
+      nested.some((nestedSpec) => {
+        const nestedSource = componentSources.get(`src/${nestedSpec}.tsx`);
+        return nestedSource ? rendersBand(nestedSource) : false;
+      })
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 describe("search results band adoption", () => {
   const productionComponents = walk(COMPONENTS_DIR)
@@ -110,14 +154,32 @@ describe("search results band adoption", () => {
   });
 
   it("reaches the band from every production search route", () => {
-    const searchRoutes = walk(APP_DIR)
-      .map((abs) => ({ abs, rel: path.relative(REPO_ROOT, abs) }))
+    const nestedSearchRoutes = walk(APP_DIR)
+      .map((abs) => ({ abs, rel: path.relative(REPO_ROOT, abs).replaceAll(path.sep, "/") }))
       .filter(({ rel }) => !isMockupPath(rel))
-      .filter(({ rel }) => rel.replaceAll(path.sep, "/").includes("/search/") && rel.endsWith("page.tsx"));
+      .filter(({ rel }) => rel.includes("/search/") && rel.endsWith("page.tsx"));
+
+    // Top-level mode homes such as /services and /favourites also present result
+    // lists. Restricting the inventory to `/search/` left those pages unchecked.
+    const modeHomeRoutes = appModeDefinitions
+      .filter((mode) => mode.search.resultsSurface === "results-band")
+      .map((mode) => ("href" in mode && typeof mode.href === "string" ? modeHrefToPagePath(mode.href) : null))
+      .filter((rel): rel is string => Boolean(rel))
+      .map((rel) => ({ abs: path.join(REPO_ROOT, rel), rel }));
+
+    const routeKeys = new Map<string, { abs: string; rel: string }>();
+    for (const route of [...nestedSearchRoutes, ...modeHomeRoutes]) {
+      routeKeys.set(route.rel, route);
+    }
+    const searchRoutes = [...routeKeys.values()];
 
     // If this ever hits zero the assertion below passes vacuously, which would
     // make the gate silently useless.
     expect(searchRoutes.length).toBeGreaterThan(0);
+    expect(
+      searchRoutes.some((route) => route.rel === "src/app/(search-app)/services/page.tsx"),
+      "Mode-href discovery must include top-level results pages such as /services.",
+    ).toBe(true);
 
     const componentSources = new Map(
       productionComponents.map(({ abs, rel }) => [rel.replaceAll(path.sep, "/"), readFileSync(abs, "utf8")]),
@@ -125,18 +187,9 @@ describe("search results band adoption", () => {
 
     const orphans: string[] = [];
     for (const { abs, rel } of searchRoutes) {
-      const key = rel.replaceAll(path.sep, "/");
-      if (BAND_ROUTE_ALLOWLIST.has(key)) continue;
+      if (BAND_ROUTE_ALLOWLIST.has(rel)) continue;
       const routeSource = readFileSync(abs, "utf8");
-      if (rendersBand(routeSource)) continue;
-      // One import hop: a route almost always delegates to a client component.
-      const imported = [...routeSource.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
-      const reaches = imported.some((specifier) =>
-        [...componentSources.entries()].some(
-          ([componentPath, source]) => componentPath === `src/${specifier}.tsx` && rendersBand(source),
-        ),
-      );
-      if (!reaches) orphans.push(key);
+      if (!routeReachesBand(routeSource, componentSources)) orphans.push(rel);
     }
 
     expect(
@@ -195,5 +248,16 @@ describe("band adoption detection", () => {
       expect(source.includes("<SearchResultsHeaderBand"), source.slice(0, 40)).toBe(false);
     }
     expect(mounted.includes("<SearchResultsHeaderBand")).toBe(true);
+  });
+
+  it("treats a root-level mode page that never reaches the band as an orphan", () => {
+    const componentSources = new Map<string, string>([
+      [
+        "src/components/orphan-results-page.tsx",
+        'export function OrphanResultsPage() { return <div data-testid="orphan-results" />; }',
+      ],
+    ]);
+    const routeSource = 'import { OrphanResultsPage } from "@/components/orphan-results-page";\nexport default OrphanResultsPage;';
+    expect(routeReachesBand(routeSource, componentSources)).toBe(false);
   });
 });

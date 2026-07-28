@@ -8,7 +8,7 @@ describe("foldSavedFavouritesStatus", () => {
       foldSavedFavouritesStatus({
         isAuthenticated: true,
         accountReady: false,
-        accountError: null,
+        accountLoadError: null,
         registryStatus: "ready",
         itemCount: 0,
       }).status,
@@ -20,7 +20,7 @@ describe("foldSavedFavouritesStatus", () => {
       foldSavedFavouritesStatus({
         isAuthenticated: true,
         accountReady: true,
-        accountError: "Saved items could not be loaded.",
+        accountLoadError: "Saved items could not be loaded.",
         registryStatus: "ready",
         itemCount: 0,
       }).status,
@@ -31,7 +31,7 @@ describe("foldSavedFavouritesStatus", () => {
     const folded = foldSavedFavouritesStatus({
       isAuthenticated: true,
       accountReady: false,
-      accountError: null,
+      accountLoadError: null,
       registryStatus: "ready",
       itemCount: 0,
     });
@@ -43,7 +43,7 @@ describe("foldSavedFavouritesStatus", () => {
       foldSavedFavouritesStatus({
         isAuthenticated: true,
         accountReady: true,
-        accountError: null,
+        accountLoadError: null,
         registryStatus: "error",
         itemCount: 2,
       }).status,
@@ -55,10 +55,24 @@ describe("foldSavedFavouritesStatus", () => {
       foldSavedFavouritesStatus({
         isAuthenticated: true,
         accountReady: true,
-        accountError: null,
+        accountLoadError: null,
         registryStatus: "unauthorized",
         itemCount: 0,
       }).status,
     ).toBe("unauthorized");
+  });
+
+  it("stays ready for an empty library when only a mutation would have failed", () => {
+    // foldSavedFavouritesStatus only receives load errors. A failed first-save
+    // after a successful empty GET must leave the empty state truthful.
+    expect(
+      foldSavedFavouritesStatus({
+        isAuthenticated: true,
+        accountReady: true,
+        accountLoadError: null,
+        registryStatus: "ready",
+        itemCount: 0,
+      }).status,
+    ).toBe("ready");
   });
 });
