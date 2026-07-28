@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import os from "node:os";
@@ -7,14 +8,16 @@ import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../s
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Local-only RAM gate: Docker Desktop / small local VMs OOM on an 8 GiB Next
-// heap. Hosted CI runners vary (often ~7–16 GiB reported by os.totalmem) and
-// already succeed building there — hard-failing on <10 GiB flakes Build when a
-// smaller runner is scheduled. Keep the protection for interactive local use.
-const runningInCi = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
+// Local-host-only RAM gate: Docker Desktop / small local VMs OOM on an 8 GiB
+// Next heap when `npm run build` runs on the host. Skip in hosted CI and inside
+// container image builds — those environments often report ~7–8 GiB via
+// os.totalmem even when the build is expected to proceed.
+const runningInCi =
+  process.env.CI === "true" || process.env.CI === "1" || process.env.GITHUB_ACTIONS === "true";
+const runningInContainer = fs.existsSync("/.dockerenv");
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
-if (!runningInCi && totalRamBytes < tenGiB) {
+if (!runningInCi && !runningInContainer && totalRamBytes < tenGiB) {
   console.error(
     [
       `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,

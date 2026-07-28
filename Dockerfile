@@ -30,6 +30,9 @@ RUN npm ci
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Mark the image build as CI so local-host-only preflight (RAM floor) does not
+# reject runners that report ~7–8 GiB inside the build container.
+ENV CI=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
@@ -41,7 +44,7 @@ ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
-# The repo build script allocates an 8 GiB heap; give the builder >= 10 GiB.
+# Next allocates an 8 GiB heap; prefer builders with headroom when available.
 RUN npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
