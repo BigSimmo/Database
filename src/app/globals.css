@@ -2903,7 +2903,10 @@ html.theme-transitioning *:after {
   }
 }
 
-/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3) */
+/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3).
+   Token remap only — glass-header Canvas fills live in the earlier
+   forced-colors block; do not blanket-reset [aria-selected="true"] or
+   invent unused .surface-raised selectors with !important. */
 @media (forced-colors: active) {
   :root,
   .dark {
@@ -2912,19 +2915,4 @@ html.theme-transitioning *:after {
     --border-strong: CanvasText;
     --focus: Highlight;
   }
-
-  /* Glass / raised surfaces need Canvas fills so borders stay visible. */
-  .edge-glass-header,
-  .surface-raised,
-  [aria-selected="true"] {
-    border: 2px solid CanvasText !important;
-    background: Canvas !important;
-    box-shadow: none !important;
-  }
-}
-
-/* Modern line-height alignment helper for clinical icons */
-.icon-align-lh {
-  width: 1lh;
-  height: 1lh;
 }
