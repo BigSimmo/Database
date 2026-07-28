@@ -647,7 +647,7 @@ function BoardShell({ children, concept }: { children: ReactNode; concept: Conce
       <main
         className={cn(
           appBackdrop,
-          "fixed inset-0 z-[2147483647] overflow-auto px-4 py-7 text-[color:var(--text-heading)] sm:px-8",
+          "fixed inset-0 z-[100] overflow-auto px-4 py-7 text-[color:var(--text-heading)] sm:px-8",
         )}
       >
         <div className="mx-auto max-w-[1320px]">
