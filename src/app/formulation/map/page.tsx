@@ -1,4 +1,12 @@
-import { FormulationMapPage } from "@/components/formulation/formulation-map-page";
+import dynamic from "next/dynamic";
+
+const FormulationMapPage = dynamic(
+  () => import("@/components/formulation/formulation-map-page").then((mod) => mod.FormulationMapPage),
+  {
+    ssr: false,
+    loading: () => <div className="animate-pulse h-screen w-full bg-neutral-100 rounded-lg dark:bg-neutral-800" />,
+  }
+);
 
 type MapRouteProps = {
   searchParams?: Promise<{ mechanism?: string | string[] }>;

@@ -113,6 +113,8 @@
   --animate-dialog-rise: dialog-rise 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-action-tray-in: action-tray-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
+  
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.1);
 }
 
 /* Theme tokens */
@@ -302,7 +304,7 @@
   --neutral-300: #23282c;
   --neutral-400: #3b454b;
   --neutral-500: #7f8987;
-  --neutral-600: #a7b0ad;
+  --neutral-600: #b4bdbb;
   --neutral-700: #cdd3d1;
   --neutral-800: #e6e9e8;
   --neutral-900: #f5f7f7;
@@ -536,7 +538,8 @@ summary {
    inline body/citation links down 1px on tap, which reads oddly for text links. */
 button:active,
 summary:active {
-  transform: translateY(1px);
+  transform: scale(0.98);
+  transition-timing-function: var(--ease-spring);
 }
 
 summary::-webkit-details-marker {

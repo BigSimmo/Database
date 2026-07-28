@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { DifferentialPresentationWorkflowPage } from "@/components/differentials/differential-presentation-workflow-page";
 import { getPresentationWorkflow, presentationStaticParams } from "@/lib/differentials";
+import { MedicalJsonLd } from "@/components/seo/MedicalJsonLd";
 
 type DifferentialPresentationRouteProps = {
   params: Promise<{ slug: string }>;
@@ -24,6 +25,9 @@ export async function generateMetadata({ params }: DifferentialPresentationRoute
   return {
     title: `${workflow.title} - Differential presentation - Clinical KB`,
     description: workflow.subtitle,
+    alternates: {
+      canonical: `/differentials/presentations/${slug}`,
+    },
   };
 }
 
@@ -41,5 +45,15 @@ export default async function DifferentialPresentationRoute({
     .map((value) => value.trim())
     .filter(Boolean);
 
-  return <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} />;
+  return (
+    <>
+      <MedicalJsonLd
+        type="MedicalCondition"
+        name={workflow.title}
+        description={workflow.subtitle}
+        url={`/differentials/presentations/${slug}`}
+      />
+      <DifferentialPresentationWorkflowPage query={query} presentationSlug={slug} selectedIds={selectedIds} />
+    </>
+  );
 }

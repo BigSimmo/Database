@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { MedicationRecordPage } from "@/components/clinical-dashboard/medication-record-page";
 import { deriveGovernanceFromSections } from "@/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
+import { MedicalJsonLd } from "@/components/seo/MedicalJsonLd";
 
 type MedicationPageProps = {
   params: Promise<{
@@ -26,6 +27,9 @@ export async function generateMetadata({ params }: MedicationPageProps): Promise
   return {
     title: `${record.name} | Clinical KB`,
     description: `${record.name} prescribing summary, dosing, safety checks, monitoring, access, and provenance.`,
+    alternates: {
+      canonical: `/medications/${slug}`,
+    },
   };
 }
 
@@ -48,5 +52,16 @@ export default async function MedicationPage({ params }: MedicationPageProps) {
       })()
     : undefined;
 
-  return <MedicationRecordPage slug={slug} fallbackRecord={record} fallbackGovernance={fallbackGovernance} />;
+  return (
+    <>
+      {record && (
+        <MedicalJsonLd
+          type="Drug"
+          name={record.name}
+          url={`/medications/${slug}`}
+        />
+      )}
+      <MedicationRecordPage slug={slug} fallbackRecord={record} fallbackGovernance={fallbackGovernance} />
+    </>
+  );
 }

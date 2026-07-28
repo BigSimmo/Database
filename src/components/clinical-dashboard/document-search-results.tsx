@@ -160,7 +160,7 @@ function DocumentTagFacetRail({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
-          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
+          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs")}>
             <X aria-hidden="true" className="h-3.5 w-3.5" />
             Clear
           </button>
@@ -189,7 +189,7 @@ function DocumentTagFacetRail({
                         aria-pressed={selected}
                         title={`Filter to ${facet.label}`}
                         className={cn(
-                          "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
+                          "inline-flex min-h-tap max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
                           selected
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
@@ -696,7 +696,7 @@ function SearchRecordResults({
                   </p>
                   <a
                     href={recordRoute(service.slug)}
-                    className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
+                    className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]"
                   >
                     <span className="line-clamp-2">{service.title}</span>
                   </a>
@@ -1048,7 +1048,7 @@ function DocumentSearchResultsPanelImpl({
                             </p>
                             <a
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </a>

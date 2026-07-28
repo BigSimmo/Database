@@ -1,5 +1,12 @@
 "use client";
 
-// Retain the compatibility export while allowing Next.js to prerender the
-// browser-guarded Client Component with the Server Component's initial detail.
-export { DocumentViewer as DocumentViewerLazy } from "@/components/DocumentViewer";
+import dynamic from "next/dynamic";
+import { DocumentViewerPageSkeleton } from "@/components/mode-home-page-skeleton";
+
+export const DocumentViewerLazy = dynamic(
+  () => import("@/components/DocumentViewer").then((mod) => mod.DocumentViewer),
+  {
+    ssr: false,
+    loading: () => <DocumentViewerPageSkeleton />,
+  }
+);

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { DifferentialDiagnosisPageClient } from "@/components/differentials/differential-diagnosis-page-client";
 import { differentialStaticParams, getDifferentialDetailContext, getDifferentialRecord } from "@/lib/differentials";
+import { MedicalJsonLd } from "@/components/seo/MedicalJsonLd";
 
 type DifferentialDiagnosisRouteProps = {
   params: Promise<{ slug: string }>;
@@ -20,6 +21,9 @@ export async function generateMetadata({ params }: DifferentialDiagnosisRoutePro
   return {
     title: `${record.title} - Differential diagnosis - Clinical KB`,
     description: record.subtitle,
+    alternates: {
+      canonical: `/differentials/diagnoses/${slug}`,
+    },
   };
 }
 
@@ -29,10 +33,18 @@ export default async function DifferentialDiagnosisRoute({ params }: Differentia
   if (!record) notFound();
 
   return (
-    <DifferentialDiagnosisPageClient
-      slug={slug}
-      fallbackRecord={record}
-      detailContext={getDifferentialDetailContext(record)}
-    />
+    <>
+      <MedicalJsonLd
+        type="MedicalCondition"
+        name={record.title}
+        description={record.subtitle}
+        url={`/differentials/diagnoses/${slug}`}
+      />
+      <DifferentialDiagnosisPageClient
+        slug={slug}
+        fallbackRecord={record}
+        detailContext={getDifferentialDetailContext(record)}
+      />
+    </>
   );
 }

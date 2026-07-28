@@ -12,6 +12,7 @@ import {
   projectPortEnd,
   stableProjectPort,
 } from "../src/lib/local-server-utils.mjs";
+import { execSync } from "node:child_process";
 
 if (Number(process.versions.node.split(".")[0]) !== 24) {
   console.error(`Clinical KB local server requires Node 24.x. Current runtime: ${process.versions.node}.`);
@@ -91,7 +92,7 @@ function requestJson(url, timeoutMs = 3500) {
         try {
           settle(JSON.parse(body));
         } catch {
-          settle(null);
+          settle({ error: true, status: response.statusCode });
         }
       });
     });
@@ -100,7 +101,7 @@ function requestJson(url, timeoutMs = 3500) {
       request.destroy();
       settle(null);
     });
-    request.on("error", () => settle(null));
+    request.on("error", (err) => settle({ error: true, code: err.code }));
   });
 }
 
@@ -134,11 +135,38 @@ function requestOk(url, timeoutMs = 8000) {
   });
 }
 
+function killProcessOnPort(port) {
+  try {
+    const output = execSync(`netstat -ano | findstr :${port}`).toString();
+    const lines = output.trim().split('\n');
+    for (const line of lines) {
+      if (line.includes(`:${port}`) && line.includes('LISTENING')) {
+        const parts = line.trim().split(/\\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && pid !== '0') {
+          debug(`Killing orphan process with PID ${pid} on port ${port}`);
+          execSync(`taskkill /F /PID ${pid}`);
+        }
+      }
+    }
+  } catch (err) {
+    debug(`Failed to kill process on port ${port}: ${err.message}`);
+  }
+}
+
 async function isThisProject(port, attempts = 3) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const payload = await requestJson(`http://localhost:${port}${identityPath}`);
     debug(`identity attempt ${attempt + 1} on ${port}: ${JSON.stringify(payload)}`);
     if (payload?.appName === appName && payload?.projectId === localProjectId(projectRoot)) return true;
+    
+    // Automatic orphan dev server cleanup for dead PIDs returning 500 or connection errors
+    if (payload?.error && (payload.status === 500 || payload.code === 'ECONNREFUSED' || payload.code === 'ECONNRESET')) {
+      debug(`Detected orphan dev server on port ${port}, attempting graceful shutdown.`);
+      killProcessOnPort(port);
+      await sleep(1000); // Give it time to die
+    }
+    
     if (attempt < attempts - 1) await sleep(250);
   }
   return false;

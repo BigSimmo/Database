@@ -1,7 +1,15 @@
 import { Suspense, type ReactNode } from "react";
 
 import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
-import { TherapyCompassWorkspace } from "@/components/therapy-compass";
+import dynamic from "next/dynamic";
+
+const TherapyCompassWorkspace = dynamic(
+  () => import("@/components/therapy-compass").then((m) => m.TherapyCompassWorkspace),
+  {
+    ssr: false,
+    loading: () => <div className="animate-pulse h-96 bg-neutral-100 rounded-lg dark:bg-neutral-800" />,
+  }
+);
 import "@/components/therapy-compass/therapy-compass.css";
 
 // Therapy Compass uses the same universal header, rail, and responsive search
