@@ -1482,7 +1482,11 @@ function hasActionableNumericContext(answer: RagAnswer) {
 // passes the packed context it actually generated from (answer.sources stays the unpacked
 // answer-input set for the client/eval boundary); other callers omit it and verify against
 // answer.sources as before.
-export function applyNumericVerification(answer: RagAnswer, verificationSources?: SearchResult[]): RagAnswer {
+export function applyNumericVerification(
+  answer: RagAnswer,
+  verificationSources?: SearchResult[],
+  options?: { unassessedClaimTexts?: string[] },
+): RagAnswer {
   // Answer fields are independent prose scopes. Combining them can make two
   // unrelated scales look like one overlapping list (for example, a renal
   // score in the lead and a cardiac score in a section).
@@ -1493,6 +1497,14 @@ export function applyNumericVerification(answer: RagAnswer, verificationSources?
 
   const sources = verificationSources ?? answer.sources ?? [];
   const unverified = new Set<string>();
+
+  // Claim support intentionally bounds detailed assessment work. If that cap
+  // leaves later numeric claims unassessed, their figures have no claim-scoped
+  // provenance and must fail closed even when the same value appears in an
+  // earlier claim or an unrelated cited chunk.
+  for (const text of options?.unassessedClaimTexts ?? []) {
+    for (const atom of extractClinicalValueAtoms(text)) unverified.add(clinicalValueAtomDisplay(atom));
+  }
 
   const claimScopedValues = (answer.supportedClaims ?? []).filter(
     (claim) => extractClinicalValueAtoms(claim.text).length > 0,
