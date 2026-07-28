@@ -10,10 +10,12 @@ const projectRoot = path.resolve(path.dirname(modulePath), "..");
 const tenGiB = 10 * 1024 * 1024 * 1024;
 
 /**
- * Local/Docker builds allocate an 8 GiB Node heap, so hosts under 10 GiB total
- * RAM are refused. GitHub-hosted ubuntu runners commonly report ~7–8 GiB even
- * though this project's Next build completes there regularly — hard-failing on
- * that measurement made Build flaky. CI therefore warns and continues.
+ * Local/Docker Desktop builds allocate an 8 GiB Node heap, so hosts under
+ * 10 GiB total RAM are refused. GitHub-hosted runners (host Build and Docker
+ * buildx) commonly report ~7–8 GiB even though this project's Next build
+ * completes there regularly — hard-failing on that measurement made CI flaky.
+ * Soften when CI/GITHUB_ACTIONS is set, or when the caller opts in with
+ * ALLOW_LOW_RAM_BUILD=1 (CI Docker image builds pass that build-arg).
  *
  * @param {{ totalRamBytes?: number, env?: { readonly [key: string]: string | undefined } }} [options]
  * @returns {"ok" | "warn" | "fail"}
@@ -22,8 +24,8 @@ export function evaluateNextBuildRamGuard(options = {}) {
   const totalRamBytes = options.totalRamBytes ?? os.totalmem();
   const env = options.env ?? process.env;
   if (totalRamBytes >= tenGiB) return "ok";
-  const isCi = env.CI === "true" || env.GITHUB_ACTIONS === "true";
-  return isCi ? "warn" : "fail";
+  const allowLowRam = env.CI === "true" || env.GITHUB_ACTIONS === "true" || env.ALLOW_LOW_RAM_BUILD === "1";
+  return allowLowRam ? "warn" : "fail";
 }
 
 export function formatLowRamBuildMessage(totalRamBytes = os.totalmem()) {
@@ -97,7 +99,7 @@ async function main() {
     console.warn(
       [
         formatLowRamBuildMessage(),
-        "Continuing because CI/GITHUB_ACTIONS is set (GitHub-hosted runners often report ~7–8 GiB).",
+        "Continuing because CI, GITHUB_ACTIONS, or ALLOW_LOW_RAM_BUILD=1 is set (hosted runners often report ~7–8 GiB).",
       ].join("\n"),
     );
   }
