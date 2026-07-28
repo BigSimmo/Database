@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "playwright/test";
+import { defineConfig } from "playwright/test";
 import { getPlaywrightBaseUrl } from "./scripts/playwright-base-url";
 
 const baseURL = getPlaywrightBaseUrl({ allowEnsure: false });

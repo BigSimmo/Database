@@ -328,17 +328,6 @@ export function acquireHeavyRunLock({
   if (!Number.isFinite(admissionWaitTimeoutMs) || admissionWaitTimeoutMs < 0)
     throw new Error("waitTimeoutMs must be a non-negative number.");
 
-  if (environment["TEST_STANDALONE"]) {
-    return {
-      path: "standalone",
-      coordinatorPath: "standalone",
-      owner: { pid: processId, token: "standalone" },
-      environment: { ...environment },
-      reentrant: true,
-      release() {},
-    };
-  }
-
   const lockPath = lockPathFor(repositoryIdentity, baseDirectory);
   const inheritedToken = environment[tokenEnvironmentKey];
   const inheritedPath = environment[pathEnvironmentKey];
