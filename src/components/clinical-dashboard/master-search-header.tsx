@@ -2148,7 +2148,7 @@ export function MasterSearchHeader({
           // header row's timing to avoid a one-frame gap during hide/reveal.
           // sm+ keeps its pinned inset because the sticky [bar | search] stack
           // is a separate wide-layout contract.
-          "relative z-[32] shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          "relative z-40 shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
           headerChromeHidden
             ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
             : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
