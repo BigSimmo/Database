@@ -411,6 +411,8 @@ describe("source authority metadata tooling", () => {
 
     expect(auditScript).toContain('from "@/lib/source-authority-metadata"');
     expect(auditScript).toContain("documents.filter((document) => !isRegistryRecordSource(document))");
+    expect(auditScript).toContain('"source_review_events"');
+    expect(auditScript).toContain("bmjAttestationEvents");
     expect(backfillScript).toContain('from "@/lib/source-authority-metadata"');
     expect(backfillScript).not.toContain("const publisherByCode");
   });

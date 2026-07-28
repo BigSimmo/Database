@@ -1,8 +1,31 @@
 # Source-governance refresh worklist — 2026-07-22
 
-Successor to [`source-review-priority-2026-07-02.md`](source-review-priority-2026-07-02.md), regenerated
-from live canary artifacts. Ledger item: **#022**. Produced read-only at **$0** — no provider calls, no
-live queries; everything below is derived from the Eval Canary artifacts for runs **#61** and **#57**.
+Successor to [`source-review-priority-2026-07-02.md`](source-review-priority-2026-07-02.md). Ledger item:
+**#022**. The historical worklist below was derived read-only from Eval Canary artifacts for runs **#61** and
+**#57**. The 2026-07-27 implementation-status section and tracked ten-document manifest use the retained
+`golden-retrieval.json` artifact from GitHub run **30216191889**. No new provider run or live application query was
+dispatched for either analysis.
+
+## 2026-07-27 policy implementation status
+
+The selected BMJ policy is now represented locally as
+`third_party_reference_attested` with exact policy version
+`bmj-third-party-reference-attestation-v1`. It is deliberately not a local clinical validation:
+
+- only an administrator may submit it through the source-review route;
+- the source must be indexed and carry compatible, recognized BMJ publisher metadata;
+- evidence references, a non-future attestation date, the exact policy version, and reviewer qualification are
+  required in both TypeScript and SQL;
+- the append-only event records the evidence while `clinical_validation_status=unverified`, the document currentness,
+  the document review date, and the user-facing **Not locally validated** caveat remain unchanged;
+- raw warning/unverified telemetry remains unchanged. A separately named operational measure excludes only complete,
+  current, structured BMJ attestations; malformed, old-policy, non-BMJ, and review-due records remain debt.
+
+The forward migration is prepared but has **not** been applied to hosted Supabase, and no source has been attested.
+The current single-run local review evidence pack is
+[`rag-top-local-review-manifest-2026-07-26.json`](evidence/rag-top-local-review-manifest-2026-07-26.json). Its ten
+entries remain `pending_qualified_human_review` with `attestation_applied=false`; it is evidence preparation, not a
+clinical decision.
 
 ## What the two governance numbers actually mean
 
@@ -17,10 +40,11 @@ Policy (verbatim from the canary log): _"unknown, unverified, review_due, outdat
 and poor extraction metadata are treated as review-required; do not silently default them to current or
 approved."_
 
-> **Reporting gap worth noting:** run #61's own `## Source Governance` table reports `Top results | 0` and
-> all-zero rates, even though the underlying `topResults` records carry full governance metadata. The
-> operator-facing table in the log is therefore **not** populated — this worklist had to be derived from
-> the raw JSON. Worth fixing so the canary log surfaces this directly.
+> **Reporting gap resolved (2026-07-27):** the answer-quality step now consumes the preceding
+> `golden-retrieval.json` through `--source-governance-results`, so its operator-facing
+> `## Source Governance` table is populated from the same raw `topResults` metadata. Offline replay
+> populated 338 top results, including 202 review-required entries, without adding retrieval cases or
+> changing ranking.
 
 ## The reframing: this is not 59 document reviews
 
@@ -85,15 +109,20 @@ of these slots in one action.
 
 ## Suggested order of work
 
-1. **Decide the BMJ attestation policy** (clears ~64% of review-required documents in one action) — any chosen option must be an explicit, auditable metadata update that never silently defaults to `current`/`approved` and preserves the third-party/unverified distinction; this remains open debt (ledger #022) until the approved policy is implemented, not merely decided.
+1. **Apply and use the decided BMJ attestation policy deliberately** — the local
+   `third_party_reference_attested` policy, schema, API validation, migration, and evidence manifest now
+   exist. A qualified reviewer must assess the evidence, an operator must deliberately apply the hosted
+   migration, and only eligible sources may then be attested. Never silently default a source to
+   `current`/`approved`; the third-party/unverified distinction remains visible.
 2. **Attest the local documents by visibility** — start with `Clozapine Management by GP (NMHS)` (22 slots,
    rank 1), then the FSH addiction/withdrawal document, then the remaining NMHS/AKG/CAMHS/KEMH items.
 3. **Re-read the warning rate** on the next canary to confirm the burn-down.
 
 ## Scope and limits
 
-- This is **operator work** (document review-status attestation in the app), not a code defect. No code
-  change is proposed here.
+- The policy/tooling code and forward migration are implemented locally. Hosted application, qualified
+  evidence review, source attestation, local-document clinical review, and warning-rate remeasurement
+  remain **operator/clinical-governance work**; no hosted migration or source attestation was performed.
 - The list reflects **only documents that surfaced in golden-case top results**, so it is a
   visibility-weighted worklist, not a full corpus audit. The 2026-07-02 predecessor notes the live corpus
   is far larger (~2,065 indexed documents at that time).

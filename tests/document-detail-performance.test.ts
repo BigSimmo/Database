@@ -128,4 +128,20 @@ describe("document viewer latency guards", () => {
     expect(viewer.indexOf("?download=true")).toBeGreaterThan(viewer.indexOf("openSourceDownload"));
     expect(viewer).not.toContain("fetchSignedUrlPair");
   });
+
+  it("keeps indexed-text search separate from answer generation and discards stale hits", () => {
+    const viewer = source("src/components/DocumentViewer.tsx");
+    const panels = source("src/components/document-viewer/source-panels.tsx");
+
+    expect(viewer).toContain("const currentDocumentSearchResults =");
+    expect(viewer).toContain("documentSearchState.query === normalizedSourceSearch");
+    expect(viewer).toContain("submitSourceSearch");
+    expect(viewer).toContain("sourceSearchInputRef.current?.focus()");
+    expect(viewer).toContain("Search within this document");
+    expect(viewer).toContain("documentsSearchHref({ query: tag.searchText || tag.label, run: true })");
+    expect(viewer).not.toContain("Search or answer from this document");
+    expect(panels).toContain("Enter at least 2 characters to search all indexed passages.");
+    expect(panels).toContain("const searchEligible = normalizedSearch.length >= 2;");
+    expect(panels).toContain("const displayChunks = useMemo(");
+  });
 });

@@ -4,7 +4,6 @@ let resetModulesAfterTest = false;
 const mockedModuleSpecifiers = [
   "@/lib/demo-data",
   "@/lib/differentials",
-  "@/lib/document-enrichment",
   "@/lib/env",
   "@/lib/rag/rag",
   "@/lib/supabase/admin",
@@ -181,7 +180,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     expect(documents?.items[0]?.href).toContain("/documents/");
   });
 
-  it("keeps registry hrefs when document search uses related-document mapping", async () => {
+  it("returns ranked chunk previews directly while preserving registry hrefs", async () => {
     isolateNextModuleImport();
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [
@@ -209,29 +208,6 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
         searchChunksWithTelemetry,
       };
     });
-    const fetchRelatedDocuments = vi.fn(async () => [
-      {
-        document_id: "registry-doc",
-        title: "Crisis service",
-        file_name: "service-crisis-service.registry.json",
-        labels: [],
-        summary: null,
-        best_pages: [1],
-        best_chunk_ids: ["registry-chunk"],
-        image_count: 0,
-        table_count: 0,
-        match_reason: "Matched 1 indexed passage",
-        score: 0.92,
-      },
-    ]);
-    vi.doMock("@/lib/document-enrichment", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("../src/lib/document-enrichment")>();
-      return {
-        ...actual,
-        fetchRelatedDocuments,
-      };
-    });
-
     const { runUniversalSearch } = await loadUniversalSearch();
     const response = await runUniversalSearch({
       query: "crisis service",
@@ -241,12 +217,14 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       supabase: {} as Parameters<typeof runUniversalSearch>[0]["supabase"],
     });
 
-    expect(response.groups[0]?.items[0]?.href).toBe("/services/crisis-service");
+    expect(response.groups[0]?.items[0]).toMatchObject({
+      id: "registry-doc",
+      href: "/services/crisis-service",
+      score: 0.92,
+      meta: "service-crisis-service.registry.json",
+    });
     expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
-    );
-    expect(fetchRelatedDocuments).toHaveBeenCalledWith(
-      expect.objectContaining({ includeVisualCounts: false, signal: expect.any(AbortSignal) }),
     );
   });
 
@@ -287,11 +265,6 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       const actual = await importOriginal<typeof import("../src/lib/rag/rag")>();
       return { ...actual, searchChunksWithTelemetry };
     });
-    vi.doMock("@/lib/document-enrichment", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("../src/lib/document-enrichment")>();
-      return { ...actual, fetchRelatedDocuments: vi.fn(async () => []) };
-    });
-
     const { runUniversalSearch } = await loadUniversalSearch();
     vi.useFakeTimers();
     const supabase = {} as Parameters<typeof runUniversalSearch>[0]["supabase"];
