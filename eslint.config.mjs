@@ -4,6 +4,7 @@ import nextTs from "eslint-config-next/typescript";
 
 import requireLucideIconAria from "./eslint-rules/require-lucide-icon-aria.mjs";
 import requireButtonWiring from "./eslint-rules/require-button-wiring.mjs";
+import requireZIndexLadder from "./eslint-rules/require-z-index-ladder.mjs";
 import restrictSuppressHydrationWarning from "./eslint-rules/restrict-suppress-hydration-warning.mjs";
 import noHardcodedHex from "./eslint-rules/no-hardcoded-hex.mjs";
 
@@ -14,6 +15,7 @@ const localRulesPlugin = {
   rules: {
     "require-lucide-icon-aria": requireLucideIconAria,
     "require-button-wiring": requireButtonWiring,
+    "require-z-index-ladder": requireZIndexLadder,
     "restrict-suppress-hydration-warning": restrictSuppressHydrationWarning,
     "no-hardcoded-hex": noHardcodedHex,
   },
@@ -76,6 +78,15 @@ const eslintConfig = defineConfig([
     plugins: { local: localRulesPlugin },
     rules: {
       "local/restrict-suppress-hydration-warning": "error",
+    },
+  },
+  // Z-index ladder enforcement
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    ignores: MOCKUP_IGNORES,
+    plugins: { local: localRulesPlugin },
+    rules: {
+      "local/require-z-index-ladder": "error",
     },
   },
   // Import boundary: production source must not import design-scratch mockup

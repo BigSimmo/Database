@@ -43,8 +43,9 @@ force-push, or discard work.
    AGENTS.md "External skill precedence"). Enabling squash-auto-merge is the repo norm but
    requires explicit user confirmation before enabling (`gh pr merge --squash --auto`); the
    PR lands on green.
-7. **Record** the review in `docs/branch-review-ledger.md` (Date | Branch/ref | Reviewed
-   HEAD | Scope | Outcome | Checks).
+7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
+   (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
+   the row into `docs/branch-review-ledger.md`.
 
 ## Requires explicit confirmation (do not do automatically)
 

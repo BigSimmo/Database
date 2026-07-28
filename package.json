@@ -64,7 +64,9 @@
     "check:ci-scope": "node scripts/ci-change-scope.mjs --self-test",
     "check:ci-triage": "node scripts/ci-triage.mjs --self-test",
     "check:gate-manifest": "node scripts/check-gate-manifest.mjs",
-    "check:branch-review-ledger": "node scripts/check-branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs",
+    "check:branch-review-ledger": "node scripts/check-branch-review-ledger.mjs --self-test && node scripts/branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs",
+    "ledger:lookup": "node scripts/branch-review-ledger.mjs lookup",
+    "ledger:append": "node scripts/branch-review-ledger.mjs append",
     "check:pr-policy": "node scripts/pr-policy.mjs --self-test && node scripts/check-pr-policy-workflow.mjs",
     "check:env-parity": "node scripts/check-env-parity.mjs",
     "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
@@ -228,7 +230,12 @@
     "tmp": "^0.2.7",
     "uuid": "^11.1.1",
     "brace-expansion@1": "^1.1.16",
-    "brace-expansion@2": "^2.1.2"
+    "brace-expansion@2": "^2.1.2",
+    "brace-expansion@5": "^5.0.8",
+    "exceljs": {
+      "archiver": "^8.0.0",
+      "unzipper": "^0.12.5"
+    }
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
