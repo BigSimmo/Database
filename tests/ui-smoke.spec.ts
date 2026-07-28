@@ -3251,9 +3251,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
+    await expect(viewerNav.getByRole("link")).toHaveText(["Summary", "PDF", "Evidence", "Images"]);
+    await expect(viewerNav.getByRole("link", { name: "Overview" })).toHaveCount(0);
+    await expect(viewerNav.getByRole("link", { name: "Text" })).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     await expect(preview).toBeVisible();
     const switchToCanvasMode = page.getByRole("button", { name: "Switch to canvas zoom mode" });
@@ -3298,8 +3298,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Text" }));
-    await expect(indexedTextHeading).toBeInViewport();
+    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Summary" }));
+    await expect(page.getByTestId("high-yield-summary")).toHaveJSProperty("open", true);
+    await expect(page.getByTestId("high-yield-summary")).toBeInViewport();
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
 
@@ -3390,7 +3391,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const images = page.locator("#source-images");
     const indexingDetails = page.getByTestId("indexing-details");
     const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
-    const clickViewerNav = async (name: "Images" | "Summary" | "Text") => {
+    const clickViewerNav = async (name: "Images" | "Summary") => {
       const link = viewerNav.getByRole("link", { name });
       await waitForReactEventHandler(link, "onClick");
       await activateFocusedControl(page, link);
@@ -3413,12 +3414,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(summaryContent).toBeHidden();
     await expect(images).toHaveJSProperty("open", true);
 
-    await clickViewerNav("Text");
-    await expect(indexedText).toBeInViewport();
-    await expect(images).toHaveJSProperty("open", false);
-
     await clickViewerNav("Summary");
     await expect(summary).toHaveJSProperty("open", true);
+    await expect(images).toHaveJSProperty("open", false);
     await expect(indexedText).toBeVisible();
 
     await clickViewerNav("Images");
@@ -3702,11 +3700,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       .toBeGreaterThan(250);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
-    // Keyboard focus inside the composer reveals it while hidden.
+    // The title-bar Search action reveals the hidden composer and transfers
+    // focus directly to this document's search field.
     await scrollPrimarySurface(page, 240);
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
-    await composer.locator("input").focus();
+    await page.locator("header").getByRole("button", { name: "Go to document search" }).click();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(composer.getByRole("searchbox", { name: "Search within this document" })).toBeFocused();
     await expect
       .poll(async () =>
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
@@ -3715,14 +3715,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
   });
 
-  test("document questions use the shared answer stream with progress and cleaned bold formatting", async ({
-    page,
-  }) => {
+  test("document search stays text-only and the separate answer action remains summary-scoped", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
+    const documentId = "11111111-1111-4111-8111-111111111111";
     const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
+    const documentSearchRequests: string[] = [];
+    const globalSearchRequests: string[] = [];
     let legacySummaryRequestCount = 0;
     page.on("request", (request) => {
-      if (/\/api\/documents\/[^/]+\/summarize$/.test(new URL(request.url()).pathname)) {
+      const url = new URL(request.url());
+      if (url.pathname === `/api/documents/${documentId}/search`) documentSearchRequests.push(request.url());
+      if (url.pathname === "/api/search") globalSearchRequests.push(request.url());
+      if (/\/api\/documents\/[^/]+\/summarize$/.test(url.pathname)) {
         legacySummaryRequestCount += 1;
       }
     });
@@ -3735,16 +3739,35 @@ test.describe("Clinical KB UI smoke coverage", () => {
           "Key practical points: **clozapine** monitoring requires regular FBC/ANC checks and review of constipation, myocarditis symptoms, metabolic risk, and missed-dose restart rules.",
       }),
     });
-    await gotoApp(
-      page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
-    );
+    await gotoApp(page, `/documents/${documentId}?page=1&chunk=44444444-4444-4444-8444-444444444442`);
 
     const composer = page.locator("form.document-viewer-composer");
-    await composer
-      .getByRole("textbox", { name: "Search or answer from this document" })
-      .fill("How is clozapine monitored?");
-    await activateFocusedControl(page, composer.getByRole("button", { name: "Answer from this document" }));
+    const documentSearch = composer.getByRole("searchbox", { name: "Search within this document" });
+    const indexedTextSearch = page.getByLabel("Search within indexed source text").last();
+    await page.locator("header").getByRole("button", { name: "Open document actions" }).click();
+    const searchActions = page.getByRole("dialog", { name: "This document" });
+    await activateFocusedControl(page, searchActions.getByRole("button", { name: "Search in document" }));
+    await expect(searchActions).toHaveCount(0);
+    await expect(documentSearch).toBeFocused();
+
+    await documentSearch.fill("safety plan include");
+    await expect(indexedTextSearch).toHaveValue("safety plan include");
+    await expect.poll(() => documentSearchRequests.length).toBe(1);
+    const documentSearchUrl = new URL(documentSearchRequests[0]);
+    expect(documentSearchUrl.pathname).toBe(`/api/documents/${documentId}/search`);
+    expect(documentSearchUrl.searchParams.get("q")).toBe("safety plan include");
+    expect(globalSearchRequests).toEqual([]);
+    expect(answerRequests).toEqual([]);
+
+    await documentSearch.press("Enter");
+    await expect(page.getByTestId("source-chunk-indexed-text-panel")).toBeInViewport();
+    await expect(page.getByTestId("source-chunk-indexed-text-panel").getByText("Hit 1 of 2").first()).toBeVisible();
+    expect(answerRequests).toEqual([]);
+
+    await page.locator("header").getByRole("button", { name: "Open document actions" }).click();
+    const answerActions = page.getByRole("dialog", { name: "This document" });
+    await expect(answerActions).toBeVisible();
+    await activateFocusedControl(page, answerActions.getByRole("button", { name: "Answer from this" }));
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
@@ -3762,25 +3785,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(summaryBox!.y).toBeLessThan(previewBox!.y);
     expect(answerRequests).toEqual([
       {
-        query: "How is clozapine monitored?",
-        documentId: "11111111-1111-4111-8111-111111111111",
-        summaryMode: undefined,
+        query: documentSummaryQuestion,
+        documentId,
+        summaryMode: true,
       },
     ]);
     expect(legacySummaryRequestCount).toBe(0);
-
-    await composer.getByRole("textbox", { name: "Search or answer from this document" }).fill("");
-    // The generated answer intentionally smooth-scrolls into view. WebKit can
-    // move the fixed pointer target during that animation, so exercise the
-    // native submit control by keyboard for this immediate follow-up action.
-    await activateFocusedControl(page, composer.getByRole("button", { name: "Answer from this document" }));
-    await expect.poll(() => answerRequests.length).toBe(2);
-    expect(answerRequests[1]).toEqual({
-      query: documentSummaryQuestion,
-      documentId: "11111111-1111-4111-8111-111111111111",
-      summaryMode: true,
-    });
-    expect(legacySummaryRequestCount).toBe(0);
+    expect(globalSearchRequests).toEqual([]);
     await expectNoPageHorizontalOverflow(page);
   });
 

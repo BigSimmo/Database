@@ -11,7 +11,6 @@ import {
   FileText,
   Loader2,
   Quote,
-  Search,
   Sparkles,
   Target,
   type LucideIcon,
@@ -375,18 +374,15 @@ export function TableReviewPanel({
 
 export function DocumentViewerAnchors({
   evidenceHref,
-  textHref,
   className,
 }: {
   evidenceHref: "#source-evidence" | "#source-evidence-rail";
-  textHref: "#source-text";
   className?: string;
 }) {
   const anchors = [
+    { label: "Summary", href: "#source-summary", icon: Sparkles },
     { label: "PDF", href: "#pdf-preview-section", icon: FileText },
     { label: "Evidence", href: evidenceHref, icon: Quote },
-    { label: "Text", href: textHref, icon: Search },
-    { label: "Summary", href: "#source-summary", icon: Sparkles },
     { label: "Images", href: "#source-images", icon: FileImage },
   ];
 

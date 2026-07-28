@@ -14,7 +14,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Send,
   Sparkles,
   Target,
 } from "lucide-react";
@@ -302,6 +301,8 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const documentSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const focusDocumentSearchAfterSheetCloseRef = useRef(false);
   // Phone-only hide-on-scroll for the bottom composer: never hide while the
   // mobile actions sheet is open or while focus sits inside the composer
   // (keyboard users must not tab into invisible controls).
@@ -333,6 +334,20 @@ export function DocumentViewer({
     resetKey: `${documentId}:${activePage}:${activeChunkId ?? ""}`,
   });
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
+  const focusDocumentSearch = useCallback(() => {
+    setComposerChromeFocused(true);
+    window.requestAnimationFrame(() => {
+      const input = documentSearchInputRef.current;
+      input?.focus({ preventScroll: true });
+      input?.select();
+    });
+  }, []);
+  useEffect(() => {
+    if (mobileActionsOpen || !focusDocumentSearchAfterSheetCloseRef.current) return;
+    focusDocumentSearchAfterSheetCloseRef.current = false;
+    const timeout = window.setTimeout(focusDocumentSearch, 0);
+    return () => window.clearTimeout(timeout);
+  }, [focusDocumentSearch, mobileActionsOpen]);
   // Read localStorage once on mount, then seed both derived states from it.
   const [initialPdfViewerMode] = useState(getInitialPdfViewerMode);
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(initialPdfViewerMode.useNativePdfViewer);
@@ -857,8 +872,7 @@ export function DocumentViewer({
       setSummaryError("Load a source document before summarising.");
       return;
     }
-    const summaryMode = sourceSearch.trim().length === 0;
-    const query = summaryMode ? documentSummaryQuestion : sourceSearch.trim();
+    const query = documentSummaryQuestion;
     const controller = new AbortController();
     summaryAbortRef.current?.abort();
     summaryAbortRef.current = controller;
@@ -886,7 +900,7 @@ export function DocumentViewer({
           "Content-Type": "application/json",
           ...(clientDemoMode ? {} : authorizationHeader),
         },
-        body: JSON.stringify({ query, documentId, ...(summaryMode ? { summaryMode: true } : {}) }),
+        body: JSON.stringify({ query, documentId, summaryMode: true }),
         signal: controller.signal,
       });
       if (response.status === 401) markSessionExpired();
@@ -976,6 +990,7 @@ export function DocumentViewer({
     : documentHomeHref;
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
+  const canSubmitDocumentSearch = viewerState === "ready" && canViewSourceDocuments && sourceSearch.trim().length >= 2;
   const summarizeTitle = !canUsePrivateApis
     ? "Sign in before answering from this document"
     : viewerState !== "ready" || loadingSummary
@@ -1111,6 +1126,17 @@ export function DocumentViewer({
           </h1>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={focusDocumentSearch}
+              disabled={!readyDocument}
+              title={readyDocument ? "Search within this document" : "Load a source document before searching"}
+              className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Go to document search"
+              aria-controls="document-viewer-search-input"
+            >
+              <Search aria-hidden="true" className="h-5 w-5" />
+            </button>
             <Link
               href={scopedDocumentHref}
               className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
@@ -1153,8 +1179,8 @@ export function DocumentViewer({
               <button
                 type="button"
                 onClick={() => {
+                  focusDocumentSearchAfterSheetCloseRef.current = true;
                   setMobileActionsOpen(false);
-                  setSourceSearch(documentDisplayTitle(readyDocument));
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
@@ -1330,7 +1356,7 @@ export function DocumentViewer({
         ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text" className="lg:hidden" />
+          <DocumentViewerAnchors evidenceHref="#source-evidence" className="lg:hidden" />
 
           <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
             <div data-testid="pdf-preview">
@@ -1491,7 +1517,7 @@ export function DocumentViewer({
           ) : null}
 
           <div className="hidden lg:block">
-            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" textHref="#source-text" className="mb-3" />
+            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" className="mb-3" />
             <PinnedSourceEvidence
               loading={effectiveLoadingDocument}
               chunk={selectedChunk}
@@ -1683,8 +1709,13 @@ export function DocumentViewer({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (canSummarizeDocument) void summarize();
+            if (!canSubmitDocumentSearch) return;
+            window.document
+              .getElementById("source-text")
+              ?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
           }}
+          role="search"
+          aria-label="Search within this document"
           data-scroll-hidden={composerScrollHidden ? "true" : undefined}
           onFocusCapture={() => setComposerChromeFocused(true)}
           onBlurCapture={(event) => {
@@ -1707,25 +1738,27 @@ export function DocumentViewer({
             <Plus aria-hidden="true" className="h-5 w-5" />
           </button>
           <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-            <span className="sr-only">Search or answer from this document</span>
+            <span className="sr-only">Search within this document</span>
             <input
+              ref={documentSearchInputRef}
+              id="document-viewer-search-input"
+              type="search"
+              name="document-search"
+              enterKeyHint="search"
+              autoComplete="off"
               value={sourceSearch}
               onChange={(event) => setSourceSearch(event.target.value)}
-              placeholder="Search or answer from this document..."
+              placeholder="Search within this document..."
               className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
             />
           </label>
           <button
             type="submit"
-            disabled={!canSummarizeDocument}
+            disabled={!canSubmitDocumentSearch}
             className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Answer from this document"
+            aria-label="Search document text"
           >
-            {loadingSummary ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send aria-hidden="true" className="h-4 w-4" />
-            )}
+            <Search aria-hidden="true" className="h-4 w-4" />
           </button>
         </form>
       ) : null}
