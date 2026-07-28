@@ -42,9 +42,11 @@ This repo uses one shared search experience across the global shell, dashboard r
     reserve and no second scroll owner) and an in-column card at `lg`. Both DocumentViewer sheets feed the
     `composerScrollHidden` guard so chrome cannot hide beneath an open overlay, and opening the section sheet blurs
     the document composer first. The viewer's sticky rail reads `data-scroll-hidden` from
-    `universal-header-collapse` and drops its `lg:top` offset to `0` while the top bar is hidden; section anchors use
-    `--document-anchor-offset`, published from the live collapse-row height, instead of a fixed `scroll-mt`. Observe
-    the shared header from the viewer; never edit it for this.
+    `universal-header-collapse` and drops its `lg:top` offset to the page-owned sticky document header height while
+    the top bar is hidden; section anchors use `--document-anchor-offset`, published from the live collapse-row height
+    plus that sticky header when the shared bar is away, instead of a fixed `scroll-mt`. Observe the shared header
+    from the viewer; never edit it for this. The in-column section index card is `lg+` only — phones use the header
+    disclosure and section sheet.
 23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
 ## Results band (`SearchResultsHeaderBand`)

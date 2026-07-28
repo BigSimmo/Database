@@ -36,7 +36,6 @@ import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
 import {
   appBackdrop,
-  clinicalDivider,
   cn,
   floatingControl,
   glassOverlaySurface,

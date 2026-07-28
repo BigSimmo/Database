@@ -69,7 +69,7 @@ export function DocumentViewerRail({
   formattedStoredSummary: FormattedDocumentSummary;
   canUseAdministrativeApis: boolean;
   clientDemoMode: boolean;
-  authorizationHeader: HeadersInit | undefined;
+  authorizationHeader: Record<string, string>;
   onLabelsUpdated: (labels: DocumentLabel[]) => void;
   onUnauthorized: () => void;
   onSearchByTag: (tag: { searchText: string; label: string }) => void;
