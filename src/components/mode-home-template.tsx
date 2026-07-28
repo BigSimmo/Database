@@ -286,9 +286,9 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:px-4 sm:py-3 lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:rounded-lg lg:border lg:border-[color:var(--border)] lg:px-5 lg:py-3.5 lg:shadow-[var(--shadow-card)]",
+              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3 sm:shadow-[var(--shadow-card)] lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:px-5 lg:py-3.5",
               // Phone stack separator only — the action grid becomes multi-column
-              // at `sm`, and at `lg` each action is its own card with `lg:border`,
+              // at `sm`, where each action also becomes its own bordered card,
               // so do not keep a top edge that would double the card border.
               index > 0 && "max-sm:border-t max-sm:border-[color:var(--border)]",
             );

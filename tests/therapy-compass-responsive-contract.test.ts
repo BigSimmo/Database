@@ -100,6 +100,7 @@ describe("Therapy Compass responsive contract", () => {
     // not double `lg:border` card chrome once the grid is multi-column.
     expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("max-sm:border-t");
+    expect(modeHomeTemplateSource).toContain("sm:rounded-lg sm:border");
     expect(modeHomeTemplateSource).not.toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
