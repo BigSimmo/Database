@@ -7,9 +7,14 @@ import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../s
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+// Local-only RAM gate: Docker Desktop / small local VMs OOM on an 8 GiB Next
+// heap. Hosted CI runners vary (often ~7–16 GiB reported by os.totalmem) and
+// already succeed building there — hard-failing on <10 GiB flakes Build when a
+// smaller runner is scheduled. Keep the protection for interactive local use.
+const runningInCi = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 const totalRamBytes = os.totalmem();
 const tenGiB = 10 * 1024 * 1024 * 1024;
-if (totalRamBytes < tenGiB) {
+if (!runningInCi && totalRamBytes < tenGiB) {
   console.error(
     [
       `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
