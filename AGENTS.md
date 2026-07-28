@@ -121,10 +121,9 @@ Use `docs/codex-review-protocol.md` as the shared review protocol for every repo
 
 Before reviewing a branch or PR:
 
-- Check `docs/branch-review-ledger.md` if it exists.
-- Resolve the target with `git rev-parse <branch-or-ref>`.
-- If the same branch/ref and HEAD SHA were already reviewed for the same scope, summarize the prior ledger outcome and skip the repeat review unless the user explicitly requests a fresh pass.
-- If the target HEAD changed, review only the changed scope and update the ledger after the review.
+- Run `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"`. It resolves the HEAD, matches the abbreviated SHAs older records used, and prints an explicit verdict. Do not read `docs/branch-review-ledger.md` by eye — it is over a thousand rows, and eyeballing it is how repeat reviews slipped through.
+- On `ALREADY REVIEWED`, summarize the prior ledger outcome and skip the repeat review unless the user explicitly requests a fresh pass.
+- On `NOT REVIEWED at this HEAD`, review only the changed scope and append a record after the review.
 
 Before reviewing multiple branches:
 
@@ -143,7 +142,7 @@ Review routing:
 - `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
 - `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
 
-When a branch or PR review completes, append the reviewed branch/ref, HEAD SHA, date, scope, outcome, and checks to `docs/branch-review-ledger.md`. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record instead. Its `merge=union` attribute preserves concurrent appends, and `npm run check:branch-review-ledger` blocks conflict markers, exact duplicate records, or loss of that merge protection.
+When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. Never hand-write the markdown row: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make a record unmatchable so the review runs again. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. Its `merge=union` attribute preserves concurrent appends, and `npm run check:branch-review-ledger` blocks conflict markers, duplicate records, mojibake, wrong-width or heading-style records, unresolvable HEADs, or loss of that merge protection.
 
 <!-- END:codex-review-throttling -->
 
@@ -227,7 +226,9 @@ The shared search chrome must adapt by page ownership, not by ad-hoc padding or 
 # External skill precedence
 
 User-global skills and output-style plugins are installed outside this repo and know nothing about
-its contracts. Repo docs and committed tests always win. This section is the tie-breaker.
+its contracts. Where they conflict with repo docs or committed tests, the repo wins. This section
+is the tie-breaker for that case only: it scopes external, generic guidance and does not override
+system, developer, user, security, or compliance requirements, which remain higher priority.
 
 - **Repo contracts outrank generic rules.** The Front-End Checklist skill corpus (~390 user-global
   skills: `alt-text`, `touch-targets`, `focus-styles`, `reduced-motion`, `color-contrast`, and so
@@ -250,9 +251,10 @@ its contracts. Repo docs and committed tests always win. This section is the tie
 
 Output-style plugins such as caveman mode may compress prose. They must never compress proof.
 
-- **Always paste the decisive line.** Report gates with real output, not a summary. `npm run
-verify:ui` exits 0 without running a single Playwright test when another worktree holds the heavy
-  lock, so grep for the "N passed" line; exit 0 alone is not proof.
+- **Always paste the decisive line.** Report gates with real output, not a summary. Under heavy-lock
+  contention, `npm run verify:ui` queues Playwright admission for up to 15 minutes and exits `1` on
+  timeout (`run-playwright.mjs`) — it does not soft-skip green. When the gate does run, grep for the
+  "N passed" line; exit 0 alone is not proof.
 - **State verified versus assumed.** Calibration is not filler. Say what was actually run, what was
   read, and what is inferred. Do not drop uncertainty to save tokens.
 - **Third-party fix claims stay unverified until checked.** Bot or agent claims that a fix landed
