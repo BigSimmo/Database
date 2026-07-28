@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -66,6 +69,18 @@ describe("PageSecondaryNavigation", () => {
 
     expect(formDecisionContext?.fragmentId).toBe("form-decision-context");
     expect(differentialSafety?.fragmentId).toBe("differential-presentation-safety");
+  });
+
+  it("binds service section targets to IDs rendered by service-detail-page", () => {
+    const servicePage = readFileSync(
+      join(process.cwd(), "src/components/services/service-detail-page.tsx"),
+      "utf8",
+    );
+    for (const targetId of informationPageSectionDefinitions("/services/community-team").flatMap(
+      (section) => section.targetIds,
+    )) {
+      expect(servicePage).toContain(`id="${targetId}"`);
+    }
   });
 
   it("does not add a navigation row to a clean no-query landing page", () => {

@@ -12,6 +12,7 @@ import {
 afterEach(() => {
   window.history.replaceState(null, "", "/");
   document.documentElement.removeAttribute("data-motion");
+  Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
 });
 
 function ControlledTabs() {
@@ -70,6 +71,57 @@ describe("SecondaryNavigation", () => {
     await waitFor(() => expect(host).toContainElement(navigation));
     expect(screen.getByTestId("page-content")).not.toContainElement(navigation);
     expect(navigation).not.toHaveClass("sticky");
+  });
+
+  it("keeps active-chip sync on the horizontal rail without scrolling the page", async () => {
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      writable: true,
+      value: scrollTo,
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(
+      this: HTMLElement,
+    ) {
+      if (this.classList.contains("polished-scroll")) {
+        return { x: 0, y: 0, top: 0, left: 0, right: 200, bottom: 56, width: 200, height: 56, toJSON() {} };
+      }
+      if (this.textContent === "Safety") {
+        return { x: 260, y: 8, top: 8, left: 260, right: 340, bottom: 48, width: 80, height: 40, toJSON() {} };
+      }
+      return { x: 0, y: 0, top: 0, left: 0, right: 80, bottom: 40, width: 80, height: 40, toJSON() {} };
+    });
+
+    const { rerender } = render(
+      <SecondaryNavigation
+        ariaLabel="On this page"
+        sticky={false}
+        activeId="one"
+        items={[
+          { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
+          { kind: "section", id: "two", label: "Safety", targetId: "section-two" },
+        ]}
+      />,
+    );
+    vi.mocked(Element.prototype.scrollIntoView).mockClear();
+    scrollTo.mockClear();
+
+    rerender(
+      <SecondaryNavigation
+        ariaLabel="On this page"
+        sticky={false}
+        activeId="two"
+        items={[
+          { kind: "section", id: "one", label: "Overview", targetId: "section-one" },
+          { kind: "section", id: "two", label: "Safety", targetId: "section-two" },
+        ]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ left: expect.any(Number) })),
+    );
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("uses fragment links, location semantics, history, and reduced-motion-aware scrolling", async () => {
@@ -195,6 +247,24 @@ describe("SecondaryNavigation", () => {
 
   it("reveals the active item horizontally without overriding motion preferences", async () => {
     document.documentElement.setAttribute("data-motion", "reduced");
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      writable: true,
+      value: scrollTo,
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(
+      this: HTMLElement,
+    ) {
+      if (this.classList.contains("polished-scroll")) {
+        return { x: 0, y: 0, top: 0, left: 0, right: 120, bottom: 56, width: 120, height: 56, toJSON() {} };
+      }
+      if (this.textContent === "Last") {
+        return { x: 180, y: 8, top: 8, left: 180, right: 260, bottom: 48, width: 80, height: 40, toJSON() {} };
+      }
+      return { x: 0, y: 0, top: 0, left: 0, right: 80, bottom: 40, width: 80, height: 40, toJSON() {} };
+    });
+
     render(
       <SecondaryNavigation
         ariaLabel="Mode"
@@ -207,11 +277,11 @@ describe("SecondaryNavigation", () => {
     );
 
     await waitFor(() =>
-      expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
+      expect(scrollTo).toHaveBeenCalledWith({
+        left: expect.any(Number),
         behavior: "auto",
-        block: "nearest",
-        inline: "nearest",
       }),
     );
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 });

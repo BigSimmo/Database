@@ -190,15 +190,30 @@ export function SecondaryNavigation({
     [items],
   );
   const navigationRef = useRef<HTMLElement | null>(null);
+  const railRef = useRef<HTMLDivElement | null>(null);
   const observedSectionId = useActiveSection(sectionItems, navigationRef);
   const resolvedActiveId = activeId ?? observedSectionId;
   const itemRefs = useRef(new Map<string, HTMLElement>());
 
+  // Keep the active chip in the horizontal rail without calling scrollIntoView —
+  // block:"nearest" also adjusts the page vertically when the bar is off-screen,
+  // which yanks readers back to the top as they scroll through long records.
   useEffect(() => {
     if (!resolvedActiveId) return;
-    itemRefs.current
-      .get(resolvedActiveId)
-      ?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "nearest", inline: "nearest" });
+    const item = itemRefs.current.get(resolvedActiveId);
+    const rail = railRef.current;
+    if (!item || !rail) return;
+    const railRect = rail.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const overflowLeft = itemRect.left - railRect.left;
+    const overflowRight = itemRect.right - railRect.right;
+    if (overflowLeft >= 0 && overflowRight <= 0) return;
+    const nextLeft = rail.scrollLeft + (overflowLeft < 0 ? overflowLeft : overflowRight);
+    if (typeof rail.scrollTo === "function") {
+      rail.scrollTo({ left: nextLeft, behavior: resolveScrollBehavior() });
+    } else {
+      rail.scrollLeft = nextLeft;
+    }
   }, [placeInShell, resolvedActiveId, shellHost]);
 
   function handleTabKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
@@ -245,6 +260,7 @@ export function SecondaryNavigation({
       )}
     >
       <div
+        ref={railRef}
         role={tablist ? "tablist" : undefined}
         aria-label={tablist ? ariaLabel : undefined}
         onKeyDown={handleTabKeyDown}
