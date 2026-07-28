@@ -1434,34 +1434,11 @@ export function medicationDoseQueryContext(query: string, result: SearchResult) 
     return { hasClinicalSubject: false, matched: true, hitCount: 0, requiredHits: 0 };
   }
   const evidenceTokens = new Set(normalizedClinicalSearchTokens(clinicalResultEvidenceHaystack(result)));
-  const namedMedications = medicationTerms(normalizeAnalysisText(query));
-  // Accept brand/generic aliases per named medication (e.g. Clozaril ↔ clozapine).
-  // Keep each medication's alias set separate so one drug's evidence cannot satisfy
-  // another named subject token in multi-medication queries.
-  const aliasTokensByMedication = namedMedications.map((medication) => {
-    const aliasTokens = new Set(
-      [medication, ...medicationAliasesForEntity(medication)].flatMap((alias) => normalizedClinicalSearchTokens(alias)),
-    );
-    return aliasTokens;
-  });
-  const evidenceHasAlias = (aliasTokens: Set<string>) =>
-    [...aliasTokens].some((aliasToken) => evidenceTokens.has(aliasToken));
-  const evidenceHasSubjectToken = (token: string) => {
-    if (evidenceTokens.has(token)) return true;
-    const owningAliases = aliasTokensByMedication.find((aliasTokens) => aliasTokens.has(token));
-    if (owningAliases && evidenceHasAlias(owningAliases)) return true;
-    return (
-      token.startsWith("monitor") &&
-      Array.from(evidenceTokens).some((evidenceToken) => evidenceToken.startsWith("monitor"))
-    );
-  };
-  const hitCount = subjectTokens.filter(evidenceHasSubjectToken).length;
+  const hitCount = subjectTokens.filter((token) => evidenceTokens.has(token)).length;
   const requiredHits = Math.min(2, subjectTokens.length);
-  const hasNamedMedication =
-    namedMedications.length === 0 || aliasTokensByMedication.every((aliasTokens) => evidenceHasAlias(aliasTokens));
   return {
     hasClinicalSubject: true,
-    matched: hasNamedMedication && hitCount >= requiredHits,
+    matched: hitCount >= requiredHits,
     hitCount,
     requiredHits,
   };
@@ -1529,11 +1506,7 @@ export function buildClinicalTextSearchQuery(query: string) {
     // retain the established broad query below.
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "wbc", "neutrophils", "red", "range", "stop");
   } else if (wantsClozapineBloodMonitoring) {
-    // Non-threshold monitoring questions keep the broad "clozapine monitoring"
-    // primary query, but retain blood-count tokens already present so ANC/FBC
-    // evidence is not dropped. Threshold/withhold questions are handled above.
-    const bloodCountTokens = normalizedTokens.filter((token) => /^(?:anc|fbc|wbc|wcc|neutrophil)$/.test(token));
-    normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring", ...bloodCountTokens);
+    normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationMedicationChart) {
     const requestedDoseRouteTerms = medicationDoseEvidenceSearchTerms(query);
     const medicationChartTokens =
@@ -1543,8 +1516,6 @@ export function buildClinicalTextSearchQuery(query: string) {
     normalizedTokens.splice(0, normalizedTokens.length, ...medicationChartTokens);
   } else if (wantsAgitationArousal) {
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
-  } else if (/\bneuroleptic\b/i.test(correctedQueryText) && /\bside effects?\b/i.test(correctedQueryText)) {
-    normalizedTokens.splice(0, normalizedTokens.length, "neuroleptic", "side", "effect");
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
     normalizedTokens.unshift("admission", "community", "patients", "pts");
   } else if (/\bdischarge\b/i.test(query) && /\b(?:summari[sz]e|summary|guidance|documentation?)\b/i.test(query)) {
@@ -1735,11 +1706,8 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     /\b(?:anc|fbc|full blood count|blood|bloods|withhold|cease|stop|threshold|missed dose|monitor|monitoring|observations?)\b/i.test(
       query,
     );
-  const clozapineAliasInHaystack = medicationAliasesForEntity("clozapine").some((alias) =>
-    new RegExp(`\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(haystack),
-  );
-  const clozapineSpecificBoost = clozapineSpecificQuery && clozapineAliasInHaystack ? 0.22 : 0;
-  const clozapineSpecificPenalty = clozapineSpecificQuery && !clozapineAliasInHaystack ? -0.3 : 0;
+  const clozapineSpecificBoost = clozapineSpecificQuery && /\bclozapine\b/.test(haystack) ? 0.22 : 0;
+  const clozapineSpecificPenalty = clozapineSpecificQuery && !/\bclozapine\b/.test(haystack) ? -0.3 : 0;
   const clozapinePrescribingAdminBoost =
     clozapineSpecificQuery && /\bclozapine prescribing administration (?:and )?monitoring\b/.test(titleTokenText)
       ? 0.18

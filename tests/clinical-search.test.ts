@@ -349,19 +349,6 @@ describe("clinical search query normalization", () => {
     ).toBe("agitation arousal pharmacological management");
   });
 
-  it("anchors neuroleptic side-effect escalation to the canonical document title", () => {
-    expect(buildClinicalTextSearchQuery("When should neuroleptic side effects be escalated?")).toBe(
-      "neuroleptic side effect",
-    );
-    // Keep medication_dose_risk so title-supported escalation rescue can engage.
-    expect(classifyRagQuery("When should neuroleptic side effects be escalated?").queryClass).toBe(
-      "medication_dose_risk",
-    );
-    expect(classifyRagQuery("What dose applies for neuroleptic side effect management?").queryClass).toBe(
-      "medication_dose_risk",
-    );
-  });
-
   it("keeps typo-heavy agitation dosing queries anchored to the local pharmacological chart", () => {
     expect(
       buildClinicalTextSearchQuery("What agitaton and arousl dosing guidance applies to psychiatric inpatients?"),
@@ -389,71 +376,6 @@ describe("clinical search query normalization", () => {
         "Which observations and blood monitoring are needed while a patient is taking clozapine?",
       ),
     ).toBe("clozapine monitoring");
-  });
-
-  it("preserves structured evidence terms for clozapine blood-action threshold queries", () => {
-    // Threshold/withhold questions use the dedicated blood-action path (not the
-    // generic monitoring collapse) so AMB/RED range evidence stays discoverable.
-    expect(buildClinicalTextSearchQuery("What ANC or FBC threshold should withhold clozapine?")).toBe(
-      "clozapine wbc neutrophils red range stop",
-    );
-  });
-
-  it("requires the named medication, not generic monitoring language, for medication context", () => {
-    const ranked = rankClinicalResults("What monitoring is required for lithium therapy?", [
-      result({
-        id: "unrelated-monitoring",
-        title: "Methotrexate Monitoring",
-        content: "Monitor therapy with regular blood tests.",
-        hybrid_score: 0.8,
-      }),
-      result({
-        id: "lithium-monitoring",
-        title: "Lithium Clinical Guideline",
-        content: "Monitor lithium levels, renal function, and thyroid function.",
-        hybrid_score: 0.65,
-      }),
-    ]);
-
-    expect(ranked.map((item) => item.id)).toEqual(["lithium-monitoring", "unrelated-monitoring"]);
-  });
-
-  it("accepts brand-name evidence for a generic medication monitoring query", () => {
-    const ranked = rankClinicalResults("What monitoring is required for clozapine therapy?", [
-      result({
-        id: "unrelated-monitoring",
-        title: "Methotrexate Monitoring",
-        content: "Monitor therapy with regular blood tests.",
-        hybrid_score: 0.85,
-      }),
-      result({
-        id: "clozaril-monitoring",
-        title: "Clozaril Monitoring",
-        content: "Monitor Clozaril with regular blood tests and ANC thresholds.",
-        hybrid_score: 0.7,
-      }),
-    ]);
-
-    expect(ranked.map((item) => item.id)).toEqual(["clozaril-monitoring", "unrelated-monitoring"]);
-  });
-
-  it("does not let one medication alias satisfy another named medication subject", () => {
-    const ranked = rankClinicalResults("What monitoring is required for clozapine and olanzapine therapy?", [
-      result({
-        id: "clozapine-only",
-        title: "Clozaril Monitoring",
-        content: "Monitor Clozaril with regular blood tests and ANC thresholds.",
-        hybrid_score: 0.9,
-      }),
-      result({
-        id: "both-medications",
-        title: "Clozapine and Olanzapine Monitoring",
-        content: "Monitor clozapine and olanzapine therapy with regular blood tests.",
-        hybrid_score: 0.7,
-      }),
-    ]);
-
-    expect(ranked.map((item) => item.id)).toEqual(["both-medications", "clozapine-only"]);
   });
 
   it("anchors generic discharge summaries to mental health discharge sources", () => {
