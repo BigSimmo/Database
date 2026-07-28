@@ -2376,9 +2376,11 @@ test.describe("Responsive layout guards", () => {
 
     await page.goto("/safety-plan");
     await expect(page.getByLabel(/Patient \(name or initials\)/i)).toHaveCount(0);
-    await expect(page.getByText(/kept only in this browser tab/i)).toBeVisible();
+    const privacyRegion = page.getByRole("region", { name: "Safety plan privacy" });
+    await expect(privacyRegion).toHaveCount(1);
+    await expect(privacyRegion.getByText(/kept only in this browser tab/i)).toBeVisible();
     await expect(
-      page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+      privacyRegion.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
     ).toBeVisible();
 
     await page.evaluate(() => {
