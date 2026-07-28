@@ -1440,9 +1440,7 @@ export function medicationDoseQueryContext(query: string, result: SearchResult) 
   // another named subject token in multi-medication queries.
   const aliasTokensByMedication = namedMedications.map((medication) => {
     const aliasTokens = new Set(
-      [medication, ...medicationAliasesForEntity(medication)].flatMap((alias) =>
-        normalizedClinicalSearchTokens(alias),
-      ),
+      [medication, ...medicationAliasesForEntity(medication)].flatMap((alias) => normalizedClinicalSearchTokens(alias)),
     );
     return aliasTokens;
   });
