@@ -72,10 +72,7 @@ describe("PageSecondaryNavigation", () => {
   });
 
   it("binds service section targets to IDs rendered by service-detail-page", () => {
-    const servicePage = readFileSync(
-      join(process.cwd(), "src/components/services/service-detail-page.tsx"),
-      "utf8",
-    );
+    const servicePage = readFileSync(join(process.cwd(), "src/components/services/service-detail-page.tsx"), "utf8");
     for (const targetId of informationPageSectionDefinitions("/services/community-team").flatMap(
       (section) => section.targetIds,
     )) {

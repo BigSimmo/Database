@@ -80,9 +80,7 @@ describe("SecondaryNavigation", () => {
       writable: true,
       value: scrollTo,
     });
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(
-      this: HTMLElement,
-    ) {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(this: HTMLElement) {
       if (this.classList.contains("polished-scroll")) {
         return { x: 0, y: 0, top: 0, left: 0, right: 200, bottom: 56, width: 200, height: 56, toJSON() {} };
       }
@@ -118,9 +116,7 @@ describe("SecondaryNavigation", () => {
       />,
     );
 
-    await waitFor(() =>
-      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ left: expect.any(Number) })),
-    );
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ left: expect.any(Number) })));
     expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
   });
 
@@ -253,9 +249,7 @@ describe("SecondaryNavigation", () => {
       writable: true,
       value: scrollTo,
     });
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(
-      this: HTMLElement,
-    ) {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function getRect(this: HTMLElement) {
       if (this.classList.contains("polished-scroll")) {
         return { x: 0, y: 0, top: 0, left: 0, right: 120, bottom: 56, width: 120, height: 56, toJSON() {} };
       }
