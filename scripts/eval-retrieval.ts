@@ -118,6 +118,8 @@ export type GoldenRetrievalResult = {
     text_rank: number | null;
     rrf_score: number | null;
     score_explanation?: SearchResult["score_explanation"];
+    relevanceGrade: number | null;
+    matchedDeclaredSignals: string[];
     content_preview: string;
   }>;
 };
@@ -403,6 +405,15 @@ type RetrievalSignalMetrics = {
   ndcgAt10: number;
   irrelevantSourceRateAt10: number;
   requiredSignalCoverageAt10: number;
+  topResultSignalMatches: Array<{
+    relevanceGrade: number | null;
+    matchedDeclaredSignals: string[];
+  }>;
+};
+
+type DeclaredRetrievalSignal = {
+  label: string;
+  matches: (result: SearchResult) => boolean;
 };
 
 /**
@@ -413,42 +424,62 @@ type RetrievalSignalMetrics = {
  */
 function retrievalSignalMetricsAt10(testCase: GoldenRetrievalCase, results: SearchResult[]): RetrievalSignalMetrics {
   const top = results.slice(0, 10);
-  const documentSignals = testCase.expectedDocumentSubstrings.map((expectation) => (result: SearchResult) => {
-    const text =
-      !clinicalDocumentAliases[expectation] && !/\.pdf$/i.test(expectation)
-        ? resultDocumentEvidenceText(result)
-        : resultDocumentText(result);
-    return documentExpectationAlternatives(expectation).some((alternative) => text.includes(alternative));
-  });
-  const contentSignals = testCase.expectedContentTerms.map(
-    (expectation) => (result: SearchResult) => contentExpectationMatchesResult(expectation, result),
-  );
-  const signals = [
+  const documentSignals: DeclaredRetrievalSignal[] = testCase.expectedDocumentSubstrings.map((expectation) => ({
+    label: `document:${expectation}`,
+    matches: (result: SearchResult) => {
+      const text =
+        !clinicalDocumentAliases[expectation] && !/\.pdf$/i.test(expectation)
+          ? resultDocumentEvidenceText(result)
+          : resultDocumentText(result);
+      return documentExpectationAlternatives(expectation).some((alternative) => text.includes(alternative));
+    },
+  }));
+  const contentSignals: DeclaredRetrievalSignal[] = testCase.expectedContentTerms.map((expectation) => ({
+    label: `content:${contentExpectationLabel(expectation)}`,
+    matches: (result: SearchResult) => contentExpectationMatchesResult(expectation, result),
+  }));
+  const signals: DeclaredRetrievalSignal[] = [
     ...documentSignals,
     ...contentSignals,
-    ...(testCase.expectTableEvidence ? [(result: SearchResult) => hasTableEvidence([result], 1)] : []),
+    ...(testCase.expectTableEvidence
+      ? [{ label: "table_evidence", matches: (result: SearchResult) => hasTableEvidence([result], 1) }]
+      : []),
   ];
   const declaredSignalCount = signals.length;
+  const resultSignalMatches = top.map((result) => signals.map((signal) => signal.matches(result)));
+  const topResultSignalMatches = resultSignalMatches.map((matches) => {
+    const matchedDeclaredSignals = signals
+      .filter((_, signalIndex) => matches[signalIndex])
+      .map((signal) => signal.label);
+    return {
+      relevanceGrade: declaredSignalCount === 0 ? null : matchedDeclaredSignals.length,
+      matchedDeclaredSignals,
+    };
+  });
   if (declaredSignalCount === 0) {
     return {
       declaredSignalCount: 0,
       ndcgAt10: 1,
       irrelevantSourceRateAt10: 0,
       requiredSignalCoverageAt10: 1,
+      topResultSignalMatches,
     };
   }
 
-  const grades = top.map((result) => signals.filter((matches) => matches(result)).length);
+  const grades = topResultSignalMatches.map((result) => result.relevanceGrade ?? 0);
   const dcg = (values: number[]) =>
     values.reduce((sum, grade, index) => sum + (2 ** grade - 1) / Math.log2(index + 2), 0);
   const idealDcg = dcg([...grades].sort((left, right) => right - left));
-  const matchedSignals = signals.filter((matches) => top.some((result) => matches(result))).length;
+  const matchedSignals = signals.filter((_, signalIndex) =>
+    resultSignalMatches.some((matches) => matches[signalIndex]),
+  ).length;
 
   return {
     declaredSignalCount,
     ndcgAt10: idealDcg > 0 ? dcg(grades) / idealDcg : 0,
     irrelevantSourceRateAt10: top.length > 0 ? grades.filter((grade) => grade === 0).length / top.length : 0,
     requiredSignalCoverageAt10: matchedSignals / declaredSignalCount,
+    topResultSignalMatches,
   };
 }
 
@@ -491,7 +522,7 @@ function hasTableEvidence(results: SearchResult[], limit = 5) {
   });
 }
 
-function topResultSummary(results: SearchResult[]) {
+function topResultSummary(results: SearchResult[], signalMatches: RetrievalSignalMetrics["topResultSignalMatches"]) {
   // Top 10, not 5: irrelevant_source_rate@10 and rr@10 are top-10 metrics, so the artifact
   // must carry the rows those metrics saw — enabling the offline irrelevant@10 labeling
   // audit (docs/observability-slos.md §3.1) and deeper trend drill-downs without a live rerun.
@@ -524,6 +555,8 @@ function topResultSummary(results: SearchResult[]) {
       text_rank: result.text_rank ?? null,
       rrf_score: result.rrf_score ?? null,
       score_explanation: result.score_explanation,
+      relevanceGrade: signalMatches[index]?.relevanceGrade ?? null,
+      matchedDeclaredSignals: signalMatches[index]?.matchedDeclaredSignals ?? [],
       content_preview: (result.retrieval_synopsis || result.content).replace(/\s+/g, " ").trim().slice(0, 220),
     };
   });
@@ -575,7 +608,7 @@ export function evaluateGoldenRetrievalCase(args: {
       : contentHits.hits.length / args.testCase.expectedContentTerms.length;
   const tableEvidenceFound = hasTableEvidence(args.results, 5);
   const tableEvidenceFoundAtK = hasTableEvidence(args.results, topK);
-  const signalMetrics = retrievalSignalMetricsAt10(args.testCase, args.results);
+  const { topResultSignalMatches, ...signalMetrics } = retrievalSignalMetricsAt10(args.testCase, args.results);
   const actualQueryClass = args.telemetry.query_class ?? null;
   const failures: string[] = [];
   const vectorLayerCount = Object.entries(args.telemetry.retrieval_layer_counts ?? {}).reduce(
@@ -655,7 +688,7 @@ export function evaluateGoldenRetrievalCase(args: {
     timedOut: args.timedOut ?? false,
     latencyFailures: args.latencyFailures ?? [],
     failures,
-    topResults: topResultSummary(args.results),
+    topResults: topResultSummary(args.results, topResultSignalMatches),
   };
 }
 
