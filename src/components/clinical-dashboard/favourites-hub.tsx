@@ -105,6 +105,14 @@ export function FavouritesHub({
   const showSets = selectedTab === "all" || selectedTab === "sets";
   const showItems = selectedTab !== "sets";
   const empty = (!showItems || visibleItems.length === 0) && (!showSets || visibleSets.length === 0);
+  // Counts are only trustworthy once the registry answers, or when the page already
+  // holds concrete items (demo/prototype rows). A pending or failed load with an
+  // empty list must not assert "0" — that reads as an empty library.
+  const libraryCountsTrusted = savedRegistryStatus === "ready" || allFavouriteItems.length > 0;
+  const libraryCountUnavailableLabel =
+    savedRegistryStatus === "loading"
+      ? "unavailable until favourites finish loading"
+      : "unavailable because favourites could not be loaded";
   const selectedTabMeta = favouriteTabs.find((tab) => tab.id === selectedTab) ?? favouriteTabs[0];
   const selectedTabLabel = selectedTabMeta.label;
   const selectedTabCount = getTypeCount(selectedTab);
@@ -184,9 +192,19 @@ export function FavouritesHub({
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
           {[
-            { label: "Items", value: itemCount, icon: Heart },
-            { label: "Sets", value: setCount, icon: Folder },
-            { label: "Filters", value: activeFilterCount, icon: Filter },
+            {
+              label: "Items",
+              value: libraryCountsTrusted ? String(itemCount) : "—",
+              icon: Heart,
+              countBearing: true,
+            },
+            {
+              label: "Sets",
+              value: libraryCountsTrusted ? String(setCount) : "—",
+              icon: Folder,
+              countBearing: true,
+            },
+            { label: "Filters", value: String(activeFilterCount), icon: Filter, countBearing: false },
           ].map((stat) => {
             const Icon = stat.icon;
             return (
@@ -198,7 +216,14 @@ export function FavouritesHub({
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
-                <p className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]">
+                <p
+                  className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]"
+                  aria-label={
+                    stat.countBearing && !libraryCountsTrusted
+                      ? `${stat.label} ${libraryCountUnavailableLabel}`
+                      : undefined
+                  }
+                >
                   {stat.value}
                 </p>
               </div>
@@ -229,7 +254,7 @@ export function FavouritesHub({
                   View
                 </span>
                 <span className="truncate text-xs font-bold leading-none text-[color:var(--text-heading)]">
-                  {selectedTabLabel} · {selectedTabCount}
+                  {libraryCountsTrusted ? `${selectedTabLabel} · ${selectedTabCount}` : selectedTabLabel}
                 </span>
               </span>
               <ChevronDown
@@ -287,16 +312,20 @@ export function FavouritesHub({
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="font-bold">{tab.label}</span>
-                      <span
-                        className={cn(
-                          "nums rounded-full px-2 py-0.5 text-2xs font-bold",
-                          selected
-                            ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                            : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
-                        )}
-                      >
-                        {count}
-                      </span>
+                      {libraryCountsTrusted ? (
+                        <span
+                          className={cn(
+                            "nums rounded-full px-2 py-0.5 text-2xs font-bold",
+                            selected
+                              ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      ) : (
+                        <span className="sr-only">Count {libraryCountUnavailableLabel}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -401,9 +430,11 @@ export function FavouritesHub({
                 {selectedTab === "sets" ? "Open a focused clinical set." : "Open, ask, copy, or organise saved items."}
               </p>
             </div>
-            <span className="nums shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-xs font-bold text-[color:var(--text-muted)]">
-              {selectedTab === "sets" ? visibleSets.length : visibleItems.length}
-            </span>
+            {libraryCountsTrusted ? (
+              <span className="nums shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-xs font-bold text-[color:var(--text-muted)]">
+                {selectedTab === "sets" ? visibleSets.length : visibleItems.length}
+              </span>
+            ) : null}
           </div>
 
           <div className="grid gap-1.5">
