@@ -69,6 +69,30 @@ describe("shared header hide/reveal wiring", () => {
     expect(documentViewerChromeHookSource).toContain("innerScrollHidden || documentScrollHidden");
   });
 
+  it("holds DocumentViewer chrome open while either of its sheets is showing", () => {
+    // A sheet is not chrome, but hiding the header and composer underneath one
+    // releases both edges while an overlay still covers the document.
+    expect(documentViewerSource).toContain("mobileActionsOpen || sectionSheetOpen");
+  });
+
+  it("drops the DocumentViewer rail offset when the universal top bar hides", () => {
+    // Otherwise a dead band the height of the hidden bar stays above the rail.
+    expect(documentViewerSource).toContain('headerHidden ? "lg:top-0" : "lg:top-[69px]"');
+    expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain(
+      'data-testid="universal-header-collapse"',
+    );
+  });
+
+  it("measures section anchor offsets from the live collapse row", () => {
+    // A fixed scroll-mt strands headings whenever the row is a different height
+    // or hidden entirely.
+    expect(documentViewerSource).not.toContain("scroll-mt-24");
+    expect(documentViewerSource).toContain("scroll-mt-[var(--document-anchor-offset,6rem)]");
+    expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain(
+      "--document-anchor-offset",
+    );
+  });
+
   it("picks the hide mechanism from where each host's scrollport lives", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
     // the outer stack sticks while only the top-bar row collapses.

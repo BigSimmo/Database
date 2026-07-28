@@ -89,7 +89,6 @@ import {
   ClinicalSummaryProfile,
   DocumentImage,
   DocumentSectionSummary,
-  DocumentViewerAnchors,
   FormattedHighYieldSummary,
   IndexedTextPanel,
   PinnedSourceEvidence,
@@ -97,6 +96,19 @@ import {
 } from "@/components/document-viewer/source-panels";
 import { DocumentManualTagEditor } from "@/components/document-viewer/manual-tag-editor";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
+import {
+  buildDocumentSectionIndex,
+  documentIndexingSectionId,
+  documentOverviewSectionId,
+} from "@/components/document-viewer/section-index";
+import {
+  DocumentSectionIndexCard,
+  DocumentSectionSheet,
+  DocumentSectionTrack,
+  jumpToDocumentSection,
+} from "@/components/document-viewer/section-nav";
+import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
+import { useDocumentChromeMetrics } from "@/components/document-viewer/use-document-chrome-metrics";
 
 // pdf-canvas-viewer is only needed after a source document has loaded and the
 // user is viewing a PDF. Keeping it out of the document route's initial client
@@ -257,6 +269,7 @@ export function DocumentViewer({
   // change / successful reload so only an unrecoverable URL exhausts the budget.
   const signedUrlRefreshCountRef = useRef(0);
   const sourceSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const viewerRootRef = useRef<HTMLElement | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchState, setDocumentSearchState] = useState<{
     query: string;
@@ -272,6 +285,7 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -300,7 +314,9 @@ export function DocumentViewer({
     documentId,
     activePage,
     activeChunkId,
-    mobileActionsOpen,
+    // Either sheet holds the chrome open: hiding it under an open overlay would
+    // strand the sheet over a document whose edges have already been released.
+    mobileActionsOpen || sectionSheetOpen,
     composerChromeFocused,
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
@@ -967,6 +983,50 @@ export function DocumentViewer({
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
   const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
+  const documentSections = useMemo(
+    () =>
+      buildDocumentSectionIndex({
+        hasDocument: Boolean(readyDocument),
+        hasStoredSummary: Boolean(document?.summary),
+        pageCount: document?.page_count ?? pages.length,
+        chunkCount: chunks.length,
+        visualCount: clinicalImages.length,
+        hasIndexHealth: Boolean(indexHealth),
+        pinnedPage: selectedChunk?.page_number ?? null,
+        loading: effectiveLoadingDocument,
+      }),
+    [
+      readyDocument,
+      document?.summary,
+      document?.page_count,
+      pages.length,
+      chunks.length,
+      clinicalImages.length,
+      indexHealth,
+      selectedChunk?.page_number,
+      effectiveLoadingDocument,
+    ],
+  );
+  const {
+    activeId: activeSectionId,
+    activeSection,
+    selectSection,
+  } = useDocumentSectionSpy(documentSections, Boolean(readyDocument));
+  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const { headerHidden } = useDocumentChromeMetrics(viewerRootRef);
+  const openSectionSheet = useCallback(() => {
+    // Hide-on-scroll cannot reclaim either edge while the composer holds focus,
+    // so release it before an overlay takes over the screen.
+    sourceSearchInputRef.current?.blur();
+    setSectionSheetOpen(true);
+  }, []);
+  const jumpToSection = useCallback(
+    (id: string) => {
+      selectSection(id);
+      jumpToDocumentSection(id);
+    },
+    [selectSection],
+  );
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const generatedAnswerIsSummary = summaryQuery === documentSummaryQuestion;
   const storedSummaryText = document?.summary?.summary ?? null;
@@ -1079,12 +1139,13 @@ export function DocumentViewer({
   return (
     <main
       id="document-viewer-main"
+      ref={viewerRootRef}
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
       <PhoneHeaderCollapsePortal>
-        <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]">
-          <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
+        <header className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <div className="mx-auto flex min-h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <Link
               href={documentHomeHref}
               className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
@@ -1093,9 +1154,42 @@ export function DocumentViewer({
               <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
               <span className="hidden sm:inline">Documents</span>
             </Link>
-            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
-              {headerTitle}
-            </h1>
+            {documentSections.length > 0 ? (
+              // The title is the section-list disclosure. Line two names where you
+              // are, which the track can place but never label.
+              <button
+                type="button"
+                ref={sectionTriggerRef}
+                onClick={openSectionSheet}
+                aria-expanded={sectionSheetOpen}
+                aria-haspopup="dialog"
+                data-testid="document-section-trigger"
+                className="flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                <span className="min-w-0 flex-1">
+                  <h1 className="truncate text-sm font-semibold leading-tight text-[color:var(--text)] sm:text-base">
+                    {headerTitle}
+                  </h1>
+                  {activeSection ? (
+                    <span className="mt-0.5 flex items-center gap-1.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
+                      <activeSection.icon aria-hidden="true" className="h-3 w-3 shrink-0" />
+                      <span className="min-w-0 truncate">{activeSection.label}</span>
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition motion-reduce:transition-none",
+                    sectionSheetOpen && "rotate-180",
+                  )}
+                />
+              </button>
+            ) : (
+              <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
+                {headerTitle}
+              </h1>
+            )}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <Link
                 href={scopedDocumentHref}
@@ -1115,8 +1209,18 @@ export function DocumentViewer({
               </button>
             </div>
           </div>
+          <DocumentSectionTrack sections={documentSections} activeId={activeSectionId} />
         </header>
       </PhoneHeaderCollapsePortal>
+      <DocumentSectionSheet
+        open={sectionSheetOpen}
+        onClose={() => setSectionSheetOpen(false)}
+        sections={documentSections}
+        activeId={activeSectionId}
+        onSelect={jumpToSection}
+        documentTitle={headerTitle}
+        returnFocusRef={sectionTriggerRef}
+      />
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
@@ -1298,7 +1402,7 @@ export function DocumentViewer({
         )}
 
         {readyDocument ? (
-          <div className="min-w-0 lg:col-span-2">
+          <div id={documentOverviewSectionId} className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2">
             <DocumentOverviewLanding
               document={readyDocument}
               signedUrl={signedUrl}
@@ -1326,9 +1430,10 @@ export function DocumentViewer({
         ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text" className="lg:hidden" />
-
-          <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
+          <div
+            id="pdf-preview-section"
+            className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
+          >
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
@@ -1474,7 +1579,22 @@ export function DocumentViewer({
           </div>
         </div>
 
-        <aside className="min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:top-[69px] lg:grid-cols-1 lg:self-start lg:pr-1">
+        <aside
+          className={cn(
+            "min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:grid-cols-1 lg:self-start lg:pr-1",
+            // The rail clears the top bar while it is there, and reclaims that
+            // space the moment it hides — otherwise a dead band the height of the
+            // bar sits above the rail for as long as chrome stays away.
+            headerHidden ? "lg:top-0" : "lg:top-[69px]",
+          )}
+        >
+          <DocumentSectionIndexCard
+            sections={documentSections}
+            activeId={activeSectionId}
+            onSelect={jumpToSection}
+            className="md:col-span-2 lg:col-span-1"
+          />
+
           {indexWarnings.length ? (
             <InlineNotice tone="warning" className="text-xs md:col-span-2 lg:col-span-1">
               <span className="font-bold">Extraction warnings</span>
@@ -1487,7 +1607,6 @@ export function DocumentViewer({
           ) : null}
 
           <div className="hidden lg:block">
-            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" textHref="#source-text" className="mb-3" />
             <PinnedSourceEvidence
               loading={effectiveLoadingDocument}
               chunk={selectedChunk}
@@ -1501,7 +1620,7 @@ export function DocumentViewer({
               id="source-summary"
               name="document-viewer-section"
               data-testid="high-yield-summary"
-              className={cn(panel, "group scroll-mt-24 source-print md:col-span-2 lg:col-span-1")}
+              className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)]source-print md:col-span-2 lg:col-span-1")}
             >
               <DocumentSectionSummary
                 icon={Sparkles}
@@ -1586,7 +1705,7 @@ export function DocumentViewer({
           <details
             id="source-images"
             name="document-viewer-section"
-            className={cn(panel, "group scroll-mt-24 md:col-span-2 lg:col-span-1")}
+            className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)]md:col-span-2 lg:col-span-1")}
           >
             <DocumentSectionSummary
               icon={FileImage}
@@ -1639,9 +1758,13 @@ export function DocumentViewer({
 
           {indexHealth ? (
             <details
+              id={documentIndexingSectionId}
               name="document-viewer-section"
               data-testid="indexing-details"
-              className={cn(panel, "group md:col-span-2 lg:col-span-1")}
+              className={cn(
+                panel,
+                "group scroll-mt-[var(--document-anchor-offset,6rem)] md:col-span-2 lg:col-span-1",
+              )}
             >
               <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <span className={eyebrowText}>Indexing details</span>
