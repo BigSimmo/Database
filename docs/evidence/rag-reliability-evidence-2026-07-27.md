@@ -6,23 +6,30 @@ needed to audit the backlog dispositions.
 
 ## Protected retrieval canary
 
-- Artifact: `output/rag-retrieval-post-final.json`
+- Final exact-head artifact: `output/rag-retrieval-post-exact-head.json`
+- Immediate comparison artifact: `output/rag-retrieval-post-final.json`
+- Tested application tree: `a1ca6a016490e4d4b564edd3d553d87fed3071df`
 - Cases: 36
 - Document recall@5: 1.0
 - Content recall@5: 1.0
 - Hit@K: 1.0
-- MRR@10: 0.8921 (unchanged)
-- Content MRR@10: 0.9406 (baseline 0.9389)
-- nDCG@10: 0.9308 (baseline 0.9276)
+- MRR@10: 0.8921 (unchanged from the immediate comparison)
+- Content MRR@10: 0.9406 (unchanged from the immediate comparison; original baseline 0.9389)
+- nDCG@10: 0.9308 (unchanged from the immediate comparison; original baseline 0.9276)
 - Irrelevant-at-10 rate: 0.0917 (unchanged)
 - Required-signal coverage: 1.0
+- Median/p90 latency: 19,729/55,660 ms (immediate comparison 13,563/56,765 ms)
 - Failed cases: 0
+- Latency-failed cases: 0
 - Per-case document/content reciprocal-rank regressions: 0
 
-The only protected retrieval change selects document-lookup chunks using the already-ranked expanded
-clinical query rather than reverting to the raw user wording. This preserves FBC/WBC/ANC and
-withhold/stop aliases between document selection and chunk selection. Ranking scores, comparator order,
-clamps and semantic reranking were not changed.
+The final protected retrieval change uses the already-ranked expanded clinical query for chunk selection
+only for the measured clozapine blood-count action shape: the raw query must identify clozapine plus a
+blood-count concept, and the ranked primary variant must carry the threshold/action terms. Discharge,
+generic red-section and other document lookups retain the raw user wording. This preserves FBC/WBC/ANC
+and withhold/stop aliases for the intended clozapine path without dropping unrelated raw intent. Ranking
+scores, comparator order, clamps and semantic reranking were not changed. The earlier artifact measured
+the broader intermediate query shape; the exact-head artifact above validates the narrowed final behavior.
 
 ## Final 44-case answer gate
 
@@ -41,6 +48,10 @@ clamps and semantic reranking were not changed.
 - Cost: unavailable because pricing-rate telemetry was not configured; no exact dollar value is claimed
 - Blocking threshold failures: none
 
+The final query-shape narrowing occurred after this 44-case artifact. The exact-head affected-path
+confirmations below therefore cover both admission/discharge cases and the clozapine threshold case; all
+other answer behavior remains covered by the full gate and the exact-head local test/build preflight.
+
 The immediately preceding `final8` run had the same perfect content metrics but one transient hosted
 retrieval tail: active-community ED took 15,760 ms against the 12,000 ms extractive ceiling. An isolated
 repeat passed at 8,100 ms and the final 44-case run passed at 9,610 ms. No latency ceiling was weakened.
@@ -57,6 +68,12 @@ repeat passed at 8,100 ms and the final 44-case run passed at 9,610 ms. No laten
   calls, 4,375 ms.
 - Discharge summary: source-backed extractive recovery, zero review fallback, 8,831 ms on the final
   targeted probe.
+- Exact-head admission/discharge comparison: substantive grounded extractive answer, expected-source hit,
+  zero citation/numeric failures, zero provider calls and zero estimated cost, 4,302 ms.
+- Exact-head admission/discharge paraphrase: substantive grounded extractive answer, expected-source hit,
+  zero citation/numeric failures, zero provider calls and zero estimated cost, 7,315 ms.
+- Exact-head clozapine ANC/FBC threshold: substantive grounded extractive answer, expected-source hit,
+  zero citation/numeric failures, zero provider calls and zero estimated cost, 11,120 ms.
 
 ## Deliberate boundaries
 
@@ -66,5 +83,5 @@ repeat passed at 8,100 ms and the final 44-case run passed at 9,610 ms. No laten
   explicitly with `503 source_review_v2_unavailable`.
 - Firefox/WebKit scheduled evidence and human disposition of irrelevant-at-10 labels remain `#023`.
 - ADHD corpus/table accessibility and metabolic schedule evidence remain the two open parts of `#018`.
-- No commit, push, deployment, ranking-score change, grounding relaxation, citation-gate relaxation or
-  production-data write was performed as part of this evidence run.
+- No hosted migration, source attestation, production-data write, ranking-score/comparator change,
+  grounding relaxation or citation-gate relaxation was performed as part of this evidence run.
