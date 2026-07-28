@@ -2485,11 +2485,31 @@ html[data-motion="reduced"] .pwa-notice-card {
     right: -10px;
   }
 
-  /* Premium Skeleton Shimmer animation with custom easing and GPU compositing layer hints */
+  /* Premium skeleton shimmer: GPU translateX sweep on ::after (IMP-04).
+     The highlight rides the compositor; the host keeps a solid fill so call sites
+     only need background colour + this class. Entrance stagger can still use the
+     host `animation` via .stagger-item without fighting the sweep. */
   .animate-skeleton-shimmer {
-    will-change: transform, opacity;
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
     transform: translateZ(0);
-    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .animate-skeleton-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--surface-highlight) 55%, transparent) 50%,
+      transparent 80%
+    );
+    will-change: transform;
+    animation: shimmer-sweep 1.4s linear infinite;
+    pointer-events: none;
   }
 
   /* Premium Double-Ring Focus style */
@@ -2594,14 +2614,43 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 }
 
-@keyframes skeleton-pulse {
-  0%,
+/* IMP-04: Compositor-thread sweep used by .animate-skeleton-shimmer::after. */
+@keyframes shimmer-sweep {
   100% {
+    transform: translateX(100%);
+  }
+}
+
+/* IMP-02: Staggered cascade entrance for search results and card grids.
+   Apply .stagger-item to each list child and set --stagger-index via inline style
+   or a :nth-child selector to sequence each card entrance at 35ms intervals.
+   Reduced-motion guard stops the animation while keeping items fully visible. */
+@keyframes cascade-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
     opacity: 1;
+    transform: translateY(0);
   }
-  50% {
-    opacity: 0.35;
+}
+
+.stagger-item {
+  animation: cascade-fade-up 200ms var(--ease-out-soft) both;
+  animation-delay: calc(var(--stagger-index, 0) * 35ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-skeleton-shimmer::after,
+  .stagger-item {
+    animation: none !important;
   }
+}
+
+html[data-motion="reduced"] .animate-skeleton-shimmer::after,
+html[data-motion="reduced"] .stagger-item {
+  animation: none !important;
 }
 
 /* User preference and alternate output modes */
