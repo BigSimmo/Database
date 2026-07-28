@@ -448,23 +448,24 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 <!-- END:repo-productivity-skills -->
 
-## Outstanding-work memory (`/issues`)
+## Universal repository task ledger (`/issues`)
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of every outstanding **task**,
-**recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
-not, so anything worth remembering after a session ends belongs there.
+`docs/outstanding-issues.md` is the single durable, cross-session ledger for all agents and
+worktrees. Its ordered **Open items** table contains only current, evidence-supported work still
+worth doing, with priority, classification, executor capability, timing, effort, dependencies,
+approvals, success criteria, verification and stopping conditions. Other backlog and runbook files
+are supporting evidence, not competing queues.
 
-- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
-  is read-only — it mutates and commits nothing.
-- `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
-  `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
-- Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
-  before a session's context is lost — that is what keeps it a memory rather than a stale list.
-- A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
-  auto-surfaces the open items into context at the start of every session and, on a context reset
-  (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never writes the
-  ledger. `/issues` is still the way to read the full list or mutate it.
+- Before starting or recommending repository work, read `docs/outstanding-issues.md` and revalidate
+  the relevant row against current `main`.
+- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`) and
+  state active rows in numeric **Order**. A plain `/issues` is read-only.
+- `/issues add|done|update|capture …` may mutate the ledger only after removing completed, stale,
+  duplicate, superseded, speculative or no-longer-recommended claims. A ledger mutation does not
+  itself authorise a commit, push, pull request, provider call, deployment or production change.
+- The read-only `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in
+  `.claude/settings.json`) surfaces the ordered active work and prompts evidence-based capture after
+  context resets.
 
 ## Codex GitHub review behavior
 

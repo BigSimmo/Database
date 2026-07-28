@@ -26,22 +26,26 @@ source_val="$(printf '%s' "$payload" \
   | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')"
 
 # --- parse the "Open items" table only ---------------------------------------
-# Emit "PRI<TAB>ID<TAB>TYPE<TAB>SUMMARY" per open row. Scoped between the
+# Emit ordered universal-ledger fields per active row. Scoped between the
 # "## Open items" heading and the next "## " heading so the Resolved/archive
-# table (different columns) is never counted.
+# and superseded historical tables are never counted.
 rows="$(awk '
   /^## Open items/       { inopen=1; next }
   /^## /                 { if (inopen) inopen=0 }
   inopen && /^\| #[0-9]/  {
     n=split($0, c, "|")
-    id=c[2]; pri=c[3]; typ=c[4]; sum=c[5]
+    id=c[2]; pri=c[3]; typ=c[4]; sum=c[5]; order=c[9]; class=c[10]; when=c[12]; estimate=c[13]
     gsub(/^[ \t]+|[ \t]+$/, "", id)
     gsub(/^[ \t]+|[ \t]+$/, "", pri)
     gsub(/^[ \t]+|[ \t]+$/, "", typ)
     gsub(/^[ \t]+|[ \t]+$/, "", sum)
-    printf "%s\t%s\t%s\t%s\n", pri, id, typ, sum
+    gsub(/^[ \t]+|[ \t]+$/, "", order)
+    gsub(/^[ \t]+|[ \t]+$/, "", class)
+    gsub(/^[ \t]+|[ \t]+$/, "", when)
+    gsub(/^[ \t]+|[ \t]+$/, "", estimate)
+    printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", order, pri, id, typ, sum, class, when, estimate
   }
-' "$ledger" 2>/dev/null || true)"
+' "$ledger" 2>/dev/null | sort -n -k1,1 || true)"
 
 total="$(printf '%s' "$rows" | grep -c . || true)"
 if [ "${total:-0}" -eq 0 ]; then
@@ -49,20 +53,20 @@ if [ "${total:-0}" -eq 0 ]; then
   exit 0
 fi
 
-group() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$1==p'; }
+group() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$2==p'; }
 count() { printf '%s' "$1" | grep -c . || true; }
 p1="$(group P1)"; p2="$(group P2)"; p3="$(group P3)"
 c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
 
-echo "[issues] Outstanding-work memory — ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full list back with /issues."
+echo "[issues] Universal task ledger — ${total} recommended open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full ordered list with /issues."
 
-print_group() { # $1=rows  $2=max-to-list
-  local data="$1" limit="$2" shown=0 more=0 pri id typ sum
+print_ordered() { # $1=rows  $2=max-to-list
+  local data="$1" limit="$2" shown=0 more=0 order pri id typ sum class when estimate
   [ -z "$data" ] && return 0
-  while IFS=$'\t' read -r pri id typ sum; do
-    [ -z "$pri" ] && continue
+  while IFS=$'\t' read -r order pri id typ sum class when estimate; do
+    [ -z "$order" ] && continue
     if [ "$shown" -lt "$limit" ]; then
-      echo "  ${pri} ${id} ${typ} — ${sum}"
+      echo "  ${order}. ${pri} ${id} ${typ} [${class}] — ${sum}; when: ${when}; estimate: ${estimate}"
       shown=$((shown + 1))
     else
       more=$((more + 1))
@@ -70,22 +74,20 @@ print_group() { # $1=rows  $2=max-to-list
   done <<EOF
 $data
 EOF
-  [ "$more" -gt 0 ] && echo "  … +${more} more at this priority (see /issues)"
+  [ "$more" -gt 0 ] && echo "  … +${more} more in recommended order (see /issues)"
   return 0
 }
 
-# P1 = do-next, list all. P2 = should-do, list up to 8. P3 = collapse to a count.
-[ "$c1" -gt 0 ] && print_group "$p1" 999
-[ "$c2" -gt 0 ] && print_group "$p2" 8
-[ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
+# Keep startup context compact while preserving the universal order across priorities/states.
+print_ordered "$rows" 12
 
 # --- capture reminder ---------------------------------------------------------
 case "$source_val" in
   compact | resume | clear)
-    echo "[issues] Context was just reset (${source_val}). Before this session wraps up, run /issues capture to record any new follow-ups, deferrals, or risks that surfaced so they aren't lost from memory."
+    echo "[issues] Context was just reset (${source_val}). Before this session wraps up, use /issues capture to reconcile only verified, recommended follow-ups into the universal ledger."
     ;;
   *)
-    echo "[issues] When the work in this session wraps up, offer to run /issues capture for any new follow-ups before the context is lost."
+    echo "[issues] When this work wraps up, offer /issues capture for verified recommended follow-ups; do not preserve stale or speculative work."
     ;;
 esac
 exit 0

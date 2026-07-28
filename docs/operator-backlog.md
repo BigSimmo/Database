@@ -1,10 +1,12 @@
-# Operator backlog
+# Operator runbook index
 
-Single source of truth for **human-only / provider-gated actions** that cannot be done from a coding
-session (they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
-This exists so that launch-blocking state lives in the repo instead of chat memory.
+Reference index for **human-only / provider-gated actions** that cannot be done from a coding session
+(they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
+This is not a second task queue: [`docs/outstanding-issues.md`](outstanding-issues.md) is the single
+universal ledger and decides which operator actions are currently recommended.
 
-**How to use:** work top to bottom; each row links to the detailed runbook. `Status` values are
+**How to use:** start from the ordered universal ledger, then use the matching row here for detailed
+operator procedure and historical status. Do not work this table top to bottom independently. `Status` values are
 `⏳ pending`, `🔎 verify` (may already be done — confirm before repeating), `✅ done`, `—` (n/a).
 Update the row (and its runbook) when an action lands. The sequenced flow with exact commands and
 approval gates is [launch-operator-runbook.md](launch-operator-runbook.md); this table is the index.
