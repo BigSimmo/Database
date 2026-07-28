@@ -215,21 +215,32 @@ export function Sheet({
           // options) do not dump every inactive item into the Tab cycle.
           'a[href], button:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
         ) ?? [],
-      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
+      ).filter(
+        (element) =>
+          !element.hasAttribute("disabled") &&
+          element.getAttribute("aria-hidden") !== "true" &&
+          element.tabIndex >= 0 &&
+          !element.closest('[aria-hidden="true"], [inert]') &&
+          element.getClientRects().length > 0,
+      );
       if (focusable.length === 0) return;
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const currentIndex = activeElement ? focusable.indexOf(activeElement) : -1;
+      const nextIndex =
+        currentIndex === -1
+          ? event.shiftKey
+            ? focusable.length - 1
+            : 0
+          : event.shiftKey
+            ? (currentIndex - 1 + focusable.length) % focusable.length
+            : (currentIndex + 1) % focusable.length;
+
+      // Move focus explicitly instead of relying on platform Tab preferences.
+      // Firefox can otherwise leave programmatically focused buttons out of the
+      // native sequence, which makes the modal trap inconsistent by browser.
+      event.preventDefault();
+      focusable[nextIndex].focus();
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -288,6 +299,9 @@ export function Sheet({
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
   const defaultSheetUsesViewportSize = placement !== "left" && mobileSize === "viewport";
+  const contentClassTokens = contentClassName?.split(/\s+/) ?? [];
+  const hasMobileMaxHeight = contentClassTokens.some((token) => /^!?max-h-/.test(token));
+  const hasSmallScreenMaxHeight = contentClassTokens.some((token) => /^sm:!?max-h-/.test(token));
 
   const sheet = (
     <div
@@ -350,12 +364,10 @@ export function Sheet({
                             "rounded-t-2xl motion-safe:animate-sheet-up",
                             defaultSheetUsesViewportSize
                               ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : // Skip a default max-h when the caller already caps height via
-                                // contentClassName — cn() does not last-win Tailwind utilities,
-                                // so two unprefixed max-h-* classes race in CSS source order.
-                                /\bmax-h-/.test(contentClassName ?? "")
-                                ? undefined
-                                : "max-h-[calc(100dvh-2rem)] sm:max-h-[88dvh]",
+                              : cn(
+                                  !hasMobileMaxHeight && "max-h-[calc(100dvh-2rem)]",
+                                  !hasSmallScreenMaxHeight && "sm:max-h-[88dvh]",
+                                ),
                           ),
                     ),
               ),

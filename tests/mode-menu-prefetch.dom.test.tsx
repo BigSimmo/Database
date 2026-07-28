@@ -29,7 +29,12 @@ vi.mock("@/lib/supabase/client", () => ({
 }));
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
-  useSavedRegistryFavourites: () => [],
+  useSavedRegistryFavourites: () => ({
+    items: [],
+    status: "ready",
+    registryStatus: "ready",
+    refetch: () => undefined,
+  }),
 }));
 
 vi.mock("@/components/clinical-dashboard/search-command-context", () => ({

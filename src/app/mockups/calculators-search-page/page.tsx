@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CalculatorsSearchPage } from "@/components/calculators";
+import { CalculatorsSearchPageMockup } from "@/components/calculator-mockups";
 
 export const metadata: Metadata = {
   title: "Calculators Search Page Mockup - Clinical KB",
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function CalculatorsSearchPageMockupRoute() {
-  return <CalculatorsSearchPage />;
+  return <CalculatorsSearchPageMockup />;
 }
