@@ -296,13 +296,13 @@ Every L1 finding is a **round-trip count**, and round-trip counts can be pinned 
 
 ## Applied in this pass (5)
 
-| Finding     | Change                                                                                               | Files                                                                                                                          |
-| ----------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Measurement | `Server-Timing` on `/api/answer/stream` + `/api/search`; `auth`/`ratelimit`/`scope` on `/api/answer` | `src/lib/server-timing.ts`, `src/app/api/answer/route.ts`, `src/app/api/answer/stream/route.ts`, `src/app/api/search/route.ts` |
+| Finding     | Change                                                                                                | Files                                                                                                                          |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Measurement | `Server-Timing` on `/api/answer/stream` + `/api/search`; `auth`/`ratelimit`/`scope` on `/api/answer`  | `src/lib/server-timing.ts`, `src/app/api/answer/route.ts`, `src/app/api/answer/stream/route.ts`, `src/app/api/search/route.ts` |
 | L1-1        | Shared-cache-hit promotion deferred off the response path; indexing-stamp + invalidation-epoch guards | `src/lib/rag/rag.ts:3234`, `src/lib/rag/rag-cache.ts`                                                                          |
-| L1-2        | Preamble `Server-Timing` + scope abort signal; admit-before-scope ordering preserved after review    | `src/app/api/answer/route.ts`                                                                                                  |
-| L2-6        | Three `select("*")` narrowed to explicit projections                                                 | `src/app/api/documents/[id]/table-facts/route.ts`, `src/lib/document-detail.ts`                                                |
-| L3-4 / L3-5 | 10 `loading` fallbacks; Supabase `preconnect`/`dns-prefetch`                                         | `clinical-dashboard-lazy.tsx`, `dashboard-nav.tsx`, `src/app/layout.tsx`                                                       |
+| L1-2        | Preamble `Server-Timing` + scope abort signal; admit-before-scope ordering preserved after review     | `src/app/api/answer/route.ts`                                                                                                  |
+| L2-6        | Three `select("*")` narrowed to explicit projections                                                  | `src/app/api/documents/[id]/table-facts/route.ts`, `src/lib/document-detail.ts`                                                |
+| L3-4 / L3-5 | 10 `loading` fallbacks; Supabase `preconnect`/`dns-prefetch`                                          | `clinical-dashboard-lazy.tsx`, `dashboard-nav.tsx`, `src/app/layout.tsx`                                                       |
 
 L2-3's index migration is **not** in this change — see L2-3 above and `#102`.
 

@@ -131,9 +131,7 @@ describe("RAG cache invalidation", () => {
       }),
     }));
 
-    const { getCachedAnswer, invalidateRagCachesForOwner, setCachedAnswer } = await import(
-      "../src/lib/rag/rag-cache"
-    );
+    const { getCachedAnswer, invalidateRagCachesForOwner, setCachedAnswer } = await import("../src/lib/rag/rag-cache");
 
     const args = {
       query: "clozapine monitoring",
