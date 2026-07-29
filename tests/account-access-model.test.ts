@@ -59,15 +59,17 @@ describe("public content and account authorization model", () => {
     const documentRoute = source("src/app/api/documents/[id]/route.ts");
     const tableFactsRoute = source("src/app/api/documents/[id]/table-facts/route.ts");
     const documentViewer = source("src/components/DocumentViewer.tsx");
+    const documentRail = source("src/components/document-viewer/document-rail-panels.tsx");
     expect(documentRoute).toContain("loadAuthorizedDocumentDetail({ request, rawId, query: detailQuery })");
     expect(documentRoute.match(/administrator: true/g)?.length).toBe(2);
     expect(tableFactsRoute).toContain("enforceDocumentReadRateLimit(request, supabase)");
     expect(tableFactsRoute).toContain("withOwnerReadScope(");
     expect(tableFactsRoute.match(/administrator: true/g)?.length).toBe(1);
     expect(documentViewer).toContain("isAdministratorUser(session?.user)");
-    expect(documentViewer).toContain("{canUseAdministrativeApis ? (");
-    expect(documentViewer).toContain("canManage={canUseAdministrativeApis}");
-    expect(documentViewer).toContain("canReview={canUseAdministrativeApis}");
+    expect(documentViewer).toContain("canUseAdministrativeApis={canUseAdministrativeApis}");
+    expect(documentRail).toContain("{canUseAdministrativeApis ? (");
+    expect(documentRail).toContain("canManage={canUseAdministrativeApis}");
+    expect(documentRail).toContain("canReview={canUseAdministrativeApis}");
   });
 
   it("does not turn an ordinary signed-in setup-status request into a server error", () => {

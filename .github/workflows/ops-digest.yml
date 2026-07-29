@@ -2,7 +2,8 @@
 # hit-rate, answer spend, degraded/truncation rates) into a one-screen summary
 # and keeps it in a rolling GitHub issue, commenting only when something is off.
 #
-# The repo variable and matching deployment/GitHub secret are provisioned.
+# The repo variable and matching deployment/GitHub secret must both be
+# provisioned. The preflight below fails closed when either name is absent.
 # Keep workflow_dispatch for operator verification and the daily schedule for
 # the normal morning digest.
 name: Ops Digest

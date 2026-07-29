@@ -57,6 +57,7 @@ export const SignedImage = memo(function SignedImage({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [retryDisabled, setRetryDisabled] = useState(false);
   const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
@@ -84,9 +85,12 @@ export const SignedImage = memo(function SignedImage({
   }, [rootMargin, shouldLoad]);
 
   function retryImage() {
+    if (retryDisabled) return;
+    setRetryDisabled(true);
     setLoaded(false);
     setShouldLoad(true);
     retry();
+    setTimeout(() => setRetryDisabled(false), 2000);
   }
 
   function handleImageError() {
@@ -111,9 +115,10 @@ export const SignedImage = memo(function SignedImage({
           <button
             type="button"
             onClick={retryImage}
-            className="mt-3 inline-flex min-h-tap items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+            disabled={retryDisabled}
+            className="mt-3 inline-flex min-h-tap items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)] disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {retryLabel}
+            {retryDisabled ? "Retrying..." : retryLabel}
           </button>
         </div>
       </div>
