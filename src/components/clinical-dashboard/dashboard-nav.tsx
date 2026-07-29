@@ -5,13 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, X } from "lucide-react";
 
 import { mobileSectionFabMediaQuery, navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
-import { cn } from "@/components/ui-primitives";
+import { cn, LoadingPanel } from "@/components/ui-primitives";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { type AppModeId, appModeSearchConfig } from "@/lib/app-modes";
 
 const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((module) => module.ApplicationsLauncherWorkspace),
-  { ssr: false },
+  // ssr: false renders nothing server-side, so /tools would otherwise be blank
+  // until this chunk executes.
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={6} label="Loading tools" /> },
 );
 
 export function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {

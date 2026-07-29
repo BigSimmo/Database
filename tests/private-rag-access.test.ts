@@ -38,6 +38,9 @@ function createSupabaseMock() {
       }),
       order: vi.fn(() => builder),
       range: vi.fn(() => builder),
+      // Real PostgREST builders expose this; resolveSearchScope calls it whenever
+      // the caller threads an AbortSignal, so the mock must model it.
+      abortSignal: vi.fn(() => builder),
       insert: vi.fn(async (payload: unknown) => {
         inserts.push({ table, payload });
         return { data: null, error: null };

@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
+import { tableFactDetailProjection } from "@/lib/document-detail";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
@@ -18,6 +19,14 @@ const updateSchema = tableReviewSchema.extend({
   factId: z.string().uuid(),
 });
 const tableFactsRouteParamsSchema = z.object({ id: z.string().uuid() });
+
+// The GET list projection adds the three columns its response mapping needs on
+// top of the shared TableFactRow shape. Explicit columns keep the generated
+// `search_tsv` tsvector and `owner_id` off the wire.
+const tableFactListProjection =
+  "id,document_id,page_number,table_title,row_label,clinical_parameter,threshold_value,action,normalized_terms,source_chunk_id,source_image_id,created_at,metadata" as const;
+// PATCH only reads the committed-generation marker and the linked image id.
+const tableFactReviewProjection = "id,metadata,source_image_id" as const;
 
 function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
@@ -62,7 +71,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { data, error } = await supabase
       .from("document_table_facts")
-      .select("*")
+      .select(tableFactListProjection)
       .eq("document_id", id)
       .order("page_number", { ascending: true })
       .order("created_at", { ascending: true });
@@ -119,7 +128,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { data: fact, error: factError } = await supabase
       .from("document_table_facts")
-      .select("*")
+      .select(tableFactReviewProjection)
       .eq("id", parsed.factId)
       .eq("document_id", id)
       .eq("owner_id", user.id)
@@ -157,7 +166,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .update({ metadata: nextMetadata })
       .eq("id", parsed.factId)
       .eq("owner_id", user.id)
-      .select("*")
+      // Exactly the TableFactRow fields DocumentViewer replaces in client state.
+      .select(tableFactDetailProjection)
       .single();
     if (updateError) throw new Error(updateError.message);
 
