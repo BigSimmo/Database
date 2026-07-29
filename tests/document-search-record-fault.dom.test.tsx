@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
+import type { DocumentMatch } from "@/lib/types";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -48,6 +49,20 @@ const baseProps = {
   onTagSearch: vi.fn(),
 };
 
+const lithiumMatch: DocumentMatch = {
+  document_id: "11111111-1111-4111-8111-111111111111",
+  title: "Lithium Clinical Guideline",
+  file_name: "lithium-guideline.pdf",
+  labels: [],
+  summarySnippet: "Lithium monitoring guidance.",
+  bestPages: [3],
+  bestChunkIds: ["44444444-4444-4444-8444-444444444444"],
+  imageCount: 2,
+  tableCount: 0,
+  matchReason: "Matched indexed passage",
+  score: 0.96,
+};
+
 describe("document search record path fault reporting", () => {
   it("reports a failed registry once, not twice", () => {
     render(<DocumentSearchResultsPanel {...baseProps} recordStatus="error" />);
@@ -71,5 +86,40 @@ describe("document search record path fault reporting", () => {
     render(<DocumentSearchResultsPanel {...baseProps} recordStatus="loading" />);
 
     expect(screen.getByText(/Loading your services registry/i)).toBeInTheDocument();
+  });
+
+  it("keeps document results free of the selected-evidence panel while governance warnings remain", () => {
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        matches={[lithiumMatch]}
+        recordMatches={[]}
+        showRecordMatches={false}
+        query="lithium"
+        sourceGovernanceWarnings={[
+          {
+            code: "outdated_source",
+            severity: "danger",
+            message: "One or more supporting sources are marked outdated.",
+            title: lithiumMatch.title,
+          },
+          {
+            code: "review_due_source",
+            severity: "warning",
+            message: "One or more supporting sources are due for review.",
+            title: lithiumMatch.title,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText(lithiumMatch.title).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("complementary", { name: "Selected document evidence" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Preview evidence/i })).toBeNull();
+    expect(screen.getByText("1 source marked outdated.")).toBeInTheDocument();
+    expect(screen.getByText("1 source due for review.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: `Open ${lithiumMatch.title}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Scope search to ${lithiumMatch.title}` })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Answer from ${lithiumMatch.title}` })).toBeInTheDocument();
   });
 });

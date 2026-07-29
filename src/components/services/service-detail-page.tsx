@@ -545,7 +545,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
-                  <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
+                  <h1 className="max-w-4xl text-3xl font-extrabold leading-display text-[color:var(--text-heading)] sm:text-4xl">
                     {service.title}
                   </h1>
                 </div>

@@ -120,7 +120,7 @@ export function DocumentManualTagEditor({
   return (
     <div className={cn(sourceCard, "mt-4 p-3")}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+        <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           <Tag aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
           Manual tags
         </p>

@@ -34,6 +34,7 @@ import {
   queryVocabularyAliasesForStorage,
 } from "@/lib/query-privacy";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
@@ -971,6 +972,7 @@ export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
   let ownerId: string | null = null;
   let body: SearchRequestBody | null = null;
+  const routeStartedAt = Date.now();
 
   try {
     const searchBody = await parseJsonBody(request, searchSchema, "Invalid search request.");
@@ -980,16 +982,20 @@ export async function POST(request: Request) {
     }
 
     supabase = createAdminClient();
+    const authStartedAt = Date.now();
     const access = await publicAccessContext(request, supabase);
+    const authMs = Date.now() - authStartedAt;
     ownerId = access.ownerId ?? null;
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
+    const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "search",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
+    const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
       return rateLimitJsonResponse(
         "Search is temporarily rate limited because too many requests were received. Retry shortly.",
@@ -998,18 +1004,30 @@ export async function POST(request: Request) {
     }
 
     const key = scopedSearchKey(searchBody, ownerId, publicOnly);
+    const searchStartedAt = Date.now();
     const { payload, coalesced } = await coalesceScopedSearch(
       key,
       (signal) => buildScopedSearchPayload(searchBody, supabase!, ownerId, signal),
       request.signal,
     );
-    return NextResponse.json({
-      ...payload,
-      telemetry: {
-        ...payload.telemetry,
-        coalesced,
+    const searchMs = Date.now() - searchStartedAt;
+
+    // Durations only — see server-timing.ts for the trust-boundary constraint.
+    const serverTiming = buildServerTimingHeader([
+      ...preambleServerTimingEntries({ authMs, rateLimitMs }),
+      { name: "search", durMs: searchMs },
+      { name: "total", durMs: Date.now() - routeStartedAt },
+    ]);
+    return NextResponse.json(
+      {
+        ...payload,
+        telemetry: {
+          ...payload.telemetry,
+          coalesced,
+        },
       },
-    });
+      serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+    );
   } catch (error) {
     if (error instanceof serverAuth.AuthenticationError) {
       return serverAuth.unauthorizedResponse(error);
