@@ -3302,6 +3302,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
         expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
         expect(actionGeometry.actionFontSize).toBe("11px");
         expect(actionGeometry.actionDirection).toBe("column");
+        for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
+          await expectMinTouchTarget(action, 48);
+        }
       } else {
         expect(actionGeometry.display).toBe("flex");
         expect(actionGeometry.actionFontSize).toBe("12px");

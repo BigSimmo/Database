@@ -990,7 +990,7 @@ function DocumentSearchResultsPanelImpl({
                     >
                       <DocumentActionLink
                         href={openHref}
-                        className="min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
+                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
                         aria-label={`Open ${document.title}`}
                       >
                         {contextualOpenLabel(document)}
@@ -998,7 +998,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onScopeDocument(document.document_id)}
                         icon={Filter}
-                        className="min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
+                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
                         aria-label={`Scope search to ${document.title}`}
                       >
                         Scope
@@ -1006,7 +1006,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onAnswerFromDocument(document.document_id)}
                         icon={Sparkles}
-                        className="min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--clinical-accent)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] hover:bg-[color:var(--clinical-accent-soft)] [&_svg]:size-icon-sm sm:ml-auto sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
+                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--clinical-accent)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] hover:bg-[color:var(--clinical-accent-soft)] [&_svg]:size-icon-sm sm:ml-auto sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
                         aria-label={`Answer from ${document.title}`}
                       >
                         Answer
