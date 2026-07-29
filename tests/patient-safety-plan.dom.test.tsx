@@ -20,6 +20,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 const draftPattern = /this plan is incomplete/i;
+const examplePattern = /example only|non-working contact numbers/i;
+const exampleExportPattern =
+  /\*\*\* EXAMPLE — SAMPLE SAFETY PLAN WITH NON-WORKING NUMBERS, NOT FOR PATIENT HANDOVER \*\*\*/;
 
 describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
   it("flags the patient copy as a draft until every step is complete", async () => {
@@ -28,10 +31,34 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
 
     // Blank plan — the patient copy is clearly marked a draft.
     expect(screen.getByText(draftPattern)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
+  });
 
-    // Loading the complete example (all six steps, contacts with reach methods) clears it.
+  it("keeps Load example non-shareable so fake crisis numbers cannot look print-ready", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<PatientSafetyPlan />);
+
     await user.click(screen.getByRole("button", { name: /Load example/ }));
-    expect(screen.queryByText(draftPattern)).toBeNull();
+
+    // Example seed fills every step, but must stay marked as example/draft —
+    // SEED includes non-working numbers like 0400 000 000.
+    expect(screen.getByText(examplePattern)).toBeTruthy();
+    expect(screen.queryByText(/^Ready to share$/)).toBeNull();
+    expect(screen.getByText(/Example — not for handover/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
+    expect(screen.getAllByText(/0400 000 000/).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("button", { name: /^Copy$/ }));
+    const copied = String(writeText.mock.calls[0]?.[0] ?? "");
+    expect(copied).toMatch(exampleExportPattern);
+    expect(copied).toContain("0400 000 000");
+    expect(copied.startsWith("*** EXAMPLE")).toBe(true);
   });
 
   it("returns to draft when a contact has no way to reach them", async () => {
@@ -39,9 +66,10 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     render(<PatientSafetyPlan />);
 
     await user.click(screen.getByRole("button", { name: /Load example/ }));
-    expect(screen.queryByText(draftPattern)).toBeNull();
+    expect(screen.getByText(examplePattern)).toBeTruthy();
 
     // Rebuild the "People I can ask for help" contact step with a name but no phone.
+    // Editing clears the example flag; incomplete contacts keep the plan a draft.
     const supportStep = screen.getByRole("region", { name: "Step 4: People I can ask for help" });
     for (const remove of within(supportStep).getAllByRole("button", { name: /^Remove/ })) {
       await user.click(remove);
@@ -51,6 +79,7 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
 
     // A contact with no reach method leaves the plan incomplete → draft again.
     expect(screen.getByText(draftPattern)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
   });
 
   it("marks copied text as a draft when the plan is incomplete", async () => {

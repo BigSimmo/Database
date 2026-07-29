@@ -2,7 +2,8 @@ export function safeIngestionJobLog(jobId: string) {
   return `Processing ingestion job ${jobId}`;
 }
 
-function redactLogValue(value: unknown): unknown {
+/** Redact paths, URLs, secrets, and emails from support/diagnostic strings. */
+export function redactLogValue(value: unknown): unknown {
   if (typeof value !== "string") {
     // Audit L12: non-string code/details/hint fields (objects/arrays from
     // non-standard error shapes) used to pass through verbatim, skipping the

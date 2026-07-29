@@ -190,12 +190,24 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
     const { data: document, error: documentError } = await withOwnerReadScope(
-      supabase.from("documents").select("id,metadata").eq("id", id),
+      supabase.from("documents").select("id,metadata,status").eq("id", id),
       access.ownerId,
     ).maybeSingle();
 
     if (documentError) throw new Error(documentError.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    // Match search_document_chunks: only indexed documents are searchable. Without
+    // this gate the portable_ilike fallback (admin client) can surface staged chunks
+    // from processing/failed docs when the RPC is unavailable.
+    if (document.status !== "indexed") {
+      return NextResponse.json({
+        query,
+        results: [],
+        pageHits: [],
+        hitCount: 0,
+        strategy: "document_not_indexed",
+      });
+    }
     const committedGeneration = committedIndexGeneration(document.metadata);
 
     const { data: rpcData, error: rpcError } = await supabase.rpc("search_document_chunks", {

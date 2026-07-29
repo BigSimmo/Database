@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
+import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers, redactLogValue } from "../src/lib/privacy";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -19,6 +19,10 @@ describe("privacy-safe logging helpers", () => {
 
     expect(details).toMatchObject({ name: "Error", message: "secret storage path [path]" });
     expect(JSON.stringify(details)).not.toContain("source.pdf");
+  });
+
+  it("redacts clinical search URLs used in support diagnostics", () => {
+    expect(redactLogValue("https://psychiatry.tools/dsm?q=clozapine%20ANC")).toBe("[url]");
   });
 
   it("redacts modern supabase keys in error messages and details", () => {
