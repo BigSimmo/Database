@@ -3279,6 +3279,54 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
+    // Phone actions share the card width evenly, then become a natural toolbar
+    // from tablet upward. Keep the production result card inside every viewport
+    // used by the design workflow and prove the quieter action typography.
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectNoPageHorizontalOverflow(page);
+      const actionGeometry = await documentResults.getByTestId("document-result-actions").evaluate((rail) => {
+        const railStyle = getComputedStyle(rail);
+        const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
+        const firstActionStyle = getComputedStyle(rail.children[0]);
+        const card = rail.closest("article")?.getBoundingClientRect();
+        return {
+          display: railStyle.display,
+          widths,
+          actionFontSize: firstActionStyle.fontSize,
+          actionFontWeight: firstActionStyle.fontWeight,
+          actionDirection: firstActionStyle.flexDirection,
+          cardLeft: card?.left ?? 0,
+          cardRight: card?.right ?? 0,
+          viewportWidth: window.innerWidth,
+        };
+      });
+      expect(actionGeometry.cardLeft).toBeGreaterThanOrEqual(0);
+      expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
+      if (width < 640) {
+        expect(actionGeometry.display).toBe("grid");
+        expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
+        expect(actionGeometry.actionFontSize).toBe("11px");
+        expect(actionGeometry.actionDirection).toBe("column");
+        for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
+          await expectMinTouchTarget(action, 48);
+        }
+      } else {
+        expect(actionGeometry.display).toBe("flex");
+        expect(actionGeometry.actionFontSize).toBe("12px");
+        expect(actionGeometry.actionDirection).toBe("row");
+      }
+      expect(actionGeometry.actionFontWeight).toBe("500");
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
+    const openResultLink = documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i });
+    await openResultLink.focus();
+    await expect(openResultLink).toBeFocused();
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(documentResults.getByTestId("document-result-actions")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ forcedColors: "none" });
+
     if ((await mobileTypeFilter.locator('option[value="tables"]').count()) > 0) {
       await mobileTypeFilter.selectOption("tables");
       await expect(mobileTypeFilter).toHaveValue("tables");
@@ -4194,10 +4242,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(/could not be found or has been deleted/i);
+    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.locator("body")).not.toContainText("loading source");
-    await expect(page.locator("body")).not.toContainText("Loading source metadata");
+    await expect(page.getByRole("status")).not.toContainText("loading source");
+    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });

@@ -3301,7 +3301,11 @@ describe("private document API access", () => {
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
-        return ok({ id: documentId, metadata: { index_generation_id: committedGeneration } });
+        return ok({
+          id: documentId,
+          status: "indexed",
+          metadata: { index_generation_id: committedGeneration },
+        });
       }
       if (call.table === "document_chunks") {
         return ok([
@@ -3354,7 +3358,7 @@ describe("private document API access", () => {
   it("does not treat a query term embedded inside another word as a document-search hit", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
-        return ok({ id: documentId, metadata: {} });
+        return ok({ id: documentId, status: "indexed", metadata: {} });
       }
       return ok([]);
     });
@@ -3396,6 +3400,48 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(200);
     expect(body.results).toEqual([expect.objectContaining({ id: "word-boundary-term", matched_terms: ["renal"] })]);
+  });
+
+  it("returns no hits for non-indexed documents even when the search RPC is unavailable", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, status: "processing", metadata: {} });
+      }
+      if (call.table === "document_chunks") {
+        return ok([
+          {
+            id: "chunk-staged",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Staging",
+            content: "lithium monitoring staged row",
+            image_ids: [],
+            metadata: {},
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === "search_document_chunks") return fail("missing rpc");
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/search/route");
+
+    const response = await GET(request(`/api/documents/${documentId}/search?q=lithium`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { strategy: string; results: unknown[]; hitCount: number };
+
+    expect(response.status).toBe(200);
+    expect(body.strategy).toBe("document_not_indexed");
+    expect(body.results).toEqual([]);
+    expect(body.hitCount).toBe(0);
+    expect(client.from).not.toHaveBeenCalledWith("document_chunks");
   });
 
   it("filters table fact review rows to the committed index generation", async () => {

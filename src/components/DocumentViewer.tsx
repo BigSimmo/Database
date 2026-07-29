@@ -299,6 +299,66 @@ export function DocumentViewer({
   const [serverDemoMode, setServerDemoMode] = useState(
     () => initialDetail?.demoMode ?? process.env.NEXT_PUBLIC_DEMO_MODE === "true",
   );
+  // Drop every piece of mounted, identity-bound viewer state during render when the
+  // auth identity changes (sign-out / expiry / account switch). An auth-only
+  // transition leaves the document load key unchanged, so `isFullDocumentReload`
+  // below is false and the detail effect deliberately keeps the current window
+  // visible until the replacement request settles — which on a slow, offline, or
+  // denied request means user B reads user A's extracted private content. That
+  // covers the signed source URLs (bearer URLs whose module LRU cache is cleared
+  // separately, but whose resolved value the viewer also holds in its own state),
+  // and the detail payload itself: title, pages, images, table facts, chunks, index
+  // health, the generated summary, and the in-document search query + snippets.
+  //
+  // Keyed to the user id rather than `authorizationHeader` so a token refresh for
+  // the same clinician does not blank a document they are still entitled to read.
+  // Guarded on the PREVIOUS identity being non-null so the ordinary `null -> A`
+  // first-mount transition (auth resolving after hydration) does not throw away
+  // the server-rendered `initialDetail` on every page load; sign-out (`A -> null`)
+  // and account switch (`A -> B`) both still clear.
+  //
+  // Deliberately clears without reissuing. Forcing a reload here (by bumping
+  // `previewAttempt`) routes back through `openSourcePreview({ useCache: true })`,
+  // which reads the module signed-URL LRU — so it would repaint the PREVIOUS
+  // identity's URL wherever that cache had not already been cleared, which is
+  // exactly the leak this reset exists to close. A blank preview that recovers
+  // on reload is the conservative failure; re-showing the prior clinician's
+  // document is not. The stranded-preview follow-up is tracked separately.
+  const viewerAuthIdentity = session?.user?.id ?? null;
+  const [seenViewerAuthIdentity, setSeenViewerAuthIdentity] = useState(viewerAuthIdentity);
+  // Latched once the identity changes: `initialDetail` was server-rendered for the
+  // identity that requested the page, and the detail effect's `useInitialResult`
+  // branch replays it whenever the route still matches the initial one. Without
+  // this the effect would re-apply user A's SSR payload to user B on the very
+  // re-run the identity change triggers, undoing the clear below.
+  const [initialDetailIdentityStale, setInitialDetailIdentityStale] = useState(false);
+  if (viewerAuthIdentity !== seenViewerAuthIdentity) {
+    setSeenViewerAuthIdentity(viewerAuthIdentity);
+    setSignedUrl(null);
+    setDownloadSignedUrl(null);
+    if (seenViewerAuthIdentity !== null) {
+      setInitialDetailIdentityStale(true);
+      setDocument(null);
+      setPages([]);
+      setImages([]);
+      setTableFacts([]);
+      setChunks([]);
+      setIndexHealth(null);
+      setSummary(null);
+      setSummaryError(null);
+      setSourceSearch("");
+      setDocumentSearchState({ query: "", results: [] });
+      setDocumentSearchError(null);
+      setViewerError(null);
+      setPreviewError(null);
+      setDownloadError(null);
+      // The detail effect re-runs for the new identity (its deps include
+      // `authorizationHeader`) and clears this in its `finally`; showing the
+      // loading state meanwhile is what keeps the gap from reading as "this
+      // document is empty".
+      setLoadingDocument(true);
+    }
+  }
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;
@@ -536,6 +596,9 @@ export function DocumentViewer({
       previewAttempt === 0 &&
       matchesInitialRoute &&
       !navigatedFromInitialRouteRef.current &&
+      // `initialDetail` belongs to whoever the page was server-rendered for.
+      // Once the auth identity has changed it must be refetched, never replayed.
+      !initialDetailIdentityStale &&
       Boolean(initialDetail || initialError);
 
     detailControllerRef.current?.abort();
@@ -718,6 +781,7 @@ export function DocumentViewer({
     previewAttempt,
     initialDetail,
     initialError,
+    initialDetailIdentityStale,
     openSourcePreview,
     applyPreviewSignedUrlResult,
   ]);

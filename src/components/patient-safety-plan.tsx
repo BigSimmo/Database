@@ -46,8 +46,8 @@ import {
  * live patient-facing preview updates as they type — ready to print, save as
  * PDF, or hand over. Working content stays in this mounted browser component;
  * the app neither stores it nor sends it to a server. Copy and print are
- * explicit user-directed exports. Sample content is seeded so the layout reads
- * fully; every field is editable and "Clear all" empties the plan.
+ * explicit user-directed exports. Plans start blank; "Load example" can demo
+ * the layout with sample content that stays non-shareable until edited.
  * Australian English + AU crisis resources throughout, per the Clinical KB
  * (en-AU) voice. All chrome is token-driven so light/dark, reduced-motion and
  * forced-colors follow the shared design system.
@@ -207,7 +207,8 @@ const SEED_REASONS: Entry[] = [
 
 // Production default: a fresh plan starts blank so no sample/placeholder content
 // (including the non-working example crisis numbers) can reach a printed handover.
-// "Load example" restores the SEED content on demand for demos and training.
+// "Load example" restores SEED for demos/training but keeps the plan non-shareable
+// (example watermark, Finalise disabled) until every seeded row is removed/replaced.
 const EMPTY_ENTRIES: Record<StepKey, Entry[]> = {
   warning: [],
   coping: [],
@@ -216,6 +217,20 @@ const EMPTY_ENTRIES: Record<StepKey, Entry[]> = {
   professional: [],
   environment: [],
 };
+
+const SEED_ENTRY_IDS = new Set([
+  ...Object.values(SEED).flatMap((rows) => rows.map((entry) => entry.id)),
+  ...SEED_REASONS.map((entry) => entry.id),
+]);
+
+function planContainsSeedEntries(entries: Record<StepKey, Entry[]>, reasons: Entry[]): boolean {
+  for (const rows of Object.values(entries)) {
+    for (const entry of rows) {
+      if (SEED_ENTRY_IDS.has(entry.id)) return true;
+    }
+  }
+  return reasons.some((entry) => SEED_ENTRY_IDS.has(entry.id));
+}
 
 /* ---------- small building blocks ---------- */
 
@@ -461,7 +476,6 @@ export function PatientSafetyPlan() {
   const [copied, setCopied] = useState(false);
   const [finalised, setFinalised] = useState(false);
   const [draftDirtyByRow, setDraftDirtyByRow] = useState<Record<string, boolean>>({});
-
   // Per-instance id counter — avoids a module-level mutable that would persist
   // across remounts; ids only need to be unique within this mounted plan.
   const uidRef = useRef(0);
@@ -488,7 +502,11 @@ export function PatientSafetyPlan() {
   }, []);
 
   const filledSteps = useMemo(() => STEPS.filter((step) => isStepComplete(step, entries[step.key])).length, [entries]);
-  const ready = filledSteps === STEPS.length;
+  // SEED includes non-working crisis numbers. Stay in example mode while any
+  // seeded row remains so a date-only edit cannot make fake contacts printable.
+  const exampleActive = planContainsSeedEntries(entries, reasons);
+  const stepsComplete = filledSteps === STEPS.length;
+  const ready = stepsComplete && !exampleActive;
   // Working plan content is browser-tab only and never persisted. Treat any
   // entered step/reason/date as dirty so the header back control cannot discard
   // an in-progress plan without an explicit confirmation.
@@ -502,8 +520,13 @@ export function PatientSafetyPlan() {
   );
 
   const planText = useMemo(() => {
+    const guardLines = exampleActive
+      ? ["*** EXAMPLE — SAMPLE SAFETY PLAN WITH NON-WORKING NUMBERS, NOT FOR PATIENT HANDOVER ***", ""]
+      : ready
+        ? []
+        : ["*** DRAFT — INCOMPLETE SAFETY PLAN, NOT FOR PATIENT HANDOVER ***", ""];
     const lines: string[] = [
-      ...(ready ? [] : ["*** DRAFT — INCOMPLETE SAFETY PLAN, NOT FOR PATIENT HANDOVER ***", ""]),
+      ...guardLines,
       "MY SAFETY PLAN",
       "Name (add after export): ____________________",
       planDate ? `Date: ${planDate}` : "",
@@ -527,7 +550,7 @@ export function PatientSafetyPlan() {
     lines.push("In an emergency: call 000 or go to your nearest Emergency Department.");
     lines.push("24/7 support: Lifeline 13 11 14 · Suicide Call Back Service 1300 659 467.");
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
-  }, [entries, planDate, ready, reasons]);
+  }, [entries, exampleActive, planDate, ready, reasons]);
 
   const copyPlan = async () => {
     try {
@@ -622,7 +645,11 @@ export function PatientSafetyPlan() {
                     ready ? toneSuccess : toneNeutral,
                   )}
                 >
-                  {ready ? "Ready to share" : `${filledSteps}/${STEPS.length} steps`}
+                  {ready
+                    ? "Ready to share"
+                    : exampleActive
+                      ? "Example — not for handover"
+                      : `${filledSteps}/${STEPS.length} steps`}
                 </span>
               </div>
             </div>
@@ -857,7 +884,15 @@ export function PatientSafetyPlan() {
 
           {/* The plan document */}
           <article className="grid content-start gap-5 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-lux)] sm:p-6">
-            {ready ? null : (
+            {exampleActive ? (
+              <p
+                role="note"
+                className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm-minus font-bold leading-5 text-[color:var(--warning)]"
+              >
+                Example only — this sample plan uses non-working contact numbers. Replace every entry with the
+                patient&apos;s real details before sharing or printing.
+              </p>
+            ) : ready ? null : (
               <p
                 role="note"
                 className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm-minus font-bold leading-5 text-[color:var(--warning)]"
