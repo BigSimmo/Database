@@ -68,6 +68,16 @@ describe("DocumentClinicalSummary", () => {
     expect(screen.queryByTestId("clinical-priorities-sheet")).not.toBeInTheDocument();
   });
 
+  it("keeps clinical priorities collapsed in condensed view and restores them in full view", () => {
+    const props = { document, pageHref: (page: number) => `?page=${page}`, onPageChange: vi.fn() };
+    const { rerender } = render(<DocumentClinicalSummary {...props} compact />);
+    const desktopPriorities = screen.getAllByRole("button", { name: /Clinical priorities/ })[0];
+
+    expect(desktopPriorities).toHaveAttribute("aria-expanded", "false");
+    rerender(<DocumentClinicalSummary {...props} compact={false} />);
+    expect(desktopPriorities).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("does not label an unindexed empty state as source-backed", () => {
     const emptyDocument = { ...document, summary: undefined } as ClinicalDocument;
 
