@@ -8,9 +8,10 @@
 // unit-tested.
 //
 // Lab metrics only. Lighthouse cannot measure INP in lab conditions (it is an
-// interaction metric); TBT is its lab proxy. The #017 rule's INP clause is read
-// from CrUX field data when the origin has enough traffic, which is why the
-// verdict below is stated as provisional on that confirmation.
+// interaction metric); TBT is its lab proxy. The #017 rule has three clauses —
+// LCP, CLS and INP — so this script can satisfy at most two of them and NEVER
+// emits an #017 closure on its own. The best it reports is "LCP and CLS are
+// within threshold; obtain INP from CrUX before closing #017".
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -218,9 +219,18 @@ export function renderTable(rows, routes) {
   lines.push(
     breaches.length === 0
       ? productionVerdict
-        ? `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}.** ` +
-          "Per the #017 decision rule that closes #017 as metrics-acceptable and makes the gated payload findings WONTFIX. " +
-          "Confirm INP from CrUX field data before recording the verdict."
+        ? // Deliberately NOT a closure. The #017 rule has three clauses — LCP,
+          // CLS and INP < 200ms — and Lighthouse cannot measure INP in lab
+          // conditions at all (it is an interaction metric; TBT is the lab
+          // proxy). This run therefore satisfies two of three and cannot close
+          // #017 by itself. Announcing closure here and asking the operator to
+          // "confirm INP afterward" put the bold verdict before the evidence,
+          // which is the exact failure mode #017 exists to prevent.
+          `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}. ` +
+          "This is NOT yet an #017 closure.** The #017 rule also requires INP < 200ms, which is field data this run " +
+          "does not collect — Lighthouse cannot measure INP in lab conditions. Obtain INP from CrUX for these routes; " +
+          "only if it is available AND under 200ms does #017 close as metrics-acceptable and the gated payload " +
+          "findings become WONTFIX. An unavailable or >=200ms INP leaves #017 open."
         : `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}, ` +
           `but this is NOT an #017 verdict.** #017 asks for evidence from ${CANONICAL_ORIGIN}; this run measured ` +
           `${measuredOrigins(rows).join(", ") || "an unknown origin"}. Record nothing against #017 from this run.`
@@ -257,7 +267,10 @@ function main() {
   const rows = files.map((file) =>
     summariseReport(file.replace(/\.json$/, ""), JSON.parse(readFileSync(join(directory, file), "utf8"))),
   );
-  writeFileSync(join(directory, "summary.json"), `${JSON.stringify(rows, null, 2)}\n`);
+  // Record the Lighthouse build alongside the numbers: a baseline is only
+  // comparable to a follow-up measured by the same implementation.
+  const lighthouseVersion = process.env.LIGHTHOUSE_VERSION ?? "unpinned";
+  writeFileSync(join(directory, "summary.json"), `${JSON.stringify({ lighthouseVersion, routes, rows }, null, 2)}\n`);
   const table = renderTable(rows, routes);
   console.log(table);
   if (process.env.GITHUB_STEP_SUMMARY) {

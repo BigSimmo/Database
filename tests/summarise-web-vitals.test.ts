@@ -168,7 +168,7 @@ describe("production-origin gate", () => {
   it("states the #017 closure only for the canonical production origin", () => {
     const rows = expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
     expect(isProductionVerdict(rows)).toBe(true);
-    expect(renderTable(rows, DEFAULT_ROUTES)).toContain("closes #017 as metrics-acceptable");
+    expect(renderTable(rows, DEFAULT_ROUTES)).toContain("NOT yet an #017 closure");
   });
 
   it("refuses an #017 verdict for a staging override even when every threshold passes", () => {
@@ -177,7 +177,7 @@ describe("production-origin gate", () => {
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]); // evidence is complete
     expect(isProductionVerdict(rows)).toBe(false);
     const table = renderTable(rows, DEFAULT_ROUTES);
-    expect(table).not.toContain("closes #017 as metrics-acceptable");
+    expect(table).not.toContain("NOT yet an #017 closure");
     expect(table).toContain("NOT an #017 verdict");
     expect(table).toContain("https://staging.psychiatry.tools");
   });

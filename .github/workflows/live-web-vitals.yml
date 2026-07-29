@@ -54,6 +54,12 @@ jobs:
       # matching live-domain-monitor.yml.
       LIVE_DOMAIN_URL: ${{ vars.LIVE_DOMAIN_URL || 'https://psychiatry.tools' }}
       ROUTES: ${{ inputs.routes }}
+      # Pinned exactly, not `lighthouse@12`. That range is >=12.0.0 <13.0.0-0,
+      # so a patch published between a baseline run and its follow-up would
+      # change metric collection independently of the application and silently
+      # decalibrate the comparison this workflow exists to make. The resolved
+      # version is recorded in summary.json so a baseline states its own tooling.
+      LIGHTHOUSE_VERSION: "12.8.2"
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,7 +100,7 @@ jobs:
               echo "::group::$strategy $route"
               # One flaky route must not discard the whole run, so a failure is
               # a warning here; the summary step fails if NOTHING was produced.
-              npx --yes lighthouse@12 "$LIVE_DOMAIN_URL$route" \
+              npx --yes "lighthouse@$LIGHTHOUSE_VERSION" "$LIVE_DOMAIN_URL$route" \
                 --output=json --output-path="${out}.json" \
                 --preset="$([ "$strategy" = desktop ] && echo desktop || echo perf)" \
                 --only-categories=performance \
