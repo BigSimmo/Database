@@ -5,6 +5,7 @@ import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { redactLogValue } from "@/lib/privacy";
 
 export type RouteErrorBoundaryProps = {
   /** The error thrown by the segment, forwarded by Next.js. */
@@ -58,10 +59,11 @@ export function RouteErrorBoundary({
   const handleCopyDiagnostics = () => {
     const diagnosticPayload = {
       name: error.name,
-      message: error.message,
+      message: redactLogValue(error.message),
       digest: error.digest,
-      url: typeof window !== "undefined" ? window.location.href : "unknown",
-      userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
+      // Redact so clinical ?q= query text and secrets never leave via clipboard.
+      url: typeof window !== "undefined" ? redactLogValue(window.location.href) : "unknown",
+      userAgent: typeof window !== "undefined" ? redactLogValue(window.navigator.userAgent) : "unknown",
       timestamp: new Date().toISOString(),
     };
     void copyTextToClipboard(JSON.stringify(diagnosticPayload, null, 2))
@@ -92,7 +94,7 @@ export function RouteErrorBoundary({
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring,Highlight)]"
+          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           {title}
         </h1>

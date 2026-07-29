@@ -2401,8 +2401,12 @@ test.describe("Responsive layout guards", () => {
     const privacyRegion = page.getByRole("region", { name: "Safety plan privacy" });
     await expect(privacyRegion).toHaveCount(1);
     await expect(privacyRegion.getByText(/kept only in this browser tab/i)).toBeVisible();
+    // Scope to the patient-copy panel — an unscoped getByText can strict-mode-fail
+    // when Playwright resolves nested/duplicate text nodes for the same notice.
     await expect(
-      page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+      page
+        .locator("[data-safety-plan-copy]")
+        .getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
     ).toBeVisible();
 
     await page.evaluate(() => {

@@ -4258,10 +4258,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(/could not be found or has been deleted/i);
+    await expect(page.getByRole("status")).toContainText(/unavailable|private|missing|removed/i);
     await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
-    await expect(page.locator("body")).not.toContainText("loading source");
-    await expect(page.locator("body")).not.toContainText("Loading source metadata");
+    await expect(page.getByRole("status")).not.toContainText("loading source");
+    await expect(page.getByRole("status")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
   });
