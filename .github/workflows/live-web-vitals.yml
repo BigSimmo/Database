@@ -31,7 +31,11 @@ on:
       routes:
         description: "Comma-separated routes to measure"
         required: false
-        default: "/,/therapy-compass,/documents,/dsm,/forms"
+        # Every entry must be a real page route. `/documents` is not one — the
+        # documents segment holds only `search`, `source` and `[id]` with no
+        # `page.tsx` (see docs/site-map.md), so it would have measured the 404
+        # document. `/documents/search` is the canonical documents-mode route.
+        default: "/,/therapy-compass,/documents/search,/dsm,/forms"
 
 permissions:
   contents: read

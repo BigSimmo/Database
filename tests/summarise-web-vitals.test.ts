@@ -9,7 +9,10 @@ import {
   summariseReport,
 } from "../scripts/summarise-web-vitals.mjs";
 
-const DEFAULT_ROUTES = "/,/therapy-compass,/documents,/dsm,/forms";
+// Kept in step with the workflow's `routes` dispatch default. Every entry must
+// be a real page route in docs/site-map.md: a bare `/documents` has no
+// `page.tsx`, so measuring it would have profiled the 404 document.
+const DEFAULT_ROUTES = "/,/therapy-compass,/documents/search,/dsm,/forms";
 
 function row(run: string, lcpMs: number | null, cls: number | null) {
   return { run, url: `https://psychiatry.tools/${run}`, performanceScore: 0.99, lcpMs, cls, tbtMs: 10, fcpMs: 500 };
@@ -31,7 +34,7 @@ describe("expectedMobileRuns", () => {
     expect(expectedMobileRuns(DEFAULT_ROUTES)).toEqual([
       "mobile-root",
       "mobile-therapy-compass",
-      "mobile-documents",
+      "mobile-documents-search",
       "mobile-dsm",
       "mobile-forms",
     ]);
