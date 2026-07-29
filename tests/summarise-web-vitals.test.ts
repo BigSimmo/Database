@@ -7,6 +7,7 @@ import {
   collidingRouteSlugs,
   incompleteEvidence,
   isProductionVerdict,
+  measuredRequestedPage,
   missingRuns,
   mobileBreaches,
   renderTable,
@@ -20,7 +21,18 @@ import {
 const DEFAULT_ROUTES = "/,/therapy-compass,/documents/search,/dsm,/forms";
 
 function row(run: string, lcpMs: number | null, cls: number | null) {
-  return { run, url: `https://psychiatry.tools/${run}`, performanceScore: 0.99, lcpMs, cls, tbtMs: 10, fcpMs: 500 };
+  const url = `https://psychiatry.tools/${run}`;
+  return {
+    run,
+    url,
+    requestedUrl: url,
+    runtimeError: null,
+    performanceScore: 0.99,
+    lcpMs,
+    cls,
+    tbtMs: 10,
+    fcpMs: 500,
+  };
 }
 
 describe("routeSlug", () => {
@@ -147,6 +159,27 @@ describe("incompleteEvidence", () => {
 
   it("accepts distinct routes that do not collide", () => {
     expect(collidingRouteSlugs(DEFAULT_ROUTES)).toEqual([]);
+  });
+
+  // An origin check alone passes a route that redirected to another page on the
+  // same host — an auth bounce to /login, a same-origin error page, a mistyped
+  // route. The numbers are clean but they describe a different page, and the
+  // filename cannot reveal it.
+  it("rejects a run that redirected to a different same-origin path", () => {
+    const rows = allRuns().map((r) => (r.run === "mobile-dsm" ? { ...r, url: "https://psychiatry.tools/login" } : r));
+    expect(isProductionVerdict(rows)).toBe(true); // origin is still canonical
+    expect(measuredRequestedPage(rows.find((r) => r.run === "mobile-dsm"))).toBe(false);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm"]);
+  });
+
+  it("rejects a run that reported a Lighthouse runtime error", () => {
+    const rows = allRuns().map((r) => (r.run === "desktop-forms" ? { ...r, runtimeError: "NO_FCP" } : r));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["desktop-forms"]);
+  });
+
+  it("tolerates a trailing-slash difference between requested and final URL", () => {
+    const rows = allRuns().map((r) => (r.run === "mobile-forms" ? { ...r, url: `${r.requestedUrl}/` } : r));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
   });
 });
 

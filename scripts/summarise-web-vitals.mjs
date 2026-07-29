@@ -60,6 +60,11 @@ export function summariseReport(run, report) {
   return {
     run,
     url: report?.finalDisplayedUrl ?? report?.requestedUrl ?? null,
+    // Kept alongside the final URL so a redirect can be detected. Measuring
+    // /login instead of the requested route yields perfectly good numbers for
+    // the wrong page, and the filename alone cannot reveal that.
+    requestedUrl: report?.requestedUrl ?? null,
+    runtimeError: report?.runtimeError?.code ?? null,
     performanceScore: report?.categories?.performance?.score ?? null,
     lcpMs: numeric("largest-contentful-paint"),
     cls: numeric("cumulative-layout-shift"),
@@ -127,6 +132,35 @@ export function hasUsableMetrics(row) {
   return row != null && row.lcpMs !== null && row.cls !== null;
 }
 
+/** Path of a URL, trailing slash normalised, for comparing requested vs final. */
+function normalisedPath(value) {
+  if (!value) return null;
+  try {
+    const { pathname } = new URL(value);
+    return pathname.length > 1 ? pathname.replace(/\/+$/, "") : "/";
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Whether the report measured the page that was asked for. An origin check alone
+ * is not enough: a route that redirects to `/login`, to a same-origin error page
+ * or to any other path still produces clean metrics on `psychiatry.tools`, and
+ * the filename cannot reveal that the numbers describe a different page. A
+ * Lighthouse `runtimeError` is treated the same way — the run did not measure
+ * what it claims to.
+ */
+export function measuredRequestedPage(row) {
+  if (row == null || row.runtimeError) return false;
+  const requested = normalisedPath(row.requestedUrl);
+  // Older reports carry no requestedUrl; absent evidence of a redirect is not
+  // evidence of none, but neither is it a reason to reject a report that has
+  // no requested URL recorded at all — those are caught by hasUsableMetrics.
+  if (requested === null) return true;
+  return normalisedPath(row.url) === requested;
+}
+
 /**
  * Everything that makes the evidence incomplete rather than merely bad: a
  * requested run with no report, a report with no LCP/CLS number, or a route
@@ -148,7 +182,8 @@ export function incompleteEvidence(rows, routes) {
   const expected = expectedRuns(routes);
   const problems = new Set(collidingRouteSlugs(routes).map((slug) => `route slug collision: ${slug}`));
   for (const run of expected) {
-    if (!hasUsableMetrics(byRun.get(run))) problems.add(run);
+    const row = byRun.get(run);
+    if (!hasUsableMetrics(row) || !measuredRequestedPage(row)) problems.add(run);
   }
   // With no route list to check against, an absence of mobile reports entirely
   // is still not a pass — the guard must not be bypassable by omitting the arg.
