@@ -202,6 +202,7 @@ function streamAnswer(
                     ? [body.documentId]
                     : (body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
                 filters: body.filters,
+                signal,
               });
           sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {

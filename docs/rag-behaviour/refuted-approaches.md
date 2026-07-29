@@ -105,6 +105,39 @@ Ledger `#032` / source-governance audit (PR #1051) items that look like “gaps�
   returned the complete Booking Assistant Scheduling Engine (BASE) step, grounded and substantive,
   with zero provider calls in about 1.3 seconds.
 
+## Refutation 6 — token streaming to cut perceived answer latency (do not reintroduce)
+
+Recorded 2026-07-29 from the latency audit (`docs/audit/latency-audit-2026-07-28.md`, L0-1). Unlike
+Refutations 1–5 this was not re-attempted and measured — it is recorded **because the defect it
+would "fix" is real and highly visible**, so the wrong fix is the one a future task will reach for
+first.
+
+- **The real defect.** Generation is fully buffered (`src/lib/openai.ts:465`: _"Buffered
+  (non-streaming) request — the baseline behaviour"_; only `responses.create`/`.parse`, never
+  `.stream`), and the whole answer reaches the client in **one** `final` SSE frame
+  (`src/app/api/answer/stream/route.ts:256-260`). So **time-to-first-content equals total answer
+  latency**: a strong-route answer sitting perfectly inside its 25 s SLO still shows the clinician a
+  blank panel for up to 25 s. `src/lib/sse-heartbeat.ts` sends a keepalive every 15 s because that
+  silence routinely exceeds 15 s — it instruments the defect rather than fixing it.
+- **The obvious fix is already refused in code.** `src/lib/answer-stream-contract.ts:18-21`
+  deliberately excludes the legacy `token` and `revising` event names: _"A new client can be routed
+  to an older server during a rolling deployment, so accepting those events would re-expose
+  unvalidated clinical prose."_ Token streaming **existed here and was removed as a clinical-safety
+  control** — this is a prior decision, not an unbuilt feature.
+- **Why it cannot simply come back.** Every answer clears a post-generation pipeline over a
+  `responses.parse` structured object: `sanitizeCitations` (`rag.ts:3012`),
+  `sanitizeAnswerText`/`sanitizeStructuredText` (`:3017-3022`), `applyNumericVerification` /
+  `unboldUnverifiedNumbers`, `sanitizeQuoteCards`, `assessAndEnforceClaimSupport`. Forwarding raw
+  tokens bypasses the numeric-faithfulness gate the 2026-07-01 audit filed as H1 — the gate that
+  exists so a wrong dose or threshold never reaches a clinician as if verified.
+- **Only admissible shape for a third attempt.** Progressive disclosure of _already-verified units_:
+  retrieval-complete evidence and sources first, then each answer section **after that section
+  clears verification**, carried over the existing whitelisted `progress` event. Never a
+  reintroduced `token`/`revising` name, and never partial prose ahead of its own verification.
+- **Standing constraint.** Any such change needs a clinical-governance decision **before** code, plus
+  a live canary pair. Abort immediately if a design requires widening
+  `answerStreamEventNames`. Tracked as ledger `#100`.
+
 ## Related follow-up plans
 
 - **Word-boundary content matcher — ✅ IMPLEMENTED (2026-07-20, same-day follow-up).**

@@ -81,6 +81,10 @@ export async function POST(request: Request) {
     const authMs = Date.now() - authStartedAt;
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
+    // Admit before scope: resolveSearchScope can enumerate thousands of documents
+    // and labels. Overlapping it with the limiter left that work in flight on 429
+    // (abort cannot undo queries already accepted by PostgREST). Keep the signal
+    // so a client disconnect still cancels scope's paginated queries.
     const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -93,22 +97,6 @@ export async function POST(request: Request) {
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
 
-    // Scope resolution stays BEHIND admission, deliberately. It has no data
-    // dependency on the limiter, so overlapping the two is tempting — but
-    // whenever the caller sends filters or explicit ids, `resolveSearchScope`
-    // pages `documents` (up to maxResolvedDocuments) and their labels
-    // (`search-scope.ts:242,253` are the only zero-query early returns). An
-    // AbortSignal cancels the client request; it does not un-execute a query
-    // Postgres has already started. Overlapping therefore let a throttled
-    // caller keep spending database capacity while collecting 429s — the
-    // opposite of what admission control is for, and the wrong direction for
-    // `capacity-review.md:106-113`, which names Postgres CPU under concurrency
-    // the first soft failure. `filters` is caller-controlled, so this is
-    // reachable on purpose, not only by accident.
-    //
-    // Threading the signal is still worth doing on its own: without it a client
-    // disconnect could not cancel scope's paginated queries at all, even though
-    // `search-scope.ts:200,328` have always supported `.abortSignal(...)`.
     const scopeStartedAt = Date.now();
     const scope = await resolveSearchScope({
       supabase,
@@ -119,17 +107,24 @@ export async function POST(request: Request) {
     });
     const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
-      return NextResponse.json({
-        answer: emptyScopeAnswer,
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        degradedMode: answerDegradedModeSignal(),
-        scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
-        ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
-      });
+      const serverTiming = buildServerTimingHeader([
+        ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+        { name: "total", durMs: Date.now() - routeStartedAt },
+      ]);
+      return NextResponse.json(
+        {
+          answer: emptyScopeAnswer,
+          grounded: false,
+          confidence: "unsupported",
+          citations: [],
+          sources: [],
+          degradedMode: answerDegradedModeSignal(),
+          scope: { ...scope, queryMode: answerBody.queryMode },
+          sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+          ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
+        },
+        serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+      );
     }
 
     const singleDocumentScope = Boolean(
