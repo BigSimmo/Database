@@ -767,16 +767,14 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     .join(" · ");
   const selectedPageText = selectedPage ? sourceTextForIndexedPage(selectedPage.text) : "";
   const [compactOpen, setCompactOpen] = useState(Boolean(selectedChunkId));
-  const [prevRevealKey, setPrevRevealKey] = useState(`${selectedChunkId ?? ""}\0${normalizedSearch}`);
-  const revealKey = `${selectedChunkId ?? ""}\0${normalizedSearch}`;
-
-  // Reveal indexed text for chunk jumps / in-document search without a
-  // cascading setState-in-effect (React adjust-during-render pattern).
-  if (revealKey !== prevRevealKey) {
-    setPrevRevealKey(revealKey);
-    if (selectedChunkId || normalizedSearch) {
-      setCompactOpen(true);
-    }
+  // Deep-linked chunks and in-document search must keep the panel revealed even
+  // when the exclusive accordion briefly closes it (section jumps / sibling
+  // opens). Derive force-open from props so compactOpen cannot latch closed.
+  const forceReveal = Boolean(selectedChunkId) || Boolean(normalizedSearch);
+  const [prevForceReveal, setPrevForceReveal] = useState(forceReveal);
+  if (forceReveal !== prevForceReveal) {
+    setPrevForceReveal(forceReveal);
+    if (forceReveal) setCompactOpen(true);
   }
 
   useEffect(() => {
@@ -793,9 +791,21 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     <details
       id={sectionId}
       name={compact ? "document-viewer-section" : undefined}
-      open={!compact || compactOpen}
+      open={!compact || compactOpen || forceReveal}
       onToggle={(event) => {
-        if (compact) setCompactOpen(event.currentTarget.open);
+        if (!compact) return;
+        // Exclusive-accordion closes must not win over a deep-link/search reveal.
+        // Re-open after the browser finishes the toggle (microtask), and bump a
+        // render so the controlled `open` prop stays authoritative.
+        if (!event.currentTarget.open && forceReveal) {
+          const disclosure = event.currentTarget;
+          queueMicrotask(() => {
+            disclosure.open = true;
+          });
+          setCompactOpen(true);
+          return;
+        }
+        setCompactOpen(event.currentTarget.open);
       }}
       data-testid={`${idPrefix}-indexed-text-panel`}
       className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)] source-print")}
@@ -803,7 +813,9 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
       <DocumentSectionSummary
         icon={FileText}
         title="Indexed source text"
-        interactive={compact}
+        // While a deep-link/search forces the panel open, do not advertise a
+        // collapse control that the exclusive accordion would immediately undo.
+        interactive={compact && !forceReveal}
         description={
           loading
             ? "Loading extracted source text."
