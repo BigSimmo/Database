@@ -110,29 +110,44 @@ the runbook below is step one of the sequence, not the whole of it.
 
 ### Ordering constraint — do all five steps in one change
 
-1. **Author and commit the idempotent migration** (`create index if not exists`, per the
-   `20260717170000` pattern), but **do not deploy it to the busy database yet**. Without the
-   migration the indexes never reach staging, disaster recovery, or a local `supabase db reset`,
-   however carefully the remaining steps are followed — and deploying it ahead of step 2 builds
-   the indexes inside the migration's transaction, taking the very lock this procedure avoids.
-2. Create the indexes concurrently on the live database, and confirm all three are valid. Only
-   then deploy the migration: its `if not exists` lands as a no-op there while carrying the
-   lineage everywhere else.
-3. Mirror the three `create index` statements into `supabase/schema.sql` beside the existing
-   `documents` indexes.
+**The health-function registration is a migration, not a `schema.sql` edit.** Added 2026-07-29
+after PR #1377 review: an earlier version of step 5 said to add the three names to
+`required_indexes` "inside `search_schema_health()` (`supabase/schema.sql:3178`)", which reads as a
+mirror edit. `schema.sql` is a mirror, so editing it never changes the hosted function and the new
+indexes would stay unmonitored on live. `search_schema_health()` is redefined by
+`create or replace function` in eleven migrations; `20260705180000_reconcile_search_health_indexes.sql`
+is the precedent to copy — it creates indexes **and** carries the updated `required_indexes` array
+(`:62`) in the same migration.
+
+1. **Author and commit one idempotent migration**, but **do not deploy it to the busy database
+   yet**. It contains both halves, per the `20260705180000` shape:
+   - `create index if not exists` for all three indexes (the `20260717170000` pattern);
+   - `create or replace function public.search_schema_health()` with
+     `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
+     `documents_status_id_idx` added to the `required_indexes` array.
+
+   Without the migration the indexes and the health registration never reach staging, disaster
+   recovery, or a local `supabase db reset`, however carefully the remaining steps are followed —
+   and deploying it ahead of step 2 builds the indexes inside the migration's transaction, taking
+   the very lock this procedure avoids.
+
+2. Create the indexes concurrently on the live database, and confirm all three are valid.
+3. Mirror the three `create index` statements **and the identical function body** into
+   `supabase/schema.sql`, beside the existing `documents` indexes and at
+   `search_schema_health()`'s `required_indexes` (`supabase/schema.sql:3177`). The mirror must
+   match the migration exactly or drift validation fails.
 4. Regenerate `supabase/drift-manifest.json` with `npm run drift:manifest` (requires Docker).
    `tests/drift-detection.test.ts` pins the manifest to `schema.sql`'s sha256 and fails while it
    is stale.
-5. Only then add `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
-   `documents_status_id_idx` to the `required_indexes` list inside `search_schema_health()`
-   (`supabase/schema.sql:3178`).
+5. **Deploy the migration last.** On the live database the index half is a no-op — step 2 already
+   built them — and the function half registers the three names. Deploying it before step 2 would
+   both take the lock and register required indexes that do not yet exist.
 
-Step 5 must come last: `search_schema_health()` runs against the live database and reports a
-missing required index as a failure, so registering the names before the indexes exist turns a
-health check red. Equally, committing the migration (step 1) without carrying steps 3–4 in the same change is what
-caused PR #1312 to be closed on 2026-07-28 — an additive index migration with no synchronized
-schema/drift proof. Expect `npm run check:drift` to report the three indexes as unexpected
-between steps 2 and 3.
+Deployment must come last because `search_schema_health()` runs against the live database and
+reports a missing required index as a failure. Equally, committing the migration (step 1) without
+carrying steps 3–4 in the same change is what caused PR #1312 to be closed on 2026-07-28 — an
+additive index migration with no synchronized schema/drift proof. Expect `npm run check:drift` to
+report the three indexes as unexpected between steps 2 and 3.
 
 ### Rollback — three deployed phases, with the live drop in the middle
 
@@ -157,11 +172,17 @@ The resolution is to separate them into three deployments:
 
 **Phase A — retract the health expectations, and deploy.**
 
-1. Remove `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
-   `documents_status_id_idx` from `required_indexes` in `search_schema_health()`
-   (`supabase/schema.sql:3178`).
-2. Deploy that change alone. The indexes still exist, `schema.sql` and `drift-manifest.json` still
-   describe them, so both the health check and drift validation stay green across this phase.
+1. Author a migration that does the retraction on the hosted database — a
+   `create or replace function public.search_schema_health()` with
+   `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
+   `documents_status_id_idx` **removed** from `required_indexes`, per the same
+   `20260705180000_reconcile_search_health_indexes.sql` precedent the apply side uses. Mirror the
+   identical function body into `supabase/schema.sql` (`:3177`) and regenerate
+   `supabase/drift-manifest.json`. Retracting in the mirror alone leaves the hosted function still
+   requiring all three, so phase B would drop indexes it demands and turn the health check red —
+   the exact failure this phase exists to prevent.
+2. Deploy that migration alone. The indexes still exist and `schema.sql`/`drift-manifest.json`
+   still describe them, so both the health check and drift validation stay green across this phase.
 
 **Phase B — drop concurrently on the live database.**
 
