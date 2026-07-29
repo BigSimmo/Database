@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Round-trip budget guard for the /api/answer preamble (latency audit 2026-07-28, L1-2).
+ * Admission-cost guard for the /api/answer preamble (latency audit 2026-07-28, L1-2).
  *
- * Auth -> rate-limit is a genuine data dependency (the limiter needs
- * `access.rateLimitSubject`), so only scope resolution can overlap. These tests pin
- * the three properties that make the overlap safe, so a refactor that re-serialises
- * the preamble — or drops the abort/settle handling — goes red rather than silently
- * putting a Supabase round trip back on the critical path.
+ * A denied request must cost zero scope queries. `resolveSearchScope` pages
+ * `documents` and their labels whenever the caller sends filters or explicit ids, and
+ * an AbortSignal cancels the client request without un-executing a query Postgres has
+ * already started — so "start scope early and abort on deny" is NOT free, and was
+ * removed after review. These tests pin the ordering so a future latency pass cannot
+ * reintroduce the overlap, and pin the signal threading that was kept.
  */
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -89,7 +90,7 @@ afterEach(() => {
 });
 
 describe("/api/answer preamble", () => {
-  it("starts scope resolution before the rate-limit RPC settles", async () => {
+  it("does not begin scope resolution until the limiter has admitted the request", async () => {
     const limiter = deferred<ReturnType<typeof rateLimitDecision>>();
     consumeSubjectApiRateLimit.mockReturnValue(limiter.promise);
     resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
@@ -97,35 +98,34 @@ describe("/api/answer preamble", () => {
     const { POST } = await import("../src/app/api/answer/route");
     const response = POST(answerRequest());
 
-    // The limiter has not resolved yet. If scope were awaited after it — the
-    // pre-2026-07-28 shape — this would still be 0.
-    await vi.waitFor(() => expect(resolveSearchScope).toHaveBeenCalledTimes(1));
+    // Give the route every chance to dispatch scope early: if it overlapped the
+    // two, this microtask drain would be enough for the call to land.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(resolveSearchScope).not.toHaveBeenCalled();
 
     limiter.resolve(rateLimitDecision(false));
     expect((await response).status).toBe(200);
+    expect(resolveSearchScope).toHaveBeenCalledTimes(1);
   });
 
-  it("aborts the in-flight scope queries when the limiter denies, and still returns 429", async () => {
+  it("dispatches no scope query at all when the limiter denies", async () => {
     consumeSubjectApiRateLimit.mockResolvedValue(rateLimitDecision(true));
-
-    let observed: AbortSignal | undefined;
-    resolveSearchScope.mockImplementation(async (args: { signal?: AbortSignal }) => {
-      observed = args.signal;
-      // Model a paginated scope query that is still in flight when the limiter denies.
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      if (args.signal?.aborted) throw new DOMException("Aborted", "AbortError");
-      return { documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] };
-    });
+    resolveSearchScope.mockResolvedValue({ documentIds: undefined, filters: {}, activeFilterCount: 0, warnings: [] });
 
     const { POST } = await import("../src/app/api/answer/route");
-    const response = await POST(answerRequest());
+    // Filters are what push resolveSearchScope past its zero-query early returns
+    // (search-scope.ts:242,253) and into the paginated `documents` loop, so this
+    // is the shape that made the old overlap expensive for a throttled caller.
+    const response = await POST(
+      new Request("http://localhost/api/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: "clozapine monitoring", filters: { sourceStatuses: ["current"] } }),
+      }),
+    );
 
     expect(response.status).toBe(429);
-    expect(observed).toBeInstanceOf(AbortSignal);
-    // A throttled caller must not pay for scope: the queries are cancelled, and
-    // the rejection is absorbed rather than left floating (an unhandled rejection
-    // here would take the process down).
-    expect(observed?.aborted).toBe(true);
+    expect(resolveSearchScope).not.toHaveBeenCalled();
   });
 
   it("threads an abort signal so a client disconnect cancels scope's paginated queries", async () => {

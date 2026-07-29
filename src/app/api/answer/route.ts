@@ -81,33 +81,6 @@ export async function POST(request: Request) {
     const authMs = Date.now() - authStartedAt;
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
-    // Scope resolution has no data dependency on the rate-limit RPC, so the two
-    // overlap instead of running back-to-back before retrieval starts. The
-    // limiter must still be able to deny for free, so the scope queries are
-    // aborted the moment it does — and threading a signal at all is what lets
-    // a client disconnect cancel scope's paginated queries.
-    const scopeAbort = new AbortController();
-    const scopeStartedAt = Date.now();
-    let scopeMs: number | undefined;
-    const scopeSettled = resolveSearchScope({
-      supabase,
-      accessScope,
-      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
-      filters: answerBody.filters,
-      signal: AbortSignal.any([request.signal, scopeAbort.signal]),
-    }).then(
-      (value) => {
-        scopeMs = Date.now() - scopeStartedAt;
-        return { ok: true as const, value };
-      },
-      // Settled, never rejected: the limiter can return before this promise is
-      // awaited, and a floating rejection would take down the process.
-      (error: unknown) => {
-        scopeMs = Date.now() - scopeStartedAt;
-        return { ok: false as const, error };
-      },
-    );
-
     const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -117,14 +90,34 @@ export async function POST(request: Request) {
     });
     const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
-      scopeAbort.abort();
-      await scopeSettled;
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
 
-    const resolvedScope = await scopeSettled;
-    if (!resolvedScope.ok) throw resolvedScope.error;
-    const scope = resolvedScope.value;
+    // Scope resolution stays BEHIND admission, deliberately. It has no data
+    // dependency on the limiter, so overlapping the two is tempting — but
+    // whenever the caller sends filters or explicit ids, `resolveSearchScope`
+    // pages `documents` (up to maxResolvedDocuments) and their labels
+    // (`search-scope.ts:242,253` are the only zero-query early returns). An
+    // AbortSignal cancels the client request; it does not un-execute a query
+    // Postgres has already started. Overlapping therefore let a throttled
+    // caller keep spending database capacity while collecting 429s — the
+    // opposite of what admission control is for, and the wrong direction for
+    // `capacity-review.md:106-113`, which names Postgres CPU under concurrency
+    // the first soft failure. `filters` is caller-controlled, so this is
+    // reachable on purpose, not only by accident.
+    //
+    // Threading the signal is still worth doing on its own: without it a client
+    // disconnect could not cancel scope's paginated queries at all, even though
+    // `search-scope.ts:200,328` have always supported `.abortSignal(...)`.
+    const scopeStartedAt = Date.now();
+    const scope = await resolveSearchScope({
+      supabase,
+      accessScope,
+      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
+      filters: answerBody.filters,
+      signal: request.signal,
+    });
+    const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
         answer: emptyScopeAnswer,
