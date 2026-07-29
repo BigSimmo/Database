@@ -833,21 +833,41 @@ async function openGuide(page: Page) {
   // Guide now lives inside Settings. If Settings is already open (e.g. after
   // closing Guide restores it), skip the reopen click that would hit the overlay.
   if (!(await settings.isVisible().catch(() => false))) {
-    if (viewport && viewport.width < 768) {
-      const menu = await openMobileClinicalGuideMenu(page);
-      await menu.getByRole("button", { name: "Settings", exact: true }).click();
-    } else if (viewport && viewport.width < 1024) {
-      const rail = page.getByLabel("Clinical Guide collapsed sidebar");
-      await expect(rail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
-      await rail.getByRole("button", { name: "Settings", exact: true }).click();
-    } else {
-      const sidebar = page.locator("#clinical-tools-sidebar");
-      const settingsTrigger = (await sidebar.isVisible().catch(() => false))
-        ? sidebar.getByRole("button", { name: "Settings", exact: true })
-        : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
-      await expect(settingsTrigger).toBeVisible();
-      await settingsTrigger.click();
-    }
+    // A Settings trigger becomes visible before React attaches its handler, so a
+    // single click is silently swallowed and the dialog never opens. Retry the
+    // click together with the dialog it should produce, rather than asserting
+    // visibility once — the same shape used for the composer and mode menu.
+    await expect(async () => {
+      // Idempotent by construction. If the dialog opened just after the inner
+      // assertion's own deadline expired, `toPass` still schedules another
+      // attempt; without this the attempt clicks a trigger the modal is already
+      // covering (or reopens the phone menu on top of it) and the helper times
+      // out under exactly the load it exists to tolerate.
+      if (await settings.isVisible().catch(() => false)) return;
+      if (viewport && viewport.width < 768) {
+        // The swallowed click leaves the phone menu OPEN, so a retry that always
+        // reopens would toggle it shut and then fail to find Settings inside it.
+        // Reuse the open menu; only summon one when there is none.
+        const openMenu = page.getByRole("dialog", { name: "Clinical Guide" });
+        const menu = (await openMenu.isVisible().catch(() => false))
+          ? openMenu
+          : await openMobileClinicalGuideMenu(page);
+        await menu.getByRole("button", { name: "Settings", exact: true }).click();
+      } else if (viewport && viewport.width < 1024) {
+        const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+        const railSettings = rail.getByRole("button", { name: "Settings", exact: true });
+        await expect(railSettings).toBeVisible();
+        await railSettings.click();
+      } else {
+        const sidebar = page.locator("#clinical-tools-sidebar");
+        const settingsTrigger = (await sidebar.isVisible().catch(() => false))
+          ? sidebar.getByRole("button", { name: "Settings", exact: true })
+          : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
+        await expect(settingsTrigger).toBeVisible();
+        await settingsTrigger.click();
+      }
+      await expect(settings).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: uiAssertionTimeoutMs });
   }
 
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
@@ -1382,8 +1402,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/");
 
-    const questionInput = visibleQuestionInput(page);
-    await questionInput.fill("lithium monitoring");
+    // Use the hydration-aware helper rather than a raw fill: the server-rendered
+    // composer is visible before React owns it, and a fill landing in that gap is
+    // discarded by hydration, leaving submit disabled with title "Enter a
+    // clinical question".
+    await fillVisibleQuestionInput(page, "lithium monitoring");
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
@@ -1403,8 +1426,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
 
-    await appModeTrigger.click();
-    await expect(appModeMenu).toBeVisible();
+    // Retry open-then-assert together: a click landing before React attaches the
+    // trigger's handler is swallowed silently, so asserting visibility once fails
+    // on an unhydrated first click rather than on a real regression.
+    await expect(async () => {
+      // The trigger TOGGLES, so this retry has to be idempotent. If the menu
+      // opened just after the inner assertion's deadline expired, a second
+      // unconditional click closes it again and the attempts oscillate — the
+      // retry would then fail a UI that is working.
+      if (await appModeMenu.isVisible().catch(() => false)) return;
+      await appModeTrigger.click();
+      await expect(appModeMenu).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: uiAssertionTimeoutMs });
     await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
 

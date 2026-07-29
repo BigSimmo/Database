@@ -91,7 +91,7 @@ function RailRow({
           {badge ? (
             <span
               aria-hidden="true"
-              className="nums absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-4xs font-black text-[color:var(--clinical-accent-contrast)]"
+              className="nums absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-3xs font-black text-[color:var(--clinical-accent-contrast)]"
             >
               {badge}
             </span>
@@ -349,13 +349,13 @@ function PhoneTabBar({ activeId, sheetOpen, sheetId }: { activeId: string; sheet
                 {tab.badge ? (
                   <span
                     aria-hidden="true"
-                    className="nums absolute -right-2 -top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-4xs font-black text-[color:var(--clinical-accent-contrast)]"
+                    className="nums absolute -right-2 -top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-[color:var(--clinical-accent)] px-1 text-3xs font-black text-[color:var(--clinical-accent-contrast)]"
                   >
                     {tab.badge}
                   </span>
                 ) : null}
               </span>
-              <span className="text-4xs font-black uppercase tracking-[0.08em]">{tab.label}</span>
+              <span className="text-3xs font-black uppercase tracking-[0.08em]">{tab.label}</span>
             </button>
           );
         })}
