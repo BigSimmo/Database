@@ -7,13 +7,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
 
-const { push, authorizationHeader, registerAuthRequest, isAuthEpochCurrent, markSessionExpired } = vi.hoisted(() => ({
-  push: vi.fn(),
-  authorizationHeader: {},
-  registerAuthRequest: vi.fn(() => ({ epoch: 1, release: vi.fn() })),
-  isAuthEpochCurrent: vi.fn(() => true),
-  markSessionExpired: vi.fn(),
-}));
+const { push, authorizationHeader, registerAuthRequest, isAuthEpochCurrent, markSessionExpired, authState } =
+  vi.hoisted(() => ({
+    push: vi.fn(),
+    authorizationHeader: {},
+    registerAuthRequest: vi.fn(() => ({ epoch: 1, release: vi.fn() })),
+    isAuthEpochCurrent: vi.fn(() => true),
+    markSessionExpired: vi.fn(),
+    // Mutable so a test can drive an auth transition while the viewer stays
+    // mounted. Reset to the signed-out default in beforeEach.
+    authState: {
+      status: "signed_out" as string,
+      session: null as { user: { id: string; app_metadata?: Record<string, unknown> } } | null,
+    },
+  }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -22,8 +29,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
-    status: "signed_out",
-    session: null,
+    status: authState.status,
+    session: authState.session,
     isConfigured: true,
     authorizationHeader,
     registerAuthRequest,
@@ -105,6 +112,8 @@ function detailPayload() {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
   vi.stubEnv("NEXT_PUBLIC_LOCAL_NO_AUTH", "false");
+  authState.status = "signed_out";
+  authState.session = null;
 });
 
 afterEach(() => {
@@ -234,5 +243,136 @@ describe("DocumentViewer — shell states", () => {
       expect(indexedTextPanel).not.toHaveTextContent("First query stale result");
       expect(indexedTextPanel).toHaveTextContent("Second query current result");
     });
+  });
+
+  // A private document's signed URL is a bearer link. The viewer holds the
+  // resolved URL in its own state and used to reset it only on a *full* document
+  // reload; an auth-only transition keeps the same load key, so after sign-out or
+  // an account switch the previous identity's link stayed rendered until it
+  // expired. Clearing the module LRU alone does not reach this state.
+  it("drops the mounted signed source URL when the auth identity changes", async () => {
+    authState.status = "authenticated";
+    authState.session = { user: { id: "user-a" } };
+
+    const userAUrl = "https://example.supabase.co/storage/v1/object/sign/doc-1.pdf?token=user-a";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/signed-url")) {
+          return { ok: true, status: 200, json: async () => ({ url: userAUrl }) } as unknown as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({}) } as unknown as Response;
+      }),
+    );
+
+    const detail = detailPayload();
+    const { rerender } = render(
+      <DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />,
+    );
+
+    await waitFor(() => expect(window.document.querySelector(`a[href="${userAUrl}"]`)).not.toBeNull());
+
+    // Same document, different clinician — the load key does not change.
+    authState.session = { user: { id: "user-b" } };
+    rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />);
+
+    expect(window.document.querySelector(`a[href="${userAUrl}"]`)).toBeNull();
+  });
+
+  // The signed URLs are not the only identity-bound state the viewer holds. An
+  // auth-only transition leaves the document load key unchanged, so the detail
+  // effect treats the refetch as a navigation and deliberately keeps the current
+  // window mounted until the replacement settles. On a slow, offline, or denied
+  // request that window is user A's extracted private content — title, chunks,
+  // table facts, image captions — left readable to user B for as long as B's
+  // request takes. This defers B's detail response indefinitely and asserts the
+  // content is gone at the moment the identity changes, not when B's reply lands.
+  it("clears A's extracted document content on an account switch before B's detail request settles", async () => {
+    // Administrator metadata only so the extracted table-fact panel renders at
+    // all; the leak under test is not administrator-specific.
+    const administrator = { site_role: "administrator" };
+    authState.status = "authenticated";
+    authState.session = { user: { id: "user-a", app_metadata: administrator } };
+
+    let detailRequests = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/signed-url")) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ url: null }) } as unknown as Response);
+        }
+        if (url.includes("/api/documents/doc-1?")) {
+          detailRequests += 1;
+          // Never settles: user B is offline / slow / denied.
+          return new Promise<Response>(() => {});
+        }
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as unknown as Response);
+      }),
+    );
+
+    const detail = detailPayload();
+    const userADetail = {
+      ...detail,
+      demoMode: false,
+      images: [
+        {
+          id: "image-a",
+          page_number: 1,
+          caption: "Clozapine neutrophil monitoring chart",
+          tableLabel: "Table 2",
+          tableTitle: "Clozapine neutrophil monitoring",
+        },
+      ],
+      tableFacts: [
+        {
+          id: "fact-a",
+          document_id: "doc-1",
+          source_image_id: "image-a",
+          page_number: 1,
+          table_title: "Neutrophil thresholds",
+          row_label: "Amber",
+          clinical_parameter: "Absolute neutrophil count",
+          threshold_value: "1.0-1.5 x10^9/L",
+          action: "Repeat count twice weekly",
+        },
+      ],
+      chunks: [
+        {
+          id: "chunk-a",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Titration schedule",
+          content: "User A private titration passage",
+          image_ids: [],
+        },
+      ],
+    } satisfies DocumentDetailPayload;
+
+    const { rerender } = render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={userADetail} />);
+
+    // Presence, not visibility: content parked in a collapsed panel is still in
+    // the DOM and still readable, so "gone" has to mean removed, not hidden.
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+    expect(screen.getAllByText("User A private titration passage").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Clozapine neutrophil monitoring/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Absolute neutrophil count/).length).toBeGreaterThan(0);
+
+    // Same document, same route, different clinician — the load key is unchanged,
+    // so nothing but the identity reset can drop this content.
+    authState.session = { user: { id: "user-b", app_metadata: administrator } };
+    rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={userADetail} />);
+
+    expect(screen.queryByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeNull();
+    expect(screen.queryByText("User A private titration passage")).toBeNull();
+    expect(screen.queryByText(/Clozapine neutrophil monitoring/)).toBeNull();
+    expect(screen.queryByText(/Absolute neutrophil count/)).toBeNull();
+
+    // …and it must stay gone: the SSR `initialDetail` prop still holds user A's
+    // payload, so the refetch triggered by the identity change must go to the
+    // network for user B rather than replaying it.
+    await waitFor(() => expect(detailRequests).toBeGreaterThan(0));
+    expect(screen.queryByText("User A private titration passage")).toBeNull();
   });
 });

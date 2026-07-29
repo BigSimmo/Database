@@ -23,7 +23,7 @@ export default function NotFound() {
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 href={appModeHomeHref("differentials")}
-                className="text-sm font-medium text-blue-600 hover:underline"
+                className="text-sm font-medium text-[color:var(--clinical-accent)] hover:underline"
               >
                 Return to differentials
               </Link>
