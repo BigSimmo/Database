@@ -111,11 +111,13 @@ the runbook below is step one of the sequence, not the whole of it.
 ### Ordering constraint — do all five steps in one change
 
 1. **Author and commit the idempotent migration** (`create index if not exists`, per the
-   `20260717170000` pattern). Without this the indexes never reach staging, disaster recovery, or
-   a local `supabase db reset`, however carefully the remaining steps are followed.
-2. Create the indexes concurrently on the live database, and confirm all three are valid. The
-   migration's `if not exists` then lands as a no-op there while carrying the lineage everywhere
-   else.
+   `20260717170000` pattern), but **do not deploy it to the busy database yet**. Without the
+   migration the indexes never reach staging, disaster recovery, or a local `supabase db reset`,
+   however carefully the remaining steps are followed — and deploying it ahead of step 2 builds
+   the indexes inside the migration's transaction, taking the very lock this procedure avoids.
+2. Create the indexes concurrently on the live database, and confirm all three are valid. Only
+   then deploy the migration: its `if not exists` lands as a no-op there while carrying the
+   lineage everywhere else.
 3. Mirror the three `create index` statements into `supabase/schema.sql` beside the existing
    `documents` indexes.
 4. Regenerate `supabase/drift-manifest.json` with `npm run drift:manifest` (requires Docker).
@@ -132,21 +134,56 @@ caused PR #1312 to be closed on 2026-07-28 — an additive index migration with 
 schema/drift proof. Expect `npm run check:drift` to report the three indexes as unexpected
 between steps 2 and 3.
 
-### Rollback — retract the expectations before dropping the indexes
+### Rollback — three deployed phases, with the live drop in the middle
 
-Reverse the sequence, and **remove the expectations first**. Dropping a physical index while
-`required_indexes` still names it leaves `search_schema_health()` red, and dropping it while
-`schema.sql`/`drift-manifest.json` still describe it fails drift validation:
+**CORRECTED 2026-07-29 after PR #1377 review.** An earlier version of this section listed a single
+five-step sequence that removed the `schema.sql` statements and the revert migration together in
+step 2, then deployed them in step 4 and dropped concurrently in step 5. That is unsafe, for the
+mirror-image of the reason the apply side pre-creates concurrently:
 
-1. Remove the three names from `required_indexes` in `search_schema_health()`.
-2. Remove the `create index` statements from `supabase/schema.sql` and revert the migration as a
-   new forward migration — never by deleting the applied one.
-3. Regenerate `supabase/drift-manifest.json`.
-4. Deploy those expectation changes.
-5. Only then `DROP INDEX CONCURRENTLY` each index.
+- A forward migration that genuinely reverts the index migration has to **contain the drops**,
+  otherwise a fresh `supabase db reset`, a staging rebuild, or disaster-recovery replay runs the
+  original `create index` migration and recreates the indexes with nothing to remove them.
+- Deploying that migration therefore drops the indexes on the live database at that moment — and
+  it cannot do so concurrently. `20260702110000_drop_redundant_indexes.sql` and
+  `20260711000000_drop_redundant_registry_sources_record_index.sql` both record why in their
+  headers: _"DROP INDEX CONCURRENTLY cannot run inside a transaction block. Supabase migrations
+  are wrapped in a transaction by default."_ Both settle for a plain `DROP INDEX` because their
+  tables are small. `documents` is not, which is the whole reason this procedure exists.
+
+So a plain `DROP INDEX` in the migration takes the `ACCESS EXCLUSIVE` lock this runbook is written
+to avoid, and omitting the drops leaves every replayed environment inconsistent with production.
+The resolution is to separate them into three deployments:
+
+**Phase A — retract the health expectations, and deploy.**
+
+1. Remove `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
+   `documents_status_id_idx` from `required_indexes` in `search_schema_health()`
+   (`supabase/schema.sql:3178`).
+2. Deploy that change alone. The indexes still exist, `schema.sql` and `drift-manifest.json` still
+   describe them, so both the health check and drift validation stay green across this phase.
+
+**Phase B — drop concurrently on the live database.**
+
+3. `DROP INDEX CONCURRENTLY IF EXISTS` each of the three, outside any transaction, and confirm each
+   is gone. Nothing names them any more, so nothing goes red on their absence — but `check:drift`
+   now reports the three as **missing** until phase C lands, exactly mirroring the "unexpected"
+   window between apply steps 2 and 3.
+
+**Phase C — carry the removal to every other environment, and deploy.**
+
+4. Remove the three `create index` statements from `supabase/schema.sql`.
+5. Add a new forward migration containing `drop index concurrently`-free, idempotent
+   `drop index if exists public.<name>;` statements — never by deleting or editing the applied
+   create migration. It is a **no-op on the live database**, because phase B already dropped them
+   there; its purpose is lineage for staging, disaster recovery, and local replay. A plain
+   `DROP INDEX` is safe here for exactly the reason it is unsafe in the merged sequence: by the
+   time it reaches a busy production database there is no index left to lock against.
+6. Regenerate `supabase/drift-manifest.json` (`npm run drift:manifest`, requires Docker) and deploy
+   phase C. `check:drift` returns to green.
 
 Nothing reads these indexes by name outside `search_schema_health()`, and no query text depends on
-them, so once the expectations are retracted the drop restores the pre-change plans exactly.
+them, so once phase A has retracted the expectations the drop restores the pre-change plans exactly.
 
 ## Safe rollback
 
