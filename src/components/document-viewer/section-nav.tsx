@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, ListCollapse, Loader2 } from "lucide-react";
 import type { RefObject } from "react";
 
 import { cn } from "@/components/ui-primitives";
@@ -151,16 +151,58 @@ function SectionListHeading({ sections, activeId }: { sections: DocumentSection[
   );
 }
 
+export function DocumentViewDensityToggle({
+  compact,
+  onCompactChange,
+  className,
+}: {
+  compact: boolean;
+  onCompactChange: (compact: boolean) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid="document-view-density-toggle"
+      aria-pressed={compact}
+      aria-label={compact ? "Show full document content" : "Condense document content"}
+      title={compact ? "Show the full indexed text" : "Collapse long document sections"}
+      onClick={() => onCompactChange(!compact)}
+      className={cn(
+        "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-2.5 text-left transition",
+        focusRing,
+        compact
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+        className,
+      )}
+    >
+      <ListCollapse aria-hidden="true" className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-bold">{compact ? "Condensed view" : "Full view"}</span>
+        <span className="block truncate text-3xs font-semibold opacity-75">
+          {compact ? "Long sections collapsed" : "All indexed text shown"}
+        </span>
+      </span>
+      <span className="text-3xs font-black uppercase tracking-[0.08em]">{compact ? "On" : "Off"}</span>
+    </button>
+  );
+}
+
 /** Desktop and tablet placement: a card in the column the viewer already renders. */
 export function DocumentSectionIndexCard({
   sections,
   activeId,
   onSelect,
+  compact,
+  onCompactChange,
   className,
 }: {
   sections: DocumentSection[];
   activeId: string | null;
   onSelect: (id: string) => void;
+  compact: boolean;
+  onCompactChange: (compact: boolean) => void;
   className?: string;
 }) {
   if (sections.length === 0) return null;
@@ -175,6 +217,7 @@ export function DocumentSectionIndexCard({
       )}
     >
       <SectionListHeading sections={sections} activeId={activeId} />
+      <DocumentViewDensityToggle compact={compact} onCompactChange={onCompactChange} className="mb-2" />
       <DocumentSectionList sections={sections} activeId={activeId} onSelect={onSelect} />
     </nav>
   );
@@ -193,6 +236,8 @@ export function DocumentSectionSheet({
   onSelect,
   documentTitle,
   returnFocusRef,
+  compact,
+  onCompactChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -201,6 +246,8 @@ export function DocumentSectionSheet({
   onSelect: (id: string) => void;
   documentTitle: string;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  compact: boolean;
+  onCompactChange: (compact: boolean) => void;
 }) {
   const active = sections.find((section) => section.id === activeId) ?? sections[0];
   const position = sections.findIndex((section) => section.id === activeId) + 1;
@@ -219,6 +266,7 @@ export function DocumentSectionSheet({
       returnFocusRef={returnFocusRef}
       testId="document-section-sheet"
     >
+      <DocumentViewDensityToggle compact={compact} onCompactChange={onCompactChange} className="mb-3" />
       <DocumentSectionList
         sections={sections}
         activeId={activeId}

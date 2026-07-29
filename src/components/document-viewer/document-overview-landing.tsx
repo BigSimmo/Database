@@ -51,6 +51,7 @@ export function DocumentOverviewLanding({
   onDownload,
   downloading,
   canSummarizeDocument,
+  compact,
 }: {
   document: ClinicalDocument;
   signedUrl: string | null;
@@ -62,6 +63,7 @@ export function DocumentOverviewLanding({
   onDownload: () => void;
   downloading: boolean;
   canSummarizeDocument: boolean;
+  compact: boolean;
 }) {
   const documentType = compactDocumentType(document);
 
@@ -131,7 +133,7 @@ export function DocumentOverviewLanding({
           </DocumentActionButton>
         </div>
       </article>
-      <DocumentClinicalSummary document={document} pageHref={pageHref} onPageChange={onPageChange} />
+      <DocumentClinicalSummary document={document} pageHref={pageHref} onPageChange={onPageChange} compact={compact} />
     </section>
   );
 }

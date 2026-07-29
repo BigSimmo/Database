@@ -346,18 +346,28 @@ export function DocumentClinicalSummary({
   document,
   pageHref,
   onPageChange,
+  compact = false,
 }: {
   document: ClinicalDocument;
   pageHref: (page: number) => string;
   onPageChange: (page: number) => void;
+  compact?: boolean;
 }) {
   const model = buildDocumentClinicalSummaryModel(document);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [prioritiesExpanded, setPrioritiesExpanded] = useState(true);
+  const [prioritiesExpanded, setPrioritiesExpanded] = useState(!compact);
+  const [prevCompact, setPrevCompact] = useState(compact);
   const [mobilePrioritiesOpen, setMobilePrioritiesOpen] = useState(false);
   const mobilePrioritiesButtonRef = useRef<HTMLButtonElement>(null);
   const prioritiesId = useId();
   const canExpandSummary = model.summary.length > 140;
+
+  // React's supported "adjust state during render" pattern for reacting to the
+  // condensed/full density prop without a cascading setState-in-effect.
+  if (compact !== prevCompact) {
+    setPrevCompact(compact);
+    setPrioritiesExpanded(!compact);
+  }
 
   function navigateFromSheet(page: number) {
     setMobilePrioritiesOpen(false);
