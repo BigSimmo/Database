@@ -147,8 +147,12 @@ describe("DocumentViewer — shell states", () => {
     // There are two "Open document actions" buttons (header and floating composer);
     // click the first one (header button) to open the actions sheet.
     const actionsButtons = screen.getAllByRole("button", { name: "Open document actions" });
+    expect(actionsButtons).toHaveLength(2);
+    expect(actionsButtons[0]).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Add this document to scope" })).toBeNull();
     fireEvent.click(actionsButtons[0]);
     expect(await screen.findByText("clozapine-titration.pdf")).toBeVisible();
+    expect(actionsButtons[0]).toHaveAttribute("aria-expanded", "true");
 
     // Close the sheet before teardown so focus-restore timers settle while jsdom
     // is still alive (avoids an unhandled post-test `document` ReferenceError
