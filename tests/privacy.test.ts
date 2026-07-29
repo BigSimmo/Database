@@ -25,6 +25,11 @@ describe("privacy-safe logging helpers", () => {
     expect(redactLogValue("https://psychiatry.tools/dsm?q=clozapine%20ANC")).toBe("[url]");
   });
 
+  it("redacts URLs with parentheses in query parameters without leaving suffix unredacted", () => {
+    expect(redactLogValue("https://psychiatry.tools/dsm?q=clozapine%20(ANC)%20Jane")).toBe("[url]");
+    expect(redactLogValue("error at https://example.com/path?param=(value)&data=test")).toBe("error at [url]");
+  });
+
   it("redacts modern supabase keys in error messages and details", () => {
     const e1 = new Error("found key sb_secret_abcdef1234567890 and sb_publishable_123abcDEF456");
     const d1 = safeErrorLogDetails(e1);

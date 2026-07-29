@@ -23,7 +23,7 @@ export function redactLogValue(value: unknown): unknown {
     normalizedValue
       // URLs before path shapes so https://host/path?q=… becomes [url], not https:[path]
       // with a residual query string.
-      .replace(/https?:\/\/[^\s'\")]+/g, "[url]")
+      .replace(/https?:\/\/\S+/g, "[url]")
       .replace(/\b[A-Za-z]:\\[^\s'\")]+/g, "[path]")
       .replace(/\/(?:[^\s'\")]+\/)+[^\s'\")]+/g, "[path]")
       // Redact common secret/token formats, including modern Supabase keys like sb_secret_ and sb_publishable_
