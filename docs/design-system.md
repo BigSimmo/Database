@@ -73,6 +73,18 @@ line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 
 - **10px is the floor.** An 8px `text-4xs` step existed and is retired — indefensible at any
   density in a clinical product. Do not reintroduce a sub-10px step.
+- **Leading** uses Tailwind's own steps plus two named additions for the cases they cannot
+  express: `leading-display` (1.05) for large display headings and `leading-prose` (1.6) for
+  the `max-w-[68ch]` body measure. Arbitrary `leading-[…]` is at zero in production and
+  `tests/design-token-contract.test.ts` keeps it there. **Never redefine `--leading-tight` /
+  `-snug` / `-normal` / `-relaxed`** — those are Tailwind theme names, and shadowing one
+  silently retunes every existing `leading-tight` / `leading-snug` call site. The same test
+  fails if they reappear in `:root` or `@theme`.
+- **Intermediate font weights are deliberate, not drift.** Geist is a variable face, so
+  `520` / `540` / `560` / `580` / `640` / `650` / `680` interpolate rather than snapping, and
+  the band/panel treatments in `globals.css` and Therapy Compass use them on purpose. Do
+  **not** "normalise" them onto 600/700 — that was attempted on 2026-07-28 and reverted. Weight
+  is an expressive axis here; only flag a weight that is genuinely arbitrary and unexplained.
 - Arbitrary `text-[Npx]` is **banned**; `npm run check:type-scale` counts offenders.
   **Ratchet:** the count must never rise (baseline recorded in
   `docs/process-hardening.md`). When it reaches 0, wire `check:type-scale --strict` into

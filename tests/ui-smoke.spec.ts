@@ -1376,8 +1376,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(page, "/");
 
-    const questionInput = visibleQuestionInput(page);
-    await questionInput.fill("lithium monitoring");
+    // Use the hydration-aware helper rather than a raw fill: the server-rendered
+    // composer is visible before React owns it, and a fill landing in that gap is
+    // discarded by hydration, leaving submit disabled with title "Enter a
+    // clinical question".
+    await fillVisibleQuestionInput(page, "lithium monitoring");
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
@@ -1397,8 +1400,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
 
-    await appModeTrigger.click();
-    await expect(appModeMenu).toBeVisible();
+    // Retry open-then-assert together: a click landing before React attaches the
+    // trigger's handler is swallowed silently, so asserting visibility once fails
+    // on an unhydrated first click rather than on a real regression.
+    await expect(async () => {
+      await appModeTrigger.click();
+      await expect(appModeMenu).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: uiAssertionTimeoutMs });
     await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
 
