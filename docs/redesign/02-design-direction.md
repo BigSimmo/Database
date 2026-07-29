@@ -19,14 +19,18 @@ The active direction for the dashboard and document viewer is a quiet clinical c
 
 ## Point of view
 
-A precision clinical instrument: calm, quiet, and trustworthy. A teal-tinted neutral foundation carries almost everything; the single teal accent is spent only on primary actions, evidence highlights, and focus. Depth comes from hairline borders and small layered shadows — never from heavy blur — and typography does the hierarchy work: confident headings, a 16px reading body with a capped measure, and tabular numerals wherever data lives.
+A precision clinical instrument: calm, quiet, and trustworthy. A true-neutral graphite foundation carries almost everything; the single clinical-blue accent is spent only on clinical identity, evidence highlights, and focus. Depth comes from hairline borders and small layered shadows — never from heavy blur — and typography does the hierarchy work: confident headings, a 16px reading body with a capped measure, and tabular numerals wherever data lives.
 
 ## Token set (implemented in `src/app/globals.css`)
 
+> **Revised 2026-07-28.** The values below are kept in step with `globals.css`. The sections above
+> dated June 20 / July 1 are a record of past runs and are deliberately left as written.
+
 ### Color
 
-- **Neutral ramp** `--neutral-0 … --neutral-950`: 12 steps, hue-tinted toward teal-slate (not pure grey), defined per scheme. All surface/border/text vars re-point at the ramp; existing var names (`--surface`, `--border`, `--text-muted`, …) remain the public API.
-- **Primary ramp** `--primary-50 … --primary-900`: teal anchored on `#0e8f85` (light) / `#33d4c2` (dark). `--primary`, `--primary-strong`, `--primary-soft`, `--focus` re-point at it.
+- **Neutral ramp** `--neutral-0 … --neutral-950`: 12 steps, true-neutral graphite-to-ash (de-blued), defined per scheme. Most surface/border/text vars re-point at the ramp; existing var names (`--surface`, `--border`, `--text-muted`, …) remain the public API. `--border` / `--border-strong` are per-theme values rather than ramp aliases — tracking `--neutral-300` left the dark hairline effectively invisible.
+- **Primary ramp** `--primary-50 … --primary-900`: Clinical Sky anchored on `#1d6fb8` (light) / `#74bdf0` (dark) — the same hue in both themes. `--primary`, `--primary-strong`, `--primary-soft`, `--focus` re-point at it. Re-derive the whole ramp rather than swapping one step.
+- **Surfaces** are an ordered five-step scale in both themes: `--surface-inset` < `--surface-wash` < `--surface-subtle` < `--surface` < `--surface-raised`. `--surface-raised` must stay the lightest plane or raised cards read as recesses.
 - **Semantic triads**: `--{info,success,warning,danger}-{text,bg,border}` tuned for ≥4.5:1 text contrast on their backgrounds in both schemes. Legacy `--success`/`--success-soft` names alias the triads.
 - Dark theme is designed, not inverted: elevated surfaces lighten, accents brighten and desaturate slightly, shadows are replaced by surface contrast + inset hairlines.
 
@@ -40,12 +44,12 @@ A precision clinical instrument: calm, quiet, and trustworthy. A teal-tinted neu
 ### Space, shape, depth
 
 - Spacing: Tailwind 4px grid, used on the 4/8/12/16/24/32/48/64 rhythm; no arbitrary off-scale values in new code.
-- Radius scale (Tailwind `@theme` override): `md 0.5rem` chips/inner elements, `lg 0.875rem` controls/inputs, `xl 1.25rem` cards/panels, `2xl 1.75rem` sheets/hero surfaces.
-- Elevation, 4 levels (same var names as before): `--shadow-inset` (hairline top-light), `--shadow-tight` (resting card: 1-2px + 8px low-alpha pair), `--shadow-hover`/`--shadow-soft` (raised: + 16px layer), `--shadow-elevated` (overlay: 3 layers to 48px). Dark scheme: lower-alpha shadows + `--shadow-inset` white hairline.
+- Radius scale (Tailwind `@theme` override), on the 4px grid: `xs 0.25rem` (4) · `sm 0.375rem` (6, the one deliberate half-step, for chips/pills) · `md 0.5rem` (8) chips/inner elements · `lg 0.75rem` (12) controls/inputs/cards/panels · `xl 1rem` (16) sheets/dialogs · `2xl 1.25rem` (20) large shells.
+- Elevation is a numbered ladder `--e0 … --e4`: one monotonic sequence that sorts by name, hue-tinted rather than flat grey, with negative spread so a shadow pulls inward instead of bleeding. `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers · `--e3` hover/lifted chrome · `--e4` modals/sheets/drawers. The role names are aliases onto tiers, not independent values: `--shadow-tight`→`--e1`, `--shadow-card`/`--shadow-soft`→`--e2`, `--shadow-hover`→`--e3`, `--shadow-elevated`/`--shadow-lux`→`--e4`. `--shadow-inset` stays a bespoke hairline top-light. Dark lifts with a top highlight rather than more black. Never hand-roll a `shadow-[0_…]` literal.
 
 ### Motion
 
-- Durations: `--duration-fast 150ms` (state changes), `--duration-base 200ms` (reveals), `--duration-slow 250ms` (sheets/overlays).
+- Durations: `--duration-fast 120ms` (state changes), `--duration-base 180ms` (reveals), `--duration-slow 240ms` (sheets/overlays).
 - Easing: `--ease-out-soft cubic-bezier(0.22,1,0.36,1)` default; `--ease-spring cubic-bezier(0.34,1.3,0.64,1)` for the mode-toggle thumb and playful affordances.
 - Keyframes: `fade-up` (content arrival), `overlay-in` (backdrop), `sheet-up` (bottom sheets), `pop-in` (popovers/dialogs). All suppressed by `prefers-reduced-motion`.
 - Micro feedback: every interactive element keeps `active:translate-y-px`; transitions run `--duration-fast` `--ease-out-soft`.
