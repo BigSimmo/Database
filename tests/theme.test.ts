@@ -27,7 +27,12 @@ describe("theme helpers", () => {
   });
 
   it("keeps installed-app browser chrome aligned with both application themes", () => {
-    expect(APP_THEME_COLORS).toEqual({ light: "#ffffff", dark: "#060708" });
+    // A deliberate tripwire on the exact values: these paint before any
+    // stylesheet loads, so an accidental edit here is a flash of the wrong page
+    // colour. The pin is only half the story — it went stale when --background
+    // moved and this assertion did not, so the light value tracking
+    // globals.css is enforced in tests/design-token-contract.test.ts.
+    expect(APP_THEME_COLORS).toEqual({ light: "#f1f4f8", dark: "#060708" });
   });
 
   it("still applies the OS dark theme when localStorage is blocked", () => {

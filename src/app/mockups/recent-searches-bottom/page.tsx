@@ -17,7 +17,7 @@ const sourceCards = [
 function RecentSearchRail() {
   return (
     <div className="pointer-events-auto fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-3xl items-center gap-2 px-1 lg:max-w-4xl">
-      <span className="hidden shrink-0 items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)] sm:inline-flex">
+      <span className="hidden shrink-0 items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)] sm:inline-flex">
         <Clock3 className="h-3.5 w-3.5" />
         Recent
       </span>

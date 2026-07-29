@@ -83,7 +83,7 @@ export function ModeHomeHero({
       <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className="text-balance text-hero font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)]"
+          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
@@ -275,7 +275,7 @@ export function ModeHomeTemplate({
                   <span className="block text-balance text-base-minus font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere]">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-[1.3]">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-tight">
                     {action.description}
                   </span>
                 </span>

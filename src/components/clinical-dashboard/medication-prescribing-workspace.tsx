@@ -526,7 +526,7 @@ function MedicationResults({
 
       {!catalog.loading && !catalog.error && resultCount > 0 ? (
         <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
-          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Dose</span>
             <span>Ceiling</span>
@@ -570,7 +570,7 @@ function MedicationResults({
                     {result.dose}
                   </span>
                   <DoseCeiling value={result.ceiling} />
-                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
+                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-snug text-[color:var(--text-heading)]">
                     <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
@@ -580,7 +580,7 @@ function MedicationResults({
                       aria-hidden="true"
                     />
                   ) : (
-                    <span className="justify-self-end text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                    <span className="justify-self-end text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                       Soon
                     </span>
                   )}
@@ -650,7 +650,7 @@ function MedicationResults({
                   <span className="nums line-clamp-2 break-words">{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
                 </div>
-                <p className="line-clamp-2 break-words text-pretty text-xs leading-[1.45] text-[color:var(--text-muted)]">
+                <p className="line-clamp-2 break-words text-pretty text-xs leading-normal text-[color:var(--text-muted)]">
                   <ActionToneIcon tone={result.actionTone} className="mr-1 inline-block h-3.5 w-3.5 align-[-0.15em]" />
                   {result.action}
                 </p>
@@ -658,7 +658,7 @@ function MedicationResults({
               {result.href ? (
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
               ) : (
-                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Soon
                 </span>
               )}

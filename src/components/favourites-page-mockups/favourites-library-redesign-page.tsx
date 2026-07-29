@@ -660,7 +660,7 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
 
       <div className="overflow-x-auto">
         <div className="min-w-[38rem]">
-          <div className="grid min-h-12 grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <div className="grid min-h-12 grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-black uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span aria-hidden />
             <span>Name</span>
             <span>Type</span>
