@@ -299,6 +299,22 @@ export function DocumentViewer({
   const [serverDemoMode, setServerDemoMode] = useState(
     () => initialDetail?.demoMode ?? process.env.NEXT_PUBLIC_DEMO_MODE === "true",
   );
+  // Drop mounted signed source URLs during render when the auth identity changes
+  // (sign-out / expiry / account switch). These are bearer URLs for a private
+  // document: clearing the module LRU is not enough, because the viewer holds the
+  // resolved URL in its own state and only resets it on a *full* document reload
+  // (`isFullDocumentReload` below). An auth-only transition keeps the same load
+  // key, so without this the previous identity's PDF stays rendered — and the
+  // error UI keeps offering the stale link — until the URL expires on its own.
+  // Keyed to the user id rather than `authorizationHeader` so a token refresh for
+  // the same clinician does not blank a document they are still entitled to read.
+  const viewerAuthIdentity = session?.user?.id ?? null;
+  const [seenViewerAuthIdentity, setSeenViewerAuthIdentity] = useState(viewerAuthIdentity);
+  if (viewerAuthIdentity !== seenViewerAuthIdentity) {
+    setSeenViewerAuthIdentity(viewerAuthIdentity);
+    setSignedUrl(null);
+    setDownloadSignedUrl(null);
+  }
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;

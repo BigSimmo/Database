@@ -7,13 +7,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
 
-const { push, authorizationHeader, registerAuthRequest, isAuthEpochCurrent, markSessionExpired } = vi.hoisted(() => ({
-  push: vi.fn(),
-  authorizationHeader: {},
-  registerAuthRequest: vi.fn(() => ({ epoch: 1, release: vi.fn() })),
-  isAuthEpochCurrent: vi.fn(() => true),
-  markSessionExpired: vi.fn(),
-}));
+const { push, authorizationHeader, registerAuthRequest, isAuthEpochCurrent, markSessionExpired, authState } =
+  vi.hoisted(() => ({
+    push: vi.fn(),
+    authorizationHeader: {},
+    registerAuthRequest: vi.fn(() => ({ epoch: 1, release: vi.fn() })),
+    isAuthEpochCurrent: vi.fn(() => true),
+    markSessionExpired: vi.fn(),
+    // Mutable so a test can drive an auth transition while the viewer stays
+    // mounted. Reset to the signed-out default in beforeEach.
+    authState: { status: "signed_out" as string, session: null as { user: { id: string } } | null },
+  }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -22,8 +26,8 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
-    status: "signed_out",
-    session: null,
+    status: authState.status,
+    session: authState.session,
     isConfigured: true,
     authorizationHeader,
     registerAuthRequest,
@@ -105,6 +109,8 @@ function detailPayload() {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
   vi.stubEnv("NEXT_PUBLIC_LOCAL_NO_AUTH", "false");
+  authState.status = "signed_out";
+  authState.session = null;
 });
 
 afterEach(() => {
@@ -234,5 +240,40 @@ describe("DocumentViewer — shell states", () => {
       expect(indexedTextPanel).not.toHaveTextContent("First query stale result");
       expect(indexedTextPanel).toHaveTextContent("Second query current result");
     });
+  });
+
+  // A private document's signed URL is a bearer link. The viewer holds the
+  // resolved URL in its own state and used to reset it only on a *full* document
+  // reload; an auth-only transition keeps the same load key, so after sign-out or
+  // an account switch the previous identity's link stayed rendered until it
+  // expired. Clearing the module LRU alone does not reach this state.
+  it("drops the mounted signed source URL when the auth identity changes", async () => {
+    authState.status = "authenticated";
+    authState.session = { user: { id: "user-a" } };
+
+    const userAUrl = "https://example.supabase.co/storage/v1/object/sign/doc-1.pdf?token=user-a";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/signed-url")) {
+          return { ok: true, status: 200, json: async () => ({ url: userAUrl }) } as unknown as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({}) } as unknown as Response;
+      }),
+    );
+
+    const detail = detailPayload();
+    const { rerender } = render(
+      <DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />,
+    );
+
+    await waitFor(() => expect(window.document.querySelector(`a[href="${userAUrl}"]`)).not.toBeNull());
+
+    // Same document, different clinician — the load key does not change.
+    authState.session = { user: { id: "user-b" } };
+    rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />);
+
+    expect(window.document.querySelector(`a[href="${userAUrl}"]`)).toBeNull();
   });
 });

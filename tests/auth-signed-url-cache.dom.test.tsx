@@ -70,6 +70,16 @@ function SignedImageProbe({ enabled }: { enabled: boolean }) {
   return <span data-testid="signed-url">{url ?? ""}</span>;
 }
 
+// Records the URL of every render. A blank caused by an unnecessary identity
+// reset is repainted from the LRU within an animation frame, so the settled DOM
+// looks identical either way — only the render sequence shows the flicker.
+const renderedUrls: (string | null)[] = [];
+function RenderLoggingSignedImageProbe({ enabled }: { enabled: boolean }) {
+  const { url } = useSignedImageUrl(ENDPOINT, enabled);
+  renderedUrls.push(url);
+  return <span data-testid="signed-url">{url ?? ""}</span>;
+}
+
 describe("auth lifecycle clears signed URL cache", () => {
   beforeEach(() => {
     clearSignedUrlCache();
@@ -233,5 +243,60 @@ describe("auth lifecycle clears signed URL cache", () => {
     });
     expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL);
     await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
+  });
+
+  // The identity reset must not fire on an ordinary access-token refresh. Keying
+  // it to `authorizationHeader` did: the header is a fresh object each refresh,
+  // so a mounted image the same clinician is still entitled to see would blank
+  // and refetch roughly hourly. Keying to the user id ignores refreshes.
+  it("token refresh for the same user keeps the painted URL", async () => {
+    setCachedSignedUrl(ENDPOINT, {
+      url: PRIVATE_URL,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: PRIVATE_URL }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthProvider>
+        <AuthActions />
+        <RenderLoggingSignedImageProbe enabled />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(PRIVATE_URL));
+
+    // Only the renders caused by the refresh matter.
+    renderedUrls.length = 0;
+
+    // Same user id, brand-new access token — exactly what Supabase emits hourly.
+    for (const listener of authApi.listeners) {
+      listener("TOKEN_REFRESHED", {
+        access_token: "user-a-token-refreshed",
+        refresh_token: "refresh-2",
+        expires_in: 3600,
+        token_type: "bearer",
+        user: { id: "user-a" },
+      });
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+
+    // The refresh must not have blanked the image at any point. Asserting only
+    // the settled DOM would pass either way, because the LRU repaints it.
+    expect(renderedUrls.length).toBeGreaterThan(0);
+    expect(renderedUrls).not.toContain(null);
+    expect(screen.getByTestId("signed-url")).toHaveTextContent(PRIVATE_URL);
+    expect(getCachedSignedUrl(ENDPOINT)?.url).toBe(PRIVATE_URL);
   });
 });
