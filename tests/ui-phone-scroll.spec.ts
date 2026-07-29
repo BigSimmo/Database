@@ -501,7 +501,6 @@ for (const scrollOwner of ["browser document", "standalone PWA main"] as const) 
     await addPhoneScrollRunway(page);
 
     const input = page.getByTestId("global-search-input");
-    const main = page.locator("#main-content");
     await expect(input).toBeVisible({ timeout: 20_000 });
     await page.evaluate((owner) => {
       const main = document.getElementById("main-content");
