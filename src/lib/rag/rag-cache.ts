@@ -227,6 +227,10 @@ export async function getCachedAnswer(
  * even when the documents indexing stamp is unchanged (table-fact / review mutations),
  * including after the shared-cache row commit so a late invalidation cannot leave a
  * stale shared answer behind.
+ *
+ * The shared-cache promote itself stays off the response path (fire-and-forget): cold
+ * generation callers `await setCachedAnswer` only for the local write + indexing stamp
+ * round trip, not for the `rag_response_cache` delete/insert.
  */
 export async function setCachedAnswer(
   args: Pick<
@@ -259,11 +263,12 @@ export async function setCachedAnswer(
     answerCache.delete(key);
     return;
   }
-  await setSharedCachedAnswer(args, answer, indexingVersion);
-  if (invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) {
+  void (async () => {
+    await setSharedCachedAnswer(args, answer, indexingVersion);
+    if (!invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) return;
     answerCache.delete(key);
     await deleteSharedCachedAnswerRow(args, indexingVersion);
-  }
+  })().catch(() => undefined);
 }
 
 function stableHash(value: string) {
