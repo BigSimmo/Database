@@ -31,13 +31,37 @@ const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 /**
- * Bumped by every `invalidateRagCachesForOwner` call. Deferred `setCachedAnswer`
- * promotions capture the epoch before their indexing-version await and discard the
- * write if invalidation happened meanwhile — review/table-fact mutations do not
- * change the documents indexing stamp, so the mid-request staleness guard alone
- * cannot catch them.
+ * Invalidation generations for deferred `setCachedAnswer` promotions. Review /
+ * table-fact mutations do not change the documents indexing stamp, so the
+ * mid-request staleness guard alone cannot catch them. Epochs are owner-scoped
+ * so one tenant's invalidation cannot suppress another tenant's valid write;
+ * a null/undefined ownerId bump (full clear) advances the global epoch.
  */
-let ragCacheInvalidationEpoch = 0;
+let ragCacheGlobalInvalidationEpoch = 0;
+const ragCacheOwnerInvalidationEpoch = new Map<string, number>();
+
+type InvalidationEpochStamp = { global: number; owner: number };
+
+function captureInvalidationEpoch(ownerId?: string | null): InvalidationEpochStamp {
+  return {
+    global: ragCacheGlobalInvalidationEpoch,
+    owner: ownerId ? (ragCacheOwnerInvalidationEpoch.get(ownerId) ?? 0) : 0,
+  };
+}
+
+function invalidationEpochChanged(ownerId: string | null | undefined, stamp: InvalidationEpochStamp) {
+  if (ragCacheGlobalInvalidationEpoch !== stamp.global) return true;
+  if (ownerId && (ragCacheOwnerInvalidationEpoch.get(ownerId) ?? 0) !== stamp.owner) return true;
+  return false;
+}
+
+function bumpInvalidationEpoch(ownerId?: string | null) {
+  if (!ownerId) {
+    ragCacheGlobalInvalidationEpoch += 1;
+    return;
+  }
+  ragCacheOwnerInvalidationEpoch.set(ownerId, (ragCacheOwnerInvalidationEpoch.get(ownerId) ?? 0) + 1);
+}
 
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
@@ -199,8 +223,10 @@ export async function getCachedAnswer(
  * that staleness guard.
  *
  * Deferred callers must also survive `invalidateRagCachesForOwner` during the await:
- * the invalidation epoch check below discards a post-invalidation write even when the
- * documents indexing stamp is unchanged (table-fact / review mutations).
+ * the owner-scoped invalidation epoch checks below discard a post-invalidation write
+ * even when the documents indexing stamp is unchanged (table-fact / review mutations),
+ * including after the shared-cache row commit so a late invalidation cannot leave a
+ * stale shared answer behind.
  */
 export async function setCachedAnswer(
   args: Pick<
@@ -213,9 +239,9 @@ export async function setCachedAnswer(
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
-  const invalidationEpochAtStart = ragCacheInvalidationEpoch;
+  const invalidationEpochAtStart = captureInvalidationEpoch(args.ownerId);
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
-  if (ragCacheInvalidationEpoch !== invalidationEpochAtStart) return;
+  if (invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) return;
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedAnswerCacheKey(args);
   answerCache.set(key, {
@@ -229,7 +255,15 @@ export async function setCachedAnswer(
     if (!oldestKey) break;
     answerCache.delete(oldestKey);
   }
-  setSharedCachedAnswer(args, answer, indexingVersion);
+  if (invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) {
+    answerCache.delete(key);
+    return;
+  }
+  await setSharedCachedAnswer(args, answer, indexingVersion);
+  if (invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) {
+    answerCache.delete(key);
+    await deleteSharedCachedAnswerRow(args, indexingVersion);
+  }
 }
 
 function stableHash(value: string) {
@@ -653,7 +687,7 @@ function setSharedCachedSearch(
   );
 }
 
-function setSharedCachedAnswer(
+async function setSharedCachedAnswer(
   args: Pick<
     SearchChunksArgs,
     "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
@@ -662,7 +696,7 @@ function setSharedCachedAnswer(
   indexingVersion: string,
 ) {
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
-  void replaceSharedCacheRow(
+  await replaceSharedCacheRow(
     "answer",
     args,
     { answer: cloneAnswer(answer) },
@@ -672,10 +706,32 @@ function setSharedCachedAnswer(
   );
 }
 
+async function deleteSharedCachedAnswerRow(
+  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
+  indexingVersion: string,
+) {
+  try {
+    const normalizedQuery = sharedAnswerNormalizedQuery(args);
+    let deleteQuery = createAdminClient()
+      .from("rag_response_cache")
+      .delete()
+      .eq("cache_kind", "answer")
+      .eq("scope_key", scopeKey(args))
+      .eq("normalized_query", normalizedQuery)
+      .eq("indexing_version", indexingVersion)
+      .eq("dependency_version", ragCacheDependencyVersion);
+    deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
+    await deleteQuery;
+  } catch (error) {
+    // Shared cache cleanup after a raced invalidation is best effort.
+    console.warn("Shared answer cache post-invalidation cleanup failed:", error);
+  }
+}
+
 export function invalidateRagCachesForOwner(ownerId?: string | null) {
   // Epoch first so any in-flight deferred promotion that resumes after this
   // clear still sees a mismatch and discards its write.
-  ragCacheInvalidationEpoch += 1;
+  bumpInvalidationEpoch(ownerId);
   if (!ownerId) {
     answerCache.clear();
     answerInflight.clear();

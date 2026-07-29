@@ -153,4 +153,71 @@ describe("RAG cache invalidation", () => {
     });
     expect(cached).toBeNull();
   });
+
+  it("does not let one owner's invalidation discard another owner's deferred setCachedAnswer", async () => {
+    vi.resetModules();
+
+    const ownerA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const ownerB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    let releaseIndexingVersion: (() => void) | undefined;
+    const indexingVersionGate = new Promise<void>((resolve) => {
+      releaseIndexingVersion = resolve;
+    });
+    const indexingStamp = "rag-deep-memory-v1:doc-1:2026-07-01T00:00:00.000Z:";
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        from: vi.fn((table: string) => {
+          if (table === "documents") {
+            const builder = {
+              select: vi.fn(() => builder),
+              eq: vi.fn(() => builder),
+              is: vi.fn(() => builder),
+              or: vi.fn(() => builder),
+              in: vi.fn(() => builder),
+              order: vi.fn(() => builder),
+              limit: vi.fn(() => builder),
+              abortSignal: vi.fn(() => builder),
+              then: (onfulfilled?: (value: { data: unknown; error: null }) => unknown) =>
+                indexingVersionGate
+                  .then(() =>
+                    Promise.resolve({
+                      data: [{ id: "doc-1", updated_at: "2026-07-01T00:00:00.000Z", metadata: {} }],
+                      error: null,
+                    }),
+                  )
+                  .then(onfulfilled),
+            };
+            return builder;
+          }
+
+          const deleteCalls: FilterCall[] = [];
+          return {
+            delete: vi.fn(() => new DeleteQuery(deleteCalls)),
+            insert: vi.fn(async () => ({ data: null, error: null })),
+          };
+        }),
+      }),
+    }));
+
+    const { getCachedAnswer, invalidateRagCachesForOwner, setCachedAnswer } = await import("../src/lib/rag/rag-cache");
+
+    const argsB = {
+      query: "clozapine monitoring",
+      ownerId: ownerB,
+      accessScope: { ownerId: ownerB, includePublic: true as const },
+    };
+    const promotionB = setCachedAnswer(argsB, sampleAnswer("owner-b answer"), {
+      indexingVersionAtRetrievalStart: indexingStamp,
+    });
+
+    invalidateRagCachesForOwner(ownerA);
+    releaseIndexingVersion?.();
+    await promotionB;
+
+    const cachedB = await getCachedAnswer(argsB, Date.now(), {
+      indexingVersionAtRequestStart: indexingStamp,
+    });
+    expect(cachedB?.answer).toBe("owner-b answer");
+  });
 });

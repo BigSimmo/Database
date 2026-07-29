@@ -306,7 +306,7 @@ Every L1 finding is a **round-trip count**, and round-trip counts can be pinned 
 
 L2-3's index migration is **not** in this change — see L2-3 above and `#102`.
 
-**`RAG impact: no retrieval behaviour change** — the only `src/lib/rag/**` edit defers a process-local cache write off the response path; no scoring, ordering, selection, alias, or citation logic is touched, and the mid-request staleness guard is preserved.**
+**`RAG impact: no retrieval behaviour change`** — the only `src/lib/rag/**` edit defers a process-local cache write off the response path; no scoring, ordering, selection, alias, or citation logic is touched, and the mid-request staleness guard is preserved.
 
 ## Retired during verification (4)
 

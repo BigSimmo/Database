@@ -417,7 +417,12 @@ describe("private RAG API access", () => {
     const rateLimitGate = new Promise<void>((resolve) => {
       releaseRateLimit = resolve;
     });
+    let markLimiterStarted: (() => void) | undefined;
+    const limiterStarted = new Promise<void>((resolve) => {
+      markLimiterStarted = resolve;
+    });
     const consumeSubjectApiRateLimit = vi.fn(async () => {
+      markLimiterStarted?.();
       await rateLimitGate;
       return {
         limited: true,
@@ -474,8 +479,8 @@ describe("private RAG API access", () => {
       ),
     );
 
-    // While the limiter is still pending, scope must not have started.
-    await Promise.resolve();
+    // Wait until the handler has entered the limiter before asserting scope stayed idle.
+    await limiterStarted;
     expect(resolveSearchScope).not.toHaveBeenCalled();
 
     releaseRateLimit?.();

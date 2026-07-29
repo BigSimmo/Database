@@ -107,17 +107,24 @@ export async function POST(request: Request) {
     });
     const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
-      return NextResponse.json({
-        answer: emptyScopeAnswer,
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        degradedMode: answerDegradedModeSignal(),
-        scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
-        ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
-      });
+      const serverTiming = buildServerTimingHeader([
+        ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+        { name: "total", durMs: Date.now() - routeStartedAt },
+      ]);
+      return NextResponse.json(
+        {
+          answer: emptyScopeAnswer,
+          grounded: false,
+          confidence: "unsupported",
+          citations: [],
+          sources: [],
+          degradedMode: answerDegradedModeSignal(),
+          scope: { ...scope, queryMode: answerBody.queryMode },
+          sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+          ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
+        },
+        serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+      );
     }
 
     const singleDocumentScope = Boolean(
