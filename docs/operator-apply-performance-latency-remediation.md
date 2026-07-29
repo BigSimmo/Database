@@ -52,9 +52,23 @@ Neither can use the expression index, so both fall back to scanning `documents`.
 `src/lib/search-scope.ts:271-277` pages `.eq("status","indexed").order("id")` to 5,000 rows
 against the single-column `documents_status_idx` (`schema.sql:678`), so each page sorts.
 
-These three indexes are **additive and semantics-neutral**: no query text changes, so matching
-behaviour — and therefore retrieval recall — is byte-identical before and after. That is what
-keeps this out of canary-gated territory. Create them outside a transaction:
+**CORRECTED 2026-07-29 — do not treat all three as semantics-neutral.** An earlier version of
+this section claimed all three are "additive and semantics-neutral … retrieval recall is
+byte-identical", and used that to keep them out of canary-gated territory. That is wrong for the
+RAG-path index: `fetchDocumentTitleAliasRows` (`src/lib/rag/rag-candidate-sources.ts:482`) applies
+`.limit(12)` with **no `ORDER BY`**, so which twelve rows return is plan-dependent and a new index
+can change the title-alias set feeding candidate assembly. No query text changes — but recall does
+not follow from that.
+
+- `documents_status_id_idx` and the `documents_title_bare_trgm_idx` benefit to
+  `src/app/api/documents/route.ts:193` are ordering-safe: that path is a user-facing document
+  list with no retrieval consequence.
+- The **RAG-path** use of the bare-column trigram indexes is **canary-gated**, or must be preceded
+  by making that `.limit(12)` deterministic with a stable `ORDER BY` — the cheaper fix, since an
+  unordered `LIMIT` is latent nondeterminism regardless of this work. Do not apply on the strength
+  of the retracted claim.
+
+Create them outside a transaction:
 
 ```sql
 create index concurrently if not exists documents_title_bare_trgm_idx
@@ -71,6 +85,26 @@ create index concurrently if not exists documents_status_id_idx
 but it does two table passes and can leave an `INVALID` index if it fails. Check
 `pg_index.indisvalid` for each name afterwards and `DROP INDEX CONCURRENTLY` + retry any invalid
 one rather than leaving it in place.
+
+### A migration is required — operator SQL alone does not reach staging, DR, or local replay
+
+**Added 2026-07-29 after PR #1377 review.** `supabase/migrations/` is the source of truth and
+`supabase/schema.sql` is a mirror (see the repository layout in `CLAUDE.md`). Running the
+statements above by hand creates the indexes **only on the database you ran them against**.
+`supabase db push`, the staging tier, disaster-recovery replay, and a local `supabase db reset`
+all build from migrations, so without a committed migration they never get these indexes — and a
+`required_indexes` registration in `search_schema_health()` would then fail on exactly those
+environments.
+
+Follow the pattern this document already uses for `documents_registry_projection_lookup_idx`:
+commit an idempotent `create index if not exists` migration, pre-create the indexes
+`CONCURRENTLY` on a busy target first, and let the migration land as a no-op there while
+recording the lineage for every other environment.
+
+**PR #1377 deliberately ships no migration**, because an additive-index migration without a
+synchronized `schema.sql` mirror and regenerated drift manifest is what caused PR #1312 to be
+closed. That makes authoring the migration a **required part of `#102`**, not an optional extra:
+the runbook below is step one of the sequence, not the whole of it.
 
 ### Ordering constraint — do all four steps in one change
 

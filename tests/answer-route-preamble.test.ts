@@ -98,9 +98,11 @@ describe("/api/answer preamble", () => {
     const { POST } = await import("../src/app/api/answer/route");
     const response = POST(answerRequest());
 
-    // Give the route every chance to dispatch scope early: if it overlapped the
-    // two, this microtask drain would be enough for the call to land.
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    // Anchor on a limiter-start signal rather than a fixed sleep. A timeout can
+    // expire before the handler even reaches the limiter, which would let this
+    // pass without proving anything; waiting for the limiter to be entered means
+    // the route is demonstrably inside the preamble when scope is checked.
+    await vi.waitFor(() => expect(consumeSubjectApiRateLimit).toHaveBeenCalledTimes(1));
     expect(resolveSearchScope).not.toHaveBeenCalled();
 
     limiter.resolve(rateLimitDecision(false));

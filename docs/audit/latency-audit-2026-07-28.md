@@ -23,6 +23,11 @@ The 2026-07-29 pass re-lands the free- and flag-gated work with tests and files 
   as reviewed operator SQL in [`operator-apply-performance-latency-remediation.md`](../operator-apply-performance-latency-remediation.md)
   instead of `supabase/migrations/*.sql`. `supabase/**` is untouched, so no drift manifest needs
   regenerating and the objection that closed PR #1312 cannot recur. Tracked as `#102`.
+  **Caveat added 2026-07-29 (review):** deferring the migration is not the same as not needing
+  one. `migrations/` is the source of truth and `schema.sql` only a mirror, so hand-run operator
+  SQL reaches the live database and nothing else — staging, disaster-recovery replay and
+  `supabase db reset` all stay without the indexes. Authoring the migration is therefore a
+  required part of `#102`, not an optional extra.
 - **L4-2 is retracted.** See the correction in the L4 section below — it is not an open finding.
 
 Ledger IDs in the body below are the 2026-07-29 numbers. The original draft used `#085`–`#092`;
@@ -159,7 +164,11 @@ Metadata → memory → visual hydration run as three sequential Supabase stages
 
 `src/app/api/documents/route.ts:193`; `src/lib/rag/rag-candidate-sources.ts:477` · `A=P|S B=inferred C=multiplicative` · gate=**operator** · **SQL AUTHORED, NOT APPLIED**
 
-`documents_title_trgm_idx` (`schema.sql:687`) indexes the **concatenated expression** `lower(coalesce(title,'') || ' ' || coalesce(file_name,''))`. Both call sites filter the bare columns (`title.ilike.%q%,file_name.ilike.%q%`), which that expression index cannot serve, so both fall back to scanning `documents`. The RAG-path site is bounded by `.limit(12)`, but a non-matching query still scans. Two bare-column GIN trigram indexes serve those predicates directly — **additive and semantics-neutral, so no query text changes and recall is byte-identical**, which is what keeps this out of canary territory.
+`documents_title_trgm_idx` (`schema.sql:687`) indexes the **concatenated expression** `lower(coalesce(title,'') || ' ' || coalesce(file_name,''))`. Both call sites filter the bare columns (`title.ilike.%q%,file_name.ilike.%q%`), which that expression index cannot serve, so both fall back to scanning `documents`. The RAG-path site is bounded by `.limit(12)`, but a non-matching query still scans. Two bare-column GIN trigram indexes serve those predicates directly.
+
+**CORRECTED 2026-07-29 (PR #1377 review) — the "recall is byte-identical" claim was wrong, and it was load-bearing.** The original text argued the indexes are "additive and semantics-neutral, so no query text changes and recall is byte-identical", and used that to keep L2-3 out of canary territory. The premise does not hold on the RAG path: `fetchDocumentTitleAliasRows` (`rag-candidate-sources.ts:482`) applies `.limit(12)` with **no `ORDER BY`**, so _which_ twelve documents come back is plan-dependent. Adding an index changes the plan, so it can change the title-alias set fed into candidate assembly — a retrieval input, not just a speed-up. "No query text changes" is true; "recall is byte-identical" does not follow from it.
+
+**Revised gating.** The `api/documents/route.ts:193` site is a user-facing document list and carries no retrieval consequence. The `rag-candidate-sources.ts:477` site does. Treat the RAG-path index as **canary-gated**, or make the ordering deterministic first — adding a stable `ORDER BY` to that `.limit(12)` would restore the semantics-neutral argument and is the cheaper route, since an unordered `LIMIT` is a latent nondeterminism regardless of this index. Tracked in `#102`; do not apply the RAG-path index on the strength of the retracted claim.
 
 **Deliberately no migration file.** The reviewed statements live in
 [`operator-apply-performance-latency-remediation.md`](../operator-apply-performance-latency-remediation.md).
@@ -363,7 +372,7 @@ provider call is needed to size the top of the ranking.
 | L2-3 / L2-5 | Bare-column trigram + `(status,id)` composite **authored as operator SQL, not applied**              | `docs/operator-apply-performance-latency-remediation.md`                                                                       |
 | L3-4 / L3-5 | 10 `loading` fallbacks; Supabase `preconnect`/`dns-prefetch`                                         | `clinical-dashboard-lazy.tsx`, `dashboard-nav.tsx`, `src/app/layout.tsx`                                                       |
 
-**`RAG impact: no retrieval behaviour change** — the only `src/lib/rag/**` edits defer a process-local cache write off the response path and add a doc comment; no scoring, ordering, selection, alias, or citation logic is touched, and the mid-request staleness guard is preserved.**
+**RAG impact: no retrieval behaviour change** — the only `src/lib/rag/**` edits defer a process-local cache write off the response path and add a doc comment; no scoring, ordering, selection, alias, or citation logic is touched, and the mid-request staleness guard is preserved.
 
 ## Retired during verification (4)
 
