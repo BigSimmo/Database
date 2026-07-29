@@ -22,12 +22,18 @@ export function redactLogValue(value: unknown): unknown {
   return (
     normalizedValue
       // URLs before path shapes so https://host/path?q=… becomes [url], not https:[path]
-      // with a residual query string. The class excludes only whitespace and quotes:
-      // parentheses stay consumed (…?q=clozapine%20(ANC)%20Jane must not leave a tail),
-      // while stopping at a quote keeps a serialized object readable — non-string
-      // fields are JSON-stringified above, and compact JSON has no spaces, so \S+
-      // would swallow every field after the first URL and redact the whole diagnostic.
-      .replace(/https?:\/\/[^\s'"]+/g, "[url]")
+      // with a residual query string. The class excludes whitespace and the DOUBLE
+      // quote only. Two things depend on that exact set:
+      //   - parentheses and apostrophes stay consumed. encodeURIComponent escapes
+      //     neither, so `?q=patient's suicidal thoughts` is a realistic clinical
+      //     query; excluding `'` left `[url]'s%20suicidal%20thoughts` in the
+      //     clipboard, which is the leak this redaction exists to prevent.
+      //   - stopping at `"` keeps a serialized object readable. Non-string fields
+      //     are JSON-stringified above and compact JSON has no spaces, so a
+      //     `\S+` class would swallow every field after the first URL.
+      // Over-consuming a trailing `'` in JS-style single-quoted log output is the
+      // safe direction: it redacts slightly more, never less.
+      .replace(/https?:\/\/[^\s"]+/g, "[url]")
       .replace(/\b[A-Za-z]:\\[^\s'\")]+/g, "[path]")
       .replace(/\/(?:[^\s'\")]+\/)+[^\s'\")]+/g, "[path]")
       // Redact common secret/token formats, including modern Supabase keys like sb_secret_ and sb_publishable_
