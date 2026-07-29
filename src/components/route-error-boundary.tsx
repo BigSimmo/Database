@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { TriangleAlert, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 export type RouteErrorBoundaryProps = {
   /** The error thrown by the segment, forwarded by Next.js. */
@@ -39,10 +40,42 @@ export function RouteErrorBoundary({
   minHeightClass = "min-h-[50vh]",
 }: RouteErrorBoundaryProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+
   useEffect(() => {
     console.error(logLabel, error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyDiagnostics = () => {
+    const diagnosticPayload = {
+      name: error.name,
+      message: error.message,
+      digest: error.digest,
+      url: typeof window !== "undefined" ? window.location.href : "unknown",
+      userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
+      timestamp: new Date().toISOString(),
+    };
+    void copyTextToClipboard(JSON.stringify(diagnosticPayload, null, 2))
+      .then(() => {
+        setCopyFailed(false);
+        setCopied(true);
+        if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+        copiedResetTimerRef.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        setCopied(false);
+        setCopyFailed(true);
+      });
+  };
 
   return (
     <div
@@ -93,6 +126,19 @@ export function RouteErrorBoundary({
               Reload page
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleCopyDiagnostics}
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            {copied ? (
+              <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+            ) : (
+              <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
+            )}
+            {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
+          </button>
         </div>
       </div>
     </div>

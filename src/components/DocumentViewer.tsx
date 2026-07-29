@@ -9,7 +9,6 @@ import {
   ChevronDown,
   Download,
   ExternalLink,
-  FileImage,
   Loader2,
   Plus,
   RefreshCw,
@@ -35,24 +34,17 @@ import { useDocumentViewerChromeScroll } from "@/components/clinical-dashboard/u
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
-import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import {
   appBackdrop,
-  clinicalDivider,
   cn,
-  codeText,
-  eyebrowText,
   floatingControl,
   glassOverlaySurface,
   InlineNotice,
-  LoadingPanel,
   panel,
   PanelHeading,
-  proseMeasure,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
-import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
@@ -85,18 +77,17 @@ import type {
   PageRow,
   TableFactRow,
 } from "@/components/document-viewer/types";
-import {
-  ClinicalSummaryProfile,
-  DocumentImage,
-  DocumentSectionSummary,
-  DocumentViewerAnchors,
-  FormattedHighYieldSummary,
-  IndexedTextPanel,
-  PinnedSourceEvidence,
-  TableReviewPanel,
-} from "@/components/document-viewer/source-panels";
-import { DocumentManualTagEditor } from "@/components/document-viewer/manual-tag-editor";
+import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-viewer/source-panels";
+import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
+import { buildDocumentSectionIndex, documentOverviewSectionId } from "@/components/document-viewer/section-index";
+import {
+  DocumentSectionSheet,
+  DocumentSectionTrack,
+  jumpToDocumentSection,
+} from "@/components/document-viewer/section-nav";
+import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
+import { useDocumentChromeMetrics } from "@/components/document-viewer/use-document-chrome-metrics";
 
 // pdf-canvas-viewer is only needed after a source document has loaded and the
 // user is viewing a PDF. Keeping it out of the document route's initial client
@@ -257,6 +248,7 @@ export function DocumentViewer({
   // change / successful reload so only an unrecoverable URL exhausts the budget.
   const signedUrlRefreshCountRef = useRef(0);
   const sourceSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const viewerRootRef = useRef<HTMLElement | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchState, setDocumentSearchState] = useState<{
     query: string;
@@ -272,6 +264,7 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -300,7 +293,9 @@ export function DocumentViewer({
     documentId,
     activePage,
     activeChunkId,
-    mobileActionsOpen,
+    // Either sheet holds the chrome open: hiding it under an open overlay would
+    // strand the sheet over a document whose edges have already been released.
+    mobileActionsOpen || sectionSheetOpen,
     composerChromeFocused,
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
@@ -967,6 +962,40 @@ export function DocumentViewer({
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
   const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
+  // Built on every render rather than memoised: it is seven objects from values
+  // already in hand, and `clinicalImages` is a fresh array each render, so a
+  // manual dependency list would only be memoization the compiler cannot verify.
+  // Consumers key off the section ids, not this array's identity.
+  const documentSections = buildDocumentSectionIndex({
+    hasDocument: Boolean(readyDocument),
+    hasStoredSummary: Boolean(document?.summary),
+    pageCount: document?.page_count ?? pages.length,
+    chunkCount: chunks.length,
+    visualCount: clinicalImages.length,
+    hasIndexHealth: Boolean(indexHealth),
+    pinnedPage: selectedChunk?.page_number ?? null,
+    loading: effectiveLoadingDocument,
+  });
+  const {
+    activeId: activeSectionId,
+    activeSection,
+    selectSection,
+  } = useDocumentSectionSpy(documentSections, Boolean(readyDocument));
+  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const { headerHidden } = useDocumentChromeMetrics(viewerRootRef);
+  const openSectionSheet = useCallback(() => {
+    // Hide-on-scroll cannot reclaim either edge while the composer holds focus,
+    // so release it before an overlay takes over the screen.
+    sourceSearchInputRef.current?.blur();
+    setSectionSheetOpen(true);
+  }, []);
+  const jumpToSection = useCallback(
+    (id: string) => {
+      selectSection(id);
+      jumpToDocumentSection(id);
+    },
+    [selectSection],
+  );
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const generatedAnswerIsSummary = summaryQuery === documentSummaryQuestion;
   const storedSummaryText = document?.summary?.summary ?? null;
@@ -1079,12 +1108,16 @@ export function DocumentViewer({
   return (
     <main
       id="document-viewer-main"
+      ref={viewerRootRef}
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
       <PhoneHeaderCollapsePortal>
-        <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]">
-          <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
+        <header
+          data-document-sticky-header
+          className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
+        >
+          <div className="mx-auto flex min-h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <Link
               href={documentHomeHref}
               className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
@@ -1093,9 +1126,42 @@ export function DocumentViewer({
               <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
               <span className="hidden sm:inline">Documents</span>
             </Link>
-            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
-              {headerTitle}
-            </h1>
+            {documentSections.length > 0 ? (
+              // The title is the section-list disclosure. Line two names where you
+              // are, which the track can place but never label.
+              <button
+                type="button"
+                ref={sectionTriggerRef}
+                onClick={openSectionSheet}
+                aria-expanded={sectionSheetOpen}
+                aria-haspopup="dialog"
+                data-testid="document-section-trigger"
+                className="flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                <span className="min-w-0 flex-1">
+                  <h1 className="truncate text-sm font-semibold leading-tight text-[color:var(--text)] sm:text-base">
+                    {headerTitle}
+                  </h1>
+                  {activeSection ? (
+                    <span className="mt-0.5 flex items-center gap-1.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
+                      <activeSection.icon aria-hidden="true" className="h-3 w-3 shrink-0" />
+                      <span className="min-w-0 truncate">{activeSection.label}</span>
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition motion-reduce:transition-none",
+                    sectionSheetOpen && "rotate-180",
+                  )}
+                />
+              </button>
+            ) : (
+              <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
+                {headerTitle}
+              </h1>
+            )}
             <div className="ml-auto flex shrink-0 items-center gap-1.5">
               <Link
                 href={scopedDocumentHref}
@@ -1115,8 +1181,18 @@ export function DocumentViewer({
               </button>
             </div>
           </div>
+          <DocumentSectionTrack sections={documentSections} activeId={activeSectionId} />
         </header>
       </PhoneHeaderCollapsePortal>
+      <DocumentSectionSheet
+        open={sectionSheetOpen}
+        onClose={() => setSectionSheetOpen(false)}
+        sections={documentSections}
+        activeId={activeSectionId}
+        onSelect={jumpToSection}
+        documentTitle={headerTitle}
+        returnFocusRef={sectionTriggerRef}
+      />
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
@@ -1298,7 +1374,10 @@ export function DocumentViewer({
         )}
 
         {readyDocument ? (
-          <div className="min-w-0 lg:col-span-2">
+          <div
+            id={documentOverviewSectionId}
+            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2"
+          >
             <DocumentOverviewLanding
               document={readyDocument}
               signedUrl={signedUrl}
@@ -1326,9 +1405,10 @@ export function DocumentViewer({
         ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text" className="lg:hidden" />
-
-          <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
+          <div
+            id="pdf-preview-section"
+            className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
+          >
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
@@ -1474,206 +1554,30 @@ export function DocumentViewer({
           </div>
         </div>
 
-        <aside className="min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:top-[69px] lg:grid-cols-1 lg:self-start lg:pr-1">
-          {indexWarnings.length ? (
-            <InlineNotice tone="warning" className="text-xs md:col-span-2 lg:col-span-1">
-              <span className="font-bold">Extraction warnings</span>
-              {indexWarnings.slice(0, 4).map((warning) => (
-                <span key={warning} className="mt-1 block font-semibold">
-                  {warning}
-                </span>
-              ))}
-            </InlineNotice>
-          ) : null}
-
-          <div className="hidden lg:block">
-            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" textHref="#source-text" className="mb-3" />
-            <PinnedSourceEvidence
-              loading={effectiveLoadingDocument}
-              chunk={selectedChunk}
-              compact
-              sectionId="source-evidence-rail"
-            />
-          </div>
-
-          {document ? (
-            <details
-              id="source-summary"
-              name="document-viewer-section"
-              data-testid="high-yield-summary"
-              className={cn(panel, "group scroll-mt-24 source-print md:col-span-2 lg:col-span-1")}
-            >
-              <DocumentSectionSummary
-                icon={Sparkles}
-                title={
-                  document.summary?.clinical_specifics?.profile ? "Clinical document profile" : "High-yield summary"
-                }
-                description="What this document covers, from its indexed evidence."
-              />
-              <div className={cn(clinicalDivider, "p-4 pt-3")}>
-                <BadgeCluster items={summaryBadges} limit={8} showOverflowCount />
-                {document.summary?.clinical_specifics?.profile ? (
-                  <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
-                ) : (
-                  <FormattedHighYieldSummary
-                    formatted={formattedStoredSummary}
-                    showLead={formattedStoredSummary.sections.length === 0}
-                  />
-                )}
-                {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
-                  <div className="mt-4 space-y-4">
-                    {Object.entries(document.summary.clinical_specifics)
-                      .filter(([key, items]) => key !== "profile" && Array.isArray(items) && items.length > 0)
-                      .slice(0, 6)
-                      .map(([key, items]) => (
-                        <section key={key} className="border-t border-[color:var(--border)] pt-3">
-                          <h3 className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                            {key.replaceAll("_", " ")}
-                          </h3>
-                          <ul
-                            className={cn(
-                              proseMeasure,
-                              "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]",
-                            )}
-                          >
-                            {(items as string[]).slice(0, 5).map((item, index) => (
-                              <li key={`${key}:${index}:${item}`} className="flex gap-2">
-                                <span
-                                  aria-hidden="true"
-                                  className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
-                                />
-                                <span>
-                                  <SafeBoldText text={item} />
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </section>
-                      ))}
-                  </div>
-                )}
-                {document.labels?.length ? (
-                  <div className="mt-4 border-t border-[color:var(--border)] pt-3">
-                    <p className={eyebrowText}>Browse by tag</p>
-                    <DocumentTagCloud
-                      labels={document.labels}
-                      limit={18}
-                      className="mt-2"
-                      onTagClick={searchByTag}
-                      grouped
-                    />
-                  </div>
-                ) : null}
-                {canUseAdministrativeApis ? (
-                  <details className={cn(sourceCard, "mt-4 p-3")}>
-                    <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                      Document tools
-                    </summary>
-                    <DocumentManualTagEditor
-                      document={document}
-                      canManage={canUseAdministrativeApis}
-                      clientDemoMode={clientDemoMode}
-                      authorizationHeader={authorizationHeader}
-                      onLabelsUpdated={handleDocumentLabelsUpdated}
-                      onUnauthorized={markSessionExpired}
-                    />
-                  </details>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
-
-          <details
-            id="source-images"
-            name="document-viewer-section"
-            className={cn(panel, "group scroll-mt-24 md:col-span-2 lg:col-span-1")}
-          >
-            <DocumentSectionSummary
-              icon={FileImage}
-              title="Tables and diagrams"
-              description={
-                effectiveLoadingDocument
-                  ? "Indexed tables, diagrams, and image captions."
-                  : clinicalImages.length === 1
-                    ? "1 indexed table, diagram, or image caption."
-                    : `${clinicalImages.length} indexed tables, diagrams, and image captions.`
-              }
-            />
-            <div className={cn(clinicalDivider, "space-y-3 p-4 pt-3")}>
-              {canUseAdministrativeApis && tableFacts.length ? (
-                <details className={cn(sourceCard, "p-3")}>
-                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                    Table tools
-                  </summary>
-                  <div className="mt-3">
-                    <TableReviewPanel
-                      tableFacts={tableFacts}
-                      canReview={canUseAdministrativeApis}
-                      busyFactId={reviewingTableFactId}
-                      onReview={reviewTableFact}
-                    />
-                  </div>
-                </details>
-              ) : null}
-              {effectiveLoadingDocument ? (
-                <LoadingPanel label="Loading extracted tables" />
-              ) : clinicalImages.length === 0 ? (
-                <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
-              ) : (
-                clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
-              )}
-              {!effectiveLoadingDocument && auditImages.length > 0 ? (
-                <details className={cn(sourceCard, "p-3")}>
-                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                    Administrative/reference tables retained for audit ({auditImages.length})
-                  </summary>
-                  <div className="mt-3 grid gap-3">
-                    {auditImages.map((image) => (
-                      <DocumentImage key={image.id} image={image} />
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-            </div>
-          </details>
-
-          {indexHealth ? (
-            <details
-              name="document-viewer-section"
-              data-testid="indexing-details"
-              className={cn(panel, "group md:col-span-2 lg:col-span-1")}
-            >
-              <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                <span className={eyebrowText}>Indexing details</span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
-                />
-              </summary>
-              <dl
-                className={cn(
-                  clinicalDivider,
-                  "grid gap-2 p-4 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2",
-                )}
-              >
-                <div>
-                  <dt>Extraction</dt>
-                  <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
-                </div>
-                <div>
-                  <dt>Index version</dt>
-                  <dd className={cn("mt-0.5 truncate text-[color:var(--text)]", codeText)}>
-                    {indexHealth.indexVersion ?? "unknown"}
-                  </dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt>Indexed</dt>
-                  <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
-                </div>
-              </dl>
-            </details>
-          ) : null}
-        </aside>
+        <DocumentViewerRail
+          headerHidden={headerHidden}
+          documentSections={documentSections}
+          activeSectionId={activeSectionId}
+          onSelectSection={jumpToSection}
+          indexWarnings={indexWarnings}
+          effectiveLoadingDocument={effectiveLoadingDocument}
+          selectedChunk={selectedChunk}
+          document={document}
+          summaryBadges={summaryBadges}
+          formattedStoredSummary={formattedStoredSummary}
+          canUseAdministrativeApis={canUseAdministrativeApis}
+          clientDemoMode={clientDemoMode}
+          authorizationHeader={authorizationHeader}
+          onLabelsUpdated={handleDocumentLabelsUpdated}
+          onUnauthorized={markSessionExpired}
+          onSearchByTag={searchByTag}
+          clinicalImages={clinicalImages}
+          auditImages={auditImages}
+          tableFacts={tableFacts}
+          reviewingTableFactId={reviewingTableFactId}
+          onReviewTableFact={reviewTableFact}
+          indexHealth={indexHealth}
+        />
       </section>
       {readyDocument ? (
         <PhoneFooterLayerPortal>

@@ -10,6 +10,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 | Submitted/search-result views       | Compact bottom dock on phones; pinned below the header on tablets; in normal page flow on desktop | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
 | Answer result view                  | Overlaid glass header plus answer composer dock                                                   | Dashboard `#main-content` top/bottom reserves                                  |
 | Document detail/source routes       | `DocumentViewer` floating composer                                                                | `DocumentViewer` content padding                                               |
+| Document section navigation         | Header row disclosure (phone sheet) + rail index card at `lg`                                     | None — adds no chrome and no reserve                                           |
 | Calculators (`/calculators`)        | Page-owned composer (desktop top + phone bottom dock)                                             | Calculators page pad; shell reserve stays `0`                                  |
 | Info/detail pages with no composer  | No fixed composer                                                                                 | Idle shell padding only                                                        |
 
@@ -36,7 +37,20 @@ This repo uses one shared search experience across the global shell, dashboard r
 19. `ClinicalDashboard` must stay out of the shared shell's static import graph (dynamic import) so namespaced mode routes do not parse the dashboard module.
 20. Browser-mode phones keep `.phone-viewport-shell` in normal flow and use the document as the vertical scroll owner. This is required for Safari to minimize its own browser chrome; do not restore a fixed/inset root or a phone `overflow-y: auto` canvas.
 21. Installed standalone phones use the same normal-flow root with the final `display-mode: standalone` `100vh` bound and an internal `.phone-scroll-surface`. Keep that override after the browser contract; do not substitute `svh`, `dvh`, `visualViewport.height`, or a fixed root on this WebKit workaround path. Every phone footer uses `.phone-footer-layer`: fixed to the viewport in browser tabs and absolute to the positioned 100vh frame in standalone, so the composer and its backdrop share the repaired PWA edge. Page-owned footer layers must render through `PhoneFooterLayerPortal`; `PhoneFooterLayerFrame` provides a frame-scoped, paint-free host after the scroll surface. An absolute footer left inside `.phone-scroll-surface` still scrolls and clips with that surface.
-22. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
+22. Document section navigation adds no chrome. The document header row carries the active section label and a
+    weighted position track; the section list itself is the shared `Sheet` on phones (not viewport chrome, so no
+    reserve and no second scroll owner) and an in-column card at `lg`. Both DocumentViewer sheets feed the
+    `composerScrollHidden` guard so chrome cannot hide beneath an open overlay, and opening the section sheet blurs
+    the document composer first. The viewer's sticky rail reads `data-scroll-hidden` from
+    `universal-header-collapse` and drops its `lg:top` offset to the page-owned sticky document header height while
+    the top bar is hidden; section anchors use `--document-anchor-offset`, published from the live collapse-row height
+    plus that sticky header when the shared bar is away, instead of a fixed `scroll-mt`. Observe the shared header
+    from the viewer; never edit it for this. The in-column section index card is `lg+` only — phones use the header
+    disclosure and section sheet. Exactly one element may own `id="document-overview"` (the DocumentViewer overview
+    landing wrapper); `DocumentClinicalSummary` must not reuse that id. The phone sheet lists only present sections —
+    omit `source-images` when `visualCount === 0`, and do not require a "Tables and diagrams" sheet row in smoke for
+    the empty-images lithium demo doc.
+23. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
 ## Results band (`SearchResultsHeaderBand`)
 

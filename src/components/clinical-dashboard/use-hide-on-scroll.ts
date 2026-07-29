@@ -448,20 +448,38 @@ export function useDocumentScrollHideReporter(
   useEffect(() => {
     let frame = 0;
 
+    const releaseComposerFocus = () => {
+      const input = focusInputRef?.current;
+      if (!input || document.activeElement !== input) return;
+      if (!window.matchMedia(phoneMediaQuery).matches) return;
+      input.blur();
+    };
+
+    const releaseComposerFocusOnOutsideScrollIntent = (event: Event) => {
+      const input = focusInputRef?.current;
+      if (!input || document.activeElement !== input) return;
+      if (!window.matchMedia(phoneMediaQuery).matches) return;
+      // Keyboard opening, focus scrolling, and viewport settling can all emit
+      // `scroll` without a user scroll gesture. Only explicit wheel, touch, or
+      // pointer activity outside the composer may dismiss the active input.
+      // Gestures that start inside the composer retain its swipe threshold.
+      const composer = input.closest("form");
+      if (event.target instanceof Node && composer?.contains(event.target)) return;
+      releaseComposerFocus();
+    };
+
+    const releaseComposerFocusOnKeyboardScrollIntent = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.key !== "PageDown" && event.key !== "PageUp") return;
+      releaseComposerFocus();
+    };
+
     const evaluate = () => {
       frame = 0;
       const scrollingElement = document.scrollingElement ?? document.documentElement;
       const maxOffset = Math.max(0, scrollingElement.scrollHeight - window.innerHeight);
       if (maxOffset <= 0) return;
       const offset = window.scrollY;
-      if (
-        window.matchMedia(phoneMediaQuery).matches &&
-        offset > topRevealOffset &&
-        focusInputRef?.current &&
-        document.activeElement === focusInputRef.current
-      ) {
-        focusInputRef.current.blur();
-      }
       reportScroll({
         offset,
         maxOffset,
@@ -482,8 +500,25 @@ export function useDocumentScrollHideReporter(
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("touchmove", releaseComposerFocusOnOutsideScrollIntent, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("pointerdown", releaseComposerFocusOnOutsideScrollIntent, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("keydown", releaseComposerFocusOnKeyboardScrollIntent, true);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, true);
+      window.removeEventListener("touchmove", releaseComposerFocusOnOutsideScrollIntent, true);
+      window.removeEventListener("pointerdown", releaseComposerFocusOnOutsideScrollIntent, true);
+      window.removeEventListener("keydown", releaseComposerFocusOnKeyboardScrollIntent, true);
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, [collapseMetricsRoot, focusInputRef, reportScroll]);
