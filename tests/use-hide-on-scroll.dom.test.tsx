@@ -37,6 +37,7 @@ describe("useDocumentScrollHideReporter composer focus", () => {
     renderHook(() => useDocumentScrollHideReporter(vi.fn(), null, { current: input }));
 
     window.dispatchEvent(new Event("scroll"));
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
     await waitFor(() => expect(input).toHaveFocus());
 
     // Movement that begins inside the composer keeps its existing swipe
@@ -44,6 +45,14 @@ describe("useDocumentScrollHideReporter composer focus", () => {
     input.dispatchEvent(new Event("touchmove", { bubbles: true }));
     expect(input).toHaveFocus();
 
+    input.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "PageDown" }));
+    expect(input).not.toHaveFocus();
+
+    input.focus();
+    results.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+    expect(input).not.toHaveFocus();
+
+    input.focus();
     results.dispatchEvent(new Event("touchmove", { bubbles: true }));
     expect(input).not.toHaveFocus();
   });

@@ -521,12 +521,28 @@ for (const scrollOwner of ["browser document", "standalone PWA main"] as const) 
       const target = owner === "standalone PWA main" ? document.getElementById("main-content") : window;
       target?.dispatchEvent(new Event("scroll"));
     }, scrollOwner);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
     await expect(input).toBeFocused();
 
-    // A real gesture outside the composer still releases the focus pin so the
-    // shared header/footer may hide while the user reads results.
-    await main.dispatchEvent("touchmove");
+    // Keyboard scrolling carries explicit user intent without a wheel/touch
+    // event. Release focus first, then prove that the active owner can hide the
+    // shared chrome as it scrolls through the result canvas.
+    await input.dispatchEvent("keydown", { key: "PageDown" });
     await expect(input).not.toBeFocused();
+    await page.evaluate((owner) => {
+      const main = document.getElementById("main-content");
+      const target = owner === "standalone PWA main" ? main : (document.scrollingElement ?? document.documentElement);
+      if (!target) throw new Error("keyboard scroll proof did not find its scroll owner");
+      target.scrollTop = 720;
+      (owner === "standalone PWA main" ? main : window)?.dispatchEvent(new Event("scroll"));
+    }, scrollOwner);
+    await expect(page.getByTestId("universal-header-collapse")).toHaveAttribute("data-scroll-hidden", "true");
+    await expect(page.locator("form.answer-footer-search-dock")).toHaveAttribute("data-scroll-hidden", "true");
   });
 }
 
