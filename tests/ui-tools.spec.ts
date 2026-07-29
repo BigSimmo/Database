@@ -80,8 +80,22 @@ function waitForDifferentialCatalogQuery(page: Page, query: string) {
 }
 
 async function submitDifferentialSearch(page: Page, query: string) {
+  const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
   const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
-  await expect(submit).toBeEnabled();
+
+  // Own the fill here rather than leaving it to callers. The server-rendered
+  // composer is visible before React controls it, so a fill landing in that gap
+  // is discarded by hydration and submit stays disabled ("Start a differential
+  // search"). Establish the live handler boundary, fill, then confirm the value
+  // actually stuck — retrying the whole sequence so a client remount between
+  // steps cannot strand a half-applied state.
+  await expect(async () => {
+    await waitForReactEventHandler(input, "onChange");
+    await input.fill(query);
+    await expect(input).toHaveValue(query);
+    await expect(submit).toBeEnabled({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
+
   await Promise.all([waitForDifferentialCatalogQuery(page, query), submit.click()]);
 }
 
@@ -1512,7 +1526,6 @@ test.describe("Clinical KB tools launcher", () => {
 
     await gotoLauncher(page, "/differentials");
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect.poll(() => searchRequests.length).toBeGreaterThan(0);
@@ -1579,7 +1592,6 @@ test.describe("Clinical KB tools launcher", () => {
     });
 
     await gotoLauncher(page, "/differentials");
-    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
@@ -1681,7 +1693,6 @@ test.describe("Clinical KB tools launcher", () => {
     });
 
     await gotoLauncher(page, "/differentials");
-    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();

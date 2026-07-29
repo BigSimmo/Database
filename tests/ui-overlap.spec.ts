@@ -156,20 +156,28 @@ test.describe("Header element overlap coverage", () => {
 
       // Headless Chromium reports env(safe-area-inset-*) as 0, so this asserts
       // the --header-edge-pad (1rem) chrome inset — not notch asymmetry.
-      const menuBox = await menu.boundingBox();
-      const newChatBox = await newChat.boundingBox();
-      expect(menuBox, "menu control must have geometry").not.toBeNull();
-      expect(newChatBox, "new-chat control must have geometry").not.toBeNull();
+      //
+      // Sample the geometry inside a retry: a React remount can leave the header
+      // mid-layout, and a single sample then reads transient boxes. The
+      // assertions themselves are unchanged and still strict, so a genuinely
+      // asymmetric header fails once the retry budget is spent — only a
+      // transient one settles.
+      await expect(async () => {
+        const menuBox = await menu.boundingBox();
+        const newChatBox = await newChat.boundingBox();
+        expect(menuBox, "menu control must have geometry").not.toBeNull();
+        expect(newChatBox, "new-chat control must have geometry").not.toBeNull();
 
-      const leftInset = menuBox!.x;
-      const rightInset = viewport.width - (newChatBox!.x + newChatBox!.width);
-      // 1rem header pad (~16px) with 2px subpixel tolerance.
-      expect(leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
-      expect(rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
-      expect(
-        Math.abs(leftInset - rightInset),
-        `left/right insets should match (left=${leftInset}, right=${rightInset})`,
-      ).toBeLessThanOrEqual(2);
+        const leftInset = menuBox!.x;
+        const rightInset = viewport.width - (newChatBox!.x + newChatBox!.width);
+        // 1rem header pad (~16px) with 2px subpixel tolerance.
+        expect(leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+        expect(rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+        expect(
+          Math.abs(leftInset - rightInset),
+          `left/right insets should match (left=${leftInset}, right=${rightInset})`,
+        ).toBeLessThanOrEqual(2);
+      }).toPass({ timeout: 15_000 });
     });
   }
 
