@@ -63,12 +63,15 @@ not follow from that.
 - `documents_status_id_idx` and the `documents_title_bare_trgm_idx` benefit to
   `src/app/api/documents/route.ts:193` are ordering-safe: that path is a user-facing document
   list with no retrieval consequence.
-- The **RAG-path** use of the bare-column trigram indexes is **canary-gated**, or must be preceded
-  by making that `.limit(12)` deterministic with a stable `ORDER BY`. **Note the ordering fix is
-  not itself free:** an unordered `LIMIT` has no stable selection to preserve, so imposing an order
-  can select a different twelve than the database returns today — it is worth doing because
-  unordered `LIMIT` on a retrieval input is latent nondeterminism, but its own recall impact needs
-  validating. Either way, do not apply on the retracted semantics-neutral claim.
+- The **RAG-path** use of the bare-column trigram indexes is **canary-gated**, full stop. Ordering
+  that `.limit(12)` with a stable `ORDER BY` does **not** lift the gate: an unordered `LIMIT` has
+  no stable selection to preserve, so imposing an order can pick a different twelve than the
+  database happens to return today. That makes it an ordering behaviour change on a retrieval
+  surface in its own right, which `AGENTS.md` already requires a live eval-canary pair for. It is
+  worth doing on its own merits — an unordered `LIMIT` feeding retrieval candidates is latent
+  nondeterminism regardless of this index — but sequencing it first yields **two** canary-gated
+  changes, not one gate that ordering unlocks. Do not apply on the retracted semantics-neutral
+  claim.
 
 Create them outside a transaction:
 
