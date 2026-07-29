@@ -41,6 +41,12 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function revealPhoneHeaderControl(page: Page, control: Locator) {
+  const { scrollTop } = await readPrimaryScrollGeometry(page);
+  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  await expect(control).toBeInViewport();
+}
+
 async function installClipboardMock(page: Page) {
   await page.addInitScript(() => {
     let clipboardText = "";
@@ -3540,6 +3546,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // retired in-flow "Document viewer sections" link row.
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const openSection = async (label: RegExp) => {
+      await revealPhoneHeaderControl(page, sectionTrigger);
       await sectionTrigger.click();
       const sheet = page.getByTestId("document-section-sheet");
       await expect(sheet).toBeVisible();
@@ -3556,6 +3563,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
     await expect(sectionTrigger).toBeVisible();
+    await revealPhoneHeaderControl(page, sectionTrigger);
     await sectionTrigger.click();
     const sectionSheet = page.getByTestId("document-section-sheet");
     await expect(sectionSheet.getByRole("button", { name: /Pinned evidence/ })).toBeVisible();
@@ -3743,6 +3751,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const indexingDetails = page.getByTestId("indexing-details");
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const clickSectionNav = async (label: RegExp) => {
+      await revealPhoneHeaderControl(page, sectionTrigger);
       await sectionTrigger.click();
       const sheet = page.getByTestId("document-section-sheet");
       await expect(sheet).toBeVisible();
