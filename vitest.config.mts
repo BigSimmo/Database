@@ -27,11 +27,18 @@ const config = {
       include: ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "supabase/functions/**/*.ts"],
       exclude: ["src/lib/supabase/database.types.ts"],
       thresholds: {
+        // Broad regression floor. Re-ratcheted 2026-07-29: the previous values
+        // (48/38/43/50) had drifted 14-17pp below measured coverage
+        // (63.99/55.29/57.6/66.19), so a change could delete a large amount of
+        // coverage and still pass. Each floor now sits ~2pp under measured — enough
+        // headroom for a PR that ships an uncovered surface, not enough to hide a
+        // regression. Re-measure with `npm run test:coverage` and raise these when
+        // the gap grows past ~5pp again; never lower them to make a red gate green.
         "src/{lib/**/*.ts,app/**/route.ts,components/**/*.{ts,tsx}}": {
-          statements: 48,
-          branches: 38,
-          functions: 43,
-          lines: 50,
+          statements: 62,
+          branches: 53,
+          functions: 55,
+          lines: 64,
         },
         // Aggregate behavioral floors ratchet the full post-fixture group rather
         // than making individual large RAG modules brittle. Each value is the
