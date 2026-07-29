@@ -827,21 +827,29 @@ async function openGuide(page: Page) {
   // Guide now lives inside Settings. If Settings is already open (e.g. after
   // closing Guide restores it), skip the reopen click that would hit the overlay.
   if (!(await settings.isVisible().catch(() => false))) {
-    if (viewport && viewport.width < 768) {
-      const menu = await openMobileClinicalGuideMenu(page);
-      await menu.getByRole("button", { name: "Settings", exact: true }).click();
-    } else if (viewport && viewport.width < 1024) {
-      const rail = page.getByLabel("Clinical Guide collapsed sidebar");
-      await expect(rail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
-      await rail.getByRole("button", { name: "Settings", exact: true }).click();
-    } else {
-      const sidebar = page.locator("#clinical-tools-sidebar");
-      const settingsTrigger = (await sidebar.isVisible().catch(() => false))
-        ? sidebar.getByRole("button", { name: "Settings", exact: true })
-        : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
-      await expect(settingsTrigger).toBeVisible();
-      await settingsTrigger.click();
-    }
+    // A Settings trigger becomes visible before React attaches its handler, so a
+    // single click is silently swallowed and the dialog never opens. Retry the
+    // click together with the dialog it should produce, rather than asserting
+    // visibility once — the same shape used for the composer and mode menu.
+    await expect(async () => {
+      if (viewport && viewport.width < 768) {
+        const menu = await openMobileClinicalGuideMenu(page);
+        await menu.getByRole("button", { name: "Settings", exact: true }).click();
+      } else if (viewport && viewport.width < 1024) {
+        const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+        const railSettings = rail.getByRole("button", { name: "Settings", exact: true });
+        await expect(railSettings).toBeVisible();
+        await railSettings.click();
+      } else {
+        const sidebar = page.locator("#clinical-tools-sidebar");
+        const settingsTrigger = (await sidebar.isVisible().catch(() => false))
+          ? sidebar.getByRole("button", { name: "Settings", exact: true })
+          : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
+        await expect(settingsTrigger).toBeVisible();
+        await settingsTrigger.click();
+      }
+      await expect(settings).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: uiAssertionTimeoutMs });
   }
 
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
