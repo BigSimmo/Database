@@ -18,12 +18,19 @@ describe("phoneChromePlan", () => {
   });
 
   it("uses focused document ownership without escalating page-local work to the full suite", () => {
-    expect(ids(["src/components/DocumentViewer.tsx"])).toEqual([
+    const plan = phoneChromePlan(["src/components/DocumentViewer.tsx"]);
+    expect(plan.stages.map((candidate) => candidate.id)).toEqual([
       "lock-parity",
       "runtime",
       "contracts",
       "focused-browser",
     ]);
+    const focusedBrowser = plan.stages.find((candidate) => candidate.id === "focused-browser");
+    expect(
+      focusedBrowser?.command.args.some((argument: string) =>
+        argument.includes("document detail header overlay and footer follow"),
+      ),
+    ).toBe(true);
   });
 
   it("honours an explicit full-suite override while retaining focused stages first", () => {
