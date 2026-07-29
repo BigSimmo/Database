@@ -69,24 +69,19 @@ export const SourceImage = memo(function SourceImage({
 });
 
 /**
- * Displays the active search scope and, when enabled, source governance warnings.
+ * Displays the active search scope and source governance warnings.
  *
  * @param scope - The current search scope summary, or `null` when unavailable
  * @param warnings - Source governance warnings to display
- * @param showGovernanceWarnings - Whether governance warnings should be rendered in this notice
  */
 export function ScopeAndGovernanceNotice({
   scope,
   warnings,
-  showGovernanceWarnings = true,
 }: {
   scope: SearchScopeSummary | null;
   warnings: SourceGovernanceWarning[];
-  showGovernanceWarnings?: boolean;
 }) {
-  const groupedWarnings = showGovernanceWarnings
-    ? groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(warnings)).slice(0, 4)
-    : [];
+  const groupedWarnings = groupSourceGovernanceWarnings(frontendSourceGovernanceWarnings(warnings)).slice(0, 4);
   const showScope =
     Boolean(scope && scope.activeFilterCount > 0) ||
     Boolean(scope?.warnings?.length) ||
