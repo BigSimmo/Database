@@ -78,6 +78,7 @@ const pageOwnedHeaderRoutes = [
     name: "document navigation",
     route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
     selector: "header",
+    phoneMotion: "overlay" as const,
   },
   {
     name: "differential detail navigation",
@@ -196,6 +197,7 @@ interface ScrollGeometry {
   maxOffset: number;
   scrollOwner: "document" | "main";
   headerHidden: boolean;
+  headerMotion: "collapse" | "overlay";
   docScrollableExcess: number;
   horizontalOverflow: number;
   reserveTransitionDuration: string;
@@ -204,7 +206,7 @@ interface ScrollGeometry {
 function readGeometry(page: Page): Promise<ScrollGeometry> {
   return page.evaluate(() => {
     const main = document.getElementById("main-content");
-    const header = document.querySelector('[data-testid="universal-header-collapse"]');
+    const header = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
     const doc = document.scrollingElement ?? document.documentElement;
     const mainOverflowY = main ? getComputedStyle(main).overflowY : "";
     const mainOwnsScroll = Boolean(
@@ -217,6 +219,7 @@ function readGeometry(page: Page): Promise<ScrollGeometry> {
       maxOffset: Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight),
       scrollOwner: mainOwnsScroll ? "main" : "document",
       headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
+      headerMotion: header?.dataset.phoneMotion === "overlay" ? "overlay" : "collapse",
       docScrollableExcess: doc.scrollHeight - doc.clientHeight,
       horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
       reserveTransitionDuration: reserveHost ? getComputedStyle(reserveHost).transitionDuration : "",
@@ -409,29 +412,185 @@ test("phone browser results use document scrolling so Safari can minimize its br
   );
 });
 
-test("document detail header and footer follow Safari document scrolling together", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
-  await expect(page.locator("form.document-viewer-composer")).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId("document-viewer-content")).toHaveAttribute("data-phone-scroll-owner", "document");
-  await expect(page.getByTestId("document-viewer-content")).toHaveAttribute(
-    "data-phone-footer-owner",
-    "document-viewer",
-  );
-  await addPhoneScrollRunway(page);
+for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
+  test(`document detail header overlay and footer follow ${phoneOwner} scrolling together`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize(phoneViewport);
+    await gotoPhoneSurface(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
+    if (phoneOwner === "standalone PWA main") {
+      expect(await forceCompiledStandalonePhoneCss(page), "compiled CSS must expose standalone rules").toBeGreaterThan(
+        0,
+      );
+    }
 
-  await dragScrollBy(page, 720, 24);
-  await expect(page.getByTestId("universal-header-collapse")).toHaveAttribute("data-scroll-hidden", "true");
-  await expect(page.locator("form.document-viewer-composer")).toHaveAttribute("data-scroll-hidden", "true");
+    const expectedOwner = phoneOwner === "browser document" ? "document" : "main";
+    const collapse = page.getByTestId("universal-header-collapse");
+    const overlayStack = page.locator('.phone-sticky-header-stack[data-phone-motion="overlay"]');
+    const documentRow = page.locator("[data-document-sticky-header]");
+    const sectionTrack = documentRow.locator(':scope > span[aria-hidden="true"]');
+    const composer = page.locator("form.document-viewer-composer");
+    const content = page.getByTestId("document-viewer-content");
+    const sectionTrigger = page.getByTestId("document-section-trigger");
 
-  const owner = await page.evaluate(() => ({
-    windowScrollY: window.scrollY,
-    mainScrollTop: document.getElementById("main-content")?.scrollTop ?? -1,
-  }));
-  expect(owner.windowScrollY, "Safari document scroll must drive document-detail chrome").toBeGreaterThan(120);
-  expect(owner.mainScrollTop, "browser document detail must not retain a competing inner scroller").toBe(0);
-});
+    await expect(composer).toBeVisible({ timeout: 20_000 });
+    await expect(content).toHaveAttribute("data-phone-scroll-owner", expectedOwner);
+    await expect(content).toHaveAttribute("data-phone-footer-owner", "document-viewer");
+    await expect(collapse).toHaveAttribute("data-phone-motion", "overlay");
+    await expect(overlayStack).toHaveCount(1);
+    await expect(documentRow).toBeVisible();
+    await expect(sectionTrack).toBeVisible();
+    await expect
+      .poll(async () => (await readPrimaryScrollAndDomGeometry(page, {})).scroll.owner, {
+        message: `${phoneOwner} document-detail scroll owner`,
+      })
+      .toBe(expectedOwner);
+    await addPhoneScrollRunway(page);
+
+    const visibleGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
+      universalRow: "header#search",
+      documentRow: "[data-document-sticky-header]",
+      sectionTrack: '[data-document-sticky-header] > span[aria-hidden="true"]',
+      content: '[data-testid="document-viewer-content"]',
+    });
+    expect(visibleGeometry.nodes.stack.count).toBe(1);
+    expect(visibleGeometry.nodes.stack.style?.position).toBe(phoneOwner === "browser document" ? "fixed" : "absolute");
+    expect(visibleGeometry.nodes.universalRow.rect?.bottom ?? 0).toBeGreaterThan(1);
+    expect(visibleGeometry.nodes.documentRow.rect?.bottom ?? 0).toBeGreaterThan(1);
+    expect(visibleGeometry.nodes.sectionTrack.rect?.bottom ?? 0).toBeGreaterThan(1);
+
+    // Portaled page-header focus pins the complete stack, matching the shared
+    // header controls and preventing keyboard focus from moving off-screen.
+    await sectionTrigger.focus();
+    await expect(sectionTrigger).toBeFocused();
+    await dragScrollBy(page, 360, 24);
+    await expect(collapse, "focused document header keeps the overlay visible").not.toHaveAttribute(
+      "data-scroll-hidden",
+      "true",
+    );
+    await sectionTrigger.evaluate((element) => element.blur());
+
+    await dragScrollBy(page, 720, 24);
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await expect(overlayStack).toHaveAttribute("data-scroll-hidden", "true");
+    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+
+    const hiddenGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
+      universalRow: "header#search",
+      documentRow: "[data-document-sticky-header]",
+      sectionTrack: '[data-document-sticky-header] > span[aria-hidden="true"]',
+      content: '[data-testid="document-viewer-content"]',
+    });
+    expect(hiddenGeometry.scroll.owner).toBe(expectedOwner);
+    expect(hiddenGeometry.scroll.scrollTop, `${phoneOwner} must drive document-detail chrome`).toBeGreaterThan(120);
+    expect(hiddenGeometry.nodes.universalRow.rect?.bottom ?? 1).toBeLessThanOrEqual(1);
+    expect(hiddenGeometry.nodes.documentRow.rect?.bottom ?? 1).toBeLessThanOrEqual(1);
+    expect(hiddenGeometry.nodes.sectionTrack.rect?.bottom ?? 1).toBeLessThanOrEqual(1);
+    await expect(overlayStack).toHaveCSS("pointer-events", "none");
+    await expect(overlayStack).toHaveCSS("opacity", "0");
+
+    // Trigger reveal, then stop changing the scroll owner. The remaining
+    // transition frames may move only the overlay; the reader and document
+    // anchor must remain fixed.
+    await dragScrollBy(page, -48, 8);
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    const revealFrames = await page.evaluate(async () => {
+      const main = document.getElementById("main-content");
+      const mainOwnsScroll = Boolean(
+        main &&
+        /^(?:auto|scroll|overlay)$/.test(getComputedStyle(main).overflowY) &&
+        main.scrollHeight > main.clientHeight + 1,
+      );
+      const owner = mainOwnsScroll && main ? main : (document.scrollingElement ?? document.documentElement);
+      const stack = document.querySelector<HTMLElement>('.phone-sticky-header-stack[data-phone-motion="overlay"]');
+      const universal = document.querySelector<HTMLElement>("header#search");
+      const documentHeader = document.querySelector<HTMLElement>("[data-document-sticky-header]");
+      const track = documentHeader?.querySelector<HTMLElement>(':scope > span[aria-hidden="true"]') ?? null;
+      const anchor = document.querySelector<HTMLElement>('[data-testid="document-viewer-content"]');
+      if (!stack || !universal || !documentHeader || !track || !anchor) {
+        throw new Error("document overlay geometry nodes were not rendered");
+      }
+      const frames: Array<{
+        scrollTop: number;
+        windowScrollY: number;
+        anchorTop: number;
+        stackHeight: number;
+        stackBottom: number;
+        universalBottom: number;
+        documentBottom: number;
+        trackBottom: number;
+      }> = [];
+      for (let frame = 0; frame < 18; frame += 1) {
+        await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+        frames.push({
+          scrollTop: owner.scrollTop,
+          windowScrollY: window.scrollY,
+          anchorTop: anchor.getBoundingClientRect().top,
+          stackHeight: stack.getBoundingClientRect().height,
+          stackBottom: stack.getBoundingClientRect().bottom,
+          universalBottom: universal.getBoundingClientRect().bottom,
+          documentBottom: documentHeader.getBoundingClientRect().bottom,
+          trackBottom: track.getBoundingClientRect().bottom,
+        });
+      }
+      return frames;
+    });
+    const revealScrollTop = revealFrames[0]?.scrollTop ?? -1;
+    const revealWindowScrollY = revealFrames[0]?.windowScrollY ?? -1;
+    const revealAnchorTop = revealFrames[0]?.anchorTop ?? -1;
+    const stableStackHeight = revealFrames[0]?.stackHeight ?? -1;
+    for (const frame of revealFrames) {
+      expect(frame.scrollTop, "reveal cannot change the settled reading offset").toBeCloseTo(revealScrollTop, 0);
+      expect(frame.windowScrollY, "reveal cannot change window.scrollY").toBeCloseTo(revealWindowScrollY, 0);
+      expect(frame.anchorTop, "reveal cannot move the document/PDF anchor").toBeCloseTo(revealAnchorTop, 0);
+      expect(frame.stackHeight, "overlay stack footprint stays geometrically stable").toBeCloseTo(stableStackHeight, 0);
+    }
+    const revealed = revealFrames.at(-1)!;
+    expect(revealed.universalBottom, "global Documents row returns inside the viewport").toBeGreaterThan(1);
+    expect(revealed.documentBottom, "document title row returns with the global row").toBeGreaterThan(1);
+    expect(revealed.trackBottom, "section track returns with both rows").toBeGreaterThan(1);
+    expect(revealed.stackBottom, "returned stack overlays the document anchor").toBeGreaterThan(revealAnchorTop);
+
+    // The document's own sheet pins its footer and locks the underlying owner;
+    // opening it from the visible header must not release either chrome edge.
+    await sectionTrigger.click();
+    await expect(page.getByTestId("document-section-sheet")).toBeVisible();
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    await page.getByRole("button", { name: "Close section list" }).click();
+    await expect(page.getByTestId("document-section-sheet")).toHaveCount(0);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+    await expect(sectionTrigger).toBeFocused();
+    await sectionTrigger.evaluate((element) => element.blur());
+
+    // Reduced motion removes the transition but retains the out-of-flow
+    // geometry. Prove another hide/reveal cycle cannot displace the reader.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await dragScrollBy(page, -480, 16);
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    await dragScrollBy(page, 720, 24);
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    const reducedHidden = await readPrimaryScrollAndDomGeometry(page, {
+      stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
+      content: '[data-testid="document-viewer-content"]',
+    });
+    await expect(overlayStack).toHaveCSS("transition-property", "none");
+    await dragScrollBy(page, -48, 8);
+    await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
+    const reducedRevealed = await readPrimaryScrollAndDomGeometry(page, {
+      stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
+      content: '[data-testid="document-viewer-content"]',
+    });
+    expect(reducedRevealed.scroll.scrollTop).toBeLessThan(reducedHidden.scroll.scrollTop);
+    expect(reducedRevealed.nodes.stack.rect?.height).toBeCloseTo(reducedHidden.nodes.stack.rect?.height ?? -1, 0);
+    expect(
+      (reducedRevealed.nodes.content.rect?.top ?? 0) - (reducedHidden.nodes.content.rect?.top ?? 0),
+      "reduced-motion reveal moves the anchor only by the intended reverse scroll",
+    ).toBeCloseTo(reducedHidden.scroll.scrollTop - reducedRevealed.scroll.scrollTop, 0);
+  });
+}
 
 test("compiled standalone PWA rules bind full-height footer chrome to the inner scroller", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -1210,15 +1369,17 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
     // pre-fix, a 32px up-drag revealed the chrome (restoring ~180px of
     // geometry under the finger), the next down-drag re-hid it, and so on —
     // the "locks to the bottom" thrash. The collapse-budget gate permits at
-    // most the one legitimate reveal here and refuses to re-hide with no
-    // runway left, so the whole nudge cycle allows a single flip.
+    // most the one legitimate reveal for in-flow chrome and refuses to re-hide
+    // with no runway left. A zero-budget overlay can safely follow all three
+    // deliberate direction changes because it releases no layout geometry.
     for (const nudge of [-32, 48, -32]) {
       await dragScrollBy(page, nudge, 8);
       await page.waitForTimeout(350);
     }
     const flipsAfterNudges = await readFlipCount(page);
+    const allowedNudgeFlips = initial.headerMotion === "overlay" ? 3 : 1;
     expect(flipsAfterNudges - flipsAfterDescent, "bottom-edge nudges must not thrash the chrome").toBeLessThanOrEqual(
-      1,
+      allowedNudgeFlips,
     );
     await page.waitForTimeout(400);
     expect(await readFlipCount(page), "no chrome flips after the nudges settle").toBe(flipsAfterNudges);
@@ -1389,7 +1550,7 @@ for (const { mode, route } of appModeHeaderRoutes) {
   });
 }
 
-for (const { name, route, selector } of pageOwnedHeaderRoutes) {
+for (const { name, route, selector, phoneMotion } of pageOwnedHeaderRoutes) {
   test(`phone ${name} uses the universal collapse owner`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.setViewportSize({ width: 320, height: 720 });
@@ -1409,16 +1570,27 @@ for (const { name, route, selector } of pageOwnedHeaderRoutes) {
     expect(pageHeaderBox!.x + pageHeaderBox!.width, "page header cannot expand past the viewport").toBeLessThanOrEqual(
       320,
     );
+    const visibleCollapseHeight = await collapse.evaluate((element) => element.getBoundingClientRect().height);
+    const safeArea = page.getByTestId("chrome-safe-area-top");
+    const visibleSafeAreaHeight = await safeArea.evaluate((element) => element.getBoundingClientRect().height);
     await addPhoneScrollRunway(page);
 
     await dragScrollBy(page, 720, 24);
     await page.waitForTimeout(500);
 
     await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
-    expect(await collapse.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(1);
-    expect(
-      await page.getByTestId("chrome-safe-area-top").evaluate((element) => element.getBoundingClientRect().height),
-    ).toBeLessThanOrEqual(1);
+    const hiddenCollapseHeight = await collapse.evaluate((element) => element.getBoundingClientRect().height);
+    const hiddenSafeAreaHeight = await safeArea.evaluate((element) => element.getBoundingClientRect().height);
+    if (phoneMotion === "overlay") {
+      expect(hiddenCollapseHeight).toBeCloseTo(visibleCollapseHeight, 0);
+      expect(hiddenSafeAreaHeight).toBeCloseTo(visibleSafeAreaHeight, 0);
+      const overlayStack = page.locator('.phone-sticky-header-stack[data-phone-motion="overlay"]');
+      await expect(overlayStack).toHaveAttribute("data-scroll-hidden", "true");
+      await expect(overlayStack).toHaveCSS("pointer-events", "none");
+    } else {
+      expect(hiddenCollapseHeight).toBeLessThanOrEqual(1);
+      expect(hiddenSafeAreaHeight).toBeLessThanOrEqual(1);
+    }
   });
 }
 

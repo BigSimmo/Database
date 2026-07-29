@@ -2449,6 +2449,10 @@ html[data-motion="reduced"] .pwa-notice-card {
       position: static;
     }
 
+    .phone-sticky-header-stack.phone-overlay-header {
+      position: absolute;
+    }
+
     .phone-footer-layer {
       position: absolute;
     }
