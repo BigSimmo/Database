@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   WEB_VITALS_THRESHOLDS,
   expectedMobileRuns,
+  expectedRuns,
+  incompleteEvidence,
+  missingRuns,
   mobileBreaches,
   renderTable,
   routeSlug,
@@ -79,6 +82,45 @@ describe("mobileBreaches", () => {
     expect(breaches).toHaveLength(1);
     expect(breaches[0].missingReport).toBe(true);
     expect(renderTable([row("desktop-root", 900, 0.005)], "")).not.toContain("Every mobile route is within");
+  });
+});
+
+// #017 asks for reproducible mobile AND desktop evidence, and a run that exits 0
+// is a run whose verdict gets recorded. Both gaps below rendered a clean pass and
+// exited 0 before this: a complete mobile sweep with no desktop reports at all,
+// and a mobile report that exists but carries no LCP/CLS number.
+describe("incompleteEvidence", () => {
+  const allRuns = () => expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+
+  it("is empty when every requested mobile and desktop run reported", () => {
+    expect(incompleteEvidence(allRuns(), DEFAULT_ROUTES)).toEqual([]);
+  });
+
+  it("covers both strategies, so a missing desktop report is incomplete evidence", () => {
+    const mobileOnly = expectedMobileRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    expect(mobileBreaches(mobileOnly, DEFAULT_ROUTES)).toEqual([]); // thresholds all pass
+    expect(missingRuns(mobileOnly, DEFAULT_ROUTES)).toEqual([
+      "desktop-root",
+      "desktop-therapy-compass",
+      "desktop-documents-search",
+      "desktop-dsm",
+      "desktop-forms",
+    ]);
+    expect(incompleteEvidence(mobileOnly, DEFAULT_ROUTES)).toHaveLength(5);
+    expect(renderTable(mobileOnly, DEFAULT_ROUTES)).toContain("Evidence is incomplete");
+  });
+
+  it("treats a present report with no LCP/CLS number as incomplete, not merely a breach", () => {
+    const rows = allRuns().map((r) => (r.run === "mobile-dsm" ? { ...r, lcpMs: null } : r));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm"]);
+  });
+
+  it("does not treat an over-threshold measurement as incomplete evidence", () => {
+    const rows = allRuns().map((r) =>
+      r.run === "mobile-forms" ? { ...r, lcpMs: WEB_VITALS_THRESHOLDS.lcpMs + 1 } : r,
+    );
+    expect(mobileBreaches(rows, DEFAULT_ROUTES).map((b) => b.run)).toEqual(["mobile-forms"]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
   });
 });
 

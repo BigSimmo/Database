@@ -46,12 +46,45 @@ export function routeSlug(route) {
   return trimmed.replace(/^\//, "").replaceAll("/", "-") || "root";
 }
 
-/** The `mobile-<slug>` run names the workflow was asked to produce. */
+/** The strategies the workflow measures. #017 asks for mobile AND desktop evidence. */
+export const WEB_VITALS_STRATEGIES = ["mobile", "desktop"];
+
+/** Every `<strategy>-<slug>` run name the workflow was asked to produce. */
+export function expectedRuns(routes, strategies = WEB_VITALS_STRATEGIES) {
+  const slugs = (Array.isArray(routes) ? routes : String(routes ?? "").split(",")).map(routeSlug).filter(Boolean);
+  return strategies.flatMap((strategy) => slugs.map((slug) => `${strategy}-${slug}`));
+}
+
+/** The `mobile-<slug>` runs — the threshold rule in #017 is graded on mobile only. */
 export function expectedMobileRuns(routes) {
-  return (Array.isArray(routes) ? routes : String(routes ?? "").split(","))
-    .map(routeSlug)
-    .filter(Boolean)
-    .map((slug) => `mobile-${slug}`);
+  return expectedRuns(routes, ["mobile"]);
+}
+
+/**
+ * Requested runs of EITHER strategy that produced no report. The threshold
+ * verdict is mobile-only, but #017 asks for reproducible mobile *and* desktop
+ * evidence (`docs/outstanding-issues.md`), so a run with every mobile report and
+ * no desktop report is not a baseline and must not be reported as one.
+ */
+export function missingRuns(rows, routes) {
+  const seen = new Set(rows.map((row) => row.run));
+  return expectedRuns(routes).filter((run) => !seen.has(run));
+}
+
+/**
+ * Everything that makes the evidence incomplete rather than merely bad: a
+ * requested run with no report at all (either strategy), or a report that
+ * exists but has no LCP/CLS number. Both must fail the step — a breach that is
+ * only rendered in the table still exits 0, and #017 exists precisely because
+ * this repo has acted on unmeasured latency claims before. An over-threshold
+ * number is deliberately NOT here: that is a real measurement and a real
+ * verdict, not missing evidence.
+ */
+export function incompleteEvidence(rows, routes) {
+  const fromBreaches = mobileBreaches(rows, routes)
+    .filter((breach) => breach.missingReport || breach.missingMetric)
+    .map((breach) => breach.run);
+  return [...new Set([...missingRuns(rows, routes), ...fromBreaches])].sort();
 }
 
 /**
@@ -69,7 +102,7 @@ export function mobileBreaches(rows, routes) {
   const expected = expectedMobileRuns(routes);
   const missing = expected
     .filter((run) => !seen.has(run))
-    .map((run) => ({ run, reason: "no Lighthouse report produced", missingReport: true }));
+    .map((run) => ({ run, reason: "no Lighthouse report produced", missingReport: true, missingMetric: false }));
   const failed = present
     .filter(
       (row) =>
@@ -78,11 +111,21 @@ export function mobileBreaches(rows, routes) {
         row.lcpMs >= WEB_VITALS_THRESHOLDS.lcpMs ||
         row.cls >= WEB_VITALS_THRESHOLDS.cls,
     )
-    .map((row) => ({ ...row, reason: "outside the threshold", missingReport: false }));
+    .map((row) => {
+      const missingMetric = row.lcpMs === null || row.cls === null;
+      return {
+        ...row,
+        reason: missingMetric ? "report has no LCP or CLS number" : "outside the threshold",
+        missingReport: false,
+        missingMetric,
+      };
+    });
   // With no expected list to check against, zero mobile reports is still not a
   // pass — never let an all-desktop directory read as "every mobile route ok".
   if (expected.length === 0 && present.length === 0) {
-    return [{ run: "mobile-*", reason: "no mobile Lighthouse report produced", missingReport: true }];
+    return [
+      { run: "mobile-*", reason: "no mobile Lighthouse report produced", missingReport: true, missingMetric: false },
+    ];
   }
   return [...missing, ...failed];
 }
@@ -99,6 +142,7 @@ export function renderTable(rows, routes) {
     ),
   ];
   const breaches = mobileBreaches(rows, routes);
+  const incomplete = incompleteEvidence(rows, routes);
   lines.push("");
   lines.push(
     breaches.length === 0
@@ -110,6 +154,16 @@ export function renderTable(rows, routes) {
           "Only findings on those routes become actionable, ranked by measured contribution. " +
           "A route with no report is a breach, not a pass — rerun it before recording any #017 verdict.",
   );
+  // Stated separately from the threshold verdict: #017 wants mobile AND desktop
+  // evidence, so a missing desktop report invalidates the baseline even when
+  // every mobile route passed its thresholds.
+  if (incomplete.length > 0) {
+    lines.push("");
+    lines.push(
+      `**Evidence is incomplete — ${incomplete.length} requested run(s) produced no usable report: ` +
+        `${incomplete.join(", ")}.** This is not an #017 verdict; rerun before recording anything.`,
+    );
+  }
   return lines.join("\n");
 }
 
@@ -134,9 +188,12 @@ function main() {
   if (process.env.GITHUB_STEP_SUMMARY) {
     writeFileSync(process.env.GITHUB_STEP_SUMMARY, `## Live Web Vitals\n\n${table}\n`, { flag: "a" });
   }
-  const missing = mobileBreaches(rows, routes).filter((breach) => breach.missingReport);
-  if (missing.length > 0) {
-    console.log(`::error::${missing.length} requested mobile route(s) produced no report — evidence is incomplete`);
+  const incomplete = incompleteEvidence(rows, routes);
+  if (incomplete.length > 0) {
+    console.log(
+      `::error::${incomplete.length} requested run(s) produced no usable report — evidence is incomplete: ` +
+        `${incomplete.join(", ")}`,
+    );
     process.exit(1);
   }
 }
