@@ -64,9 +64,11 @@ not follow from that.
   `src/app/api/documents/route.ts:193` are ordering-safe: that path is a user-facing document
   list with no retrieval consequence.
 - The **RAG-path** use of the bare-column trigram indexes is **canary-gated**, or must be preceded
-  by making that `.limit(12)` deterministic with a stable `ORDER BY` — the cheaper fix, since an
-  unordered `LIMIT` is latent nondeterminism regardless of this work. Do not apply on the strength
-  of the retracted claim.
+  by making that `.limit(12)` deterministic with a stable `ORDER BY`. **Note the ordering fix is
+  not itself free:** an unordered `LIMIT` has no stable selection to preserve, so imposing an order
+  can select a different twelve than the database returns today — it is worth doing because
+  unordered `LIMIT` on a retrieval input is latent nondeterminism, but its own recall impact needs
+  validating. Either way, do not apply on the retracted semantics-neutral claim.
 
 Create them outside a transaction:
 
@@ -106,28 +108,45 @@ synchronized `schema.sql` mirror and regenerated drift manifest is what caused P
 closed. That makes authoring the migration a **required part of `#102`**, not an optional extra:
 the runbook below is step one of the sequence, not the whole of it.
 
-### Ordering constraint — do all four steps in one change
+### Ordering constraint — do all five steps in one change
 
-1. Create the indexes concurrently on the live database, and confirm all three are valid.
-2. Mirror the three `create index` statements into `supabase/schema.sql` beside the existing
+1. **Author and commit the idempotent migration** (`create index if not exists`, per the
+   `20260717170000` pattern). Without this the indexes never reach staging, disaster recovery, or
+   a local `supabase db reset`, however carefully the remaining steps are followed.
+2. Create the indexes concurrently on the live database, and confirm all three are valid. The
+   migration's `if not exists` then lands as a no-op there while carrying the lineage everywhere
+   else.
+3. Mirror the three `create index` statements into `supabase/schema.sql` beside the existing
    `documents` indexes.
-3. Regenerate `supabase/drift-manifest.json` with `npm run drift:manifest` (requires Docker).
+4. Regenerate `supabase/drift-manifest.json` with `npm run drift:manifest` (requires Docker).
    `tests/drift-detection.test.ts` pins the manifest to `schema.sql`'s sha256 and fails while it
    is stale.
-4. Only then add `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
+5. Only then add `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
    `documents_status_id_idx` to the `required_indexes` list inside `search_schema_health()`
    (`supabase/schema.sql:3178`).
 
-Step 4 must come last: `search_schema_health()` runs against the live database and reports a
+Step 5 must come last: `search_schema_health()` runs against the live database and reports a
 missing required index as a failure, so registering the names before the indexes exist turns a
-health check red. Equally, shipping step 1 as a migration without steps 2–3 is what caused
-PR #1312 to be closed on 2026-07-28 — an additive index migration with no synchronized
+health check red. Equally, committing the migration (step 1) without carrying steps 3–4 in the same change is what
+caused PR #1312 to be closed on 2026-07-28 — an additive index migration with no synchronized
 schema/drift proof. Expect `npm run check:drift` to report the three indexes as unexpected
-between steps 1 and 2.
+between steps 2 and 3.
 
-Rollback is `DROP INDEX CONCURRENTLY` per index, reversing steps 4 → 1. Nothing reads these
-indexes by name outside `search_schema_health()`, and no query text depends on them, so dropping
-them restores the pre-change plans exactly.
+### Rollback — retract the expectations before dropping the indexes
+
+Reverse the sequence, and **remove the expectations first**. Dropping a physical index while
+`required_indexes` still names it leaves `search_schema_health()` red, and dropping it while
+`schema.sql`/`drift-manifest.json` still describe it fails drift validation:
+
+1. Remove the three names from `required_indexes` in `search_schema_health()`.
+2. Remove the `create index` statements from `supabase/schema.sql` and revert the migration as a
+   new forward migration — never by deleting the applied one.
+3. Regenerate `supabase/drift-manifest.json`.
+4. Deploy those expectation changes.
+5. Only then `DROP INDEX CONCURRENTLY` each index.
+
+Nothing reads these indexes by name outside `search_schema_health()`, and no query text depends on
+them, so once the expectations are retracted the drop restores the pre-change plans exactly.
 
 ## Safe rollback
 
