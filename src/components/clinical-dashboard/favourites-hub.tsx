@@ -212,7 +212,7 @@ export function FavouritesHub({
                 key={stat.label}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
               >
-                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
@@ -250,7 +250,7 @@ export function FavouritesHub({
                 <SelectedTabIcon className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-2xs font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-muted)]">
+                <span className="text-2xs font-bold uppercase leading-none tracking-eyebrow text-[color:var(--text-muted)]">
                   View
                 </span>
                 <span className="truncate text-xs font-bold leading-none text-[color:var(--text-heading)]">

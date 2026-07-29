@@ -23,7 +23,7 @@ import {
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "@/lib/answer-response";
-import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
+import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
@@ -76,37 +76,55 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
+    const authStartedAt = Date.now();
     const access = await publicAccessContext(request, supabase);
+    const authMs = Date.now() - authStartedAt;
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
+    // Admit before scope: resolveSearchScope can enumerate thousands of documents
+    // and labels. Overlapping it with the limiter left that work in flight on 429
+    // (abort cannot undo queries already accepted by PostgREST). Keep the signal
+    // so a client disconnect still cancels scope's paginated queries.
+    const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "answer",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
+    const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
 
+    const scopeStartedAt = Date.now();
     const scope = await resolveSearchScope({
       supabase,
       accessScope,
       documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
       filters: answerBody.filters,
+      signal: request.signal,
     });
+    const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
-      return NextResponse.json({
-        answer: emptyScopeAnswer,
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        degradedMode: answerDegradedModeSignal(),
-        scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
-        ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
-      });
+      const serverTiming = buildServerTimingHeader([
+        ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+        { name: "total", durMs: Date.now() - routeStartedAt },
+      ]);
+      return NextResponse.json(
+        {
+          answer: emptyScopeAnswer,
+          grounded: false,
+          confidence: "unsupported",
+          citations: [],
+          sources: [],
+          degradedMode: answerDegradedModeSignal(),
+          scope: { ...scope, queryMode: answerBody.queryMode },
+          sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+          ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
+        },
+        serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+      );
     }
 
     const singleDocumentScope = Boolean(
@@ -135,9 +153,10 @@ export async function POST(request: Request) {
     });
 
     // Durations only — see server-timing.ts for the trust-boundary constraint.
-    const serverTiming = buildServerTimingHeader(
-      answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
-    );
+    const serverTiming = buildServerTimingHeader([
+      ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+      ...answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
+    ]);
     return NextResponse.json(
       {
         ...governedResponse.payload,

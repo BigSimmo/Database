@@ -84,7 +84,7 @@ export function ClinicalSummaryProfile({ profile }: { profile: ClinicalDocumentS
           shows only the structured detail so the same text is not printed twice. */}
       {sections.map((section) => (
         <section key={section.key} className="border-t border-[color:var(--border)] pt-3">
-          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <h3 className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             {section.label}
           </h3>
           <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]")}>
@@ -151,7 +151,7 @@ export function FormattedHighYieldSummary({
           key={section.id}
           className={cn((leadVisible || index > 0) && "border-t border-[color:var(--border)] pt-3")}
         >
-          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <h3 className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             {section.heading ?? "Key points"}
           </h3>
           <ul className={cn(proseMeasure, "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]")}>
@@ -302,7 +302,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
   );
   return (
     <figure className={cn(sourceCard, "overflow-hidden p-3")}>
-      <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", textMuted)}>
+      <p className={cn("text-xs font-semibold uppercase tracking-eyebrow", textMuted)}>
         page {image.page_number ?? "n/a"}
         {image.image_type ? ` · ${image.image_type.replaceAll("_", " ")}` : ""}
         {image.tableRole ? ` · ${image.tableRole}` : ""}
@@ -383,7 +383,7 @@ export function TableReviewPanel({
               key={fact.id}
               className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <p className="text-xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 Page {fact.page_number ?? "n/a"} · {reviewClass.replaceAll("_", " ")}
               </p>
               <p className="mt-1 text-sm leading-5 text-[color:var(--text)]">{text || "Table fact has no text."}</p>
@@ -895,7 +895,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
                   ) : null}
                 </div>
                 <div className="px-3 pb-3">
-                  <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                     Excerpt
                   </p>
                   {normalizedSearch ? (

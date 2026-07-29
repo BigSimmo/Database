@@ -1304,7 +1304,7 @@ export function DocumentViewer({
             </div>
             {canUseAdministrativeApis ? (
               <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <summary className="cursor-pointer text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Admin controls
                 </summary>
                 <DocumentManagementActions

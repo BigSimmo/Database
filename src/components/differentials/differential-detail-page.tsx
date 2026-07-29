@@ -453,7 +453,7 @@ function RelatedDiagnoses({ record, knownRelatedSlugs }: { record: DifferentialR
   const known = new Set(knownRelatedSlugs);
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Related diagnoses
       </h2>
       <ul className="mt-2 grid gap-1">
@@ -520,7 +520,7 @@ function CurrentPresentation({ record }: { record: DifferentialRecord }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Current presentation
       </h2>
       {view.kind === "grouped" ? (
@@ -570,7 +570,7 @@ function ComparePanel({
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Compare with related diagnoses
       </h2>
       <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]">
@@ -698,7 +698,7 @@ function FooterStatus({
           key={card.title}
           className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
         >
-          <p className="font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{card.title}</p>
+          <p className="font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{card.title}</p>
           <p className={cn("mt-3 font-bold", card.lineClassName)}>{card.line}</p>
           <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{card.detail}</p>
         </div>
@@ -1067,7 +1067,7 @@ export function DifferentialDetailPage({
               <SafetySnapshot record={record} onReviewMustNotMiss={reviewMustNotMiss} />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
-                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                     Clinical review
                   </p>
                   {expandableSectionIds.length > 0 ? (

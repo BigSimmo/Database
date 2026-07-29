@@ -172,7 +172,7 @@ function CandidateHeader({ candidate }: { candidate: CandidateView }) {
         record={candidate.record}
         className="h-5 w-5 text-[color:var(--text-muted)] group-hover:text-[color:var(--clinical-accent)]"
       />
-      <span className="max-w-[7.5rem] text-balance text-xs font-extrabold leading-[0.95rem] text-[color:var(--text-heading)]">
+      <span className="max-w-[7.5rem] text-balance text-xs font-extrabold leading-tight text-[color:var(--text-heading)]">
         {candidate.record.title}
       </span>
       <EmergencyBadge status={candidate.record.status} />
@@ -266,7 +266,7 @@ function DesktopComparisonTable({
                   <td
                     key={`${candidate.record.slug}-${criterion.id}`}
                     className={cn(
-                      "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-2xs font-semibold leading-[1.45] text-[color:var(--text-muted)]",
+                      "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]",
                       !candidate.selected && "text-[color:var(--text-muted)]",
                     )}
                   >
@@ -686,7 +686,7 @@ export function DifferentialPresentationWorkflowPage({
           <section className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="max-w-[58rem] text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:text-2xl-minus xl:leading-[1.2]">
+                <h1 className="max-w-[58rem] text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl xl:text-2xl-minus">
                   {workflow.title}
                 </h1>
                 <EmergencyBadge status={workflow.status} />

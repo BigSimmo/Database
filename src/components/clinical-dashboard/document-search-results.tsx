@@ -165,7 +165,7 @@ function DocumentTagFacetRail({
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
           <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
             <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -181,7 +181,7 @@ function DocumentTagFacetRail({
             const Icon = documentFacetIcons[group];
             return (
               <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   {group}
                 </h3>
@@ -284,14 +284,6 @@ function relevanceTone(document: DocumentMatch) {
     return { label: "Relevant", short: "Relevant", detail: `${percent}% related` };
   }
   return { label: "Related", short: "Related", detail: `${percent}% nearby` };
-}
-
-function sourceSupportLabel(document: DocumentMatch) {
-  const verdict = document.relevance?.verdict as string | undefined;
-  if (verdict === "direct") return "Direct source support";
-  if (verdict === "partial") return "Partial source support";
-  if (verdict === "nearby") return "Nearby source support";
-  return "Source match";
 }
 
 function contextualOpenLabel(document: DocumentMatch) {
@@ -442,111 +434,6 @@ function cautionBadgeLabel(document: DocumentMatch) {
   const missingTerms = document.relevance?.missingTerms?.length ?? 0;
   if (missingTerms > 0) return `${missingTerms} term${missingTerms === 1 ? "" : "s"} nearby`;
   return contextualOpenLabel(document);
-}
-
-function EvidencePanelRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
-      <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
-    </div>
-  );
-}
-
-function SelectedDocumentEvidencePanel({
-  document,
-  query,
-  onScopeDocument,
-  onAnswerFromDocument,
-}: {
-  document: DocumentMatch;
-  query: string;
-  onScopeDocument: (documentId: string) => void;
-  onAnswerFromDocument: (documentId: string) => void;
-}) {
-  const openHref = documentOpenHref(document);
-  const relevanceDisplay = relevanceTone(document);
-  const matchedTerms = document.relevance?.matchedTerms?.slice(0, 5) ?? [];
-  const missingTerms = document.relevance?.missingTerms?.slice(0, 4) ?? [];
-  const evidence = [
-    document.tableCount > 0 ? `${document.tableCount} table${document.tableCount === 1 ? "" : "s"}` : "",
-    document.imageCount > 0 ? `${document.imageCount} image${document.imageCount === 1 ? "" : "s"}` : "",
-    document.file_name.toLowerCase().endsWith(".pdf") ? "PDF text" : documentFileKind(document.file_name, "DOC"),
-  ].filter(Boolean);
-
-  return (
-    <aside
-      aria-label="Selected document evidence"
-      className="sticky top-3 grid gap-3 self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-soft)]"
-    >
-      <div className="flex items-start gap-2">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          <Sparkles className="size-icon-lg" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-            Selected evidence
-          </p>
-          <h3 className="mt-1 line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
-            {documentDisplayTitle(document)}
-          </h3>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/65 p-3">
-        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-          Why this result
-        </p>
-        <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
-          {sourceSupportLabel(document)}. {compactMatchReason(document)}
-        </p>
-        {query.trim() ? (
-          <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
-            Search: {query.trim()}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="grid gap-2">
-        <EvidencePanelRow
-          label="Open target"
-          value={document.bestChunkIds[0] ? `${documentPageLabel(document)} with chunk` : documentPageLabel(document)}
-        />
-        <EvidencePanelRow label="Relevance" value={`${relevanceDisplay.short} - ${relevanceDisplay.detail}`} />
-        <EvidencePanelRow label="Evidence type" value={evidence.length ? evidence.join(", ") : "Indexed text"} />
-        {matchedTerms.length ? <EvidencePanelRow label="Matched terms" value={matchedTerms.join(", ")} /> : null}
-        {missingTerms.length ? <EvidencePanelRow label="Nearby terms" value={missingTerms.join(", ")} /> : null}
-      </div>
-
-      <div className="grid gap-2">
-        <DocumentActionLink
-          href={openHref}
-          className="min-h-tap rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
-          aria-label={`Open exact evidence for ${document.title}`}
-        >
-          Open exact evidence
-        </DocumentActionLink>
-        <div className="grid grid-cols-2 gap-2">
-          <DocumentActionButton
-            onClick={() => onScopeDocument(document.document_id)}
-            icon={Filter}
-            className="min-h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs"
-            aria-label={`Scope search to ${document.title}`}
-          >
-            Scope
-          </DocumentActionButton>
-          <DocumentActionButton
-            onClick={() => onAnswerFromDocument(document.document_id)}
-            icon={Sparkles}
-            className="min-h-tap rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs text-[color:var(--clinical-accent)]"
-            aria-label={`Answer from ${document.title}`}
-          >
-            Answer
-          </DocumentActionButton>
-        </div>
-      </div>
-    </aside>
-  );
 }
 
 export function MatchExplanationChips({ source }: { source: SearchResult }) {
@@ -800,7 +687,6 @@ function DocumentSearchResultsPanelImpl({
   const trimmedQuery = query.trim();
   const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
   const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const activeFacetKeys = useMemo(
     () => (activeFacetState.query === query ? activeFacetState.keys : []),
     [activeFacetState, query],
@@ -822,8 +708,7 @@ function DocumentSearchResultsPanelImpl({
     [displayedMatches, sortValue],
   );
   // Progressive reveal so large libraries do not mount every card on first paint.
-  // Reset the window whenever the sorted result set identity changes (query/filter/sort),
-  // but expand far enough that an explicit selection stays visible in the list.
+  // Reset the window whenever the sorted result set identity changes (query/filter/sort).
   const resultsSignature = [
     trimmedQuery,
     sortValue,
@@ -831,25 +716,16 @@ function DocumentSearchResultsPanelImpl({
     activeFacetKeys.join(","),
     sortedMatches.map((document) => document.document_id).join(","),
   ].join("\0");
-  const selectedIndex = selectedDocumentId
-    ? sortedMatches.findIndex((document) => document.document_id === selectedDocumentId)
-    : -1;
-  const minimumVisibleForSelection =
-    selectedIndex >= 0 ? Math.max(DOCUMENT_RESULTS_INITIAL_WINDOW, selectedIndex + 1) : DOCUMENT_RESULTS_INITIAL_WINDOW;
   const [visibleCountState, setVisibleCountState] = useState({
     signature: resultsSignature,
-    count: minimumVisibleForSelection,
+    count: DOCUMENT_RESULTS_INITIAL_WINDOW,
   });
   if (visibleCountState.signature !== resultsSignature) {
-    setVisibleCountState({ signature: resultsSignature, count: minimumVisibleForSelection });
-  } else if (selectedIndex >= visibleCountState.count) {
-    setVisibleCountState({ signature: resultsSignature, count: selectedIndex + 1 });
+    setVisibleCountState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
   }
   const visibleCount = Math.min(visibleCountState.count, sortedMatches.length);
   const renderedMatches = sortedMatches.slice(0, visibleCount);
   const hasMoreMatches = visibleCount < sortedMatches.length;
-  const selectedDocument =
-    sortedMatches.find((document) => document.document_id === selectedDocumentId) ?? sortedMatches[0] ?? null;
   const recordMatchCount = recordMatches.length;
   const shouldShowHome = showHome || !trimmedQuery;
 
@@ -1022,7 +898,7 @@ function DocumentSearchResultsPanelImpl({
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="grid gap-4">
             <div className="min-w-0 space-y-3">
               {sortedMatches.length === 0 ? (
                 <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
@@ -1035,7 +911,6 @@ function DocumentSearchResultsPanelImpl({
                 const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
                 const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
                 const openHref = documentOpenHref(document);
-                const selected = selectedDocument?.document_id === document.document_id;
                 return (
                   <article
                     key={document.document_id}
@@ -1043,8 +918,6 @@ function DocumentSearchResultsPanelImpl({
                       sourceCard,
                       "content-auto",
                       "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
-                      selected &&
-                        "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
                     )}
                   >
                     <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
@@ -1112,19 +985,6 @@ function DocumentSearchResultsPanelImpl({
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
-                      <DocumentActionButton
-                        onClick={() => setSelectedDocumentId(document.document_id)}
-                        icon={Sparkles}
-                        className={cn(
-                          "min-h-tap rounded-lg px-2.5 text-xs",
-                          selected
-                            ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "text-[color:var(--text)]",
-                        )}
-                        aria-label={`Preview evidence for ${document.title}`}
-                      >
-                        Preview
-                      </DocumentActionButton>
                       <DocumentActionLink
                         href={openHref}
                         className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
@@ -1171,14 +1031,6 @@ function DocumentSearchResultsPanelImpl({
                 </button>
               ) : null}
             </div>
-            {selectedDocument ? (
-              <SelectedDocumentEvidencePanel
-                document={selectedDocument}
-                query={query}
-                onScopeDocument={onScopeDocument}
-                onAnswerFromDocument={onAnswerFromDocument}
-              />
-            ) : null}
           </div>
         </>
       )}
