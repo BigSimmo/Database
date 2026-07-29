@@ -34,6 +34,31 @@ export function buildServerTimingHeader(entries: ServerTimingEntry[]): string | 
   return parts.length ? parts.join(", ") : null;
 }
 
+// Per-request preamble timings: the identity, rate-limit and scope round trips
+// every answer/search request pays before retrieval starts. These are the stages
+// no other telemetry covers — rag_queries only records timings from retrieval
+// onward, so without these the preamble is invisible.
+//
+// On a streaming route only the stages that complete before the response headers
+// flush can be reported here (auth, ratelimit); in-stream stages cannot reach a
+// response header, and routing them through the SSE contract would put
+// instrumentation inside a governed client payload. /api/answer covers the
+// remaining stages over the same resolveSearchScope + RAG path.
+export function preambleServerTimingEntries(timings: {
+  authMs?: number;
+  rateLimitMs?: number;
+  scopeMs?: number;
+}): ServerTimingEntry[] {
+  const entries: ServerTimingEntry[] = [];
+  const push = (name: string, durMs: number | undefined) => {
+    if (typeof durMs === "number" && Number.isFinite(durMs)) entries.push({ name, durMs });
+  };
+  push("auth", timings.authMs);
+  push("ratelimit", timings.rateLimitMs);
+  push("scope", timings.scopeMs);
+  return entries;
+}
+
 // Answer-route timings from RagAnswer.latencyTimings (all values are millisecond
 // durations computed in rag.ts). Missing fields are simply omitted.
 export function answerServerTimingEntries(

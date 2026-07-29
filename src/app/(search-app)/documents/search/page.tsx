@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function DocumentsSearchRoute() {
   return (
     <section className="mx-auto flex min-h-[55dvh] max-w-3xl flex-col items-center justify-center px-4 py-12 text-center">
-      <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+      <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
         Indexed sources
       </p>
       <h1 className="mt-3 text-3xl font-semibold text-[color:var(--text-heading)]">Search clinical documents</h1>

@@ -162,7 +162,7 @@ function DetailTile({ metric }: { metric: MedicationHeroMetric }) {
         <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md border", tone.chip)}>
           <HeroMetricIcon metric={metric} />
         </span>
-        <p className={cn("text-2xs font-semibold uppercase leading-tight tracking-[0.08em]", tone.label)}>
+        <p className={cn("text-2xs font-semibold uppercase leading-tight tracking-eyebrow", tone.label)}>
           {metric.label}
         </p>
       </div>
@@ -302,7 +302,7 @@ function SidebarCard({ title, icon: Icon, children }: { title: string; icon: Luc
 function QuickRefRow({ row }: { row: MedicationQuickRow }) {
   const value = row.value.replace(/\*\*/g, "");
   const label = (
-    <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{row.label}</p>
+    <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{row.label}</p>
   );
 
   if (value.length <= 110) {

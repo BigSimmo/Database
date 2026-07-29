@@ -10,6 +10,28 @@ import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/l
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import "./globals.css";
 
+/**
+ * Origin of the Supabase project, or null when the public env is absent (demo mode).
+ *
+ * AuthProvider calls auth.getUser() on mount, so the very first thing the app does
+ * after hydration is a cross-origin request to this host — and every auth-gated
+ * client fetch queues behind it. Warming DNS/TLS while the document and JS are
+ * still downloading takes that handshake off the critical path.
+ */
+function supabaseOrigin() {
+  // Read process.env directly rather than the `@/lib/env` contract: that module is
+  // `server-only`, and the root layout sits at the head of the client module graph
+  // (tests/client-secret-surface.test.ts guards that boundary). NEXT_PUBLIC_* values
+  // are build-time inlined, so no server contract is needed to read one.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
 const geistSans = localFont({
   src: "../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
   variable: "--font-geist-sans",
@@ -84,6 +106,7 @@ export default async function RootLayout({
   const clinicalTheme = cookieStore.get(THEME_COOKIE_NAME)?.value;
   const isDark = clinicalTheme === "dark";
   const themeClass = isDark ? "dark" : "";
+  const authOrigin = supabaseOrigin();
 
   return (
     <html
@@ -92,6 +115,17 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {/* Rendered in the tree rather than inside a hand-written <head>, which
+            would compete with the framework's own head management. React hoists
+            hoistable <link> tags into <head> for us. crossOrigin is required for
+            the preconnect to be reused by the CORS fetches @supabase/supabase-js
+            makes — without it the browser opens a second connection. */}
+        {authOrigin ? (
+          <>
+            <link rel="preconnect" href={authOrigin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={authOrigin} />
+          </>
+        ) : null}
         {/* Applies the resolved theme before first paint on every route (standalone
             pages don't mount useTheme, and hydration-time toggling flashes light).
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,

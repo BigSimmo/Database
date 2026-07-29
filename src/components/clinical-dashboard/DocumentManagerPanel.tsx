@@ -854,7 +854,7 @@ export function LibraryHealthStrip({
       style={{ containIntrinsicSize: "auto 76px", contentVisibility: "auto" }}
     >
       <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Library health</p>
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Library health</p>
         <span className={cn("text-2xs font-semibold", textMuted)}>Read-only status</span>
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
