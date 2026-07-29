@@ -368,7 +368,7 @@ function PriorityDock() {
               setMore(false);
             }}
             aria-current={active === label ? "page" : undefined}
-            className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-4xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
+            className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-3xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
           >
             <Icon className="size-[18px]" />
             {label === "Why matched" ? "Matched" : label}
@@ -379,7 +379,7 @@ function PriorityDock() {
           onClick={() => setMore((value) => !value)}
           aria-expanded={more}
           aria-current={overflowActive ? "page" : undefined}
-          className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-4xs font-semibold ${more || overflowActive ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
+          className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-3xs font-semibold ${more || overflowActive ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
         >
           <MoreHorizontal className="size-[18px]" />
           More
