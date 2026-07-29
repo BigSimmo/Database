@@ -3,25 +3,36 @@
 import dynamic from "next/dynamic";
 
 import { AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
+import { LoadingPanel } from "@/components/ui-primitives";
+
+// Every surface here is `ssr: false`, so the server sends no markup for it and
+// the slot stays EMPTY until the chunk downloads and executes. Without a
+// `loading` fallback that reads to the user (and to a screen reader) as nothing
+// happening. LoadingPanel carries role="status" + an accessible label, so each
+// slot announces itself while its chunk is in flight.
 
 export const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={6} label="Loading differentials" /> },
 );
 export const FavouritesHub = dynamic(
   () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={5} label="Loading favourites" /> },
 );
 export const MedicationPrescribingWorkspace = dynamic(
   () =>
     import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
       (m) => m.MedicationPrescribingWorkspace,
     ),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => <LoadingPanel variant="skeleton" lines={6} label="Loading prescribing workspace" />,
+  },
 );
 export const DocumentDrawer = dynamic(
   () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
-  { ssr: false },
+  // The drawer mounts on open, so a spinner reads better than a content skeleton.
+  { ssr: false, loading: () => <LoadingPanel label="Loading document tools" /> },
 );
 
 // Results surfaces load lazily. Preload the primary answer surface after hydration so a cold
@@ -34,27 +45,29 @@ export const StagedAnswerResultSurface = dynamic(loadStagedAnswerResultSurface, 
 });
 export const RelatedDocumentsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={3} label="Loading related documents" /> },
 );
 export const DocumentSearchResultsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={5} label="Loading document results" /> },
 );
 
 // Admin/setup tools are rare paths — keep them out of the initial dashboard chunk.
+// All four resolve to the same DocumentManagerPanel module, so whichever mounts
+// first pays for the whole chunk; the fallback covers that wait.
 export const SetupChecklist = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.SetupChecklist),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading setup checklist" /> },
 );
 export const UploadPanel = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.UploadPanel),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading upload panel" /> },
 );
 export const IndexingMonitor = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IndexingMonitor),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading indexing monitor" /> },
 );
 export const IngestionQualityConsole = dynamic(
   () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IngestionQualityConsole),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={4} label="Loading ingestion quality" /> },
 );

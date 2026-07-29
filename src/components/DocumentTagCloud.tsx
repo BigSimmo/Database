@@ -137,7 +137,7 @@ export function DocumentTagCloud({
           const Icon = groupIcon[group];
           return (
             <section key={group} className="min-w-0">
-              <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
                 {group}
               </h3>

@@ -125,8 +125,17 @@ test.describe("Header element overlap coverage", () => {
       await mockDemoDashboard(page);
       await gotoHome(page);
 
-      const report = await collectHeaderOverlaps(page);
-      expect(report.count, "expected at least the mode pill and one control in the header").toBeGreaterThanOrEqual(2);
+      // gotoHome settles on a single visible header, but a later React remount
+      // can detach it again between that settle and this measurement — the
+      // header then has a 0x0 rect, no candidates are collected, and count is 0.
+      // Retry the collection (not the overlap assertion) so a header that never
+      // renders still fails, while a transient remount settles. Without this the
+      // suite fails at a different, arbitrary width on each contended run.
+      let report = await collectHeaderOverlaps(page);
+      await expect(async () => {
+        report = await collectHeaderOverlaps(page);
+        expect(report.count, "expected at least the mode pill and one control in the header").toBeGreaterThanOrEqual(2);
+      }).toPass({ timeout: 15_000 });
       expect(report.overlaps, `overlapping header elements at ${width}px`).toEqual([]);
     });
   }

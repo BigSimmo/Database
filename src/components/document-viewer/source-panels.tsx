@@ -455,6 +455,7 @@ export function DocumentSectionSummary({
   if (!interactive) {
     return (
       <summary
+        key="document-section-summary-static"
         aria-disabled="true"
         tabIndex={-1}
         onClick={(event) => event.preventDefault()}
@@ -470,6 +471,7 @@ export function DocumentSectionSummary({
 
   return (
     <summary
+      key="document-section-summary-interactive"
       onClick={onClick}
       className="flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"
     >
