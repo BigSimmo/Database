@@ -112,7 +112,7 @@ function CompareTray({ horizontal = false }: { horizontal?: boolean }) {
                 aria-hidden="true"
                 className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-[color:var(--clinical-accent)]"
               >
-                <X className="h-3 w-3" />
+                <X aria-hidden="true" className="h-3 w-3" />
               </span>
             </span>
           </li>
@@ -371,7 +371,9 @@ function PhoneFrame({ state }: { state: PhoneState }) {
           blocks={3}
         />
       </div>
-      {expanded ? <span aria-hidden="true" className="absolute inset-0 z-40 bg-[color:var(--text-heading)]/35" /> : null}
+      {expanded ? (
+        <span aria-hidden="true" className="absolute inset-0 z-40 bg-[color:var(--text-heading)]/35" />
+      ) : null}
       {hidden ? null : (
         <div
           className={cn(

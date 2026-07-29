@@ -374,7 +374,10 @@ function MoreSheet({ id, withTherapy }: { id: string; withTherapy: boolean }) {
         aria-label="All therapy destinations"
         className="absolute inset-x-0 bottom-0 z-50 max-h-[78%] overflow-y-auto rounded-t-[1rem] border-t border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-3 pb-4 pt-2 shadow-[var(--shadow-lux)]"
       >
-        <span aria-hidden="true" className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60" />
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-2 block h-1 w-9 rounded-full bg-[color:var(--border-strong)]/60"
+        />
         <GroupedList activeId="brief" withTherapy={withTherapy} />
         {withTherapy ? null : <NoTherapyHint />}
       </div>
