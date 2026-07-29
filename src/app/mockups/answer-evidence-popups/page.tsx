@@ -59,7 +59,7 @@ function Shell({ children }: { children: ReactNode }) {
                 <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
                   <Layers className="h-4 w-4" />
                 </span>
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Clinical KB mockup
                 </p>
               </div>
@@ -72,7 +72,7 @@ function Shell({ children }: { children: ReactNode }) {
               </p>
             </div>
             <div className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                 Design priorities
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -235,7 +235,7 @@ function SourcePreviewPopover() {
     <div className="max-w-xl rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Source preview</p>
+          <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Source preview</p>
           <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
             Check the best passage, status, and source action before opening the PDF.
           </p>
@@ -463,7 +463,7 @@ function QuoteCards() {
           className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Exact quote</p>
+            <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Exact quote</p>
             <Pill>{item === 1 ? "p.12" : "p.14"}</Pill>
           </div>
           <blockquote className="mt-2 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
@@ -715,7 +715,7 @@ export default function AnswerEvidencePopupsMockupPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {["Tables", "Sources", "Images", "Quotes", "PDFs", "Map"].map((tab) => (
               <div key={tab} className="min-w-0">
-                <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="mb-2 text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   {tab} tab
                 </p>
                 <MobileEvidencePanel selected={tab} />

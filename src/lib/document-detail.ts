@@ -36,7 +36,10 @@ const selectedChunkNeighborCount = 3;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const documentDetailProjection =
   "id,owner_id,title,description,file_name,file_type,file_size,storage_path,content_hash,source_path,import_batch_id,status,page_count,chunk_count,image_count,error_message,metadata,created_at,updated_at" as const;
-const tableFactDetailProjection =
+// Matches the TableFactRow DTO in components/document-viewer/types.ts field for
+// field. Selecting these explicitly keeps the generated `search_tsv` tsvector and
+// `owner_id` off the wire; the table-facts route shares it for the same reason.
+export const tableFactDetailProjection =
   "id,document_id,source_image_id,page_number,table_title,row_label,clinical_parameter,threshold_value,action,metadata" as const;
 const documentLabelDetailProjection =
   "id,document_id,owner_id,label,label_type,source,confidence,metadata,created_at,updated_at" as const;

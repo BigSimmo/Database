@@ -170,7 +170,7 @@ export function PatientProfilePanel({
             <span className="text-2xs font-medium text-[color:var(--text-soft)]">Optional</span>
           )}
         </span>
-        <span className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
           {open ? "Hide" : "Edit"}
         </span>
       </summary>

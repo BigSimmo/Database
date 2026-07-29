@@ -3231,7 +3231,7 @@ async function answerQuestionWithScopeUncoalesced(
     ? null
     : await getSharedCachedAnswer(args, startedAt, { indexingVersionAtRequestStart: indexingVersionAtRetrievalStart });
   if (sharedCachedAnswer) {
-    await setCachedAnswer(args, sharedCachedAnswer, { indexingVersionAtRetrievalStart });
+    void setCachedAnswer(args, sharedCachedAnswer, { indexingVersionAtRetrievalStart }).catch(() => undefined);
     const cachedSources = annotateSearchResults(answerFocusQuery, sharedCachedAnswer.sources ?? []);
     const cachedRelevance = sharedCachedAnswer.relevance ?? buildEvidenceRelevance(answerFocusQuery, cachedSources);
     await args.onProgress?.({

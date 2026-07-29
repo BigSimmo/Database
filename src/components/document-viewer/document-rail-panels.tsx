@@ -151,7 +151,7 @@ export function DocumentViewerRail({
                   .slice(0, 6)
                   .map(([key, items]) => (
                     <section key={key} className="border-t border-[color:var(--border)] pt-3">
-                      <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                      <h3 className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                         {key.replaceAll("_", " ")}
                       </h3>
                       <ul
