@@ -6,6 +6,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
+import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
@@ -217,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           clearPersistedAnswerThread();
           clearRecentQueries();
+          clearSignedUrlCache();
           if (callbackError) {
             setError(decodeURIComponent(callbackError));
             setNotice(null);
@@ -249,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         clearPersistedAnswerThread();
         clearRecentQueries();
+        clearSignedUrlCache();
       }
     });
 
@@ -357,6 +360,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await client.auth.signOut();
     clearPersistedAnswerThread();
     clearRecentQueries();
+    clearSignedUrlCache();
     setSession(null);
     setStatus("signed_out");
     setError(null);
@@ -367,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invalidateAuthRequests();
     clearPersistedAnswerThread();
     clearRecentQueries();
+    clearSignedUrlCache();
     setSession(null);
     setStatus("expired");
     setNotice(null);
@@ -387,6 +392,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authFingerprintRef.current === fingerprint) return;
     authFingerprintRef.current = fingerprint;
     invalidateAuthRequests();
+    // Account switch / sign-in / sign-out: drop bearer signed-image URLs bound to
+    // the previous identity so they cannot paint from the module LRU cache.
+    clearSignedUrlCache();
   }, [invalidateAuthRequests, session?.user.id, status]);
 
   const value = useMemo<AuthContextValue>(
