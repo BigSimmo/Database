@@ -156,4 +156,36 @@ describe("auth lifecycle clears signed URL cache", () => {
     await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("expired"));
     expect(getCachedSignedUrl(ENDPOINT)).toBeNull();
   });
+
+  it("clears a mounted signed URL immediately on signOut while the probe stays enabled", async () => {
+    setCachedSignedUrl(ENDPOINT, {
+      url: PRIVATE_URL,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: "Authentication required." }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthProvider>
+        <AuthActions />
+        <SignedImageProbe enabled />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(PRIVATE_URL));
+
+    screen.getByRole("button", { name: "Sign out" }).click();
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed_out"));
+    // Painted URL must drop as soon as the cleared cache forces a refetch path —
+    // not remain on screen until the 401 round-trip finishes.
+    await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(""));
+    expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL);
+    expect(getCachedSignedUrl(ENDPOINT)).toBeNull();
+  });
 });

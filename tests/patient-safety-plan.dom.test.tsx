@@ -53,6 +53,12 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
     expect(screen.getAllByText(/0400 000 000/).length).toBeGreaterThan(0);
 
+    // Date-only edits must not clear the example guard while seeded contacts remain.
+    await user.type(screen.getByLabelText(/Plan date/i), "12 Aug 2026");
+    expect(screen.getByText(examplePattern)).toBeTruthy();
+    expect(screen.queryByText(/^Ready to share$/)).toBeNull();
+    expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
+
     await user.click(screen.getByRole("button", { name: /^Copy$/ }));
     const copied = String(writeText.mock.calls[0]?.[0] ?? "");
     expect(copied).toMatch(exampleExportPattern);
@@ -60,7 +66,7 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     expect(copied.startsWith("*** EXAMPLE")).toBe(true);
   });
 
-  it("returns to draft when a contact has no way to reach them", async () => {
+  it("keeps example mode while seeded rows remain after a partial contact edit", async () => {
     const user = userEvent.setup();
     render(<PatientSafetyPlan />);
 
@@ -68,7 +74,7 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     expect(screen.getByText(examplePattern)).toBeTruthy();
 
     // Rebuild the "People I can ask for help" contact step with a name but no phone.
-    // Editing clears the example flag; incomplete contacts keep the plan a draft.
+    // Other seeded steps still contain SEED rows, so example mode must stay on.
     const supportStep = screen.getByRole("region", { name: "Step 4: People I can ask for help" });
     for (const remove of within(supportStep).getAllByRole("button", { name: /^Remove/ })) {
       await user.click(remove);
@@ -76,7 +82,21 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     await user.type(within(supportStep).getByLabelText("Name & relationship"), "Sam — a friend");
     await user.click(within(supportStep).getByRole("button", { name: /^Add$/ }));
 
-    // A contact with no reach method leaves the plan incomplete → draft again.
+    expect(screen.getByText(examplePattern)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
+  });
+
+  it("marks an incomplete contact plan as a draft once every seeded row is gone", async () => {
+    const user = userEvent.setup();
+    render(<PatientSafetyPlan />);
+
+    await user.click(screen.getByRole("button", { name: /Load example/ }));
+    await user.click(screen.getByRole("button", { name: /Clear all/ }));
+
+    const supportStep = screen.getByRole("region", { name: "Step 4: People I can ask for help" });
+    await user.type(within(supportStep).getByLabelText("Name & relationship"), "Sam — a friend");
+    await user.click(within(supportStep).getByRole("button", { name: /^Add$/ }));
+
     expect(screen.getByText(draftPattern)).toBeTruthy();
     expect(screen.getByRole("button", { name: /Finalise plan/i })).toBeDisabled();
   });

@@ -18,6 +18,15 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const { authorizationHeader, markSessionExpired } = useAuthSession();
+  // Drop painted URLs during render when auth identity changes (sign-out /
+  // expiry / account switch). Auth also clears the module LRU; without this,
+  // mounted consumers keep showing the prior user's URL until refetch settles.
+  const [seenAuthorizationHeader, setSeenAuthorizationHeader] = useState(authorizationHeader);
+  if (authorizationHeader !== seenAuthorizationHeader) {
+    setSeenAuthorizationHeader(authorizationHeader);
+    setUrl(null);
+    setFailed(false);
+  }
 
   useEffect(() => {
     if (!enabled) return () => undefined;

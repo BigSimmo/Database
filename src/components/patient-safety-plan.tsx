@@ -208,7 +208,7 @@ const SEED_REASONS: Entry[] = [
 // Production default: a fresh plan starts blank so no sample/placeholder content
 // (including the non-working example crisis numbers) can reach a printed handover.
 // "Load example" restores SEED for demos/training but keeps the plan non-shareable
-// (example watermark, Finalise disabled) until the clinician edits or clears it.
+// (example watermark, Finalise disabled) until every seeded row is removed/replaced.
 const EMPTY_ENTRIES: Record<StepKey, Entry[]> = {
   warning: [],
   coping: [],
@@ -217,6 +217,20 @@ const EMPTY_ENTRIES: Record<StepKey, Entry[]> = {
   professional: [],
   environment: [],
 };
+
+const SEED_ENTRY_IDS = new Set([
+  ...Object.values(SEED).flatMap((rows) => rows.map((entry) => entry.id)),
+  ...SEED_REASONS.map((entry) => entry.id),
+]);
+
+function planContainsSeedEntries(entries: Record<StepKey, Entry[]>, reasons: Entry[]): boolean {
+  for (const rows of Object.values(entries)) {
+    for (const entry of rows) {
+      if (SEED_ENTRY_IDS.has(entry.id)) return true;
+    }
+  }
+  return reasons.some((entry) => SEED_ENTRY_IDS.has(entry.id));
+}
 
 /* ---------- small building blocks ---------- */
 
@@ -462,37 +476,23 @@ export function PatientSafetyPlan() {
   const [copied, setCopied] = useState(false);
   const [finalised, setFinalised] = useState(false);
   const [draftDirtyByRow, setDraftDirtyByRow] = useState<Record<string, boolean>>({});
-  // SEED includes non-working crisis numbers. Keep example-loaded content
-  // non-shareable until the clinician edits (or clears) so sample numbers
-  // cannot reach a printed/finalised patient handover unmarked.
-  const [exampleActive, setExampleActive] = useState(false);
-
   // Per-instance id counter — avoids a module-level mutable that would persist
   // across remounts; ids only need to be unique within this mounted plan.
   const uidRef = useRef(0);
   const uid = useCallback((prefix: string) => `${prefix}-live-${uidRef.current++}`, []);
 
-  const markEditedAwayFromExample = useCallback(() => {
-    setExampleActive(false);
-  }, []);
-
   const addEntry = useCallback(
     (key: StepKey, primary: string, secondary?: string) => {
       setEntries((prev) => ({ ...prev, [key]: [...prev[key], { id: uid(key), primary, secondary }] }));
       setFinalised(false);
-      markEditedAwayFromExample();
     },
-    [markEditedAwayFromExample, uid],
+    [uid],
   );
 
-  const removeEntry = useCallback(
-    (key: StepKey, id: string) => {
-      setEntries((prev) => ({ ...prev, [key]: prev[key].filter((entry) => entry.id !== id) }));
-      setFinalised(false);
-      markEditedAwayFromExample();
-    },
-    [markEditedAwayFromExample],
-  );
+  const removeEntry = useCallback((key: StepKey, id: string) => {
+    setEntries((prev) => ({ ...prev, [key]: prev[key].filter((entry) => entry.id !== id) }));
+    setFinalised(false);
+  }, []);
 
   const setDraftDirty = useCallback((key: string, dirty: boolean) => {
     setDraftDirtyByRow((prev) => {
@@ -502,6 +502,9 @@ export function PatientSafetyPlan() {
   }, []);
 
   const filledSteps = useMemo(() => STEPS.filter((step) => isStepComplete(step, entries[step.key])).length, [entries]);
+  // SEED includes non-working crisis numbers. Stay in example mode while any
+  // seeded row remains so a date-only edit cannot make fake contacts printable.
+  const exampleActive = planContainsSeedEntries(entries, reasons);
   const stepsComplete = filledSteps === STEPS.length;
   const ready = stepsComplete && !exampleActive;
   // Working plan content is browser-tab only and never persisted. Treat any
@@ -572,7 +575,6 @@ export function PatientSafetyPlan() {
     // Clear the plan date so example content cannot look like a current handover.
     setPlanDate("");
     setFinalised(false);
-    setExampleActive(true);
   };
 
   const clearAll = () => {
@@ -580,7 +582,6 @@ export function PatientSafetyPlan() {
     setReasons([]);
     setPlanDate("");
     setFinalised(false);
-    setExampleActive(false);
   };
 
   return (
@@ -750,7 +751,6 @@ export function PatientSafetyPlan() {
                 onChange={(event) => {
                   setPlanDate(event.target.value);
                   setFinalised(false);
-                  markEditedAwayFromExample();
                 }}
                 placeholder="e.g. 12 Aug 2026"
                 className={fieldControlPlain}
@@ -801,7 +801,6 @@ export function PatientSafetyPlan() {
                       onClick={() => {
                         setReasons((prev) => prev.filter((item) => item.id !== reason.id));
                         setFinalised(false);
-                        markEditedAwayFromExample();
                       }}
                       aria-label={`Remove “${reason.primary}”`}
                       className={cn(
@@ -823,7 +822,6 @@ export function PatientSafetyPlan() {
                 setReasons((prev) => [...prev, { id: uid("reason"), primary }]);
                 setDraftDirty("reason", false);
                 setFinalised(false);
-                markEditedAwayFromExample();
               }}
             />
           </section>
