@@ -88,29 +88,33 @@ export function ScopeAndGovernanceNotice({
     scope?.matchedDocumentCount === 0;
   if (!showScope && groupedWarnings.length === 0) return null;
   return (
-    <div className="space-y-1.5 rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 px-2.5 py-2 text-xs text-[color:var(--text)]">
+    <div className="space-y-1.5 rounded-lg border border-[color:var(--warning)]/15 border-l-2 border-l-[color:var(--warning)]/75 bg-[color:var(--warning-soft)]/20 px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
       {showScope && scope ? (
-        <p className="font-semibold leading-5">
+        <p className="font-medium leading-5 text-[color:var(--text)]">
           Scope: {scope.summary}
           {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
         </p>
       ) : null}
       {scope?.warnings?.length ? (
-        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-1 text-2xs font-medium leading-4 text-[color:var(--warning)]">
           {scope.warnings.slice(0, 3).map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
         </ul>
       ) : null}
       {groupedWarnings.length ? (
-        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-1 text-2xs font-normal leading-4 text-[color:var(--text-muted)]">
           {groupedWarnings.map((warning) => (
             <li key={warning.code}>
               {warning.message}
               {warning.titles.length ? (
-                <details className="mt-0.5 font-normal text-[color:var(--text-muted)]">
-                  <summary className="cursor-pointer">Sources affected</summary>
-                  <span className="mt-0.5 block">{warning.titles.slice(0, 5).join(", ")}</span>
+                <details className="mt-0.5 text-[color:var(--text-soft)]">
+                  <summary className="cursor-pointer font-medium hover:text-[color:var(--text-muted)]">
+                    Sources affected
+                  </summary>
+                  <span className="mt-1 block leading-4 text-[color:var(--text-muted)]">
+                    {warning.titles.slice(0, 5).join(", ")}
+                  </span>
                 </details>
               ) : null}
             </li>
