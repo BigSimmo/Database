@@ -3645,9 +3645,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const openDocumentActions = page.getByRole("button", { name: "Open document actions" }).first();
     await scrollPrimarySurface(page, 0);
     await expect(openDocumentActions).toBeInViewport();
+    await expect(openDocumentActions).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("link", { name: "Add this document to scope" })).toHaveCount(0);
     await openDocumentActions.click();
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await expect(documentActions).toBeVisible();
+    await expect(openDocumentActions).toHaveAttribute("aria-expanded", "true");
+    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toBeVisible();
+    const composer = page.locator("form.document-viewer-composer");
+    const composerBox = await composer.boundingBox();
+    expect(composerBox).not.toBeNull();
+    const sheetOwnsComposerPoint = await documentActions.evaluate(
+      (dialog, point) => dialog.contains(document.elementFromPoint(point.x, point.y)),
+      { x: composerBox!.x + composerBox!.width / 2, y: composerBox!.y + composerBox!.height / 2 },
+    );
+    expect(sheetOwnsComposerPoint).toBe(true);
     await tapOutsideActiveSurface(page);
     await expect(documentActions).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
