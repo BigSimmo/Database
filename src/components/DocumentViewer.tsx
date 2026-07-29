@@ -8,13 +8,14 @@ import {
   ArrowLeft,
   ChevronDown,
   Download,
+  Ellipsis,
   ExternalLink,
+  FilePlus2,
+  FileText,
   Loader2,
-  Plus,
   RefreshCw,
   Search,
   Sparkles,
-  Target,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
@@ -88,6 +89,8 @@ import {
 } from "@/components/document-viewer/section-nav";
 import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
 import { useDocumentChromeMetrics } from "@/components/document-viewer/use-document-chrome-metrics";
+import { useDocumentViewDensity } from "@/components/document-viewer/use-document-view-density";
+import { usePrintableDisclosures } from "@/components/document-viewer/use-printable-disclosures";
 
 // pdf-canvas-viewer is only needed after a source document has loaded and the
 // user is viewing a PDF. Keeping it out of the document route's initial client
@@ -191,39 +194,7 @@ export function DocumentViewer({
     },
     [activePage, documentId],
   );
-  useEffect(() => {
-    const previousOpenStates = new Map<HTMLDetailsElement, boolean>();
-    const expandPrintableDisclosures = () => {
-      if (previousOpenStates.size) return;
-      previousOpenStates.clear();
-      const printable = window.document.querySelectorAll<HTMLDetailsElement>("details.source-print");
-      window.document
-        .querySelectorAll<HTMLDetailsElement>('details.source-print, details[name="document-viewer-section"]')
-        .forEach((disclosure) => {
-          previousOpenStates.set(disclosure, disclosure.open);
-        });
-      printable.forEach((disclosure) => {
-        disclosure.open = true;
-      });
-    };
-    const restorePrintableDisclosures = () => {
-      const connected = [...previousOpenStates].filter(([disclosure]) => disclosure.isConnected);
-      connected.forEach(([disclosure]) => {
-        disclosure.open = false;
-      });
-      connected.forEach(([disclosure, wasOpen]) => {
-        if (wasOpen) disclosure.open = true;
-      });
-      previousOpenStates.clear();
-    };
-    window.addEventListener("beforeprint", expandPrintableDisclosures);
-    window.addEventListener("afterprint", restorePrintableDisclosures);
-    return () => {
-      restorePrintableDisclosures();
-      window.removeEventListener("beforeprint", expandPrintableDisclosures);
-      window.removeEventListener("afterprint", restorePrintableDisclosures);
-    };
-  }, []);
+  usePrintableDisclosures();
   const [document, setDocument] = useState<ClinicalDocument | null>(() => initialDetail?.document ?? null);
   const [pages, setPages] = useState<PageRow[]>(() => initialDetail?.pages ?? []);
   const [images, setImages] = useState<ImageRow[]>(() => initialDetail?.images ?? []);
@@ -265,6 +236,7 @@ export function DocumentViewer({
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
+  const [compactView, setCompactView] = useDocumentViewDensity();
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -941,11 +913,6 @@ export function DocumentViewer({
       : viewerState === "loading"
         ? "Document"
         : "Source unavailable";
-  const headerSubtitle = readyDocument
-    ? `page ${activePage} · ${readyDocument.file_name}`
-    : viewerState === "loading"
-      ? `page ${activePage} · loading source`
-      : (effectiveViewerError ?? "Source unavailable");
   const documentHomeHref = "/?mode=documents";
   const scopedDocumentHref = readyDocument
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
@@ -1162,22 +1129,17 @@ export function DocumentViewer({
                 {headerTitle}
               </h1>
             )}
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              <Link
-                href={scopedDocumentHref}
-                className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
-                aria-label="Add this document to scope"
-                title={headerSubtitle}
-              >
-                <Target aria-hidden="true" className="h-5 w-5" />
-              </Link>
+            <div className="ml-auto flex shrink-0 items-center">
               <button
                 type="button"
                 onClick={() => setMobileActionsOpen(true)}
-                className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                className="grid h-tap w-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label="Open document actions"
+                aria-haspopup="dialog"
+                aria-expanded={mobileActionsOpen}
+                title="Document actions"
               >
-                <Plus aria-hidden="true" className="h-5 w-5" />
+                <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
               </button>
             </div>
           </div>
@@ -1192,17 +1154,27 @@ export function DocumentViewer({
         onSelect={jumpToSection}
         documentTitle={headerTitle}
         returnFocusRef={sectionTriggerRef}
+        compact={compactView}
+        onCompactChange={setCompactView}
       />
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
           onClose={() => setMobileActionsOpen(false)}
           title="This document"
-          description="Search, answer, open, or scope this document."
+          description="Choose how to use this source."
           closeLabel="Close document actions"
+          portal
+          testId="document-actions-sheet"
+          contentClassName="max-sm:min-h-[min(36rem,calc(100dvh-1rem))] sm:max-w-xl"
+          headerLeading={
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <FileText aria-hidden="true" className="h-5 w-5" />
+            </span>
+          }
         >
-          <div className="space-y-3 pb-2">
-            <section className={cn(sourceCard, "p-3")}>
+          <div className="space-y-4 pb-1">
+            <section className={cn(sourceCard, "p-4")}>
               <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">
                 {documentDisplayTitle(readyDocument)}
               </p>
@@ -1211,7 +1183,7 @@ export function DocumentViewer({
                 {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
               </div>
             </section>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1220,9 +1192,11 @@ export function DocumentViewer({
                     window.requestAnimationFrame(() => sourceSearchInputRef.current?.focus());
                   });
                 }}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                <Search aria-hidden="true" className="h-4 w-4" />
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  <Search aria-hidden="true" className="h-4 w-4" />
+                </span>
                 Search in document
               </button>
               <button
@@ -1233,13 +1207,15 @@ export function DocumentViewer({
                 }}
                 disabled={!canSummarizeDocument}
                 title={summarizeTitle}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                {loadingSummary ? (
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles aria-hidden="true" className="h-4 w-4" />
-                )}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  {loadingSummary ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles aria-hidden="true" className="h-4 w-4" />
+                  )}
+                </span>
                 Answer from this
               </button>
               {signedUrl ? (
@@ -1248,18 +1224,22 @@ export function DocumentViewer({
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => setMobileActionsOpen(false)}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                  className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
                 >
-                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  </span>
                   Open original PDF
                 </a>
               ) : (
                 <a
                   href="#pdf-preview-section"
                   onClick={() => setMobileActionsOpen(false)}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                  className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
                 >
-                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  </span>
                   Open original PDF
                 </a>
               )}
@@ -1270,13 +1250,15 @@ export function DocumentViewer({
                   void openSourceDownload();
                 }}
                 disabled={downloadingSource}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                {downloadingSource ? (
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download aria-hidden="true" className="h-4 w-4" />
-                )}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                  {downloadingSource ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download aria-hidden="true" className="h-4 w-4" />
+                  )}
+                </span>
                 {downloadingSource ? "Preparing PDF" : "Download PDF"}
               </button>
               <button
@@ -1285,9 +1267,11 @@ export function DocumentViewer({
                   setMobileActionsOpen(false);
                   router.push(scopedDocumentHref);
                 }}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                <Target aria-hidden="true" className="h-4 w-4" />
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                  <FilePlus2 aria-hidden="true" className="h-4 w-4" />
+                </span>
                 Add to scope
               </button>
             </div>
@@ -1319,6 +1303,7 @@ export function DocumentViewer({
           composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
         }
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
+        data-document-view={compactView ? "condensed" : "full"}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
@@ -1389,6 +1374,7 @@ export function DocumentViewer({
               onDownload={() => void openSourceDownload()}
               downloading={downloadingSource}
               canSummarizeDocument={canSummarizeDocument}
+              compact={compactView}
             />
           </div>
         ) : null}
@@ -1550,6 +1536,7 @@ export function DocumentViewer({
               sectionId="source-text"
               selectedChunkId={activeChunkId}
               onSearchChange={setSourceSearch}
+              compact={compactView}
             />
           </div>
         </div>
@@ -1559,6 +1546,8 @@ export function DocumentViewer({
           documentSections={documentSections}
           activeSectionId={activeSectionId}
           onSelectSection={jumpToSection}
+          compact={compactView}
+          onCompactChange={setCompactView}
           indexWarnings={indexWarnings}
           effectiveLoadingDocument={effectiveLoadingDocument}
           selectedChunk={selectedChunk}
@@ -1604,8 +1593,11 @@ export function DocumentViewer({
               onClick={() => setMobileActionsOpen(true)}
               className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
               aria-label="Open document actions"
+              aria-haspopup="dialog"
+              aria-expanded={mobileActionsOpen}
+              title="Document actions"
             >
-              <Plus aria-hidden="true" className="h-5 w-5" />
+              <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
             </button>
             <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
               <span className="sr-only">Search within this document</span>
