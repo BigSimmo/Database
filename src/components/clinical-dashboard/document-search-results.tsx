@@ -762,7 +762,7 @@ function DocumentSearchResultsPanelImpl({
     (unavailableMessage && !shouldShowHome);
 
   return (
-    <div data-testid="document-search-workspace" className="w-full space-y-3">
+    <div data-testid="document-search-workspace" className="w-full space-y-2.5 sm:space-y-3">
       {showIdentityHeader ? (
         <SearchResultsHeaderBand
           modeId={showRecordMatches ? recordMode : "documents"}
@@ -898,8 +898,8 @@ function DocumentSearchResultsPanelImpl({
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
-          <div className="grid gap-4">
-            <div className="min-w-0 space-y-3">
+          <div className="grid gap-3 sm:gap-4">
+            <div className="min-w-0 space-y-2.5 sm:space-y-3">
               {sortedMatches.length === 0 ? (
                 <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
                   No document matches include all selected filters.
@@ -920,12 +920,12 @@ function DocumentSearchResultsPanelImpl({
                       "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
                     )}
                   >
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
                       <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
                       <div className="min-w-0">
                         <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
+                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-medium uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
                               <span>{documentKindLabel(document)}</span>
                               {index === 0 ? (
                                 <>
@@ -933,23 +933,23 @@ function DocumentSearchResultsPanelImpl({
                                     className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
                                     aria-hidden="true"
                                   />
-                                  <span className="text-[color:var(--clinical-accent)]">Best match</span>
+                                  <span className="font-semibold text-[color:var(--clinical-accent)]">Best match</span>
                                 </>
                               ) : null}
                             </p>
                             <a
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7 sm:text-base sm:leading-6"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </a>
                           </div>
                         </div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        <div className="mt-1 flex flex-wrap gap-1.5 sm:mt-1.5">
                           <DocumentBadge
                             variant={relevanceVariant}
                             icon={Target}
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
+                            className="min-h-6 rounded-md px-2 text-2xs [font-weight:500] sm:min-h-7 sm:rounded-lg sm:px-2.5"
                           >
                             {relevanceDisplay.short}
                             <span className="sr-only">, {relevanceDisplay.detail}</span>
@@ -957,7 +957,7 @@ function DocumentSearchResultsPanelImpl({
                           <DocumentBadge
                             variant="neutral"
                             icon={BookOpen}
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
+                            className="min-h-6 rounded-md px-2 text-2xs [font-weight:500] sm:min-h-7 sm:rounded-lg sm:px-2.5"
                           >
                             {metadataBadgeLabel(document)}
                           </DocumentBadge>
@@ -966,12 +966,12 @@ function DocumentSearchResultsPanelImpl({
                             icon={
                               document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
                             }
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
+                            className="min-h-6 rounded-md px-2 text-2xs [font-weight:500] sm:min-h-7 sm:rounded-lg sm:px-2.5"
                           >
                             {cautionBadgeLabel(document)}
                           </DocumentBadge>
                         </div>
-                        <p className={cn("mt-1.5 line-clamp-2 text-sm leading-6", textMuted)}>
+                        <p className={cn("mt-1.5 line-clamp-2 text-sm-minus font-normal leading-5", textMuted)}>
                           <SafeBoldText text={summaryText} />
                         </p>
                         <DocumentTagCloud
@@ -979,15 +979,18 @@ function DocumentSearchResultsPanelImpl({
                           query={query}
                           limit={2}
                           compact
-                          className="mt-2"
+                          className="mt-1.5 sm:mt-2"
                           onTagClick={onTagSearch}
                         />
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
+                    <div
+                      data-testid="document-result-actions"
+                      className="grid grid-cols-3 items-stretch border-t border-[color:var(--border)] px-1 sm:flex sm:flex-wrap sm:items-center sm:gap-1 sm:px-3 sm:py-1.5"
+                    >
                       <DocumentActionLink
                         href={openHref}
-                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
                         aria-label={`Open ${document.title}`}
                       >
                         {contextualOpenLabel(document)}
@@ -995,7 +998,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onScopeDocument(document.document_id)}
                         icon={Filter}
-                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
                         aria-label={`Scope search to ${document.title}`}
                       >
                         Scope
@@ -1003,7 +1006,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onAnswerFromDocument(document.document_id)}
                         icon={Sparkles}
-                        className="ml-auto min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--clinical-accent)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] hover:bg-[color:var(--clinical-accent-soft)] [&_svg]:size-icon-sm sm:ml-auto sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
                         aria-label={`Answer from ${document.title}`}
                       >
                         Answer
