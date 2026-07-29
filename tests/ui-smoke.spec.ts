@@ -41,6 +41,12 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function revealPhoneHeaderControl(page: Page, control: Locator) {
+  const { scrollTop } = await readPrimaryScrollGeometry(page);
+  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  await expect(control).toBeInViewport();
+}
+
 async function installClipboardMock(page: Page) {
   await page.addInitScript(() => {
     let clipboardText = "";
@@ -3289,6 +3295,54 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
+    // Phone actions share the card width evenly, then become a natural toolbar
+    // from tablet upward. Keep the production result card inside every viewport
+    // used by the design workflow and prove the quieter action typography.
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expectNoPageHorizontalOverflow(page);
+      const actionGeometry = await documentResults.getByTestId("document-result-actions").evaluate((rail) => {
+        const railStyle = getComputedStyle(rail);
+        const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
+        const firstActionStyle = getComputedStyle(rail.children[0]);
+        const card = rail.closest("article")?.getBoundingClientRect();
+        return {
+          display: railStyle.display,
+          widths,
+          actionFontSize: firstActionStyle.fontSize,
+          actionFontWeight: firstActionStyle.fontWeight,
+          actionDirection: firstActionStyle.flexDirection,
+          cardLeft: card?.left ?? 0,
+          cardRight: card?.right ?? 0,
+          viewportWidth: window.innerWidth,
+        };
+      });
+      expect(actionGeometry.cardLeft).toBeGreaterThanOrEqual(0);
+      expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
+      if (width < 640) {
+        expect(actionGeometry.display).toBe("grid");
+        expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
+        expect(actionGeometry.actionFontSize).toBe("11px");
+        expect(actionGeometry.actionDirection).toBe("column");
+        for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
+          await expectMinTouchTarget(action, 48);
+        }
+      } else {
+        expect(actionGeometry.display).toBe("flex");
+        expect(actionGeometry.actionFontSize).toBe("12px");
+        expect(actionGeometry.actionDirection).toBe("row");
+      }
+      expect(actionGeometry.actionFontWeight).toBe("500");
+    }
+    await page.setViewportSize({ width: 390, height: 820 });
+    const openResultLink = documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i });
+    await openResultLink.focus();
+    await expect(openResultLink).toBeFocused();
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(documentResults.getByTestId("document-result-actions")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    await page.emulateMedia({ forcedColors: "none" });
+
     if ((await mobileTypeFilter.locator('option[value="tables"]').count()) > 0) {
       await mobileTypeFilter.selectOption("tables");
       await expect(mobileTypeFilter).toHaveValue("tables");
@@ -3556,6 +3610,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // retired in-flow "Document viewer sections" link row.
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const openSection = async (label: RegExp) => {
+      await revealPhoneHeaderControl(page, sectionTrigger);
       await sectionTrigger.click();
       const sheet = page.getByTestId("document-section-sheet");
       await expect(sheet).toBeVisible();
@@ -3572,6 +3627,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
     await expect(sectionTrigger).toBeVisible();
+    await revealPhoneHeaderControl(page, sectionTrigger);
     await sectionTrigger.click();
     const sectionSheet = page.getByTestId("document-section-sheet");
     await expect(sectionSheet.getByRole("button", { name: /Pinned evidence/ })).toBeVisible();
@@ -3759,6 +3815,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const indexingDetails = page.getByTestId("indexing-details");
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const clickSectionNav = async (label: RegExp) => {
+      await revealPhoneHeaderControl(page, sectionTrigger);
       await sectionTrigger.click();
       const sheet = page.getByTestId("document-section-sheet");
       await expect(sheet).toBeVisible();
