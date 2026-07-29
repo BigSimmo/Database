@@ -849,13 +849,7 @@ function DocumentSearchResultsPanelImpl({
       ) : null}
 
       {!showRecordMatches && trimmedQuery && !shouldShowHome ? (
-        <ScopeAndGovernanceNotice
-          scope={searchScope}
-          // Document results intentionally suppress warning/info banners (review-due,
-          // unverified, etc.) that crowded phones; keep danger-class notices so
-          // outdated / poor-extraction sources still warn before Open/Scope/Answer.
-          warnings={sourceGovernanceWarnings.filter((warning) => warning.severity === "danger")}
-        />
+        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
       ) : null}
 
       {showRecordMatches ? (

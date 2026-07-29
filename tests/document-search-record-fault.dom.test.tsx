@@ -88,32 +88,7 @@ describe("document search record path fault reporting", () => {
     expect(screen.getByText(/Loading your services registry/i)).toBeInTheDocument();
   });
 
-  it("keeps document results free of the selected-evidence panel and non-danger governance banners", () => {
-    render(
-      <DocumentSearchResultsPanel
-        {...baseProps}
-        matches={[lithiumMatch]}
-        recordMatches={[]}
-        showRecordMatches={false}
-        query="lithium"
-        sourceGovernanceWarnings={[
-          {
-            code: "review_due_source",
-            severity: "warning",
-            message: "One or more supporting sources are due for review.",
-            title: lithiumMatch.title,
-          },
-        ]}
-      />,
-    );
-
-    expect(screen.getByText(lithiumMatch.title)).toBeInTheDocument();
-    expect(screen.queryByRole("complementary", { name: "Selected document evidence" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Preview evidence/i })).toBeNull();
-    expect(screen.queryByText("1 source due for review.")).toBeNull();
-  });
-
-  it("still surfaces danger-class source warnings on document results", () => {
+  it("keeps document results free of the selected-evidence panel while governance warnings remain", () => {
     render(
       <DocumentSearchResultsPanel
         {...baseProps}
@@ -138,8 +113,11 @@ describe("document search record path fault reporting", () => {
       />,
     );
 
+    expect(screen.getAllByText(lithiumMatch.title).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("complementary", { name: "Selected document evidence" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Preview evidence/i })).toBeNull();
     expect(screen.getByText("1 source marked outdated.")).toBeInTheDocument();
-    expect(screen.queryByText("1 source due for review.")).toBeNull();
+    expect(screen.getByText("1 source due for review.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: `Open ${lithiumMatch.title}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `Scope search to ${lithiumMatch.title}` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `Answer from ${lithiumMatch.title}` })).toBeInTheDocument();
