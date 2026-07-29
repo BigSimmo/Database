@@ -18,10 +18,14 @@ export default function NotFound() {
           <div className="min-w-0">
             <h1 className="text-base font-semibold text-[color:var(--text)]">Document Not Found</h1>
             <p className="mt-1 leading-6 text-[color:var(--text-muted)]">
-              The requested document could not be found or has been deleted.
+              This document is unavailable. It may be private (sign in from the header if you have access), missing, or
+              removed.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link href={appModeHomeHref("documents")} className="text-sm font-medium text-blue-600 hover:underline">
+              <Link
+                href={appModeHomeHref("documents")}
+                className="text-sm font-medium text-[color:var(--clinical-accent)] hover:underline"
+              >
                 Return to document library
               </Link>
             </div>
