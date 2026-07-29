@@ -168,6 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<string | null>(null);
   const authRequestsRef = useRef(createAuthRequestLifecycle());
   const authFingerprintRef = useRef<string | null>(null);
+  // Tracks the user id last published into context so onAuthStateChange can
+  // clear identity-bound caches *before* setSession on account switch.
+  const publishedUserIdRef = useRef<string | null>(null);
   const [authEpoch, setAuthEpoch] = useState(0);
 
   const invalidateAuthRequests = useCallback(() => {
@@ -210,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session: sessionResult.data.session,
           verificationUnavailable,
         });
+        publishedUserIdRef.current = resolved.session?.user?.id ?? null;
         setSession(resolved.session);
         setStatus(resolved.status);
         if (resolved.status === "authenticated") {
@@ -243,15 +247,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // transitions and are trusted. Supabase warns against awaiting other auth calls
       // inside this callback, so validation stays in initializeSession, not here.
       if (event === "INITIAL_SESSION") return;
+      const nextUserId = nextSession?.user?.id ?? null;
+      // Clear identity-bound caches before publishing the new session. Child
+      // effects run before the parent fingerprint effect; without this, an
+      // account-switch SIGNED_IN can let mounted signed-image hooks re-paint
+      // the previous user's still-cached URL via requestAnimationFrame.
+      if (publishedUserIdRef.current !== nextUserId) {
+        clearPersistedAnswerThread();
+        clearRecentQueries();
+        clearSignedUrlCache();
+      }
+      publishedUserIdRef.current = nextUserId;
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
       if (nextSession) {
         setError(null);
         setNotice(null);
-      } else {
-        clearPersistedAnswerThread();
-        clearRecentQueries();
-        clearSignedUrlCache();
       }
     });
 
@@ -361,6 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
     setError(null);
@@ -372,6 +384,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");
     setNotice(null);

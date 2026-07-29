@@ -188,4 +188,50 @@ describe("auth lifecycle clears signed URL cache", () => {
     expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL);
     expect(getCachedSignedUrl(ENDPOINT)).toBeNull();
   });
+
+  it("account switch clears cache before child effects can repaint the prior identity", async () => {
+    setCachedSignedUrl(ENDPOINT, {
+      url: PRIVATE_URL,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    });
+
+    const userBUrl = "https://example.supabase.co/storage/v1/object/sign/private.png?token=user-b";
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: userBUrl }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthProvider>
+        <AuthActions />
+        <SignedImageProbe enabled />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("authenticated"));
+    await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(PRIVATE_URL));
+
+    const userBSession = {
+      access_token: "user-b-token",
+      refresh_token: "refresh-b",
+      expires_in: 3600,
+      token_type: "bearer",
+      user: { id: "user-b" },
+    };
+    for (const listener of authApi.listeners) listener("SIGNED_IN", userBSession);
+
+    await waitFor(() => expect(getCachedSignedUrl(ENDPOINT)).toBeNull());
+    await waitFor(() => expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL));
+
+    // Flush two animation frames: the old bug re-queued user A's cached URL here.
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    });
+    expect(screen.getByTestId("signed-url")).not.toHaveTextContent(PRIVATE_URL);
+    await waitFor(() => expect(screen.getByTestId("signed-url")).toHaveTextContent(userBUrl));
+  });
 });
