@@ -49,9 +49,28 @@ export function routeSlug(route) {
 /** The strategies the workflow measures. #017 asks for mobile AND desktop evidence. */
 export const WEB_VITALS_STRATEGIES = ["mobile", "desktop"];
 
+/** The requested routes' slugs, in dispatch order, blanks dropped. */
+export function routeSlugs(routes) {
+  return (Array.isArray(routes) ? routes : String(routes ?? "").split(",")).map(routeSlug).filter(Boolean);
+}
+
+/**
+ * Requested routes whose slugs collide. The workflow names each report
+ * `<strategy>-<slug>.json`, so `/a/b` and `/a-b` both write `a-b` and the second
+ * run overwrites the first. The surviving file then satisfies the expected-run
+ * check for both routes, and one requested route is silently never measured.
+ * The filename scheme simply cannot represent both, so the evidence can never be
+ * complete and this is fatal rather than a warning.
+ */
+export function collidingRouteSlugs(routes) {
+  const counts = new Map();
+  for (const slug of routeSlugs(routes)) counts.set(slug, (counts.get(slug) ?? 0) + 1);
+  return [...counts.entries()].filter(([, count]) => count > 1).map(([slug]) => slug);
+}
+
 /** Every `<strategy>-<slug>` run name the workflow was asked to produce. */
 export function expectedRuns(routes, strategies = WEB_VITALS_STRATEGIES) {
-  const slugs = (Array.isArray(routes) ? routes : String(routes ?? "").split(",")).map(routeSlug).filter(Boolean);
+  const slugs = routeSlugs(routes);
   return strategies.flatMap((strategy) => slugs.map((slug) => `${strategy}-${slug}`));
 }
 
@@ -71,20 +90,40 @@ export function missingRuns(rows, routes) {
   return expectedRuns(routes).filter((run) => !seen.has(run));
 }
 
+/** A report is usable evidence only if it carries both graded numbers. */
+export function hasUsableMetrics(row) {
+  return row != null && row.lcpMs !== null && row.cls !== null;
+}
+
 /**
  * Everything that makes the evidence incomplete rather than merely bad: a
- * requested run with no report at all (either strategy), or a report that
- * exists but has no LCP/CLS number. Both must fail the step — a breach that is
- * only rendered in the table still exits 0, and #017 exists precisely because
- * this repo has acted on unmeasured latency claims before. An over-threshold
- * number is deliberately NOT here: that is a real measurement and a real
- * verdict, not missing evidence.
+ * requested run with no report, a report with no LCP/CLS number, or a route
+ * whose slug collides so its report was overwritten. All must fail the step — a
+ * problem that is only rendered in the table still exits 0, and #017 exists
+ * precisely because this repo has acted on unmeasured latency claims before.
+ *
+ * This walks the expected route-by-strategy matrix DIRECTLY rather than asking
+ * `mobileBreaches`. Delegating to that mobile-only helper is what produced three
+ * successive holes here — desktop reports, then desktop metrics — each fixed one
+ * instance at a time. Completeness is a property of the whole matrix, so it is
+ * computed over the whole matrix.
+ *
+ * An over-threshold number is deliberately NOT here: that is a real measurement
+ * and a real verdict, not missing evidence.
  */
 export function incompleteEvidence(rows, routes) {
-  const fromBreaches = mobileBreaches(rows, routes)
-    .filter((breach) => breach.missingReport || breach.missingMetric)
-    .map((breach) => breach.run);
-  return [...new Set([...missingRuns(rows, routes), ...fromBreaches])].sort();
+  const byRun = new Map(rows.map((row) => [row.run, row]));
+  const expected = expectedRuns(routes);
+  const problems = new Set(collidingRouteSlugs(routes).map((slug) => `route slug collision: ${slug}`));
+  for (const run of expected) {
+    if (!hasUsableMetrics(byRun.get(run))) problems.add(run);
+  }
+  // With no route list to check against, an absence of mobile reports entirely
+  // is still not a pass — the guard must not be bypassable by omitting the arg.
+  if (expected.length === 0 && !rows.some((row) => row.run.startsWith("mobile-") && hasUsableMetrics(row))) {
+    problems.add("mobile-*");
+  }
+  return [...problems].sort();
 }
 
 /**

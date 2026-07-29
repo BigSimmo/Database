@@ -4,6 +4,7 @@ import {
   WEB_VITALS_THRESHOLDS,
   expectedMobileRuns,
   expectedRuns,
+  collidingRouteSlugs,
   incompleteEvidence,
   missingRuns,
   mobileBreaches,
@@ -121,6 +122,30 @@ describe("incompleteEvidence", () => {
     );
     expect(mobileBreaches(rows, DEFAULT_ROUTES).map((b) => b.run)).toEqual(["mobile-forms"]);
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
+  });
+
+  // Completeness is a property of the whole matrix. Checking metric validity
+  // only on mobile left a desktop report with null metrics reading as evidence.
+  it("rejects a desktop report that exists but carries no LCP/CLS number", () => {
+    const rows = allRuns().map((r) => (r.run === "desktop-forms" ? { ...r, cls: null } : r));
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]); // mobile verdict is clean
+    expect(missingRuns(rows, DEFAULT_ROUTES)).toEqual([]); // the file is present
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["desktop-forms"]);
+  });
+
+  // `/a/b` and `/a-b` both slug to `a-b`, so the second Lighthouse run
+  // overwrites the first and one requested route is never retained — while the
+  // surviving file satisfies the expected-run check for both.
+  it("rejects colliding route slugs, which silently drop a requested route", () => {
+    const colliding = "/a/b,/a-b";
+    expect(collidingRouteSlugs(colliding)).toEqual(["a-b"]);
+    const rows = [row("mobile-a-b", 1200, 0.01), row("desktop-a-b", 1200, 0.01)];
+    expect(missingRuns(rows, colliding)).toEqual([]); // every expected key is "present"
+    expect(incompleteEvidence(rows, colliding)).toContain("route slug collision: a-b");
+  });
+
+  it("accepts distinct routes that do not collide", () => {
+    expect(collidingRouteSlugs(DEFAULT_ROUTES)).toEqual([]);
   });
 });
 
