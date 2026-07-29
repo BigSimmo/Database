@@ -289,10 +289,11 @@ describe("shared header hide/reveal wiring", () => {
     expect(hookSource).toContain("headerRelease + phoneSafeAreaRelease + reserveRelease");
   });
 
-  it("only blurs the focused dock input on phone document scroll", () => {
-    expect(hookSource).toMatch(
-      /window\.matchMedia\(phoneMediaQuery\)\.matches\s*&&\s*offset > topRevealOffset[\s\S]*?focusInputRef\.current\.blur\(\)/,
-    );
+  it("only blurs the focused dock input for explicit outside scroll intent", () => {
+    expect(hookSource).toContain('window.addEventListener("wheel", releaseComposerFocusOnScrollIntent');
+    expect(hookSource).toContain('window.addEventListener("touchmove", releaseComposerFocusOnScrollIntent');
+    expect(hookSource).toContain('const composer = input.closest("form")');
+    expect(hookSource).not.toMatch(/const offset = window\.scrollY;[\s\S]{0,300}?\.blur\(\)/);
   });
 
   it("rebases the reporter when a host swaps its scroll geometry", () => {
@@ -335,9 +336,8 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain("focus: !trimmedQuery");
     expect(shellSource).toContain("queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}");
     expect(shellSource).toContain("if (hasSubmittedModeSearch)");
-    expect(shellSource).toContain(
-      "if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current)",
-    );
+    expect(shellSource).not.toContain("target.scrollTop > 8 && inputRef.current");
+    expect(hookSource).toContain("releaseComposerFocusOnScrollIntent");
     expect(behaviourDocSource).toContain("Do not carry composer focus into submitted result views");
   });
 

@@ -659,12 +659,6 @@ function GlobalStandaloneSearchShellBody({
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
-    // Scrolling the result canvas while the dock input is focused (user
-    // retapped the pill) must release the focus pin before the hide reporter
-    // runs; otherwise both chrome edges stay locked for the whole session.
-    if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
-      inputRef.current.blur();
-    }
     chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
@@ -688,9 +682,6 @@ function GlobalStandaloneSearchShellBody({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
-      if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
-        inputRef.current.blur();
-      }
       reportChromeScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),

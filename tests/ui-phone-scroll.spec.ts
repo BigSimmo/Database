@@ -487,6 +487,49 @@ test("compiled standalone PWA rules bind full-height footer chrome to the inner 
   expect(hidden.mainScrollTop, "the PWA footer must follow the inner scroll owner").toBeGreaterThan(120);
 });
 
+for (const scrollOwner of ["browser document", "standalone PWA main"] as const) {
+  test(`${scrollOwner} search keeps focus through passive scroll settling and releases it on a user gesture`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(phoneViewport);
+    await gotoPhoneSurface(page, "/services?q=clinic&run=1&focus=1");
+    if (scrollOwner === "standalone PWA main") {
+      expect(await forceCompiledStandalonePhoneCss(page), "compiled CSS must expose standalone rules").toBeGreaterThan(
+        0,
+      );
+    }
+    await addPhoneScrollRunway(page);
+
+    const input = page.getByTestId("global-search-input");
+    const main = page.locator("#main-content");
+    await expect(input).toBeVisible({ timeout: 20_000 });
+    await page.evaluate((owner) => {
+      const main = document.getElementById("main-content");
+      const target = owner === "standalone PWA main" ? main : (document.scrollingElement ?? document.documentElement);
+      if (!target) throw new Error("search focus proof did not find its scroll owner");
+      target.scrollTop = 40;
+      (owner === "standalone PWA main" ? main : window)?.dispatchEvent(new Event("scroll"));
+    }, scrollOwner);
+
+    await input.click();
+    await expect(input).toBeFocused();
+
+    // iOS keyboard opening, scrollIntoView(), and viewport settling can emit a
+    // passive scroll notification without any user scroll intent. It must not
+    // close the keyboard or make the composer eligible to hide.
+    await page.evaluate((owner) => {
+      const target = owner === "standalone PWA main" ? document.getElementById("main-content") : window;
+      target?.dispatchEvent(new Event("scroll"));
+    }, scrollOwner);
+    await expect(input).toBeFocused();
+
+    // A real gesture outside the composer still releases the focus pin so the
+    // shared header/footer may hide while the user reads results.
+    await main.dispatchEvent("touchmove");
+    await expect(input).not.toBeFocused();
+  });
+}
+
 for (const footerCase of standalonePageOwnedFooterRoutes) {
   test(`standalone ${footerCase.name} is frame-owned and stays anchored while main scrolls`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
