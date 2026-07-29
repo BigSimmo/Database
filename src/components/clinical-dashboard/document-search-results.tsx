@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   BookOpen,
   Clock3,
@@ -642,17 +643,17 @@ function SearchRecordResults({
                   <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                     {service.catalogueLabel ?? "Source-backed record"}
                   </p>
-                  <a
+                  <Link
                     href={recordRoute(service.slug)}
                     className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
                   >
                     <span className="line-clamp-2">{service.title}</span>
-                  </a>
+                  </Link>
                   <p className={cn("mt-1 line-clamp-2 text-sm leading-6", textMuted)}>
                     {service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record."}
                   </p>
                 </div>
-                <a
+                <Link
                   href={recordRoute(service.slug)}
                   className={cn(
                     floatingControl,
@@ -662,7 +663,7 @@ function SearchRecordResults({
                 >
                   <ExternalLink className="h-4 w-4" aria-hidden="true" />
                   Open
-                </a>
+                </Link>
               </div>
 
               {chips.length ? (
@@ -1064,12 +1065,12 @@ function DocumentSearchResultsPanelImpl({
                                 </>
                               ) : null}
                             </p>
-                            <a
+                            <Link
                               href={openHref}
                               className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                            </a>
+                            </Link>
                           </div>
                         </div>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
