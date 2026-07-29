@@ -261,6 +261,32 @@ describe("radius ladder", () => {
 });
 
 describe("type scale floor", () => {
+  it("leaves no orphaned utility for the retired step", () => {
+    // Retiring a --text-* token silently kills its utility: Tailwind stops
+    // emitting the rule, every `text-4xs` class becomes a no-op, and the text
+    // falls back to inherited size with nothing failing. Two files carrying
+    // `text-4xs` landed from main while this port was in flight and were dead on
+    // arrival. Mockups are NOT exempt here — a dead class breaks them too.
+    const tracked = execFileSync("git", ["ls-files", "src"], { encoding: "utf8" })
+      .split("\n")
+      .filter((file) => /\.(tsx?|css)$/.test(file));
+
+    const orphans = tracked.flatMap((file) => {
+      const source = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+      return (
+        source
+          .split(/\r?\n/)
+          .map((line, index) => ({ line, number: index + 1 }))
+          // Skip comment lines: the retirement is documented by name in a few places.
+          .filter(({ line }) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+          .filter(({ line }) => /\btext-4xs\b/.test(line))
+          .map(({ number }) => `${file}:${number}`)
+      );
+    });
+
+    expect(orphans, "text-4xs is retired — Tailwind emits no such rule").toEqual([]);
+  });
+
   it("has no sub-10px step", () => {
     // The 8px --text-4xs step is retired: indefensible at any density in a
     // clinical product.
