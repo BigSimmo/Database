@@ -177,6 +177,31 @@ describe("incompleteEvidence", () => {
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["desktop-forms"]);
   });
 
+  // /documents/search?q=depression and /documents/search are different pages to
+  // measure: one renders results, the other an empty state.
+  it("rejects a redirect that drops the query string", () => {
+    const requested = "https://psychiatry.tools/documents/search?q=depression";
+    const rows = allRuns().map((r) =>
+      r.run === "mobile-documents-search"
+        ? { ...r, requestedUrl: requested, url: "https://psychiatry.tools/documents/search" }
+        : r,
+    );
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-documents-search"]);
+  });
+
+  it("accepts the same query with params in a different order", () => {
+    const rows = allRuns().map((r) =>
+      r.run === "mobile-dsm"
+        ? {
+            ...r,
+            requestedUrl: "https://psychiatry.tools/dsm?a=1&b=2",
+            url: "https://psychiatry.tools/dsm?b=2&a=1",
+          }
+        : r,
+    );
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
+  });
+
   it("tolerates a trailing-slash difference between requested and final URL", () => {
     const rows = allRuns().map((r) => (r.run === "mobile-forms" ? { ...r, url: `${r.requestedUrl}/` } : r));
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);

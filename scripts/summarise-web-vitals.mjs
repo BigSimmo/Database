@@ -132,12 +132,21 @@ export function hasUsableMetrics(row) {
   return row != null && row.lcpMs !== null && row.cls !== null;
 }
 
-/** Path of a URL, trailing slash normalised, for comparing requested vs final. */
-function normalisedPath(value) {
+/**
+ * Path AND query of a URL, normalised, for comparing requested vs final. The
+ * query matters: `/documents/search?q=depression` and `/documents/search` are
+ * different pages to measure — one renders results, the other an empty state —
+ * so a redirect that drops or rewrites the query must not pass as the requested
+ * route. Params are sorted so a reordering redirect is not a false rejection.
+ */
+function normalisedTarget(value) {
   if (!value) return null;
   try {
-    const { pathname } = new URL(value);
-    return pathname.length > 1 ? pathname.replace(/\/+$/, "") : "/";
+    const { pathname, searchParams } = new URL(value);
+    const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : "/";
+    const params = [...searchParams.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    const query = params.map(([key, val]) => `${key}=${val}`).join("&");
+    return query ? `${path}?${query}` : path;
   } catch {
     return null;
   }
@@ -153,12 +162,12 @@ function normalisedPath(value) {
  */
 export function measuredRequestedPage(row) {
   if (row == null || row.runtimeError) return false;
-  const requested = normalisedPath(row.requestedUrl);
+  const requested = normalisedTarget(row.requestedUrl);
   // Older reports carry no requestedUrl; absent evidence of a redirect is not
   // evidence of none, but neither is it a reason to reject a report that has
   // no requested URL recorded at all — those are caught by hasUsableMetrics.
   if (requested === null) return true;
-  return normalisedPath(row.url) === requested;
+  return normalisedTarget(row.url) === requested;
 }
 
 /**
