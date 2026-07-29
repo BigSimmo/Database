@@ -251,7 +251,7 @@ function PhonePreview({ toolIds, title }: { toolIds: string[]; title: string }) 
     <section className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)]">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Phone</p>
+          <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Phone</p>
           <h2 className="mt-1 text-base font-extrabold text-[color:var(--text-heading)]">{title}</h2>
         </div>
         <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs font-bold text-[color:var(--clinical-accent)]">

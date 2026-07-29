@@ -165,7 +165,7 @@ function DocumentTagFacetRail({
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
           <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
             <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -181,7 +181,7 @@ function DocumentTagFacetRail({
             const Icon = documentFacetIcons[group];
             return (
               <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   {group}
                 </h3>

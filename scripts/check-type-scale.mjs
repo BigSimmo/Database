@@ -3,7 +3,8 @@
 // (e.g. text-[12px], text-[1.45rem]) that bypass the design type scale.
 //
 // The scale lives in the @theme block of src/app/globals.css: named steps
-// text-4xs … text-3xl-minus, on top of Tailwind's default xs/sm/base/lg/xl/2xl/3xl.
+// text-3xs … text-3xl-minus, on top of Tailwind's default xs/sm/base/lg/xl/2xl/3xl.
+// text-3xs (10px) is the floor; the old 8px text-4xs step is retired.
 // Arbitrary text-[<n><unit>] values re-introduce off-scale sizes; this check
 // tracks that drift. Colour utilities (text-[color:var(--…)]) are the sanctioned
 // token-access form and are intentionally NOT flagged.
