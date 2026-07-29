@@ -61,10 +61,18 @@ function installSectionSpyDomHarness(ids: string[]) {
 
 describe("DocumentSectionIndexCard", () => {
   it("renders every section with its count and marks the active one", () => {
-    render(<DocumentSectionIndexCard sections={sections} activeId="source-evidence" onSelect={() => {}} />);
+    render(
+      <DocumentSectionIndexCard
+        sections={sections}
+        activeId="source-evidence"
+        onSelect={() => {}}
+        compact
+        onCompactChange={() => {}}
+      />,
+    );
 
     expect(screen.getByRole("navigation", { name: "Document sections" })).toBeTruthy();
-    expect(screen.getAllByRole("button")).toHaveLength(sections.length);
+    expect(screen.getAllByRole("button")).toHaveLength(sections.length + 1);
     expect(screen.getByText("312 chunks")).toBeTruthy();
 
     const active = screen.getByRole("button", { name: /Pinned evidence/ });
@@ -73,14 +81,43 @@ describe("DocumentSectionIndexCard", () => {
 
   it("reports the selected section id to its caller", () => {
     const onSelect = vi.fn();
-    render(<DocumentSectionIndexCard sections={sections} activeId="source-evidence" onSelect={onSelect} />);
+    render(
+      <DocumentSectionIndexCard
+        sections={sections}
+        activeId="source-evidence"
+        onSelect={onSelect}
+        compact
+        onCompactChange={() => {}}
+      />,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /Tables and diagrams/ }));
     expect(onSelect).toHaveBeenCalledWith("source-images");
   });
 
+  it("toggles condensed document content without replacing section navigation", () => {
+    const onCompactChange = vi.fn();
+    render(
+      <DocumentSectionIndexCard
+        sections={sections}
+        activeId="source-text"
+        onSelect={() => {}}
+        compact
+        onCompactChange={onCompactChange}
+      />,
+    );
+
+    const density = screen.getByTestId("document-view-density-toggle");
+    expect(density).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /Indexed source text/ })).toBeVisible();
+    fireEvent.click(density);
+    expect(onCompactChange).toHaveBeenCalledWith(false);
+  });
+
   it("renders nothing when the document has no navigable sections", () => {
-    const { container } = render(<DocumentSectionIndexCard sections={[]} activeId={null} onSelect={() => {}} />);
+    const { container } = render(
+      <DocumentSectionIndexCard sections={[]} activeId={null} onSelect={() => {}} compact onCompactChange={() => {}} />,
+    );
     expect(container.firstChild).toBeNull();
   });
 });

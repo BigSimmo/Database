@@ -14,7 +14,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, panel, textMuted } from "@/components/ui-primitives";
@@ -346,10 +346,12 @@ export function DocumentClinicalSummary({
   document,
   pageHref,
   onPageChange,
+  compact = false,
 }: {
   document: ClinicalDocument;
   pageHref: (page: number) => string;
   onPageChange: (page: number) => void;
+  compact?: boolean;
 }) {
   const model = buildDocumentClinicalSummaryModel(document);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
@@ -358,6 +360,10 @@ export function DocumentClinicalSummary({
   const mobilePrioritiesButtonRef = useRef<HTMLButtonElement>(null);
   const prioritiesId = useId();
   const canExpandSummary = model.summary.length > 140;
+
+  useEffect(() => {
+    setPrioritiesExpanded(!compact);
+  }, [compact]);
 
   function navigateFromSheet(page: number) {
     setMobilePrioritiesOpen(false);

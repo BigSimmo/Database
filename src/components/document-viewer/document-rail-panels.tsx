@@ -38,6 +38,8 @@ export function DocumentViewerRail({
   documentSections,
   activeSectionId,
   onSelectSection,
+  compact,
+  onCompactChange,
   indexWarnings,
   effectiveLoadingDocument,
   selectedChunk,
@@ -61,6 +63,8 @@ export function DocumentViewerRail({
   documentSections: DocumentSection[];
   activeSectionId: string | null;
   onSelectSection: (id: string) => void;
+  compact: boolean;
+  onCompactChange: (compact: boolean) => void;
   indexWarnings: string[];
   effectiveLoadingDocument: boolean;
   selectedChunk: ChunkRow | undefined;
@@ -96,6 +100,8 @@ export function DocumentViewerRail({
         sections={documentSections}
         activeId={activeSectionId}
         onSelect={onSelectSection}
+        compact={compact}
+        onCompactChange={onCompactChange}
         className="hidden md:col-span-2 lg:col-span-1 lg:block"
       />
 

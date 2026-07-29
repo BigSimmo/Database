@@ -88,6 +88,8 @@ import {
 } from "@/components/document-viewer/section-nav";
 import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
 import { useDocumentChromeMetrics } from "@/components/document-viewer/use-document-chrome-metrics";
+import { useDocumentViewDensity } from "@/components/document-viewer/use-document-view-density";
+import { usePrintableDisclosures } from "@/components/document-viewer/use-printable-disclosures";
 
 // pdf-canvas-viewer is only needed after a source document has loaded and the
 // user is viewing a PDF. Keeping it out of the document route's initial client
@@ -191,39 +193,7 @@ export function DocumentViewer({
     },
     [activePage, documentId],
   );
-  useEffect(() => {
-    const previousOpenStates = new Map<HTMLDetailsElement, boolean>();
-    const expandPrintableDisclosures = () => {
-      if (previousOpenStates.size) return;
-      previousOpenStates.clear();
-      const printable = window.document.querySelectorAll<HTMLDetailsElement>("details.source-print");
-      window.document
-        .querySelectorAll<HTMLDetailsElement>('details.source-print, details[name="document-viewer-section"]')
-        .forEach((disclosure) => {
-          previousOpenStates.set(disclosure, disclosure.open);
-        });
-      printable.forEach((disclosure) => {
-        disclosure.open = true;
-      });
-    };
-    const restorePrintableDisclosures = () => {
-      const connected = [...previousOpenStates].filter(([disclosure]) => disclosure.isConnected);
-      connected.forEach(([disclosure]) => {
-        disclosure.open = false;
-      });
-      connected.forEach(([disclosure, wasOpen]) => {
-        if (wasOpen) disclosure.open = true;
-      });
-      previousOpenStates.clear();
-    };
-    window.addEventListener("beforeprint", expandPrintableDisclosures);
-    window.addEventListener("afterprint", restorePrintableDisclosures);
-    return () => {
-      restorePrintableDisclosures();
-      window.removeEventListener("beforeprint", expandPrintableDisclosures);
-      window.removeEventListener("afterprint", restorePrintableDisclosures);
-    };
-  }, []);
+  usePrintableDisclosures();
   const [document, setDocument] = useState<ClinicalDocument | null>(() => initialDetail?.document ?? null);
   const [pages, setPages] = useState<PageRow[]>(() => initialDetail?.pages ?? []);
   const [images, setImages] = useState<ImageRow[]>(() => initialDetail?.images ?? []);
@@ -265,6 +235,7 @@ export function DocumentViewer({
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
+  const [compactView, setCompactView] = useDocumentViewDensity();
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -1192,6 +1163,8 @@ export function DocumentViewer({
         onSelect={jumpToSection}
         documentTitle={headerTitle}
         returnFocusRef={sectionTriggerRef}
+        compact={compactView}
+        onCompactChange={setCompactView}
       />
       {readyDocument ? (
         <Sheet
@@ -1319,6 +1292,7 @@ export function DocumentViewer({
           composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
         }
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
+        data-document-view={compactView ? "condensed" : "full"}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
@@ -1389,6 +1363,7 @@ export function DocumentViewer({
               onDownload={() => void openSourceDownload()}
               downloading={downloadingSource}
               canSummarizeDocument={canSummarizeDocument}
+              compact={compactView}
             />
           </div>
         ) : null}
@@ -1550,6 +1525,7 @@ export function DocumentViewer({
               sectionId="source-text"
               selectedChunkId={activeChunkId}
               onSearchChange={setSourceSearch}
+              compact={compactView}
             />
           </div>
         </div>
@@ -1559,6 +1535,8 @@ export function DocumentViewer({
           documentSections={documentSections}
           activeSectionId={activeSectionId}
           onSelectSection={jumpToSection}
+          compact={compactView}
+          onCompactChange={setCompactView}
           indexWarnings={indexWarnings}
           effectiveLoadingDocument={effectiveLoadingDocument}
           selectedChunk={selectedChunk}
