@@ -2653,6 +2653,10 @@ td,
       position: static;
     }
 
+    .phone-sticky-header-stack.phone-overlay-header {
+      position: absolute;
+    }
+
     .phone-footer-layer {
       position: absolute;
     }

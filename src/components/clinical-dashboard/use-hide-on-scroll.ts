@@ -219,12 +219,16 @@ export function readChromeCollapseMetrics(
   scroller: HTMLElement,
 ): Pick<ScrollMetrics, "collapseBudget" | "collapseKind" | "combinedChrome"> {
   const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
+  const phoneOverlayMotion =
+    collapse instanceof HTMLElement &&
+    collapse.dataset.phoneMotion === "overlay" &&
+    window.matchMedia(phoneMediaQuery).matches;
   // The 1fr -> 0fr grid IS the collapse mechanism, so the wrapper only hands
   // layout back while it is a grid at the current width. Where it sticks and
   // translates instead (GlobalSearchShell above the phone breakpoint, which
   // hands scrolling back to the document), hiding costs the scroller nothing.
   const headerRelease =
-    collapse instanceof HTMLElement && window.getComputedStyle(collapse).display === "grid"
+    collapse instanceof HTMLElement && !phoneOverlayMotion && window.getComputedStyle(collapse).display === "grid"
       ? collapse.getBoundingClientRect().height
       : 0;
   const safeAreaTop = document.querySelector('[data-testid="chrome-safe-area-top"]');
@@ -260,7 +264,7 @@ export function readChromeCollapseMetrics(
       : padRelease(scroller);
   return {
     collapseBudget: headerRelease + phoneSafeAreaRelease + reserveRelease,
-    collapseKind: collapse instanceof HTMLElement ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
+    collapseKind: headerRelease > 0 ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
     combinedChrome: headerRelease > 0 && reserveRelease > 0,
   };
 }
