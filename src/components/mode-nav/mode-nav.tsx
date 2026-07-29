@@ -3,7 +3,7 @@
 import { ChevronDown, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type MouseEvent } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
@@ -129,8 +129,18 @@ export function ModeNav({
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const moreRef = useRef<HTMLButtonElement>(null);
+  // The sheet has two openers and CSS decides which one exists: below a 16rem
+  // container only the collapsed control is displayed, at 16rem and up only the
+  // More slot is. Both stay in the DOM either way, so a ref pinned to one of
+  // them hands the Sheet a `display: none` element to restore focus to half the
+  // time — the browser refuses to focus it and the keyboard user is dropped on
+  // <body>. Capture whichever button was actually clicked; by definition it is
+  // the displayed one.
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const openSheet = (event: MouseEvent<HTMLButtonElement>) => {
+    openerRef.current = event.currentTarget;
+    setOpen(true);
+  };
   const plan = useMemo(() => planModeNavBands(items.length), [items.length]);
 
   if (items.length < MODE_NAV_MIN_ITEMS) return null;
@@ -156,9 +166,8 @@ export function ModeNav({
       {/* Collapsed: the default, and the only state that cannot overflow. */}
       <div className="mode-nav__control px-4 pb-2.5 pt-1.5">
         <button
-          ref={triggerRef}
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openSheet}
           aria-haspopup="dialog"
           aria-expanded={open}
           className={cn(
@@ -214,9 +223,8 @@ export function ModeNav({
         {plan.moreUntil !== null ? (
           <li data-until={plan.moreUntil} className={cn(slotBase, "flex")}>
             <button
-              ref={moreRef}
               type="button"
-              onClick={() => setOpen(true)}
+              onClick={openSheet}
               aria-haspopup="dialog"
               aria-expanded={open}
               className={cn("flex h-full w-full items-center justify-center rounded-lg", focusRing)}
@@ -243,7 +251,7 @@ export function ModeNav({
         open={open}
         onClose={() => setOpen(false)}
         title={label}
-        returnFocusRef={moreRef}
+        returnFocusRef={openerRef}
         portal
         testId="mode-nav-sheet"
       >
