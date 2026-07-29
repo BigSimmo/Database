@@ -14,7 +14,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, panel, textMuted } from "@/components/ui-primitives";
@@ -355,15 +355,19 @@ export function DocumentClinicalSummary({
 }) {
   const model = buildDocumentClinicalSummaryModel(document);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [prioritiesExpanded, setPrioritiesExpanded] = useState(true);
+  const [prioritiesExpanded, setPrioritiesExpanded] = useState(!compact);
+  const [prevCompact, setPrevCompact] = useState(compact);
   const [mobilePrioritiesOpen, setMobilePrioritiesOpen] = useState(false);
   const mobilePrioritiesButtonRef = useRef<HTMLButtonElement>(null);
   const prioritiesId = useId();
   const canExpandSummary = model.summary.length > 140;
 
-  useEffect(() => {
+  // React's supported "adjust state during render" pattern for reacting to the
+  // condensed/full density prop without a cascading setState-in-effect.
+  if (compact !== prevCompact) {
+    setPrevCompact(compact);
     setPrioritiesExpanded(!compact);
-  }, [compact]);
+  }
 
   function navigateFromSheet(page: number) {
     setMobilePrioritiesOpen(false);

@@ -427,32 +427,57 @@ export function DocumentSectionSummary({
   title,
   description,
   onClick,
+  interactive = true,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
   onClick?: MouseEventHandler<HTMLElement>;
+  /** When false, render a static heading (full view) instead of a disclosure control. */
+  interactive?: boolean;
 }) {
+  const label = (
+    <span className="inline-flex min-w-0 items-start gap-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+        <Icon aria-hidden="true" className="h-4 w-4" />
+      </span>
+      <span className="min-w-0">
+        <span
+          role="heading"
+          aria-level={2}
+          className="block text-base font-semibold text-[color:var(--text-heading)]"
+        >
+          {title}
+        </span>
+        <span className={cn("mt-1 block text-sm leading-6", textMuted)}>{description}</span>
+      </span>
+    </span>
+  );
+
+  // Full view keeps a <details> shell for print/section anchors, but the header
+  // must not advertise collapse when activation is intentionally inert.
+  if (!interactive) {
+    return (
+      <summary
+        aria-disabled="true"
+        tabIndex={-1}
+        onClick={(event) => event.preventDefault()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") event.preventDefault();
+        }}
+        className="flex min-h-[72px] list-none items-center gap-3 px-4 py-3"
+      >
+        {label}
+      </summary>
+    );
+  }
+
   return (
     <summary
       onClick={onClick}
       className="flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"
     >
-      <span className="inline-flex min-w-0 items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          <Icon aria-hidden="true" className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span
-            role="heading"
-            aria-level={2}
-            className="block text-base font-semibold text-[color:var(--text-heading)]"
-          >
-            {title}
-          </span>
-          <span className={cn("mt-1 block text-sm leading-6", textMuted)}>{description}</span>
-        </span>
-      </span>
+      {label}
       <ChevronDown
         aria-hidden="true"
         className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
@@ -746,10 +771,17 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     .join(" · ");
   const selectedPageText = selectedPage ? sourceTextForIndexedPage(selectedPage.text) : "";
   const [compactOpen, setCompactOpen] = useState(Boolean(selectedChunkId));
+  const [prevRevealKey, setPrevRevealKey] = useState(`${selectedChunkId ?? ""}\0${normalizedSearch}`);
+  const revealKey = `${selectedChunkId ?? ""}\0${normalizedSearch}`;
 
-  useEffect(() => {
-    if (selectedChunkId || normalizedSearch) setCompactOpen(true);
-  }, [normalizedSearch, selectedChunkId]);
+  // Reveal indexed text for chunk jumps / in-document search without a
+  // cascading setState-in-effect (React adjust-during-render pattern).
+  if (revealKey !== prevRevealKey) {
+    setPrevRevealKey(revealKey);
+    if (selectedChunkId || normalizedSearch) {
+      setCompactOpen(true);
+    }
+  }
 
   useEffect(() => {
     if (!activeHit) return;
@@ -775,7 +807,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
       <DocumentSectionSummary
         icon={FileText}
         title="Indexed source text"
-        onClick={compact ? undefined : (event) => event.preventDefault()}
+        interactive={compact}
         description={
           loading
             ? "Loading extracted source text."
