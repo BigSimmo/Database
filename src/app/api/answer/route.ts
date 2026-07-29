@@ -81,33 +81,10 @@ export async function POST(request: Request) {
     const authMs = Date.now() - authStartedAt;
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
-    // Scope resolution has no data dependency on the rate-limit RPC, so the two
-    // overlap instead of running back-to-back before retrieval starts. The
-    // limiter must still be able to deny for free, so the scope queries are
-    // aborted the moment it does — and threading a signal at all is what lets
-    // a client disconnect cancel scope's paginated queries.
-    const scopeAbort = new AbortController();
-    const scopeStartedAt = Date.now();
-    let scopeMs: number | undefined;
-    const scopeSettled = resolveSearchScope({
-      supabase,
-      accessScope,
-      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
-      filters: answerBody.filters,
-      signal: AbortSignal.any([request.signal, scopeAbort.signal]),
-    }).then(
-      (value) => {
-        scopeMs = Date.now() - scopeStartedAt;
-        return { ok: true as const, value };
-      },
-      // Settled, never rejected: the limiter can return before this promise is
-      // awaited, and a floating rejection would take down the process.
-      (error: unknown) => {
-        scopeMs = Date.now() - scopeStartedAt;
-        return { ok: false as const, error };
-      },
-    );
-
+    // Admit before scope: resolveSearchScope can enumerate thousands of documents
+    // and labels. Overlapping it with the limiter left that work in flight on 429
+    // (abort cannot undo queries already accepted by PostgREST). Keep the signal
+    // so a client disconnect still cancels scope's paginated queries.
     const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
@@ -117,14 +94,18 @@ export async function POST(request: Request) {
     });
     const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
-      scopeAbort.abort();
-      await scopeSettled;
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
 
-    const resolvedScope = await scopeSettled;
-    if (!resolvedScope.ok) throw resolvedScope.error;
-    const scope = resolvedScope.value;
+    const scopeStartedAt = Date.now();
+    const scope = await resolveSearchScope({
+      supabase,
+      accessScope,
+      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
+      filters: answerBody.filters,
+      signal: request.signal,
+    });
+    const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
         answer: emptyScopeAnswer,

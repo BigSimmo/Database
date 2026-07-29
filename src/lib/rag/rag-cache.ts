@@ -30,6 +30,14 @@ const ragCacheDependencyVersion = "rag-cache-v20";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
+/**
+ * Bumped by every `invalidateRagCachesForOwner` call. Deferred `setCachedAnswer`
+ * promotions capture the epoch before their indexing-version await and discard the
+ * write if invalidation happened meanwhile — review/table-fact mutations do not
+ * change the documents indexing stamp, so the mid-request staleness guard alone
+ * cannot catch them.
+ */
+let ragCacheInvalidationEpoch = 0;
 
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
@@ -189,6 +197,10 @@ export async function getCachedAnswer(
  * indexing version is compared against `indexingVersionAtRetrievalStart` to DISCARD the
  * write when the corpus changed mid-request; reusing an already-held stamp would defeat
  * that staleness guard.
+ *
+ * Deferred callers must also survive `invalidateRagCachesForOwner` during the await:
+ * the invalidation epoch check below discards a post-invalidation write even when the
+ * documents indexing stamp is unchanged (table-fact / review mutations).
  */
 export async function setCachedAnswer(
   args: Pick<
@@ -201,7 +213,9 @@ export async function setCachedAnswer(
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
+  const invalidationEpochAtStart = ragCacheInvalidationEpoch;
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
+  if (ragCacheInvalidationEpoch !== invalidationEpochAtStart) return;
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedAnswerCacheKey(args);
   answerCache.set(key, {
@@ -659,6 +673,9 @@ function setSharedCachedAnswer(
 }
 
 export function invalidateRagCachesForOwner(ownerId?: string | null) {
+  // Epoch first so any in-flight deferred promotion that resumes after this
+  // clear still sees a mismatch and discards its write.
+  ragCacheInvalidationEpoch += 1;
   if (!ownerId) {
     answerCache.clear();
     answerInflight.clear();
