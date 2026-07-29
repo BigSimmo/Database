@@ -6,6 +6,7 @@ import {
   expectedRuns,
   collidingRouteSlugs,
   incompleteEvidence,
+  isProductionVerdict,
   missingRuns,
   mobileBreaches,
   renderTable,
@@ -146,6 +147,44 @@ describe("incompleteEvidence", () => {
 
   it("accepts distinct routes that do not collide", () => {
     expect(collidingRouteSlugs(DEFAULT_ROUTES)).toEqual([]);
+  });
+});
+
+// LIVE_DOMAIN_URL can point the workflow at a staging cutover. That is a useful
+// dry run, but #017 asks for evidence from the production origin, so such a run
+// must not emit the closure sentence. Read from each report's own final URL so a
+// redirect to another host is caught too, not just a deliberate override.
+describe("production-origin gate", () => {
+  const staging = (run: string) => ({
+    run,
+    url: `https://staging.psychiatry.tools/${run}`,
+    performanceScore: 0.99,
+    lcpMs: 1200,
+    cls: 0.01,
+    tbtMs: 10,
+    fcpMs: 500,
+  });
+
+  it("states the #017 closure only for the canonical production origin", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    expect(isProductionVerdict(rows)).toBe(true);
+    expect(renderTable(rows, DEFAULT_ROUTES)).toContain("closes #017 as metrics-acceptable");
+  });
+
+  it("refuses an #017 verdict for a staging override even when every threshold passes", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES).map(staging);
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]); // thresholds all pass
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]); // evidence is complete
+    expect(isProductionVerdict(rows)).toBe(false);
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    expect(table).not.toContain("closes #017 as metrics-acceptable");
+    expect(table).toContain("NOT an #017 verdict");
+    expect(table).toContain("https://staging.psychiatry.tools");
+  });
+
+  it("refuses a verdict when only some reports left the canonical origin", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    expect(isProductionVerdict([...rows.slice(1), staging("mobile-root")])).toBe(false);
   });
 });
 

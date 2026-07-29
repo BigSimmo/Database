@@ -18,6 +18,37 @@ import { join } from "node:path";
 /** #017 decision rule, fixed before any numbers are read. */
 export const WEB_VITALS_THRESHOLDS = { lcpMs: 2500, cls: 0.1 };
 
+/**
+ * #017 asks for evidence from the production origin specifically
+ * (`docs/outstanding-issues.md`). `LIVE_DOMAIN_URL` can point the workflow at a
+ * staging cutover, which is useful for a dry run but cannot discharge #017.
+ */
+export const CANONICAL_ORIGIN = "https://psychiatry.tools";
+
+/** Origins actually loaded, taken from the reports rather than the input URL. */
+export function measuredOrigins(rows) {
+  const origins = new Set();
+  for (const row of rows) {
+    if (!row?.url) continue;
+    try {
+      origins.add(new URL(row.url).origin);
+    } catch {
+      origins.add(String(row.url));
+    }
+  }
+  return [...origins].sort();
+}
+
+/**
+ * Whether this run may state an #017 verdict at all. Read from each report's own
+ * final URL, not from `LIVE_DOMAIN_URL`, so a redirect to another host is caught
+ * as well as a deliberate staging override.
+ */
+export function isProductionVerdict(rows) {
+  const origins = measuredOrigins(rows);
+  return origins.length > 0 && origins.every((origin) => origin === CANONICAL_ORIGIN);
+}
+
 /** Extract the fields we report from one Lighthouse JSON report. */
 export function summariseReport(run, report) {
   const audits = report?.audits ?? {};
@@ -183,11 +214,16 @@ export function renderTable(rows, routes) {
   const breaches = mobileBreaches(rows, routes);
   const incomplete = incompleteEvidence(rows, routes);
   lines.push("");
+  const productionVerdict = isProductionVerdict(rows);
   lines.push(
     breaches.length === 0
-      ? `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}.** ` +
+      ? productionVerdict
+        ? `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}.** ` +
           "Per the #017 decision rule that closes #017 as metrics-acceptable and makes the gated payload findings WONTFIX. " +
           "Confirm INP from CrUX field data before recording the verdict."
+        : `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}, ` +
+          `but this is NOT an #017 verdict.** #017 asks for evidence from ${CANONICAL_ORIGIN}; this run measured ` +
+          `${measuredOrigins(rows).join(", ") || "an unknown origin"}. Record nothing against #017 from this run.`
       : `**${breaches.length} mobile route(s) breach the rule: ` +
           `${breaches.map((breach) => `${breach.run} (${breach.reason})`).join(", ")}.** ` +
           "Only findings on those routes become actionable, ranked by measured contribution. " +
