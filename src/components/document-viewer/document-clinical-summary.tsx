@@ -346,18 +346,28 @@ export function DocumentClinicalSummary({
   document,
   pageHref,
   onPageChange,
+  compact = false,
 }: {
   document: ClinicalDocument;
   pageHref: (page: number) => string;
   onPageChange: (page: number) => void;
+  compact?: boolean;
 }) {
   const model = buildDocumentClinicalSummaryModel(document);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
-  const [prioritiesExpanded, setPrioritiesExpanded] = useState(true);
+  const [prioritiesExpanded, setPrioritiesExpanded] = useState(!compact);
+  const [prevCompact, setPrevCompact] = useState(compact);
   const [mobilePrioritiesOpen, setMobilePrioritiesOpen] = useState(false);
   const mobilePrioritiesButtonRef = useRef<HTMLButtonElement>(null);
   const prioritiesId = useId();
   const canExpandSummary = model.summary.length > 140;
+
+  // React's supported "adjust state during render" pattern for reacting to the
+  // condensed/full density prop without a cascading setState-in-effect.
+  if (compact !== prevCompact) {
+    setPrevCompact(compact);
+    setPrioritiesExpanded(!compact);
+  }
 
   function navigateFromSheet(page: number) {
     setMobilePrioritiesOpen(false);
@@ -366,11 +376,7 @@ export function DocumentClinicalSummary({
 
   return (
     <>
-      <article
-        id="document-overview"
-        data-testid="document-clinical-summary"
-        className={cn(panel, "scroll-mt-24 overflow-hidden lg:col-span-3")}
-      >
+      <article data-testid="document-clinical-summary" className={cn(panel, "overflow-hidden lg:col-span-3")}>
         <div className="bg-[linear-gradient(105deg,color-mix(in_srgb,var(--clinical-accent-soft)_82%,var(--surface-raised)),var(--surface-raised)_32%)] px-4 pb-3 pt-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">

@@ -317,7 +317,7 @@ export function FavouritesSidebar({
       <nav aria-label="Favourites sections" className="grid gap-5">
         {sections.map((section) => (
           <section key={section.id}>
-            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               {section.title}
             </h3>
             <div className="grid gap-1">
@@ -505,7 +505,7 @@ export function FavouritesMobileBrowseRail({
 
   return (
     <section className="min-w-0 max-w-full lg:hidden" data-testid="favourites-set-carousel" aria-label="Saved sets">
-      <h2 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Browse sets
       </h2>
       <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:thin] sm:-mx-6 sm:px-6">

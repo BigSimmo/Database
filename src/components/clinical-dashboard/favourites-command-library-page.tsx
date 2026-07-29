@@ -374,7 +374,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             <Link href={item.href} className={cn("min-w-0 flex-1 text-left", focusRing)}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--success)]">
+                <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--success)]">
                   Continue
                 </p>
                 <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">
@@ -675,7 +675,7 @@ function FavouritesTable({
       <div className="hidden overflow-x-auto sm:block">
         <table aria-label="Saved favourites" className="w-full min-w-[34rem] table-fixed border-collapse text-left">
           <thead>
-            <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               <th scope="col" className="min-w-[11rem] px-3.5">
                 Item
               </th>
@@ -912,7 +912,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
       <div className="mt-4 grid gap-5">
         {activeTab === "summary" ? (
           <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 p-3">
-            <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+            <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
               Next action
             </p>
             <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{item.description}</p>
@@ -933,7 +933,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 
         {activeTab === "evidence" ? (
           <section>
-            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               Evidence
             </h3>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
@@ -955,7 +955,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 
         {activeTab === "notes" ? (
           <section>
-            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               Personal note
             </h3>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
@@ -967,7 +967,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
         ) : null}
 
         <section className="border-t border-[color:var(--border)] pt-4">
-          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             More
           </h3>
           <div className="grid gap-2">
@@ -1032,11 +1032,19 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
   const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const {
+    items: savedRegistryFavourites,
+    status: favouritesHookStatus,
+    refetch: refetchFavouritesRegistry,
+  } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
   );
+  // Demo prototypes live outside the hook. If they are the only items while a
+  // registry/account read failed, keep the band ready so the table's nonzero
+  // list is not contradicted by a whole-band fault.
+  const favouritesRegistryStatus = items.length > 0 ? "ready" : favouritesHookStatus;
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -1195,6 +1203,13 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               modeId="favourites"
               query={query}
               matchCount={scopedItems.length}
+              // Without this a failed registry read renders as "0 matches", which
+              // reads as "you have no saved favourites" rather than "we could not
+              // load them". `status` stays ready when unaffected items already
+              // exist (local differentials, etc.) so a partial registry fault
+              // does not hide a valid nonzero count.
+              status={favouritesRegistryStatus}
+              onRetry={favouritesRegistryStatus === "error" ? refetchFavouritesRegistry : undefined}
               filterLabel="Active favourites filters"
               filterControls={
                 selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
@@ -1233,7 +1248,10 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
 
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
 
-            {query.trim() && scopedItems.length === 0 ? (
+            {/* Only a successful read can say "no matches". While loading or
+                faulted an empty list means we could not look, not that the
+                library is empty; the band's fault panel reports that. */}
+            {query.trim() && scopedItems.length === 0 && favouritesRegistryStatus === "ready" ? (
               <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
             ) : (
               <FavouritesTable

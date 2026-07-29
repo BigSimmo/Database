@@ -68,6 +68,16 @@ describe("DocumentClinicalSummary", () => {
     expect(screen.queryByTestId("clinical-priorities-sheet")).not.toBeInTheDocument();
   });
 
+  it("keeps clinical priorities collapsed in condensed view and restores them in full view", () => {
+    const props = { document, pageHref: (page: number) => `?page=${page}`, onPageChange: vi.fn() };
+    const { rerender } = render(<DocumentClinicalSummary {...props} compact />);
+    const desktopPriorities = screen.getAllByRole("button", { name: /Clinical priorities/ })[0];
+
+    expect(desktopPriorities).toHaveAttribute("aria-expanded", "false");
+    rerender(<DocumentClinicalSummary {...props} compact={false} />);
+    expect(desktopPriorities).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("does not label an unindexed empty state as source-backed", () => {
     const emptyDocument = { ...document, summary: undefined } as ClinicalDocument;
 
@@ -77,5 +87,16 @@ describe("DocumentClinicalSummary", () => {
 
     expect(screen.getByText("A structured clinical summary has not been indexed for this document yet.")).toBeVisible();
     expect(screen.queryByText("Source-backed")).not.toBeInTheDocument();
+  });
+
+  it("does not claim the document-overview section id", () => {
+    // DocumentViewer owns id="document-overview" on the overview landing wrapper.
+    // A second claim here duplicates the id and fails Production UI DOM integrity.
+    const { container } = render(
+      <DocumentClinicalSummary document={document} pageHref={(page) => `?page=${page}`} onPageChange={vi.fn()} />,
+    );
+
+    expect(container.querySelector("#document-overview")).toBeNull();
+    expect(screen.getByTestId("document-clinical-summary")).not.toHaveAttribute("id", "document-overview");
   });
 });

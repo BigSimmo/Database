@@ -83,7 +83,7 @@ export function ModeHomeHero({
       <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className="text-balance text-hero font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)]"
+          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
@@ -262,7 +262,7 @@ export function ModeHomeTemplate({
       {actions?.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] lg:max-w-none lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] lg:gap-3 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
+          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] sm:gap-3 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
@@ -275,7 +275,7 @@ export function ModeHomeTemplate({
                   <span className="block text-balance text-base-minus font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere]">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-[1.3]">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-tight">
                     {action.description}
                   </span>
                 </span>
@@ -286,10 +286,11 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:px-4 sm:py-3 lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:rounded-lg lg:border lg:border-[color:var(--border)] lg:px-5 lg:py-3.5 lg:shadow-[var(--shadow-card)]",
-              // Phone stack separator only — at lg each action is its own card
-              // with `lg:border`, so do not zero the card's top edge.
-              index > 0 && "max-lg:border-t max-lg:border-[color:var(--border)]",
+              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3 sm:shadow-[var(--shadow-card)] lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:px-5 lg:py-3.5",
+              // Phone stack separator only — the action grid becomes multi-column
+              // at `sm`, where each action also becomes its own bordered card,
+              // so do not keep a top edge that would double the card border.
+              index > 0 && "max-sm:border-t max-sm:border-[color:var(--border)]",
             );
 
             if (action.href) {

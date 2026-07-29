@@ -67,12 +67,15 @@ async function gotoHome(page: Page) {
   // shells (and two header#search nodes), which trips Playwright strict mode.
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
   // Wait until React settles on a single header. During client remount /
-  // hydration a second transient header#search can exist briefly and trip
-  // Playwright strict mode even though the stable tree has only one banner.
-  // Permanent double-render still fails toHaveCount(1).
-  const header = page.locator("header#search");
-  await expect(header).toHaveCount(1, { timeout: 30_000 });
-  await header.waitFor({ state: "visible", timeout: 30_000 });
+  // hydration a second transient header#search can exist briefly; checking
+  // count then immediately calling waitFor races that flicker into a strict-mode
+  // violation. Retry count+visibility together so permanent double-render still
+  // fails while transient remounts can settle.
+  await expect(async () => {
+    const header = page.locator("header#search");
+    await expect(header).toHaveCount(1);
+    await expect(header).toBeVisible();
+  }).toPass({ timeout: 30_000 });
   await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 
@@ -122,8 +125,17 @@ test.describe("Header element overlap coverage", () => {
       await mockDemoDashboard(page);
       await gotoHome(page);
 
-      const report = await collectHeaderOverlaps(page);
-      expect(report.count, "expected at least the mode pill and one control in the header").toBeGreaterThanOrEqual(2);
+      // gotoHome settles on a single visible header, but a later React remount
+      // can detach it again between that settle and this measurement — the
+      // header then has a 0x0 rect, no candidates are collected, and count is 0.
+      // Retry the collection (not the overlap assertion) so a header that never
+      // renders still fails, while a transient remount settles. Without this the
+      // suite fails at a different, arbitrary width on each contended run.
+      let report = await collectHeaderOverlaps(page);
+      await expect(async () => {
+        report = await collectHeaderOverlaps(page);
+        expect(report.count, "expected at least the mode pill and one control in the header").toBeGreaterThanOrEqual(2);
+      }).toPass({ timeout: 15_000 });
       expect(report.overlaps, `overlapping header elements at ${width}px`).toEqual([]);
     });
   }

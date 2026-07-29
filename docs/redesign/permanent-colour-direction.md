@@ -4,9 +4,11 @@
 
 ## Decision
 
-Adopt **Clinical White / Aegean Graphite** as the permanent colour direction.
+Adopt **Clinical White / Sky Graphite** as the permanent colour direction.
 
-This is a crisp white, graphite-led interface with a cool blue-teal clinical accent. It replaces the warm cream/porcelain base and demotes green to success-only states.
+This is a crisp white, graphite-led interface with a cool clinical blue accent. It replaces the warm cream/porcelain base and demotes green to success-only states.
+
+> **Revised 2026-07-28 — accent moved from Aegean teal `#0B6F86` to Clinical Sky `#1D6FB8`.** The full `--primary-*` ramp was re-derived in both themes rather than swapping the 500 step, so tints, borders and hover states stay coherent; dark now holds the same hue instead of drifting to cyan-green. The direction is otherwise unchanged: white for clarity, graphite for command, one accent for clinical identity. Earlier documents that say "Aegean" describe the same _role_, not the current colour.
 
 ## Why this direction wins
 
@@ -16,7 +18,7 @@ The strongest long-term direction is:
 
 - White for clarity.
 - Graphite for command and product weight.
-- Aegean blue-teal for clinical evidence and source confidence.
+- Clinical Sky blue for clinical evidence and source confidence.
 - Green only for completion/success.
 - Amber and red only for safety states.
 
@@ -28,45 +30,77 @@ This keeps the app clean and crisp while preserving a clinical identity.
 
 | Role                   | Token                      | Hex       | Purpose                                                              |
 | ---------------------- | -------------------------- | --------- | -------------------------------------------------------------------- |
-| Canvas                 | `--background`             | `#FFFFFF` | Main app canvas; no cream tint                                       |
-| Rail                   | `--surface-subtle`         | `#F7F8FA` | Sidebar rail, header band, quiet nested areas                        |
-| Surface                | `--surface`                | `#FFFFFF` | Cards, menus, answer panels                                          |
-| Raised surface         | `--surface-raised`         | `#FCFCFD` | Composer, floating controls                                          |
-| Inset surface          | `--surface-inset`          | `#F1F4F6` | Inputs, recessed chips, skeletons                                    |
-| Border                 | `--border`                 | `#E5E7EB` | Default hairline                                                     |
-| Strong border          | `--border-strong`          | `#CDD5DF` | Active/focused boundaries                                            |
+| Canvas                 | `--background`             | `#F1F4F8` | Main app canvas; no cream tint                                       |
+| Wash surface           | `--surface-wash`           | `#F1F4F8` | Page floor behind the content planes                                 |
+| Rail                   | `--surface-subtle`         | `#F7F9FC` | Sidebar rail, header band, quiet nested areas                        |
+| Surface                | `--surface`                | `#FCFDFE` | Cards, menus, answer panels                                          |
+| Raised surface         | `--surface-raised`         | `#FFFFFF` | Composer, floating controls — the lightest plane                     |
+| Inset surface          | `--surface-inset`          | `#EAEEF4` | Inputs, recessed chips, skeletons                                    |
+| Border                 | `--border`                 | `#E3E8EF` | Default hairline                                                     |
+| Strong border          | `--border-strong`          | `#C8D2DE` | Active/focused boundaries                                            |
 | Text                   | `--text`                   | `#101418` | Body text                                                            |
 | Heading                | `--text-heading`           | `#080B0F` | High-emphasis headings                                               |
 | Muted text             | `--text-muted`             | `#475467` | Secondary text                                                       |
 | Soft text              | `--text-soft`              | `#667085` | Metadata and placeholders                                            |
 | Command                | `--command`                | `#111827` | Primary actions and high-emphasis command controls                   |
 | Command hover          | `--command-hover`          | `#0B1220` | Hover/pressed command state                                          |
-| Clinical accent        | `--clinical-accent`        | `#0B6F86` | Evidence, selected mode, source confidence, send action              |
-| Clinical accent hover  | `--clinical-accent-hover`  | `#095D70` | Hover/pressed clinical action                                        |
-| Clinical accent soft   | `--clinical-accent-soft`   | `#E7F6F8` | Small evidence chips and icon tiles only                             |
-| Clinical accent border | `--clinical-accent-border` | `#B9E4EA` | Selected/evidence borders                                            |
-| Info                   | `--info`                   | `#2563EB` | Document/search information where clinical confidence is not implied |
-| Success                | `--success`                | `#0F7A49` | Ready, complete, connected, passed                                   |
-| Warning                | `--warning`                | `#A15C07` | Setup, caution, review required                                      |
-| Danger                 | `--danger`                 | `#B42318` | Critical/safety states                                               |
+| Clinical accent        | `--clinical-accent`        | `#1D6FB8` | Evidence, selected mode, source confidence, send action              |
+| Clinical accent hover  | `--clinical-accent-hover`  | `#185C99` | Hover/pressed clinical action                                        |
+| Clinical accent active | `--clinical-accent-active` | `#14507F` | Settled `:active` state — never below the resting baseline           |
+| Clinical accent soft   | `--clinical-accent-soft`   | `#EFF5FC` | Small evidence chips and icon tiles only                             |
+| Clinical accent border | `--clinical-accent-border` | `#C6DCF2` | Selected/evidence borders                                            |
+| Info                   | `--info`                   | `#1C4FBF` | Document/search information where clinical confidence is not implied |
+| Success                | `--success`                | `#0C6B41` | Ready, complete, connected, passed                                   |
+| Warning                | `--warning`                | `#8A4D05` | Setup, caution, review required                                      |
+| Danger                 | `--danger`                 | `#A3190F` | Critical/safety states                                               |
+
+Every status `-text` step clears 5.5:1 on its own background, and danger is clearly the highest of the four. They previously sat bunched in one 4.6–5.2:1 band, so nothing read as more urgent than anything else. Nothing else in the system is allowed to out-shout them — the categorical `--type-*` and `--tone-*` anchors are chroma-capped below the calmest status colour.
 
 ### Dark mode
 
-Keep the black-polish direction and pair it with a brighter cyan-blue accent.
+Keep the black-polish direction and pair it with a brighter version of the same blue — not a different hue.
 
 | Role                 | Token                    | Hex       |
 | -------------------- | ------------------------ | --------- |
 | Canvas               | `--background`           | `#060708` |
-| Surface              | `--surface`              | `#101214` |
-| Raised surface       | `--surface-raised`       | `#171A1D` |
-| Inset surface        | `--surface-inset`        | `#040506` |
-| Text                 | `--text`                 | `#F5F7F7` |
-| Muted text           | `--text-muted`           | `#A7B0AD` |
-| Clinical accent      | `--clinical-accent`      | `#4CCFD0` |
-| Clinical accent soft | `--clinical-accent-soft` | `#12383B` |
+| Wash surface         | `--surface-wash`         | `#0A0C0E` |
+| Subtle surface       | `--surface-subtle`       | `#0D0F11` |
+| Surface              | `--surface`              | `#101315` |
+| Raised surface       | `--surface-raised`       | `#171B1E` |
+| Inset surface        | `--surface-inset`        | `#08090B` |
+| Border               | `--border`               | `#2B3136` |
+| Strong border        | `--border-strong`        | `#3B444B` |
+| Text                 | `--text`                 | `#F4F6F8` |
+| Muted text           | `--text-muted`           | `#A4ADB7` |
+| Clinical accent      | `--clinical-accent`      | `#74BDF0` |
+| Clinical accent soft | `--clinical-accent-soft` | `#123556` |
 | Success              | `--success`              | `#7DE0A3` |
-| Warning              | `--warning`              | `#F0C15A` |
-| Danger               | `--danger`               | `#FF8D96` |
+| Warning              | `--warning`              | `#F2C45A` |
+| Danger               | `--danger`               | `#FF9CA4` |
+
+Dark status colours stay hot on purpose: they must clearly outrank the muted `--type-*` identity set.
+
+### Surfaces are an ordered scale
+
+In both themes the planes sort in one direction and must keep sorting that way:
+
+`--surface-inset` < `--surface-wash` < `--surface-subtle` < `--surface` < `--surface-raised`
+
+`--surface-raised` is the lightest plane in light mode. If it is ever darker than `--surface`, raised cards read as recesses.
+
+### Elevation is a numbered ladder
+
+Shadows are `--e0` … `--e4` — one monotonic sequence that sorts by name, hue-tinted rather than flat grey, with negative spread so a shadow pulls inward instead of bleeding.
+
+| Tier   | Use                     |
+| ------ | ----------------------- |
+| `--e0` | Flush                   |
+| `--e1` | Resting hairline        |
+| `--e2` | Cards, popovers         |
+| `--e3` | Hover, lifted chrome    |
+| `--e4` | Modals, sheets, drawers |
+
+The role names are aliases onto tiers, not independent values: `--shadow-tight` → `--e1`; `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` / `--shadow-lux` → `--e4`. Dark lifts with a top highlight rather than more black. Reach for a tier; never hand-roll a `shadow-[0_…]`.
 
 ## Role contract
 
@@ -76,12 +110,13 @@ Do not map every important UI element to the same accent colour.
 --command: #111827;
 --command-hover: #0b1220;
 
---clinical-accent: #0b6f86;
---clinical-accent-hover: #095d70;
---clinical-accent-soft: #e7f6f8;
---clinical-accent-border: #b9e4ea;
+--clinical-accent: #1d6fb8;
+--clinical-accent-hover: #185c99;
+--clinical-accent-active: #14507f;
+--clinical-accent-soft: #eff5fc;
+--clinical-accent-border: #c6dcf2;
 
---success: #0f7a49;
+--success: #0c6b41;
 ```
 
 Mapping:

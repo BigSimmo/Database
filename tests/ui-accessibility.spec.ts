@@ -611,4 +611,70 @@ test.describe("Clinical KB accessibility coverage", () => {
     expect(editableOutline).not.toBe("none");
     await expectNoBlockingAxeViolations(page, testInfo);
   });
+  // The accent rail must be the card's real border-top and must actually win the
+  // cascade. Tailwind's utilities layer outranks `@layer components`, and the band
+  // root also carries `border` / `border-[color:var(--border)]`, so a layered rule
+  // silently degrades to a neutral 1px border while every class-presence assertion
+  // still passes. Assert computed style, not classes.
+  test("search results band renders the accent rail and survives forced colors", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/services?q=CMHT&run=1", { waitUntil: "domcontentloaded" });
+    const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
+    await expect(band).toBeVisible({ timeout: 20_000 });
+
+    const rail = await band.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { width: style.borderTopWidth, color: style.borderTopColor, leftColor: style.borderLeftColor };
+    });
+    expect(rail.width, "accent rail must be 2px, not the neutral 1px border").toBe("2px");
+    expect(rail.color, "accent rail must use the clinical accent, not --border").not.toBe(rail.leftColor);
+    expect(rail.color).not.toBe("rgb(229, 231, 235)");
+
+    // Under forced colors the rail survives as thickness, since --clinical-accent
+    // resolves to LinkText and would otherwise match the other three borders.
+    // Poll: the forced-colors style recalc does not always land on the first
+    // read after emulateMedia resolves.
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect
+      .poll(async () => band.evaluate((node) => getComputedStyle(node).borderTopWidth), { timeout: 10_000 })
+      .toBe("3px");
+    await page.emulateMedia({ forcedColors: "none" });
+  });
+
+  test("fault recovery actions wrap instead of clipping on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    // Differentials is the widest fault: Retry plus two "Browse …" links. Their
+    // combined width exceeds a 390px panel, and the band root is
+    // `overflow-hidden`, so without wrapping the trailing link is cut off.
+    await page.route("**/api/differentials**", (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
+
+    const fault = page.locator('[data-testid="search-query-ribbon-fault"]:visible').first();
+    await expect(fault).toBeVisible({ timeout: 20_000 });
+
+    const actions = fault.locator("a, button");
+    await expect(actions).toHaveCount(3);
+
+    const panelBox = await fault.boundingBox();
+    expect(panelBox).not.toBeNull();
+    const boxes = await actions.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top };
+      }),
+    );
+
+    for (const box of boxes) {
+      expect(box.left, "a recovery action must not start left of the fault panel").toBeGreaterThanOrEqual(
+        panelBox!.x - 1,
+      );
+      expect(box.right, "a recovery action must not be clipped by the overflow-hidden band").toBeLessThanOrEqual(
+        panelBox!.x + panelBox!.width + 1,
+      );
+    }
+
+    // Proof the row actually wrapped rather than merely fitting: three actions
+    // this wide cannot share one line at 390px.
+    expect(new Set(boxes.map((box) => Math.round(box.top))).size).toBeGreaterThan(1);
+  });
 });

@@ -994,7 +994,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByText("Create your Clinical Guide account")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
   test("anonymous mobile user can search without a forced sign-in gate", async ({ page }) => {
@@ -1010,7 +1010,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Service unavailable")).toHaveCount(0);
     await expect(page.getByText("API unavailable")).toHaveCount(0);
     await expect(page.getByText("Search request was not authorized by the server.")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toBeEnabled();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeEnabled();
   });
 
   test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
@@ -2969,7 +2969,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
     await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-    await expect(page.getByTestId("global-search-input")).toBeFocused();
+    await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toBeFocused();
   });
 
   test("favourites hub hydrates saved services from the registry", async ({ page }) => {
@@ -3134,7 +3134,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=prescribing&q=acamprosate%20renal%20dose&run=1");
 
-    const globalSearchInput = page.getByTestId("global-search-input");
+    const globalSearchInput = page.locator('[data-testid="global-search-input"]:visible').first();
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
     await expect(globalSearchInput).toHaveAttribute("placeholder", "Search medication dosing or safety...");
     await expect(globalSearchInput).toHaveValue("acamprosate renal dose");
@@ -3298,7 +3298,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "href",
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
-    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toHaveCount(0);
+    await expect(documentResults.getByRole("button", { name: /Preview evidence/i })).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
 
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -3535,7 +3536,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const preview = page.getByTestId("pdf-preview");
     const toolbar = page.getByTestId("pdf-toolbar");
     const pdfScroller = page.getByTestId("pdf-canvas-scroll");
-    const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
+    // Phone owns section navigation via the title disclosure + sheet, not the
+    // retired in-flow "Document viewer sections" link row.
+    const sectionTrigger = page.getByTestId("document-section-trigger");
+    const openSection = async (label: RegExp) => {
+      await sectionTrigger.click();
+      const sheet = page.getByTestId("document-section-sheet");
+      await expect(sheet).toBeVisible();
+      const row = sheet.getByRole("button", { name: label });
+      await waitForReactEventHandler(row, "onClick");
+      await activateFocusedControl(page, row);
+      await expect(sheet).toHaveCount(0);
+    };
 
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
@@ -3543,9 +3555,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
-    await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
+    await expect(sectionTrigger).toBeVisible();
+    await sectionTrigger.click();
+    const sectionSheet = page.getByTestId("document-section-sheet");
+    await expect(sectionSheet.getByRole("button", { name: /Pinned evidence/ })).toBeVisible();
+    await expect(sectionSheet.getByRole("button", { name: /PDF preview/ })).toBeVisible();
+    await expect(sectionSheet.getByRole("button", { name: /Indexed source text/ })).toBeVisible();
+    const mobileDensityToggle = sectionSheet.getByTestId("document-view-density-toggle");
+    await expect(mobileDensityToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(mobileDensityToggle).toHaveAccessibleName("Show full document content");
+    await page.keyboard.press("Escape");
+    await expect(sectionSheet).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
     await expect(preview).toBeVisible();
     const switchToCanvasMode = page.getByRole("button", { name: "Switch to canvas zoom mode" });
@@ -3588,11 +3608,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(passageToggle).toHaveText("Show passage preview");
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
+    await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Text" }));
+    await openSection(/Indexed source text/);
     await expect(indexedTextHeading).toBeInViewport();
-    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
+    await openSection(/PDF preview/);
     await expect(preview).toBeInViewport();
 
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
@@ -3629,9 +3649,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const openDocumentActions = page.getByRole("button", { name: "Open document actions" }).first();
     await scrollPrimarySurface(page, 0);
     await expect(openDocumentActions).toBeInViewport();
+    await expect(openDocumentActions).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("link", { name: "Add this document to scope" })).toHaveCount(0);
     await openDocumentActions.click();
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await expect(documentActions).toBeVisible();
+    await expect(openDocumentActions).toHaveAttribute("aria-expanded", "true");
+    await expect(documentActions.getByRole("button", { name: "Add to scope" })).toBeVisible();
+    const composer = page.locator("form.document-viewer-composer");
+    const composerBox = await composer.boundingBox();
+    expect(composerBox).not.toBeNull();
+    const sheetOwnsComposerPoint = await documentActions.evaluate(
+      (dialog, point) => dialog.contains(document.elementFromPoint(point.x, point.y)),
+      { x: composerBox!.x + composerBox!.width / 2, y: composerBox!.y + composerBox!.height / 2 },
+    );
+    expect(sheetOwnsComposerPoint).toBe(true);
     await tapOutsideActiveSurface(page);
     await expect(documentActions).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
@@ -3649,9 +3681,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalSummary).toBeVisible();
     await expect(clinicalSummary.getByRole("heading", { name: "High-yield clinical summary" })).toBeVisible();
     const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
-    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "true");
-    await clinicalPriorities.click();
     await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "false");
+    const densityToggle = page.getByTestId("document-section-index").getByTestId("document-view-density-toggle");
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    await densityToggle.click();
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("heading", { name: "Key sections", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Useful pages", exact: true })).toHaveCount(0);
     const summaryCard = page.getByTestId("high-yield-summary");
@@ -3706,39 +3741,66 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const summary = page.getByTestId("high-yield-summary");
     const images = page.locator("#source-images");
     const indexingDetails = page.getByTestId("indexing-details");
-    const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
-    const clickViewerNav = async (name: "Images" | "Summary" | "Text") => {
-      const link = viewerNav.getByRole("link", { name });
-      await waitForReactEventHandler(link, "onClick");
-      await activateFocusedControl(page, link);
+    const sectionTrigger = page.getByTestId("document-section-trigger");
+    const clickSectionNav = async (label: RegExp) => {
+      await sectionTrigger.click();
+      const sheet = page.getByTestId("document-section-sheet");
+      await expect(sheet).toBeVisible();
+      const row = sheet.getByRole("button", { name: label });
+      await waitForReactEventHandler(row, "onClick");
+      await activateFocusedControl(page, row);
+      await expect(sheet).toHaveCount(0);
+    };
+    // Demo docs with no extracted visuals omit Images from the section sheet;
+    // open that disclosure from its own summary so exclusivity still covers
+    // the always-present #source-images details.
+    const openImagesDisclosure = async () => {
+      await images.locator("summary").click();
+      await expect(images).toHaveJSProperty("open", true);
     };
 
     await expect(indexedText).toBeVisible();
+    await expect(indexedText).toHaveJSProperty("open", false);
+    await sectionTrigger.click();
+    const densitySheet = page.getByTestId("document-section-sheet");
+    const densityToggle = densitySheet.getByTestId("document-view-density-toggle");
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    await waitForReactEventHandler(densityToggle, "onClick");
+    await activateFocusedControl(page, densityToggle);
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(indexedText).toHaveJSProperty("open", true);
+    await activateFocusedControl(page, densityToggle);
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(indexedText).toHaveJSProperty("open", false);
+    await page.keyboard.press("Escape");
+    await expect(densitySheet).toHaveCount(0);
     for (const disclosure of [summary, images, indexingDetails]) {
       await expect(disclosure).toHaveJSProperty("open", false);
     }
 
     const summaryContent = summary.getByTestId("formatted-high-yield-summary");
     await expect(summaryContent).toBeHidden();
-    await clickViewerNav("Images");
-    await expect(images).toHaveJSProperty("open", true);
+    await openImagesDisclosure();
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+    await expect(indexedText).toHaveJSProperty("open", true);
     await page.emulateMedia({ media: "print" });
     await expect(summaryContent).toBeVisible();
     await page.emulateMedia({ media: "screen" });
     await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
     await expect(summaryContent).toBeHidden();
     await expect(images).toHaveJSProperty("open", true);
+    await expect(indexedText).toHaveJSProperty("open", false);
 
-    await clickViewerNav("Text");
+    await clickSectionNav(/Indexed source text/);
     await expect(indexedText).toBeInViewport();
+    await expect(indexedText).toHaveJSProperty("open", true);
     await expect(images).toHaveJSProperty("open", false);
 
-    await clickViewerNav("Summary");
+    await clickSectionNav(/High-yield summary/);
     await expect(summary).toHaveJSProperty("open", true);
-    await expect(indexedText).toBeVisible();
+    await expect(indexedText).toHaveJSProperty("open", false);
 
-    await clickViewerNav("Images");
+    await openImagesDisclosure();
     await expect(images).toHaveJSProperty("open", true);
     await expect(summary).toHaveJSProperty("open", false);
 
@@ -4118,11 +4180,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "/documents/99999999-9999-4999-8999-999999999999?page=1&chunk=99999999-9999-4999-8999-999999999998",
     );
 
-    await expect(page.getByRole("heading", { level: 1, name: "Source unavailable" })).toBeVisible({
+    // Missing/unowned documents now resolve through the segment not-found boundary
+    // (page.tsx calls notFound() on PublicApiError 404) instead of DocumentViewer.
+    await expect(page.getByRole("heading", { level: 1, name: "Document Not Found" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(/Demo document not found\./i);
-    await expect(page.getByRole("button", { name: /^Answer from this(?: document)?$/ }).first()).toBeDisabled();
+    await expect(page.locator("body")).toContainText(/could not be found or has been deleted/i);
+    await expect(page.getByRole("link", { name: /Return to document library/i })).toBeVisible();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");
     await expectDomIntegrity(page);

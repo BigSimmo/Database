@@ -4,7 +4,7 @@ This is the single entry point for how UI is designed and built in this app. It 
 contract; the deep documents hold the rationale. Precedence when documents disagree:
 
 1. **This file** — the working contract for day-to-day UI changes.
-2. [`docs/redesign/permanent-colour-direction.md`](./redesign/permanent-colour-direction.md) — the authoritative colour specification ("Clinical White / Aegean Graphite"). Colour disputes end here.
+2. [`docs/redesign/permanent-colour-direction.md`](./redesign/permanent-colour-direction.md) — the authoritative colour specification ("Clinical White / Sky Graphite"). Colour disputes end here.
 3. [`docs/redesign/02-design-direction.md`](./redesign/02-design-direction.md) — token rationale: type scale, spacing, radii, elevation, motion.
 4. [`docs/redesign/09-ui-primitives-recipes.md`](./redesign/09-ui-primitives-recipes.md) — the recipe catalogue for `src/components/ui-primitives.tsx`.
 
@@ -32,7 +32,7 @@ contract and the code — not reinvention. If a change genuinely needs a new dir
     something happened or matters clinically. Green is success-only; red is safety/danger-only.
   - Categorical triads (`--type-document/table/search/source/service/form` + `-soft`/`-border`)
     give _identity_ to kinds of things (chips, icon tiles). They carry no status meaning.
-  - Brand: `--clinical-accent*` (Aegean) for clinical/evidence identity and primary-action
+  - Brand: `--clinical-accent*` (Clinical Sky) for clinical/evidence identity and primary-action
     accents; `--command*` (graphite) for the primary CTA family.
 - **Dark mode is class-based and mandatory.** The `.dark` block re-tunes every token; a
   pre-paint script in `src/app/layout.tsx` applies the stored theme. Nothing else is required
@@ -58,7 +58,7 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 | `#f8fbfd`, `#f8fcfc`, `#fbfdff` (page washes) | `var(--surface-wash)` / `var(--surface-subtle)`                   |
 | `bg-white`                                    | `bg-[color:var(--surface)]` (or `--surface-lux` for raised cards) |
 | `slate-200` / `slate-500` / `slate-600`       | `var(--border)` / `var(--text-soft)` / `var(--text-muted)`        |
-| ad-hoc `rgba(...)` shadows                    | `var(--shadow-tight/soft/hover/elevated/inset)` or `--glow-*`     |
+| ad-hoc `rgba(...)` shadows                    | an elevation tier `var(--e1…--e4)` or a role alias / `--glow-*`   |
 
 ## 2. Type & icon scale
 
@@ -67,10 +67,12 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 
-`text-4xs` 8px · `text-3xs` 10px · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
+`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
 16 from Tailwind) · `text-sm-minus` 13px · `text-base-minus` 15px · (`text-lg` 18 / `text-xl`
 20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
 
+- **10px is the floor.** An 8px `text-4xs` step existed and is retired — indefensible at any
+  density in a clinical product. Do not reintroduce a sub-10px step.
 - Arbitrary `text-[Npx]` is **banned**; `npm run check:type-scale` counts offenders.
   **Ratchet:** the count must never rise (baseline recorded in
   `docs/process-hardening.md`). When it reaches 0, wire `check:type-scale --strict` into
@@ -110,12 +112,23 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 
 ## 4. Radius & shadows
 
-- Radii come from `@theme`: `rounded-md` chips/pills · `rounded-lg` controls/cards/panels ·
-  `rounded-xl`+ sheets/dialogs. Never pass a radius token through an arbitrary value
-  (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the same token.
-- Shadows/elevation: `--shadow-tight/soft/card/hover/elevated/lux/inset/rail-active` and `--glow-primary/
-soft`, all re-tuned per theme and removed under forced-colors. No literal `box-shadow` values
-  in components.
+- Radii come from `@theme` and run on the 4px grid — `xs` 4 · `sm` 6 · `md` 8 · `lg` 12 ·
+  `xl` 16 · `2xl` 20 (px). `sm` is the one deliberate half-step, for chips and pills that read
+  as too heavy at 8. Roles are unchanged: `rounded-md` chips/pills · `rounded-lg`
+  controls/cards/panels · `rounded-xl`+ sheets/dialogs. Never pass a radius token through an
+  arbitrary value (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the
+  same token.
+- **Elevation is a numbered ladder: `--e0` … `--e4`.** One monotonic sequence that sorts by
+  name, hue-tinted rather than flat grey, with negative spread so a shadow pulls inward
+  instead of bleeding. `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers ·
+  `--e3` hover/lifted chrome · `--e4` modals/sheets/drawers. Dark lifts with a top highlight
+  rather than more black.
+- The role names are **aliases onto tiers**, not independent values: `--shadow-tight` → `--e1`;
+  `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` /
+  `--shadow-lux` → `--e4`. `--shadow-inset`, `--shadow-rail-active`, `--shadow-focus` and
+  `--glow-primary/soft` stay bespoke. All are removed under forced-colors, ladder included.
+- No literal `box-shadow` values in components — reach for a tier
+  (`shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`) or a role alias.
 
 ## 5. Z-index ladder
 

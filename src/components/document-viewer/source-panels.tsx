@@ -11,12 +11,10 @@ import {
   FileText,
   Loader2,
   Quote,
-  Search,
-  Sparkles,
   Target,
   type LucideIcon,
 } from "lucide-react";
-import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useState, type MouseEventHandler, type ReactNode } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -424,80 +422,60 @@ export function TableReviewPanel({
   );
 }
 
-export function DocumentViewerAnchors({
-  evidenceHref,
-  textHref,
-  className,
-}: {
-  evidenceHref: "#source-evidence" | "#source-evidence-rail";
-  textHref: "#source-text";
-  className?: string;
-}) {
-  const anchors = [
-    { label: "PDF", href: "#pdf-preview-section", icon: FileText },
-    { label: "Evidence", href: evidenceHref, icon: Quote },
-    { label: "Text", href: textHref, icon: Search },
-    { label: "Summary", href: "#source-summary", icon: Sparkles },
-    { label: "Images", href: "#source-images", icon: FileImage },
-  ];
-
-  return (
-    <nav
-      aria-label="Document viewer sections"
-      className={cn("flex gap-2 overflow-x-auto pb-1 polished-scroll", className)}
-    >
-      {anchors.map((anchor) => {
-        const Icon = anchor.icon;
-        return (
-          <a
-            key={anchor.href}
-            href={anchor.href}
-            onClick={() => {
-              const target = window.document.querySelector(anchor.href);
-              window.document
-                .querySelectorAll<HTMLDetailsElement>('details[name="document-viewer-section"]')
-                .forEach((disclosure) => {
-                  if (disclosure !== target) disclosure.open = false;
-                });
-              if (target instanceof HTMLDetailsElement) target.open = true;
-            }}
-            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {anchor.label}
-          </a>
-        );
-      })}
-    </nav>
-  );
-}
-
 export function DocumentSectionSummary({
   icon: Icon,
   title,
   description,
+  onClick,
+  interactive = true,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
+  onClick?: MouseEventHandler<HTMLElement>;
+  /** When false, render a static heading (full view) instead of a disclosure control. */
+  interactive?: boolean;
 }) {
-  return (
-    <summary className="flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-      <span className="inline-flex min-w-0 items-start gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          <Icon aria-hidden="true" className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span
-            role="heading"
-            aria-level={2}
-            className="block text-base font-semibold text-[color:var(--text-heading)]"
-          >
-            {title}
-          </span>
-          <span className={cn("mt-1 block text-sm leading-6", textMuted)}>{description}</span>
-        </span>
+  const label = (
+    <span className="inline-flex min-w-0 items-start gap-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+        <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
+      <span className="min-w-0">
+        <span role="heading" aria-level={2} className="block text-base font-semibold text-[color:var(--text-heading)]">
+          {title}
+        </span>
+        <span className={cn("mt-1 block text-sm leading-6", textMuted)}>{description}</span>
+      </span>
+    </span>
+  );
+
+  // Full view keeps a <details> shell for print/section anchors, but the header
+  // must not advertise collapse when activation is intentionally inert.
+  if (!interactive) {
+    return (
+      <summary
+        key="document-section-summary-static"
+        aria-disabled="true"
+        tabIndex={-1}
+        onClick={(event) => event.preventDefault()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") event.preventDefault();
+        }}
+        className="flex min-h-[72px] list-none items-center gap-3 px-4 py-3"
+      >
+        {label}
+      </summary>
+    );
+  }
+
+  return (
+    <summary
+      key="document-section-summary-interactive"
+      onClick={onClick}
+      className="flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3"
+    >
+      {label}
       <ChevronDown
         aria-hidden="true"
         className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
@@ -730,6 +708,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   sectionId,
   selectedChunkId,
   onSearchChange,
+  compact = false,
 }: {
   loading: boolean;
   selectedPage: PageRow | undefined;
@@ -742,6 +721,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   sectionId?: "source-text";
   selectedChunkId?: string;
   onSearchChange: (value: string) => void;
+  compact?: boolean;
 }) {
   const normalizedSearch = search.trim().toLowerCase();
   const searchEligible = normalizedSearch.length >= 2;
@@ -788,6 +768,16 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     .map(([page, count]) => `p${page}: ${count}`)
     .join(" · ");
   const selectedPageText = selectedPage ? sourceTextForIndexedPage(selectedPage.text) : "";
+  const [compactOpen, setCompactOpen] = useState(Boolean(selectedChunkId));
+  // Deep-linked chunks and in-document search must keep the panel revealed even
+  // when the exclusive accordion briefly closes it (section jumps / sibling
+  // opens). Derive force-open from props so compactOpen cannot latch closed.
+  const forceReveal = Boolean(selectedChunkId) || Boolean(normalizedSearch);
+  const [prevForceReveal, setPrevForceReveal] = useState(forceReveal);
+  if (forceReveal !== prevForceReveal) {
+    setPrevForceReveal(forceReveal);
+    if (forceReveal) setCompactOpen(true);
+  }
 
   useEffect(() => {
     if (!activeHit) return;
@@ -800,178 +790,200 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   }
 
   return (
-    <section
+    <details
       id={sectionId}
+      name={compact ? "document-viewer-section" : undefined}
+      open={!compact || compactOpen || forceReveal}
+      onToggle={(event) => {
+        if (!compact) return;
+        // Exclusive-accordion closes must not win over a deep-link/search reveal.
+        // Re-open after the browser finishes the toggle (microtask), and bump a
+        // render so the controlled `open` prop stays authoritative.
+        if (!event.currentTarget.open && forceReveal) {
+          const disclosure = event.currentTarget;
+          queueMicrotask(() => {
+            disclosure.open = true;
+          });
+          setCompactOpen(true);
+          return;
+        }
+        setCompactOpen(event.currentTarget.open);
+      }}
       data-testid={`${idPrefix}-indexed-text-panel`}
-      className={cn(panel, "scroll-mt-24 p-5 source-print")}
+      className={cn(panel, "group scroll-mt-[var(--document-anchor-offset,6rem)] source-print")}
     >
-      <PanelHeading
+      <DocumentSectionSummary
         icon={FileText}
         title="Indexed source text"
+        // While a deep-link/search forces the panel open, do not advertise a
+        // collapse control that the exclusive accordion would immediately undo.
+        interactive={compact && !forceReveal}
         description={
           loading
             ? "Loading extracted source text."
             : `Extracted text for page ${selectedPage?.page_number ?? "n/a"} with searchable source passages.`
         }
       />
-      <label className="mt-4 block">
-        <span className={fieldLabel}>Search within indexed source text</span>
-        <input
-          value={search}
-          onChange={(event) => {
-            setActiveHitIndex(0);
-            onSearchChange(event.target.value);
-          }}
-          placeholder="Find a term, warning, or monitoring item"
-          className={fieldControl}
-        />
-      </label>
-      {loading ? (
-        <LoadingPanel label="Loading indexed source text" />
-      ) : selectedPage ? (
-        <IndexedSourceText
-          text={selectedPageText}
-          emptyText="No displayable extracted text has been indexed for this page yet."
-        />
-      ) : (
-        <p className={cn("mt-4 text-base-minus", textMuted)}>No extracted text has been indexed for this page yet.</p>
-      )}
-      <div className={cn("mt-4 pt-4", clinicalDivider)}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
-          {searchEligible ? (
-            <span className={cn("text-xs font-semibold", textMuted)}>
-              {searchingDocument
-                ? "Searching all indexed passages"
-                : `${visibleChunks.length} full-document hit${visibleChunks.length === 1 ? "" : "s"}`}
-            </span>
-          ) : null}
-        </div>
-        {searchEligible && visibleChunks.length > 0 && !searchingDocument ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
-            <div className="min-w-0">
-              <p className="nums text-xs font-bold text-[color:var(--text)]">
-                Hit {clampedActiveHitIndex + 1} of {visibleChunks.length}
-              </p>
-              <p className={cn("mt-0.5 truncate text-2xs font-semibold", textMuted)}>
-                {pageHitSummary || "No page numbers indexed for these hits"}
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={() => moveHit(-1)}
-                className={cn(secondaryButton, "size-tap justify-center p-0")}
-                aria-label="Previous document search hit"
-                title="Previous document search hit"
-              >
-                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => moveHit(1)}
-                className={cn(secondaryButton, "size-tap justify-center p-0")}
-                aria-label="Next document search hit"
-                title="Next document search hit"
-              >
-                <ChevronRight aria-hidden="true" className="h-4 w-4" />
-              </button>
-            </div>
+      <div className={cn(clinicalDivider, "p-5 pt-4")}>
+        <label className="block">
+          <span className={fieldLabel}>Search within indexed source text</span>
+          <input
+            value={search}
+            onChange={(event) => {
+              setActiveHitIndex(0);
+              onSearchChange(event.target.value);
+            }}
+            placeholder="Find a term, warning, or monitoring item"
+            className={fieldControl}
+          />
+        </label>
+        {loading ? (
+          <LoadingPanel label="Loading indexed source text" />
+        ) : selectedPage ? (
+          <IndexedSourceText
+            text={selectedPageText}
+            emptyText="No displayable extracted text has been indexed for this page yet."
+          />
+        ) : (
+          <p className={cn("mt-4 text-base-minus", textMuted)}>No extracted text has been indexed for this page yet.</p>
+        )}
+        <div className={cn("mt-4 pt-4", clinicalDivider)}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-[color:var(--text)]">Source passages</p>
+            {searchEligible ? (
+              <span className={cn("text-xs font-semibold", textMuted)}>
+                {searchingDocument
+                  ? "Searching all indexed passages"
+                  : `${visibleChunks.length} full-document hit${visibleChunks.length === 1 ? "" : "s"}`}
+              </span>
+            ) : null}
           </div>
-        ) : null}
-        {documentSearchError && searchEligible ? (
-          <p className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--warning)]">
-            {documentSearchError}
-          </p>
-        ) : null}
-        <div className="mt-3 grid gap-3">
-          {normalizedSearch.length === 1 ? (
-            <p className={cn("text-base-minus leading-6", textMuted)}>
-              Enter at least 2 characters to search all indexed passages.
+          {searchEligible && visibleChunks.length > 0 && !searchingDocument ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2">
+              <div className="min-w-0">
+                <p className="nums text-xs font-bold text-[color:var(--text)]">
+                  Hit {clampedActiveHitIndex + 1} of {visibleChunks.length}
+                </p>
+                <p className={cn("mt-0.5 truncate text-2xs font-semibold", textMuted)}>
+                  {pageHitSummary || "No page numbers indexed for these hits"}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => moveHit(-1)}
+                  className={cn(secondaryButton, "size-tap justify-center p-0")}
+                  aria-label="Previous document search hit"
+                  title="Previous document search hit"
+                >
+                  <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveHit(1)}
+                  className={cn(secondaryButton, "size-tap justify-center p-0")}
+                  aria-label="Next document search hit"
+                  title="Next document search hit"
+                >
+                  <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {documentSearchError && searchEligible ? (
+            <p className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-semibold text-[color:var(--warning)]">
+              {documentSearchError}
             </p>
-          ) : searchingDocument ? (
-            <LoadingPanel label="Searching all indexed passages" />
-          ) : documentSearchError ? null : visibleChunks.length === 0 ? (
-            <p className={cn("text-base-minus leading-6", textMuted)}>No indexed passage matched that search.</p>
-          ) : (
-            visibleChunks.map((chunk) => (
-              <article
-                id={`${idPrefix}-${chunk.id}`}
-                key={chunk.id}
-                data-testid={selectedChunkId === chunk.id ? "highlighted-indexed-source-chunk" : undefined}
-                data-source-chunk-id={chunk.id}
-                className={cn(
-                  sourceCard,
-                  "overflow-hidden p-0 transition",
-                  (selectedChunkId === chunk.id || activeHit?.id === chunk.id) &&
-                    "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--clinical-accent)]/25",
-                )}
-              >
-                <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-3">
-                  <p
-                    className={cn(
-                      "mb-2 inline-flex min-h-6 items-center rounded-md px-2 text-xs font-bold",
-                      selectedChunkId === chunk.id
-                        ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+          ) : null}
+          <div className="mt-3 grid gap-3">
+            {normalizedSearch.length === 1 ? (
+              <p className={cn("text-base-minus leading-6", textMuted)}>
+                Enter at least 2 characters to search all indexed passages.
+              </p>
+            ) : searchingDocument ? (
+              <LoadingPanel label="Searching all indexed passages" />
+            ) : documentSearchError ? null : visibleChunks.length === 0 ? (
+              <p className={cn("text-base-minus leading-6", textMuted)}>No indexed passage matched that search.</p>
+            ) : (
+              visibleChunks.map((chunk) => (
+                <article
+                  id={`${idPrefix}-${chunk.id}`}
+                  key={chunk.id}
+                  data-testid={selectedChunkId === chunk.id ? "highlighted-indexed-source-chunk" : undefined}
+                  data-source-chunk-id={chunk.id}
+                  className={cn(
+                    sourceCard,
+                    "overflow-hidden p-0 transition",
+                    (selectedChunkId === chunk.id || activeHit?.id === chunk.id) &&
+                      "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--glow-soft)] ring-2 ring-[color:var(--clinical-accent)]/25",
+                  )}
+                >
+                  <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-3">
+                    <p
+                      className={cn(
+                        "mb-2 inline-flex min-h-6 items-center rounded-md px-2 text-xs font-bold",
+                        selectedChunkId === chunk.id
+                          ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+                          : activeHit?.id === chunk.id
+                            ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                            : "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+                      )}
+                    >
+                      {selectedChunkId === chunk.id
+                        ? "Highlighted quoted passage"
                         : activeHit?.id === chunk.id
-                          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                          : "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]",
-                    )}
-                  >
-                    {selectedChunkId === chunk.id
-                      ? "Highlighted quoted passage"
-                      : activeHit?.id === chunk.id
-                        ? "Active search hit"
-                        : "Source passage"}
-                  </p>
-                  <p className={eyebrowText}>
-                    Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
-                    {chunk.serverRanked ? " · full-document search" : ""}
-                  </p>
-                  {chunk.section_heading && (
-                    <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
-                  )}
-                  {chunk.matchedTerms.length ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {chunk.matchedTerms.slice(0, 5).map((term) => (
-                        <span
-                          key={`${chunk.id}:${term}`}
-                          className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]"
-                        >
-                          {term}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="px-3 pb-3">
-                  <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                    Excerpt
-                  </p>
-                  {normalizedSearch ? (
-                    <p className="whitespace-pre-line rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-sm leading-6 text-[color:var(--text)]">
-                      <HighlightedSearchText
-                        text={
-                          chunk.displayContent
-                            ? flowIndexedText(chunk.displayContent)
-                            : "No displayable clinical text was available for this indexed passage."
-                        }
-                        terms={highlightTermsFor(chunk.matchedTerms, normalizedSearch)}
-                      />
+                          ? "Active search hit"
+                          : "Source passage"}
                     </p>
-                  ) : (
-                    <IndexedSourceText
-                      text={chunk.displayContent}
-                      emptyText="No displayable clinical text was available for this indexed passage."
-                      compact
-                    />
-                  )}
-                </div>
-              </article>
-            ))
-          )}
+                    <p className={eyebrowText}>
+                      Page {chunk.page_number ?? "n/a"} · chunk {chunk.chunk_index}
+                      {chunk.serverRanked ? " · full-document search" : ""}
+                    </p>
+                    {chunk.section_heading && (
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--text)]">{chunk.section_heading}</p>
+                    )}
+                    {chunk.matchedTerms.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {chunk.matchedTerms.slice(0, 5).map((term) => (
+                          <span
+                            key={`${chunk.id}:${term}`}
+                            className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]"
+                          >
+                            {term}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="px-3 pb-3">
+                    <p className="mb-2 mt-3 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                      Excerpt
+                    </p>
+                    {normalizedSearch ? (
+                      <p className="whitespace-pre-line rounded-lg bg-[color:var(--surface-inset)] px-3 py-2.5 text-sm leading-6 text-[color:var(--text)]">
+                        <HighlightedSearchText
+                          text={
+                            chunk.displayContent
+                              ? flowIndexedText(chunk.displayContent)
+                              : "No displayable clinical text was available for this indexed passage."
+                          }
+                          terms={highlightTermsFor(chunk.matchedTerms, normalizedSearch)}
+                        />
+                      </p>
+                    ) : (
+                      <IndexedSourceText
+                        text={chunk.displayContent}
+                        emptyText="No displayable clinical text was available for this indexed passage."
+                        compact
+                      />
+                    )}
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </section>
+    </details>
   );
 });

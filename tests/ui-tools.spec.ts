@@ -1121,13 +1121,19 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
-    await expect(page.getByTestId("form-detail-page")).toBeVisible({ timeout: 30_000 });
+    // Hydration can briefly overlap the outgoing RSC tree and the settled
+    // client tree (two <main data-testid="form-detail-page">). Wait for one
+    // owner; a permanent double-render still fails.
+    const formDetail = await expectSingleSettledOwner(page.getByTestId("form-detail-page"), {
+      message: "form detail page owner",
+      timeout: 30_000,
+    });
 
     // Structural coverage — runs on every browser, WebKit included: the form
     // detail page renders inside the shared shell with the Forms-mode composer
     // present and no stale results.
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("heading", { level: 1, name: "Transport order" })).toBeVisible();
+    await expect(formDetail.getByRole("heading", { level: 1, name: "Transport order" })).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
     await expect(formsSearchInput).toBeVisible();
@@ -1152,8 +1158,13 @@ test.describe("Clinical KB tools launcher", () => {
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
-    await expect(page.getByTestId("form-detail-page")).toBeVisible();
-    await expect(page.getByTestId("form-decision-context-mobile")).toBeVisible();
+    // Same hydration overlap as the desktop form-detail wiring test: require a
+    // single settled <main> before strict visibility / geometry asserts.
+    const formDetail = await expectSingleSettledOwner(page.getByTestId("form-detail-page"), {
+      message: "form detail page owner (mobile)",
+      timeout: 30_000,
+    });
+    await expect(formDetail.getByTestId("form-decision-context-mobile")).toBeVisible();
     await expect(page.locator('[data-testid="global-search-input"]:visible')).toHaveCount(1);
 
     // Decision context now stacks below the priority facts and source snapshot
@@ -1192,7 +1203,12 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/differentials?q=acute+confusion&run=1", resultsTestId: "differentials-search-results" },
     ] as const) {
       await gotoLauncher(page, route.path);
-      await expect(page.getByTestId(route.resultsTestId)).toBeVisible({ timeout: 20_000 });
+      const results = page.getByTestId(route.resultsTestId);
+      // A soft navigation can briefly retain the previous reserve-pad owner.
+      // Wait for the new route to settle to the single-owner contract before
+      // making a strict visibility assertion.
+      await expect(results).toHaveCount(1, { timeout: 20_000 });
+      await expect(results).toBeVisible();
       const dock = page.locator("form.answer-footer-search-dock");
       await expect(dock, route.path).toBeVisible();
       await expect(dock, route.path).not.toHaveAttribute("data-scroll-hidden", "true");
@@ -2371,7 +2387,9 @@ test.describe("Responsive layout guards", () => {
 
     await page.goto("/safety-plan");
     await expect(page.getByLabel(/Patient \(name or initials\)/i)).toHaveCount(0);
-    await expect(page.getByText(/kept only in this browser tab/i)).toBeVisible();
+    const privacyRegion = page.getByRole("region", { name: "Safety plan privacy" });
+    await expect(privacyRegion).toHaveCount(1);
+    await expect(privacyRegion.getByText(/kept only in this browser tab/i)).toBeVisible();
     await expect(
       page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
     ).toBeVisible();

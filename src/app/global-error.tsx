@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces
@@ -12,10 +13,42 @@ import { useEffect, useRef } from "react";
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const copiedResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error]);
+
+  useEffect(() => {
+    return () => {
+      if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyDiagnostics = () => {
+    const diagnosticPayload = {
+      name: error.name,
+      message: error.message,
+      digest: error.digest,
+      url: typeof window !== "undefined" ? window.location.href : "unknown",
+      userAgent: typeof window !== "undefined" ? window.navigator.userAgent : "unknown",
+      timestamp: new Date().toISOString(),
+    };
+    void copyTextToClipboard(JSON.stringify(diagnosticPayload, null, 2))
+      .then(() => {
+        setCopyFailed(false);
+        setCopied(true);
+        if (copiedResetTimerRef.current) clearTimeout(copiedResetTimerRef.current);
+        copiedResetTimerRef.current = setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        setCopied(false);
+        setCopyFailed(true);
+      });
+  };
 
   return (
     <html lang="en">
@@ -115,6 +148,26 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               }}
             >
               Reload page
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyDiagnostics}
+              style={{
+                cursor: "pointer",
+                borderRadius: "0.5rem",
+                border: "1px solid ButtonText",
+                backgroundColor: "ButtonFace",
+                color: "ButtonText",
+                padding: "0.625rem 1rem",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+              }}
+            >
+              {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
             </button>
           </div>
         </div>

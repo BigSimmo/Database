@@ -161,7 +161,7 @@ function CategoryFilterDropdown({
         )}
       >
         <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
           Category
         </span>
         <span className="min-w-0 flex-1 truncate text-left font-extrabold text-[color:var(--text-heading)]">
@@ -317,7 +317,7 @@ export function DsmSearchPage({
                   {results.length} {results.length === 1 ? "result" : "results"}
                 </span>
               </div>
-              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)] lg:grid">
+              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)] lg:grid">
                 <span>Select</span>
                 <span>Diagnosis</span>
                 <span>Category</span>

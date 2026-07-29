@@ -642,7 +642,7 @@ function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Likely presentation
       </h2>
       <ul className="mt-3 grid gap-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
@@ -662,7 +662,7 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Highest urgency
       </h2>
       <div className="mt-3 grid gap-2">
@@ -699,7 +699,7 @@ function SourceStatusCard({
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Source status
       </h2>
       <div className="mt-3 grid gap-2 text-sm font-bold">
@@ -907,7 +907,51 @@ function SearchResultsView({
         modeId="differentials"
         query={query}
         matchCount={results.length}
-        loading={loading || catalogLoading}
+        status={
+          catalogFailed
+            ? catalog.status === "unauthorized"
+              ? "unauthorized"
+              : "error"
+            : loading || catalogLoading
+              ? "loading"
+              : "ready"
+        }
+        faultTitle={
+          catalog.status === "unauthorized"
+            ? "Sign in again to search the differentials catalogue"
+            : "The differentials catalogue could not be searched"
+        }
+        faultBody={
+          catalog.status === "unauthorized"
+            ? "Sign in again to search, or browse the catalogue pages directly."
+            : "Retry the search shortly, or browse the catalogue pages directly."
+        }
+        // The fault copy promises two recoveries, so both have to exist: rerun the
+        // search, and the catalogue links that the removed error section used to
+        // carry. Without these the failed view tells the reader to act and gives
+        // them nothing to act with. Unauthorized omits Retry because a refetch
+        // cannot mint a session — the body must not promise one either.
+        // Retry the request that actually failed. `rerunSearch` only re-runs the
+        // parent document-evidence search; the catalogue hook keys on query + auth
+        // identity, neither of which changes when the reader asks to try again, so
+        // routing Retry through it left the band permanently faulted.
+        onRetry={catalog.status === "unauthorized" ? undefined : catalog.refetch}
+        faultAction={
+          <>
+            <Link
+              href={differentialRouteWithQuery("/differentials/presentations", query)}
+              className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+            >
+              Browse presentations
+            </Link>
+            <Link
+              href={differentialRouteWithQuery("/differentials/diagnoses", query)}
+              className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+            >
+              Browse diagnoses
+            </Link>
+          </>
+        }
         sortValue={sortValue}
         onSortChange={setSortValue}
         filterLabel="Filter differential result type"
@@ -954,30 +998,27 @@ function SearchResultsView({
             />
           ))}
         </div>
-      ) : !best ? (
+      ) : /* A failed catalogue search is reported by the band's fault panel, which
+              also owns the retry copy, so the whole body is suppressed here.
+              `catalogFailed` must short-circuit BEFORE the `!best` test: `best` is
+              `results[0] ?? null`, and a faulted search with no results would
+              otherwise fall through to the results grid, which dereferences
+              `best.id` / `best.kind` unconditionally and throws — on exactly the
+              state this component is meant to report truthfully. */
+      catalogFailed ? null : !best ? (
         <section
-          data-testid={catalogFailed ? "differentials-catalogue-error" : "differentials-empty-results"}
-          role={catalogFailed ? "alert" : undefined}
-          className={cn(
-            "grid gap-3 rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]",
-            catalogFailed ? "border-[color:var(--warning-border)]" : "border-[color:var(--border)]",
-          )}
+          data-testid="differentials-empty-results"
+          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
         >
           <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-            {catalogFailed
-              ? catalog.status === "unauthorized"
-                ? "Sign in again to search the differentials catalogue"
-                : "The differentials catalogue could not be searched"
-              : `No catalogue matches for “${query}”`}
+            {`No catalogue matches for “${query}”`}
           </h2>
           <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            {catalogFailed
-              ? "Retry the search shortly, or browse the catalogue pages directly."
-              : hasSourceEvidence
-                ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
-                    reviewedSourceCount === 1 ? "match is" : "matches are"
-                  } available in the library.`
-                : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
+            {hasSourceEvidence
+              ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
+                  reviewedSourceCount === 1 ? "match is" : "matches are"
+                } available in the library.`
+              : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Link

@@ -47,7 +47,13 @@ export function FavouritesHub({
   demoMode: boolean;
   headingLevel?: 1 | 2;
 }) {
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  // Keep the status: discarding it makes a failed registry read indistinguishable
+  // from an empty library.
+  const {
+    items: savedRegistryFavourites,
+    status: savedRegistryStatus,
+    refetch: refetchFavouritesRegistry,
+  } = useSavedRegistryFavourites();
   const allFavouriteItems = useMemo(
     () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
     [demoMode, savedRegistryFavourites],
@@ -99,6 +105,14 @@ export function FavouritesHub({
   const showSets = selectedTab === "all" || selectedTab === "sets";
   const showItems = selectedTab !== "sets";
   const empty = (!showItems || visibleItems.length === 0) && (!showSets || visibleSets.length === 0);
+  // Counts are only trustworthy once the registry answers, or when the page already
+  // holds concrete items (demo/prototype rows). A pending or failed load with an
+  // empty list must not assert "0" — that reads as an empty library.
+  const libraryCountsTrusted = savedRegistryStatus === "ready" || allFavouriteItems.length > 0;
+  const libraryCountUnavailableLabel =
+    savedRegistryStatus === "loading"
+      ? "unavailable until favourites finish loading"
+      : "unavailable because favourites could not be loaded";
   const selectedTabMeta = favouriteTabs.find((tab) => tab.id === selectedTab) ?? favouriteTabs[0];
   const selectedTabLabel = selectedTabMeta.label;
   const selectedTabCount = getTypeCount(selectedTab);
@@ -178,9 +192,19 @@ export function FavouritesHub({
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
           {[
-            { label: "Items", value: itemCount, icon: Heart },
-            { label: "Sets", value: setCount, icon: Folder },
-            { label: "Filters", value: activeFilterCount, icon: Filter },
+            {
+              label: "Items",
+              value: libraryCountsTrusted ? String(itemCount) : "—",
+              icon: Heart,
+              countBearing: true,
+            },
+            {
+              label: "Sets",
+              value: libraryCountsTrusted ? String(setCount) : "—",
+              icon: Folder,
+              countBearing: true,
+            },
+            { label: "Filters", value: String(activeFilterCount), icon: Filter, countBearing: false },
           ].map((stat) => {
             const Icon = stat.icon;
             return (
@@ -188,11 +212,18 @@ export function FavouritesHub({
                 key={stat.label}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 py-2 shadow-[var(--shadow-inset)]"
               >
-                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <div className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   <span className="truncate">{stat.label}</span>
                 </div>
-                <p className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]">
+                <p
+                  className="nums mt-1 text-lg font-bold leading-none text-[color:var(--text-heading)]"
+                  aria-label={
+                    stat.countBearing && !libraryCountsTrusted
+                      ? `${stat.label} ${libraryCountUnavailableLabel}`
+                      : undefined
+                  }
+                >
                   {stat.value}
                 </p>
               </div>
@@ -219,11 +250,11 @@ export function FavouritesHub({
                 <SelectedTabIcon className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-2xs font-bold uppercase leading-none tracking-[0.08em] text-[color:var(--text-muted)]">
+                <span className="text-2xs font-bold uppercase leading-none tracking-eyebrow text-[color:var(--text-muted)]">
                   View
                 </span>
                 <span className="truncate text-xs font-bold leading-none text-[color:var(--text-heading)]">
-                  {selectedTabLabel} · {selectedTabCount}
+                  {libraryCountsTrusted ? `${selectedTabLabel} · ${selectedTabCount}` : selectedTabLabel}
                 </span>
               </span>
               <ChevronDown
@@ -281,16 +312,20 @@ export function FavouritesHub({
                         <Icon className="h-4 w-4" />
                       </span>
                       <span className="font-bold">{tab.label}</span>
-                      <span
-                        className={cn(
-                          "nums rounded-full px-2 py-0.5 text-2xs font-bold",
-                          selected
-                            ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                            : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
-                        )}
-                      >
-                        {count}
-                      </span>
+                      {libraryCountsTrusted ? (
+                        <span
+                          className={cn(
+                            "nums rounded-full px-2 py-0.5 text-2xs font-bold",
+                            selected
+                              ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                              : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+                          )}
+                        >
+                          {count}
+                        </span>
+                      ) : (
+                        <span className="sr-only">Count {libraryCountUnavailableLabel}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -395,9 +430,11 @@ export function FavouritesHub({
                 {selectedTab === "sets" ? "Open a focused clinical set." : "Open, ask, copy, or organise saved items."}
               </p>
             </div>
-            <span className="nums shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-xs font-bold text-[color:var(--text-muted)]">
-              {selectedTab === "sets" ? visibleSets.length : visibleItems.length}
-            </span>
+            {libraryCountsTrusted ? (
+              <span className="nums shrink-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-1 text-xs font-bold text-[color:var(--text-muted)]">
+                {selectedTab === "sets" ? visibleSets.length : visibleItems.length}
+              </span>
+            ) : null}
           </div>
 
           <div className="grid gap-1.5">
@@ -425,10 +462,34 @@ export function FavouritesHub({
               <div className="grid min-h-40 place-items-center rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center">
                 <div>
                   <Search aria-hidden="true" className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" />
-                  <p className="font-semibold text-[color:var(--text-heading)]">No favourites match</p>
-                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">
-                    Clear the composer text or choose another tab.
+                  {/* An empty list only means "no favourites" once the registry
+                      actually answered. While loading or faulted it means we could
+                      not look, and saying otherwise reads as data loss. */}
+                  <p className="font-semibold text-[color:var(--text-heading)]">
+                    {savedRegistryStatus === "ready"
+                      ? "No favourites match"
+                      : savedRegistryStatus === "loading"
+                        ? "Loading your favourites"
+                        : "Could not load your favourites"}
                   </p>
+                  <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+                    {savedRegistryStatus === "ready"
+                      ? "Clear the composer text or choose another tab."
+                      : savedRegistryStatus === "loading"
+                        ? "Fetching your saved services and forms."
+                        : savedRegistryStatus === "unauthorized"
+                          ? "Your session expired. Sign in again to see your saved items."
+                          : "Your saved items could not be loaded. Try again shortly."}
+                  </p>
+                  {savedRegistryStatus === "error" ? (
+                    <button
+                      type="button"
+                      onClick={() => refetchFavouritesRegistry()}
+                      className={cn(primaryControl, "mx-auto mt-3")}
+                    >
+                      Retry
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ) : null}

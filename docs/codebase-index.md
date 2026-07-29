@@ -309,6 +309,7 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/formulation` → local mechanism results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`; `/?mode=dsm` redirects to `/dsm`; `/?mode=specifiers` redirects to `/specifiers`; `/?mode=formulation` redirects to `/formulation`.
 - **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
+- **Shared secondary navigation**: `src/components/secondary-navigation.tsx` (`SecondaryNavigation`, route/section/action items, roving tablist, fragment section tracking) and `src/components/page-secondary-navigation.tsx` (`PageSecondaryNavigation`, per-route selection of mode destinations vs. "On this page" section anchors). Mode destinations come from `src/lib/mode-secondary-navigation.ts` (`modeSecondaryNavigationRegistry`, no "Home" item). `GlobalSearchShell` renders it in normal flow at the top of `#main-content` for its owned namespaced modes; it self-suppresses on clean mode homes, locally-owned detail routes (medications, factsheets, differentials diagnoses) and Therapy Compass, and Specifiers/Formulation keep their existing local `Subnav` (so the shared mode bar is skipped for those two modes to avoid a duplicate row).
 - **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
 - **Wiring conventions** for buttons and route navigation (and the gates that enforce them — the dead-button ESLint rule and the orphan-route reachability test) live in `docs/wiring-conventions.md`.
 
@@ -336,17 +337,18 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Related docs
 
-| Topic                    | Doc                                                              |
-| ------------------------ | ---------------------------------------------------------------- |
-| Full documentation index | `docs/README.md`                                                 |
-| Routes and modes         | `docs/site-map.md`                                               |
-| Search/RAG roadmap       | `docs/search-rag-master-plan.md`                                 |
-| Universal task ledger    | `docs/outstanding-issues.md`                                     |
-| Reindex operations       | `docs/reindex-runbook.md`                                        |
-| Production readiness     | `docs/production-readiness-checklist.md`                         |
-| Capacity / scale-up      | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
-| Frontend architecture    | `docs/frontend-architecture.md`                                  |
-| Repo audit (2026-07-01)  | `docs/audit/repo-audit-2026-07-01.md`                            |
+| Topic                      | Doc                                                              |
+| -------------------------- | ---------------------------------------------------------------- |
+| Full documentation index   | `docs/README.md`                                                 |
+| Routes and modes           | `docs/site-map.md`                                               |
+| Search/RAG roadmap         | `docs/search-rag-master-plan.md`                                 |
+| Universal task ledger      | `docs/outstanding-issues.md`                                     |
+| Reindex operations         | `docs/reindex-runbook.md`                                        |
+| Production readiness       | `docs/production-readiness-checklist.md`                         |
+| Capacity / scale-up        | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
+| Frontend architecture      | `docs/frontend-architecture.md`                                  |
+| Repo audit (2026-07-01)    | `docs/audit/repo-audit-2026-07-01.md`                            |
+| Latency audit (2026-07-28) | `docs/audit/latency-audit-2026-07-28.md`                         |
 
 ---
 

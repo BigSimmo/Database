@@ -8,14 +8,14 @@ import {
   ArrowLeft,
   ChevronDown,
   Download,
+  Ellipsis,
   ExternalLink,
-  FileImage,
+  FilePlus2,
+  FileText,
   Loader2,
-  Plus,
   RefreshCw,
   Search,
   Sparkles,
-  Target,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
@@ -35,24 +35,17 @@ import { useDocumentViewerChromeScroll } from "@/components/clinical-dashboard/u
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
-import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import {
   appBackdrop,
-  clinicalDivider,
   cn,
-  codeText,
-  eyebrowText,
   floatingControl,
   glassOverlaySurface,
   InlineNotice,
-  LoadingPanel,
   panel,
   PanelHeading,
-  proseMeasure,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
-import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
@@ -85,18 +78,19 @@ import type {
   PageRow,
   TableFactRow,
 } from "@/components/document-viewer/types";
-import {
-  ClinicalSummaryProfile,
-  DocumentImage,
-  DocumentSectionSummary,
-  DocumentViewerAnchors,
-  FormattedHighYieldSummary,
-  IndexedTextPanel,
-  PinnedSourceEvidence,
-  TableReviewPanel,
-} from "@/components/document-viewer/source-panels";
-import { DocumentManualTagEditor } from "@/components/document-viewer/manual-tag-editor";
+import { IndexedTextPanel, PinnedSourceEvidence } from "@/components/document-viewer/source-panels";
+import { DocumentViewerRail } from "@/components/document-viewer/document-rail-panels";
 import { DocumentOverviewLanding } from "@/components/document-viewer/document-overview-landing";
+import { buildDocumentSectionIndex, documentOverviewSectionId } from "@/components/document-viewer/section-index";
+import {
+  DocumentSectionSheet,
+  DocumentSectionTrack,
+  jumpToDocumentSection,
+} from "@/components/document-viewer/section-nav";
+import { useDocumentSectionSpy } from "@/components/document-viewer/use-section-spy";
+import { useDocumentChromeMetrics } from "@/components/document-viewer/use-document-chrome-metrics";
+import { useDocumentViewDensity } from "@/components/document-viewer/use-document-view-density";
+import { usePrintableDisclosures } from "@/components/document-viewer/use-printable-disclosures";
 
 // pdf-canvas-viewer is only needed after a source document has loaded and the
 // user is viewing a PDF. Keeping it out of the document route's initial client
@@ -200,39 +194,7 @@ export function DocumentViewer({
     },
     [activePage, documentId],
   );
-  useEffect(() => {
-    const previousOpenStates = new Map<HTMLDetailsElement, boolean>();
-    const expandPrintableDisclosures = () => {
-      if (previousOpenStates.size) return;
-      previousOpenStates.clear();
-      const printable = window.document.querySelectorAll<HTMLDetailsElement>("details.source-print");
-      window.document
-        .querySelectorAll<HTMLDetailsElement>('details.source-print, details[name="document-viewer-section"]')
-        .forEach((disclosure) => {
-          previousOpenStates.set(disclosure, disclosure.open);
-        });
-      printable.forEach((disclosure) => {
-        disclosure.open = true;
-      });
-    };
-    const restorePrintableDisclosures = () => {
-      const connected = [...previousOpenStates].filter(([disclosure]) => disclosure.isConnected);
-      connected.forEach(([disclosure]) => {
-        disclosure.open = false;
-      });
-      connected.forEach(([disclosure, wasOpen]) => {
-        if (wasOpen) disclosure.open = true;
-      });
-      previousOpenStates.clear();
-    };
-    window.addEventListener("beforeprint", expandPrintableDisclosures);
-    window.addEventListener("afterprint", restorePrintableDisclosures);
-    return () => {
-      restorePrintableDisclosures();
-      window.removeEventListener("beforeprint", expandPrintableDisclosures);
-      window.removeEventListener("afterprint", restorePrintableDisclosures);
-    };
-  }, []);
+  usePrintableDisclosures();
   const [document, setDocument] = useState<ClinicalDocument | null>(() => initialDetail?.document ?? null);
   const [pages, setPages] = useState<PageRow[]>(() => initialDetail?.pages ?? []);
   const [images, setImages] = useState<ImageRow[]>(() => initialDetail?.images ?? []);
@@ -257,6 +219,7 @@ export function DocumentViewer({
   // change / successful reload so only an unrecoverable URL exhausts the budget.
   const signedUrlRefreshCountRef = useRef(0);
   const sourceSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const viewerRootRef = useRef<HTMLElement | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchState, setDocumentSearchState] = useState<{
     query: string;
@@ -272,6 +235,8 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [sectionSheetOpen, setSectionSheetOpen] = useState(false);
+  const [compactView, setCompactView] = useDocumentViewDensity();
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -300,7 +265,9 @@ export function DocumentViewer({
     documentId,
     activePage,
     activeChunkId,
-    mobileActionsOpen,
+    // Either sheet holds the chrome open: hiding it under an open overlay would
+    // strand the sheet over a document whose edges have already been released.
+    mobileActionsOpen || sectionSheetOpen,
     composerChromeFocused,
   );
   const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
@@ -946,11 +913,6 @@ export function DocumentViewer({
       : viewerState === "loading"
         ? "Document"
         : "Source unavailable";
-  const headerSubtitle = readyDocument
-    ? `page ${activePage} · ${readyDocument.file_name}`
-    : viewerState === "loading"
-      ? `page ${activePage} · loading source`
-      : (effectiveViewerError ?? "Source unavailable");
   const documentHomeHref = "/?mode=documents";
   const scopedDocumentHref = readyDocument
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
@@ -967,6 +929,40 @@ export function DocumentViewer({
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
   const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
+  // Built on every render rather than memoised: it is seven objects from values
+  // already in hand, and `clinicalImages` is a fresh array each render, so a
+  // manual dependency list would only be memoization the compiler cannot verify.
+  // Consumers key off the section ids, not this array's identity.
+  const documentSections = buildDocumentSectionIndex({
+    hasDocument: Boolean(readyDocument),
+    hasStoredSummary: Boolean(document?.summary),
+    pageCount: document?.page_count ?? pages.length,
+    chunkCount: chunks.length,
+    visualCount: clinicalImages.length,
+    hasIndexHealth: Boolean(indexHealth),
+    pinnedPage: selectedChunk?.page_number ?? null,
+    loading: effectiveLoadingDocument,
+  });
+  const {
+    activeId: activeSectionId,
+    activeSection,
+    selectSection,
+  } = useDocumentSectionSpy(documentSections, Boolean(readyDocument));
+  const sectionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const { headerHidden } = useDocumentChromeMetrics(viewerRootRef);
+  const openSectionSheet = useCallback(() => {
+    // Hide-on-scroll cannot reclaim either edge while the composer holds focus,
+    // so release it before an overlay takes over the screen.
+    sourceSearchInputRef.current?.blur();
+    setSectionSheetOpen(true);
+  }, []);
+  const jumpToSection = useCallback(
+    (id: string) => {
+      selectSection(id);
+      jumpToDocumentSection(id);
+    },
+    [selectSection],
+  );
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const generatedAnswerIsSummary = summaryQuery === documentSummaryQuestion;
   const storedSummaryText = document?.summary?.summary ?? null;
@@ -1079,12 +1075,16 @@ export function DocumentViewer({
   return (
     <main
       id="document-viewer-main"
+      ref={viewerRootRef}
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
       <PhoneHeaderCollapsePortal>
-        <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]">
-          <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
+        <header
+          data-document-sticky-header
+          className="edge-glass-header relative z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]"
+        >
+          <div className="mx-auto flex min-h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <Link
               href={documentHomeHref}
               className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
@@ -1093,40 +1093,88 @@ export function DocumentViewer({
               <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
               <span className="hidden sm:inline">Documents</span>
             </Link>
-            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
-              {headerTitle}
-            </h1>
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              <Link
-                href={scopedDocumentHref}
-                className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
-                aria-label="Add this document to scope"
-                title={headerSubtitle}
+            {documentSections.length > 0 ? (
+              // The title is the section-list disclosure. Line two names where you
+              // are, which the track can place but never label.
+              <button
+                type="button"
+                ref={sectionTriggerRef}
+                onClick={openSectionSheet}
+                aria-expanded={sectionSheetOpen}
+                aria-haspopup="dialog"
+                data-testid="document-section-trigger"
+                className="flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
-                <Target aria-hidden="true" className="h-5 w-5" />
-              </Link>
+                <span className="min-w-0 flex-1">
+                  <h1 className="truncate text-sm font-semibold leading-tight text-[color:var(--text)] sm:text-base">
+                    {headerTitle}
+                  </h1>
+                  {activeSection ? (
+                    <span className="mt-0.5 flex items-center gap-1.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
+                      <activeSection.icon aria-hidden="true" className="h-3 w-3 shrink-0" />
+                      <span className="min-w-0 truncate">{activeSection.label}</span>
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition motion-reduce:transition-none",
+                    sectionSheetOpen && "rotate-180",
+                  )}
+                />
+              </button>
+            ) : (
+              <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
+                {headerTitle}
+              </h1>
+            )}
+            <div className="ml-auto flex shrink-0 items-center">
               <button
                 type="button"
                 onClick={() => setMobileActionsOpen(true)}
-                className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                className="grid h-tap w-tap place-items-center rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 aria-label="Open document actions"
+                aria-haspopup="dialog"
+                aria-expanded={mobileActionsOpen}
+                title="Document actions"
               >
-                <Plus aria-hidden="true" className="h-5 w-5" />
+                <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
               </button>
             </div>
           </div>
+          <DocumentSectionTrack sections={documentSections} activeId={activeSectionId} />
         </header>
       </PhoneHeaderCollapsePortal>
+      <DocumentSectionSheet
+        open={sectionSheetOpen}
+        onClose={() => setSectionSheetOpen(false)}
+        sections={documentSections}
+        activeId={activeSectionId}
+        onSelect={jumpToSection}
+        documentTitle={headerTitle}
+        returnFocusRef={sectionTriggerRef}
+        compact={compactView}
+        onCompactChange={setCompactView}
+      />
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
           onClose={() => setMobileActionsOpen(false)}
           title="This document"
-          description="Search, answer, open, or scope this document."
+          description="Choose how to use this source."
           closeLabel="Close document actions"
+          portal
+          testId="document-actions-sheet"
+          contentClassName="max-sm:min-h-[min(36rem,calc(100dvh-1rem))] sm:max-w-xl"
+          headerLeading={
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+              <FileText aria-hidden="true" className="h-5 w-5" />
+            </span>
+          }
         >
-          <div className="space-y-3 pb-2">
-            <section className={cn(sourceCard, "p-3")}>
+          <div className="space-y-4 pb-1">
+            <section className={cn(sourceCard, "p-4")}>
               <p className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">
                 {documentDisplayTitle(readyDocument)}
               </p>
@@ -1135,7 +1183,7 @@ export function DocumentViewer({
                 {!isOnline ? <span className={cn("text-xs font-semibold", textMuted)}>Offline</span> : null}
               </div>
             </section>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1144,9 +1192,11 @@ export function DocumentViewer({
                     window.requestAnimationFrame(() => sourceSearchInputRef.current?.focus());
                   });
                 }}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                <Search aria-hidden="true" className="h-4 w-4" />
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  <Search aria-hidden="true" className="h-4 w-4" />
+                </span>
                 Search in document
               </button>
               <button
@@ -1157,13 +1207,15 @@ export function DocumentViewer({
                 }}
                 disabled={!canSummarizeDocument}
                 title={summarizeTitle}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                {loadingSummary ? (
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles aria-hidden="true" className="h-4 w-4" />
-                )}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                  {loadingSummary ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles aria-hidden="true" className="h-4 w-4" />
+                  )}
+                </span>
                 Answer from this
               </button>
               {signedUrl ? (
@@ -1172,18 +1224,22 @@ export function DocumentViewer({
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => setMobileActionsOpen(false)}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                  className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
                 >
-                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  </span>
                   Open original PDF
                 </a>
               ) : (
                 <a
                   href="#pdf-preview-section"
                   onClick={() => setMobileActionsOpen(false)}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                  className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
                 >
-                  <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                    <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                  </span>
                   Open original PDF
                 </a>
               )}
@@ -1194,13 +1250,15 @@ export function DocumentViewer({
                   void openSourceDownload();
                 }}
                 disabled={downloadingSource}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                {downloadingSource ? (
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download aria-hidden="true" className="h-4 w-4" />
-                )}
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                  {downloadingSource ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download aria-hidden="true" className="h-4 w-4" />
+                  )}
+                </span>
                 {downloadingSource ? "Preparing PDF" : "Download PDF"}
               </button>
               <button
@@ -1209,15 +1267,17 @@ export function DocumentViewer({
                   setMobileActionsOpen(false);
                   router.push(scopedDocumentHref);
                 }}
-                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+                className={cn(secondaryButton, "min-h-14 justify-start gap-3 px-3 text-left text-sm")}
               >
-                <Target aria-hidden="true" className="h-4 w-4" />
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
+                  <FilePlus2 aria-hidden="true" className="h-4 w-4" />
+                </span>
                 Add to scope
               </button>
             </div>
             {canUseAdministrativeApis ? (
               <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-                <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <summary className="cursor-pointer text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Admin controls
                 </summary>
                 <DocumentManagementActions
@@ -1243,6 +1303,7 @@ export function DocumentViewer({
           composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
         }
         data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
+        data-document-view={compactView ? "condensed" : "full"}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
@@ -1298,7 +1359,10 @@ export function DocumentViewer({
         )}
 
         {readyDocument ? (
-          <div className="min-w-0 lg:col-span-2">
+          <div
+            id={documentOverviewSectionId}
+            className="min-w-0 scroll-mt-[var(--document-anchor-offset,6rem)] lg:col-span-2"
+          >
             <DocumentOverviewLanding
               document={readyDocument}
               signedUrl={signedUrl}
@@ -1310,6 +1374,7 @@ export function DocumentViewer({
               onDownload={() => void openSourceDownload()}
               downloading={downloadingSource}
               canSummarizeDocument={canSummarizeDocument}
+              compact={compactView}
             />
           </div>
         ) : null}
@@ -1326,9 +1391,10 @@ export function DocumentViewer({
         ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text" className="lg:hidden" />
-
-          <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
+          <div
+            id="pdf-preview-section"
+            className={cn(panel, "scroll-mt-[var(--document-anchor-offset,6rem)] overflow-hidden")}
+          >
             <div data-testid="pdf-preview">
               {effectiveLoadingDocument ? (
                 <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--clinical-accent-soft)_55%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm font-semibold text-[color:var(--text-muted)] sm:min-h-72">
@@ -1470,210 +1536,37 @@ export function DocumentViewer({
               sectionId="source-text"
               selectedChunkId={activeChunkId}
               onSearchChange={setSourceSearch}
+              compact={compactView}
             />
           </div>
         </div>
 
-        <aside className="min-w-0 grid content-start gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:sticky lg:top-[69px] lg:grid-cols-1 lg:self-start lg:pr-1">
-          {indexWarnings.length ? (
-            <InlineNotice tone="warning" className="text-xs md:col-span-2 lg:col-span-1">
-              <span className="font-bold">Extraction warnings</span>
-              {indexWarnings.slice(0, 4).map((warning) => (
-                <span key={warning} className="mt-1 block font-semibold">
-                  {warning}
-                </span>
-              ))}
-            </InlineNotice>
-          ) : null}
-
-          <div className="hidden lg:block">
-            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" textHref="#source-text" className="mb-3" />
-            <PinnedSourceEvidence
-              loading={effectiveLoadingDocument}
-              chunk={selectedChunk}
-              compact
-              sectionId="source-evidence-rail"
-            />
-          </div>
-
-          {document ? (
-            <details
-              id="source-summary"
-              name="document-viewer-section"
-              data-testid="high-yield-summary"
-              className={cn(panel, "group scroll-mt-24 source-print md:col-span-2 lg:col-span-1")}
-            >
-              <DocumentSectionSummary
-                icon={Sparkles}
-                title={
-                  document.summary?.clinical_specifics?.profile ? "Clinical document profile" : "High-yield summary"
-                }
-                description="What this document covers, from its indexed evidence."
-              />
-              <div className={cn(clinicalDivider, "p-4 pt-3")}>
-                <BadgeCluster items={summaryBadges} limit={8} showOverflowCount />
-                {document.summary?.clinical_specifics?.profile ? (
-                  <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
-                ) : (
-                  <FormattedHighYieldSummary
-                    formatted={formattedStoredSummary}
-                    showLead={formattedStoredSummary.sections.length === 0}
-                  />
-                )}
-                {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
-                  <div className="mt-4 space-y-4">
-                    {Object.entries(document.summary.clinical_specifics)
-                      .filter(([key, items]) => key !== "profile" && Array.isArray(items) && items.length > 0)
-                      .slice(0, 6)
-                      .map(([key, items]) => (
-                        <section key={key} className="border-t border-[color:var(--border)] pt-3">
-                          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                            {key.replaceAll("_", " ")}
-                          </h3>
-                          <ul
-                            className={cn(
-                              proseMeasure,
-                              "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]",
-                            )}
-                          >
-                            {(items as string[]).slice(0, 5).map((item, index) => (
-                              <li key={`${key}:${index}:${item}`} className="flex gap-2">
-                                <span
-                                  aria-hidden="true"
-                                  className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
-                                />
-                                <span>
-                                  <SafeBoldText text={item} />
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </section>
-                      ))}
-                  </div>
-                )}
-                {document.labels?.length ? (
-                  <div className="mt-4 border-t border-[color:var(--border)] pt-3">
-                    <p className={eyebrowText}>Browse by tag</p>
-                    <DocumentTagCloud
-                      labels={document.labels}
-                      limit={18}
-                      className="mt-2"
-                      onTagClick={searchByTag}
-                      grouped
-                    />
-                  </div>
-                ) : null}
-                {canUseAdministrativeApis ? (
-                  <details className={cn(sourceCard, "mt-4 p-3")}>
-                    <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                      Document tools
-                    </summary>
-                    <DocumentManualTagEditor
-                      document={document}
-                      canManage={canUseAdministrativeApis}
-                      clientDemoMode={clientDemoMode}
-                      authorizationHeader={authorizationHeader}
-                      onLabelsUpdated={handleDocumentLabelsUpdated}
-                      onUnauthorized={markSessionExpired}
-                    />
-                  </details>
-                ) : null}
-              </div>
-            </details>
-          ) : null}
-
-          <details
-            id="source-images"
-            name="document-viewer-section"
-            className={cn(panel, "group scroll-mt-24 md:col-span-2 lg:col-span-1")}
-          >
-            <DocumentSectionSummary
-              icon={FileImage}
-              title="Tables and diagrams"
-              description={
-                effectiveLoadingDocument
-                  ? "Indexed tables, diagrams, and image captions."
-                  : clinicalImages.length === 1
-                    ? "1 indexed table, diagram, or image caption."
-                    : `${clinicalImages.length} indexed tables, diagrams, and image captions.`
-              }
-            />
-            <div className={cn(clinicalDivider, "space-y-3 p-4 pt-3")}>
-              {canUseAdministrativeApis && tableFacts.length ? (
-                <details className={cn(sourceCard, "p-3")}>
-                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                    Table tools
-                  </summary>
-                  <div className="mt-3">
-                    <TableReviewPanel
-                      tableFacts={tableFacts}
-                      canReview={canUseAdministrativeApis}
-                      busyFactId={reviewingTableFactId}
-                      onReview={reviewTableFact}
-                    />
-                  </div>
-                </details>
-              ) : null}
-              {effectiveLoadingDocument ? (
-                <LoadingPanel label="Loading extracted tables" />
-              ) : clinicalImages.length === 0 ? (
-                <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
-              ) : (
-                clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
-              )}
-              {!effectiveLoadingDocument && auditImages.length > 0 ? (
-                <details className={cn(sourceCard, "p-3")}>
-                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                    Administrative/reference tables retained for audit ({auditImages.length})
-                  </summary>
-                  <div className="mt-3 grid gap-3">
-                    {auditImages.map((image) => (
-                      <DocumentImage key={image.id} image={image} />
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-            </div>
-          </details>
-
-          {indexHealth ? (
-            <details
-              name="document-viewer-section"
-              data-testid="indexing-details"
-              className={cn(panel, "group md:col-span-2 lg:col-span-1")}
-            >
-              <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                <span className={eyebrowText}>Indexing details</span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
-                />
-              </summary>
-              <dl
-                className={cn(
-                  clinicalDivider,
-                  "grid gap-2 p-4 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2",
-                )}
-              >
-                <div>
-                  <dt>Extraction</dt>
-                  <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>
-                </div>
-                <div>
-                  <dt>Index version</dt>
-                  <dd className={cn("mt-0.5 truncate text-[color:var(--text)]", codeText)}>
-                    {indexHealth.indexVersion ?? "unknown"}
-                  </dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt>Indexed</dt>
-                  <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.indexedAt ?? "not recorded"}</dd>
-                </div>
-              </dl>
-            </details>
-          ) : null}
-        </aside>
+        <DocumentViewerRail
+          headerHidden={headerHidden}
+          documentSections={documentSections}
+          activeSectionId={activeSectionId}
+          onSelectSection={jumpToSection}
+          compact={compactView}
+          onCompactChange={setCompactView}
+          indexWarnings={indexWarnings}
+          effectiveLoadingDocument={effectiveLoadingDocument}
+          selectedChunk={selectedChunk}
+          document={document}
+          summaryBadges={summaryBadges}
+          formattedStoredSummary={formattedStoredSummary}
+          canUseAdministrativeApis={canUseAdministrativeApis}
+          clientDemoMode={clientDemoMode}
+          authorizationHeader={authorizationHeader}
+          onLabelsUpdated={handleDocumentLabelsUpdated}
+          onUnauthorized={markSessionExpired}
+          onSearchByTag={searchByTag}
+          clinicalImages={clinicalImages}
+          auditImages={auditImages}
+          tableFacts={tableFacts}
+          reviewingTableFactId={reviewingTableFactId}
+          onReviewTableFact={reviewTableFact}
+          indexHealth={indexHealth}
+        />
       </section>
       {readyDocument ? (
         <PhoneFooterLayerPortal>
@@ -1700,8 +1593,11 @@ export function DocumentViewer({
               onClick={() => setMobileActionsOpen(true)}
               className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
               aria-label="Open document actions"
+              aria-haspopup="dialog"
+              aria-expanded={mobileActionsOpen}
+              title="Document actions"
             >
-              <Plus aria-hidden="true" className="h-5 w-5" />
+              <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.25} />
             </button>
             <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
               <span className="sr-only">Search within this document</span>

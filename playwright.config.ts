@@ -17,13 +17,14 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // production matcher and tag exclusion.
 const productionSpecPattern =
   /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|visual-artifacts|hydration))\.spec\.ts/;
-const mockupSpecPattern = /.*ui-(document-top-navigation-mockup|tools|tools-collapse|tools-task-directory)\.spec\.ts/;
+const mockupSpecPattern =
+  /.*ui-(document-top-navigation-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-task-directory)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|document-top-navigation-mockup|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|document-top-navigation-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
@@ -55,7 +56,8 @@ export default defineConfig({
     // claims the page, and serves every subsequent navigation — bypassing route
     // interception for navigations outright, and wedging Playwright-Firefox's
     // reload path under an active route (the two ui-smoke reload hangs in matrix
-    // run 4012). Only ui-pwa.spec.ts is meant to exercise the worker; it opts
+    // run 4012). Page routes also cannot intercept requests made by a controlling
+    // service worker. Only ui-pwa.spec.ts is meant to exercise the worker; it opts
     // back in with test.use({ serviceWorkers: "allow" }).
     serviceWorkers: "block",
   },

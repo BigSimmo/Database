@@ -1,5 +1,5 @@
 "use client";
-
+import { useSettingsState } from "./clinical-dashboard/SettingsStateProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CircleAlert,
@@ -52,7 +52,6 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
-import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
@@ -137,6 +136,7 @@ import {
   answerPayloadIsUsable,
   classifyAnswerError,
   createAnswerRequestWatchdog,
+  generateQuerySuggestions,
   isRetryableError,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
@@ -551,17 +551,9 @@ export function ClinicalDashboard({
     },
     [mainRef],
   );
-  const [guideOpen, setGuideOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  const settingsState = useSettingsState();
   const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
-  const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
-  const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
-  const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
-  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
-  const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
   const uploadUsesDesktopRegions = useUploadDesktopLayout();
   const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
@@ -706,11 +698,11 @@ export function ClinicalDashboard({
     authenticated: auth.status === "authenticated",
     demoMode: clientDemoMode,
     signedIn: sidebarIdentity.signedIn,
-    setGuideOpen,
-    setSettingsOpen,
-    setMobileSidebarOpen,
-    setDocumentsDrawerOpen,
-    setUploadDrawerOpen,
+    setGuideOpen: settingsState.setGuideOpen,
+    setSettingsOpen: settingsState.setSettingsOpen,
+    setMobileSidebarOpen: settingsState.setMobileSidebarOpen,
+    setDocumentsDrawerOpen: settingsState.setDocumentsDrawerOpen,
+    setUploadDrawerOpen: settingsState.setUploadDrawerOpen,
     prefetch: (href) => router.prefetch(href),
   });
   const settingsGuideFlow = useSettingsGuideFlow({
@@ -718,7 +710,7 @@ export function ClinicalDashboard({
     closeGuide,
     openSettings,
     openAccountProfile,
-    setSettingsOpen,
+    setSettingsOpen: settingsState.setSettingsOpen,
   });
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
@@ -798,8 +790,8 @@ export function ClinicalDashboard({
     (target: LibraryHealthTarget) => {
       if (!canUseAdministrativeApis) {
         closeDashboardTransientSurfaces("documents");
-        setDocumentsDrawerMode("library");
-        setDocumentsDrawerOpen(true);
+        settingsState.setDocumentsDrawerMode("library");
+        settingsState.setDocumentsDrawerOpen(true);
         setActionNotice({
           tone: "warning",
           message: "Library health and indexing controls are administrator-only.",
@@ -817,30 +809,30 @@ export function ClinicalDashboard({
       if (target === "documents") {
         closeDashboardTransientSurfaces("documents");
         setDocumentDrawerStatusFilter("indexed");
-        setDocumentsDrawerMode("admin");
-        setDocumentsDrawerOpen(true);
+        settingsState.setDocumentsDrawerMode("admin");
+        settingsState.setDocumentsDrawerOpen(true);
       } else if (target === "indexing") {
         closeDashboardTransientSurfaces("upload");
-        setUploadMobileTab("jobs");
+        settingsState.setUploadMobileTab("jobs");
         setIndexingMonitorFilter("active");
-        setUploadDrawerOpen(true);
+        settingsState.setUploadDrawerOpen(true);
       } else if (target === "failures") {
         closeDashboardTransientSurfaces("upload");
-        setUploadMobileTab("jobs");
+        settingsState.setUploadMobileTab("jobs");
         setIndexingMonitorFilter("failed");
-        setUploadDrawerOpen(true);
+        settingsState.setUploadDrawerOpen(true);
       } else {
         closeDashboardTransientSurfaces("upload");
-        setUploadMobileTab("setup");
+        settingsState.setUploadMobileTab("setup");
         setIndexingMonitorFilter("all");
-        setUploadDrawerOpen(true);
+        settingsState.setUploadDrawerOpen(true);
       }
 
       window.setTimeout(() => {
         document.getElementById(targetId)?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
       }, 0);
     },
-    [canUseAdministrativeApis, closeDashboardTransientSurfaces],
+    [canUseAdministrativeApis, closeDashboardTransientSurfaces, settingsState],
   );
 
   useEffect(() => {
@@ -1441,9 +1433,12 @@ export function ClinicalDashboard({
     [documents, jobs, batches, indexingActive],
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
-  const dashboardDataSurfaceVisible = documentScopeOpen || documentsDrawerOpen || uploadDrawerOpen;
+  const dashboardDataSurfaceVisible =
+    settingsState.documentScopeOpen || settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen;
   const administrationSurfaceVisible =
-    canUseAdministrativeApis && (uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin"));
+    canUseAdministrativeApis &&
+    (settingsState.uploadDrawerOpen ||
+      (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"));
 
   useEffect(() => {
     dashboardDataLoadedRef.current = false;
@@ -2255,7 +2250,6 @@ export function ClinicalDashboard({
         "",
         documentsSearchHref({
           query: trimmedQuery,
-          focus: true,
           run: true,
           ...navigationContext,
         }),
@@ -2747,8 +2741,8 @@ export function ClinicalDashboard({
     closeDashboardTransientSurfaces("documents");
     setSearchMode("documents");
     setDocumentDrawerStatusFilter("indexed");
-    setDocumentsDrawerMode(mode);
-    setDocumentsDrawerOpen(true);
+    settingsState.setDocumentsDrawerMode(mode);
+    settingsState.setDocumentsDrawerOpen(true);
   }
 
   function openRecentDocuments() {
@@ -2774,8 +2768,8 @@ export function ClinicalDashboard({
     }
     closeDashboardTransientSurfaces("upload");
     setSearchMode("documents");
-    setDocumentsDrawerMode("admin");
-    setUploadDrawerOpen(true);
+    settingsState.setDocumentsDrawerMode("admin");
+    settingsState.setUploadDrawerOpen(true);
     window.requestAnimationFrame(() => {
       const drawer = document.getElementById("dashboard-upload-drawer") as HTMLDetailsElement | null;
       drawer?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
@@ -3165,7 +3159,7 @@ export function ClinicalDashboard({
 
   function handleUploadTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
     const order = uploadTabs.map((tab) => tab.id);
-    const index = order.indexOf(uploadMobileTab);
+    const index = order.indexOf(settingsState.uploadMobileTab);
     const next =
       event.key === "ArrowRight"
         ? order[(index + 1) % order.length]
@@ -3178,52 +3172,52 @@ export function ClinicalDashboard({
               : null;
     if (!next) return;
     event.preventDefault();
-    if (next !== uploadMobileTab) setUploadMobileTab(next);
+    if (next !== settingsState.uploadMobileTab) settingsState.setUploadMobileTab(next);
     uploadTabRefs.current.get(next)?.focus();
   }
 
   const handleUploadQueued = () => {
     setUserStartedIngestion(true);
     setIndexingActive(true);
-    setUploadMobileTab("jobs");
+    settingsState.setUploadMobileTab("jobs");
     void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
   };
-  const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;
+  const documentsDrawerIsAdmin = settingsState.documentsDrawerMode === "admin" && canUseAdministrativeApis;
   const documentsDrawerTitle =
-    documentsDrawerMode === "recent"
+    settingsState.documentsDrawerMode === "recent"
       ? "Recent documents"
-      : documentsDrawerMode === "source"
+      : settingsState.documentsDrawerMode === "source"
         ? "Source PDFs"
         : documentsDrawerIsAdmin
           ? "Document admin"
           : "Sources";
   const documentsDrawerSummary = dashboardDataLoading
     ? "Loading indexed document status."
-    : documentsDrawerMode === "recent"
+    : settingsState.documentsDrawerMode === "recent"
       ? "Continue reading from recently updated sources."
-      : documentsDrawerMode === "source"
+      : settingsState.documentsDrawerMode === "source"
         ? "Open original PDF source documents."
         : documentsDrawerIsAdmin
           ? `${indexedDocumentTotal.toLocaleString()} indexed documents available.`
           : "Search and open indexed clinical sources.";
   const documentsDrawerMobileSummary = dashboardDataLoading
     ? "Loading sources"
-    : documentsDrawerMode === "recent"
+    : settingsState.documentsDrawerMode === "recent"
       ? "Recent sources"
-      : documentsDrawerMode === "source"
+      : settingsState.documentsDrawerMode === "source"
         ? "PDF sources"
         : documentsDrawerIsAdmin
           ? "Admin"
           : "Sources";
   const DocumentsDrawerIcon =
-    documentsDrawerMode === "recent"
+    settingsState.documentsDrawerMode === "recent"
       ? Clock3
-      : documentsDrawerMode === "source"
+      : settingsState.documentsDrawerMode === "source"
         ? ExternalLink
         : documentsDrawerIsAdmin
           ? UploadCloud
           : FolderOpen;
-  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
+  const drawerGroupTitle = settingsState.uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
 
   // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
   // DocumentSearchResultsPanel). These close over the draft `query` or call the
@@ -3240,7 +3234,7 @@ export function ClinicalDashboard({
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
   const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
-    setDocumentsDrawerOpen(nextOpen);
+    settingsState.setDocumentsDrawerOpen(nextOpen);
     if (nextOpen) return;
 
     const returnTarget = documentsDrawerReturnFocusRef.current;
@@ -3292,22 +3286,22 @@ export function ClinicalDashboard({
         "mobile-app-shell phone-viewport-shell flex flex-col text-[color:var(--text)] sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         sidebarColumnTransitionReady &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
-        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        settingsState.sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
-          "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
+          "--clinical-sidebar-width": settingsState.sidebarCollapsed ? "5.25rem" : "20rem",
           "--clinical-sidebar-width-md": "5.25rem",
           "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
       <ClinicalDesktopSidebar
-        collapsed={sidebarCollapsed}
+        collapsed={settingsState.sidebarCollapsed}
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}
-        onCollapsedChange={setSidebarCollapsed}
+        onCollapsedChange={settingsState.setSidebarCollapsed}
         onNewChat={startNewChat}
         onPickRecent={pickRecentQuery}
         onOpenSettings={settingsGuideFlow.openSettingsWithDefaultFocus}
@@ -3344,7 +3338,7 @@ export function ClinicalDashboard({
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
           onScopeFiltersChange={setScopeFilters}
-          onScopeOpenChange={setDocumentScopeOpen}
+          onScopeOpenChange={settingsState.setDocumentScopeOpen}
           onToggleScope={toggleDocumentScope}
           onOpenUpload={openUploadDrawer}
           onOpenEvidence={openEvidenceDrawer}
@@ -3354,7 +3348,7 @@ export function ClinicalDashboard({
           onNewChat={startNewChat}
           onOpenMobileSidebar={() => {
             closeDashboardTransientSurfaces("mobileSidebar");
-            setMobileSidebarOpen(true);
+            settingsState.setMobileSidebarOpen(true);
           }}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
@@ -3567,7 +3561,7 @@ export function ClinicalDashboard({
                   <EmptyState
                     icon={Search}
                     title={answerRecovery.noResults.heading}
-                    body={answerRecovery.noResults.body}
+                    body={`${answerRecovery.noResults.body} Suggestions: ${generateQuerySuggestions((lastFailedQuery ?? query).trim()).join("; ")}.`}
                     live="polite"
                     tone="info"
                     testId="answer-no-results"
@@ -3843,19 +3837,19 @@ export function ClinicalDashboard({
                   onTagSearch={handleDocumentTagSearch}
                 />
               )}
-              {(documentsDrawerOpen || uploadDrawerOpen) && (
+              {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
                   <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
                   </p>
-                  {documentsDrawerOpen ? (
+                  {settingsState.documentsDrawerOpen ? (
                     <UtilityDrawer
                       id="dashboard-documents-drawer"
                       icon={BookOpen}
                       title={documentsDrawerTitle}
                       summary={documentsDrawerSummary}
                       mobileSummary={documentsDrawerMobileSummary}
-                      open={documentsDrawerOpen}
+                      open={settingsState.documentsDrawerOpen}
                       onOpenChange={handleDocumentsDrawerOpenChange}
                       sheetBreakpoint={documentsDrawerIsAdmin ? "lg" : "all"}
                       sheetReturnFocusRef={documentsDrawerReturnFocusRef}
@@ -3892,7 +3886,7 @@ export function ClinicalDashboard({
                         documents={documents}
                         pagination={documentsPagination}
                         loadingMoreDocuments={loadingMoreDocuments}
-                        mode={documentsDrawerIsAdmin ? "admin" : documentsDrawerMode}
+                        mode={documentsDrawerIsAdmin ? "admin" : settingsState.documentsDrawerMode}
                         selectedDocumentIds={selectedDocumentIds}
                         statusFilter={documentDrawerStatusFilter}
                         onToggleScope={toggleDocumentScope}
@@ -3911,15 +3905,15 @@ export function ClinicalDashboard({
                     </UtilityDrawer>
                   ) : null}
 
-                  {uploadDrawerOpen ? (
+                  {settingsState.uploadDrawerOpen ? (
                     <UtilityDrawer
                       id="dashboard-upload-drawer"
                       icon={UploadCloud}
                       title="Upload and indexing"
                       summary="Real uploads require Supabase, OpenAI keys, schema setup, and the worker."
                       mobileSummary="Setup & uploads"
-                      open={uploadDrawerOpen}
-                      onOpenChange={setUploadDrawerOpen}
+                      open={settingsState.uploadDrawerOpen}
+                      onOpenChange={settingsState.setUploadDrawerOpen}
                     >
                       <LibraryHealthStrip
                         documents={documents}
@@ -3936,7 +3930,7 @@ export function ClinicalDashboard({
                         className="grid grid-cols-4 gap-2 lg:hidden"
                       >
                         {uploadTabs.map((tab) => {
-                          const active = uploadMobileTab === tab.id;
+                          const active = settingsState.uploadMobileTab === tab.id;
                           const Icon = tab.icon;
                           return (
                             <button
@@ -3953,7 +3947,7 @@ export function ClinicalDashboard({
                               aria-label={tab.label}
                               aria-describedby={`${tab.tabId}-summary`}
                               tabIndex={active ? 0 : -1}
-                              onClick={() => setUploadMobileTab(tab.id)}
+                              onClick={() => settingsState.setUploadMobileTab(tab.id)}
                               className={cn(
                                 "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
                                 active
@@ -3984,12 +3978,12 @@ export function ClinicalDashboard({
                           }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                            uploadMobileTab !== "setup" && "hidden lg:block",
+                            settingsState.uploadMobileTab !== "setup" && "hidden lg:block",
                           )}
                         >
                           <p
                             id="dashboard-setup-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Developer setup status
                           </p>
@@ -4006,12 +4000,12 @@ export function ClinicalDashboard({
                           }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                            uploadMobileTab !== "upload" && "hidden lg:block",
+                            settingsState.uploadMobileTab !== "upload" && "hidden lg:block",
                           )}
                         >
                           <p
                             id="dashboard-upload-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Clinical upload
                           </p>
@@ -4035,12 +4029,12 @@ export function ClinicalDashboard({
                           }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                            uploadMobileTab !== "jobs" && "hidden lg:block",
+                            settingsState.uploadMobileTab !== "jobs" && "hidden lg:block",
                           )}
                         >
                           <p
                             id="dashboard-indexing-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Indexing progress
                           </p>
@@ -4064,12 +4058,12 @@ export function ClinicalDashboard({
                           }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                            uploadMobileTab !== "quality" && "hidden lg:block",
+                            settingsState.uploadMobileTab !== "quality" && "hidden lg:block",
                           )}
                         >
                           <p
                             id="dashboard-quality-section-heading"
-                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                            className={cn("text-xs font-bold uppercase tracking-eyebrow", textMuted)}
                           >
                             Ingestion quality console
                           </p>
@@ -4087,7 +4081,9 @@ export function ClinicalDashboard({
                 </section>
               )}
 
-              {(documentsDrawerOpen || uploadDrawerOpen) && <GuideTrigger onOpen={openGuide} />}
+              {(settingsState.documentsDrawerOpen || settingsState.uploadDrawerOpen) && (
+                <GuideTrigger onOpen={openGuide} />
+              )}
             </div>
           </SearchCommandProvider>
         </main>
@@ -4099,9 +4095,9 @@ export function ClinicalDashboard({
           hidden
           onNavigate={navigateMobileSection}
         />
-        <GuideDialog open={guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
+        <GuideDialog open={settingsState.guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
         <SidebarDialogs.SidebarSettingsDialog
-          open={settingsOpen}
+          open={settingsState.settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
           onSignOut={auth.signOut}
@@ -4114,11 +4110,11 @@ export function ClinicalDashboard({
           intent={accountSetupIntent}
         />
         <ClinicalMobileSidebar
-          open={mobileSidebarOpen}
+          open={settingsState.mobileSidebarOpen}
           recentQueries={recentQueries}
           identity={sidebarIdentity}
           activeMode={searchMode}
-          onOpenChange={setMobileSidebarOpen}
+          onOpenChange={settingsState.setMobileSidebarOpen}
           onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}
           onOpenSettings={settingsGuideFlow.openSettingsWithDefaultFocus}

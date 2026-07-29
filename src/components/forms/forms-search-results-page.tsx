@@ -7,10 +7,8 @@ import {
   ChevronRight,
   ExternalLink,
   FileText,
-  Loader2,
   Search,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Workflow,
@@ -20,7 +18,7 @@ import { useId, useMemo, useState, useDeferredValue } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
-import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 import {
   cn,
   codeText,
@@ -561,52 +559,6 @@ function MobilePathway() {
   );
 }
 
-function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
-  if (status === "ready") return null;
-  const notice =
-    status === "loading"
-      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry...", action: null }
-      : status === "unauthorized"
-        ? {
-            icon: Shield,
-            spin: false,
-            tone: "warning",
-            text: "Your session expired. Sign in again to search your private forms registry.",
-            action: { href: "/", label: "Open account setup" },
-          }
-        : {
-            icon: ShieldAlert,
-            spin: false,
-            tone: "danger",
-            text: "Couldn't load the forms registry. Try again shortly.",
-            action: null,
-          };
-  const Icon = notice.icon;
-  const toneClass =
-    notice.tone === "danger"
-      ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50 text-[color:var(--danger)]"
-      : notice.tone === "warning"
-        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]"
-        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]";
-  return (
-    <div
-      data-testid="forms-registry-status-notice"
-      className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${toneClass}`}
-    >
-      <Icon className={`h-4 w-4 shrink-0 ${notice.spin ? "animate-spin" : ""}`} aria-hidden />
-      <span className="min-w-0 flex-1">{notice.text}</span>
-      {notice.action ? (
-        <Link
-          href={notice.action.href}
-          className="inline-flex min-h-tap items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
-        >
-          {notice.action.label}
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
 export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
   // No key={query} remount: query is a pure prop (favourites already documents this).
   return <FormsSearchResultsPageContent {...props} />;
@@ -642,31 +594,55 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   return (
     <div className={cn("overflow-x-hidden", searchPageCanvas)}>
       <main className={cn(pageContainer, "grid gap-3 px-4 pt-3 sm:px-6 lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6")}>
-        <RegistryStatusNotice status={registry.status} />
+        {/* The band is mounted in every registry state, not only when ready. It
+            previously unmounted on failure, which left the page with no header at
+            all and pushed the whole burden of reporting onto a separate notice. */}
+        <SearchResultsHeaderBand
+          modeId="forms"
+          query={query}
+          matchCount={displayedMatches.length}
+          status={
+            registry.status === "unauthorized"
+              ? "unauthorized"
+              : registry.status === "ready"
+                ? "ready"
+                : registry.status === "loading"
+                  ? "loading"
+                  : "error"
+          }
+          faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load forms"}
+          faultBody={
+            registry.status === "unauthorized"
+              ? "Your session expired. Sign in again to search your private forms registry."
+              : "Couldn’t load the forms registry. Try again shortly."
+          }
+          onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+          faultAction={
+            registry.status === "unauthorized" ? (
+              <Link
+                href="/"
+                className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+              >
+                Open account setup
+              </Link>
+            ) : undefined
+          }
+          sortValue={sortValue}
+          onSortChange={setSortValue}
+          filterLabel="Filter form results"
+          filterControls={
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <ResultTabs formsCount={displayedMatches.length} />
+              </div>
+              {supportsPathwayClaims ? (
+                <RefineBar open={refineOpen} onToggle={() => setRefineOpen((open) => !open)} panelId={refinePanelId} />
+              ) : null}
+            </div>
+          }
+        />
         {registryReady ? (
           <>
-            <SearchResultsHeaderBand
-              modeId="forms"
-              query={query}
-              matchCount={displayedMatches.length}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-              filterLabel="Filter form results"
-              filterControls={
-                <div className="flex min-w-0 items-center gap-2">
-                  <div className="min-w-0 flex-1 overflow-x-auto">
-                    <ResultTabs formsCount={displayedMatches.length} />
-                  </div>
-                  {supportsPathwayClaims ? (
-                    <RefineBar
-                      open={refineOpen}
-                      onToggle={() => setRefineOpen((open) => !open)}
-                      panelId={refinePanelId}
-                    />
-                  ) : null}
-                </div>
-              }
-            />
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"

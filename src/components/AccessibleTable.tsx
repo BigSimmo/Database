@@ -98,7 +98,7 @@ function AccessibleTableMarkup({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+        "@container overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
         expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
@@ -216,7 +216,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             renderDensePreview
                               ? "sr-only"
-                              : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                              : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                             textMuted,
                           )}
                         >
@@ -250,7 +250,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           renderDensePreview
                             ? "sr-only"
-                            : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                            : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                           textMuted,
                         )}
                       >
