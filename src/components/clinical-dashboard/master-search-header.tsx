@@ -268,6 +268,12 @@ export function MasterSearchHeader({
   hideOnScroll?: {
     strategy: "overlay" | "collapse";
     /**
+     * Phone-only motion for collapse-strategy hosts. "collapse" releases the
+     * row's layout height; "overlay" keeps the complete phone stack stable and
+     * translates it over page content. Defaults to "collapse".
+     */
+    phoneMotion?: "collapse" | "overlay";
+    /**
      * Overlay-only: apply the hide/reveal (and the out-of-flow absolute header)
      * at every breakpoint instead of phones only. The host must reserve
      * matching top padding on its scroll container.
@@ -1445,6 +1451,8 @@ export function MasterSearchHeader({
   }
 
   const hideStrategy = hideOnScroll?.strategy;
+  const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse";
+  const phoneOverlayMotion = hideStrategy === "collapse" && phoneMotion === "overlay";
   // Overlay hosts that opt into all breakpoints take the header fully out of
   // flow (absolute over the scrolling <main>, which reserves matching top
   // padding) so content frosts under the glass bar at every width.
@@ -2095,16 +2103,29 @@ export function MasterSearchHeader({
     const collapsingTopBar = (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        data-phone-motion={phoneMotion}
         data-testid="universal-header-collapse"
         className={cn(
           "motion-reduce:transition-none",
           collapsesAtEveryWidth || sticksAbovePhones
             ? cn(
-                "grid transition-[grid-template-rows]",
+                phoneOverlayMotion
+                  ? "sm:grid sm:transition-[grid-template-rows]"
+                  : "grid transition-[grid-template-rows]",
                 headerChromeHidden
-                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
+                  ? phoneOverlayMotion
+                    ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : phoneOverlayMotion
+                    ? "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden
+                  ? phoneOverlayMotion
+                    ? "sm:[grid-template-rows:0fr]"
+                    : "[grid-template-rows:0fr]"
+                  : phoneOverlayMotion
+                    ? "sm:[grid-template-rows:1fr]"
+                    : "[grid-template-rows:1fr]",
               )
             : cn(
                 "max-sm:grid max-sm:transition-[grid-template-rows]",
@@ -2122,7 +2143,7 @@ export function MasterSearchHeader({
             (collapsesAtEveryWidth || sticksAbovePhones) && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
             // Clip only while hiding so the edge-glass-header gradient that
             // extends below the header keeps painting when the chrome is shown.
-            headerChromeHidden && "max-sm:overflow-hidden",
+            !phoneOverlayMotion && headerChromeHidden && "max-sm:overflow-hidden",
             (collapsesAtEveryWidth || sticksAbovePhones) && headerChromeHidden && "sm:overflow-hidden",
           )}
         >
@@ -2148,10 +2169,15 @@ export function MasterSearchHeader({
           // header row's timing to avoid a one-frame gap during hide/reveal.
           // sm+ keeps its pinned inset because the sticky [bar | search] stack
           // is a separate wide-layout contract.
-          "relative z-40 shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
-          headerChromeHidden
-            ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-            : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+          "relative z-40 shrink-0 bg-[color:var(--background)] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          phoneOverlayMotion
+            ? "max-sm:h-[var(--safe-area-top)]"
+            : cn(
+                "max-sm:transition-[height]",
+                headerChromeHidden
+                  ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+              ),
           sticksAbovePhones && "sm:sticky sm:top-0",
         )}
       />
@@ -2159,7 +2185,19 @@ export function MasterSearchHeader({
 
     if (sticksAbovePhones) {
       return (
-        <div className="phone-sticky-header-stack sm:contents">
+        <div
+          data-phone-motion={phoneMotion}
+          data-scroll-hidden={phoneOverlayMotion && headerChromeHidden ? "true" : undefined}
+          className={cn(
+            "phone-sticky-header-stack sm:contents",
+            phoneOverlayMotion &&
+              "phone-overlay-header max-sm:transition-[transform,opacity] motion-reduce:max-sm:transition-none",
+            phoneOverlayMotion &&
+              (headerChromeHidden
+                ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                : "max-sm:translate-y-0 max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
+          )}
+        >
           {chromeSafeAreaTop}
           <div className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30">
             {collapsingTopBar}

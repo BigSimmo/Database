@@ -34,6 +34,7 @@ import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-foo
 import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
+  isDocumentViewerOwnedRoute,
   isPageOwnedComposerRoute,
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
@@ -853,7 +854,12 @@ function GlobalStandaloneSearchShellBody({
             // Tablet: the document scrolls, so an outer sticky stack pins
             // [top bar | search]. Desktop portals search into normal page flow,
             // leaving this stack to own only the auto-hiding top bar.
-            hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
+            hideOnScroll={{
+              strategy: "collapse",
+              phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse",
+              wide: "sticky",
+              scrollHidden: chromeScrollHide.hidden,
+            }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
             queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
           />

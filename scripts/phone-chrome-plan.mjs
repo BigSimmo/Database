@@ -149,7 +149,7 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     focusedBrowserJourneys.push({
       file: "tests/ui-phone-scroll.spec.ts",
       pattern:
-        "phone browser results use document scrolling|document detail header and footer follow Safari document scrolling together|compiled standalone PWA rules bind full-height footer chrome|standalone .* is frame-owned",
+        "phone browser results use document scrolling|document detail header overlay and footer follow|compiled standalone PWA rules bind full-height footer chrome|standalone .* is frame-owned",
     });
   }
   if (runDashboardJourneys && !changedBrowserFileSet.has("tests/ui-smoke.spec.ts")) {
