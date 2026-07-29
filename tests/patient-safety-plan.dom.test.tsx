@@ -26,7 +26,6 @@ const exampleExportPattern =
 
 describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
   it("flags the patient copy as a draft until every step is complete", async () => {
-    const user = userEvent.setup();
     render(<PatientSafetyPlan />);
 
     // Blank plan — the patient copy is clearly marked a draft.
