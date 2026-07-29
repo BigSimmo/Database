@@ -102,7 +102,9 @@ describe("shared header hide/reveal wiring", () => {
   it("picks the hide mechanism from where each host's scrollport lives", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
     // the outer stack sticks while only the top-bar row collapses.
-    expect(shellSource).toContain('hideOnScroll={{ strategy: "collapse", wide: "sticky"');
+    expect(shellSource).toContain('strategy: "collapse"');
+    expect(shellSource).toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    expect(shellSource).toContain('wide: "sticky"');
     // ClinicalDashboard uses the document on browser phones and <main> in
     // standalone/sm+; both feed the same collapse reporter.
     expect(dashboardSource).toContain('{ strategy: "collapse", wide: "collapse"');
@@ -110,6 +112,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain('"phone-overlay-header sm:absolute sm:inset-x-0 sm:top-0"');
     expect(shellSource).toContain('data-chrome-transitioning={chromeTransitioning ? "true" : undefined}');
     expect(dashboardSource).toContain('data-chrome-transitioning={chromeTransitioning ? "true" : undefined}');
+  });
+
+  it("uses overlay phone motion only for document-viewer-owned routes", () => {
+    expect(headerSource).toContain('phoneMotion?: "collapse" | "overlay"');
+    expect(headerSource).toContain('const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse"');
+    expect(headerSource).toContain('hideStrategy === "collapse" && phoneMotion === "overlay"');
+    expect(shellSource).toContain("isDocumentViewerOwnedRoute");
+    expect(shellSource).toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    expect(dashboardSource).not.toContain("phoneMotion:");
+    expect(headerSource).toContain("data-phone-motion={phoneMotion}");
+    expect(headerSource).toContain("max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0");
+    expect(behaviourDocSource).toContain("`/documents/search` and every non-document route keep the default");
   });
 
   it("moves submitted search composers into normal page flow on desktop only", () => {
@@ -209,7 +223,7 @@ describe("shared header hide/reveal wiring", () => {
     // strip that before asserting sticky collapse does not revive the sm:
     // translate path.
     expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
-    expect(headerSource.split('className="phone-sticky-header-stack sm:contents"').length - 1).toBe(2);
+    expect(headerSource.split('"phone-sticky-header-stack sm:contents"').length - 1).toBe(2);
     expect(headerSource).toContain('className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30"');
     expect(headerSource.replaceAll("max-sm:-translate-y-full", "")).not.toContain("sm:-translate-y-full");
     expect(headerSource).not.toContain('sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full"');
@@ -284,6 +298,9 @@ describe("shared header hide/reveal wiring", () => {
     // Sticky hosts now collapse only the top-bar row (still `display: grid`), so
     // the budget correctly charges that height; non-grid wrappers stay at 0.
     expect(hookSource).toContain('window.getComputedStyle(collapse).display === "grid"');
+    expect(hookSource).toContain('collapse.dataset.phoneMotion === "overlay"');
+    expect(hookSource).toContain("!phoneOverlayMotion");
+    expect(hookSource).toContain('collapseKind: headerRelease > 0 ? "in-flow"');
     expect(hookSource).toContain("document.querySelector('[data-testid=\"chrome-safe-area-top\"]')");
     expect(hookSource).toContain("window.matchMedia(phoneMediaQuery).matches");
     expect(hookSource).toContain("headerRelease + phoneSafeAreaRelease + reserveRelease");
@@ -327,7 +344,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("One transition, no jump");
     expect(behaviourDocSource).toContain("Do not double-sticky tablet search inside an outer sticky stack");
     expect(behaviourDocSource).toContain("desktop-page-search-composer-slot");
-    expect(behaviourDocSource).toContain("Release the phone top inset with hidden chrome");
+    expect(behaviourDocSource).toContain("Release the phone top inset with collapsing chrome");
     expect(behaviourDocSource).toContain(
       "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
     );
