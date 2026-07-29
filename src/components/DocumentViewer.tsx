@@ -308,6 +308,14 @@ export function DocumentViewer({
   // error UI keeps offering the stale link — until the URL expires on its own.
   // Keyed to the user id rather than `authorizationHeader` so a token refresh for
   // the same clinician does not blank a document they are still entitled to read.
+  //
+  // Deliberately clears without reissuing. Forcing a reload here (by bumping
+  // `previewAttempt`) routes back through `openSourcePreview({ useCache: true })`,
+  // which reads the module signed-URL LRU — so it would repaint the PREVIOUS
+  // identity's URL wherever that cache had not already been cleared, which is
+  // exactly the leak this reset exists to close. A blank preview that recovers
+  // on reload is the conservative failure; re-showing the prior clinician's
+  // document is not. The stranded-preview follow-up is tracked separately.
   const viewerAuthIdentity = session?.user?.id ?? null;
   const [seenViewerAuthIdentity, setSeenViewerAuthIdentity] = useState(viewerAuthIdentity);
   if (viewerAuthIdentity !== seenViewerAuthIdentity) {
