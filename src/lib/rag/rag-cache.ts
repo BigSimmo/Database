@@ -175,6 +175,21 @@ export async function getCachedAnswer(
   return answer;
 }
 
+/**
+ * Store an answer in the process-local cache (and, fire-and-forget, the shared cache).
+ *
+ * Callers may deliberately NOT await this — it is a cache write, never part of the
+ * response contract. `answerQuestionWithScopeUncoalesced` defers it on a shared-cache
+ * hit precisely so the fastest path in the system does not pay this function's
+ * `documents` round trip before responding (latency audit 2026-07-28, L1-1). Deferring
+ * is safe only while nothing mutates `answer` after the call: the clone below happens
+ * after an `await`, so a caller that mutates it in the meantime would cache the mutation.
+ *
+ * Do NOT drop the `forceRefresh: true` below to save that round trip. The freshly read
+ * indexing version is compared against `indexingVersionAtRetrievalStart` to DISCARD the
+ * write when the corpus changed mid-request; reusing an already-held stamp would defeat
+ * that staleness guard.
+ */
 export async function setCachedAnswer(
   args: Pick<
     SearchChunksArgs,

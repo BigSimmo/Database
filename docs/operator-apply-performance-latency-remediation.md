@@ -35,6 +35,66 @@ exists` is a no-op. Do not mark the migration applied merely because the index
 exists: the cleanup function, hardened privileges, and three lifecycle triggers
 must still be installed through the normal authorized migration rollout.
 
+## Bare-column trigram and status/id composite on `documents` (latency audit 2026-07-28)
+
+Authored 2026-07-29 for findings L2-3 and L2-5 in
+[audit/latency-audit-2026-07-28.md](audit/latency-audit-2026-07-28.md). Tracked as ledger `#102`.
+**No migration file exists for these**, deliberately — see the ordering constraint below.
+
+`documents_title_trgm_idx` (`supabase/schema.sql:687`) indexes the concatenated expression
+`lower(coalesce(title, '') || ' ' || coalesce(file_name, ''))`, so it can only serve a predicate
+written against that same expression. Two live call sites instead filter the bare columns:
+
+- `src/app/api/documents/route.ts:193` — `title.ilike.%q%,file_name.ilike.%q%`
+- `src/lib/rag/rag-candidate-sources.ts:477` — same shape, on the RAG retrieval path
+
+Neither can use the expression index, so both fall back to scanning `documents`. Separately,
+`src/lib/search-scope.ts:271-277` pages `.eq("status","indexed").order("id")` to 5,000 rows
+against the single-column `documents_status_idx` (`schema.sql:678`), so each page sorts.
+
+These three indexes are **additive and semantics-neutral**: no query text changes, so matching
+behaviour — and therefore retrieval recall — is byte-identical before and after. That is what
+keeps this out of canary-gated territory. Create them outside a transaction:
+
+```sql
+create index concurrently if not exists documents_title_bare_trgm_idx
+  on public.documents using gin (title gin_trgm_ops);
+
+create index concurrently if not exists documents_file_name_bare_trgm_idx
+  on public.documents using gin (file_name gin_trgm_ops);
+
+create index concurrently if not exists documents_status_id_idx
+  on public.documents (status, id);
+```
+
+`CREATE INDEX CONCURRENTLY` cannot run inside a transaction block and does not take a write lock,
+but it does two table passes and can leave an `INVALID` index if it fails. Check
+`pg_index.indisvalid` for each name afterwards and `DROP INDEX CONCURRENTLY` + retry any invalid
+one rather than leaving it in place.
+
+### Ordering constraint — do all four steps in one change
+
+1. Create the indexes concurrently on the live database, and confirm all three are valid.
+2. Mirror the three `create index` statements into `supabase/schema.sql` beside the existing
+   `documents` indexes.
+3. Regenerate `supabase/drift-manifest.json` with `npm run drift:manifest` (requires Docker).
+   `tests/drift-detection.test.ts` pins the manifest to `schema.sql`'s sha256 and fails while it
+   is stale.
+4. Only then add `documents_title_bare_trgm_idx`, `documents_file_name_bare_trgm_idx` and
+   `documents_status_id_idx` to the `required_indexes` list inside `search_schema_health()`
+   (`supabase/schema.sql:3178`).
+
+Step 4 must come last: `search_schema_health()` runs against the live database and reports a
+missing required index as a failure, so registering the names before the indexes exist turns a
+health check red. Equally, shipping step 1 as a migration without steps 2–3 is what caused
+PR #1312 to be closed on 2026-07-28 — an additive index migration with no synchronized
+schema/drift proof. Expect `npm run check:drift` to report the three indexes as unexpected
+between steps 1 and 2.
+
+Rollback is `DROP INDEX CONCURRENTLY` per index, reversing steps 4 → 1. Nothing reads these
+indexes by name outside `search_schema_health()`, and no query text depends on them, so dropping
+them restores the pre-change plans exactly.
+
 ## Safe rollback
 
 Treat rollback as another reviewed forward migration; do not delete or repair the

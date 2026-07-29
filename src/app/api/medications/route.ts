@@ -75,9 +75,14 @@ function matchesPayload(matches: MedicationSearchMatch[]) {
   }));
 }
 
-function publicMedicationPayload(q: string | undefined, limit: number, fields?: "index") {
-  const records = fields === "index" ? toIndexRecords(defaultMedicationRecords()) : defaultMedicationRecords();
-  const governance = Object.fromEntries(
+// The anonymous payload is entirely derived from the curated snapshot, so both
+// the index projection and the governance map are query-independent — rebuilding
+// them per request mapped every record twice for nothing (latency audit
+// 2026-07-28, L2-9). `defaultMedicationRecords()` is already memoised via
+// `loadMedicationSnapshot`, so caching these two derivations introduces no
+// aliasing the route did not already have. Ranking still runs per query.
+function buildPublicGovernance(records: MedicationRecord[]) {
+  return Object.fromEntries(
     records.map((record) => [
       record.slug,
       {
@@ -86,6 +91,25 @@ function publicMedicationPayload(q: string | undefined, limit: number, fields?: 
       },
     ]),
   );
+}
+
+let cachedPublicIndexRecords: MedicationRecord[] | null = null;
+let cachedPublicGovernance: ReturnType<typeof buildPublicGovernance> | null = null;
+
+function publicIndexRecords() {
+  cachedPublicIndexRecords ??= toIndexRecords(defaultMedicationRecords());
+  return cachedPublicIndexRecords;
+}
+
+function publicGovernance(records: MedicationRecord[]) {
+  // Slugs are identical for the full and index projections, so one map serves both.
+  cachedPublicGovernance ??= buildPublicGovernance(records);
+  return cachedPublicGovernance;
+}
+
+function publicMedicationPayload(q: string | undefined, limit: number, fields?: "index") {
+  const records = fields === "index" ? publicIndexRecords() : defaultMedicationRecords();
+  const governance = publicGovernance(records);
   const matches = q ? rankMedicationRecords(records, q, limit) : undefined;
   return {
     records,

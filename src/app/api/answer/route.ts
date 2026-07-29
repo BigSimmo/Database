@@ -23,7 +23,7 @@ import {
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "@/lib/answer-response";
-import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
+import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
@@ -76,25 +76,55 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
+    const authStartedAt = Date.now();
     const access = await publicAccessContext(request, supabase);
+    const authMs = Date.now() - authStartedAt;
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
+    // Scope resolution has no data dependency on the rate-limit RPC, so the two
+    // overlap instead of running back-to-back before retrieval starts. The
+    // limiter must still be able to deny for free, so the scope queries are
+    // aborted the moment it does — and threading a signal at all is what lets
+    // a client disconnect cancel scope's paginated queries.
+    const scopeAbort = new AbortController();
+    const scopeStartedAt = Date.now();
+    let scopeMs: number | undefined;
+    const scopeSettled = resolveSearchScope({
+      supabase,
+      accessScope,
+      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
+      filters: answerBody.filters,
+      signal: AbortSignal.any([request.signal, scopeAbort.signal]),
+    }).then(
+      (value) => {
+        scopeMs = Date.now() - scopeStartedAt;
+        return { ok: true as const, value };
+      },
+      // Settled, never rejected: the limiter can return before this promise is
+      // awaited, and a floating rejection would take down the process.
+      (error: unknown) => {
+        scopeMs = Date.now() - scopeStartedAt;
+        return { ok: false as const, error };
+      },
+    );
+
+    const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "answer",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
+    const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
+      scopeAbort.abort();
+      await scopeSettled;
       return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
     }
 
-    const scope = await resolveSearchScope({
-      supabase,
-      accessScope,
-      documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
-      filters: answerBody.filters,
-    });
+    const resolvedScope = await scopeSettled;
+    if (!resolvedScope.ok) throw resolvedScope.error;
+    const scope = resolvedScope.value;
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
         answer: emptyScopeAnswer,
@@ -135,9 +165,10 @@ export async function POST(request: Request) {
     });
 
     // Durations only — see server-timing.ts for the trust-boundary constraint.
-    const serverTiming = buildServerTimingHeader(
-      answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
-    );
+    const serverTiming = buildServerTimingHeader([
+      ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+      ...answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
+    ]);
     return NextResponse.json(
       {
         ...governedResponse.payload,
