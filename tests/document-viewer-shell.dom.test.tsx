@@ -16,7 +16,10 @@ const { push, authorizationHeader, registerAuthRequest, isAuthEpochCurrent, mark
     markSessionExpired: vi.fn(),
     // Mutable so a test can drive an auth transition while the viewer stays
     // mounted. Reset to the signed-out default in beforeEach.
-    authState: { status: "signed_out" as string, session: null as { user: { id: string } } | null },
+    authState: {
+      status: "signed_out" as string,
+      session: null as { user: { id: string; app_metadata?: Record<string, unknown> } } | null,
+    },
   }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
@@ -275,5 +278,101 @@ describe("DocumentViewer — shell states", () => {
     rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={{ ...detail, demoMode: false }} />);
 
     expect(window.document.querySelector(`a[href="${userAUrl}"]`)).toBeNull();
+  });
+
+  // The signed URLs are not the only identity-bound state the viewer holds. An
+  // auth-only transition leaves the document load key unchanged, so the detail
+  // effect treats the refetch as a navigation and deliberately keeps the current
+  // window mounted until the replacement settles. On a slow, offline, or denied
+  // request that window is user A's extracted private content — title, chunks,
+  // table facts, image captions — left readable to user B for as long as B's
+  // request takes. This defers B's detail response indefinitely and asserts the
+  // content is gone at the moment the identity changes, not when B's reply lands.
+  it("clears A's extracted document content on an account switch before B's detail request settles", async () => {
+    // Administrator metadata only so the extracted table-fact panel renders at
+    // all; the leak under test is not administrator-specific.
+    const administrator = { site_role: "administrator" };
+    authState.status = "authenticated";
+    authState.session = { user: { id: "user-a", app_metadata: administrator } };
+
+    let detailRequests = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.includes("/signed-url")) {
+          return Promise.resolve({ ok: true, status: 200, json: async () => ({ url: null }) } as unknown as Response);
+        }
+        if (url.includes("/api/documents/doc-1?")) {
+          detailRequests += 1;
+          // Never settles: user B is offline / slow / denied.
+          return new Promise<Response>(() => {});
+        }
+        return Promise.resolve({ ok: true, status: 200, json: async () => ({}) } as unknown as Response);
+      }),
+    );
+
+    const detail = detailPayload();
+    const userADetail = {
+      ...detail,
+      demoMode: false,
+      images: [
+        {
+          id: "image-a",
+          page_number: 1,
+          caption: "Clozapine neutrophil monitoring chart",
+          tableLabel: "Table 2",
+          tableTitle: "Clozapine neutrophil monitoring",
+        },
+      ],
+      tableFacts: [
+        {
+          id: "fact-a",
+          document_id: "doc-1",
+          source_image_id: "image-a",
+          page_number: 1,
+          table_title: "Neutrophil thresholds",
+          row_label: "Amber",
+          clinical_parameter: "Absolute neutrophil count",
+          threshold_value: "1.0-1.5 x10^9/L",
+          action: "Repeat count twice weekly",
+        },
+      ],
+      chunks: [
+        {
+          id: "chunk-a",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Titration schedule",
+          content: "User A private titration passage",
+          image_ids: [],
+        },
+      ],
+    } satisfies DocumentDetailPayload;
+
+    const { rerender } = render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={userADetail} />);
+
+    // Presence, not visibility: content parked in a collapsed panel is still in
+    // the DOM and still readable, so "gone" has to mean removed, not hidden.
+    expect(await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeVisible();
+    expect(screen.getAllByText("User A private titration passage").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Clozapine neutrophil monitoring/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Absolute neutrophil count/).length).toBeGreaterThan(0);
+
+    // Same document, same route, different clinician — the load key is unchanged,
+    // so nothing but the identity reset can drop this content.
+    authState.session = { user: { id: "user-b", app_metadata: administrator } };
+    rerender(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={userADetail} />);
+
+    expect(screen.queryByRole("heading", { level: 1, name: "Clozapine Titration Guideline" })).toBeNull();
+    expect(screen.queryByText("User A private titration passage")).toBeNull();
+    expect(screen.queryByText(/Clozapine neutrophil monitoring/)).toBeNull();
+    expect(screen.queryByText(/Absolute neutrophil count/)).toBeNull();
+
+    // …and it must stay gone: the SSR `initialDetail` prop still holds user A's
+    // payload, so the refetch triggered by the identity change must go to the
+    // network for user B rather than replaying it.
+    await waitFor(() => expect(detailRequests).toBeGreaterThan(0));
+    expect(screen.queryByText("User A private titration passage")).toBeNull();
   });
 });
