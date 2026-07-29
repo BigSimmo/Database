@@ -41,6 +41,12 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function revealPhoneHeaderControl(page: Page, control: Locator) {
+  const { scrollTop } = await readPrimaryScrollGeometry(page);
+  if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
+  await expect(control).toBeInViewport();
+}
+
 async function installClipboardMock(page: Page) {
   await page.addInitScript(() => {
     let clipboardText = "";
@@ -3540,6 +3546,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // retired in-flow "Document viewer sections" link row.
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const openSection = async (label: RegExp) => {
+      await revealPhoneHeaderControl(page, sectionTrigger);
       await sectionTrigger.click();
       const sheet = page.getByTestId("document-section-sheet");
       await expect(sheet).toBeVisible();
@@ -3556,11 +3563,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
     await expect(sectionTrigger).toBeVisible();
+    await revealPhoneHeaderControl(page, sectionTrigger);
     await sectionTrigger.click();
     const sectionSheet = page.getByTestId("document-section-sheet");
     await expect(sectionSheet.getByRole("button", { name: /Pinned evidence/ })).toBeVisible();
     await expect(sectionSheet.getByRole("button", { name: /PDF preview/ })).toBeVisible();
     await expect(sectionSheet.getByRole("button", { name: /Indexed source text/ })).toBeVisible();
+    const mobileDensityToggle = sectionSheet.getByTestId("document-view-density-toggle");
+    await expect(mobileDensityToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(mobileDensityToggle).toHaveAccessibleName("Show full document content");
     await page.keyboard.press("Escape");
     await expect(sectionSheet).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
@@ -3678,9 +3689,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(clinicalSummary).toBeVisible();
     await expect(clinicalSummary.getByRole("heading", { name: "High-yield clinical summary" })).toBeVisible();
     const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
-    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "true");
-    await clinicalPriorities.click();
     await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "false");
+    const densityToggle = page.getByTestId("document-section-index").getByTestId("document-view-density-toggle");
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    await densityToggle.click();
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("heading", { name: "Key sections", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Useful pages", exact: true })).toHaveCount(0);
     const summaryCard = page.getByTestId("high-yield-summary");
@@ -3737,6 +3751,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const indexingDetails = page.getByTestId("indexing-details");
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const clickSectionNav = async (label: RegExp) => {
+      await revealPhoneHeaderControl(page, sectionTrigger);
       await sectionTrigger.click();
       const sheet = page.getByTestId("document-section-sheet");
       await expect(sheet).toBeVisible();
@@ -3754,6 +3769,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
     };
 
     await expect(indexedText).toBeVisible();
+    await expect(indexedText).toHaveJSProperty("open", false);
+    await sectionTrigger.click();
+    const densitySheet = page.getByTestId("document-section-sheet");
+    const densityToggle = densitySheet.getByTestId("document-view-density-toggle");
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    await waitForReactEventHandler(densityToggle, "onClick");
+    await activateFocusedControl(page, densityToggle);
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(indexedText).toHaveJSProperty("open", true);
+    await activateFocusedControl(page, densityToggle);
+    await expect(densityToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(indexedText).toHaveJSProperty("open", false);
+    await page.keyboard.press("Escape");
+    await expect(densitySheet).toHaveCount(0);
     for (const disclosure of [summary, images, indexingDetails]) {
       await expect(disclosure).toHaveJSProperty("open", false);
     }
@@ -3762,20 +3791,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(summaryContent).toBeHidden();
     await openImagesDisclosure();
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+    await expect(indexedText).toHaveJSProperty("open", true);
     await page.emulateMedia({ media: "print" });
     await expect(summaryContent).toBeVisible();
     await page.emulateMedia({ media: "screen" });
     await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
     await expect(summaryContent).toBeHidden();
     await expect(images).toHaveJSProperty("open", true);
+    await expect(indexedText).toHaveJSProperty("open", false);
 
     await clickSectionNav(/Indexed source text/);
     await expect(indexedText).toBeInViewport();
+    await expect(indexedText).toHaveJSProperty("open", true);
     await expect(images).toHaveJSProperty("open", false);
 
     await clickSectionNav(/High-yield summary/);
     await expect(summary).toHaveJSProperty("open", true);
-    await expect(indexedText).toBeVisible();
+    await expect(indexedText).toHaveJSProperty("open", false);
 
     await openImagesDisclosure();
     await expect(images).toHaveJSProperty("open", true);
