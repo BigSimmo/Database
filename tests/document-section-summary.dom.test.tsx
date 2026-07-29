@@ -27,12 +27,7 @@ describe("DocumentSectionSummary", () => {
 
     rerender(
       <details>
-        <DocumentSectionSummary
-          icon={FileText}
-          title="Indexed source text"
-          description="Extracted text"
-          interactive
-        />
+        <DocumentSectionSummary icon={FileText} title="Indexed source text" description="Extracted text" interactive />
         <p>Body</p>
       </details>,
     );

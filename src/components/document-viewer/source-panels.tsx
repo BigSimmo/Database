@@ -442,11 +442,7 @@ export function DocumentSectionSummary({
         <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
       <span className="min-w-0">
-        <span
-          role="heading"
-          aria-level={2}
-          className="block text-base font-semibold text-[color:var(--text-heading)]"
-        >
+        <span role="heading" aria-level={2} className="block text-base font-semibold text-[color:var(--text-heading)]">
           {title}
         </span>
         <span className={cn("mt-1 block text-sm leading-6", textMuted)}>{description}</span>
