@@ -121,7 +121,7 @@ describe("incompleteEvidence", () => {
       "desktop-forms",
     ]);
     expect(incompleteEvidence(mobileOnly, DEFAULT_ROUTES)).toHaveLength(5);
-    expect(renderTable(mobileOnly, DEFAULT_ROUTES)).toContain("Evidence is incomplete");
+    expect(renderTable(mobileOnly, DEFAULT_ROUTES)).toContain("NOT an #017 verdict");
   });
 
   it("treats a present report with no LCP/CLS number as incomplete, not merely a breach", () => {
@@ -259,5 +259,80 @@ describe("summariseReport", () => {
       },
     });
     expect(summary).toMatchObject({ run: "mobile-root", lcpMs: 1234, cls: 0.02, tbtMs: 55, fcpMs: null });
+  });
+});
+
+// A run that cannot produce a verdict must not emit verdict prose at all. Both
+// the threshold sentence and the "findings become actionable" sentence used to
+// be reachable while the run was separately disqualified — for incomplete
+// evidence or for a non-production origin — so the summary asserted a verdict in
+// bold and then contradicted it. Whichever line a reader took away, one was
+// false. These pin that the disqualification is the ONLY verdict-shaped claim.
+describe("verdict prose is gated on the run being able to produce a verdict", () => {
+  const staging = (run: string, lcpMs = 1200) => {
+    const url = `https://staging.psychiatry.tools/${run}`;
+    return { ...row(run, lcpMs, 0.01), url, requestedUrl: url };
+  };
+
+  it("suppresses the threshold claim when a run measured the wrong page", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES).map((run) =>
+      run === "mobile-dsm" ? { ...row(run, 1200, 0.01), url: "https://psychiatry.tools/login" } : row(run, 1200, 0.01),
+    );
+    // The redirected run still carries passing numbers, so nothing breaches.
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm"]);
+
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    expect(table).toContain("NOT an #017 verdict");
+    expect(table).toContain("mobile-dsm");
+    // The two claims that must not survive a disqualified run.
+    expect(table).not.toContain("Every mobile route is within");
+    expect(table).not.toContain("NOT yet an #017 closure");
+    // The measurement is still reported, explicitly subordinated.
+    expect(table).toContain("For reference only");
+  });
+
+  it("does not call a staging breach actionable", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => staging(run, run === "mobile-forms" ? 3000 : 1200));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]); // evidence is complete…
+    expect(isProductionVerdict(rows)).toBe(false); // …but not from production
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toHaveLength(1);
+
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    expect(table).toContain("NOT an #017 verdict");
+    expect(table).toContain("https://staging.psychiatry.tools");
+    expect(table).not.toContain("become actionable, ranked by measured contribution");
+    // The breach is still visible, as a measurement rather than a verdict.
+    expect(table).toContain("mobile-forms");
+    expect(table).toContain("This is a measurement, not a verdict");
+  });
+
+  it("reports both disqualifiers together rather than only the first", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES)
+      .filter((run) => !run.startsWith("desktop-"))
+      .map((run) => staging(run));
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    expect(table).toContain("produced no usable report");
+    expect(table).toContain("asks for evidence from https://psychiatry.tools");
+  });
+});
+
+// Chrome ships with the runner image, not with the pinned LIGHTHOUSE_VERSION, so
+// it moves underneath a baseline and a metric shift can originate in the browser
+// rather than the application. summariseReport keeps what actually drove the run.
+describe("measurement environment", () => {
+  it("records the Chrome build that produced the report", () => {
+    const summary = summariseReport("mobile-root", {
+      requestedUrl: "https://psychiatry.tools/",
+      finalDisplayedUrl: "https://psychiatry.tools/",
+      environment: { hostUserAgent: "Mozilla/5.0 … Chrome/141.0.0.0 Safari/537.36" },
+      categories: { performance: { score: 0.99 } },
+      audits: {},
+    });
+    expect(summary.chromeVersion).toBe("Mozilla/5.0 … Chrome/141.0.0.0 Safari/537.36");
+  });
+
+  it("leaves the field null when the report does not state it", () => {
+    expect(summariseReport("mobile-root", { audits: {} }).chromeVersion).toBeNull();
   });
 });

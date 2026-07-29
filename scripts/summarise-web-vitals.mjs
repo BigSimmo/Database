@@ -65,6 +65,11 @@ export function summariseReport(run, report) {
     // the wrong page, and the filename alone cannot reveal that.
     requestedUrl: report?.requestedUrl ?? null,
     runtimeError: report?.runtimeError?.code ?? null,
+    // The browser that produced these numbers. Chrome comes from the runner
+    // image, not from `LIGHTHOUSE_VERSION`, so it moves independently of the
+    // pinned tooling and a metric shift can originate there rather than in the
+    // application. `main()` records the distinct values in summary.json.
+    chromeVersion: report?.environment?.hostUserAgent ?? null,
     performanceScore: report?.categories?.performance?.score ?? null,
     lcpMs: numeric("largest-contentful-paint"),
     cls: numeric("cumulative-layout-shift"),
@@ -258,41 +263,64 @@ export function renderTable(rows, routes) {
   ];
   const breaches = mobileBreaches(rows, routes);
   const incomplete = incompleteEvidence(rows, routes);
-  lines.push("");
   const productionVerdict = isProductionVerdict(rows);
+
+  // Disqualifiers are resolved BEFORE any threshold or actionability prose, and
+  // that ordering is the point. Both were previously computed independently of
+  // the verdict branch and appended afterwards, so a run could assert "every
+  // mobile route is within threshold" in bold and then admit two paragraphs
+  // later that the evidence was incomplete, or call a staging breach
+  // "actionable" for #017. Whichever line a reader takes away, one of them was
+  // false. A run that cannot produce a verdict must not emit verdict prose at
+  // all — the measurements are still shown, explicitly subordinated.
+  const disqualifiers = [];
+  if (incomplete.length > 0) {
+    disqualifiers.push(`${incomplete.length} requested run(s) produced no usable report: ${incomplete.join(", ")}`);
+  }
+  if (!productionVerdict) {
+    disqualifiers.push(
+      `#017 asks for evidence from ${CANONICAL_ORIGIN}; this run measured ` +
+        `${measuredOrigins(rows).join(", ") || "an unknown origin"}`,
+    );
+  }
+
+  lines.push("");
+  if (disqualifiers.length > 0) {
+    lines.push(
+      `**This run is NOT an #017 verdict.** ${disqualifiers.join(". ")}. ` +
+        "Record nothing against #017 from this run; fix the cause and rerun.",
+    );
+    lines.push("");
+    lines.push(
+      breaches.length === 0
+        ? "_For reference only — the reports that were produced are within the thresholds. " +
+            "This is a measurement, not a verdict._"
+        : `_For reference only — ${breaches.length} of the reports that were produced are outside the thresholds: ` +
+            `${breaches.map((breach) => `${breach.run} (${breach.reason})`).join(", ")}. ` +
+            "This is a measurement, not a verdict, and does not make any finding actionable._",
+    );
+    return lines.join("\n");
+  }
+
   lines.push(
     breaches.length === 0
-      ? productionVerdict
-        ? // Deliberately NOT a closure. The #017 rule has three clauses — LCP,
-          // CLS and INP < 200ms — and Lighthouse cannot measure INP in lab
-          // conditions at all (it is an interaction metric; TBT is the lab
-          // proxy). This run therefore satisfies two of three and cannot close
-          // #017 by itself. Announcing closure here and asking the operator to
-          // "confirm INP afterward" put the bold verdict before the evidence,
-          // which is the exact failure mode #017 exists to prevent.
-          `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}. ` +
+      ? // Deliberately NOT a closure. The #017 rule has three clauses — LCP,
+        // CLS and INP < 200ms — and Lighthouse cannot measure INP in lab
+        // conditions at all (it is an interaction metric; TBT is the lab
+        // proxy). This run therefore satisfies two of three and cannot close
+        // #017 by itself. Announcing closure here and asking the operator to
+        // "confirm INP afterward" put the bold verdict before the evidence,
+        // which is the exact failure mode #017 exists to prevent.
+        `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}. ` +
           "This is NOT yet an #017 closure.** The #017 rule also requires INP < 200ms, which is field data this run " +
           "does not collect — Lighthouse cannot measure INP in lab conditions. Obtain INP from CrUX for these routes; " +
           "only if it is available AND under 200ms does #017 close as metrics-acceptable and the gated payload " +
           "findings become WONTFIX. An unavailable or >=200ms INP leaves #017 open."
-        : `**Every mobile route is within LCP < ${WEB_VITALS_THRESHOLDS.lcpMs}ms and CLS < ${WEB_VITALS_THRESHOLDS.cls}, ` +
-          `but this is NOT an #017 verdict.** #017 asks for evidence from ${CANONICAL_ORIGIN}; this run measured ` +
-          `${measuredOrigins(rows).join(", ") || "an unknown origin"}. Record nothing against #017 from this run.`
       : `**${breaches.length} mobile route(s) breach the rule: ` +
           `${breaches.map((breach) => `${breach.run} (${breach.reason})`).join(", ")}.** ` +
           "Only findings on those routes become actionable, ranked by measured contribution. " +
           "A route with no report is a breach, not a pass — rerun it before recording any #017 verdict.",
   );
-  // Stated separately from the threshold verdict: #017 wants mobile AND desktop
-  // evidence, so a missing desktop report invalidates the baseline even when
-  // every mobile route passed its thresholds.
-  if (incomplete.length > 0) {
-    lines.push("");
-    lines.push(
-      `**Evidence is incomplete — ${incomplete.length} requested run(s) produced no usable report: ` +
-        `${incomplete.join(", ")}.** This is not an #017 verdict; rerun before recording anything.`,
-    );
-  }
   return lines.join("\n");
 }
 
@@ -311,10 +339,21 @@ function main() {
   const rows = files.map((file) =>
     summariseReport(file.replace(/\.json$/, ""), JSON.parse(readFileSync(join(directory, file), "utf8"))),
   );
-  // Record the Lighthouse build alongside the numbers: a baseline is only
-  // comparable to a follow-up measured by the same implementation.
+  // Record the measurement environment alongside the numbers: a baseline is
+  // only comparable to a follow-up produced by the same implementation AND the
+  // same browser. `LIGHTHOUSE_VERSION` is pinned in the workflow, but Chrome
+  // comes from the `ubuntu-24.04` runner image and moves underneath it, so a
+  // rendering or metric change can originate in the browser rather than the
+  // application. Lighthouse reports the build it drove in `environment.
+  // hostUserAgent`; taking it from the reports rather than from the runner
+  // records what actually measured, and disagreement across reports is itself
+  // worth seeing. Compare baselines only when both fields match.
   const lighthouseVersion = process.env.LIGHTHOUSE_VERSION ?? "unpinned";
-  writeFileSync(join(directory, "summary.json"), `${JSON.stringify({ lighthouseVersion, routes, rows }, null, 2)}\n`);
+  const chromeVersions = [...new Set(rows.map((row) => row.chromeVersion).filter(Boolean))].sort();
+  writeFileSync(
+    join(directory, "summary.json"),
+    `${JSON.stringify({ lighthouseVersion, chromeVersions, routes, rows }, null, 2)}\n`,
+  );
   const table = renderTable(rows, routes);
   console.log(table);
   if (process.env.GITHUB_STEP_SUMMARY) {
