@@ -1,8 +1,11 @@
 "use client";
 
-import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { Columns3, Search, Sparkles, Waypoints } from "lucide-react";
 
-import { useTcBindings } from "./bindings";
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
+
+import { MAX_COMPARE, useTcBindings } from "./bindings";
 
 /** Core Therapy destinations for non-home screens. */
 export function TherapyCompassNav() {
@@ -165,4 +168,51 @@ export function TherapyCompassNav() {
   // Phones: portal into the collapsing top-bar track so the strip hides/reveals
   // with the universal header. sm+: keep in-flow sticky inside the workspace.
   return <PhoneHeaderCollapsePortal>{navShell}</PhoneHeaderCollapsePortal>;
+}
+
+const BASE = "/therapy-compass";
+
+/**
+ * Therapy's pages for the shared `ModeNav`, in declared order.
+ *
+ * Order is load-bearing: at three slots the survivors are the first two, so the
+ * library door and the only destination carrying state are the ones that stay.
+ *
+ * Four destinations, not the seven the pill strip carries. Home duplicates the
+ * mode pill directly above it. Brief intervention and Patient sheet act on a
+ * selected therapy and already exist as availability-guarded buttons on the
+ * record page (`screens/detail-screen.tsx`); in the strip they were both
+ * duplicated and unsafe, silently opening the first catalogue record that
+ * happened to have one when nothing was selected. Review is a governance queue
+ * rather than a step in delivering care, and is reachable from the detail and
+ * pathway screens.
+ */
+function useTherapyNavItems(): ModeNavItem[] {
+  const b = useTcBindings();
+
+  return [
+    { id: "search", label: "Search", href: `${BASE}/search`, icon: Search },
+    {
+      id: "compare",
+      label: "Compare",
+      href: `${BASE}/compare`,
+      icon: Columns3,
+      // Fill, not catalogue size: the basket holds four and the strip never
+      // showed how many were in it.
+      count: `${b.compareSlugs.length}/${MAX_COMPARE}`,
+    },
+    { id: "recommend", label: "Recommend", href: `${BASE}/recommend`, icon: Sparkles },
+    { id: "pathways", label: "Pathways", href: `${BASE}/pathways`, icon: Waypoints },
+  ];
+}
+
+/**
+ * The shared mode bar, pinned inside the universal header at every width.
+ *
+ * Currently rendered on `/therapy-compass/search` only; every other Therapy
+ * route keeps {@link TherapyCompassNav} until the rollout continues.
+ */
+export function TherapyModeNav() {
+  const items = useTherapyNavItems();
+  return <ModeNav items={items} label="Therapy pages" />;
 }

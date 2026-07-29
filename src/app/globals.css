@@ -273,6 +273,8 @@
   /* Active left-rail marker (nav/list "current" indicator). One token so the
      accent rail is a consistent 2px everywhere instead of hand-inlined at 2px/3px. */
   --shadow-rail-active: inset 2px 0 0 var(--clinical-accent);
+  /* Mode-nav collapsed control: a surface lifted off the header. */
+  --shadow-lift: 0 1px 2px rgb(12 24 34 / 8%), 0 2px 6px rgb(12 24 34 / 5%);
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -433,6 +435,9 @@
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 4%), 0 18px 44px rgb(0 0 0 / 64%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
   --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
+  /* A drop shadow does not read on a near-black ground, so the lifted control
+     is described by an inner top highlight instead. */
+  --shadow-lift: inset 0 1px 0 rgb(255 255 255 / 7%), 0 2px 6px rgb(0 0 0 / 45%);
   color-scheme: dark;
 }
 
@@ -2189,6 +2194,93 @@ html[data-motion="reduced"] .pwa-notice-card {
 
   .search-results-cards-compact {
     display: none;
+  }
+}
+
+/* ── Mode navigation ──────────────────────────────────────────────────────
+   The bar carrying one mode's own pages. `ModeNavHeaderPortal` moves it into
+   the universal header's collapse track, so it hides and reveals as one object
+   with the header at every width and owns no scroll listener of its own.
+
+   Density is chosen by CONTAINER width in `rem` — never by device width, and
+   never by runtime measurement. The unit is the mechanism: raising the browser
+   or OS text size grows the root font, so a phone crosses a threshold exactly
+   when its labels would stop fitting. A 320px phone is 20rem at 100% text and
+   keeps three slots; at 200% it resolves to 10rem and collapses to one control.
+
+   The collapsed control is the DEFAULT and the bar is the enhancement, so
+   anything unmeasured, unsupported or mid-load renders the one state that
+   cannot overflow at any width or text size (WCAG 1.4.4 Resize Text, 1.4.10
+   Reflow).
+
+   Budgets, measured against this app's phone type ramp with slot padding
+   counted: four full labels need 394px and fit from 26rem; three plus More need
+   256px and fit from 16rem.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@utility mode-nav {
+  container-type: inline-size;
+  container-name: mode-nav;
+  min-width: 0;
+}
+
+.mode-nav__bar {
+  display: none;
+}
+
+.mode-nav__control {
+  display: flex;
+}
+
+/* Which slots survive each band is decided in the component from the item
+   COUNT alone — a static fact, never a measurement — and encoded as two
+   attributes that CSS then switches on:
+     `data-band="3|4|5"`  the narrowest band at which this destination appears
+     `data-until="3|4"`   the widest band at which More still appears
+   Slots are never re-ordered, so the ones that stay do not move as the
+   container narrows; the overflow only ever fills from the tail. */
+.mode-nav__slot[data-band="4"],
+.mode-nav__slot[data-band="5"] {
+  display: none;
+}
+
+@container mode-nav (min-width: 16rem) {
+  .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav__bar {
+    display: grid;
+    grid-auto-flow: column;
+    /* Equal columns, so outer margins and inter-slot gaps are identical by
+       construction rather than by hand-tuned padding. */
+    grid-auto-columns: 1fr;
+  }
+}
+
+@container mode-nav (min-width: 26rem) {
+  .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+}
+
+@container mode-nav (min-width: 34rem) {
+  .mode-nav__slot[data-band="5"] {
+    display: flex;
+  }
+
+  .mode-nav__slot[data-until="4"] {
+    display: none;
+  }
+
+  /* Wide: slots size to their content and sit left, so the bar reads as a
+     continuation of the header rather than four columns stretched across it. */
+  .mode-nav__bar {
+    display: flex;
   }
 }
 
