@@ -1,0 +1,108 @@
+name: Live Web Vitals baseline
+
+# Ledger #017 gates every client payload decision (#012/#013/#016) behind
+# reproducible mobile/desktop Web-Vitals evidence, and the 2026-07-28 latency
+# audit added seven more findings behind the same gate. Nothing in the repo
+# could produce that evidence: in-sandbox runtime vitals are blocked because the
+# production server hard-requires Supabase secrets, and local Playwright timings
+# rank routes against each other without discharging #017, which asks for the
+# real origin.
+#
+# This runs Lighthouse against the deployed domain and keeps the JSON, so the
+# baseline is reproducible after payload work rather than a one-off screenshot.
+#
+# Deliberately dispatch-only — no schedule. It is heavier than the plain GETs in
+# live-domain-monitor.yml, and the decision it feeds is made a handful of times a
+# year, not every six hours. Like that monitor it uses no secrets and no
+# providers beyond what any anonymous visitor triggers.
+#
+# The decision rule is written down BEFORE the numbers are read, so the gate
+# cannot be rationalised after the fact:
+#   mobile LCP < 2.5s AND CLS < 0.1 AND INP < 200ms on every route
+#     -> close #017 "metrics acceptable"; the payload findings become WONTFIX
+#   any breach
+#     -> only the breaching route's findings become actionable, ranked by
+#        measured contribution
+# Record the verdict in docs/outstanding-issues.md against #017 either way.
+
+on:
+  workflow_dispatch:
+    inputs:
+      routes:
+        description: "Comma-separated routes to measure"
+        required: false
+        default: "/,/therapy-compass,/documents,/dsm,/forms"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-web-vitals
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    name: Lighthouse against the live domain
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Repository variable overrides the default (e.g. a staging cutover),
+      # matching live-domain-monitor.yml.
+      LIVE_DOMAIN_URL: ${{ vars.LIVE_DOMAIN_URL || 'https://psychiatry.tools' }}
+      ROUTES: ${{ inputs.routes }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Use the repository Node runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+
+      - name: Confirm the target is reachable before spending a Lighthouse run
+        run: |
+          set -euo pipefail
+          code="$(curl -sSL -o /dev/null -w '%{http_code}' --max-time 30 --retry 2 --retry-delay 10 --retry-all-errors "$LIVE_DOMAIN_URL/")"
+          echo "root -> $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::$LIVE_DOMAIN_URL/ returned $code — not measuring"
+            exit 1
+          fi
+
+      - name: Measure each route on mobile and desktop
+        run: |
+          set -euo pipefail
+          mkdir -p web-vitals
+          IFS=',' read -ra route_list <<< "$ROUTES"
+          for strategy in mobile desktop; do
+            for route in "${route_list[@]}"; do
+              route="$(echo "$route" | xargs)"
+              [ -n "$route" ] || continue
+              # Filename-safe slug: "/" -> root, "/a/b" -> a-b
+              slug="$(echo "$route" | sed 's|^/||; s|/|-|g')"
+              [ -n "$slug" ] || slug="root"
+              out="web-vitals/${strategy}-${slug}"
+              echo "::group::$strategy $route"
+              # One flaky route must not discard the whole run, so a failure is
+              # a warning here; the summary step fails if NOTHING was produced.
+              npx --yes lighthouse@12 "$LIVE_DOMAIN_URL$route" \
+                --output=json --output-path="${out}.json" \
+                --preset="$([ "$strategy" = desktop ] && echo desktop || echo perf)" \
+                --only-categories=performance \
+                --chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" \
+                --max-wait-for-load=60000 \
+                --quiet || echo "::warning::lighthouse failed for $strategy $route"
+              echo "::endgroup::"
+            done
+          done
+
+      - name: Summarise LCP / CLS / TBT against the decision rule
+        run: node scripts/summarise-web-vitals.mjs web-vitals
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: live-web-vitals
+          path: web-vitals/
+          retention-days: 30
