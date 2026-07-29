@@ -107,9 +107,9 @@ export function buildDocumentSectionIndex(input: DocumentSectionIndexInput): Doc
       label: "Indexed source text",
       icon: FileSearch,
       detail: input.loading ? "Indexing" : plural(input.chunkCount, "chunk"),
-      // IndexedTextPanel is a <section>, not a details disclosure — a chevron
-      // would advertise an open action that never happens.
-      collapsible: false,
+      // Condensed view renders IndexedTextPanel as a disclosure; full view keeps
+      // it open, while the same navigation row remains valid in both states.
+      collapsible: true,
       pending: input.loading,
     },
   ];
