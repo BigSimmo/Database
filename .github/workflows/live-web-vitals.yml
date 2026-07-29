@@ -96,8 +96,11 @@ jobs:
             done
           done
 
+      # ROUTES is passed so a route whose Lighthouse run failed above is counted
+      # as a breach. Grading only the reports that happen to exist would let a
+      # partially failed run read as "every mobile route passed".
       - name: Summarise LCP / CLS / TBT against the decision rule
-        run: node scripts/summarise-web-vitals.mjs web-vitals
+        run: node scripts/summarise-web-vitals.mjs web-vitals "$ROUTES"
 
       - name: Upload the reports
         if: always()
