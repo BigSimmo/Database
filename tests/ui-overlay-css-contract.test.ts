@@ -159,6 +159,9 @@ describe("overlay and global CSS contracts", () => {
     const browserStickyHeaderBlock = browserMediaBlock.match(/\.phone-sticky-header-stack\s*\{[\s\S]*?\}/)?.[0];
     const browserFooterBlock = browserMediaBlock.match(/\.phone-footer-layer\s*\{[\s\S]*?\}/)?.[0];
     const standaloneStickyHeaderBlock = standaloneMediaBlock.match(/\.phone-sticky-header-stack\s*\{[\s\S]*?\}/)?.[0];
+    const standaloneOverlayStackBlock = standaloneMediaBlock.match(
+      /\.phone-sticky-header-stack\.phone-overlay-header\s*\{[\s\S]*?\}/,
+    )?.[0];
     const standaloneFooterBlock = standaloneMediaBlock.match(/\.phone-footer-layer\s*\{[\s\S]*?\}/)?.[0];
 
     expect(browserMediaBlock).not.toBe("");
@@ -187,6 +190,7 @@ describe("overlay and global CSS contracts", () => {
     expect(phoneOverlayBlocks.find((block) => block.includes("position: fixed;"))).toContain("top: 0;");
     expect(standaloneOverlayBlock).toContain("position: absolute;");
     expect(standaloneStickyHeaderBlock).toContain("position: static;");
+    expect(standaloneOverlayStackBlock).toContain("position: absolute;");
     expect(standaloneFooterBlock).toContain("position: absolute;");
     expect(browserMediaBlock).toContain('html:has([data-chrome-transitioning="true"])');
     expect(browserMediaBlock).toContain('html:has([data-reserve-transitioning="true"])');
