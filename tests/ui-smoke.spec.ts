@@ -838,8 +838,20 @@ async function openGuide(page: Page) {
     // click together with the dialog it should produce, rather than asserting
     // visibility once — the same shape used for the composer and mode menu.
     await expect(async () => {
+      // Idempotent by construction. If the dialog opened just after the inner
+      // assertion's own deadline expired, `toPass` still schedules another
+      // attempt; without this the attempt clicks a trigger the modal is already
+      // covering (or reopens the phone menu on top of it) and the helper times
+      // out under exactly the load it exists to tolerate.
+      if (await settings.isVisible().catch(() => false)) return;
       if (viewport && viewport.width < 768) {
-        const menu = await openMobileClinicalGuideMenu(page);
+        // The swallowed click leaves the phone menu OPEN, so a retry that always
+        // reopens would toggle it shut and then fail to find Settings inside it.
+        // Reuse the open menu; only summon one when there is none.
+        const openMenu = page.getByRole("dialog", { name: "Clinical Guide" });
+        const menu = (await openMenu.isVisible().catch(() => false))
+          ? openMenu
+          : await openMobileClinicalGuideMenu(page);
         await menu.getByRole("button", { name: "Settings", exact: true }).click();
       } else if (viewport && viewport.width < 1024) {
         const rail = page.getByLabel("Clinical Guide collapsed sidebar");
@@ -1418,6 +1430,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // trigger's handler is swallowed silently, so asserting visibility once fails
     // on an unhydrated first click rather than on a real regression.
     await expect(async () => {
+      // The trigger TOGGLES, so this retry has to be idempotent. If the menu
+      // opened just after the inner assertion's deadline expired, a second
+      // unconditional click closes it again and the attempts oscillate — the
+      // retry would then fail a UI that is working.
+      if (await appModeMenu.isVisible().catch(() => false)) return;
       await appModeTrigger.click();
       await expect(appModeMenu).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: uiAssertionTimeoutMs });
