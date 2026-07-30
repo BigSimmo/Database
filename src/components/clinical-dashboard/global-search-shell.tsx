@@ -34,11 +34,12 @@ import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-foo
 import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
-  isDocumentViewerOwnedRoute,
+  isCollapseMotionPhoneRoute,
   isPageOwnedComposerRoute,
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { usePhoneOverlayChromeReserve } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
 import {
   readChromeCollapseMetrics,
   useDocumentScrollHideReporter,
@@ -342,6 +343,11 @@ function GlobalStandaloneSearchShellBody({
   const chromeTransitioning = useReserveTransitionMarker(chromeScrollHide.hidden, pathname);
   const activeScrollOwner = useActiveScrollOwner(mainElement, pathname);
   useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainElement, inputRef);
+  // Phones overlay the header, so content owns a constant top clearance beneath
+  // it. Published as a measured height because the collapse row grows with
+  // portaled page navigation, and read as a fixed reserve so hide/reveal moves
+  // no layout.
+  usePhoneOverlayChromeReserve();
   useEffect(() => {
     reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   }, [chromeScrollHide.reportScroll]);
@@ -856,7 +862,16 @@ function GlobalStandaloneSearchShellBody({
             // leaving this stack to own only the auto-hiding top bar.
             hideOnScroll={{
               strategy: "collapse",
-              phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse",
+              // Phones always overlay. The collapse mechanism is a 1fr -> 0fr
+              // grid on the header row plus a height transition on
+              // `chrome-safe-area-top`, so every hide handed layout back to the
+              // scroller and content slid up under the animation — three
+              // animated heights per gesture, which reads as choppy. Overlay
+              // translates the whole stack instead and charges zero released
+              // top geometry (`readChromeCollapseMetrics`), so content geometry
+              // never changes. `--phone-overlay-chrome-h` reserves the constant
+              // clearance beneath it.
+              phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay",
               wide: "sticky",
               scrollHidden: chromeScrollHide.hidden,
             }}
@@ -908,7 +923,13 @@ function GlobalStandaloneSearchShellBody({
             flex/overflow combinations. The inner block box includes padding in
             its height, so end-of-page content clears the visible dock.
           */}
-          <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
+          <div
+            data-testid="mobile-composer-reserve-pad"
+            className={cn(
+              "max-sm:pb-[var(--mobile-composer-reserve)]",
+              !isCollapseMotionPhoneRoute(pathname) && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
+            )}
+          >
             {shouldShowSearchComposer && !isStandaloneModeHome ? (
               <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
