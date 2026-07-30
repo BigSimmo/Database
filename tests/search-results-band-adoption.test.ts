@@ -203,13 +203,57 @@ function declaredNames(node: Record<string, unknown> | undefined): string[] {
   return [];
 }
 
-/** `import("x").then(m => m.Foo)` -> "Foo"; anything else -> null. */
+/**
+ * Which export a `.then(…)` selects out of a dynamic import.
+ *
+ * Two shapes, both live in this repo:
+ * - `.then((m) => m.Foo)` -> "Foo" (every entry in clinical-dashboard-lazy.tsx)
+ * - `.then((mod) => ({ default: mod.Foo }))` -> "Foo" — the Next.js wrapper for a
+ *   named export, used by `global-search-shell.tsx` for `ClinicalDashboard`. Left
+ *   unhandled this returned null and fell back to following *every* export of that
+ *   module, which is precisely the over-approximation the walk is meant to avoid.
+ */
 function thenExportName(args: unknown): string | null {
   const first = ((args ?? []) as Array<Record<string, unknown>>)[0];
   const body = first?.body as Record<string, unknown> | undefined;
-  if (body?.type !== "MemberExpression") return null;
-  const property = body.property as { name?: string } | undefined;
-  return typeof property?.name === "string" ? property.name : null;
+  if (body?.type === "MemberExpression") {
+    const property = body.property as { name?: string } | undefined;
+    return typeof property?.name === "string" ? property.name : null;
+  }
+  if (body?.type === "ObjectExpression") {
+    for (const property of (body.properties ?? []) as Array<Record<string, unknown>>) {
+      if ((property.key as { name?: string })?.name !== "default") continue;
+      const value = property.value as Record<string, unknown> | undefined;
+      if (value?.type === "MemberExpression") {
+        const selected = value.property as { name?: string } | undefined;
+        return typeof selected?.name === "string" ? selected.name : null;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * A dynamic import whose result is thrown away cannot mount anything.
+ *
+ * `void import("x")` in an effect, or a bare `import("x");` statement, is a
+ * preload or a side effect. Scoped to discarded *results* rather than to "must be
+ * lexically inside dynamic()", because this repo also writes the loader as a
+ * separate binding — `const load = () => import("…").then(…)` passed to
+ * `dynamic(load)` — and requiring lexical containment would report that as
+ * unreachable.
+ */
+function discardsItsResult(node: Record<string, unknown>): boolean {
+  if (node.type === "UnaryExpression" && node.operator === "void") return true;
+  if (node.type !== "ExpressionStatement") return false;
+  let expression = node.expression as Record<string, unknown> | undefined;
+  // Unwrap a `.then(…)`/`.catch(…)` chain back to its root.
+  while (expression?.type === "CallExpression") {
+    const callee = expression.callee as Record<string, unknown> | undefined;
+    if (callee?.type !== "MemberExpression") break;
+    expression = callee.object as Record<string, unknown> | undefined;
+  }
+  return Boolean(expression && dynamicImportSource(expression));
 }
 
 function dynamicImportSource(node: Record<string, unknown> | undefined): string | null {
@@ -247,14 +291,15 @@ function buildModuleGraph(source: string, filename: string): ModuleGraph {
   const scan = (root: unknown, owner: string) => {
     const refs = graph.localRefs.get(owner) ?? new Set<string>();
     graph.localRefs.set(owner, refs);
-    const visit = (value: unknown) => {
+    const visit = (value: unknown, discarded = false) => {
       if (!value || typeof value !== "object") return;
       if (Array.isArray(value)) {
-        for (const item of value) visit(item);
+        for (const item of value) visit(item, discarded);
         return;
       }
       const node = value as Record<string, unknown>;
       const type = node.type;
+      const resultDropped = discarded || discardsItsResult(node);
       if (type === "JSXOpeningElement") {
         let name = node.name as Record<string, unknown> | undefined;
         while (name && name.type === "JSXMemberExpression") name = name.object as Record<string, unknown>;
@@ -268,7 +313,7 @@ function buildModuleGraph(source: string, filename: string): ModuleGraph {
       // which is how every lazy workspace in clinical-dashboard-lazy.tsx is written.
       // Matched on the outer `.then(…)` so the inner bare-import branch below can
       // skip it and not also enqueue the module's default.
-      if (type === "CallExpression") {
+      if (type === "CallExpression" && !resultDropped) {
         const callee = node.callee as Record<string, unknown> | undefined;
         if (callee?.type === "MemberExpression" && (callee.property as { name?: string })?.name === "then") {
           const inner = dynamicImportSource(callee.object as Record<string, unknown> | undefined);
@@ -277,14 +322,14 @@ function buildModuleGraph(source: string, filename: string): ModuleGraph {
           }
         }
       }
-      const bare = dynamicImportSource(node);
+      const bare = resultDropped ? null : dynamicImportSource(node);
       if (bare && !graph.lazyImports.some((entry) => entry.owner === owner && entry.source === bare)) {
         // A plain `import("x")` in `dynamic()` mounts the module's default export.
         graph.lazyImports.push({ owner, source: bare, imported: "default" });
       }
       for (const key of Object.keys(node)) {
         if (key === "loc" || key === "leadingComments" || key === "trailingComments") continue;
-        visit(node[key]);
+        visit(node[key], resultDropped);
       }
     };
     visit(root);
@@ -760,6 +805,37 @@ describe("band adoption detection", () => {
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "side-effect-route.tsx"))).toBe(false);
+
+      // The Next.js object-wrapper shape, which global-search-shell.tsx uses for
+      // ClinicalDashboard. Selecting the plain export must not drag in the sibling
+      // that renders the band; before this was handled the wrapper returned no name
+      // and the walk fell back to following every export.
+      writeFileSync(
+        path.join(dir, "wrapper-plain-route.tsx"),
+        'const Lazy = dynamic(() => import("./lazy-barrel").then((mod) => ({ default: mod.Plain })));\n' +
+          "export default Lazy;\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "wrapper-plain-route.tsx"))).toBe(false);
+
+      // Same wrapper selecting the banded export does reach it.
+      writeFileSync(
+        path.join(dir, "wrapper-banded-route.tsx"),
+        'const Lazy = dynamic(() => import("./mixed-exports").then((mod) => ({ default: mod.Helper })));\n' +
+          "export default Lazy;\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "wrapper-banded-route.tsx"))).toBe(true);
+
+      // A dynamic import whose result is discarded is a preload, not a mount.
+      writeFileSync(
+        path.join(dir, "preload-route.tsx"),
+        "export default function Page() {\n" +
+          '  useEffect(() => {\n    void import("./default-banded-child");\n  }, []);\n' +
+          "  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "preload-route.tsx"))).toBe(false);
 
       // A non-exported local the mounted component does render is reachable.
       writeFileSync(
