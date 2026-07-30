@@ -1,7 +1,6 @@
 import { defineConfig, devices } from "playwright/test";
 import { stableProjectPort } from "./src/lib/local-server-utils.mjs";
 import { getPlaywrightBaseUrl } from "./scripts/playwright-base-url";
-import { playwrightProjectNames } from "./scripts/playwright-browser-preflight.mjs";
 
 process.env.PORT = process.env.PORT || String(stableProjectPort(process.cwd()));
 
@@ -64,7 +63,7 @@ export default defineConfig({
   },
   projects: [
     {
-      name: playwrightProjectNames.chromium,
+      name: "chromium",
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
       use: {
@@ -73,7 +72,7 @@ export default defineConfig({
       },
     },
     {
-      name: playwrightProjectNames.chromiumMockups,
+      name: "chromium-mockups",
       testMatch: mockupSpecPattern,
       grep: mockupTag,
       use: {
@@ -82,13 +81,13 @@ export default defineConfig({
       },
     },
     {
-      name: playwrightProjectNames.firefox,
+      name: "firefox",
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
       use: { ...devices["Desktop Firefox"] },
     },
     {
-      name: playwrightProjectNames.webkit,
+      name: "webkit",
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
       use: { ...devices["Desktop Safari"] },
