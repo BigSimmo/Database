@@ -327,12 +327,12 @@ async function main() {
       result.warnings.push(...supabaseCheck.warnings);
     }
     result.passes.push("Supabase URL is correct.");
-  } else if (supabaseCheck.status === "missing" && isCiMode) {
-    result.warnings.push("NEXT_PUBLIC_SUPABASE_URL is not set in this environment (CI).");
   } else if (supabaseCheck.status === "missing" && providerFreeCodexCloud) {
     recordProviderGap(
       "Supabase project connectivity is unavailable because NEXT_PUBLIC_SUPABASE_URL and agent-phase credentials are intentionally absent. Run this provider check locally/operator-side or in an explicitly provisioned connected Cloud profile.",
     );
+  } else if (supabaseCheck.status === "missing" && isCiMode) {
+    result.warnings.push("NEXT_PUBLIC_SUPABASE_URL is not set in this environment (CI).");
   } else {
     result.failures.push(...supabaseCheck.problems);
   }

@@ -1,7 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { isProviderFreeCodexCloud, openAIReadinessPolicy } from "../scripts/production-readiness";
+import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
 
 describe("production readiness provider policy", () => {
   it("passes the explicit staging declaration to the shared project guard", () => {
@@ -39,6 +42,27 @@ describe("production readiness provider policy", () => {
         PLAYWRIGHT_OFFLINE_MODE: "false",
       }),
     ).toBe(false);
+  });
+
+  it("reports the provider capability gap before generic CI readiness", () => {
+    const environment = { ...process.env };
+    for (const name of providerEnvironmentKeys) delete environment[name];
+    Object.assign(environment, {
+      CODEX_CLOUD: "1",
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      RAG_PROVIDER_MODE: "offline",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+    });
+    const result = spawnSync(process.execPath, ["scripts/run-tsx.mjs", "scripts/production-readiness.ts", "--ci"], {
+      cwd: path.resolve(import.meta.dirname, ".."),
+      encoding: "utf8",
+      env: environment,
+    });
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain("Provider capability gap:");
+    expect(result.stdout).toContain("CLOUD PROVIDER-FREE READY:");
   });
 
   it("documents local presence fill guidance for safety/query-hash/deep-probe gaps", () => {
