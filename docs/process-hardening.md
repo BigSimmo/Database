@@ -84,11 +84,12 @@ artifact before release; see
 
 - **Operating procedure:** AGENTS.md "Anti-conflict and CI-speed operating procedure".
   Future-process only — do not mutate unrelated active PRs unless explicitly asked.
-- **Outstanding-issues concurrency (`#112`):** `docs/outstanding-issues.md` now carries
-  `merge=union` (same append-safe driver as the branch-review ledger).
-  `npm run check:outstanding-issues` fails on duplicate table IDs, a stale
-  `<!-- issues:next-id=NNN -->` marker, missing union merge, or committed conflict
-  markers. Wired into `verify:cheap` and CI `static-pr`.
+- **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
+  (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
+  both-tables, stale `issues:next-id`, malformed rows). PR #1416 adds `merge=union` in
+  `.gitattributes` and a runtime attribute check so concurrent appends keep both sides'
+  rows; union merge still cannot allocate unique IDs, so the structural gate remains
+  required.
 - **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
   `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
   `.github/workflows/pr-mergeability.yml` is a read-only `pull_request_target` job that
