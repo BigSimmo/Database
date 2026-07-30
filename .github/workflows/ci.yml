@@ -442,7 +442,18 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Restore isolated Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .next-playwright/ci-production/dist/cache
+          key: playwright-next-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-${{ hashFiles('src/**', 'data/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
+          restore-keys: |
+            playwright-next-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-
+
       - name: Chromium @critical journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
         run: npm run test:e2e:critical
 
       - name: Classify exact failed test identities
@@ -524,7 +535,21 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      # ui-critical-fast completes first and publishes this exact cache key. All
+      # three shards can then reuse its webpack filesystem cache while keeping
+      # their server processes and reports isolated on separate runners.
+      - name: Restore isolated Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .next-playwright/ci-production/dist/cache
+          key: playwright-next-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-${{ hashFiles('src/**', 'data/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
+          restore-keys: |
+            playwright-next-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-
+
       - name: Chromium production journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
         run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/3
 
       - name: Classify exact failed test identities
