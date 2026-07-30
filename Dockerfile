@@ -37,12 +37,10 @@ ARG NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
 # The server value is also exposed to the build so the parity guard can compare
 # the runtime configuration Railway supplies with the public value Next inlines.
-ARG MAX_UPLOAD_MB=150
 ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
 ARG MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
-ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # The repo build script allocates an 8 GiB heap. Prefer builders with >= 10 GiB
 # locally (Docker Desktop hard-fails under the RAM guard by default). CI image
