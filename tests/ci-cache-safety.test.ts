@@ -104,18 +104,22 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     // A supersession cancels the upstream jobs, so this is what a real one looks like.
     const { status, output } = runAggregate({ CHANGES_RESULT: "cancelled", STATIC_RESULT: "cancelled" });
     expect(status).toBe(1);
-    expect(output).toContain("CANCELLED");
-    expect(output).toContain("not a real failure");
+    expect(output).toContain("CANCELLED with no failing job");
+    expect(output).toContain("not a broken change");
+    // Names every cancelled job, not just the first one it tripped over.
+    expect(output).toContain("changes");
+    expect(output).toContain("static-pr");
     // The actionable part: point the reader at the run that does describe the head.
-    expect(output).toMatch(/newest .*run/i);
-    // And do not let a hand-cancelled run read as safe to merge past.
-    expect(output).toContain("re-run it rather than merging");
+    expect(output).toMatch(/newer .*run/i);
+    // Hedged, not asserted — a hand-cancelled run has no newer run to look at.
+    expect(output).toContain("Usually");
+    expect(output).toContain("cancelled by hand");
   });
 
   it("labels a single cancelled job distinctly instead of as a plain failure", () => {
     const { status, output } = runAggregate({ CHANGES_RESULT: "cancelled" });
     expect(status).toBe(1);
-    expect(output).toContain("CANCELLED");
+    expect(output).toContain("CANCELLED with no failing job");
     expect(output).not.toContain("changes result was cancelled");
   });
 
@@ -123,7 +127,39 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     const { status, output } = runAggregate({ STATIC_RESULT: "failure" });
     expect(status).toBe(1);
     expect(output).toContain("static-pr result was failure");
-    expect(output).not.toContain("CANCELLED");
+    expect(output).not.toContain("CANCELLED with no failing job");
+  });
+
+  it("headlines a genuine failure even when another job was cancelled in the same run", () => {
+    /*
+     * The mixed case, reported by Codex on PR #1409. An earlier revision exited on the first
+     * non-success, so `safety` cancelled + `build` failed announced "not a real failure" and
+     * hid the break entirely — worse than the ambiguity the change set out to remove. Genuine
+     * failures must win, and a concurrent cancellation may only appear as context.
+     */
+    const { status, output } = runAggregate({
+      SAFETY_RESULT: "cancelled",
+      BUILD_CHANGED: "true",
+      BUILD_RESULT: "failure",
+    });
+    expect(status).toBe(1);
+    expect(output).toContain("build result was failure");
+    // The cancellation must not be the headline, and must not excuse the failure.
+    expect(output).not.toContain("CANCELLED with no failing job");
+    expect(output).not.toContain("not a broken change");
+    // It may still be mentioned, but only as a warning alongside the real failure.
+    expect(output).toMatch(/also cancelled: .*safety/);
+  });
+
+  it("lists every failing job rather than stopping at the first", () => {
+    // Collecting before reporting also fixes the older annoyance of one failure per run.
+    const { output } = runAggregate({
+      STATIC_RESULT: "failure",
+      COVERAGE_CHANGED: "true",
+      COVERAGE_RESULT: "failure",
+    });
+    expect(output).toContain("static-pr result was failure");
+    expect(output).toContain("coverage result was failure");
   });
 
   it("NEVER passes on a cancelled required job — #095's stop rule", () => {
