@@ -23,7 +23,8 @@ describe("Codex Cloud environment contract", () => {
   });
 
   it("reports sensitive and proxy variable names without exposing values", () => {
-    const env = {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "test",
       OPENAI_API_KEY: "never-print-this",
       npm_config_https_proxy: "https://user:secret@example.test",
       HTTP_PROXY: "http://supported.example.test",
@@ -47,7 +48,9 @@ describe("Codex Cloud environment contract", () => {
 
     expect(pythonWorkerImportError(process.execPath, run as typeof spawnSync)).toBeNull();
     expect(invocation).toEqual([process.execPath, "-c", `import ${pythonWorkerImports.join(", ")}`]);
-    expect(pythonWorkerImportError(process.execPath, (() => ({ status: 1 })) as typeof spawnSync)).toContain(
+    expect(
+      pythonWorkerImportError(process.execPath, (() => ({ status: 1 })) as unknown as typeof spawnSync),
+    ).toContain(
       "Python worker imports failed",
     );
   });
