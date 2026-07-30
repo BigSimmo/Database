@@ -226,7 +226,12 @@ function readGeometry(page: Page): Promise<ScrollGeometry> {
       maxOffset: Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight),
       scrollOwner: mainOwnsScroll ? "main" : "document",
       headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
-      headerMotion: header?.dataset.phoneMotion === "overlay" ? "overlay" : "collapse",
+      // Answer view uses strategy:"overlay" (glass bar) without a collapse track /
+      // data-phone-motion attribute — treat any `.phone-overlay-header` as overlay.
+      headerMotion:
+        header?.dataset.phoneMotion === "overlay" || document.querySelector(".phone-overlay-header")
+          ? "overlay"
+          : "collapse",
       docScrollableExcess: doc.scrollHeight - doc.clientHeight,
       horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
       reserveTransitionDuration: reserveHost ? getComputedStyle(reserveHost).transitionDuration : "",
@@ -668,6 +673,21 @@ for (const scrollOwner of ["browser document", "standalone PWA main"] as const) 
 
     const input = page.getByTestId("global-search-input");
     await expect(input).toBeVisible({ timeout: 20_000 });
+    // Overlay motion portals the dock into the footer host on phones. Wait until
+    // that host owns the composer so `bottom: 0` resolves against the viewport /
+    // frame rather than a transient inline ancestor.
+    await expect
+      .poll(
+        async () =>
+          input.evaluate((element) => {
+            const dock = element.closest<HTMLElement>("form.answer-footer-search-dock");
+            const rect = dock?.getBoundingClientRect();
+            const inFooterHost = Boolean(element.closest('[data-testid="phone-footer-layer-host"]'));
+            return Boolean(inFooterHost && rect && rect.bottom >= window.innerHeight - 2 && rect.top > 0);
+          }),
+        { timeout: 10_000 },
+      )
+      .toBe(true);
     await page.evaluate((owner) => {
       const main = document.getElementById("main-content");
       const target = owner === "standalone PWA main" ? main : (document.scrollingElement ?? document.documentElement);
@@ -970,7 +990,8 @@ test("Services results keep a continuous browser viewport after shared chrome re
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     const scrollingElement = document.scrollingElement ?? document.documentElement;
     return {
-      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+      // Missing collapse (Answer strategy:"overlay") is overlay, not collapse.
+      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
       headerBottom: header?.getBoundingClientRect().bottom ?? -1,
       dockTop: dock?.getBoundingClientRect().top ?? -1,
@@ -1214,15 +1235,26 @@ test("calculator combined chrome stays visible with only 96px of near-bottom run
     });
     const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
     const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
-    const collapseBudget =
-      (collapse?.getBoundingClientRect().height ?? 0) +
-      (safeArea?.getBoundingClientRect().height ?? 0) +
-      Number.parseFloat(getComputedStyle(reserve).paddingBottom);
-    // This is the historical regression boundary: a realistic down-gesture
-    // with 96px remaining after the combined header, safe-area, and calculator
-    // reserve release. The gate must decline both owners rather than allow a
-    // later reserve transition to clamp the reader upward.
-    scrollOwner.scrollTop = Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight - collapseBudget - 96);
+    // Match `readChromeCollapseMetrics`: overlay charges zero top release, so
+    // the near-bottom gate is reserve-only. Including the still-present header
+    // height here overstates the budget and scrolls into a zone where
+    // reserve-only policy *allows* hide — the opposite of this regression guard.
+    const phoneOverlayMotion = collapse?.dataset.phoneMotion === "overlay";
+    const headerRelease =
+      !phoneOverlayMotion && collapse && getComputedStyle(collapse).display === "grid"
+        ? collapse.getBoundingClientRect().height
+        : 0;
+    const safeAreaRelease = headerRelease > 0 && safeArea ? safeArea.getBoundingClientRect().height : 0;
+    const reserveRelease = Math.max(0, Number.parseFloat(getComputedStyle(reserve).paddingBottom) || 0);
+    const collapseBudget = headerRelease + safeAreaRelease + reserveRelease;
+    // In-flow: 96px after combined chrome release must refuse hide (collapse
+    // runway slack). Reserve-only overlay: refuse when the current offset would
+    // not fit the post-reserve range — sit inside the reserve-release band of
+    // the bottom rather than 96px above a mis-counted header budget.
+    const maxOffset = Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight);
+    scrollOwner.scrollTop = phoneOverlayMotion
+      ? Math.max(0, maxOffset - Math.max(8, Math.min(reserveRelease, 48)))
+      : Math.max(0, maxOffset - collapseBudget - 96);
     (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
     const frames = [read()];
     for (let index = 0; index < 18; index += 1) {
@@ -1455,7 +1487,7 @@ test("phone forms search hides header and footer after submit without stale focu
     const reserve = document.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
     const dockRect = dock?.getBoundingClientRect();
     return {
-      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       dockHidden: dock?.getAttribute("data-scroll-hidden") === "true",
       reservePb: reserve ? getComputedStyle(reserve).paddingBottom : "",
@@ -1491,7 +1523,9 @@ for (const { mode, route } of appModeHeaderRoutes) {
         getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
       );
       return {
-        usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+        // Answer view uses strategy:"overlay" with no collapse track — that is
+        // overlay motion, not an in-flow collapse that failed to mount.
+        usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
         hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
         safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
         safeAreaTopPx,
@@ -1516,7 +1550,7 @@ for (const { mode, route } of appModeHeaderRoutes) {
       const main = document.getElementById("main-content");
       const mainRect = main?.getBoundingClientRect();
       return {
-        usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+        usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
         hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
         collapseHeight: collapse?.getBoundingClientRect().height ?? 0,
         safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
@@ -1776,7 +1810,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
       getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
     );
     return {
-      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
       mainTop: main?.getBoundingClientRect().top ?? -1,
@@ -1805,7 +1839,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
     const safeRect = safeArea?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
     return {
-      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeRect?.height ?? 0,
       mainTop: mainRect?.top ?? -1,
@@ -1834,7 +1868,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
       getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
     );
     return {
-      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
       mainTop: main?.getBoundingClientRect().top ?? -1,
