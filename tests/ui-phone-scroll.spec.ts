@@ -688,11 +688,14 @@ for (const scrollOwner of ["browser document", "standalone PWA main"] as const) 
         { timeout: 10_000 },
       )
       .toBe(true);
+    // Stay inside the top-reveal band before focusing. Overlay / reserve-only
+    // motion may hide after 8px + hide-intent travel; a 40px pre-scroll was only
+    // safe under in-flow collapse (72px activation) and parked the dock off-screen.
     await page.evaluate((owner) => {
       const main = document.getElementById("main-content");
       const target = owner === "standalone PWA main" ? main : (document.scrollingElement ?? document.documentElement);
       if (!target) throw new Error("search focus proof did not find its scroll owner");
-      target.scrollTop = 40;
+      target.scrollTop = 0;
       (owner === "standalone PWA main" ? main : window)?.dispatchEvent(new Event("scroll"));
     }, scrollOwner);
 
