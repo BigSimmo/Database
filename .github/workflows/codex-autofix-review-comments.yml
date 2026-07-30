@@ -13,6 +13,10 @@ jobs:
   request-codex-autoresolve:
     name: Request Codex auto-resolve
     runs-on: ubuntu-24.04
+    # Every other workflow in this repo bounds its jobs; without this the GitHub
+    # default of 360 minutes applies to a job that only reads metadata and posts a
+    # comment.
+    timeout-minutes: 10
     # Only run after Codex submits a completed review, never on the first inline
     # comment mid-review. Approvals/dismissals are handled below (no findings).
     if: >
@@ -293,6 +297,7 @@ jobs:
   resolve-codex-thread:
     name: Resolve Codex review thread
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     # Marker-driven thread closure only. This is the narrow job that carries
     # pull-requests: write, and it acts solely on trusted disposition replies.
     if: >
