@@ -5,20 +5,22 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
+import {
+  CODEX_CLOUD_REPOSITORY,
+  hasSafeGitHubCredentialHelper,
+  inspectOriginRemote,
+} from "./ensure-codex-cloud-git-remote.mjs";
+import { providerEnvironmentKeys } from "./test-environment.mjs";
+
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-export const providerCredentialVariables = [
-  "OPENAI_API_KEY",
-  "OPENAI_ORG_ID",
-  "OPENAI_PROJECT_ID",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_PROJECT_REF",
-  "SUPABASE_PROJECT_NAME",
-  "SUPABASE_ACCESS_TOKEN",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_DB_URL",
-  "DATABASE_URL",
+export const expectedCloudCliVersions = Object.freeze({
+  railway: "5.30.1",
+  codex: "0.146.0",
+});
+
+export const providerCredentialVariables = Object.freeze([
+  ...providerEnvironmentKeys,
   "RAILWAY_API_TOKEN",
   "RAILWAY_TOKEN",
   "GH_TOKEN",
@@ -28,9 +30,7 @@ export const providerCredentialVariables = [
   "CODEX_TRIGGER_TOKEN",
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
-  "E2E_USER_EMAIL",
-  "E2E_USER_PASSWORD",
-];
+]);
 
 function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
@@ -38,6 +38,10 @@ function read(relativePath) {
 
 function requireMatch(errors, value, pattern, message) {
   if (!pattern.test(value)) errors.push(message);
+}
+
+function exactVersionPattern(version) {
+  return new RegExp(`\\b${version.replaceAll(".", "\\.")}\\b`);
 }
 
 /**
@@ -56,6 +60,106 @@ export function obsoleteNpmProxyVariables(env = process.env) {
  */
 export function configuredProviderCredentialNames(env = process.env) {
   return providerCredentialVariables.filter((name) => Object.hasOwn(env, name) && Boolean(env[name]));
+}
+
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
+export function validateCodexCloudEnvironment(env = process.env) {
+  const errors = [];
+  if (env.CODEX_CLOUD !== "1") errors.push("CODEX_CLOUD must be 1 in the Cloud agent shell.");
+
+  const accessProfile = env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline";
+  if (!["offline", "connected"].includes(accessProfile)) {
+    errors.push("CODEX_CLOUD_ACCESS_PROFILE must be offline or connected.");
+    return errors;
+  }
+
+  if (accessProfile === "offline") {
+    for (const [name, expected] of Object.entries({
+      RAG_PROVIDER_MODE: "offline",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+    })) {
+      if (env[name] !== expected) errors.push(`${name} must be ${expected} in offline mode.`);
+    }
+    const configured = configuredProviderCredentialNames(env);
+    if (configured.length > 0) {
+      errors.push(`Offline mode exposes provider credential variables: ${configured.join(", ")}.`);
+    }
+    return errors;
+  }
+
+  for (const [name, allowed] of Object.entries({
+    RAG_PROVIDER_MODE: ["auto", "openai", "offline"],
+    NEXT_PUBLIC_DEMO_MODE: ["true", "false"],
+    PLAYWRIGHT_OFFLINE_MODE: ["true", "false"],
+  })) {
+    if (!allowed.includes(env[name])) errors.push(`${name} must be an approved value in connected mode.`);
+  }
+  return errors;
+}
+
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
+export function railwayReadCapability(env = process.env, cliAvailable = false) {
+  return {
+    cliAvailable,
+    dedicatedCredentialPresent: Boolean(env.RAILWAY_API_TOKEN),
+    projectCredentialPresent: Boolean(env.RAILWAY_TOKEN),
+    ready: cliAvailable && Boolean(env.RAILWAY_API_TOKEN),
+  };
+}
+
+export function parseMcpServerMetadata(text) {
+  const parsed = JSON.parse(text);
+  const servers = parsed?.mcpServers;
+  if (!servers || Array.isArray(servers) || typeof servers !== "object") {
+    throw new Error(".mcp.json must contain an mcpServers object.");
+  }
+  return Object.entries(servers).map(([name, server]) => ({
+    name,
+    command: typeof server?.command === "string" ? server.command : "invalid",
+    environmentNames:
+      server?.env && !Array.isArray(server.env) && typeof server.env === "object" ? Object.keys(server.env).sort() : [],
+  }));
+}
+
+function approvedModeValue(value, allowed) {
+  return allowed.includes(value) ? value : "invalid";
+}
+
+function commandAvailable(command) {
+  return spawnSync(command, ["--version"], { encoding: "utf8", shell: false }).status === 0;
+}
+
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
+export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
+  const origin = options.origin ?? inspectOriginRemote(repoRoot);
+  const railway = railwayReadCapability(env, options.railwayCliAvailable ?? commandAvailable("railway"));
+  const codexCliAvailable = options.codexCliAvailable ?? commandAvailable("codex");
+  const safeGitHelper = options.safeGitHelper ?? hasSafeGitHubCredentialHelper(repoRoot);
+  const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
+  const lines = [
+    `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
+    `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
+    `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["auto", "openai", "offline"])}`,
+    `NEXT_PUBLIC_DEMO_MODE=${approvedModeValue(env.NEXT_PUBLIC_DEMO_MODE, ["true", "false"])}`,
+    `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
+  ];
+  for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
+  lines.push(`railway.cli_available=${railway.cliAvailable}`);
+  lines.push(`railway.dedicated_credential_present=${railway.dedicatedCredentialPresent}`);
+  lines.push(`railway.project_credential_present=${railway.projectCredentialPresent}`);
+  lines.push(`railway.read_commands_ready=${railway.ready}`);
+  lines.push(`codex.cli_available=${codexCliAvailable}`);
+  lines.push(`git.origin_configured=${origin.configured}`);
+  lines.push(`git.origin_repository_match=${origin.repositoryMatch}`);
+  lines.push(`git.origin_credential_embedded=${origin.credentialsEmbedded}`);
+  lines.push(`git.github_cli_helper_configured=${safeGitHelper}`);
+  for (const server of mcpServers) {
+    lines.push(
+      `mcp.server=${server.name} command=${server.command} environment_names=${server.environmentNames.join(",") || "none"}`,
+    );
+  }
+  return lines;
 }
 
 export function localGitBaseline(root = process.cwd()) {
@@ -111,6 +215,7 @@ export function validateCodexCloudSetup() {
   const agents = read("AGENTS.md");
   const envExample = read(".env.example");
   const gitignore = read(".gitignore");
+  const mcp = read(".mcp.json");
 
   if (packageJson.engines?.node !== `${nodeVersion}.x`) {
     errors.push(`package.json engines.node must match .node-version (${nodeVersion}.x).`);
@@ -131,9 +236,19 @@ export function validateCodexCloudSetup() {
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove provider credentials in offline mode."],
+    [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
+    [/@railway\/cli/, "Cloud setup must install the Railway CLI."],
+    [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
+    [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
   ]) {
     requireMatch(errors, setup, pattern, message);
+  }
+  if (!setup.includes(`railway_cli_version="${expectedCloudCliVersions.railway}"`)) {
+    errors.push("Cloud setup Railway CLI version must match the checked runtime contract.");
+  }
+  if (!setup.includes(`codex_cli_version="${expectedCloudCliVersions.codex}"`)) {
+    errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }
   for (const name of providerCredentialVariables) {
     if (!setup.includes(name)) errors.push(`Cloud offline setup must handle ${name}.`);
@@ -152,9 +267,26 @@ export function validateCodexCloudSetup() {
     /exec bash scripts\/setup-codex-cloud\.sh/,
     "Maintenance must repair the full toolchain.",
   );
+  requireMatch(
+    errors,
+    maintenance,
+    /ensure-codex-cloud-git-remote\.mjs/,
+    "Maintenance must preserve the safe origin remote.",
+  );
   requireMatch(errors, guide, /bash scripts\/setup-codex-cloud\.sh/, "The guide must provide the setup command.");
   requireMatch(errors, guide, /CODEX_CLOUD_ACCESS_PROFILE=connected/, "The guide must document connected access.");
   requireMatch(errors, guide, /GitHub connector/, "The guide must document GitHub connector access.");
+  requireMatch(
+    errors,
+    mcp,
+    new RegExp(`@railway/cli@${expectedCloudCliVersions.railway.replaceAll(".", "\\.")}`),
+    "Railway MCP and the installed Railway CLI must use the same stable version.",
+  );
+  try {
+    parseMcpServerMetadata(mcp);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
 
   for (const command of [
     "check:supabase-project",
@@ -204,29 +336,13 @@ function repositoryCommand(command, args) {
 }
 
 export async function validateCodexCloudRuntime(env = process.env) {
-  const errors = [];
-  if (env.CODEX_CLOUD !== "1") errors.push("CODEX_CLOUD must be 1 in the Cloud agent shell.");
-  const accessProfile = env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline";
-  if (!["offline", "connected"].includes(accessProfile)) {
-    errors.push("CODEX_CLOUD_ACCESS_PROFILE must be offline or connected.");
-  }
-  if (accessProfile === "offline") {
-    for (const [name, expected] of Object.entries({
-      RAG_PROVIDER_MODE: "offline",
-      NEXT_PUBLIC_DEMO_MODE: "true",
-      PLAYWRIGHT_OFFLINE_MODE: "true",
-    })) {
-      if (env[name] !== expected) errors.push(`${name} must be ${expected} in offline mode.`);
-    }
-    const configured = configuredProviderCredentialNames(env);
-    if (configured.length > 0) {
-      errors.push(`Offline mode exposes provider credential variables: ${configured.join(", ")}.`);
-    }
-  }
+  const errors = validateCodexCloudEnvironment(env);
 
   for (const error of [
     commandVersion("deno", ["--version"], /^deno 2\./m),
     commandVersion("tesseract", ["--version"], /^tesseract \d+\./m),
+    commandVersion("railway", ["--version"], exactVersionPattern(expectedCloudCliVersions.railway)),
+    commandVersion("codex", ["--version"], exactVersionPattern(expectedCloudCliVersions.codex)),
   ]) {
     if (error) errors.push(error);
   }
@@ -258,17 +374,28 @@ export async function validateCodexCloudRuntime(env = process.env) {
     errors.push(`Obsolete npm proxy variable names are set: ${obsoleteProxyNames.join(", ")}.`);
   }
   if (!localGitBaseline(repoRoot)) errors.push("Neither local main nor origin/main is available.");
+  const origin = inspectOriginRemote(repoRoot);
+  if (!origin.configured) errors.push("origin is unavailable in the Cloud checkout.");
+  else if (origin.credentialsEmbedded) errors.push("origin contains embedded credentials.");
+  else if (!origin.repositoryMatch) errors.push(`origin must identify ${CODEX_CLOUD_REPOSITORY}.`);
   return errors;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const errors = validateCodexCloudSetup();
-  if (process.argv.includes("--runtime")) errors.push(...(await validateCodexCloudRuntime()));
+  const runtime = process.argv.includes("--runtime");
+  const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
+  if (runtime) errors.push(...(await validateCodexCloudRuntime()));
+  else if (environment) errors.push(...validateCodexCloudEnvironment());
+  if (environment) {
+    console.log("[Codex Cloud Environment] sanitized effective modes and capabilities:");
+    for (const line of sanitizedCloudCapabilityLines()) console.log(`  ${line}`);
+  }
   if (errors.length > 0) {
     for (const error of errors) console.error(`[Codex Cloud Check] FAIL: ${error}`);
     process.exitCode = 1;
   } else {
-    const scope = process.argv.includes("--runtime") ? "static and runtime" : "static";
+    const scope = runtime ? "static, environment, and runtime" : environment ? "static and environment" : "static";
     console.log(`[Codex Cloud Check] PASS: ${scope} Cloud contracts match.`);
   }
 }
