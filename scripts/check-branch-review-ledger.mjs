@@ -32,6 +32,7 @@ import { listLedgerPaths, parseLedgerRows } from "./branch-review-ledger.mjs";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
 const PROTOCOL_PATH = "docs/codex-review-protocol.md";
+export const LEDGER_MERGE_DRIVER = "node scripts/merge-branch-review-ledger.mjs %O %A %B";
 
 /**
  * Records dated on or after this land through `ledger:append` and must be fully
@@ -55,7 +56,7 @@ function isRealDate(value) {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
-export function validateLedger({ ledger, mergeAttribute, protocol }) {
+export function validateLedger({ ledger, mergeAttribute, mergeDriver, protocol }) {
   const failures = [];
   const lines = ledger.split(/\r?\n/);
 
@@ -64,6 +65,12 @@ export function validateLedger({ ledger, mergeAttribute, protocol }) {
       `${LEDGER_PATH} must resolve to merge=ledger (union + exact-row dedupe; found ${JSON.stringify(
         mergeAttribute || "unset",
       )}).`,
+    );
+  }
+  if (mergeAttribute === "ledger" && mergeDriver !== LEDGER_MERGE_DRIVER) {
+    failures.push(
+      `${LEDGER_PATH} declares merge=ledger but merge.ledger.driver is not installed. ` +
+        `Run \`npm run hooks:install\` before merging (found ${JSON.stringify(mergeDriver || "unset")}).`,
     );
   }
 
@@ -195,6 +202,18 @@ function effectiveMergeAttribute() {
   return output.match(/:\s*merge:\s*(\S+)$/)?.[1] ?? "";
 }
 
+function configuredMergeDriver() {
+  try {
+    return execFileSync("git", ["config", "--get", "merge.ledger.driver"], {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
+}
+
 function assert(condition, label) {
   if (!condition) throw new Error(`self-test failed: ${label}`);
 }
@@ -217,6 +236,7 @@ function selfTest() {
   const valid = {
     ledger: ledgerWith(),
     mergeAttribute: "ledger",
+    mergeDriver: LEDGER_MERGE_DRIVER,
     protocol: "The ledger is append-only: append corrections.",
   };
   const fails = (input, needle, label) =>
@@ -230,6 +250,7 @@ function selfTest() {
 
   fails({ mergeAttribute: "" }, "merge=ledger", "missing ledger attribute fails");
   fails({ mergeAttribute: "union" }, "merge=ledger", "stock union attribute fails");
+  fails({ mergeDriver: "" }, "hooks:install", "missing custom driver fails loudly");
   fails({ protocol: "append records" }, "reviewer instruction", "missing protocol contract fails");
   fails({ ledger: `${valid.ledger}<<<<<<< ours\n` }, "conflict marker", "conflict marker fails");
   fails({ ledger: ledgerWith(row()) }, "exact duplicate", "exact duplicate record fails");
@@ -299,6 +320,7 @@ function main() {
   const result = validateLedger({
     ledger: readFileSync(path.join(root, LEDGER_PATH), "utf8"),
     mergeAttribute: effectiveMergeAttribute(),
+    mergeDriver: configuredMergeDriver(),
     protocol: readFileSync(path.join(root, PROTOCOL_PATH), "utf8"),
   });
 
