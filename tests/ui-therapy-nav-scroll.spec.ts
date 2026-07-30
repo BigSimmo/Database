@@ -42,7 +42,7 @@ async function installTherapyFixtures(page: Page) {
 
 async function gotoTherapyCompare(page: Page) {
   // Compare, not search: `/therapy-compass/search` moved to the shared `ModeNav`
-  // (see `mode-nav-bar-anchoring.spec.ts`). Every other Therapy route still ships
+  // (see `ui-mode-nav-density.spec.ts`). Every other Therapy route still ships
   // the original pill strip, so this route keeps that strip's coverage alive
   // until the rollout continues.
   await page.goto("/therapy-compass/compare", { waitUntil: "domcontentloaded" });

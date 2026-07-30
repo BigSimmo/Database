@@ -82,20 +82,22 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
-    const controlledEnvironment = { ...allGreen, ...overrides };
-    const exports = Object.entries(controlledEnvironment)
-      .map(([key, value]) => `export ${key}='${value.replaceAll("'", "'\"'\"'")}'`)
+    const variables = { ...allGreen, ...overrides };
+    const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
+    const assignments = Object.entries(variables)
+      .map(([name, value]) => `${name}=${shellQuote(value)}`)
       .join("\n");
+
+    // Feed the workflow body over stdin instead of a `bash -c` command-line
+    // argument. MSYS bash on Windows reparses backticks in that argument before
+    // preserving the embedded newlines, so explanatory shell comments can be
+    // executed as command substitutions and make this contract false-green. The
+    // fixed test variables are prepended as assignments because WSL bash does not
+    // inherit arbitrary Windows environment variables unless WSLENV names them.
     const result = spawnSync("bash", [], {
-      // Feed the program over stdin instead of serialising a multiline `-c`
-      // argument through Windows. The WSL bash.exe launcher re-quotes that
-      // argument and can turn backticks inside comments into command
-      // substitutions, producing a false exit 0 for failure scenarios. WSL also
-      // does not reliably inherit Node's Windows environment overrides, so the
-      // controlled values are exported inside the stdin program itself.
-      input: `${exports}\n${script}`,
       env: process.env,
       encoding: "utf8",
+      input: `${assignments}\n${script}`,
     });
     return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
   }
