@@ -22,4 +22,4 @@ supabase/drift-manifest.json
 public/therapy-compass-data/
 docs/branch-review-ledger.md
 # Verbatim user-provided prompt inputs retained for cloud review.
-codex-cloud-review/
+docs/prompts/codex-cloud-review/
