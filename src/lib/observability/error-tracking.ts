@@ -2,6 +2,7 @@ import type { ErrorEvent } from "@sentry/nextjs";
 import type { Instrumentation } from "next";
 
 const SAFE_ERROR_MESSAGE = "Unhandled server request error";
+const SAFE_TAGS = ["router_kind", "route_type", "route_path"] as const;
 
 /** Keep code locations while removing all free-form/request data before export. */
 export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
@@ -22,6 +23,12 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
       : undefined,
   }));
 
+  const tags = Object.fromEntries(
+    SAFE_TAGS.flatMap((key) => (typeof event.tags?.[key] === "string" ? [[key, event.tags[key]]] : [])),
+  );
+  const exceptionType = exceptions?.[0]?.type || "Error";
+  const routePath = tags.route_path;
+
   return {
     type: undefined,
     event_id: event.event_id,
@@ -32,8 +39,8 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     environment: event.environment,
     message: exceptions?.length ? undefined : SAFE_ERROR_MESSAGE,
     exception: exceptions?.length ? { values: exceptions } : undefined,
-    fingerprint: event.fingerprint,
-    tags: event.tags,
+    fingerprint: routePath ? [routePath, exceptionType] : undefined,
+    tags: Object.keys(tags).length ? tags : undefined,
   };
 }
 

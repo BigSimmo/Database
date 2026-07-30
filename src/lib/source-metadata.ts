@@ -61,6 +61,11 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   };
 }
 
+/** Preserve a genuinely absent metadata record while normalizing recorded data. */
+export function normalizeOptionalSourceMetadata(input: unknown): ClinicalSourceMetadata | null {
+  return input == null ? null : normalizeSourceMetadata(input);
+}
+
 export function formatClinicalDate(value: string | null | undefined) {
   if (!value) return "Unknown";
   const date = new Date(value);

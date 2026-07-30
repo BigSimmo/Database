@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildRagSourceBlock } from "@/lib/rag/rag-source-block";
+import { normalizeOptionalSourceMetadata } from "@/lib/source-metadata";
 import type { SearchResult } from "@/lib/types";
 
 function source(source_metadata?: SearchResult["source_metadata"]): SearchResult {
@@ -43,7 +44,8 @@ describe("RAG source-governance prompt metadata", () => {
   });
 
   it("labels missing metadata as unrecorded rather than adverse", () => {
-    const block = buildRagSourceBlock([source()]);
+    const normalized = source(normalizeOptionalSourceMetadata(undefined));
+    const block = buildRagSourceBlock([normalized]);
     expect(block).toContain("Source governance: metadata not recorded (absence is not an adverse finding)");
     expect(block).toContain("Unknown or unrecorded metadata is not adverse");
   });

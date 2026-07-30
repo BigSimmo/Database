@@ -32,7 +32,8 @@ describe("production error tracking privacy boundary", () => {
           },
         ],
       },
-      tags: { route_path: "/api/answer" },
+      tags: { route_path: "/api/answer", patient_id: "owner-id" },
+      fingerprint: ["Jane Doe", "123456"],
     });
 
     expect(JSON.stringify(event)).not.toMatch(/Jane|123456|suicidal|secret|owner-id|private prompt|private answer/);
@@ -45,5 +46,7 @@ describe("production error tracking privacy boundary", () => {
       stacktrace: { frames: [{ filename: "src/app/api/answer/route.ts", function: "POST", lineno: 42 }] },
     });
     expect(event.exception?.values?.[0].stacktrace?.frames?.[0]).not.toHaveProperty("vars");
+    expect(event.tags).toEqual({ route_path: "/api/answer" });
+    expect(event.fingerprint).toEqual(["/api/answer", "ProviderError"]);
   });
 });
