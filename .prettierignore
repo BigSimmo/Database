@@ -21,5 +21,13 @@ supabase/drift-manifest.json
 # Trimmed Therapy Compass content export (generated data assets); keep minified.
 public/therapy-compass-data/
 docs/branch-review-ledger.md
+# Append-mostly ledgers whose rows Prettier would column-pad. Padding is why a
+# one-row edit rewrites every row and git sees the whole table as a single hunk
+# (#133): it conflicted on nearly every `main` advance, and each conflict stops
+# all CI on the PR until resolved (#116). Structure is not lost by ignoring them —
+# `npm run check:outstanding-issues` and `npm run check:branch-review-ledger` gate
+# row shape, ids, the next-id marker and the merge attribute far more strictly than
+# Prettier's alignment ever did.
+docs/outstanding-issues.md
 # Verbatim user-provided prompt inputs retained for cloud review.
 docs/prompts/codex-cloud-review/

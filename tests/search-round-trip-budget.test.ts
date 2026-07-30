@@ -137,6 +137,12 @@ async function searchWithCountedClient(query: string, textSources: SearchResult[
 }
 
 afterEach(() => {
+  // `doMock` registrations survive both `restoreAllMocks` (which targets spies)
+  // and `resetModules` (which clears the module cache, not the mock registry),
+  // so they are dropped explicitly — the pattern the sibling suites already use
+  // (`tests/rag-variant-early-exit.test.ts:110`).
+  vi.doUnmock("@/lib/supabase/admin");
+  vi.doUnmock("@/lib/openai");
   vi.restoreAllMocks();
   vi.resetModules();
   vi.unstubAllEnvs();

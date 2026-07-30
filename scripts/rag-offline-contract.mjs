@@ -23,8 +23,11 @@ export const requiredOfflineContractTests = Object.freeze([
   // Ledger #098: pins Supabase round-trip counts on the answer path so an added
   // round trip is a red gate rather than something a reviewer has to spot.
   "tests/rag-round-trip-budget.test.ts",
-  // Ledger #098, search half: the same guard for `/api/search`, including that a
-  // query refused as adversarial issues no Supabase query at all.
+  // Ledger #098, search retrieval-core half: pins Supabase traffic through
+  // `searchChunksWithTelemetry`, including zero retrieval traffic for a query
+  // refused as adversarial before retrieval begins. Not an `/api/search`
+  // endpoint budget — the route's auth, rate limiting, scope resolution,
+  // enrichment and telemetry write are outside what this suite observes.
   "tests/search-round-trip-budget.test.ts",
 ]);
 
