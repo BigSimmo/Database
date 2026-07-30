@@ -20,5 +20,6 @@
   "tests/private-rag-access.test.ts",
   "tests/upload-admission.test.ts",
   "tests/privacy-ui.test.ts",
-  "tests/rag-round-trip-budget.test.ts"
+  "tests/rag-round-trip-budget.test.ts",
+  "tests/search-round-trip-budget.test.ts"
 ]
