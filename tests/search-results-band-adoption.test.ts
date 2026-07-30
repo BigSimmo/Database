@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
@@ -157,11 +158,350 @@ function reachabilityRoots(routeAbs: string): string[] {
   return [routeAbs, ...layouts];
 }
 
-/** `from "x"` and `import("x")`. The lazy form is load-bearing: the dashboard
-    code-splits its mode workspaces through `dynamic(() => import(...))` in
-    `clinical-dashboard-lazy.tsx`, so a static-only walk cannot see the band
-    behind Differentials, Favourites or the prescribing workspace. */
-const IMPORT_SPECIFIER = /(?:from\s*"([^"]+)")|(?:import\(\s*"([^"]+)"\s*\))/g;
+/**
+ * A module reduced to what decides whether it can render the band.
+ *
+ * Presence is not reach. Five separate false greens on this gate were all the
+ * same defect — the walk asked "does this file mention it?" when the question is
+ * "does anything the route actually mounts reach it?". Every spelling that got
+ * patched individually (an unrendered import, `export { X }`, `export { X } from`,
+ * `export *`, a bare side-effect import, JSX inside an unmounted helper) is a
+ * reachability question, so this models reachability once instead.
+ */
+type ModuleGraph = {
+  /** exported name (including "default") -> the local declarations behind it */
+  exportedLocals: Map<string, string[]>;
+  /** local declaration -> identifiers its body references, JSX element names included */
+  localRefs: Map<string, Set<string>>;
+  /** locals whose own body renders the band */
+  bandLocals: Set<string>;
+  /** `import { imported as local } from source` */
+  imports: Array<{ source: string; local: string; imported: string }>;
+  /** `export { imported as exported } from source`; `exported: "*"` for `export *` */
+  reexports: Array<{ source: string; exported: string; imported: string }>;
+  /** `import(source)[.then(m => m.imported)]`, attributed to the local that owns it */
+  lazyImports: Array<{ owner: string; source: string; imported: string }>;
+};
+
+/** Which exports of a module the importer actually mounts. `"*"` means any. */
+type MountRoots = Set<string> | "*";
+
+/**
+ * AST keys whose subtrees are type-only, so identifiers inside them are erased at
+ * runtime and must not count as component references.
+ */
+const TYPE_POSITION_KEYS = new Set([
+  "typeAnnotation",
+  "returnType",
+  "typeParameters",
+  "typeArguments",
+  "superTypeParameters",
+  "implements",
+]);
+
+/** `export default () => …` has no name to hang references off. */
+const ANONYMOUS_DEFAULT = "__default__";
+
+function declaredNames(node: Record<string, unknown> | undefined): string[] {
+  if (!node) return [];
+  if (node.type === "FunctionDeclaration" || node.type === "ClassDeclaration") {
+    const name = (node.id as { name?: string })?.name;
+    return name ? [name] : [];
+  }
+  if (node.type === "VariableDeclaration") {
+    return ((node.declarations ?? []) as Array<Record<string, unknown>>)
+      .map((declarator) => (declarator.id as { name?: string })?.name)
+      .filter((name): name is string => typeof name === "string");
+  }
+  return [];
+}
+
+/**
+ * Which export a `.then(…)` selects out of a dynamic import.
+ *
+ * Two shapes, both live in this repo:
+ * - `.then((m) => m.Foo)` -> "Foo" (every entry in clinical-dashboard-lazy.tsx)
+ * - `.then((mod) => ({ default: mod.Foo }))` -> "Foo" — the Next.js wrapper for a
+ *   named export, used by `global-search-shell.tsx` for `ClinicalDashboard`. Left
+ *   unhandled this returned null and fell back to following *every* export of that
+ *   module, which is precisely the over-approximation the walk is meant to avoid.
+ */
+function thenExportName(args: unknown): string | null {
+  const first = ((args ?? []) as Array<Record<string, unknown>>)[0];
+  const body = first?.body as Record<string, unknown> | undefined;
+  if (body?.type === "MemberExpression") {
+    const property = body.property as { name?: string } | undefined;
+    return typeof property?.name === "string" ? property.name : null;
+  }
+  if (body?.type === "ObjectExpression") {
+    for (const property of (body.properties ?? []) as Array<Record<string, unknown>>) {
+      if ((property.key as { name?: string })?.name !== "default") continue;
+      const value = property.value as Record<string, unknown> | undefined;
+      if (value?.type === "MemberExpression") {
+        const selected = value.property as { name?: string } | undefined;
+        return typeof selected?.name === "string" ? selected.name : null;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * A dynamic import whose result is thrown away cannot mount anything.
+ *
+ * `void import("x")` in an effect, or a bare `import("x");` statement, is a
+ * preload or a side effect. Scoped to discarded *results* rather than to "must be
+ * lexically inside dynamic()", because this repo also writes the loader as a
+ * separate binding — `const load = () => import("…").then(…)` passed to
+ * `dynamic(load)` — and requiring lexical containment would report that as
+ * unreachable.
+ */
+function discardsItsResult(node: Record<string, unknown>): boolean {
+  if (node.type === "UnaryExpression" && node.operator === "void") return true;
+  if (node.type !== "ExpressionStatement") return false;
+  let expression = node.expression as Record<string, unknown> | undefined;
+  // Unwrap a `.then(…)`/`.catch(…)` chain back to its root.
+  while (expression?.type === "CallExpression") {
+    const callee = expression.callee as Record<string, unknown> | undefined;
+    if (callee?.type !== "MemberExpression") break;
+    expression = callee.object as Record<string, unknown> | undefined;
+  }
+  return Boolean(expression && dynamicImportSource(expression));
+}
+
+function dynamicImportSource(node: Record<string, unknown> | undefined): string | null {
+  if (!node) return null;
+  const isImport =
+    node.type === "ImportExpression" ||
+    (node.type === "CallExpression" && (node.callee as { type?: string })?.type === "Import");
+  if (!isImport) return null;
+  const arg = (node.source ?? (node.arguments as unknown[])?.[0] ?? null) as Record<string, unknown> | null;
+  return arg?.type === "StringLiteral" && typeof arg.value === "string" ? arg.value : null;
+}
+
+function buildModuleGraph(source: string, filename: string): ModuleGraph {
+  let ast: ReturnType<typeof parse>;
+  try {
+    ast = parse(source, { sourceType: "unambiguous", plugins: ["jsx", "typescript"] });
+  } catch {
+    // An unparseable file must not silently drop out of the walk.
+    throw new Error(`search-results-band-adoption: could not parse ${filename}`);
+  }
+
+  const graph: ModuleGraph = {
+    exportedLocals: new Map(),
+    localRefs: new Map(),
+    bandLocals: new Set(),
+    imports: [],
+    reexports: [],
+    lazyImports: [],
+  };
+  const addExport = (exported: string, local: string) => {
+    graph.exportedLocals.set(exported, [...(graph.exportedLocals.get(exported) ?? []), local]);
+  };
+
+  /** Record everything one local declaration's body reaches. */
+  const scan = (root: unknown, owner: string) => {
+    const refs = graph.localRefs.get(owner) ?? new Set<string>();
+    graph.localRefs.set(owner, refs);
+    const visit = (value: unknown, discarded = false) => {
+      if (!value || typeof value !== "object") return;
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item, discarded);
+        return;
+      }
+      const node = value as Record<string, unknown>;
+      const type = node.type;
+      const resultDropped = discarded || discardsItsResult(node);
+      if (type === "JSXOpeningElement") {
+        let name = node.name as Record<string, unknown> | undefined;
+        while (name && name.type === "JSXMemberExpression") name = name.object as Record<string, unknown>;
+        if (name && name.type === "JSXIdentifier" && typeof name.name === "string") {
+          refs.add(name.name);
+          if (name.name === BAND_IDENTIFIER) graph.bandLocals.add(owner);
+        }
+      }
+      if (type === "Identifier" && typeof node.name === "string") refs.add(node.name);
+      // `dynamic(() => import("x").then(m => m.Foo))` names the binding it mounts,
+      // which is how every lazy workspace in clinical-dashboard-lazy.tsx is written.
+      // Matched on the outer `.then(…)` so the inner bare-import branch below can
+      // skip it and not also enqueue the module's default.
+      if (type === "CallExpression" && !resultDropped) {
+        const callee = node.callee as Record<string, unknown> | undefined;
+        if (callee?.type === "MemberExpression" && (callee.property as { name?: string })?.name === "then") {
+          const inner = dynamicImportSource(callee.object as Record<string, unknown> | undefined);
+          if (inner) {
+            graph.lazyImports.push({ owner, source: inner, imported: thenExportName(node.arguments) ?? "*" });
+          }
+        }
+      }
+      const bare = resultDropped ? null : dynamicImportSource(node);
+      if (bare && !graph.lazyImports.some((entry) => entry.owner === owner && entry.source === bare)) {
+        // A plain `import("x")` in `dynamic()` mounts the module's default export.
+        graph.lazyImports.push({ owner, source: bare, imported: "default" });
+      }
+      for (const key of Object.keys(node)) {
+        if (key === "loc" || key === "leadingComments" || key === "trailingComments") continue;
+        // Type positions are erased, so an identifier that appears only there is
+        // not a runtime reference. `ComponentProps<typeof Banded>` needs the value
+        // import but never mounts it, and this repo does not enforce
+        // `consistent-type-imports`, so such an import is not necessarily written
+        // as `import type`. Value subtrees never live under these keys.
+        if (TYPE_POSITION_KEYS.has(key)) continue;
+        visit(node[key], resultDropped);
+      }
+    };
+    visit(root);
+  };
+
+  /** Attribute a declaration's references to each name it declares. */
+  const scanDeclaration = (statement: Record<string, unknown>) => {
+    if (statement.type === "VariableDeclaration") {
+      for (const declarator of (statement.declarations ?? []) as Array<Record<string, unknown>>) {
+        const name = (declarator.id as { name?: string })?.name;
+        if (name) scan(declarator, name);
+      }
+      return;
+    }
+    for (const name of declaredNames(statement)) scan(statement, name);
+  };
+
+  for (const raw of (ast.program?.body ?? []) as unknown[] as Array<Record<string, unknown>>) {
+    const type = raw.type;
+
+    if (type === "ImportDeclaration") {
+      const specifier = (raw.source as { value?: string })?.value;
+      if (typeof specifier !== "string") continue;
+      // `import type { X }` is erased at runtime and cannot mount anything, so it
+      // is not an edge. Both spellings matter: the declaration-level `importKind`
+      // and the per-specifier one from `import { type X }`.
+      if (raw.importKind === "type") continue;
+      // A bare `import "x"` executes the module but renders nothing, so it is not
+      // a mount and is deliberately not followed.
+      for (const spec of (raw.specifiers ?? []) as Array<Record<string, unknown>>) {
+        if (spec.importKind === "type") continue;
+        const local = (spec.local as { name?: string })?.name;
+        if (!local) continue;
+        const imported =
+          spec.type === "ImportDefaultSpecifier"
+            ? "default"
+            : spec.type === "ImportNamespaceSpecifier"
+              ? "*"
+              : ((spec.imported as { name?: string })?.name ?? local);
+        graph.imports.push({ source: specifier, local, imported });
+      }
+      continue;
+    }
+
+    if (type === "ExportAllDeclaration") {
+      const specifier = (raw.source as { value?: string })?.value;
+      if (typeof specifier === "string") graph.reexports.push({ source: specifier, exported: "*", imported: "*" });
+      continue;
+    }
+
+    if (type === "ExportNamedDeclaration") {
+      const specifier = (raw.source as { value?: string })?.value;
+      if (typeof specifier === "string") {
+        // `export type { X } from "…"` is erased too.
+        if (raw.exportKind === "type") continue;
+        for (const spec of (raw.specifiers ?? []) as Array<Record<string, unknown>>) {
+          if (spec.exportKind === "type") continue;
+          const exported = (spec.exported as { name?: string })?.name;
+          const imported = (spec.local as { name?: string })?.name ?? exported;
+          if (exported && imported) graph.reexports.push({ source: specifier, exported, imported });
+        }
+        continue;
+      }
+      const declaration = raw.declaration as Record<string, unknown> | undefined;
+      if (declaration) {
+        for (const name of declaredNames(declaration)) addExport(name, name);
+        scanDeclaration(declaration);
+        continue;
+      }
+      for (const spec of (raw.specifiers ?? []) as Array<Record<string, unknown>>) {
+        const exported = (spec.exported as { name?: string })?.name;
+        const local = (spec.local as { name?: string })?.name;
+        if (exported && local) addExport(exported, local);
+      }
+      continue;
+    }
+
+    if (type === "ExportDefaultDeclaration") {
+      const declaration = raw.declaration as Record<string, unknown> | undefined;
+      if (declaration?.type === "Identifier" && typeof declaration.name === "string") {
+        addExport("default", declaration.name);
+        continue;
+      }
+      const owner = declaredNames(declaration)[0] ?? ANONYMOUS_DEFAULT;
+      addExport("default", owner);
+      if (declaration) scan(declaration, owner);
+      continue;
+    }
+
+    scanDeclaration(raw);
+  }
+
+  return graph;
+}
+
+/** Locals reachable from the exports the importer mounts. */
+function reachableLocals(graph: ModuleGraph, roots: MountRoots): Set<string> {
+  const queue: string[] =
+    roots === "*"
+      ? [...graph.exportedLocals.values()].flat()
+      : [...roots].flatMap((name) => graph.exportedLocals.get(name) ?? []);
+  const reached = new Set<string>();
+  while (queue.length > 0) {
+    const local = queue.pop() as string;
+    if (reached.has(local)) continue;
+    reached.add(local);
+    for (const ref of graph.localRefs.get(local) ?? []) if (!reached.has(ref)) queue.push(ref);
+  }
+  return reached;
+}
+
+/**
+ * Modules the mounted code actually reaches, and which of their exports it wants.
+ *
+ * Re-exports are followed by their own semantics rather than by a special case:
+ * `export { X as default } from "…"` supplies a default and is followed when the
+ * importer wants the default; `export { X } from "…"` only when it wants `X`; and
+ * `export * from "…"` never supplies a default, so a page whose importer wants
+ * only the default gets no hop from it.
+ */
+function nextHops(graph: ModuleGraph, reached: Set<string>, roots: MountRoots) {
+  const hops = new Map<string, MountRoots>();
+  const want = (source: string, imported: string | string[]) => {
+    const existing = hops.get(source);
+    if (existing === "*") return;
+    if (imported === "*") {
+      hops.set(source, "*");
+      return;
+    }
+    const names = Array.isArray(imported) ? imported : [imported];
+    hops.set(source, new Set([...(existing ?? []), ...names]));
+  };
+
+  for (const { source, local, imported } of graph.imports) if (reached.has(local)) want(source, imported);
+  for (const { owner, source, imported } of graph.lazyImports) if (reached.has(owner)) want(source, imported);
+  for (const { source, exported, imported } of graph.reexports) {
+    if (exported === "*") {
+      // `export *` re-exports named exports only, never the default.
+      if (roots === "*") want(source, "*");
+      else {
+        const named = [...roots].filter((name) => name !== "default");
+        if (named.length > 0) want(source, named);
+      }
+      continue;
+    }
+    if (roots === "*" || roots.has(exported)) want(source, imported);
+  }
+  return [...hops.entries()].map(([source, wanted]) => ({ source, roots: wanted }));
+}
+
+function rootsKey(roots: MountRoots): string {
+  return roots === "*" ? "*" : [...roots].sort().join(",");
+}
 
 function resolveSpecifier(specifier: string, fromFile: string): string | null {
   let base: string;
@@ -179,32 +519,48 @@ function resolveSpecifier(specifier: string, fromFile: string): string | null {
  * real chain on the root dashboard route is four —
  * `layout → shared-search-app-shell → global-search-shell → ClinicalDashboard →
  * document-search-results` — so a fixed hop count silently under-reported
- * reachability rather than failing loudly.
+ * reachability rather than failing loudly. The lazy indirection through
+ * `clinical-dashboard-lazy` adds a hop, so the cap has headroom over the longest
+ * real chain rather than sitting on it.
  */
-const MAX_IMPORT_DEPTH = 8;
+const MAX_IMPORT_DEPTH = 10;
 
+/**
+ * Breadth-first from what a route actually mounts to a band it actually renders.
+ *
+ * Each hop carries the exports the importer wants, so the same module can be
+ * visited twice for different bindings — that is the point. `clinical-dashboard-lazy`
+ * lazily exports every mode workspace, and reaching it for `FavouritesHub` must
+ * not also reach `document-search-results`.
+ */
 function routeReachesBand(routeAbs: string): boolean {
-  const roots = reachabilityRoots(routeAbs);
-  const seen = new Set(roots);
-  let frontier = roots.map((file) => ({ file, depth: 0 }));
+  // Next renders a route's (and a layout's) default export.
+  let frontier = reachabilityRoots(routeAbs).map((file) => ({
+    file,
+    depth: 0,
+    roots: new Set(["default"]) as MountRoots,
+  }));
+  const seen = new Set(frontier.map(({ file, roots }) => `${file}::${rootsKey(roots)}`));
   while (frontier.length > 0) {
-    const next: Array<{ file: string; depth: number }> = [];
-    for (const { file, depth } of frontier) {
+    const next: typeof frontier = [];
+    for (const { file, depth, roots } of frontier) {
       let source: string;
       try {
         source = readFileSync(file, "utf8");
       } catch {
         continue;
       }
-      if (rendersBand(source)) return true;
+      const graph = buildModuleGraph(source, file);
+      const reached = reachableLocals(graph, roots);
+      for (const local of graph.bandLocals) if (reached.has(local)) return true;
       if (depth >= MAX_IMPORT_DEPTH) continue;
-      for (const match of source.matchAll(IMPORT_SPECIFIER)) {
-        const specifier = match[1] ?? match[2];
-        if (!specifier) continue;
-        const target = resolveSpecifier(specifier, file);
-        if (!target || seen.has(target) || isMockupPath(target)) continue;
-        seen.add(target);
-        next.push({ file: target, depth: depth + 1 });
+      for (const hop of nextHops(graph, reached, roots)) {
+        const target = resolveSpecifier(hop.source, file);
+        if (!target || isMockupPath(target)) continue;
+        const key = `${target}::${rootsKey(hop.roots)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        next.push({ file: target, depth: depth + 1, roots: hop.roots });
       }
     }
     frontier = next;
@@ -381,8 +737,9 @@ describe("band adoption detection", () => {
       );
       expect(routeReachesBand(path.join(dir, "orphan-route.tsx"))).toBe(false);
 
-      // Same shape, but the child mounts the band — and via a lazy import, which
-      // is how the dashboard code-splits its mode workspaces.
+      // Same shape, but the child mounts the band — and via a lazy import, in the
+      // exact form the dashboard code-splits its mode workspaces with:
+      // `dynamic(() => import("…").then((m) => m.Named))`.
       writeFileSync(
         path.join(dir, "banded-child.tsx"),
         `export function Banded() { return <${BAND_IDENTIFIER} modeId="documents" />; }\n`,
@@ -390,10 +747,218 @@ describe("band adoption detection", () => {
       );
       writeFileSync(
         path.join(dir, "wired-route.tsx"),
-        'const Lazy = () => import("./banded-child");\nexport default Lazy;\n',
+        'const Lazy = dynamic(() => import("./banded-child").then((m) => m.Banded));\nexport default Lazy;\n',
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "wired-route.tsx"))).toBe(true);
+
+      // A bare `dynamic(() => import("…"))` mounts the module's default, so this
+      // one reaches the band and the named-export module above would not have.
+      writeFileSync(
+        path.join(dir, "default-banded-child.tsx"),
+        `export default function Banded() { return <${BAND_IDENTIFIER} modeId="documents" />; }\n`,
+        "utf8",
+      );
+      writeFileSync(
+        path.join(dir, "lazy-default-route.tsx"),
+        'const Lazy = dynamic(() => import("./default-banded-child"));\nexport default Lazy;\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "lazy-default-route.tsx"))).toBe(true);
+
+      // The gap this redesign closes: one lazy module exporting several
+      // workspaces. Mounting the non-band one must not reach the band one.
+      writeFileSync(
+        path.join(dir, "lazy-barrel.tsx"),
+        'export const Plain = dynamic(() => import("./plain-child").then((m) => m.Plain));\n' +
+          'export const Banded = dynamic(() => import("./banded-child").then((m) => m.Banded));\n',
+        "utf8",
+      );
+      writeFileSync(path.join(dir, "plain-child.tsx"), "export function Plain() { return <div />; }\n", "utf8");
+      writeFileSync(
+        path.join(dir, "mounts-plain-only-route.tsx"),
+        'import { Plain } from "./lazy-barrel";\nexport default function Page() {\n  return <Plain />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "mounts-plain-only-route.tsx"))).toBe(false);
+
+      // ...and mounting the band one still does reach it.
+      writeFileSync(
+        path.join(dir, "mounts-banded-route.tsx"),
+        'import { Banded } from "./lazy-barrel";\nexport default function Page() {\n  return <Banded />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "mounts-banded-route.tsx"))).toBe(true);
+
+      // The band rendered directly inside an exported helper of a module the route
+      // *does* reach, but never mounts. This is the case the reachability-scoped
+      // band check owns: hop filtering cannot catch it, because the module is
+      // legitimately reached for its other export.
+      writeFileSync(
+        path.join(dir, "mixed-exports.tsx"),
+        "export function Plain() {\n  return <div />;\n}\n" +
+          `export function Helper() {\n  return <${BAND_IDENTIFIER} modeId="documents" />;\n}\n`,
+        "utf8",
+      );
+      writeFileSync(
+        path.join(dir, "mounts-plain-export-route.tsx"),
+        'import { Plain } from "./mixed-exports";\nexport default function Page() {\n  return <Plain />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "mounts-plain-export-route.tsx"))).toBe(false);
+
+      // Same module, mounting the export that does render it.
+      writeFileSync(
+        path.join(dir, "mounts-helper-export-route.tsx"),
+        'import { Helper } from "./mixed-exports";\nexport default function Page() {\n  return <Helper />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "mounts-helper-export-route.tsx"))).toBe(true);
+
+      // JSX inside an exported helper the route never renders is not a mount.
+      writeFileSync(
+        path.join(dir, "unmounted-helper-route.tsx"),
+        'import { Banded } from "./banded-child";\n' +
+          "export function Helper() {\n  return <Banded />;\n}\n" +
+          "export default function Page() {\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "unmounted-helper-route.tsx"))).toBe(false);
+
+      // A bare side-effect import executes the module but renders nothing.
+      writeFileSync(
+        path.join(dir, "side-effect-route.tsx"),
+        'import "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "side-effect-route.tsx"))).toBe(false);
+
+      // The Next.js object-wrapper shape, which global-search-shell.tsx uses for
+      // ClinicalDashboard. Selecting the plain export must not drag in the sibling
+      // that renders the band; before this was handled the wrapper returned no name
+      // and the walk fell back to following every export.
+      writeFileSync(
+        path.join(dir, "wrapper-plain-route.tsx"),
+        'const Lazy = dynamic(() => import("./lazy-barrel").then((mod) => ({ default: mod.Plain })));\n' +
+          "export default Lazy;\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "wrapper-plain-route.tsx"))).toBe(false);
+
+      // Same wrapper selecting the banded export does reach it.
+      writeFileSync(
+        path.join(dir, "wrapper-banded-route.tsx"),
+        'const Lazy = dynamic(() => import("./mixed-exports").then((mod) => ({ default: mod.Helper })));\n' +
+          "export default Lazy;\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "wrapper-banded-route.tsx"))).toBe(true);
+
+      // A dynamic import whose result is discarded is a preload, not a mount.
+      writeFileSync(
+        path.join(dir, "preload-route.tsx"),
+        "export default function Page() {\n" +
+          '  useEffect(() => {\n    void import("./default-banded-child");\n  }, []);\n' +
+          "  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "preload-route.tsx"))).toBe(false);
+
+      // A type-only import is erased at runtime, so it cannot mount the band even
+      // though the identifier appears in the mounted component's annotations.
+      writeFileSync(
+        path.join(dir, "type-only-route.tsx"),
+        'import type { Banded } from "./banded-child";\n' +
+          "export default function Page({ render }: { render?: typeof Banded }) {\n" +
+          "  void render;\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "type-only-route.tsx"))).toBe(false);
+
+      // A *value* import used only in a type position is erased too. This repo does
+      // not enforce `consistent-type-imports`, so this is not necessarily spelled
+      // `import type` — and `ComponentProps<typeof X>` genuinely needs the value
+      // import while never mounting it.
+      // The annotation must be inline on the scanned declaration: a top-level
+      // `type Props = …` alias is never scanned at all, so it would pass for the
+      // wrong reason and prove nothing.
+      writeFileSync(
+        path.join(dir, "type-position-route.tsx"),
+        'import { Banded } from "./banded-child";\n' +
+          "export default function Page(props: { render?: typeof Banded }) {\n" +
+          "  void props;\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "type-position-route.tsx"))).toBe(false);
+
+      // A non-exported local the mounted component does render is reachable.
+      writeFileSync(
+        path.join(dir, "indirect-route.tsx"),
+        'import { Banded } from "./banded-child";\n' +
+          "function Inner() {\n  return <Banded />;\n}\n" +
+          "export default function Page() {\n  return <Inner />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "indirect-route.tsx"))).toBe(true);
+
+      // The regression this gate exists to catch: the results component is still
+      // imported, but nothing renders it. A walk that follows every specifier
+      // reports adoption here, which is how gutting a real page to `<div />` with
+      // its imports intact stayed green.
+      writeFileSync(
+        path.join(dir, "imported-only-route.tsx"),
+        'import { Banded } from "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "imported-only-route.tsx"))).toBe(false);
+
+      // A wrapper page mounts with no JSX of its own, so a default re-export of
+      // an imported binding has to count.
+      writeFileSync(
+        path.join(dir, "reexport-route.tsx"),
+        'import { Banded } from "./banded-child";\nexport default Banded;\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "reexport-route.tsx"))).toBe(true);
+
+      // A *named* re-export is not a mount. Re-exporting `Banded` renders
+      // nothing, so a page whose own default renders `<div />` must still be
+      // reported as an orphan — the false green Codex found on #1400.
+      writeFileSync(
+        path.join(dir, "named-reexport-route.tsx"),
+        'import { Banded } from "./banded-child";\n' +
+          "export { Banded };\n" +
+          "export default function Page() {\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "named-reexport-route.tsx"))).toBe(false);
+
+      // Same hole in one statement rather than two. `export { Banded } from "…"`
+      // took the re-export path and was followed unconditionally.
+      writeFileSync(
+        path.join(dir, "direct-named-reexport-route.tsx"),
+        'export { Banded } from "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "direct-named-reexport-route.tsx"))).toBe(false);
+
+      // And `export * from "…"`, which re-exports the band component by name
+      // without mounting it either.
+      writeFileSync(
+        path.join(dir, "star-reexport-route.tsx"),
+        'export * from "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "star-reexport-route.tsx"))).toBe(false);
+
+      // But a default re-export still is a mount: this page's default component
+      // *is* the banded one.
+      writeFileSync(
+        path.join(dir, "default-reexport-route.tsx"),
+        'export { Banded as default } from "./banded-child";\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "default-reexport-route.tsx"))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
