@@ -34,6 +34,7 @@ import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-foo
 import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
 import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
+  isCollapseMotionPhoneRoute,
   isPageOwnedComposerRoute,
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
@@ -870,7 +871,7 @@ function GlobalStandaloneSearchShellBody({
               // top geometry (`readChromeCollapseMetrics`), so content geometry
               // never changes. `--phone-overlay-chrome-h` reserves the constant
               // clearance beneath it.
-              phoneMotion: "overlay",
+              phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay",
               wide: "sticky",
               scrollHidden: chromeScrollHide.hidden,
             }}
@@ -924,7 +925,10 @@ function GlobalStandaloneSearchShellBody({
           */}
           <div
             data-testid="mobile-composer-reserve-pad"
-            className="max-sm:pb-[var(--mobile-composer-reserve)] max-sm:pt-[var(--phone-overlay-chrome-h)]"
+            className={cn(
+              "max-sm:pb-[var(--mobile-composer-reserve)]",
+              !isCollapseMotionPhoneRoute(pathname) && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
+            )}
           >
             {shouldShowSearchComposer && !isStandaloneModeHome ? (
               <DesktopComposerPortalSlot
