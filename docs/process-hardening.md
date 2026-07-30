@@ -150,6 +150,26 @@ API rather than estimated:
   shard whenever the slow specs land together. `--shard` can only balance by count; balancing
   by duration would require splitting the slow spec files themselves. Prefer a measured run
   over the arithmetic when judging any further shard change.
+- **Which spec drags shard 1, measured 2026-07-30** by running `--shard=1/3` locally and
+  summing per-test durations from the list reporter (121 passed, 6.9 min):
+
+  | Spec                               | Time   | Tests | Per test  |
+  | ---------------------------------- | ------ | ----- | --------- |
+  | `ui-phone-scroll.spec.ts`          | 267.0s | 56    | **4.77s** |
+  | `ui-chrome-scroll.spec.ts`         | 56.3s  | 17    | 3.31s     |
+  | `ui-accessibility.spec.ts`         | 28.1s  | 15    | 1.87s     |
+  | `ui-formulation.spec.ts`           | 18.2s  | 7     | 2.60s     |
+  | `ui-overlap.spec.ts`               | 15.3s  | 14    | 1.09s     |
+  | `answer-progress-ui-smoke.spec.ts` | 12.2s  | 2     | 6.10s     |
+  | `ui-mode-nav-density.spec.ts`      | 6.8s   | 7     | 0.97s     |
+  | `ui-hydration.spec.ts`             | 5.2s   | 3     | 1.73s     |
+
+  **`ui-phone-scroll.spec.ts` is 65% of the shard** — 267s of 409s — at the worst per-test rate
+  of any large spec in it. It is also the file behind both `#127` and `#141`. Splitting it is
+  the only lever that rebalances the shards, because `--shard` cannot divide a single file.
+  Re-measure with
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium node scripts/run-playwright.mjs --project=chromium --grep-invert "@quarantine|@mockup" --shard=1/3`
+  before acting — local absolute times differ from CI, but the per-spec ranking holds.
 
 ## Phase 1 - Active now
 
