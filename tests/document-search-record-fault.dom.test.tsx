@@ -137,7 +137,8 @@ describe("document search record path fault reporting", () => {
     expect(within(resultCard).queryByRole("button", { name: /Scope search to/i })).toBeNull();
     const moreButton = within(resultCard).getByRole("button", { name: `More actions for ${lithiumMatch.title}` });
     fireEvent.click(moreButton);
-    const menu = within(resultCard).getByRole("menu");
+    expect(within(resultCard).queryByRole("menu")).toBeNull();
+    const menu = screen.getByTestId("document-result-more-menu");
     expect(within(menu).getByRole("menuitem", { name: "Copy citation" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Copy link" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "View images (2)" })).toBeInTheDocument();

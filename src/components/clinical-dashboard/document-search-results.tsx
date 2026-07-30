@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   BookOpen,
@@ -327,6 +328,7 @@ function DocumentResultMoreMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<ResultCopyStatus>("idle");
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerId = useId();
@@ -348,14 +350,39 @@ function DocumentResultMoreMenu({
 
     window.document.addEventListener("pointerdown", closeOutside);
     window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    updateMenuPosition();
     return () => {
       window.document.removeEventListener("pointerdown", closeOutside);
       window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
     };
   }, [open]);
 
+  function updateMenuPosition() {
+    const trigger = buttonRef.current;
+    if (!trigger) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportPadding = 16;
+    const gap = 8;
+    const menuWidth = Math.min(272, window.innerWidth - viewportPadding * 2);
+    const menuHeight = menuRef.current?.getBoundingClientRect().height ?? (document.imageCount > 0 ? 204 : 156);
+    const left = Math.min(
+      Math.max(viewportPadding, triggerRect.right - menuWidth),
+      window.innerWidth - viewportPadding - menuWidth,
+    );
+    const top =
+      triggerRect.top - gap - menuHeight >= viewportPadding
+        ? triggerRect.top - gap - menuHeight
+        : Math.min(triggerRect.bottom + gap, window.innerHeight - viewportPadding - menuHeight);
+    setMenuPosition({ left, top: Math.max(viewportPadding, top) });
+  }
+
   function focusMenuItem(position: "first" | "last" = "first") {
     window.requestAnimationFrame(() => {
+      updateMenuPosition();
       const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
       const target = position === "first" ? items[0] : items.at(-1);
       target?.focus({ preventScroll: true });
@@ -363,6 +390,7 @@ function DocumentResultMoreMenu({
   }
 
   function openMenu(position: "first" | "last" = "first") {
+    updateMenuPosition();
     setOpen(true);
     setCopyStatus("idle");
     focusMenuItem(position);
@@ -391,11 +419,21 @@ function DocumentResultMoreMenu({
   }
 
   async function copyValue(value: string, action: "citation" | "link") {
+    const restoreFocusTarget =
+      window.document.activeElement instanceof HTMLElement && menuRef.current?.contains(window.document.activeElement)
+        ? window.document.activeElement
+        : null;
     try {
       await copyTextToClipboard(value);
       setCopyStatus(action === "citation" ? "citation-copied" : "link-copied");
     } catch {
       setCopyStatus(action === "citation" ? "citation-failed" : "link-failed");
+    } finally {
+      window.requestAnimationFrame(() => {
+        if (restoreFocusTarget?.isConnected && menuRef.current?.contains(restoreFocusTarget)) {
+          restoreFocusTarget.focus({ preventScroll: true });
+        }
+      });
     }
   }
 
@@ -419,68 +457,77 @@ function DocumentResultMoreMenu({
         }}
         className={cn(
           documentActionClass,
-          "min-h-12 w-full min-w-0 rounded-br-xl px-2 text-sm font-bold text-[color:var(--text-heading)]",
+          "min-h-12 w-full min-w-0 rounded-br-xl px-2 !text-sm font-bold text-[color:var(--text-heading)]",
         )}
       >
         <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
         More
       </button>
-      {open ? (
-        <div
-          ref={menuRef}
-          id={menuId}
-          role="menu"
-          aria-labelledby={triggerId}
-          onKeyDown={handleMenuKeyDown}
-          className="absolute bottom-[calc(100%+0.5rem)] right-0 z-30 w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] py-1.5 shadow-[var(--shadow-lift)]"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            className={resultMenuItemClass}
-            onClick={() => {
-              onScopeDocument();
-              setOpen(false);
-            }}
-          >
-            <Target className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            Search only this source
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={resultMenuItemClass}
-            onClick={() => void copyValue(citation, "citation")}
-          >
-            <Copy className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            {copyStatus === "citation-copied"
-              ? "Citation copied"
-              : copyStatus === "citation-failed"
-                ? "Copy failed"
-                : "Copy citation"}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={resultMenuItemClass}
-            onClick={() => void copyValue(new URL(openHref, window.location.origin).toString(), "link")}
-          >
-            <Link2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            {copyStatus === "link-copied" ? "Link copied" : copyStatus === "link-failed" ? "Copy failed" : "Copy link"}
-          </button>
-          {document.imageCount > 0 ? (
-            <Link
-              href={`${openHref}#source-images`}
-              role="menuitem"
-              className={resultMenuItemClass}
-              onClick={() => setOpen(false)}
+      {open && menuPosition
+        ? createPortal(
+            <div
+              ref={menuRef}
+              id={menuId}
+              data-testid="document-result-more-menu"
+              role="menu"
+              aria-labelledby={triggerId}
+              onKeyDown={handleMenuKeyDown}
+              style={menuPosition}
+              className="fixed z-[70] w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] py-1.5 shadow-[var(--shadow-lift)]"
             >
-              <FileImage className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-              View images ({document.imageCount})
-            </Link>
-          ) : null}
-        </div>
-      ) : null}
+              <button
+                type="button"
+                role="menuitem"
+                className={resultMenuItemClass}
+                onClick={() => {
+                  onScopeDocument();
+                  setOpen(false);
+                }}
+              >
+                <Target className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                Search only this source
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={resultMenuItemClass}
+                onClick={() => void copyValue(citation, "citation")}
+              >
+                <Copy className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                {copyStatus === "citation-copied"
+                  ? "Citation copied"
+                  : copyStatus === "citation-failed"
+                    ? "Copy failed"
+                    : "Copy citation"}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={resultMenuItemClass}
+                onClick={() => void copyValue(new URL(openHref, window.location.origin).toString(), "link")}
+              >
+                <Link2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                {copyStatus === "link-copied"
+                  ? "Link copied"
+                  : copyStatus === "link-failed"
+                    ? "Copy failed"
+                    : "Copy link"}
+              </button>
+              {document.imageCount > 0 ? (
+                <Link
+                  href={`${openHref}#source-images`}
+                  role="menuitem"
+                  className={resultMenuItemClass}
+                  onClick={() => setOpen(false)}
+                >
+                  <FileImage className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                  View images ({document.imageCount})
+                </Link>
+              ) : null}
+            </div>,
+            window.document.body,
+          )
+        : null}
       <span className="sr-only" role="status" aria-live="polite">
         {copyStatus === "citation-copied"
           ? `${document.title} citation copied`
@@ -1179,7 +1226,7 @@ function DocumentSearchResultsPanelImpl({
                         <DocumentActionLink
                           href={openHref}
                           icon={FileText}
-                          className="min-h-12 min-w-0 rounded-bl-xl bg-[color:var(--clinical-accent-soft)] px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-border)] [&_svg]:h-5 [&_svg]:w-5"
+                          className="min-h-12 min-w-0 rounded-bl-xl bg-[color:var(--clinical-accent-soft)] px-2 !text-sm !font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-border)] [&_svg]:h-5 [&_svg]:w-5"
                           aria-label={`Open ${document.title}`}
                         >
                           Open
@@ -1187,7 +1234,7 @@ function DocumentSearchResultsPanelImpl({
                         <DocumentActionButton
                           onClick={() => onAnswerFromDocument(document.document_id)}
                           icon={MessageSquareText}
-                          className="min-h-12 min-w-0 px-2 text-sm font-bold text-[color:var(--text-heading)] [&_svg]:h-5 [&_svg]:w-5"
+                          className="min-h-12 min-w-0 px-2 !text-sm font-bold text-[color:var(--text-heading)] [&_svg]:h-5 [&_svg]:w-5"
                           aria-label={`Ask about ${document.title}`}
                         >
                           Ask

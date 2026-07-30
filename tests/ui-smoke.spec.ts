@@ -3367,10 +3367,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await moreActions.focus();
     await page.keyboard.press("ArrowDown");
-    const resultMenu = documentResults.getByRole("menu");
+    const resultMenu = page.getByTestId("document-result-more-menu");
+    await expect(documentResults.getByRole("menu")).toHaveCount(0);
+    const menuBox = await resultMenu.boundingBox();
+    const triggerBox = await moreActions.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(triggerBox).not.toBeNull();
+    expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+    expect(menuBox!.y).toBeGreaterThanOrEqual(0);
+    expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(820);
+    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(triggerBox!.y);
     await expect(resultMenu.getByRole("menuitem", { name: "Search only this source" })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(resultMenu.getByRole("menuitem", { name: "Copy citation" })).toBeFocused();
+    const copyCitation = resultMenu.getByRole("menuitem", { name: "Copy citation" });
+    await expect(copyCitation).toBeFocused();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+      Object.defineProperty(document, "execCommand", { configurable: true, value: () => true });
+    });
+    await page.keyboard.press("Enter");
+    await expect(resultMenu.getByRole("menuitem", { name: "Citation copied" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(moreActions).toBeFocused();
 
