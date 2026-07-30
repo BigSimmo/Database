@@ -11,6 +11,7 @@
 # production image:
 #   docker build \
 #     --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_... \
+#     --build-arg MAX_UPLOAD_MB=150 \
 #     --build-arg NEXT_PUBLIC_MAX_UPLOAD_MB=150 \
 #     -t clinical-kb-app .
 # Server-side secrets (SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, ...) are
@@ -34,10 +35,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
-# Optional browser upload-limit mirror (clamped client-side). Must be set at
-# build time to inline into the client bundle — runtime Railway vars alone are
-# not enough when operators lower MAX_UPLOAD_MB.
+# The server value is also exposed to the build so the parity guard can compare
+# the runtime configuration Railway supplies with the public value Next inlines.
 ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
+ARG MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
@@ -47,7 +48,11 @@ ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # while still completing this Next build.
 ARG ALLOW_LOW_RAM_BUILD=0
 ENV ALLOW_LOW_RAM_BUILD=${ALLOW_LOW_RAM_BUILD}
-RUN npm run build
+# MAX_UPLOAD_MB remains a runtime-only server variable. Copy its build argument
+# into the parity guard's checker-only name, then remove MAX_UPLOAD_MB from the
+# Next build process so application env validation cannot mistake an empty
+# build argument for a runtime value.
+RUN UPLOAD_LIMIT_PARITY_SERVER_MB="${MAX_UPLOAD_MB}" env -u MAX_UPLOAD_MB npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app
