@@ -9,6 +9,20 @@ const BROWSER_TYPES = {
   webkit,
 };
 
+export const playwrightProjectNames = Object.freeze({
+  chromium: "chromium",
+  chromiumMockups: "chromium-mockups",
+  firefox: "firefox",
+  webkit: "webkit",
+});
+
+const PROJECT_BROWSER_FAMILIES = Object.freeze({
+  [playwrightProjectNames.chromium]: "chromium",
+  [playwrightProjectNames.chromiumMockups]: "chromium",
+  [playwrightProjectNames.firefox]: "firefox",
+  [playwrightProjectNames.webkit]: "webkit",
+});
+
 /**
  * Derive the default headless-shell binary Playwright launches for Chromium
  * tests. `chromium.executablePath()` points at full Chrome for Testing; the
@@ -16,10 +30,15 @@ const BROWSER_TYPES = {
  */
 export function defaultChromiumHeadlessShellPath(chromeExecutablePath = chromium.executablePath()) {
   const normalized = chromeExecutablePath.replaceAll("\\", "/");
-  const match = normalized.match(/^(.*)\/chromium-(\d+)\/chrome-([^/]+)\/chrome(?:\.exe)?$/i);
-  if (!match) return chromeExecutablePath;
-  const [, browsersRoot, revision, platform] = match;
-  const binary = process.platform === "win32" ? "chrome-headless-shell.exe" : "chrome-headless-shell";
+  const segments = normalized.split("/");
+  const chromiumIndex = segments.findLastIndex((segment) => /^chromium-\d+$/.test(segment));
+  const chromiumDirectory = segments[chromiumIndex];
+  const platformDirectory = segments[chromiumIndex + 1];
+  if (chromiumIndex < 0 || !chromiumDirectory || !platformDirectory?.startsWith("chrome-")) return null;
+  const revision = chromiumDirectory.slice("chromium-".length);
+  const platform = platformDirectory.slice("chrome-".length);
+  const browsersRoot = segments.slice(0, chromiumIndex).join("/");
+  const binary = platform.startsWith("win") ? "chrome-headless-shell.exe" : "chrome-headless-shell";
   return path.join(browsersRoot, `chromium_headless_shell-${revision}`, `chrome-headless-shell-${platform}`, binary);
 }
 
@@ -34,15 +53,12 @@ export function requestedPlaywrightBrowserProjects(args = []) {
     }
     if (token.startsWith("--project=")) projects.add(token.slice("--project=".length));
   }
-  if (projects.size === 0) return ["chromium"];
+  if (projects.size === 0) return Object.values(playwrightProjectNames);
   return [...projects];
 }
 
 function browserFamilyForProject(project) {
-  if (project === "firefox") return "firefox";
-  if (project === "webkit") return "webkit";
-  // chromium, chromium-mockups, and any other Chromium-based project.
-  return "chromium";
+  return PROJECT_BROWSER_FAMILIES[project] ?? null;
 }
 
 export function resolvePlaywrightBrowserExecutable(family, env = process.env) {
@@ -70,11 +86,16 @@ export function resolvePlaywrightBrowserExecutable(family, env = process.env) {
 
 export function playwrightBrowserPreflight(args = [], env = process.env) {
   const projects = requestedPlaywrightBrowserProjects(args);
-  const families = [...new Set(projects.map(browserFamilyForProject))];
-  const missing = [];
+  const unsupportedProjects = projects.filter((project) => !browserFamilyForProject(project));
+  const families = [...new Set(projects.map(browserFamilyForProject).filter(Boolean))];
+  const missing = unsupportedProjects.map((project) => ({
+    family: "unknown",
+    path: "",
+    source: `unmapped Playwright project ${project}`,
+  }));
   for (const family of families) {
     const resolved = resolvePlaywrightBrowserExecutable(family, env);
-    if (!existsSync(resolved.path)) missing.push(resolved);
+    if (!resolved.path || !existsSync(resolved.path)) missing.push(resolved);
   }
   if (missing.length === 0) {
     return { ok: true, projects, checked: families.map((family) => resolvePlaywrightBrowserExecutable(family, env)) };
