@@ -46,6 +46,7 @@ if [ -s "\$NVM_DIR/nvm.sh" ]; then
   nvm use --silent ${expected_node_major} >/dev/null 2>&1 || true
 fi
 export PATH="\$HOME/.local/bin:\$HOME/.deno/bin:\$HOME/.cache/clinical-kb-codex/ocr-venv/bin:\$PATH"
+export CODEX_CLOUD_OCR_PYTHON="\$HOME/.cache/clinical-kb-codex/ocr-venv/bin/python"
 export CODEX_CLOUD=1
 export CODEX_CLOUD_ACCESS_PROFILE="\${CODEX_CLOUD_ACCESS_PROFILE:-offline}"
 export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
@@ -88,17 +89,28 @@ if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -
   hash -r
 fi
 
+python_bin="$(command -v python3 || command -v python || true)"
+system_packages=()
 if ! command -v tesseract >/dev/null 2>&1; then
-  command -v apt-get >/dev/null 2>&1 || fail "apt-get is unavailable; Tesseract OCR cannot be installed."
-  log "Installing Tesseract OCR and Python venv support."
+  system_packages+=(tesseract-ocr)
+fi
+if [[ -z "$python_bin" ]]; then
+  system_packages+=(python3 python3-venv)
+elif ! "$python_bin" -c 'import venv' >/dev/null 2>&1; then
+  system_packages+=(python3-venv)
+fi
+
+if (( ${#system_packages[@]} > 0 )); then
+  command -v apt-get >/dev/null 2>&1 || fail "apt-get is unavailable; required system packages cannot be installed."
+  log "Installing required system packages: ${system_packages[*]}."
   if [[ "$(id -u)" -eq 0 ]]; then
     apt-get update
-    apt-get install -y --no-install-recommends tesseract-ocr python3-venv
+    apt-get install -y --no-install-recommends "${system_packages[@]}"
   elif command -v sudo >/dev/null 2>&1; then
     sudo apt-get update
-    sudo apt-get install -y --no-install-recommends tesseract-ocr python3-venv
+    sudo apt-get install -y --no-install-recommends "${system_packages[@]}"
   else
-    fail "Tesseract OCR installation requires root or sudo."
+    fail "System package installation requires root or sudo."
   fi
 fi
 
@@ -111,6 +123,7 @@ if [[ ! -x "$ocr_venv/bin/python" ]]; then
 fi
 log "Installing Python worker requirements."
 "$ocr_venv/bin/python" -m pip install --disable-pip-version-check -r worker/python/requirements.txt
+export CODEX_CLOUD_OCR_PYTHON="$ocr_venv/bin/python"
 
 if [[ "${CODEX_CLOUD_SKIP_BROWSER_INSTALL:-0}" = "1" ]]; then
   log "Browser installation explicitly skipped; browser checks will be unavailable."

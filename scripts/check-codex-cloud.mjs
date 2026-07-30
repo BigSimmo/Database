@@ -69,6 +69,20 @@ export function executableFile(filePath) {
   }
 }
 
+export const pythonWorkerImports = ["fitz", "PIL", "pytesseract", "medspacy"];
+
+export function pythonWorkerImportError(pythonCommand, run = spawnSync) {
+  if (!pythonCommand || !executableFile(pythonCommand)) {
+    return "The configured Codex Cloud OCR Python executable is unavailable.";
+  }
+  const result = run(pythonCommand, ["-c", `import ${pythonWorkerImports.join(", ")}`], {
+    encoding: "utf8",
+    shell: false,
+  });
+  if (result.status === 0) return null;
+  return `Python worker imports failed: ${pythonWorkerImports.join(", ")}.`;
+}
+
 export function validateCodexCloudSetup() {
   const errors = [];
   const packageJson = JSON.parse(read("package.json"));
@@ -95,6 +109,7 @@ export function validateCodexCloudSetup() {
     [/npm ci --include=dev/, "Cloud setup must install the exact lockfile with dev dependencies."],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
     [/worker\/python\/requirements\.txt/, "Cloud setup must install Python worker requirements."],
+    [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
@@ -198,10 +213,8 @@ export async function validateCodexCloudRuntime(env = process.env) {
   ]) {
     if (error) errors.push(error);
   }
-  const python3Error = commandVersion("python3", ["--version"], /^Python 3\./m);
-  if (python3Error && commandVersion("python", ["--version"], /^Python 3\./m)) {
-    errors.push("Python 3 is unavailable in the Cloud runtime.");
-  }
+  const pythonError = pythonWorkerImportError(env.CODEX_CLOUD_OCR_PYTHON);
+  if (pythonError) errors.push(pythonError);
 
   for (const error of [
     repositoryCommand(process.execPath, ["scripts/run-tsx.mjs", "scripts/check-runtime.ts"]),

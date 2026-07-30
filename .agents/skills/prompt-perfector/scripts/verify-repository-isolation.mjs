@@ -101,6 +101,36 @@ function git(cwd, args, { trim = true } = {}) {
   }
 }
 
+function gitBuffer(cwd, args) {
+  try {
+    return execFileSync("git", args, {
+      cwd,
+      encoding: null,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    throw new Error(`git ${args.join(" ")} failed: ${error.status ?? "unknown"}`);
+  }
+}
+
+export function repositoryStatusHash({ status, stagedDiff, unstagedDiff, untrackedFiles = [] }) {
+  const hash = crypto.createHash("sha256");
+  const append = (label, value) => {
+    const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value ?? "");
+    hash.update(`${label}\0${buffer.length}\0`);
+    hash.update(buffer);
+  };
+
+  append("status", status);
+  append("staged", stagedDiff);
+  append("unstaged", unstagedDiff);
+  for (const file of [...untrackedFiles].sort((left, right) => left.path.localeCompare(right.path))) {
+    append("untracked-path", file.path);
+    append("untracked-content", file.content);
+  }
+  return hash.digest("hex");
+}
+
 function inspectRepository(cwd) {
   const revisionState = git(cwd, ["rev-parse", "--show-toplevel", "--absolute-git-dir", "HEAD"]).split(/\r?\n/);
   if (revisionState.length !== 3) throw new Error("git rev-parse returned incomplete repository state");
@@ -110,22 +140,42 @@ function inspectRepository(cwd) {
     (worktree) => normalizePath(String(worktree.worktree)) === normalizePath(root),
   );
   const rawStatus = git(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { trim: false });
+  const untrackedPaths = git(cwd, ["ls-files", "--others", "--exclude-standard", "-z"], { trim: false })
+    .split("\0")
+    .filter(Boolean);
+  const snapshot = {
+    status: rawStatus,
+    stagedDiff: gitBuffer(cwd, ["diff", "--cached", "--binary", "--full-index", "--no-ext-diff"]),
+    unstagedDiff: gitBuffer(cwd, ["diff", "--binary", "--full-index", "--no-ext-diff"]),
+    untrackedFiles: untrackedPaths.map((filePath) => ({
+      path: filePath,
+      content: fs.readFileSync(path.join(root, filePath)),
+    })),
+  };
   return {
     root,
     branch: typeof currentWorktree?.branch === "string" ? currentWorktree.branch.replace(/^refs\/heads\//, "") : "",
     head,
     operations: operationMarkers.filter((marker) => fs.existsSync(path.join(gitDirectory, marker))),
     status: rawStatus,
-    statusHash: crypto.createHash("sha256").update(rawStatus).digest("hex"),
+    statusHash: repositoryStatusHash(snapshot),
     worktrees,
   };
 }
 
 function runSelfTest() {
   const head = "a".repeat(40);
-  const cleanHash = crypto.createHash("sha256").update("").digest("hex");
+  const cleanHash = repositoryStatusHash({ status: "", stagedDiff: "", unstagedDiff: "" });
   const dirtyStatus = " M file";
-  const dirtyHash = crypto.createHash("sha256").update(dirtyStatus).digest("hex");
+  const dirtyHash = repositoryStatusHash({ status: dirtyStatus, stagedDiff: "", unstagedDiff: "first" });
+  const changedContentHash = repositoryStatusHash({
+    status: dirtyStatus,
+    stagedDiff: "",
+    unstagedDiff: "second",
+  });
+  if (dirtyHash === changedContentHash) {
+    throw new Error("dirty snapshot hashing did not detect a content-only change");
+  }
   const base = {
     root: "/repo/task",
     branch: "codex/task",

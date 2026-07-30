@@ -6,6 +6,8 @@ import {
   configuredProviderCredentialNames,
   executableFile,
   obsoleteNpmProxyVariables,
+  pythonWorkerImportError,
+  pythonWorkerImports,
 } from "../scripts/check-codex-cloud.mjs";
 
 describe("Codex Cloud environment contract", () => {
@@ -34,5 +36,19 @@ describe("Codex Cloud environment contract", () => {
   it("distinguishes executable files from missing paths", () => {
     expect(executableFile(process.execPath)).toBe(true);
     expect(executableFile("/definitely/not/a/cloud/executable")).toBe(false);
+  });
+
+  it("verifies every Python worker import through the configured environment", () => {
+    let invocation: string[] = [];
+    const run = (command: string, args: string[]) => {
+      invocation = [command, ...args];
+      return { status: 0 };
+    };
+
+    expect(pythonWorkerImportError(process.execPath, run as typeof spawnSync)).toBeNull();
+    expect(invocation).toEqual([process.execPath, "-c", `import ${pythonWorkerImports.join(", ")}`]);
+    expect(pythonWorkerImportError(process.execPath, (() => ({ status: 1 })) as typeof spawnSync)).toContain(
+      "Python worker imports failed",
+    );
   });
 });
