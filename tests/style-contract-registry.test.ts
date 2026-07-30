@@ -121,12 +121,28 @@ describe("parseUnlayeredVisualClasses", () => {
     expect(isMediaOverrideOnly(entry)).toBe(false);
   });
 
-  it("collects every class in a multi-class selector", () => {
+  it("collects every class in a selector list split across lines", () => {
     const css = `.one,\n.two {\n  background: red;\n}\n`;
 
-    // Only the line that opens the block is scanned, so a selector list split
-    // across lines contributes the classes on that final line.
-    expect(parseUnlayeredVisualClasses(css).map((entry) => entry.className)).toEqual(["two"]);
+    // The earlier line carries a class the opening line does not. Keying on the
+    // opening line alone left those unpoliced — `.medication-also-matches` in
+    // globals.css was a real instance.
+    expect(parseUnlayeredVisualClasses(css)).toEqual([
+      { className: "one", lines: [1], media: [], unmediated: true },
+      { className: "two", lines: [2], media: [], unmediated: true },
+    ]);
+  });
+
+  it("collects a class from an earlier line even when the opening line has none", () => {
+    const css = `.leading,\ndiv > span {\n  background: red;\n}\n`;
+
+    expect(parseUnlayeredVisualClasses(css).map((entry) => entry.className)).toEqual(["leading"]);
+  });
+
+  it("stops walking back at a line that does not continue the selector list", () => {
+    const css = `.unrelated {\n  padding: 1rem;\n}\n.styled {\n  background: red;\n}\n`;
+
+    expect(parseUnlayeredVisualClasses(css).map((entry) => entry.className)).toEqual(["styled"]);
   });
 
   it("ignores commented-out rules without shifting reported line numbers", () => {

@@ -95,9 +95,13 @@ export function parseUnlayeredVisualClasses(css: string): UnlayeredVisualClass[]
   const found = new Map<string, { lines: number[]; media: Set<string>; unmediated: boolean }>();
 
   for (const [index, line] of lines.entries()) {
-    // A selector line that starts at a class and opens its block on the same
-    // line — the only shape `globals.css` uses.
-    if (!/^\s*\./.test(line) || !line.trimEnd().endsWith("{")) continue;
+    // Any line that opens a rule block, at-rules excluded. Deliberately NOT
+    // "starts with a class": a selector list is often split across lines, and an
+    // earlier line can carry a class the opening line does not
+    // (`.medication-also-matches,` above `.medication-patient-strip {`). Keying on
+    // the opening line alone silently left those classes unpoliced, so the gate
+    // could pass with an unregistered unlayered class.
+    if (!line.trimEnd().endsWith("{") || /^\s*@/.test(line)) continue;
     if (insideLayer(index)) continue;
 
     const body: string[] = [];
@@ -108,14 +112,25 @@ export function parseUnlayeredVisualClasses(css: string): UnlayeredVisualClass[]
     }
     if (!VISUAL_PROPERTY.test(body.join("\n"))) continue;
 
-    const selector = line.slice(0, line.indexOf("{"));
+    // Walk back over the comma-continued lines that belong to this selector list,
+    // so every class in it is inventoried against the line it actually appears on.
+    const selectorLines: Array<[number, string]> = [[index, line.slice(0, line.indexOf("{"))]];
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      const previous = lines[cursor].trim();
+      if (previous === "") continue;
+      if (!previous.endsWith(",")) break;
+      selectorLines.push([cursor, lines[cursor]]);
+    }
+
     const media = mediaFor(index);
-    for (const className of new Set(selector.match(/\.([A-Za-z][\w-]*)/g)?.map((raw) => raw.slice(1)) ?? [])) {
-      const entry = found.get(className) ?? { lines: [], media: new Set<string>(), unmediated: false };
-      entry.lines.push(index + 1);
-      for (const query of media) entry.media.add(query);
-      if (media.length === 0) entry.unmediated = true;
-      found.set(className, entry);
+    for (const [selectorLine, selectorText] of selectorLines) {
+      for (const className of new Set(selectorText.match(/\.([A-Za-z][\w-]*)/g)?.map((raw) => raw.slice(1)) ?? [])) {
+        const entry = found.get(className) ?? { lines: [], media: new Set<string>(), unmediated: false };
+        if (!entry.lines.includes(selectorLine + 1)) entry.lines.push(selectorLine + 1);
+        for (const query of media) entry.media.add(query);
+        if (media.length === 0) entry.unmediated = true;
+        found.set(className, entry);
+      }
     }
   }
 
@@ -220,8 +235,12 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "chat-composer-shell-base": "answer composer — no effect contract yet (#094)",
   "chat-composer-shell-delta": "answer composer — no effect contract yet (#094)",
   "chat-send-button": "answer composer — no effect contract yet (#094)",
+  "dashboard-composer-edge":
+    "dashboard composer edge — found only after the multiline-selector parser fix; no effect contract yet (#094)",
   "document-mobile-search-edge": "document viewer composer — covered by ui-phone-scroll geometry, not effect",
   "document-mobile-search-pill": "document viewer composer — no effect contract yet (#094)",
+  "edge-glass-header":
+    "overlaid glass header — found only after the multiline-selector parser fix; hide/reveal covered by ui-chrome-scroll, effect not contracted",
   "edge-glass-header-backdrop":
     "overlaid glass header — forced-colors and reserve behaviour covered by ui-accessibility",
   "universal-header": "shared header — hide/reveal covered by ui-chrome-scroll; background effect not contracted yet",
@@ -242,6 +261,8 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Mode-specific surfaces.
   "differentials-mobile-compare-fab__button": "differentials compare FAB — no effect contract yet (#094)",
   "differentials-mobile-compare-fab__button--empty": "differentials compare FAB — no effect contract yet (#094)",
+  "medication-also-matches":
+    "prescribing also-matches row — the class Codex named as unpoliced; no effect contract yet (#094)",
   "medication-mobile-result": "prescribing phone results — no effect contract yet (#094)",
   "medication-mobile-results": "prescribing phone results — no effect contract yet (#094)",
   "medication-patient-strip": "prescribing patient strip — no effect contract yet (#094)",

@@ -31,7 +31,13 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { hasUsableMetrics, measuredRequestedPage, routeSlug, summariseReport } from "./summarise-web-vitals.mjs";
+import {
+  collidingRouteSlugs,
+  hasUsableMetrics,
+  measuredRequestedPage,
+  routeSlug,
+  summariseReport,
+} from "./summarise-web-vitals.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const BUDGET_PATH = path.join(root, "lighthouse-budget.json");
@@ -63,15 +69,57 @@ export function expectedBudgetRuns(budget) {
  * counted as a pass is exactly how unmeasured latency claims got acted on before.
  */
 export function incompleteBudgetEvidence(rows, budget) {
+  const tolerance = { ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) };
+  const baseline = budget?.baseline ?? null;
+  const hasBaseline = Boolean(baseline) && Object.keys(baseline).length > 0;
+  // A slug collision means two routes write the same report filename, so the second
+  // overwrites the first and the surviving file would satisfy the expected-run check
+  // for both. The filename scheme cannot represent both pages, so this is fatal
+  // before anything is measured rather than a per-run problem.
+  const problems = new Set(collidingRouteSlugs(budget?.routes ?? []).map((slug) => `route slug collision: ${slug}`));
   const byRun = new Map(rows.map((row) => [row.run, row]));
-  const problems = [];
+
   for (const run of expectedBudgetRuns(budget)) {
     const row = byRun.get(run);
-    if (!row) problems.push(`${run}: no Lighthouse report produced`);
-    else if (!hasUsableMetrics(row)) problems.push(`${run}: report has no LCP or CLS number`);
-    else if (!measuredRequestedPage(row)) problems.push(`${run}: report measured a different page than requested`);
+    if (!row) {
+      problems.add(`${run}: no Lighthouse report produced`);
+      continue;
+    }
+    if (!hasUsableMetrics(row)) {
+      problems.add(`${run}: report has no LCP or CLS number`);
+      continue;
+    }
+    if (!measuredRequestedPage(row)) {
+      problems.add(`${run}: report measured a different page than requested`);
+      continue;
+    }
+    // Completeness is derived from what is actually GRADED, not from the LCP/CLS pair
+    // `hasUsableMetrics` checks for ledger #017. This budget also grades TBT, so a
+    // report missing it would otherwise pass completeness and then have TBT silently
+    // skipped by gradeRun.
+    for (const metric of Object.keys(tolerance)) {
+      if (typeof row[metric] !== "number") problems.add(`${run}: report has no ${metric} number`);
+    }
+    if (!hasBaseline) continue;
+    const before = baseline[run];
+    // A route or strategy added after the baseline was recorded has nothing to
+    // compare against, and gradeRun returns no breaches for a missing row — so an
+    // arbitrarily bad new route would grade `ok`.
+    if (!before) {
+      problems.add(`${run}: no baseline row recorded — refresh with --update`);
+      continue;
+    }
+    // Numbers are only comparable when the same browser produced them. Chrome comes
+    // from the runner image and moves independently of the pinned Lighthouse
+    // version, so a browser bump is otherwise indistinguishable from an application
+    // regression. summarise-web-vitals.mjs makes the same point about its baselines.
+    if (before.chromeVersion && row.chromeVersion && before.chromeVersion !== row.chromeVersion) {
+      problems.add(
+        `${run}: baseline measured by a different browser (${before.chromeVersion} vs ${row.chromeVersion}) — refresh with --update`,
+      );
+    }
   }
-  return problems.sort();
+  return [...problems].sort();
 }
 
 /** Grade one run against its baseline. Returns the breaches, empty when within tolerance. */
@@ -166,7 +214,18 @@ export function baselineFromRows(rows) {
   return Object.fromEntries(
     [...rows]
       .sort((a, b) => (a.run < b.run ? -1 : a.run > b.run ? 1 : 0))
-      .map((row) => [row.run, { lcpMs: row.lcpMs, cls: row.cls, tbtMs: row.tbtMs, fcpMs: row.fcpMs }]),
+      .map((row) => [
+        row.run,
+        // chromeVersion is stored so a later run can detect that the browser moved
+        // underneath the baseline rather than the application regressing.
+        {
+          lcpMs: row.lcpMs,
+          cls: row.cls,
+          tbtMs: row.tbtMs,
+          fcpMs: row.fcpMs,
+          chromeVersion: row.chromeVersion ?? null,
+        },
+      ]),
   );
 }
 

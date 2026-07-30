@@ -102,6 +102,65 @@ describe("incompleteBudgetEvidence", () => {
   });
 });
 
+describe("incompleteBudgetEvidence — completeness derived from what is graded", () => {
+  it("rejects a report missing a graded metric even when LCP and CLS are present", () => {
+    // hasUsableMetrics only checks the LCP/CLS pair ledger #017 grades. This budget
+    // also grades TBT, so a report without it must not pass completeness and then
+    // have TBT silently skipped.
+    const rows = completeRows().map((entry: Row) => (entry.run === "mobile-dsm" ? { ...entry, tbtMs: null } : entry));
+
+    expect(incompleteBudgetEvidence(rows, budget())).toEqual(["mobile-dsm: report has no tbtMs number"]);
+  });
+
+  it("rejects a run the recorded baseline does not cover", () => {
+    // A route added after the baseline was recorded has nothing to compare against,
+    // and gradeRun returns no breaches for a missing row — so it would grade ok at
+    // any LCP.
+    const rows = completeRows();
+    const partial = baselineFromRows(rows.filter((entry: Row) => entry.run !== "mobile-forms"));
+
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: partial }))).toEqual([
+      "mobile-forms: no baseline row recorded — refresh with --update",
+    ]);
+  });
+
+  it("fails an enforcing budget whose baseline predates a new route", () => {
+    const rows = completeRows({ "mobile-forms": { lcpMs: 99_000 } });
+    const partial = baselineFromRows(completeRows().filter((entry: Row) => entry.run !== "mobile-forms"));
+    const result = compareToLighthouseBudget(rows, budget({ baseline: partial }));
+
+    expect(result.status).toBe("fail");
+    expect(result.reason).toBe("evidence incomplete");
+  });
+
+  it("rejects a baseline measured by a different browser", () => {
+    const rows = completeRows();
+    const stale = baselineFromRows(rows.map((entry: Row) => ({ ...entry, chromeVersion: "HeadlessChrome/131" })));
+    const problems = incompleteBudgetEvidence(rows, budget({ baseline: stale }));
+
+    expect(problems).toHaveLength(10);
+    expect(problems[0]).toContain("measured by a different browser");
+  });
+
+  it("accepts a baseline that recorded no browser identity at all", () => {
+    // Older baselines predate the field; absent is not the same as mismatched.
+    const rows = completeRows();
+    const legacy = Object.fromEntries(
+      Object.entries(baselineFromRows(rows)).map(([run, row]) => [run, { ...(row as object), chromeVersion: null }]),
+    );
+
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: legacy }))).toEqual([]);
+  });
+
+  it("rejects colliding route slugs before anything is measured", () => {
+    // `/a/b` and `/a-b` both write `a-b.json`, so the second overwrites the first and
+    // the survivor would satisfy the expected-run check for both pages.
+    const colliding = budget({ routes: ["/a/b", "/a-b"], baseline: null });
+
+    expect(incompleteBudgetEvidence([], colliding)).toContain("route slug collision: a-b");
+  });
+});
+
 describe("gradeRun", () => {
   it("records no breach without a baseline for that run", () => {
     expect(gradeRun(row("mobile-root", { lcpMs: 9000 }), undefined)).toEqual([]);
@@ -219,7 +278,14 @@ describe("baselineFromRows", () => {
     const baseline = baselineFromRows([row("mobile-root", { lcpMs: 1200 }), row("desktop-root", { lcpMs: 900 })]);
 
     expect(Object.keys(baseline)).toEqual(["desktop-root", "mobile-root"]);
-    expect(baseline["mobile-root"]).toEqual({ lcpMs: 1200, cls: 0, tbtMs: 100, fcpMs: 500 });
+    expect(baseline["mobile-root"]).toEqual({
+      lcpMs: 1200,
+      cls: 0,
+      tbtMs: 100,
+      fcpMs: 500,
+      // Stored so a later comparison can tell a browser bump from a regression.
+      chromeVersion: "HeadlessChrome/140",
+    });
   });
 });
 
