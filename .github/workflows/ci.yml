@@ -190,6 +190,9 @@ jobs:
       - name: Installed dependency parity
         run: npm run check:installed-lock-parity
 
+      - name: Upload-limit parity
+        run: npm run check:upload-limit-parity
+
       - name: GitHub Actions pin check
         run: npm run check:github-actions
 

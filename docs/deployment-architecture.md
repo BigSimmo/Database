@@ -227,7 +227,9 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
   `MAX_UPLOAD_MB`, mirror the same value in `NEXT_PUBLIC_MAX_UPLOAD_MB` before
   building the production image so the browser precheck rejects over-limit
   files without a full transfer. Runtime-only Railway variables are not enough
-  for this value because Next inlines `NEXT_PUBLIC_*` at build time.
+  for this value because Next inlines `NEXT_PUBLIC_*` at build time. The local,
+  static-PR, and production-build `check:upload-limit-parity` guard fails when
+  the effective client and server values differ.
 - Runtime is a non-root `node` user, prod-only `node_modules`, direct
   `next start -H 0.0.0.0 -p $PORT` (Railway injects `$PORT`; the local
   port-picker script is deliberately bypassed), and a `HEALTHCHECK` against
