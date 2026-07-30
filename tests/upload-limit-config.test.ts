@@ -62,8 +62,7 @@ describe("upload limit configuration", () => {
 
   it("checks the same .env.production.local values that Next loads for a build", () => {
     const fixtureRoot = mkdtempSync(join(tmpdir(), "upload-limit-config-"));
-    const environment: NodeJS.ProcessEnv = { ...process.env };
-    environment.NODE_ENV = "production";
+    const environment: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production" };
     delete environment.MAX_UPLOAD_MB;
     delete environment.NEXT_PUBLIC_MAX_UPLOAD_MB;
     writeFileSync(
