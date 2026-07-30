@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 const zeroSha = /^0{40}$/;
 
@@ -22,6 +22,7 @@ const outputs = [
   "source_changed",
   "coverage_changed",
   "ui_changed",
+  "advisory_ui_changed",
   "db_changed",
   "container_changed",
   "rag_eval_changed",
@@ -62,6 +63,35 @@ function pathMatches(filePath, patterns) {
 function isUiChangedPath(filePath) {
   if (filePath === "src/app/api" || filePath.startsWith("src/app/api/")) return false;
   return pathMatches(filePath, uiPatterns);
+}
+
+/**
+ * The advisory UI lane covers `@quarantine` plus `@mockup` journeys. With an
+ * empty flake ledger and no `@quarantine` tag in the suite, it runs five mockup
+ * tests — measured at ~3m14 on every UI pull request (#137).
+ *
+ * So it runs when there is something for it to cover: a mockup surface changed,
+ * or the flake ledger is non-empty. Reading the ledger rather than hard-coding
+ * "no quarantines exist" makes the gate self-correcting — the moment a test is
+ * quarantined, the lane comes back on every UI PR without anyone remembering to
+ * re-enable it.
+ */
+const mockupPatterns = [
+  "src/app/mockups",
+  "tests/ui-mockups.spec.ts",
+  /^src\/components\/.*-mockups\.tsx$/,
+  /^tests\/.*mockup.*\.spec\.ts$/,
+];
+
+function quarantineLedgerHasEntries(readLedger) {
+  try {
+    const parsed = JSON.parse(readLedger());
+    return Array.isArray(parsed?.flakes) && parsed.flakes.length > 0;
+  } catch {
+    // Fail OPEN: an unreadable or malformed ledger must not silently drop the
+    // advisory lane. `npm run flake:ledger` is what validates its shape.
+    return true;
+  }
 }
 
 const docPatterns = [
@@ -194,7 +224,11 @@ const staticConfigPatterns = [
 // Script-only `package.json` edits do not trip blocking audit (no lock churn).
 const lockfilePatterns = ["package-lock.json", ".npmrc"];
 
-function classify(files) {
+// The ledger read is injected so `classify` stays pure and the self-test can
+// drive both the empty and non-empty cases without touching the real file.
+const readFlakeLedger = () => readFileSync("tests/flake-ledger.json", "utf8");
+
+function classify(files, { readLedger = readFlakeLedger } = {}) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
   // Preserve the pre-consolidation unit gate for every non-documentation
@@ -202,6 +236,8 @@ function classify(files) {
   // leave runtime, worker, or configuration changes without unit coverage.
   const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
+  const advisoryUiChanged =
+    normalized.some((file) => pathMatches(file, mockupPatterns)) || quarantineLedgerHasEntries(readLedger);
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
   const containerChanged = normalized.some((file) => pathMatches(file, containerPatterns));
   const ragEvalChanged = normalized.some((file) => pathMatches(file, ragEvalPatterns));
@@ -221,6 +257,7 @@ function classify(files) {
     source_changed: sourceChanged,
     coverage_changed: coverageChanged,
     ui_changed: uiChanged,
+    advisory_ui_changed: advisoryUiChanged,
     db_changed: dbChanged,
     container_changed: containerChanged,
     rag_eval_changed: ragEvalChanged,
@@ -382,8 +419,10 @@ function writeOutputs(result) {
   appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);
 }
 
-function assertScope(name, files, expected) {
-  const result = classify(files);
+const emptyLedger = () => '{"flakes":[]}';
+
+function assertScope(name, files, expected, options = { readLedger: emptyLedger }) {
+  const result = classify(files, options);
   for (const [key, value] of Object.entries(expected)) {
     if (result[key] !== value) {
       throw new Error(`${name}: expected ${key}=${value}, received ${result[key]} for ${files.join(", ")}`);
@@ -392,6 +431,34 @@ function assertScope(name, files, expected) {
 }
 
 function selfTest() {
+  // #137: the advisory lane runs only when it has something to cover. All four
+  // directions matter — a lane that silently never runs is the failure mode.
+  assertScope("advisory-off-when-nothing-to-cover", ["src/components/clinical-dashboard/dashboard-nav.tsx"], {
+    ui_changed: true,
+    advisory_ui_changed: false,
+  });
+  assertScope("advisory-on-for-mockup-source", ["src/app/mockups/page.tsx"], { advisory_ui_changed: true });
+  assertScope("advisory-on-for-mockup-component", ["src/components/search-mockups.tsx"], {
+    advisory_ui_changed: true,
+  });
+  assertScope(
+    "advisory-on-when-a-test-is-quarantined",
+    ["src/components/clinical-dashboard/dashboard-nav.tsx"],
+    { advisory_ui_changed: true },
+    { readLedger: () => '{"flakes":[{"id":"F-1"}]}' },
+  );
+  // Fail OPEN: an unreadable ledger must not quietly drop the lane.
+  assertScope(
+    "advisory-on-when-the-ledger-cannot-be-read",
+    ["src/components/clinical-dashboard/dashboard-nav.tsx"],
+    { advisory_ui_changed: true },
+    {
+      readLedger: () => {
+        throw new Error("ENOENT");
+      },
+    },
+  );
+
   assertScope("unstaged-status", parseStatusPorcelain(" M scripts/ci-change-scope.mjs\0"), {
     source_changed: true,
     workflow_changed: true,
