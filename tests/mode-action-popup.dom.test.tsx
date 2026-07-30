@@ -13,6 +13,7 @@ import {
 
 const modeOptions: ModeActionModeOption[] = [
   { id: "documents", label: "Documents", icon: Search },
+  { id: "answer", label: "Answer", icon: Search },
   { id: "upload", label: "Upload", icon: UploadCloud, disabled: true },
 ];
 
@@ -72,7 +73,7 @@ describe("ModeActionPopup state transitions", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
-  it("exposes disabled modes but never selects them", async () => {
+  it("selects enabled modes and exposes disabled modes without selecting them", async () => {
     const user = userEvent.setup();
     const onModeSelect = vi.fn();
     render(<Harness onModeSelect={onModeSelect} />);
@@ -87,5 +88,10 @@ describe("ModeActionPopup state transitions", () => {
     expect(disabledMode).toBeDisabled();
     await user.click(disabledMode);
     expect(onModeSelect).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("menuitemradio", { name: "Answer" }));
+    expect(onModeSelect).toHaveBeenCalledWith("answer");
+    expect(screen.queryByRole("menu", { name: "Choose search mode" })).not.toBeInTheDocument();
+    await waitFor(() => expect(modeTrigger).toHaveFocus());
   });
 });
