@@ -34,14 +34,14 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
 const SCHEMA_PATH = "supabase/schema.sql";
 const MANIFEST_PATH = "supabase/drift-manifest.json";
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
  * sha256 over CRLF-normalized schema text. MUST stay byte-identical to
@@ -192,10 +192,65 @@ function autoMergeGuard(branch) {
 // ---------------------------------------------------------------------------
 // Guard 2: format-before-push
 // ---------------------------------------------------------------------------
+function fileSha256(file) {
+  try {
+    return createHash("sha256").update(readFileSync(file)).digest("hex");
+  } catch {
+    return undefined;
+  }
+}
+
+function worktreeRoots() {
+  const output = tryGit(["worktree", "list", "--porcelain"]);
+  if (!output) return [];
+  return output
+    .split("\n")
+    .filter((line) => line.startsWith("worktree "))
+    .map((line) => line.slice("worktree ".length).trim());
+}
+
+/**
+ * Find Prettier only in a dependency tree produced from this exact lockfile.
+ *
+ * Isolated worktrees commonly junction a sibling node_modules tree. The push
+ * guard must work before that junction exists, but accepting an arbitrary
+ * sibling would let a stale Prettier version disagree with CI. Byte-identical
+ * lockfiles plus the installed package version make the fallback deterministic.
+ */
+export function findPrettierBin(projectRoot, candidateRoots) {
+  const lockPath = path.join(projectRoot, "package-lock.json");
+  const lockSha = fileSha256(lockPath);
+  let lockedVersion;
+  try {
+    lockedVersion = JSON.parse(readFileSync(lockPath, "utf8")).packages?.["node_modules/prettier"]?.version;
+  } catch {
+    return undefined;
+  }
+  if (!lockSha || !lockedVersion) return undefined;
+
+  const roots = [projectRoot, ...candidateRoots.filter((root) => path.resolve(root) !== path.resolve(projectRoot))];
+  for (const root of roots) {
+    if (fileSha256(path.join(root, "package-lock.json")) !== lockSha) continue;
+    const packageRoot = path.join(root, "node_modules", "prettier");
+    const prettierBin = path.join(packageRoot, "bin", "prettier.cjs");
+    if (!existsSync(prettierBin)) continue;
+    try {
+      if (JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf8")).version === lockedVersion) {
+        return prettierBin;
+      }
+    } catch {
+      // An incomplete candidate is not a usable dependency source.
+    }
+  }
+  return undefined;
+}
+
 function resolvePrettierBin() {
-  const require = createRequire(import.meta.url);
-  const pkgJson = require.resolve("prettier/package.json");
-  return path.join(path.dirname(pkgJson), "bin", "prettier.cjs");
+  const prettierBin = findPrettierBin(PROJECT_ROOT, worktreeRoots());
+  if (!prettierBin) {
+    throw new Error("no exact-lock worktree provides node_modules/prettier");
+  }
+  return prettierBin;
 }
 
 /**
@@ -278,13 +333,14 @@ function checkPushedCommit(prettierBin, sha, files) {
       if (mismatch) return { verdict: "error", detail: mismatch };
     }
     // A dynamic config may import plugins; without this it cannot load at all.
-    const modules = path.resolve("node_modules");
-    if (existsSync(modules)) {
-      try {
-        symlinkSync(modules, path.join(dir, "node_modules"), "dir");
-      } catch {
-        // Already present, or symlinks unavailable — prettier still loads static configs.
-      }
+    const modules = path.dirname(path.dirname(path.dirname(prettierBin)));
+    try {
+      symlinkSync(modules, path.join(dir, "node_modules"), process.platform === "win32" ? "junction" : "dir");
+    } catch (error) {
+      return {
+        verdict: "error",
+        detail: `could not link the exact-lock dependency tree into the formatting checkout: ${error instanceof Error ? error.message : String(error)}`,
+      };
     }
     const policyChanged = files.some((file) => isPrettierPolicyFile(file, sha));
     // Deleted paths are gone from the checkout, and prettier errors on a missing
@@ -360,16 +416,24 @@ function runPrettierCheck(prettierBin, cwd, args) {
   }
 }
 
-function formatGuard(changedBlobs) {
+export function formatGuard(changedBlobs, prettierResolver = resolvePrettierBin) {
   if (process.env.SKIP_FORMAT_GUARD === "1") {
     return { name: "format", ok: true, skipped: "SKIP_FORMAT_GUARD=1" };
   }
   if (changedBlobs.length === 0) return { name: "format", ok: true };
   let prettierBin;
   try {
-    prettierBin = resolvePrettierBin();
-  } catch {
-    return { name: "format", ok: true, note: "prettier not resolvable — format check skipped" };
+    prettierBin = prettierResolver();
+  } catch (error) {
+    return {
+      name: "format",
+      ok: false,
+      message:
+        `Prettier is unavailable for this exact lockfile, so formatting cannot be verified before push.\n` +
+        `  ${error instanceof Error ? error.message : String(error)}\n` +
+        `  Run \`npm ci --include=dev\` in this worktree, or make an exact-lock worktree dependency tree available.\n` +
+        `  To push anyway: SKIP_FORMAT_GUARD=1 git push`,
+    };
   }
 
   const bySha = new Map();
@@ -526,6 +590,11 @@ function selfTest() {
   const ranges = parsePushRanges(`refs/heads/x abc123 refs/heads/x ${ZERO_SHA}\n`);
   assert(ranges.length === 1 && ranges[0].remoteSha === ZERO_SHA, "new-branch range parsed");
   assert(parsePushRanges(`refs/heads/x ${ZERO_SHA} refs/heads/x abc\n`).length === 0, "deletion range skipped");
+
+  const missingPrettier = formatGuard([{ sha: "abc123", file: "README.md" }], () => {
+    throw new Error("missing fixture dependency");
+  });
+  assert(missingPrettier.ok === false, "missing Prettier fails the format guard closed");
 
   if (process.exitCode !== 1) console.error("[guard-push] self-test passed");
   return process.exitCode ?? 0;
