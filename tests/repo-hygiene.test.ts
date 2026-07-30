@@ -243,12 +243,29 @@ describe("shallowCloneRefusal", () => {
  * Codex raised this on PR #1392 after the shallow fix landed.
  */
 describe("branchCoverageRefusal", () => {
-  it("treats a wildcard refspec as covering every branch", () => {
+  it("treats a wildcard refspec into refs/remotes/origin as covering every branch", () => {
     expect(fetchRefspecCoversAllBranches("+refs/heads/*:refs/remotes/origin/*")).toBe(true);
-    // A mirror clone maps refs/* wholesale, which also covers every head.
-    expect(fetchRefspecCoversAllBranches("+refs/*:refs/*")).toBe(true);
     // Unprefixed (non-forced) wildcards are still wildcards.
     expect(fetchRefspecCoversAllBranches("refs/heads/*:refs/remotes/origin/*")).toBe(true);
+    // A refs/* source covers every head too, as long as it lands in refs/remotes/origin.
+    expect(fetchRefspecCoversAllBranches("+refs/*:refs/remotes/origin/*")).toBe(true);
+  });
+
+  it("rejects a wildcard whose destination is not refs/remotes/origin", () => {
+    /*
+     * The source says which refs are fetched; `<dst>` says which local ref is updated, and the
+     * sweep enumerates `refs/remotes/origin` and nothing else. An earlier revision of this test
+     * asserted that a mirror's `+refs/*:refs/*` counted as covered — mine, and wrong in the
+     * dangerous direction. Measured with `+refs/heads/*:refs/remotes/upstream/*`:
+     * `refs/remotes/upstream` held `upstream/main` and `upstream/feature` while
+     * `refs/remotes/origin` was empty and the sweep exited 0 with `"branches": []`.
+     * Codex raised this on PR #1398.
+     */
+    expect(fetchRefspecCoversAllBranches("+refs/*:refs/*")).toBe(false);
+    expect(fetchRefspecCoversAllBranches("+refs/heads/*:refs/remotes/upstream/*")).toBe(false);
+    expect(branchCoverageRefusal("+refs/*:refs/*", false)).not.toBe("");
+    // The sweep's own fetch writes into refs/remotes/origin explicitly, so it still repairs this.
+    expect(branchCoverageRefusal("+refs/*:refs/*", true)).toBe("");
   });
 
   it("rejects the single-branch refspec that `git clone --depth 1` leaves behind", () => {

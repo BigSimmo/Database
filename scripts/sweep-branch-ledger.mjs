@@ -146,9 +146,16 @@ export function shallowCloneRefusal(isShallowOutput) {
  * Whether `remote.origin.fetch` maps EVERY remote head into `refs/remotes/origin`.
  *
  * Takes the raw `git config --get-all remote.origin.fetch` output (one refspec per line).
- * A refspec whose source is `refs/heads/*` or `refs/*` covers every branch; a single-branch
- * refspec such as `+refs/heads/main:refs/remotes/origin/main` covers exactly one, and every
- * other branch is then invisible locally no matter how complete the history is.
+ * BOTH halves have to hold, because the sweep enumerates `refs/remotes/origin` and nothing else:
+ *
+ *   source `refs/heads/*` or `refs/*`  — otherwise only the named branch is fetched
+ *   destination `refs/remotes/origin/*` — otherwise the heads land somewhere this never reads
+ *
+ * Checking the source alone was wrong, and wrong in the dangerous direction. Git's `<dst>` decides
+ * which local ref is updated, so `+refs/*:refs/*` (a mirror) or `+refs/heads/*:refs/remotes/upstream/*`
+ * fetches every branch and leaves `refs/remotes/origin` empty. Measured with the upstream refspec
+ * above: `refs/remotes/upstream` held `upstream/main` and `upstream/feature` while the sweep exited
+ * **0** reporting `"branches": []`. Codex raised this on PR #1398.
  *
  * A `^`-prefixed NEGATIVE refspec excludes branches from an otherwise-wildcard config, so its
  * presence means coverage cannot be established from the config at all. Measured on git 2.43.0
@@ -164,8 +171,9 @@ export function fetchRefspecCoversAllBranches(configOutput) {
     .filter(Boolean);
   if (specs.some((spec) => spec.startsWith("^"))) return false;
   return specs.some((spec) => {
-    const source = spec.replace(/^\+/, "").split(":")[0];
-    return source === "refs/heads/*" || source === "refs/*";
+    const [source, destination] = spec.replace(/^\+/, "").split(":");
+    const coversEveryHead = source === "refs/heads/*" || source === "refs/*";
+    return coversEveryHead && destination === "refs/remotes/origin/*";
   });
 }
 
@@ -203,6 +211,8 @@ export function branchCoverageRefusal(configOutput, wildcardFetchCompleted) {
     "",
     "A ^-prefixed negative refspec has the same effect: it excludes branches from an",
     "otherwise-wildcard config, so the configured fetch cannot be shown to cover them.",
+    "So does a refspec whose destination is not refs/remotes/origin/* — a mirror",
+    "(+refs/*:refs/*) fetches every branch into refs/heads/*, which this never reads.",
     "",
     "Fix: git remote set-branches origin '*'",
     "     git fetch --prune origin",
