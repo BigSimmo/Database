@@ -71,8 +71,15 @@ const appModeHeaderRoutes = [
 const pageOwnedHeaderRoutes = [
   {
     name: "Therapy section navigation",
-    route: "/therapy-compass/search?q=CBT&run=1",
+    // Compare, not search: search moved to the shared `ModeNav`, so this route
+    // is where the original pill strip still ships.
+    route: "/therapy-compass/compare",
     selector: '[data-testid="therapy-compass-section-nav"]',
+  },
+  {
+    name: "Therapy mode navigation",
+    route: "/therapy-compass/search?q=CBT&run=1",
+    selector: '[data-testid="mode-nav"]',
   },
   {
     name: "document navigation",
@@ -1749,7 +1756,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
   await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
-  await expect(page.getByTestId("therapy-compass-section-nav")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("mode-nav")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("chrome-safe-area-top")).toBeVisible();
 
   const initial = await page.evaluate(() => {

@@ -248,28 +248,28 @@ test.describe("previously uncovered production routes", () => {
           currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
         ).toBeVisible();
         await expect(currentPage.getByTestId("search-query-ribbon")).toBeVisible();
-        const nav = currentPage.getByRole("navigation", { name: "Therapy sections" });
-        // Phone: section nav portals into the header collapse host (outside
-        // .tc-root). Read canvas colour from the workspace root still in the
-        // page, and prove the strip is anchored under the collapsing top bar.
+        // The common-search pill lands on `/therapy-compass/search`, which is the
+        // shared `ModeNav`. It portals into the header collapse host (outside
+        // .tc-root), so read the canvas colour from the workspace root still in
+        // the page, and prove the bar is anchored under the collapsing top bar.
+        const nav = currentPage.getByRole("navigation", { name: "Therapy pages" });
         const layout = await nav.evaluate((element) => {
-          const navRect = element.getBoundingClientRect();
-          const shellRect = element.parentElement?.getBoundingClientRect();
+          const bar = element.querySelector<HTMLElement>(".mode-nav__bar");
           const root = document.querySelector(".tc-root");
           return {
-            centerDelta: shellRect
-              ? navRect.left + navRect.width / 2 - (shellRect.left + shellRect.width / 2)
-              : Number.POSITIVE_INFINITY,
             backgroundColor: root ? getComputedStyle(root).backgroundColor : "",
             portaledIntoCollapse: Boolean(element.closest('[data-testid="universal-header-collapse"]')),
+            // The bar must never scroll sideways: a strip that hides
+            // destinations past its right edge is the defect this replaced.
+            inlineOverflow: bar ? bar.scrollWidth - bar.clientWidth : Number.POSITIVE_INFINITY,
           };
         });
-        expect(Math.abs(layout.centerDelta)).toBeLessThanOrEqual(1);
         // .tc-root is `background: var(--background)`, so this tracks the app's
         // page floor — #f1f4f8 since the Clinical Sky surface scale landed, not
         // the white it used to be.
         expect(layout.backgroundColor).toBe("rgb(241, 244, 248)");
         expect(layout.portaledIntoCollapse).toBe(true);
+        expect(layout.inlineOverflow).toBeLessThanOrEqual(1);
       },
     );
   });

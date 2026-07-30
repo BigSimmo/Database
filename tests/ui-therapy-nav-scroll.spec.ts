@@ -40,8 +40,12 @@ async function installTherapyFixtures(page: Page) {
   });
 }
 
-async function gotoTherapySearch(page: Page) {
-  await page.goto("/therapy-compass/search?q=CBT&run=1", { waitUntil: "domcontentloaded" });
+async function gotoTherapyCompare(page: Page) {
+  // Compare, not search: `/therapy-compass/search` moved to the shared `ModeNav`
+  // (see `mode-nav-bar-anchoring.spec.ts`). Every other Therapy route still ships
+  // the original pill strip, so this route keeps that strip's coverage alive
+  // until the rollout continues.
+  await page.goto("/therapy-compass/compare", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
   await page.addStyleTag({
     content: ":root{--safe-area-top:59px !important;--safe-area-bottom:34px !important;}",
@@ -57,7 +61,7 @@ test.beforeEach(async ({ page }) => {
 test("phone Therapy section nav hides and returns with the universal header", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  await gotoTherapySearch(page);
+  await gotoTherapyCompare(page);
 
   const collapseHost = page.getByTestId("universal-header-collapse");
   const sectionNav = page.getByTestId("therapy-compass-section-nav");

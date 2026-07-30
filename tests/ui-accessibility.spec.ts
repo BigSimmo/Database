@@ -525,7 +525,12 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
+    // The shared `ModeNav` routes with real hrefs, so the current page is a
+    // link with `aria-current`, not a button with an onClick. Deep links,
+    // middle-click, back and prefetch all work as a result.
+    await expect(
+      page.getByRole("navigation", { name: "Therapy pages" }).getByRole("link", { name: "Search", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
     const therapyRibbon = page.getByTestId("search-query-ribbon");
     await expect(therapyRibbon.getByRole("heading", { name: "All", level: 1 })).toBeVisible({ timeout: 60_000 });
     await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
