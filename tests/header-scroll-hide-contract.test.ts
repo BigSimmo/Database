@@ -22,6 +22,7 @@ const headerSource = read("src/components/clinical-dashboard/master-search-heade
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const reserveHookSource = read("src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts");
 const globalsSource = read("src/app/globals.css");
+const reserveSource = read("src/components/clinical-dashboard/mobile-composer-reserve.ts");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
 const dashboardCoordinatorSource = read("src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts");
 const activeScrollOwnerSource = read("src/components/clinical-dashboard/use-active-scroll-owner.ts");
@@ -105,7 +106,7 @@ describe("shared header hide/reveal wiring", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
     // the outer stack sticks while only the top-bar row collapses.
     expect(shellSource).toContain('strategy: "collapse"');
-    expect(shellSource).toContain('phoneMotion: "overlay"');
+    expect(shellSource).toContain('phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay"');
     expect(shellSource).toContain('wide: "sticky"');
     // ClinicalDashboard uses the document on browser phones and <main> in
     // standalone/sm+; both feed the same collapse reporter.
@@ -124,8 +125,11 @@ describe("shared header hide/reveal wiring", () => {
     // `chrome-safe-area-top` height transition handed layout back to the
     // scroller on every hide, so content slid under the animation. Do not
     // reintroduce a route-conditional collapse here.
-    expect(shellSource).toContain('phoneMotion: "overlay"');
+    // Overlay is the default; the exception is routes that portal page navigation
+    // into the collapse row, whose journeys assert in-flow collapse geometry.
+    expect(shellSource).toContain('phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay"');
     expect(shellSource).not.toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    expect(reserveSource).toContain("export function isCollapseMotionPhoneRoute");
     expect(dashboardSource).not.toContain("phoneMotion:");
     expect(headerSource).toContain("data-phone-motion={phoneMotion}");
     expect(headerSource).toContain("max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0");
@@ -139,6 +143,8 @@ describe("shared header hide/reveal wiring", () => {
     // overlay exists to remove.
     expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
     expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h)]");
+    // Reserve only where overlay is active.
+    expect(shellSource).toContain('!isCollapseMotionPhoneRoute(pathname) && "max-sm:pt-');
     expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
     // The property must be seeded in CSS and refined before paint. A passive
     // effect or a `,0px` fallback paints content under the out-of-flow header
