@@ -120,6 +120,7 @@ async function runRequestScript(options?: {
   files?: PullRequestFile[];
   filesError?: unknown;
   getAuthenticatedError?: unknown;
+  pullRequestHeadRepository?: string | null;
   pullRequestHeadSha?: string;
   pullRequestLabels?: Array<string | { name: string }>;
   review?: Partial<Review>;
@@ -187,7 +188,14 @@ async function runRequestScript(options?: {
       payload: {
         review,
         pull_request: {
-          head: { ref: "feature/codex-fix", sha: options?.pullRequestHeadSha ?? "head-sha-4" },
+          head: {
+            ref: "feature/codex-fix",
+            repo:
+              options?.pullRequestHeadRepository === null
+                ? null
+                : { full_name: options?.pullRequestHeadRepository ?? "clinical-kb/database" },
+            sha: options?.pullRequestHeadSha ?? "head-sha-4",
+          },
           labels: options?.pullRequestLabels ?? [],
           number: 42,
           state: "open",
@@ -657,6 +665,24 @@ describe("Codex auto-resolve request script", () => {
       "<!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->",
     );
     expect(result.createdComments[0]?.body).toContain("do not perform a fresh review");
+  });
+
+  it("routes a fork repair to the pull request head repository", async () => {
+    const result = await runRequestScript({
+      pullRequestHeadRepository: "external/contributor-repo",
+    });
+
+    expect(result.failures).toHaveLength(0);
+    expect(result.createdComments).toHaveLength(1);
+    expect(result.createdComments[0]?.body).toContain("external/contributor-repo:feature/codex-fix");
+    expect(result.createdComments[0]?.body).not.toContain("clinical-kb/database:feature/codex-fix");
+  });
+
+  it("fails closed when the pull request head repository is unavailable", async () => {
+    const result = await runRequestScript({ pullRequestHeadRepository: null });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.failures).toContainEqual(expect.stringContaining("cannot identify the pull request head repository"));
   });
 
   it("fails visibly when it cannot identify the trigger-token account", async () => {

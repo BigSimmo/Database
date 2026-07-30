@@ -55,6 +55,7 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
             NEXT_PUBLIC_MAX_UPLOAD_MB=
+            MAX_UPLOAD_MB=
             ALLOW_LOW_RAM_BUILD=1
 
   worker-image:
