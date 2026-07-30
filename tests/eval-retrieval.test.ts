@@ -82,7 +82,10 @@ describe("golden retrieval eval helpers", () => {
     });
 
     expect(evaluated.searchTotalLatencyMs).toBe(321);
-    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({ query_classification: 12, metadata_and_memory_hydration: 34 });
+    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({
+      query_classification: 12,
+      metadata_and_memory_hydration: 34,
+    });
   });
 
   it("scores ideal graded signal ranking, coverage, and irrelevant sources", () => {
