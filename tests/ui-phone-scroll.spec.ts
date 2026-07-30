@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { phoneHeaderCollapseAddonSlotId } from "../src/lib/mode-home-composer";
 import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
 import { expectSingleSettledOwner } from "./playwright-settlement";
 
@@ -196,7 +197,14 @@ async function addPhoneScrollRunway(page: Page) {
     filler.style.pointerEvents = "none";
     main.append(filler);
   });
-  await page.waitForTimeout(50);
+  // Wait for the runway to exist rather than for 50ms to pass. The sleep was a bet
+  // that layout lands within 50ms of the append; on a loaded CI runner it does not
+  // have to, and the caller then drags against a scroll range that is still short.
+  await expect
+    .poll(async () => (await readGeometry(page)).maxOffset, {
+      message: "the appended 1600px runway must reach layout before the caller scrolls against it",
+    })
+    .toBeGreaterThanOrEqual(minimumHideTravelPx);
 }
 
 interface ScrollGeometry {
@@ -267,27 +275,162 @@ function readFlipCount(page: Page): Promise<number> {
  * Drags whichever phone scroller is active in deliberate steps (one per
  * frame) so the scroll state machine sees real directional intent. Browser
  * tabs move the document; installed/bounded layouts can still move main.
+ *
+ * Returns the distance actually travelled. `scrollTop +=` clamps silently at
+ * either end of the range, so the requested distance is a ceiling, not a
+ * promise — callers that need the drag to cross a threshold must check it
+ * (see `dragScrollUntilHidden`).
  */
-async function dragScrollBy(page: Page, totalPx: number, stepPx: number) {
-  await page.evaluate(
+async function dragScrollBy(page: Page, totalPx: number, stepPx: number): Promise<number> {
+  return page.evaluate(
     async ({ total, step }) => {
-      const main = document.getElementById("main-content");
-      if (!main) return;
-      const mainOverflowY = getComputedStyle(main).overflowY;
-      const mainOwnsScroll =
-        /^(?:auto|scroll|overlay)$/.test(mainOverflowY) && main.scrollHeight > main.clientHeight + 1;
-      const documentScroller = document.scrollingElement ?? document.documentElement;
-      const scrollOwner = mainOwnsScroll ? main : documentScroller;
+      // Re-resolved every step: releasing the chrome changes the runway mid-drag
+      // and can hand ownership between main and the document. Resolving once up
+      // front, as this helper used to, keeps pushing an element that has stopped
+      // scrolling and reports nothing unusual when it does.
+      const resolveOwner = () => {
+        const main = document.getElementById("main-content");
+        const mainOverflowY = main ? getComputedStyle(main).overflowY : "";
+        const mainOwnsScroll = Boolean(
+          main && /^(?:auto|scroll|overlay)$/.test(mainOverflowY) && main.scrollHeight > main.clientHeight + 1,
+        );
+        const documentScroller = document.scrollingElement ?? document.documentElement;
+        return {
+          element: mainOwnsScroll && main ? main : documentScroller,
+          eventTarget: mainOwnsScroll && main ? (main as EventTarget) : (window as EventTarget),
+        };
+      };
+      if (!document.getElementById("main-content")) return 0;
       const steps = Math.max(1, Math.ceil(Math.abs(total) / step));
       const direction = total < 0 ? -1 : 1;
+      let travelled = 0;
       for (let i = 0; i < steps; i += 1) {
-        scrollOwner.scrollTop += direction * step;
-        (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
+        const { element, eventTarget } = resolveOwner();
+        const before = element.scrollTop;
+        element.scrollTop += direction * step;
+        travelled += element.scrollTop - before;
+        eventTarget.dispatchEvent(new Event("scroll", { bubbles: true }));
         await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
       }
+      return travelled;
     },
     { total: totalPx, step: stepPx },
   );
+}
+
+/**
+ * Minimum downward travel that can legitimately hide the phone chrome. The
+ * document-detail contract below asserts `scrollTop > 120` in the hidden state,
+ * so a drag that delivers less than this cannot hide anything and the chrome is
+ * right to stay visible.
+ */
+const minimumHideTravelPx = 160;
+
+/**
+ * Drags down to cross the scroll-hide threshold, and proves the page had the
+ * runway and that the gesture actually travelled.
+ *
+ * This is a DIAGNOSTIC AND A GUARD, NOT A FIX for the `#127` flake. That issue —
+ * "document-detail hide sticks visible under CI load" — carries trace evidence
+ * from PR #1404 (run `30521269873`) that on its occurrence the drag delivered in
+ * full (`documentElement.scrollTop` = 1272, exactly the 552 + 720 asked for) with
+ * ~1300 px of runway to spare, and that a 10 s non-flip is a latched state rather
+ * than a race. So under-delivery was NOT the cause there, and this helper would
+ * have passed its checks and failed on the same assertion.
+ *
+ * What it does buy: `scrollTop +=` clamps silently, and the old helper returned
+ * nothing, so "the drag was short" could never be ruled out from a CI log alone.
+ * Now it is ruled out by construction — a future failure here proves the gesture
+ * landed, which narrows `#127` to its remaining candidates (`scrollHidden` false
+ * vs `sharedChromePinned` latched). Separating THOSE two still needs the pin
+ * state exposed in the DOM; today only the composite `data-scroll-hidden`
+ * (`scrollHidden && !sharedChromePinned`) is observable, so both look identical.
+ *
+ * The call-site assertions are untouched: a genuinely stuck header fails exactly
+ * as before, once the drag is proven to have happened.
+ */
+async function dragScrollUntilHidden(page: Page, totalPx: number, stepPx: number) {
+  await expect
+    .poll(
+      async () => {
+        const geometry = await readGeometry(page);
+        return geometry.maxOffset - geometry.scrollTop;
+      },
+      { message: "the page must have enough remaining downward runway to cross the scroll-hide threshold" },
+    )
+    .toBeGreaterThanOrEqual(minimumHideTravelPx);
+  const travelled = await dragScrollBy(page, totalPx, stepPx);
+  expect(
+    travelled,
+    `a ${totalPx}px drag delivered only ${travelled}px, so the chrome was never asked to hide`,
+  ).toBeGreaterThanOrEqual(minimumHideTravelPx);
+}
+
+/**
+ * Asserts the phone chrome hid, and on failure says whether the header's own scroll
+ * signal arrived or a pin swallowed it.
+ *
+ * `dragScrollUntilHidden` above already proves the gesture happened, so what is left is
+ * the split its doc comment names as unobservable: `data-scroll-hidden` is the composite
+ * `scrollHidden && !sharedChromePinned`, so a reporter that never fired and a latched pin
+ * look identical. `data-scroll-signal` on the same element publishes the raw `scrollHidden`
+ * before the pin is applied, which separates them.
+ *
+ * Note the header and DocumentViewer run SEPARATE reporters — the shell's
+ * `chromeScrollHide` (global-search-shell.tsx) versus
+ * use-document-viewer-chrome-scroll.ts — so the page-owned composer is never a proxy for
+ * the header's state. It is reported only as context, and a divergence between the two is
+ * itself a finding.
+ */
+async function expectChromeHidden(page: Page, collapse: Locator, phase: string) {
+  try {
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true", { timeout: 10_000 });
+    return;
+  } catch (error) {
+    const state = await page.evaluate((addonSlotId) => {
+      const attribute = (selector: string, name: string) =>
+        document.querySelector(selector)?.getAttribute(name) ?? null;
+      const describe = (element: Element | null) => {
+        if (!element) return "none";
+        const testId = element.getAttribute("data-testid");
+        return `${element.tagName.toLowerCase()}${testId ? `[data-testid="${testId}"]` : ""}`;
+      };
+      const active = document.activeElement;
+      const addonHost = document.getElementById(addonSlotId);
+      const collapseSelector = '[data-testid="universal-header-collapse"]';
+      return {
+        headerScrollSignal: attribute(collapseSelector, "data-scroll-signal"),
+        headerCollapse: attribute(collapseSelector, "data-scroll-hidden"),
+        documentComposer: attribute("form.document-viewer-composer", "data-scroll-hidden"),
+        documentContent: attribute('[data-testid="document-viewer-content"]', "data-scroll-hidden"),
+        activeElement: describe(active),
+        focusInsideAddonHost: Boolean(addonHost && active && addonHost.contains(active)),
+        addonHostPresent: Boolean(addonHost),
+        expandedMenuTrigger: document.querySelector('[aria-haspopup="menu"][aria-expanded="true"]') !== null,
+        expandedCombobox: document.querySelector('[role="combobox"][aria-expanded="true"]') !== null,
+        scopePopover: document.querySelector('[data-testid="scope-command-popover"]') !== null,
+        openDialogs: document.querySelectorAll('[role="dialog"]').length,
+        openMenus: document.querySelectorAll('[role="menu"]').length,
+      };
+    }, phoneHeaderCollapseAddonSlotId);
+
+    const documentViewerHidden = state.documentComposer === "true" || state.documentContent === "true";
+    const verdict =
+      state.headerScrollSignal === "hidden"
+        ? "the header's own scrollHidden is TRUE, so sharedChromePinned swallowed it — see the pin tells below"
+        : state.headerScrollSignal === "visible"
+          ? `the header's own scrollHidden is FALSE — the shell reporter never saw the proven gesture${
+              documentViewerHidden
+                ? ", while DocumentViewer's independent reporters DID: the two scroll feeds diverged"
+                : ""
+            }`
+          : "data-scroll-signal is absent, so the two causes cannot be separated";
+
+    throw new Error(
+      `${phase}: the phone chrome never hid.\n${verdict}\nchrome state: ${JSON.stringify(state, null, 2)}\n\n` +
+        `Original assertion failure:\n${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 interface PageOwnedFooterGeometry {
@@ -482,8 +625,8 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     );
     await sectionTrigger.evaluate((element) => element.blur());
 
-    await dragScrollBy(page, 720, 24);
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await dragScrollUntilHidden(page, 720, 24);
+    await expectChromeHidden(page, collapse, "first hide with motion enabled");
     await expect(overlayStack).toHaveAttribute("data-scroll-hidden", "true");
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
 
@@ -582,8 +725,8 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await dragScrollBy(page, -480, 16);
     await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
-    await dragScrollBy(page, 720, 24);
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await dragScrollUntilHidden(page, 720, 24);
+    await expectChromeHidden(page, collapse, "reduced-motion hide after the section-sheet round-trip");
     const reducedHidden = await readPrimaryScrollAndDomGeometry(page, {
       stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
       content: '[data-testid="document-viewer-content"]',
@@ -647,7 +790,7 @@ test("compiled standalone PWA rules bind full-height footer chrome to the inner 
   expect(initial.footerBackdropPosition, "the PWA footer scrim must share its shell-owned edge").toBe("absolute");
   expect(initial.documentRunway, "the PWA document must stay bounded while main owns scrolling").toBeLessThanOrEqual(1);
 
-  await dragScrollBy(page, 720, 24);
+  await dragScrollUntilHidden(page, 720, 24);
   await expect(page.getByTestId("universal-header-collapse")).toHaveAttribute("data-scroll-hidden", "true");
   await expect(page.locator("form.answer-footer-search-dock")).toHaveAttribute("data-scroll-hidden", "true");
   const hidden = await page.evaluate(() => ({
@@ -1170,7 +1313,7 @@ test("calculator dock clears its focus pin after a focused submit opens and clos
   await expect(input).not.toBeFocused();
 
   await addPhoneScrollRunway(page);
-  await dragScrollBy(page, 900, 24);
+  await dragScrollUntilHidden(page, 900, 24);
   await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
 });
 
