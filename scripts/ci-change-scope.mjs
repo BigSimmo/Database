@@ -245,7 +245,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   // change. Narrower signals still scope build/UI/database work, but must not
   // leave runtime, worker, or configuration changes without unit coverage.
   const coverageChanged = normalized.some(
-    (file) => !pathMatches(file, docPatterns) && !pathMatches(file, [".github/workflows", ".github/actions"]),
+    (file) => !pathMatches(file, docPatterns) && !pathMatches(file, [".github/workflows"]),
   );
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
   const advisoryUiChanged =
@@ -545,8 +545,8 @@ function selfTest() {
     coverage_changed: false,
     workflow_changed: true,
   });
-  assertScope("composite-action-only-skips-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
-    coverage_changed: false,
+  assertScope("composite-action-only-keeps-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
+    coverage_changed: true,
     workflow_changed: true,
   });
   assertScope("runtime-config-keeps-coverage", ["lighthouse-budget.json"], {
