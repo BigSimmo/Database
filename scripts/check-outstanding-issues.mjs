@@ -33,6 +33,7 @@ export const ISSUES_PATH = "docs/outstanding-issues.md";
 const OPEN_HEADING = "## Open items";
 const ARCHIVE_HEADING = "## Resolved / archive";
 const MARKER = /<!--\s*issues:next-id=(\d+)\s*-->/;
+const PRETTIER_IGNORE = "<!-- prettier-ignore -->";
 /**
  * An id cell's shape, e.g. `#042`. Used to READ the number, never to decide
  * whether a line is a row.
@@ -70,6 +71,10 @@ function cells(line) {
     .replace(/(?<!\\)\|\s*$/, "")
     .split(/(?<!\\)\|/)
     .map((cell) => cell.trim());
+}
+
+function canonicalTableRow(line) {
+  return `| ${cells(line).join(" | ")} |`;
 }
 
 /**
@@ -224,9 +229,33 @@ export function parseIssues(markdown) {
   };
 }
 
-export function checkIssues(markdown) {
+export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   const problems = [];
   const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount } = parseIssues(markdown);
+  const lines = markdown.split("\n");
+
+  // Prettier pads every Markdown table cell to the widest value in its column.
+  // In this long-lived ledger, changing one cell would then rewrite hundreds
+  // of unrelated rows and make concurrent merges needlessly conflict.
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^\|.*\|\s*$/.test(line) && line !== canonicalTableRow(line)) {
+      problems.push(
+        `line ${index + 1} is not a compact canonical table row — use one space around each cell delimiter`,
+      );
+    }
+    if (
+      !prettierIgnored &&
+      /^\|/.test(line) &&
+      SEPARATOR.test(lines[index + 1] ?? "") &&
+      lines[index - 1]?.trim() !== PRETTIER_IGNORE
+    ) {
+      problems.push(
+        `line ${index + 1} starts a table without ${PRETTIER_IGNORE} immediately above it — ` +
+          "formatting would re-pad every row and amplify merge conflicts",
+      );
+    }
+  }
 
   if (openStart < 0) problems.push(`missing the "${OPEN_HEADING}" heading`);
   if (archiveStart < 0) problems.push(`missing the "${ARCHIVE_HEADING}" heading`);
@@ -338,6 +367,10 @@ export function checkIssues(markdown) {
   return problems;
 }
 
+export function prettierIgnoreCoversIssues(prettierIgnore) {
+  return prettierIgnore.split(/\r?\n/).some((line) => line.trim() === ISSUES_PATH);
+}
+
 /**
  * IDs that existed at the comparison base but disappeared from the current
  * ledger entirely. Moving a row from open to archive keeps its allocation and
@@ -396,17 +429,26 @@ function readIssuesAtRevision(ref) {
 function selfTest() {
   const good = [
     "<!-- issues:next-id=3 -->",
+    "## Recommended execution queue",
+    PRETTIER_IGNORE,
+    "| Rank | ID |",
+    "| --- | --- |",
+    "| 1 | #001 |",
     "## Open items",
+    PRETTIER_IGNORE,
     "| ID | Pri | Summary |",
     "| --- | --- | --- |",
     "| #001 | P2 | a |",
     "## Resolved / archive",
+    PRETTIER_IGNORE,
     "| ID | Summary |",
     "| --- | --- |",
     "| #002 | b |",
   ].join("\n");
   const cases = [
     ["a well-formed file", good, 0],
+    ["a table without a scoped prettier ignore", good.replace(`${PRETTIER_IGNORE}\n| Rank | ID |`, "| Rank | ID |"), 1],
+    ["a padded table row", good.replace("| #001 | P2 | a |", "| #001 | P2      | a |"), 1],
     ["a duplicated id", good.replace("| #002 | b |", "| #001 | b |"), 2], // duplicate + both-tables
     ["an id at the marker", good.replace("next-id=3", "next-id=2"), 1],
     ["a row with a stray pipe", good.replace("| #001 | P2 | a |", "| #001 | P2 | a | b |"), 1],
@@ -458,6 +500,19 @@ function selfTest() {
       console.error(`self-test FAILED: ${name} — expected ${expected} problem(s), got ${problems.length}`);
       for (const problem of problems) console.error(`  - ${problem}`);
     }
+  }
+  const fileWideIgnoreProblems = checkIssues(good.replaceAll(`${PRETTIER_IGNORE}\n`, ""), {
+    prettierIgnored: true,
+  });
+  if (fileWideIgnoreProblems.length !== 0) {
+    failures += 1;
+    console.error(
+      `self-test FAILED: a file-wide prettier ignore replaces scoped table comments — expected 0 problems, got ${fileWideIgnoreProblems.length}`,
+    );
+  }
+  if (!prettierIgnoreCoversIssues(`# ledger files\n${ISSUES_PATH}\n`) || prettierIgnoreCoversIssues("docs/*.md\n")) {
+    failures += 1;
+    console.error("self-test FAILED: file-wide prettier-ignore detection must require the exact ledger path");
   }
   if (failures > 0) process.exit(1);
 
@@ -526,7 +581,13 @@ function main() {
     return;
   }
   const markdown = readFileSync(ISSUES_PATH, "utf8");
-  const problems = checkIssues(markdown);
+  let prettierIgnored = false;
+  try {
+    prettierIgnored = prettierIgnoreCoversIssues(readFileSync(".prettierignore", "utf8"));
+  } catch {
+    // Without a file-wide ignore, each table must carry its own scoped comment.
+  }
+  const problems = checkIssues(markdown, { prettierIgnored });
   const base = issueBaseRevision();
   let checkedBase = null;
   if (base) {
