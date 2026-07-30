@@ -88,7 +88,11 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   await page.setViewportSize({ ...target.viewport });
   await page.goto(target.route, { waitUntil: "domcontentloaded" });
 
-  const region = page.locator(target.selector).first();
+  // `:visible` rather than a bare `.first()`. Under ledger #093 the stream can
+  // leave a hidden duplicate page root BEFORE the visible one, so `.first()` would
+  // pin the assertion and the screenshot to the hidden clone — the exact artifact
+  // this suite avoids by clipping instead of capturing fullPage.
+  const region = page.locator(`${target.selector}:visible`).first();
   await expect(region).toBeVisible({ timeout: 20_000 });
   // Web fonts swapping in after the capture is the most common source of a
   // one-pixel-everywhere diff, so wait for them explicitly rather than sleeping.

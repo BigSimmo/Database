@@ -35,7 +35,13 @@ import { childProcessExitCode, childProcessFailureSummary } from "./child-proces
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import { loadBudget } from "./check-lighthouse-budget.mjs";
-import { circularProjectPortRange, isReservedDevPort, stableProjectPort } from "../src/lib/local-server-utils.mjs";
+import {
+  appName,
+  circularProjectPortRange,
+  isReservedDevPort,
+  localProjectId,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
@@ -96,6 +102,20 @@ function get(url) {
   });
 }
 
+/** Whether /api/local-project-id identifies THIS project on a safe local origin. */
+function isThisProject(body) {
+  try {
+    const payload = JSON.parse(body);
+    return (
+      payload.appName === appName &&
+      payload.projectId === localProjectId(projectRoot) &&
+      payload.localServer?.safeLocalOrigin === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function waitForServer(baseUrl, server) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     if (server.exitCode !== null || server.signalCode) {
@@ -104,7 +124,11 @@ async function waitForServer(baseUrl, server) {
     // Same identity check the rest of the repo's tooling uses, so this can never
     // attach to another project's server on a shared machine.
     const body = await get(`${baseUrl}/api/local-project-id`);
-    if (body) return;
+    // A 200 with any body is not proof this is our app: another service could have
+    // taken the port between the availability probe and Next binding it, and
+    // Lighthouse would then measure the wrong application. Verify identity the way
+    // scripts/playwright-base-url.ts does before accepting readiness.
+    if (body && isThisProject(body)) return;
     await new Promise((resolve) => setTimeout(resolve, 1_000));
   }
   throw new Error(`Timed out waiting for the Lighthouse-owned server at ${baseUrl}.`);
@@ -178,6 +202,10 @@ try {
   const port = await findFreePort(stableProjectPort(projectRoot));
   const baseUrl = `http://localhost:${port}`;
   mkdirSync(absoluteRunRoot, { recursive: true });
+  // Clear any reports retained by a previous --keep run. Otherwise a route that
+  // fails to measure this time leaves the stale file in place, and the grader would
+  // treat the evidence as complete — or bake it into a refreshed baseline.
+  rmSync(reportDirectory, { recursive: true, force: true });
   mkdirSync(reportDirectory, { recursive: true });
   // The isolated build needs its own tsconfig for the same reason the Playwright
   // runner writes one: `@/*` must still resolve from the repository root while the
@@ -259,7 +287,15 @@ try {
 
   if (failures.length > 0) console.log(`::warning::lighthouse failed for ${failures.join(", ")}`);
 
-  const gradeArgs = ["--dir", path.relative(projectRoot, reportDirectory), ...(update ? ["--update"] : [])];
+  // --require-reports: this runner OWNS the directory and has just tried to measure
+  // every route, so an empty directory means every Lighthouse invocation failed (e.g.
+  // Chrome could not launch). That must fail rather than grade as success.
+  const gradeArgs = [
+    "--dir",
+    path.relative(projectRoot, reportDirectory),
+    "--require-reports",
+    ...(update ? ["--update"] : []),
+  ];
   const grade = spawnSync(
     process.execPath,
     [path.join(projectRoot, "scripts", "check-lighthouse-budget.mjs"), ...gradeArgs],

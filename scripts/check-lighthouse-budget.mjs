@@ -24,7 +24,8 @@
  * Refresh the baseline from an intentional, known-good run:
  *   npm run check:lighthouse-budget -- --update
  *
- * Flags: --update, --json, --dir <path>.
+ * Flags: --update, --json, --dir <path>, --require-reports (an empty directory is a
+ * failure, not a no-op — used by run-lighthouse-budget.mjs, which owns the reports).
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -227,6 +228,7 @@ export function readReports(directory) {
 function main() {
   const argv = process.argv.slice(2);
   const update = argv.includes("--update");
+  const requireReports = argv.includes("--require-reports");
   const asJson = argv.includes("--json");
   const dirIndex = argv.indexOf("--dir");
   const directory = path.resolve(root, dirIndex >= 0 ? (argv[dirIndex + 1] ?? "lighthouse") : "lighthouse");
@@ -235,12 +237,24 @@ function main() {
   const rows = readReports(directory);
 
   if (rows.length === 0) {
-    // Mirrors check:bundle-budget: a run that produced no reports at all did not
-    // measure anything, so it cannot be a verdict either way. Say so and exit 0
-    // rather than failing a job that simply did not build.
-    console.log(
-      `check:lighthouse-budget: no Lighthouse reports in ${path.relative(root, directory)} — nothing to grade.`,
-    );
+    // Two situations share this branch, and conflating them is how a gate reports
+    // success having measured nothing.
+    //
+    // Standalone (`npm run check:lighthouse-budget`): mirrors check:bundle-budget —
+    // no reports means no build happened, which is not a verdict either way, so say
+    // so and exit 0 rather than failing a run that simply did not build.
+    //
+    // With --require-reports (how run-lighthouse-budget.mjs always calls it): the
+    // caller owns the directory and has just attempted every route, so empty means
+    // every Lighthouse invocation failed. That is the fail-closed case.
+    const relative = path.relative(root, directory);
+    if (requireReports) {
+      console.error(
+        `::error::check:lighthouse-budget: no Lighthouse reports in ${relative} — every measurement failed, so nothing was graded.`,
+      );
+      process.exit(1);
+    }
+    console.log(`check:lighthouse-budget: no Lighthouse reports in ${relative} — nothing to grade.`);
     return;
   }
 
