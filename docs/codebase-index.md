@@ -32,6 +32,18 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | `public/`   | Static assets (`public/llms.txt`)                                |
 | `.github/`  | CI workflows, PR template (clinical governance preflight)        |
 
+Smaller top-level directories that are easy to miss:
+
+| Path            | Purpose                                                                                                                                                                                                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/`         | Committed clinical **snapshot exports** loaded at runtime by `src/lib/` (differentials, forms, medications, services, specifiers). Regenerate via the matching `scripts/import-*-export.ts` / `build-*-index.mjs`; do not hand-edit. Distinct from `src/data/`, which holds hand-authored static content. |
+| `eslint-rules/` | Repo-specific lint rules enforced by `npm run lint` (button wiring, hardcoded hex, type/icon scale, z-index ladder)                                                                                                                                                                                       |
+| `mockups/`      | Notes for the design-scratch routes under `src/app/mockups/` (the routes themselves 404 in production)                                                                                                                                                                                                    |
+| `plugins/`      | `plugins/clinical-kb/` Codex plugin manifest and workflow skill                                                                                                                                                                                                                                           |
+| `.agents/`      | Single-word skill catalogue (`npm run skills`, validated by `npm run check:skills`)                                                                                                                                                                                                                       |
+| `.claude/`      | Claude Code agents, skills, hooks, settings — plus the `.claude/worktrees/` working copies                                                                                                                                                                                                                |
+| `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (format, auto-merge race, drift staleness)                                                                                                                                                                                           |
+
 **Do not commit:** `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
 ---
