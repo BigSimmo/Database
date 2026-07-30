@@ -104,7 +104,11 @@ export function mergeLedgerMarkdown(ours, theirs) {
   return { markdown, recordCount: records.length };
 }
 
-/** UTC calendar-quarter start (YYYY-MM-DD) for a Date or YYYY-MM-DD string. */
+/**
+ * UTC calendar-quarter start (YYYY-MM-DD) for a Date or YYYY-MM-DD string.
+ * @param {string | Date} [value]
+ * @returns {string}
+ */
 export function calendarQuarterStart(value = new Date()) {
   const date =
     typeof value === "string"
@@ -114,7 +118,11 @@ export function calendarQuarterStart(value = new Date()) {
   return `${date.getUTCFullYear()}-${String(quarterMonth + 1).padStart(2, "0")}-01`;
 }
 
-/** Archive slug for a YYYY-MM-DD date, e.g. 2026-07-15 → `2026-q3`. */
+/**
+ * Archive slug for a YYYY-MM-DD date, e.g. 2026-07-15 → `2026-q3`.
+ * @param {string} dateStr
+ * @returns {string}
+ */
 export function archiveQuarterLabel(dateStr) {
   const [year, month] = dateStr.slice(0, 10).split("-").map(Number);
   const quarter = Math.floor((month - 1) / 3) + 1;
@@ -175,6 +183,8 @@ function archivePreamble(label) {
 /**
  * Move live dated records with date < before into quarterly archive files.
  * Returns counts; does not delete unique review content.
+ * @param {string} liveMarkdown
+ * @param {{ before: string, existingArchives?: Map<string, string> }} [options]
  */
 export function rotateLedgerMarkdown(liveMarkdown, { before, existingArchives = new Map() } = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(before)) {
