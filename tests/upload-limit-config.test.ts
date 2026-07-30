@@ -15,6 +15,21 @@ describe("upload limit configuration", () => {
     expect(buildScript.indexOf("check:upload-limits")).toBeLessThan(buildScript.indexOf("next build"));
   });
 
+  it("passes matching server and browser limits into the Docker build guard", () => {
+    const dockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+    const dockerWorkflow = readFileSync(new URL("../.github/workflows/docker-image.yml", import.meta.url), "utf8");
+    const buildStage = dockerfile.slice(dockerfile.indexOf("FROM node:24-bookworm-slim AS build"));
+    const buildCommandIndex = buildStage.indexOf("RUN npm run build");
+    expect(buildStage.indexOf("ARG MAX_UPLOAD_MB=")).toBeLessThan(buildCommandIndex);
+    expect(buildStage.indexOf("ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}")).toBeLessThan(buildCommandIndex);
+    expect(buildStage.indexOf("ARG NEXT_PUBLIC_MAX_UPLOAD_MB=")).toBeLessThan(buildCommandIndex);
+    expect(buildStage.indexOf("ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}")).toBeLessThan(
+      buildCommandIndex,
+    );
+    expect(dockerWorkflow).toMatch(/^\s+MAX_UPLOAD_MB=50$/m);
+    expect(dockerWorkflow).toMatch(/^\s+NEXT_PUBLIC_MAX_UPLOAD_MB=50$/m);
+  });
+
   it("uses the matching 150 MB defaults when neither value is configured", () => {
     expect(inspectUploadLimitConfiguration()).toEqual({
       ok: true,
