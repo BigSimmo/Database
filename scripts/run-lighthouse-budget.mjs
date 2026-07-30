@@ -65,6 +65,40 @@ const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
 const relativeDistDir = `${relativeRunRoot}/dist`;
 const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
 
+/**
+ * Refuse to recursively delete anything but a runner-owned reports directory.
+ *
+ * `--dir` is documented and user-supplied, and `path.resolve` happily accepts `.`,
+ * `..` or an absolute path — so the report-clearing step below would erase the
+ * repository or unrelated files on a typo. This is the last check before an
+ * irreversible delete, so it fails closed: inside the repository, not the root
+ * itself, and never inside a tracked source tree.
+ */
+const PROTECTED_TOP_LEVEL = new Set([
+  ".git",
+  ".github",
+  "docs",
+  "node_modules",
+  "public",
+  "scripts",
+  "src",
+  "supabase",
+  "tests",
+  "worker",
+]);
+
+function assertOwnedReportDirectory(directory) {
+  const relative = path.relative(projectRoot, directory);
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`--dir must name a directory inside the repository, not ${directory}.`);
+  }
+  const [top] = relative.split(path.sep);
+  if (PROTECTED_TOP_LEVEL.has(top)) {
+    throw new Error(`--dir must not point inside ${top}/ — refusing to clear it. Got ${relative}.`);
+  }
+  return relative;
+}
+
 /** Filename-safe slug, matching scripts/summarise-web-vitals.mjs `routeSlug`. */
 function slugFor(route) {
   return route.replace(/^\//, "").replaceAll("/", "-") || "root";
@@ -202,6 +236,8 @@ try {
   const port = await findFreePort(stableProjectPort(projectRoot));
   const baseUrl = `http://localhost:${port}`;
   mkdirSync(absoluteRunRoot, { recursive: true });
+  // Validated before the recursive delete, never after.
+  assertOwnedReportDirectory(reportDirectory);
   // Clear any reports retained by a previous --keep run. Otherwise a route that
   // fails to measure this time leaves the stale file in place, and the grader would
   // treat the evidence as complete — or bake it into a refreshed baseline.

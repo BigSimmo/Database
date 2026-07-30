@@ -35,10 +35,13 @@ export default defineConfig({
   // cross-platform run a false diff. A platform with no committed baseline fails
   // loudly ("snapshot doesn't exist") instead of quietly passing.
   snapshotPathTemplate: "{testDir}/__screenshots__/{platform}/{arg}{ext}",
-  // A pixel diff is worth one retry: a genuine appearance change reproduces, while
-  // a single-frame paint race does not. Retrying is cheaper than quarantining, and
-  // the required UI gate still runs with zero retries.
-  retries: process.env.CI ? 1 : 0,
+  // Zero retries, matching the repository's "blocking tests run with zero retries"
+  // policy — and here it is load-bearing rather than conventional. On a missing
+  // baseline Playwright WRITES the golden and fails the first attempt; a retry then
+  // compares against that freshly-written file and can pass. That would let a new
+  // target or a new platform report green with no committed, reviewed baseline,
+  // which is the exact opposite of the fail-loud contract this suite documents.
+  retries: 0,
   forbidOnly: !!process.env.CI,
   fullyParallel: false,
   workers: 1,
