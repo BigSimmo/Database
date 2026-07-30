@@ -245,7 +245,16 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await expect(page.getByTestId("document-section-sheet")).toHaveCount(0);
     await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
     await expect(sectionTrigger).toBeFocused();
-    await sectionTrigger.evaluate((element) => element.blur());
+    // Move focus into the reader instead of blurring to <body>. Sheet focus
+    // restoration intentionally retries after 50 ms when focus fell through
+    // to <body>; a bare blur races that retry in production builds and can
+    // re-pin the header after this assertion has already continued.
+    await content.evaluate((element) => {
+      element.tabIndex = -1;
+      element.focus({ preventScroll: true });
+    });
+    await expect(content).toBeFocused();
+    await expect(sectionTrigger).not.toBeFocused();
 
     // Reduced motion removes the transition but retains the out-of-flow
     // geometry. Prove another hide/reveal cycle cannot displace the reader.
