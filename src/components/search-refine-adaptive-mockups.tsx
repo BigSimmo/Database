@@ -164,10 +164,17 @@ function ResultCount({
   return (
     <span className="flex min-w-0 shrink-0 items-baseline gap-1.5">
       {/* The live region is the count alone. Wrapping the controls too would let
-          a screen reader re-announce chrome on every refetch. */}
+          a screen reader re-announce chrome on every refetch.
+
+          A failure escalates the same region to an assertive alert rather than
+          silencing it. The shipped band sets aria-live="off" when faulted, which
+          means a search that fails while focus is elsewhere is never announced —
+          the user is left waiting on a result that is not coming, and never
+          learns Retry appeared. Failure is the one transition that must always
+          reach the user, so it is the one that must not be muted. */}
       <span
-        role="status"
-        aria-live={state === "error" ? "off" : "polite"}
+        role={state === "error" ? "alert" : "status"}
+        aria-live={state === "error" ? "assertive" : "polite"}
         aria-atomic="true"
         className={cn(
           "whitespace-nowrap tracking-[-0.02em]",
