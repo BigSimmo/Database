@@ -160,4 +160,23 @@ describe("Therapy Compass required data recovery", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/therapies\.json$/);
   });
+
+  it("keeps the full prose corpus on the search route", async () => {
+    navigation.pathname = "/therapy-compass/search";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/therapies.json")) return response([therapy]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Search ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/therapies\.json$/);
+  });
 });
