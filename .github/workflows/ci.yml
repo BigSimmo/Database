@@ -422,6 +422,9 @@ jobs:
   # Fail-fast @critical Chromium smoke on PRs/merge_group before the full
   # production suite. Skipped on main/schedule — those run the full job only.
   # Keeps merge safety: pr-required still demands the full Production UI job.
+  #
+  # Deliberately NOT sharded: it is already the small subset, and sharding it
+  # would spend runners without shortening the critical path.
   ui-critical-fast:
     name: Production UI critical
     needs: changes
@@ -456,6 +459,19 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  # Sharded across runners, NOT across workers. Playwright stays `workers: 1` /
+  # `fullyParallel: false` / `retries: 0` inside each shard, so determinism is
+  # unchanged and per-runner load goes DOWN rather than up — which matters because
+  # the duplicate-page-root strict-mode failures (#093) are load-dependent.
+  #
+  # Measured 2026-07-30 (before `ui-critical-fast` landed): this job ran 15m26 of
+  # an 18m36 run — 83% of wall clock — while every other job finished by minute 4.
+  # Playwright itself reported `339 passed (13.5m)`; the balance is the isolated
+  # production build.
+  #
+  # Branch protection requires only the `pr-required` aggregate, and `needs` on a
+  # matrix job yields the roll-up of all shards, so the aggregate below needs no
+  # change and the per-shard job names are free to differ.
   ui-critical:
     name: Production UI
     needs: [changes, ui-critical-fast]
@@ -468,6 +484,37 @@ jobs:
       (needs.ui-critical-fast.result == 'success' || needs.ui-critical-fast.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      # One shard's failure must not cancel the others: a cancelled sibling would
+      # report as `cancelled` and re-create exactly the ambiguity #095 removed.
+      fail-fast: false
+      matrix:
+        # THREE, and the count is measured rather than chosen. `fullyParallel: false`
+        # makes a spec file the indivisible unit, so shard sizes are lumpy and more
+        # shards is not monotonically faster. Re-measured 2026-07-30 against this
+        # merged tree — 342 non-quarantine/non-mockup chromium tests
+        # (`--list --shard=i/N`):
+        #   N=3 -> 121/111/110   largest 121 (35%)
+        #   N=4 -> 121/106/98/17 largest 121 (35%)  — same bound, one more runner
+        # Earlier on a 340-test tree, N=5 -> 121/106/0/96/17 and N=8 gave two empty
+        # shards. N=4 buys nothing over N=3 because one 121-test spec group bounds
+        # both, and any N with an empty shard would go RED: `test:e2e:pr`
+        # deliberately omits `--pass-with-no-tests` (only the advisory lane has it).
+        # Re-measure before changing this number, and keep every shard non-empty:
+        #   npm run ensure
+        #   PLAYWRIGHT_BASE_URL=<printed> npx playwright test --project=chromium \
+        #     --grep-invert "@quarantine|@mockup" --shard=i/N --list
+        #
+        # MEASURED on the first real sharded run (CI 30530618838, 2026-07-30):
+        #   shard 1 -> 121 tests, 9m36
+        #   shard 2 -> 111 tests, 6m54
+        #   shard 3 -> 110 tests, 6m20
+        # Per-test cost is NOT uniform — 111 tests took 6m54 while 121 took 9m36 —
+        # so counting tests UNDERSTATES the largest shard. A count-balanced split is
+        # the best `--shard` can do; balancing by duration would mean splitting the
+        # slow spec files themselves. Predicting from test count alone was wrong by
+        # ~40% here, so trust a measured run over the arithmetic.
+        shard: [1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -478,7 +525,7 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium production journeys
-        run: npm run test:e2e:pr
+        run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/3
 
       - name: Classify exact failed test identities
         if: failure()
@@ -488,7 +535,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: production-ui-diagnostics-${{ github.run_id }}
+          # Shard-scoped: upload-artifact v7 runs with `overwrite: false`, so a
+          # shared name would make the second failing shard fail on upload.
+          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
@@ -877,6 +926,10 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # Prefix fallback so a lockfile bump does not force a cold download of all
+          # four browsers; `playwright install` below still fetches any missing version.
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
         run: |
