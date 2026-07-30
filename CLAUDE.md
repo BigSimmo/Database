@@ -98,7 +98,10 @@ mockups/          Notes for the design-scratch routes under src/app/mockups/
 plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .claude/          Claude Code agents, skills, hooks, settings
 .agents/          Single-word skill catalogue (`npm run skills`)
+.cursor/          Cursor project rules and local-agent configuration
+.design-sync/     Generated design-system package metadata and validation notes
 .githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.vscode/          Shared VS Code workspace recommendations and settings
 ```
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
