@@ -14,6 +14,15 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 **Provider-backed boundary:** `test:live`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, and other OpenAI/Supabase/hosted workflows need **explicit user approval** before agents run them (see root `AGENTS.md`). Prefer offline gates (`verify:cheap`, `verify:pr-local`, `eval:rag:offline`) unless that approval is in the task.
 
+Codex Cloud agents remain provider-free. Run authenticated Supabase tests through the
+manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the
+explicit `run-authenticated-live-tests` dispatch confirmation, records the run against the
+`Database / production` environment, and injects GitHub secrets only into the identity
+guard and live-test steps. The secret-bearing job runs only from `refs/heads/main` and
+checks out that trusted ref; it never runs on a push, pull request, or schedule. This suite
+is not read-only: the confirmation explicitly authorizes bounded E2E-user sign-in/sign-out,
+test requests, and production rate-limit row updates.
+
 ## Commands
 
 | Command                                   | Purpose                                                                                                                                                 |
@@ -53,7 +62,9 @@ Reference examples: `tests/icon-button.dom.test.tsx` (accessible-name contract),
 
 ## Playwright ownership
 
-The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target.
+The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target. Before acquiring the heavy lock or building, the runner preflights the Chromium (or requested Firefox/WebKit) executable — including the default `chrome-headless-shell` binary and any `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` override — and exits non-zero immediately when it is missing, so a launch-infra failure cannot be mistaken for product-test failures after a multi-minute build.
+
+When capturing Playwright or `verify:phone-chrome` output through a shell pipe (`cmd 2>&1 | tee …`), enable `set -o pipefail` (or avoid the pipe). Without it, bash reports the pipeline exit from `tee` (`0`) while the log still ends in `N failed` — a measurement artifact that previously looked like a green-when-broken gate (outstanding-issues #120). The Node runners themselves already propagate Playwright’s exit status.
 
 Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports. Failed-test classification parses JUnit test cases and uses exact spec/title matches; a job name is never enough to classify a failure as a known flake.
 

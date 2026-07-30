@@ -147,6 +147,28 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByRole("status")).toHaveTextContent("8 matches");
   });
 
+  it("keeps an honest count while labelling a partial-source failure", () => {
+    render(<SearchResultsHeaderBand modeId="favourites" query="saved" matchCount={3} status="partial" />);
+
+    const region = screen.getByRole("region", { name: "Search results for saved" });
+    expect(region).toHaveAttribute("data-status", "partial");
+    expect(screen.getByRole("status")).toHaveTextContent("3 matches · some sources unavailable");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("offers retry without hiding an honest partial count", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+
+    render(
+      <SearchResultsHeaderBand modeId="favourites" query="saved" matchCount={3} status="partial" onRetry={onRetry} />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("3 matches · some sources unavailable");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   // The accent used to be an absolutely-positioned bar inside an overflow:hidden
   // rounded card, so the corner arc sliced its ends and it tapered away from the
   // corner while the 1px border curved past it. It is now the card's own
