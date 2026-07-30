@@ -17,8 +17,11 @@ arbitrary-value form — never hardcoded colours:
 - Borders: `border-[color:var(--border)]`, `--border-strong`, `--border-lux`
 - Accent (primary action colour): `--clinical-accent`, `--clinical-accent-hover`, `--clinical-accent-active`, `--clinical-accent-soft`, `--clinical-accent-border`, `--clinical-accent-contrast`
 - Command (primary buttons): `--command`, `--command-hover`, `--command-contrast`
-- Status: `--danger-text/-bg/-border/-solid/-solid-contrast`, plus the same
-  families for `success`, `warning`, `info` (e.g. `--success-text`)
+- Status: `success`, `warning`, `info` and `danger` each define
+  `-text`, `-bg`, `-border`, `-soft` (e.g. `--success-text`, `--warning-soft`).
+  The solid pair `--danger-solid` / `--danger-solid-contrast` exists for
+  `danger` only — there is no `--success-solid`, `--warning-solid` or
+  `--info-solid`. For a filled non-danger status use `-bg` + `-text`.
 - Elevation: the `--e0` … `--e4` ladder — `shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`.
   `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers · `--e3` hover/lifted chrome ·
   `--e4` modals/sheets/drawers. The role names are aliases onto tiers:
@@ -42,13 +45,15 @@ re-deriving surfaces: `panel`, `panelSubtle`, `raisedCard`, `sourceCard`,
 `navPill`, `metadataPill`, `subtleStatusPill`, `shellChip`, `fieldLabel`,
 `fieldControl`, `fieldControlWithIcon`, `fieldControlPlain`, `fieldIcon`,
 `eyebrowText`, `textMuted`, `proseMeasure`, `codeText`, `iconTilePremium`,
-`clinicalDivider`, `tableCard`, `tableCardHeader`, plus the chat/search
-composer and tone recipes documented in
+`clinicalDivider`, `tableCard`, `tableCardHeader`, `controlBase` (the shared
+control shell the button recipes build on — prefer `primaryControl` /
+`floatingControl` / `toolbarButton` unless composing a new control), plus the
+chat/search composer and tone recipes documented in
 `docs/redesign/09-ui-primitives-recipes.md`. Join with the exported `cn(...)`
 helper.
 
 Module-private helpers (`insetCard`, `iconTile`, `compactMetadataRow`,
-`toneWarningQuiet`, `controlBase`, `statusDotBase`, `chatComposerShellDelta`)
+`toneWarningQuiet`, `statusDotBase`, `chatComposerShellDelta`)
 power components inside `ui-primitives.tsx` and are **not** part of the import
 surface — use the exported components (`LoadingPanel`, `PanelHeading`,
 `SourceProvenance`, `SourceStatusBadge`, …) or the exported recipes above.
