@@ -2905,7 +2905,7 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
 
-  it("blocks bulk retry before mutation while a selected document has fresh agent enrichment", async () => {
+  it("returns a per-document failure while a selected document has fresh agent enrichment", async () => {
     const document = {
       id: documentId,
       owner_id: userId,
@@ -2940,9 +2940,18 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(409);
-    expect(await payload(response)).toMatchObject({
-      error: "Document has an active agent-enrichment pass. Wait for it to finish before reindexing.",
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({
+      ok: false,
+      results: [
+        {
+          documentId,
+          mode: "retry_failed",
+          ok: false,
+          error: "Reindex paused while enrichment is active.",
+        },
+      ],
+      missingDocumentIds: [],
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
