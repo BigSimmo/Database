@@ -49,7 +49,9 @@ ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # while still completing this Next build.
 ARG ALLOW_LOW_RAM_BUILD=0
 ENV ALLOW_LOW_RAM_BUILD=${ALLOW_LOW_RAM_BUILD}
-RUN npm run build
+# Dockerfile is intentionally excluded from its own build context. The static PR
+# guard validates this file; the in-image build still validates effective values.
+RUN UPLOAD_LIMIT_PARITY_SKIP_DOCKER_CONTRACT=1 npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app

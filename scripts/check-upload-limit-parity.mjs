@@ -59,6 +59,7 @@ export function evaluateDockerUploadLimitContract(source = readFileSync(dockerfi
     "ARG NEXT_PUBLIC_MAX_UPLOAD_MB=",
     "ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}",
     "ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}",
+    "RUN UPLOAD_LIMIT_PARITY_SKIP_DOCKER_CONTRACT=1 npm run build",
   ];
   const sourceLines = source.split(/\r?\n/);
   const missing = requiredLines.filter((line) => !sourceLines.includes(line));
@@ -88,6 +89,7 @@ function selfTest() {
         "ARG NEXT_PUBLIC_MAX_UPLOAD_MB=",
         "ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}",
         "ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}",
+        "RUN UPLOAD_LIMIT_PARITY_SKIP_DOCKER_CONTRACT=1 npm run build",
       ].join("\n"),
     ),
     null,
@@ -129,7 +131,11 @@ function main() {
 
   const ceiling = readUploadLimitCeiling();
   const result = evaluateUploadLimitParity(loadProductionUploadLimitEnv(), ceiling);
-  const dockerProblem = evaluateDockerUploadLimitContract();
+  // Dockerfile is intentionally excluded from its own build context. Static
+  // repo/CI invocations validate that source contract; the image build keeps
+  // effective client/server parity enabled and skips only this file read.
+  const dockerProblem =
+    process.env.UPLOAD_LIMIT_PARITY_SKIP_DOCKER_CONTRACT === "1" ? null : evaluateDockerUploadLimitContract();
   if (!result.ok || dockerProblem) {
     console.error("Upload-limit parity failed:");
     for (const error of result.errors) console.error(`- ${error}`);
