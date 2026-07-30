@@ -1,8 +1,9 @@
 name: Setup UI e2e environment
 description: >-
-  Node + cached node_modules and Chromium. Browser archives are reused on cache hits,
-  while Playwright system dependencies are installed on every fresh runner. Playwright
-  then boots `next dev` itself (run-playwright.mjs) and warms the routes before testing.
+  Node with a clean npm install plus cached npm downloads, and Chromium. Browser archives
+  are reused on cache hits, while Playwright system dependencies are installed on every
+  fresh runner. Playwright then boots `next dev` itself (run-playwright.mjs) and warms the
+  routes before testing.
 runs:
   using: composite
   steps:
