@@ -241,10 +241,10 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
 ## Tests
 
-| Config           | Path                                          |
-| ---------------- | --------------------------------------------- |
-| Unit (Vitest)    | `vitest.config.mts` — `tests/**/*.test.ts`    |
-| E2E (Playwright) | `playwright.config.ts` — `tests/ui-*.spec.ts` |
+| Config           | Path                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------- |
+| Unit (Vitest)    | `vitest.config.mts` — `tests/**/*.test.ts`                                         |
+| E2E (Playwright) | `playwright.config.ts` — `tests/ui-*.spec.ts`                                      |
 | Visual capture   | `playwright.visual.config.ts` — local-only (`test:e2e:visual`); not in required CI |
 
 **Domain clusters in `tests/`:** RAG/answers, retrieval, ingestion/indexing, source governance, API routes, Supabase schema, shell/routing, UI formatting guards.
