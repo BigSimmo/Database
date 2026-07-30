@@ -150,7 +150,11 @@ function normalisedTarget(value) {
     const { pathname, searchParams } = new URL(value);
     const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : "/";
     const params = [...searchParams.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    const query = params.map(([key, val]) => `${key}=${val}`).join("&");
+    // Encode each component. Joining the decoded entries as `key=val&…` lets
+    // `/forms?q=alpha%26run%3D1` (one value containing `&`/`=`) alias
+    // `/forms?q=alpha&run=1` (two params) — different pages, same string after
+    // decode. URLSearchParams.toString() keeps the boundary.
+    const query = new URLSearchParams(params).toString();
     return query ? `${path}?${query}` : path;
   } catch {
     return null;

@@ -202,6 +202,31 @@ describe("incompleteEvidence", () => {
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
   });
 
+  // Decoded `key=val&…` concatenation aliases a value that itself contains
+  // separators with a multi-param query. Encode the components so a rewrite
+  // from one page to another cannot pass as the requested route.
+  it("rejects a rewrite that splits an encoded separator into extra params", () => {
+    const requested = "https://psychiatry.tools/forms?q=alpha%26run%3D1";
+    const rewritten = "https://psychiatry.tools/forms?q=alpha&run=1";
+    expect(
+      measuredRequestedPage({
+        ...row("mobile-forms", 1200, 0.01),
+        requestedUrl: requested,
+        url: rewritten,
+      }),
+    ).toBe(false);
+    const rows = allRuns().map((r) =>
+      r.run === "mobile-forms" ? { ...r, requestedUrl: requested, url: rewritten } : r,
+    );
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-forms"]);
+  });
+
+  it("accepts the same encoded query value on both requested and final URLs", () => {
+    const url = "https://psychiatry.tools/forms?q=alpha%26run%3D1";
+    const rows = allRuns().map((r) => (r.run === "mobile-forms" ? { ...r, requestedUrl: url, url } : r));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
+  });
+
   it("tolerates a trailing-slash difference between requested and final URL", () => {
     const rows = allRuns().map((r) => (r.run === "mobile-forms" ? { ...r, url: `${r.requestedUrl}/` } : r));
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
