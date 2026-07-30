@@ -240,22 +240,23 @@ function enclosingAtRules(source, index) {
 
 for (const selector of UNLAYERED_EFFECT_SELECTORS) {
   // Only the base rule matters. The forced-colors overrides for the same
-  // selector are deliberately inside @media and must stay there.
+  // selector are deliberately inside `@media` and must stay there.
   // Allow leading indentation: a nested rule is still *found*, so the failure
   // below reports the real problem (wrong layer) instead of "missing", and a
   // purely cosmetic re-indent cannot masquerade as a deleted rule.
-  const pattern = new RegExp(`^[ \\t]*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m");
-  const match = pattern.exec(globals);
-  assert(Boolean(match), `${selector} base rule is missing from globals.css`);
-  if (!match) continue;
-  const enclosing = enclosingAtRules(globals, match.index);
-  const layers = enclosing.filter((atRule) => atRule.startsWith("@layer"));
-  assert(
-    layers.length === 0,
-    `${selector} must stay UNLAYERED — it is inside "${layers.join(" > ")}" (full ancestry: ` +
-      `${enclosing.join(" > ") || "top level"}), where Tailwind's utilities layer outranks it ` +
-      `regardless of specificity and its declared effect becomes inert`,
-  );
+  const pattern = new RegExp(`^[ \\t]*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "gm");
+  const matches = [...globals.matchAll(pattern)];
+  assert(matches.length > 0, `${selector} base rule is missing from globals.css`);
+  for (const match of matches) {
+    const enclosing = enclosingAtRules(globals, match.index);
+    const layers = enclosing.filter((atRule) => atRule.startsWith("`@layer`"));
+    assert(
+      layers.length === 0,
+      `${selector} must stay UNLAYERED — it is inside "${layers.join(" > ")}" (full ancestry: ` +
+        `${enclosing.join(" > ") || "top level"}), where Tailwind's utilities layer outranks it ` +
+        `regardless of specificity and its declared effect becomes inert`,
+    );
+  }
 }
 const primitives = textAt("src/components/ui-primitives.tsx");
 assert(
