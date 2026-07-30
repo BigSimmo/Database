@@ -64,6 +64,22 @@ artifact before release; see
   dozens of long-lived feature branches that all touch shared docs like the
   branch-review ledger.
 
+## PR bundling reduces per-task CI churn (2026-07-30)
+
+- **Problem, measured:** PR #1406 sampled the last 500 CI workflow runs (~3 days of PR
+  traffic, 437 PR-triggered): 213 succeeded, 45 failed, 176 (~40%) cancelled — mostly
+  superseded by a newer push before Production UI finished, burning roughly 12
+  Production-UI-hours on runs that never completed. Every task minting its own
+  `claude/<task-slug>` branch and PR means a single ledger-append line pays the same
+  required-CI bill as a large change.
+- **Rule:** see AGENTS.md "PR bundling (reduce one-task-one-PR churn)" — bundle
+  same-scope, independently low-risk, separately-revertible-commit work into one PR
+  instead of minting a branch per task. Queued `docs/branch-review-ledger.md` /
+  `docs/outstanding-issues.md` append-only tasks are the best candidate.
+- **Does not change:** required-check scoping, per-commit verification rigor, or the
+  deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
+  backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
