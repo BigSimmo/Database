@@ -150,7 +150,15 @@ describe("shared header hide/reveal wiring", () => {
     // effect or a `,0px` fallback paints content under the out-of-flow header
     // and shifts it down at hydration — a cold-load jump, which is the defect
     // class this whole change removes (Codex P1, 2026-07-30).
-    expect(globalsSource).toContain("--phone-overlay-chrome-h: calc(var(--safe-area-top) + var(--shell-header-h))");
+    // The top term is `max(0.5rem, inset)`, matching the header's own
+    // `pt-[max(0.5rem,var(--safe-area-top))]`. Seeding the bare inset
+    // under-reserves by 8px wherever the phone reports no top inset, so the
+    // layout effect corrects it after paint (Codex P1, 2026-07-30 — second
+    // round). `--shell-header-h` already covers the inner min-h-14 bar + pb-2.
+    expect(globalsSource).toContain(
+      "--phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h))",
+    );
+    expect(headerSource).toContain("pt-[max(0.5rem,var(--safe-area-top))]");
     expect(reserveHookSource).toContain("useLayoutEffect");
     expect(shellSource).not.toContain("--phone-overlay-chrome-h,0px");
     // offsetHeight ignores transforms, so the measurement is the revealed
