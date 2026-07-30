@@ -6,6 +6,7 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
+import { assertPlaywrightBrowsersReady } from "./playwright-browser-preflight.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import {
@@ -45,6 +46,12 @@ const mockupProjectRequested =
       argument === "--project=chromium-mockups" ||
       (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
   );
+
+// Fail loud on missing browser binaries before the heavy lock or production build.
+// Otherwise launch failures surface as "N failed" product tests and are easy to misread
+// when a caller pipes output without `pipefail` (outstanding-issues #120).
+assertPlaywrightBrowsersReady(playwrightArgs);
+
 const runId = `${process.pid}-${Date.now()}`;
 const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
