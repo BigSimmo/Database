@@ -20,6 +20,10 @@ This is the clean-checkout and validation install contract. Use `npm install`
 only when intentionally changing dependencies and regenerating
 `package-lock.json`.
 
+For Codex Cloud, use the tracked environment setup and acceptance contract in
+[`docs/codex-cloud.md`](docs/codex-cloud.md). It installs the complete repository
+toolchain and distinguishes safe offline tasks from explicitly connected provider tasks.
+
 3. Copy the full `.env.example` to `.env.local` and fill in Supabase and OpenAI
    values. Copy the worker and upload defaults too — they are conservative
    local-first settings, not optional extras.
@@ -177,7 +181,7 @@ Full categorized index: `docs/README.md` (maintained docs vs point-in-time
 records vs archive). The most load-bearing entries:
 
 - `docs/codebase-index.md` — architecture and module map (start here)
-- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
+- `docs/site-map.md` — generated route map (`npm run docs:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
 - `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
 - `docs/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
