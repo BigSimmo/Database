@@ -58,8 +58,15 @@ describe("production readiness provider policy", () => {
       cwd: path.resolve(import.meta.dirname, ".."),
       encoding: "utf8",
       env: environment,
+      timeout: 30_000,
     });
 
+    expect(
+      result.error,
+      result.error?.code === "ETIMEDOUT"
+        ? "production-readiness --ci timed out after 30s"
+        : `production-readiness --ci failed to start: ${result.error?.message ?? "unknown"}\n${result.stdout}\n${result.stderr}`,
+    ).toBeUndefined();
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain("Provider capability gap:");
     expect(result.stdout).toContain("CLOUD PROVIDER-FREE READY:");
