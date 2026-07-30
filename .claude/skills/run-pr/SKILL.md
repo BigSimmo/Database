@@ -173,6 +173,18 @@ The HEAD must be the full SHA — `pending pushed head` and 8-character abbrevia
 unmatchable, so the next sweep re-reviews the same PR. Per-PR records only — no extra sweep-total
 record — so ledger throttling lookups stay per-branch.
 
+Anti-churn rules for this file:
+
+- After `git merge origin/main`, run `npm run ledger:dedupe` before committing when the
+  ledger changed (belt-and-suspenders if `merge.ledger.driver` was not installed in that
+  checkout).
+- On a later sweep of the same PR, pass `--supersede` so you replace the prior Run PR row
+  instead of stacking another "main sync" twin.
+- Never push a tip whose sole delta is a babysit ledger append — that marks every other
+  open PR behind for no product change. If the PR only needed a clean main sync with no
+  CI/thread fix, record the outcome in the final sweep report and fold the ledger row into
+  the next product commit on that branch, or into a bundled docs/ledger PR.
+
 ## Final report format
 
 - Per PR: number/title/branch; before (failing checks, unresolved threads, behind/conflicting);
