@@ -296,16 +296,25 @@ async function dragScrollBy(page: Page, totalPx: number, stepPx: number) {
  *
  * `data-scroll-hidden` on the collapse wrapper is `scrollHidden && !sharedChromePinned`
  * (master-search-header.tsx), so a missing attribute has two very different causes that
- * the attribute alone cannot separate: the scroll state machine never fired, or it fired
- * and a pin held the chrome open. The bare assertion reads as the first even when it is
- * the second — which is how a stuck pin was misread as a flaky scroll gesture on
- * 2026-07-30 (ledger #127) across two CI runs before a trace settled it.
+ * the attribute alone cannot separate: this header's own scroll signal never arrived, or
+ * it did and a pin held the chrome open. Those want opposite fixes, so guessing is
+ * expensive — on 2026-07-30 two CI failures were read as a flaky scroll gesture, then as
+ * a stuck pin, and neither reading was established (ledger #127).
  *
- * The discriminator is already in the DOM. DocumentViewer's page-owned composer hides on
- * `composerScrollHidden`, which consults `scrollHidden` and NOT the pin, so composer-hidden
- * + header-visible proves the pin. Every term of `sharedChromePinned` also has a DOM tell
- * (an `aria-expanded` trigger, a popover, or focus inside the portaled addon host), so when
- * all of them read false the pin is a stale latch rather than a live surface.
+ * The discriminator is `data-scroll-signal`, which publishes the header's raw
+ * `scrollHidden` before the pin is applied. **DocumentViewer's page-owned composer is not
+ * a substitute**: it hides on `composerScrollHidden` from its own reporters
+ * (use-document-viewer-chrome-scroll.ts), while this header is driven by the shell's
+ * separate `chromeScrollHide` (global-search-shell.tsx), so composer-hidden proves only
+ * that DocumentViewer's reporter fired. The two legitimately disagree where an inner
+ * scroller moves but `window.scrollY` does not — the shell is fed by
+ * `useDocumentScrollHideReporter` alone, which cannot see that. Reading composer-hidden as
+ * proof of a pin is exactly the mistake this helper exists to stop; both are reported so
+ * a divergence is visible rather than collapsed into one verdict.
+ *
+ * Once the signal says the header did hide, every term of `sharedChromePinned` has a DOM
+ * tell (an `aria-expanded` trigger, a popover, or focus inside the portaled addon host),
+ * so all-false points at a stale latch rather than a live surface.
  */
 async function expectChromeHidden(page: Page, collapse: Locator, phase: string) {
   try {
@@ -313,8 +322,8 @@ async function expectChromeHidden(page: Page, collapse: Locator, phase: string) 
     return;
   } catch (error) {
     const state = await page.evaluate((addonSlotId) => {
-      const hiddenAttribute = (selector: string) =>
-        document.querySelector(selector)?.getAttribute("data-scroll-hidden") ?? null;
+      const attribute = (selector: string, name: string) =>
+        document.querySelector(selector)?.getAttribute(name) ?? null;
       const describe = (element: Element | null) => {
         if (!element) return "none";
         const testId = element.getAttribute("data-testid");
@@ -322,12 +331,16 @@ async function expectChromeHidden(page: Page, collapse: Locator, phase: string) 
       };
       const active = document.activeElement;
       const addonHost = document.getElementById(addonSlotId);
+      const collapseSelector = '[data-testid="universal-header-collapse"]';
       return {
-        // scrollHidden, read through surfaces that ignore sharedChromePinned.
-        documentComposer: hiddenAttribute("form.document-viewer-composer"),
-        documentContent: hiddenAttribute('[data-testid="document-viewer-content"]'),
+        // The header's own raw scrollHidden, before sharedChromePinned is applied.
+        headerScrollSignal: attribute(collapseSelector, "data-scroll-signal"),
         // scrollHidden && !sharedChromePinned.
-        headerCollapse: hiddenAttribute('[data-testid="universal-header-collapse"]'),
+        headerCollapse: attribute(collapseSelector, "data-scroll-hidden"),
+        // DocumentViewer's INDEPENDENT reporters. Context only — never a proxy for the
+        // header's signal; a divergence here is itself a finding.
+        documentComposer: attribute("form.document-viewer-composer", "data-scroll-hidden"),
+        documentContent: attribute('[data-testid="document-viewer-content"]', "data-scroll-hidden"),
         // One tell per sharedChromePinned term.
         activeElement: describe(active),
         focusInsideAddonHost: Boolean(addonHost && active && addonHost.contains(active)),
@@ -340,10 +353,17 @@ async function expectChromeHidden(page: Page, collapse: Locator, phase: string) 
       };
     }, phoneHeaderCollapseAddonSlotId);
 
-    const pinned = state.documentComposer === "true" || state.documentContent === "true";
-    const verdict = pinned
-      ? "scrollHidden is TRUE and sharedChromePinned is holding the header open"
-      : "scrollHidden itself is FALSE — the scroll state machine never fired";
+    const documentViewerHidden = state.documentComposer === "true" || state.documentContent === "true";
+    const verdict =
+      state.headerScrollSignal === "hidden"
+        ? "the header's own scrollHidden is TRUE, so sharedChromePinned is holding it open — check the pin tells below"
+        : state.headerScrollSignal === "visible"
+          ? `the header's own scrollHidden is FALSE — its reporter (global-search-shell chromeScrollHide) never saw the gesture${
+              documentViewerHidden
+                ? ", while DocumentViewer's independent reporters DID: the two scroll feeds diverged"
+                : ""
+            }`
+          : "data-scroll-signal is absent — this build predates the signal, so the two causes cannot be separated";
 
     throw new Error(
       `${phase}: the phone chrome never hid.\n${verdict}\nchrome state: ${JSON.stringify(state, null, 2)}\n\n` +
