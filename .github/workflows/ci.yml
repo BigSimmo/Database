@@ -220,6 +220,9 @@ jobs:
       - name: Codebase index coverage
         run: npm run docs:check-index
 
+      - name: Documentation inventory drift
+        run: npm run docs:check-inventory
+
       - name: Check docs scripts
         run: npm run docs:check-scripts
       - name: Check docs links

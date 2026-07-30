@@ -1,9 +1,9 @@
 # Scripts index
 
-Curated map of `scripts/` (~135 files) and the `package.json` script surface (~166 entries),
+Curated map of `scripts/` (189 files) and the `package.json` script surface (205 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
-referenced in docs resolves to a real script.
+referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
 
 Legend: **[live]** routine tooling · **[infra]** runner/guard plumbing · **[one-shot]** completed
 migration/batch helper that is a candidate for an `archive/` subfolder under `scripts/` once its
@@ -71,13 +71,13 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`,
 `build-cross-mode-differentials-index.mjs`, `build-ranking-snapshot.ts`,
 `generate-site-map.ts`, `generate-brand-assets.ts`, `generate-sample-documents.ts`,
-`check-sample-extraction.ts`.
+`check-sample-extraction.ts`, `optimize-public-images.mjs`.
 
 ## Maintenance & ops [live]
 
 `cleanup-storage.ts`, `purge-query-logs.ts`, `audit-tables.ts`, `supabase-recovery-status.ts`,
 `promote-query-misses.ts`, `flake-ledger.mjs`, `sweep-branch-ledger.mjs`, `dependency-report.mjs`,
-`set-site-administrator.ts`.
+`set-site-administrator.ts`, `update-docs-inventory.mjs`.
 
 ## One-shot / dated — archive candidates [one-shot]
 

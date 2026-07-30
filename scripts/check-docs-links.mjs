@@ -16,9 +16,9 @@
  * reference the repo as it was). Pass --all to scan those too
  * (informational deeper sweep; still fails on missing paths).
  *
- * Advisory tool: run `npm run docs:check-links` before doc handoffs. It is
- * deliberately NOT part of verify:cheap or CI so historical docs cannot
- * block unrelated PRs.
+ * Blocking for maintained docs: runs in verify:cheap and CI. Historical
+ * directories and dated point-in-time records stay excluded unless --all is
+ * requested, so preserved history cannot block unrelated PRs.
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";

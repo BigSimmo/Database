@@ -217,9 +217,26 @@ Three gates added for the "mature repo" verification pass. Full usage is in
 
 ## Route sitemap guard (2026-07-03)
 
-- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run sitemap:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
+- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run docs:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
 - `npm run verify:cheap` now includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety.
 - Keep `docs/site-map.md` as the human-readable route map for now. If it becomes too large for review, split into a concise `docs/site-map.md` summary plus a generated `docs/site-map.generated.md` inventory, and update `scripts/generate-site-map.ts` / `tests/site-map.test.ts` in the same change.
+
+## Automatic documentation synchronization (2026-07-30)
+
+- `npm run docs:update` regenerates `docs/site-map.md` and refreshes the exact `scripts/` file and
+  `package.json` command counts in `docs/scripts-index.md`.
+- `.githooks/pre-commit` runs the affected part of that update for staged route/catalog/mockup or
+  script/package changes, and runs `docs:check-index` for staged app/lib/schema changes. Ordinary
+  component-only commits avoid the sitemap generator. If generated or module-map documentation is
+  still unstaged, the hook stops so the author can review and stage the diff. It never auto-stages
+  or commits files. It also refuses mixed staged/unstaged generator inputs so the generated docs
+  cannot accidentally describe work outside the commit. Use `SKIP_DOCS_SYNC_HOOK=1` only as an
+  explicit one-commit bypass.
+- `docs:check-inventory` is blocking in `verify:cheap` and CI, alongside `sitemap:check` and
+  `docs:check-index`, so bypassing the local hook cannot merge stale generated facts.
+- Semantic descriptions in `docs/codebase-index.md` and curated script grouping still require human
+  judgment. The hook detects top-level module/route/schema gaps but does not invent architecture
+  descriptions or ledger evidence.
 
 ## Retrieval RPC drift & indexing hygiene (2026-07-01)
 
