@@ -12,17 +12,20 @@
  *
  *   node scripts/branch-review-ledger.mjs lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]
  *   node scripts/branch-review-ledger.mjs append --ref <x> --head <sha> --scope <s> --outcome <o> --checks <c>
+ *   node scripts/branch-review-ledger.mjs dedupe [--dry-run]
  *   node scripts/branch-review-ledger.mjs --self-test
  *
  * `lookup` answers the only question the ledger is for: has this exact ref at this exact
  * HEAD already been reviewed for this scope? `append` writes one valid row, in UTF-8,
- * with the cells escaped and the HEAD resolved to a full SHA.
+ * with the cells escaped and the HEAD resolved to a full SHA. `dedupe` removes exact
+ * duplicate dated records only (keep first) — the belt-and-suspenders fix after a main
+ * sync when the custom merge driver was not installed in that checkout.
  *
- * Read-only except for `append`, which only ever adds one line at the end of the file.
+ * Read-only except for `append` / `dedupe`, which only add or drop exact-duplicate lines.
  * Never calls a provider or a network service; `git rev-parse` is local.
  */
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -33,6 +36,70 @@ const LEDGER_PATH = "docs/branch-review-ledger.md";
 export const CELL_SPLIT = /(?<!\\)\|/;
 export const RECORD_START = /^\| \d{4}-\d{2}-\d{2} \|/;
 export const COLUMNS = ["date", "ref", "head", "scope", "outcome", "checks"];
+
+/**
+ * Drop exact-duplicate dated records, keeping the first copy. The ledger contract
+ * allows this; it is the fix for twins that `merge=union` used to reintroduce on sync.
+ */
+export function dedupeLedgerMarkdown(markdown) {
+  const newline = markdown.includes("\r\n") ? "\r\n" : "\n";
+  const lines = markdown.split(/\r?\n/);
+  const seen = new Set();
+  const out = [];
+  let removed = 0;
+  for (const line of lines) {
+    if (RECORD_START.test(line)) {
+      if (seen.has(line)) {
+        removed += 1;
+        continue;
+      }
+      seen.add(line);
+    }
+    out.push(line);
+  }
+  let result = out.join(newline);
+  if (markdown.endsWith(newline) && !result.endsWith(newline)) result += newline;
+  return { markdown: result, removed, kept: seen.size };
+}
+
+/**
+ * Union ours + theirs dated records (ours order first), drop exact duplicate rows,
+ * and keep ours preamble (header/contract prose). Used by the `merge.ledger` driver.
+ */
+export function mergeLedgerMarkdown(ours, theirs) {
+  const split = (markdown) => {
+    const lines = markdown.split(/\r?\n/);
+    const preamble = [];
+    const records = [];
+    const trailing = [];
+    let seenRecord = false;
+    for (const line of lines) {
+      if (RECORD_START.test(line)) {
+        seenRecord = true;
+        records.push(line);
+        continue;
+      }
+      if (!seenRecord) preamble.push(line);
+      else trailing.push(line);
+    }
+    return { preamble, records, trailing };
+  };
+
+  const a = split(ours);
+  const b = split(theirs);
+  const seen = new Set();
+  const records = [];
+  for (const line of [...a.records, ...b.records]) {
+    if (seen.has(line)) continue;
+    seen.add(line);
+    records.push(line);
+  }
+  const preamble = a.preamble.length > 0 ? a.preamble : b.preamble;
+  const trailing = a.trailing.length > 0 ? a.trailing : b.trailing;
+  let markdown = [...preamble, ...records, ...trailing].join("\n");
+  if (!markdown.endsWith("\n")) markdown += "\n";
+  return { markdown, recordCount: records.length };
+}
 
 /** Parse the six cells of every review record. Non-record lines are ignored. */
 export function parseLedgerRows(markdown) {
@@ -309,6 +376,22 @@ function runAppend(markdown, argv) {
   console.log(`Appended review record to ${LEDGER_PATH}:\n${row}`);
 }
 
+function runDedupe(markdown, argv) {
+  const { flags } = parseFlags(argv);
+  const dryRun = Boolean(flags["dry-run"]);
+  const { markdown: next, removed, kept } = dedupeLedgerMarkdown(markdown);
+  if (removed === 0) {
+    console.log(`No exact duplicate records in ${LEDGER_PATH} (${kept} unique dated rows).`);
+    return;
+  }
+  if (dryRun) {
+    console.log(`Would remove ${removed} exact duplicate record(s); ${kept} unique dated rows remain.`);
+    return;
+  }
+  writeFileSync(path.join(root, LEDGER_PATH), next, "utf8");
+  console.log(`Removed ${removed} exact duplicate record(s) from ${LEDGER_PATH}; ${kept} unique dated rows remain.`);
+}
+
 function assert(condition, label) {
   if (!condition) throw new Error(`self-test failed: ${label}`);
 }
@@ -386,6 +469,16 @@ function selfTest() {
     "documented n/a HEAD accepted",
   );
 
+  const preamble = "| Date | r | h | s | o | c |\n| --- | --- | --- | --- | --- | --- |";
+  const twin = `| 2026-07-28 | x | ${"e".repeat(40)} | s | o | c |`;
+  const deduped = dedupeLedgerMarkdown(`${preamble}\n${twin}\n${twin}\n`);
+  assert(deduped.removed === 1 && deduped.kept === 1, "dedupe drops exact twin");
+  const merged = mergeLedgerMarkdown(
+    `${preamble}\n${twin}\n`,
+    `${preamble}\n${twin}\n| 2026-07-28 | y | ${"f".repeat(40)} | s | o | c |\n`,
+  );
+  assert(merged.recordCount === 2, "merge unions distinct rows and drops shared twin");
+
   console.log("branch-review-ledger self-test passed.");
 }
 
@@ -399,11 +492,13 @@ function main() {
   const [command, ...rest] = argv;
   if (command === "lookup") return runLookup(markdown, rest);
   if (command === "append") return runAppend(markdown, rest);
-  console.error("usage: branch-review-ledger.mjs <lookup|append|--self-test> [...]");
+  if (command === "dedupe") return runDedupe(markdown, rest);
+  console.error("usage: branch-review-ledger.mjs <lookup|append|dedupe|--self-test> [...]");
   console.error("  lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]");
   console.error(
     "  append --ref <x> --head <sha> --scope <s> --outcome <o> --checks <c> [--date <YYYY-MM-DD>] [--supersede]",
   );
+  console.error("  dedupe [--dry-run]");
   process.exitCode = 2;
 }
 

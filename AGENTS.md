@@ -142,7 +142,9 @@ Review routing:
 - `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
 - `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
 
-When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. Never hand-write the markdown row: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make a record unmatchable so the review runs again. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. Its `merge=union` attribute preserves concurrent appends, and `npm run check:branch-review-ledger` blocks conflict markers, duplicate records, mojibake, wrong-width or heading-style records, unresolvable HEADs, or loss of that merge protection.
+When a branch or PR review completes, record it with `npm run ledger:append -- --ref <x> --head <full-40-char-sha> --scope <s> --outcome <o> --checks <c>`. Never hand-write the markdown row: hand-written rows produced the mojibake, wrong-width, and duplicate records that the 2026-07-28 hygiene pass had to repair, and `see PR head` or abbreviated HEADs make a record unmatchable so the review runs again. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. Its `merge=ledger` driver preserves concurrent appends and drops exact duplicate rows; after a main sync without that driver installed, run `npm run ledger:dedupe`. `npm run check:branch-review-ledger` blocks conflict markers, duplicate records, mojibake, wrong-width or heading-style records, unresolvable HEADs, or loss of that merge protection.
+
+Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit ledger append (that marks every other open PR behind). One Run PR row per PR per sweep; on a later sweep of the same PR, pass `--supersede` rather than stacking another "main sync" row. After `git merge origin/main`, run `npm run ledger:dedupe` before committing when the ledger changed.
 
 <!-- END:codex-review-throttling -->
 
@@ -476,8 +478,9 @@ Durable mitigations in this repo:
   `do not merge` title.
 - Prefer fewer long-lived open PRs; land or close queue items rather than
   repeatedly re-merging `main` by hand.
-- `docs/branch-review-ledger.md` stays append-only with the `union` merge driver;
-  do not rewrite existing rows during syncs.
+- `docs/branch-review-ledger.md` stays append-only with the `ledger` merge driver
+  (union + exact-row dedupe); do not rewrite existing rows during syncs. If a
+  sync still surfaces exact twins, run `npm run ledger:dedupe` only.
 
 When diagnosing "merge conflicts on every PR", first compare `behind_by` and
 `git merge-tree --write-tree origin/main <tip>`. If the tree merge is clean,
@@ -514,7 +517,7 @@ Hard guardrails (never, even during a sweep):
 
 Procedure: in Claude Code sessions, invoke the `run-pr` skill (`.claude/skills/run-pr/SKILL.md`) — it is the canonical detailed procedure. In sessions without GitHub MCP write tooling, degrade to read-only diagnosis and a per-PR report; do not attempt pushes or thread resolution through other means.
 
-Record one `docs/branch-review-ledger.md` row per PR touched, and end with the per-PR before/after summary defined in the skill.
+Record one `docs/branch-review-ledger.md` row per PR touched (use `--supersede` on later sweeps of the same PR; never a ledger-only tip), run `npm run ledger:dedupe` after merging main when the ledger changed, and end with the per-PR before/after summary defined in the skill.
 
 <!-- END:run-pr-shortcut -->
 

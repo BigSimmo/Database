@@ -2,9 +2,10 @@
 /**
  * Keep the append-only branch review ledger machine-readable and merge-safe.
  *
- * The union merge driver preserves concurrent appends; this gate catches the ways the
+ * The custom `merge=ledger` driver (union + exact-row dedupe) preserves concurrent
+ * appends without reintroducing byte-identical twins; this gate catches the ways the
  * ledger has actually degraded in practice:
- *   - a missing union attribute, or conflict markers committed verbatim
+ *   - a missing ledger merge attribute, or conflict markers committed verbatim
  *   - exact duplicate records
  *   - mojibake (`???` / U+FFFD) from an append that was not written as UTF-8, which also
  *     hides duplicates from the exact-match check by making the twin rows differ
@@ -19,6 +20,8 @@
  * cell structure on 2026-07-28 but deliberately not rewritten for content.
  *
  * Write new records with `npm run ledger:append` so these rules hold by construction.
+ * After a main sync in a checkout without the merge driver installed, run
+ * `npm run ledger:dedupe` before committing.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -55,8 +58,12 @@ export function validateLedger({ ledger, mergeAttribute, protocol }) {
   const failures = [];
   const lines = ledger.split(/\r?\n/);
 
-  if (mergeAttribute !== "union") {
-    failures.push(`${LEDGER_PATH} must resolve to merge=union (found ${JSON.stringify(mergeAttribute || "unset")}).`);
+  if (mergeAttribute !== "ledger") {
+    failures.push(
+      `${LEDGER_PATH} must resolve to merge=ledger (union + exact-row dedupe; found ${JSON.stringify(
+        mergeAttribute || "unset",
+      )}).`,
+    );
   }
 
   const markers = [...ledger.matchAll(conflictMarker)];
@@ -208,7 +215,7 @@ function selfTest() {
 
   const valid = {
     ledger: ledgerWith(),
-    mergeAttribute: "union",
+    mergeAttribute: "ledger",
     protocol: "The ledger is append-only: append corrections.",
   };
   const fails = (input, needle, label) =>
@@ -220,7 +227,8 @@ function selfTest() {
   assert(validateLedger(valid).failures.length === 0, "valid ledger passes");
   assert(validateLedger(valid).recordCount === 1, "counts records");
 
-  fails({ mergeAttribute: "" }, "merge=union", "missing union attribute fails");
+  fails({ mergeAttribute: "" }, "merge=ledger", "missing ledger attribute fails");
+  fails({ mergeAttribute: "union" }, "merge=ledger", "stock union attribute fails");
   fails({ protocol: "append records" }, "reviewer instruction", "missing protocol contract fails");
   fails({ ledger: `${valid.ledger}<<<<<<< ours\n` }, "conflict marker", "conflict marker fails");
   fails({ ledger: ledgerWith(row()) }, "exact duplicate", "exact duplicate record fails");
@@ -276,7 +284,7 @@ function main() {
 
   console.log(
     `Branch review ledger guard passed: ${result.recordCount} table records ` +
-      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), union merge active, ` +
+      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), ledger merge active, ` +
       `six cells each, no conflict markers, mojibake, heading records, or duplicates.`,
   );
 }

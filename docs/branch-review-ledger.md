@@ -2,7 +2,7 @@
 
 Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD has not changed.
 
-This file is append-only. Never rewrite or delete an existing review record; append a correction or superseding record instead. Git uses the `union` merge driver for this file so concurrent appended records are retained automatically. After merging, keep all distinct records and remove exact duplicates only.
+This file is append-only. Never rewrite or delete an existing review record; append a correction or superseding record instead. Git uses the custom `ledger` merge driver (union + exact-row dedupe) so concurrent appended records are retained without reintroducing byte-identical twins. After merging in a checkout that lacks the driver, run `npm run ledger:dedupe` (exact duplicates only).
 
 Do not hand-edit this table. Read it with `npm run ledger:lookup` and write it with `npm run ledger:append`; both are local and read-only apart from the single line `append` adds at the end of the file.
 
@@ -33,7 +33,7 @@ The six columns are fixed: **Date · Branch or ref · Reviewed HEAD · Scope · 
 
 Record the **Reviewed HEAD** as the full 40-character SHA. `see PR head`, `pending final head`, and 8-character abbreviations are what made the throttle unreliable: no lookup can match them, so the review runs again. When the head genuinely does not exist yet, write `n/a - <reason>` and append a real record once it does.
 
-`npm run check:branch-review-ledger` (in `verify:cheap` and CI) enforces the union merge attribute, six cells per record, clean UTF-8 (no mojibake from a non-UTF-8 append), table-row records only, real dates, and no duplicates. Records dated 2026-07-29 or later must additionally carry a resolvable HEAD.
+`npm run check:branch-review-ledger` (in `verify:cheap` and CI) enforces the `ledger` merge attribute, six cells per record, clean UTF-8 (no mojibake from a non-UTF-8 append), table-row records only, real dates, and no duplicates. Records dated 2026-07-29 or later must additionally carry a resolvable HEAD. The merge driver is installed by `npm install` / `hooks:install` (`merge.ledger.driver`).
 
 ### Historical note — 2026-07-28 hygiene pass
 
