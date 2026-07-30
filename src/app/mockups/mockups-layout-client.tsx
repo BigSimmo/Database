@@ -24,6 +24,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
+  // Draws its own composer in every frame, and the notice under study is the one
+  // the shared composer renders — showing both would put two different privacy
+  // lines on screen at once.
+  const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -60,13 +64,15 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
-        !isTherapyNavigationMockup
+        !isTherapyNavigationMockup &&
+        !isWarningConsolidationMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
         !isSearchHeadingMockup &&
         !isPhoneInPageNavigationMockup &&
-        !isTherapyNavigationMockup
+        !isTherapyNavigationMockup &&
+        !isWarningConsolidationMockup
       }
     >
       {children}
