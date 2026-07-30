@@ -6,6 +6,9 @@ const zeroSha = /^0{40}$/;
 
 const fullRunSentinelFiles = [
   "src/app/api/answer/__ci_full_run__.ts",
+  // UI sentinel must stay outside src/app/api/** once API routes are excluded
+  // from ui_changed (otherwise schedule/full-run would skip Production UI).
+  "src/components/__ci_full_run__.tsx",
   "supabase/__ci_full_run__.sql",
   "Dockerfile",
   ".github/workflows/codex-autofix-review-comments.yml",
@@ -55,6 +58,12 @@ function pathMatches(filePath, patterns) {
   });
 }
 
+/** App Router API handlers are not browser journeys — keep them out of ui_changed. */
+function isUiChangedPath(filePath) {
+  if (filePath === "src/app/api" || filePath.startsWith("src/app/api/")) return false;
+  return pathMatches(filePath, uiPatterns);
+}
+
 const docPatterns = [
   "docs",
   "mockups",
@@ -73,7 +82,7 @@ const workflowPatterns = [
   "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
+  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const codexAutofixPatterns = [
@@ -109,32 +118,21 @@ const uiPatterns = [
   /^scripts\/(run|check)-lighthouse-budget\.mjs$/,
 ];
 
+// Migration replay validates schema/SQL tooling, not every API handler. API
+// route edits stay covered by unit/coverage (+ RAG offline when rag-scoped).
 const dbPatterns = [
   "supabase",
   "src/lib/supabase",
-  "src/app/api/answer",
-  "src/app/api/differentials",
-  "src/app/api/documents",
-  "src/app/api/eval-cases",
-  "src/app/api/health",
-  "src/app/api/images",
-  "src/app/api/ingestion",
-  "src/app/api/jobs",
-  "src/app/api/medications",
-  "src/app/api/registry",
-  "src/app/api/search",
-  "src/app/api/setup-status",
-  "src/app/api/upload",
   "docs/database-drift-detection.md",
   "docs/supabase-migration-reconciliation.md",
   /^scripts\/(check-drift|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
   /^tests\/(supabase|drift|private-rag|private-access|retrieval-owner).*\.test\.ts$/,
 ];
 
-// NOTE: rag_eval_changed is an ADVISORY narrowing signal only. The clinical
-// offline-grounding gate (eval:rag:offline) runs for every non-docs change in
-// both CI (.github/workflows/ci.yml) and local verify:pr-local, so a new
-// retrieval file that falls outside these patterns can never silently skip it.
+// rag_eval_changed selects the heavier offline RAG contract (eval:rag:offline).
+// Fixture validation (check:rag:fixtures) still runs for every non-docs change
+// in CI safety + verify:pr-local so a retrieval file outside these patterns
+// cannot silently skip fixture checks.
 const ragEvalPatterns = [
   "scripts/fixtures",
   "src/app/api/answer",
@@ -203,7 +201,7 @@ function classify(files) {
   // change. Narrower signals still scope build/UI/database work, but must not
   // leave runtime, worker, or configuration changes without unit coverage.
   const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
-  const uiChanged = normalized.some((file) => pathMatches(file, uiPatterns));
+  const uiChanged = normalized.some((file) => isUiChangedPath(file));
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
   const containerChanged = normalized.some((file) => pathMatches(file, containerPatterns));
   const ragEvalChanged = normalized.some((file) => pathMatches(file, ragEvalPatterns));
@@ -485,8 +483,25 @@ function selfTest() {
     {
       rag_eval_changed: true,
       source_changed: true,
+      // API handlers alone must not pull Chromium or migration replay.
+      ui_changed: true, // answer-content.tsx is UI
+      db_changed: false,
     },
   );
+  assertScope("api-only-skips-ui-and-db", ["src/app/api/answer/route.ts"], {
+    source_changed: true,
+    coverage_changed: true,
+    rag_eval_changed: true,
+    build_changed: true,
+    ui_changed: false,
+    db_changed: false,
+  });
+  assertScope("app-page-keeps-ui", ["src/app/(search-app)/page.tsx"], {
+    source_changed: true,
+    ui_changed: true,
+    build_changed: true,
+    db_changed: false,
+  });
   assertScope("rag-fixture", ["src/lib/retrieval-selection.ts", "scripts/fixtures/rag-retrieval-golden.json"], {
     rag_eval_changed: true,
     source_changed: true,
@@ -504,12 +519,28 @@ function selfTest() {
     coverage_changed: true,
     docs_only: false,
   });
-  assertScope("database-access", ["src/app/api/documents/route.ts"], {
-    db_changed: true,
+  assertScope("database-access-api-no-longer-trips-migration", ["src/app/api/documents/route.ts"], {
+    db_changed: false,
     source_changed: true,
+    coverage_changed: true,
+    build_changed: true,
   });
+  assertScope(
+    "database-schema-trips-migration",
+    ["supabase/migrations/20260710000000_example.sql", "src/lib/supabase/server.ts"],
+    {
+      db_changed: true,
+      source_changed: true,
+    },
+  );
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
+    docs_only: false,
+    build_changed: false,
+  });
+  assertScope("gitleaks-pin-script", ["scripts/run-gitleaks-pinned.mjs"], {
+    workflow_changed: true,
+    source_changed: true,
     docs_only: false,
     build_changed: false,
   });

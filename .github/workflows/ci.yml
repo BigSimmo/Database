@@ -196,6 +196,9 @@ jobs:
       - name: CI scope self-test
         run: npm run check:ci-scope
 
+      - name: Pinned Gitleaks range self-test
+        run: npm run check:gitleaks-pinned
+
       - name: CI triage self-test
         run: npm run check:ci-triage
 
@@ -330,8 +333,15 @@ jobs:
         if: needs.changes.outputs.codex_autofix_changed == 'true'
         run: npm run check:codex-autofix-workflow
 
+      # Fixtures for ordinary non-docs PRs; full offline contracts (includes
+      # fixtures) when retrieval/answer surfaces change.
       - name: Offline RAG fixture and manifest validation
+        if: needs.changes.outputs.rag_eval_changed != 'true'
         run: npm run check:rag:fixtures
+
+      - name: Offline RAG production contracts
+        if: needs.changes.outputs.rag_eval_changed == 'true'
+        run: npm run eval:rag:offline
 
   coverage:
     name: Unit coverage
@@ -406,10 +416,53 @@ jobs:
       contents: read
     uses: ./.github/workflows/docker-image.yml
 
+  # Fail-fast @critical Chromium smoke on PRs/merge_group before the full
+  # production suite. Skipped on main/schedule — those run the full job only.
+  # Keeps merge safety: pr-required still demands the full Production UI job.
+  ui-critical-fast:
+    name: Production UI critical
+    needs: changes
+    if: >
+      needs.changes.outputs.ui_changed == 'true' &&
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Chromium @critical journeys
+        run: npm run test:e2e:critical
+
+      - name: Classify exact failed test identities
+        if: failure()
+        run: node scripts/classify-playwright-failures.mjs
+
+      - name: Upload critical UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-ui-critical-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
   ui-critical:
     name: Production UI
-    needs: changes
-    if: needs.changes.outputs.ui_changed == 'true'
+    needs: [changes, ui-critical-fast]
+    # Run when UI scope applies and the fail-fast job succeeded or was skipped
+    # (skipped on main/schedule/dispatch where critical-first is not used).
+    if: >
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.ui_changed == 'true' &&
+      (needs.ui-critical-fast.result == 'success' || needs.ui-critical-fast.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -620,7 +673,11 @@ jobs:
 
   pr-required:
     name: PR required
-    needs: [changes, static-pr, safety, coverage, build, container-images, ui-critical, db-reset-verify]
+    needs:
+      [changes, static-pr, safety, coverage, build, container-images, ui-critical-fast, ui-critical, db-reset-verify]
+    # #095: keep `if: always()` — a skipped required check counts as PASSING
+    # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
+    # Cancelled vs failure is distinguished in the script below (PR #1409).
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -640,6 +697,7 @@ jobs:
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           CONTAINER_RESULT: ${{ needs.container-images.result }}
+          UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
@@ -728,8 +786,14 @@ jobs:
           fi
 
           if [ "$UI_CHANGED" = "true" ]; then
+            if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
+              require_success "production-ui-critical" "$UI_FAST_RESULT"
+            else
+              require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
+            fi
             require_success "production-ui" "$UI_RESULT"
           else
+            require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
             require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
 
@@ -767,9 +831,18 @@ jobs:
 
           echo "Required in-scope PR checks passed."
 
+  # Firefox/WebKit matrix must not wait on pr-required: a blocking weekly
+  # dependency audit (full-run sentinel sets lockfile_changed) previously
+  # skipped the matrix entirely while Chromium UI was already green (#023).
   release-browser-matrix:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    needs: [pr-required]
+    if: >
+      always() &&
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) &&
+      needs.changes.result == 'success' &&
+      needs.static-pr.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.ui-critical.result == 'success' || needs.ui-critical.result == 'skipped')
+    needs: [changes, static-pr, build, ui-critical]
     runs-on: ubuntu-24.04
     timeout-minutes: 70
 
