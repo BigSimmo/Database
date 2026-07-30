@@ -75,6 +75,8 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     COVERAGE_RESULT: "skipped",
     BUILD_RESULT: "skipped",
     CONTAINER_RESULT: "skipped",
+    // Critical-first UI job (this PR); skipped when ui_changed is false.
+    UI_FAST_RESULT: "skipped",
     UI_RESULT: "skipped",
     DB_RESULT: "skipped",
   };
@@ -82,7 +84,7 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
   function runAggregate(overrides: Record<string, string> = {}) {
     const result = spawnSync("bash", ["-c", script], {
       // process.env is spread because this repo augments ProcessEnv with required keys, so a
-      // bare object does not typecheck. All fifteen variables the script reads are overridden
+      // bare object does not typecheck. All sixteen variables the script reads are overridden
       // below, and it runs under `set -u`, so the ambient environment cannot change the outcome.
       env: { ...process.env, ...allGreen, ...overrides },
       encoding: "utf8",
@@ -173,7 +175,20 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     }
     expect(runAggregate({ DOCS_ONLY: "false", SAFETY_RESULT: "cancelled" }).status).not.toBe(0);
     expect(runAggregate({ COVERAGE_CHANGED: "true", COVERAGE_RESULT: "cancelled" }).status).not.toBe(0);
-    expect(runAggregate({ UI_CHANGED: "true", UI_RESULT: "cancelled" }).status).not.toBe(0);
+    expect(
+      runAggregate({
+        UI_CHANGED: "true",
+        UI_FAST_RESULT: "success",
+        UI_RESULT: "cancelled",
+      }).status,
+    ).not.toBe(0);
+    expect(
+      runAggregate({
+        UI_CHANGED: "true",
+        UI_FAST_RESULT: "cancelled",
+        UI_RESULT: "success",
+      }).status,
+    ).not.toBe(0);
   });
 
   it("keeps `if: always()`, since a skipped required check counts as passing", () => {
