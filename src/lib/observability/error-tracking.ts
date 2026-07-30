@@ -83,7 +83,13 @@ export async function initializeErrorTracking(): Promise<boolean> {
 }
 
 export const captureRequestError: Instrumentation.onRequestError = async (error, _request, context) => {
-  if (process.env.NODE_ENV !== "production" || process.env.NEXT_RUNTIME !== "nodejs" || !process.env.SENTRY_DSN) return;
+  if (
+    process.env.NODE_ENV !== "production" ||
+    process.env.NEXT_RUNTIME !== "nodejs" ||
+    !process.env.SENTRY_DSN?.trim()
+  ) {
+    return;
+  }
 
   const Sentry = await import("@sentry/nextjs");
   Sentry.withScope((scope) => {

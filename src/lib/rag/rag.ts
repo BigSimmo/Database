@@ -159,7 +159,7 @@ import {
   queryPrivacyMetadata,
   queryTextForStorage,
 } from "@/lib/query-privacy";
-import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
+import { normalizeOptionalSourceMetadata } from "@/lib/source-metadata";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import {
   SOURCE_BACKED_REVIEW_FALLBACK_REASON,
