@@ -461,6 +461,8 @@ function MedicationResults({
   // "Exact clinical fit" rows when every visible row says the same thing.
   const showMatchBadge = useMemo(() => new Set(rows.map((row) => row.result.match)).size > 1, [rows]);
   const activeFilterLabel = medicationResultFilters.find((filter) => filter.id === activeFilter)?.label ?? "filtered";
+  const initialCatalogLoading = catalog.loading && !catalog.data;
+  const catalogRefetching = catalog.loading && Boolean(catalog.data);
 
   return (
     <div className={cn(pageContainer, "medication-results-workspace space-y-3 py-0 sm:py-2")}>
@@ -468,7 +470,9 @@ function MedicationResults({
         modeId="prescribing"
         query={query}
         matchCount={resultCount}
-        status={catalog.error ? "error" : catalog.loading ? "loading" : "ready"}
+        status={
+          catalog.error ? "error" : initialCatalogLoading ? "loading" : catalogRefetching ? "refetching" : "ready"
+        }
         faultBody={catalog.error ?? undefined}
         filterLabel="Filter medication results"
         mobileControls={
@@ -491,13 +495,13 @@ function MedicationResults({
 
       {/* The error branch moved into the band's fault panel, which carries the
           same message and announces it once. Loading copy stays here. */}
-      {catalog.loading ? (
+      {initialCatalogLoading ? (
         <div className="medication-results-inset">
           <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
         </div>
       ) : null}
 
-      {!catalog.loading && !catalog.error && resultCount === 0 ? (
+      {!initialCatalogLoading && !catalog.error && resultCount === 0 ? (
         totalAvailable > 0 ? (
           <div className="medication-results-inset space-y-2">
             <EmptyState
@@ -524,7 +528,7 @@ function MedicationResults({
         )
       ) : null}
 
-      {!catalog.loading && !catalog.error && resultCount > 0 ? (
+      {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
         <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
           <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>

@@ -28,6 +28,7 @@ npm run docs:check-links
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
 - [design-system.md](design-system.md) — tokens, primitives, styling conventions
+- [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
 - [multi-user-auth-setup.md](multi-user-auth-setup.md) — auth, sessions, owner scoping

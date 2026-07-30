@@ -10,8 +10,14 @@ Staging is two independent tiers: a **staging Supabase project** (data) and a
 > **Current state (verified 2026-07-27):** Supabase project `ikoiolksxqxfxgiyqpnu`
 > and the Railway staging app already exist and are healthy. The app is in offline-provider mode,
 > the staging corpus is empty, and `search_schema_health()` passes. Do not create replacements.
-> The remaining data-tier work is to apply the 23 repository migrations after
-> `20260719055623`, then repeat the identity, indexing, health, and empty-data-boundary proof.
+> **Revalidated 2026-07-30:** the staging project and app are still healthy, correctly identify as
+> staging, run with `RAG_PROVIDER_MODE=offline`, and have no OpenAI key. Linked migration history
+> has **24** local-only versions: ten holes before/at `20260719053533` (four are historical
+> placeholders) and fourteen versions after `20260719055623`. `supabase db push --linked
+--include-all --dry-run` prints that exact 24-version chain. Do not run a normal or partial push:
+> history is divergent, and the full chain currently ends in the separately governed BMJ
+> attestation migration `20260727010000`. Reconcile the entire reviewed chain only in an approved
+> scope, then repeat the identity, indexing, health, and empty-data-boundary proof.
 
 The identity guard is already staging-aware (`src/lib/supabase/project.ts`): it
 accepts a second project **only** when you explicitly declare it via

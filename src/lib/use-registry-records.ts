@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
+import { authSessionFingerprint } from "@/lib/auth-request-lifecycle";
 import { useAuthSession } from "@/lib/supabase/client";
 
-export type RegistryRequestStatus = "loading" | "ready" | "unauthorized" | "not_found" | "error";
+export type RegistryRequestStatus = "loading" | "refetching" | "ready" | "unauthorized" | "not_found" | "error";
 
 export type RegistryRecordsState = {
   status: RegistryRequestStatus;
@@ -74,15 +75,40 @@ export function useRegistryRecords(
   options: { enabled?: boolean } = {},
 ): RegistryRecordsResult {
   const enabled = options.enabled ?? true;
-  const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
+  const { authorizationHeader, markSessionExpired, session, status: authStatus } = useAuthSession();
+  const authIdentity = authSessionFingerprint(authStatus, session?.user.id);
   const [state, setState] = useState<RegistryRecordsKeyedState>(recordsState("loading", kind));
   const [attempt, setAttempt] = useState(0);
+  const [lastRequestIdentity, setLastRequestIdentity] = useState({ authIdentity, authorizationHeader, enabled, kind });
+
+  const resourceChanged = lastRequestIdentity.kind !== kind || lastRequestIdentity.enabled !== enabled;
+  const identityChanged = lastRequestIdentity.authIdentity !== authIdentity;
+  const credentialChanged = lastRequestIdentity.authorizationHeader !== authorizationHeader;
+  if (resourceChanged || identityChanged || credentialChanged) {
+    setLastRequestIdentity({ authIdentity, authorizationHeader, enabled, kind });
+    setState((current) => {
+      if (
+        !resourceChanged &&
+        !identityChanged &&
+        credentialChanged &&
+        current.kind === kind &&
+        (current.status === "ready" || current.status === "refetching")
+      ) {
+        return { ...current, status: "refetching" };
+      }
+      return recordsState("loading", kind);
+    });
+  }
   const visibleState: RegistryRecordsState = state.kind === kind ? state : recordsState("loading", kind);
 
-  // Re-run the request from a Retry control: reset to loading and bump a counter
-  // the effect depends on. Recovery otherwise required a full page reload.
+  // A same-identity refresh keeps already-authorized rows visible. Resource or
+  // identity changes clear synchronously above, before another owner can paint.
   const refetch = useCallback(() => {
-    setState(recordsState("loading", kind));
+    setState((current) =>
+      current.kind === kind && (current.status === "ready" || current.status === "refetching")
+        ? { ...current, status: "refetching" }
+        : recordsState("loading", kind),
+    );
     setAttempt((value) => value + 1);
   }, [kind]);
 

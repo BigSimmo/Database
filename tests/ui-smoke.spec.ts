@@ -3551,12 +3551,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
+    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
+    await expect(
+      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+    ).toHaveJSProperty("open", true);
 
     const sourceSearch = page.getByLabel("Search within indexed source text").last();
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
     await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
     await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
+    const initialActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
+    await expect(initialActiveHit).toHaveJSProperty("open", true);
+    const initialActiveHitId = await initialActiveHit.getAttribute("data-source-chunk-id");
+    expect(initialActiveHitId).toBeTruthy();
+    const initialActiveDisclosure = desktopTextPanel.locator(`details[data-source-chunk-id="${initialActiveHitId}"]`);
     const previousHit = desktopTextPanel.getByRole("button", { name: "Previous document search hit" });
     const nextHit = desktopTextPanel.getByRole("button", { name: "Next document search hit" });
     await expect(previousHit).toHaveAttribute("title", "Previous document search hit");
@@ -3565,6 +3574,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(nextHit).toHaveText("");
     await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
+    const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
+    await expect(nextActiveHit).toHaveJSProperty("open", true);
+    await expect(initialActiveDisclosure).toHaveJSProperty("open", false);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3803,6 +3815,36 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("document source text accordion stays compact at 320, 390, and 1280 pixels", async ({ page }) => {
+    await mockDemoApi(page);
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
+      await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
+        timeout: 30_000,
+      });
+
+      const indexedText = page.locator("#source-text");
+      const pageText = indexedText.getByTestId("indexed-page-text-disclosure");
+      const passages = indexedText.locator("details[data-source-chunk-id]");
+      await expect(indexedText).toHaveJSProperty("open", false);
+      await expect(passages).toHaveCount(2);
+      for (const disclosure of [pageText, passages.nth(0), passages.nth(1)]) {
+        await expect(disclosure).toHaveJSProperty("open", false);
+      }
+
+      await indexedText.locator("summary").first().click();
+      await expect(indexedText).toHaveJSProperty("open", true);
+      await passages.nth(0).locator("summary").click();
+      await expect(passages.nth(0)).toHaveJSProperty("open", true);
+      await expect(passages.nth(1)).toHaveJSProperty("open", false);
+      await passages.nth(1).locator("summary").click();
+      await expect(passages.nth(1)).toHaveJSProperty("open", true);
+      await expect(passages.nth(0)).toHaveJSProperty("open", false);
+      await expectNoPageHorizontalOverflow(page);
+    }
+  });
+
   test("document viewer content disclosures are naturally closed and mutually exclusive by default", async ({
     page,
   }) => {
@@ -3830,6 +3872,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const summary = page.getByTestId("high-yield-summary");
     const images = page.locator("#source-images");
     const indexingDetails = page.getByTestId("indexing-details");
+    const pageText = indexedText.getByTestId("indexed-page-text-disclosure");
+    const passages = indexedText.locator("details[data-source-chunk-id]");
     const sectionTrigger = page.getByTestId("document-section-trigger");
     const clickSectionNav = async (label: RegExp) => {
       await revealPhoneHeaderControl(page, sectionTrigger);
@@ -3851,6 +3895,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(indexedText).toBeVisible();
     await expect(indexedText).toHaveJSProperty("open", false);
+    await expect(passages).toHaveCount(2);
+    for (const disclosure of [pageText, passages.nth(0), passages.nth(1)]) {
+      await expect(disclosure).toHaveJSProperty("open", false);
+    }
     await sectionTrigger.click();
     const densitySheet = page.getByTestId("document-section-sheet");
     const densityToggle = densitySheet.getByTestId("document-view-density-toggle");
@@ -3873,6 +3921,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await openImagesDisclosure();
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
     await expect(indexedText).toHaveJSProperty("open", true);
+    await expect(pageText).toHaveJSProperty("open", true);
+    await expect(passages.nth(0)).toHaveJSProperty("open", true);
+    await expect(passages.nth(1)).toHaveJSProperty("open", true);
     await page.emulateMedia({ media: "print" });
     await expect(summaryContent).toBeVisible();
     await page.emulateMedia({ media: "screen" });
@@ -3880,11 +3931,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(summaryContent).toBeHidden();
     await expect(images).toHaveJSProperty("open", true);
     await expect(indexedText).toHaveJSProperty("open", false);
+    await expect(pageText).toHaveJSProperty("open", false);
+    await expect(passages.nth(0)).toHaveJSProperty("open", false);
+    await expect(passages.nth(1)).toHaveJSProperty("open", false);
 
     await clickSectionNav(/Indexed source text/);
     await expect(indexedText).toBeInViewport();
     await expect(indexedText).toHaveJSProperty("open", true);
     await expect(images).toHaveJSProperty("open", false);
+    await passages.nth(0).locator("summary").click();
+    await expect(passages.nth(0)).toHaveJSProperty("open", true);
+    await passages.nth(1).locator("summary").click();
+    await expect(passages.nth(1)).toHaveJSProperty("open", true);
+    await expect(passages.nth(0)).toHaveJSProperty("open", false);
 
     await clickSectionNav(/High-yield summary/);
     await expect(summary).toHaveJSProperty("open", true);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { authSessionFingerprint } from "@/lib/auth-request-lifecycle";
 import type { MedicationRecord, MedicationSearchResult } from "@/lib/medications";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -61,23 +62,31 @@ export function useMedicationCatalog(
   const trimmed = query?.trim() ?? "";
   // Auth-aware like use-registry-records: without the header an authenticated owner was
   // silently served the public fixture catalogue instead of their seeded records.
-  const { authorizationHeader } = useAuthSession();
+  const { authorizationHeader, session, status: authStatus } = useAuthSession();
+  const authIdentity = authSessionFingerprint(authStatus, session?.user.id);
   const [prevQuery, setPrevQuery] = useState(trimmed);
   const [prevEnabled, setPrevEnabled] = useState(enabled);
+  const [prevAuthIdentity, setPrevAuthIdentity] = useState(authIdentity);
+  const [prevAuthorizationHeader, setPrevAuthorizationHeader] = useState(authorizationHeader);
   const [state, setState] = useState<AsyncState<MedicationCatalogResponse>>({
     data: null,
     loading: enabled,
     error: null,
   });
 
-  if (trimmed !== prevQuery || enabled !== prevEnabled) {
+  const resourceChanged = trimmed !== prevQuery || enabled !== prevEnabled;
+  const identityChanged = authIdentity !== prevAuthIdentity;
+  const credentialChanged = authorizationHeader !== prevAuthorizationHeader;
+  if (resourceChanged || identityChanged || credentialChanged) {
     setPrevQuery(trimmed);
     setPrevEnabled(enabled);
-    setState({
-      data: null,
-      loading: enabled,
-      error: null,
-    });
+    setPrevAuthIdentity(authIdentity);
+    setPrevAuthorizationHeader(authorizationHeader);
+    setState((current) =>
+      !resourceChanged && !identityChanged && credentialChanged && current.data
+        ? { ...current, loading: true, error: null }
+        : { data: null, loading: enabled, error: null },
+    );
   }
 
   useEffect(() => {

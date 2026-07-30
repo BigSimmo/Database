@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { authSessionFingerprint } from "@/lib/auth-request-lifecycle";
 import type { DifferentialDetailContext } from "@/lib/differential-detail";
 import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/lib/differential-records";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differentials";
@@ -13,7 +14,7 @@ export type DifferentialSearchMatches = {
 };
 
 export type DifferentialSearchState = {
-  status: "loading" | "ready" | "unauthorized" | "error";
+  status: "loading" | "refetching" | "ready" | "unauthorized" | "error";
   matches: DifferentialSearchMatches;
   demoMode: boolean;
 };
@@ -107,9 +108,9 @@ export function clearDifferentialSearchCacheForTests() {
 export type DifferentialSearchResult = DifferentialSearchState & { refetch: () => void };
 
 export function useDifferentialSearch(query: string): DifferentialSearchResult {
-  const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
+  const { authorizationHeader, markSessionExpired, session, status: authStatus } = useAuthSession();
   const requestKey = query.trim().toLowerCase();
-  const authSignature = JSON.stringify(authorizationHeader ?? {});
+  const authSignature = authSessionFingerprint(authStatus, session?.user.id);
   const cacheKey = requestKey ? differentialCacheKey(requestKey, authSignature) : null;
   const cached = cacheKey ? peekDifferentialCache(cacheKey) : undefined;
 
@@ -127,11 +128,22 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   // Auth must clear prior identity's matches immediately (parity with useUniversalSearch).
   const [lastRequestKey, setLastRequestKey] = useState(requestKey);
   const [lastAuthSignature, setLastAuthSignature] = useState(authSignature);
-  if (lastRequestKey !== requestKey || lastAuthSignature !== authSignature) {
+  const [lastAuthorizationHeader, setLastAuthorizationHeader] = useState(authorizationHeader);
+  const requestChanged = lastRequestKey !== requestKey;
+  const identityChanged = lastAuthSignature !== authSignature;
+  const credentialChanged = lastAuthorizationHeader !== authorizationHeader;
+  if (requestChanged || identityChanged || credentialChanged) {
     setLastRequestKey(requestKey);
     setLastAuthSignature(authSignature);
-    if (!requestKey) {
-      setState({ status: "ready", matches: emptyDifferentialMatches, demoMode: false });
+    setLastAuthorizationHeader(authorizationHeader);
+    if (!requestKey || identityChanged) {
+      setState(
+        requestKey
+          ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false }
+          : { status: "ready", matches: emptyDifferentialMatches, demoMode: false },
+      );
+    } else if (!requestChanged && credentialChanged && state.status === "ready") {
+      setState({ ...state, status: "refetching" });
     } else if (cached) {
       setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode });
     } else {
@@ -145,14 +157,18 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   const [retryAttempt, setRetryAttempt] = useState(0);
   const refetch = useCallback(() => {
     if (!requestKey) return;
-    setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+    setState((current) =>
+      current.status === "ready" || current.status === "refetching"
+        ? { ...current, status: "refetching" }
+        : { status: "loading", matches: emptyDifferentialMatches, demoMode: false },
+    );
     setRetryAttempt((attempt) => attempt + 1);
   }, [requestKey]);
 
   useEffect(() => {
     if (!requestKey || !cacheKey) return undefined;
 
-    if (peekDifferentialCache(cacheKey)) {
+    if (peekDifferentialCache(cacheKey) && state.status !== "refetching") {
       touchDifferentialCache(cacheKey);
       return undefined;
     }
@@ -212,12 +228,12 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [requestKey, cacheKey, authStatus, authorizationHeader, markSessionExpired, retryAttempt]);
+  }, [requestKey, cacheKey, authStatus, authorizationHeader, markSessionExpired, retryAttempt, state.status]);
 
   if (!requestKey) {
     return { status: "ready", matches: emptyDifferentialMatches, demoMode: false, refetch };
   }
-  if (cached && state.status !== "unauthorized" && state.status !== "error") {
+  if (cached && state.status !== "unauthorized" && state.status !== "error" && state.status !== "refetching") {
     return { status: "ready", matches: cached.matches, demoMode: cached.demoMode, refetch };
   }
   return { ...state, refetch };

@@ -9,6 +9,7 @@ import {
 const authSession = vi.hoisted(() => ({
   authorizationHeader: { Authorization: "Bearer differential-search-test" },
   markSessionExpired: vi.fn(),
+  session: { user: { id: "user-a" } },
   status: "authenticated" as const,
 }));
 
@@ -23,6 +24,7 @@ beforeEach(() => {
   clearDifferentialSearchCacheForTests();
   authSession.markSessionExpired.mockReset();
   authSession.authorizationHeader = { Authorization: "Bearer differential-search-test" };
+  authSession.session = { user: { id: "user-a" } };
   authSession.status = "authenticated";
   fetchMock = vi.fn<typeof fetch>();
   vi.stubGlobal("fetch", fetchMock);
@@ -158,11 +160,57 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
 
     authSession.authorizationHeader = { Authorization: "Bearer other-user" };
+    authSession.session = { user: { id: "user-b" } };
     rerender();
     expect(result.current.status).toBe("loading");
     expect(result.current.matches).toEqual({ diagnoses: [], presentations: [] });
 
     await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+  });
+
+  it("keeps same-query matches visible while a same-user token refresh refetches", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    let resolveDiagnosis!: (response: Response) => void;
+    let resolvePresentation!: (response: Response) => void;
+    fetchMock.mockImplementation(
+      (input) =>
+        new Promise<Response>((resolve) => {
+          if (String(input).includes("kind=diagnosis")) resolveDiagnosis = resolve;
+          else resolvePresentation = resolve;
+        }),
+    );
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
+    rerender();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    await advanceDebounce();
+    await act(async () => {
+      resolveDiagnosis(jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      resolvePresentation(jsonResponse({ matches: [], demoMode: false }));
+    });
     await flushMicrotasks();
     expect(result.current.status).toBe("ready");
   });
