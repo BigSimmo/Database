@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { coverageGaps, schemaTableGaps } from "../scripts/check-codebase-index-coverage.mjs";
+import { coverageGaps, schemaTableGaps, trackedRootDirectoryNames } from "../scripts/check-codebase-index-coverage.mjs";
 
 const index = `
+## Top-level layout
+
+Roots: \`src/\`, \`docs/\`, \`.agents/\`.
+
+## Application architecture
+
 ### Product pages (\`src/app/\`)
 
 Routes: \`/documents\`, \`/reference/colour-coding\`.
@@ -56,6 +62,30 @@ describe("coverageGaps", () => {
   it("honours the allowlist", () => {
     const gaps = coverageGaps(index, [{ kind: "route", dir: "src/app", name: "icons" }], new Set(["src/app/icons"]));
     expect(gaps).toEqual([]);
+  });
+
+  it("checks tracked repository-root directories in the top-level layout section", () => {
+    expect(
+      coverageGaps(index, [
+        { kind: "root", dir: ".", name: "src" },
+        { kind: "root", dir: ".", name: ".agents" },
+      ]),
+    ).toEqual([]);
+    expect(coverageGaps(index, [{ kind: "root", dir: ".", name: "plugins" }])).toEqual([
+      { full: "./plugins", kind: "root", tried: ["plugins/"] },
+    ]);
+  });
+
+  it("derives unique root directories from tracked paths only", () => {
+    expect(
+      trackedRootDirectoryNames([
+        "src/app/page.tsx",
+        "src/lib/env.ts",
+        "docs/codebase-index.md",
+        ".agents/skills/task/SKILL.md",
+        "README.md",
+      ]),
+    ).toEqual([".agents", "docs", "src"]);
   });
 
   it("reports missing and stale schema-table entries", () => {
