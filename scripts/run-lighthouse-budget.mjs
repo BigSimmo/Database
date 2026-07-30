@@ -163,7 +163,7 @@ if (dryRun) {
 try {
   // Lighthouse drives a real browser against a production build, so it takes the
   // same exclusive admission as Playwright rather than racing a concurrent build.
-  lock = acquireHeavyRunLock({ command: "run-lighthouse-budget" });
+  lock = acquireHeavyRunLock({ projectRoot, command: "run-lighthouse-budget" });
 
   const port = await findFreePort(stableProjectPort(projectRoot));
   const baseUrl = `http://localhost:${port}`;
