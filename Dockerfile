@@ -48,10 +48,11 @@ ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # while still completing this Next build.
 ARG ALLOW_LOW_RAM_BUILD=0
 ENV ALLOW_LOW_RAM_BUILD=${ALLOW_LOW_RAM_BUILD}
-# MAX_UPLOAD_MB remains a runtime-only server variable. Its build arg is scoped
-# to the parity guard so a lowered production limit can be checked without
-# baking the private server configuration into the final runtime image.
-RUN UPLOAD_LIMIT_PARITY_SERVER_MB="${MAX_UPLOAD_MB}" npm run build
+# MAX_UPLOAD_MB remains a runtime-only server variable. Copy its build argument
+# into the parity guard's checker-only name, then remove MAX_UPLOAD_MB from the
+# Next build process so application env validation cannot mistake an empty
+# build argument for a runtime value.
+RUN UPLOAD_LIMIT_PARITY_SERVER_MB="${MAX_UPLOAD_MB}" env -u MAX_UPLOAD_MB npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app

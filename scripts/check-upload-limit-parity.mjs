@@ -9,6 +9,7 @@ const { loadEnvConfig, resetEnv } = nextEnv;
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const uploadLimitSourcePath = path.join(projectRoot, "src", "lib", "upload-limits.ts");
+const dockerfilePath = path.join(projectRoot, "Dockerfile");
 
 export function readUploadLimitCeiling(source = readFileSync(uploadLimitSourcePath, "utf8")) {
   const match = source.match(/export const MAX_UPLOAD_MB_CEILING\s*=\s*(\d+)\s*;/);
@@ -66,6 +67,14 @@ function selfTest() {
   assert.match(
     evaluateUploadLimitParity({ NEXT_PUBLIC_MAX_UPLOAD_MB: "not-a-number" }, 150).errors.join(" "),
     /positive integer/,
+  );
+
+  const dockerfile = readFileSync(dockerfilePath, "utf8");
+  assert.match(dockerfile, /^ARG MAX_UPLOAD_MB=$/m);
+  assert.doesNotMatch(dockerfile, /^ENV MAX_UPLOAD_MB=/m);
+  assert.match(
+    dockerfile,
+    /^RUN UPLOAD_LIMIT_PARITY_SERVER_MB="\$\{MAX_UPLOAD_MB\}" env -u MAX_UPLOAD_MB npm run build$/m,
   );
 
   const directory = mkdtempSync(path.join(tmpdir(), "upload-limit-env-"));
