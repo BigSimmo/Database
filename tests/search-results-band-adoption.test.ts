@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import { parse } from "@babel/parser";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
@@ -157,11 +158,111 @@ function reachabilityRoots(routeAbs: string): string[] {
   return [routeAbs, ...layouts];
 }
 
-/** `from "x"` and `import("x")`. The lazy form is load-bearing: the dashboard
-    code-splits its mode workspaces through `dynamic(() => import(...))` in
-    `clinical-dashboard-lazy.tsx`, so a static-only walk cannot see the band
-    behind Differentials, Favourites or the prescribing workspace. */
-const IMPORT_SPECIFIER = /(?:from\s*"([^"]+)")|(?:import\(\s*"([^"]+)"\s*\))/g;
+/**
+ * Specifiers worth following out of one file, and only those.
+ *
+ * A plain "every specifier in the file" walk reports adoption for a route that
+ * keeps its results import but stops rendering it — reduce
+ * `(search-app)/services/page.tsx` to `<div />` with its imports intact and the
+ * gate stayed green, which is the regression it exists to catch. So a static
+ * `import { X } from "…"` is followed only when `X` is actually mounted:
+ * rendered as JSX, re-exported as the default (a wrapper page mounts with no JSX
+ * of its own), or re-exported by name.
+ *
+ * Three forms are followed unconditionally, because each *is* a mount mechanism
+ * rather than a binding that might go unused:
+ * - `import("…")` — how `clinical-dashboard-lazy.tsx` code-splits the mode
+ *   workspaces, so the band behind Differentials/Favourites/prescribing is only
+ *   reachable this way
+ * - `export … from "…"` — a barrel or pass-through re-export
+ * - side-effect `import "…"`
+ */
+function followableSpecifiers(source: string, filename: string): string[] {
+  let ast: ReturnType<typeof parse>;
+  try {
+    ast = parse(source, { sourceType: "unambiguous", plugins: ["jsx", "typescript"] });
+  } catch {
+    // An unparseable file must not silently drop out of the walk.
+    throw new Error(`search-results-band-adoption: could not parse ${filename}`);
+  }
+
+  const body = (ast.program?.body ?? []) as unknown[];
+  const mounted = new Set<string>();
+  const staticImports: Array<{ source: string; locals: string[] }> = [];
+  const always: string[] = [];
+
+  const visit = (value: unknown) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    const node = value as Record<string, unknown>;
+    const type = node.type;
+
+    // <X /> and <X.Y /> — the element name is a mount.
+    if (type === "JSXOpeningElement") {
+      let name = node.name as Record<string, unknown> | undefined;
+      while (name && name.type === "JSXMemberExpression") name = name.object as Record<string, unknown>;
+      if (name && name.type === "JSXIdentifier" && typeof name.name === "string") mounted.add(name.name);
+    }
+    // `export default X` mounts X without any JSX in this file.
+    if (type === "ExportDefaultDeclaration") {
+      const decl = node.declaration as Record<string, unknown> | undefined;
+      if (decl && decl.type === "Identifier" && typeof decl.name === "string") mounted.add(decl.name);
+    }
+    // `export { X }` — the mount happens in whatever imports it.
+    if (type === "ExportNamedDeclaration" && !node.source) {
+      for (const spec of (node.specifiers ?? []) as Array<Record<string, unknown>>) {
+        const local = spec.local as Record<string, unknown> | undefined;
+        if (local && typeof local.name === "string") mounted.add(local.name);
+      }
+    }
+    // `import("…")`, including inside dynamic(() => import("…")).
+    if (
+      type === "ImportExpression" ||
+      (type === "CallExpression" && (node.callee as { type?: string })?.type === "Import")
+    ) {
+      const arg = (node.source ?? (node.arguments as unknown[])?.[0] ?? null) as Record<string, unknown> | null;
+      if (arg && arg.type === "StringLiteral" && typeof arg.value === "string") always.push(arg.value);
+    }
+    for (const key of Object.keys(node)) {
+      if (key === "loc" || key === "leadingComments" || key === "trailingComments") continue;
+      visit(node[key]);
+    }
+  };
+
+  for (const raw of body) {
+    const statement = raw as Record<string, unknown>;
+    if (statement.type === "ImportDeclaration") {
+      const spec = (statement.source as { value?: string })?.value;
+      if (typeof spec !== "string") continue;
+      const locals = ((statement.specifiers ?? []) as Array<Record<string, unknown>>)
+        .map((s) => (s.local as { name?: string })?.name)
+        .filter((n): n is string => typeof n === "string");
+      // A bare `import "x"` has no bindings and is a side effect — always follow.
+      if (locals.length === 0) always.push(spec);
+      else staticImports.push({ source: spec, locals });
+      continue;
+    }
+    if (
+      (statement.type === "ExportNamedDeclaration" || statement.type === "ExportAllDeclaration") &&
+      statement.source
+    ) {
+      const spec = (statement.source as { value?: string })?.value;
+      if (typeof spec === "string") always.push(spec);
+      continue;
+    }
+  }
+  // Mount detection has to see the whole program, imports included, because a
+  // re-export statement is both.
+  visit(body);
+
+  const followed = staticImports
+    .filter(({ locals }) => locals.some((local) => mounted.has(local)))
+    .map((i) => i.source);
+  return [...new Set([...always, ...followed])];
+}
 
 function resolveSpecifier(specifier: string, fromFile: string): string | null {
   let base: string;
@@ -198,9 +299,7 @@ function routeReachesBand(routeAbs: string): boolean {
       }
       if (rendersBand(source)) return true;
       if (depth >= MAX_IMPORT_DEPTH) continue;
-      for (const match of source.matchAll(IMPORT_SPECIFIER)) {
-        const specifier = match[1] ?? match[2];
-        if (!specifier) continue;
+      for (const specifier of followableSpecifiers(source, file)) {
         const target = resolveSpecifier(specifier, file);
         if (!target || seen.has(target) || isMockupPath(target)) continue;
         seen.add(target);
@@ -394,6 +493,26 @@ describe("band adoption detection", () => {
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "wired-route.tsx"))).toBe(true);
+
+      // The regression this gate exists to catch: the results component is still
+      // imported, but nothing renders it. A walk that follows every specifier
+      // reports adoption here, which is how gutting a real page to `<div />` with
+      // its imports intact stayed green.
+      writeFileSync(
+        path.join(dir, "imported-only-route.tsx"),
+        'import { Banded } from "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "imported-only-route.tsx"))).toBe(false);
+
+      // A wrapper page mounts with no JSX of its own, so a default re-export of
+      // an imported binding has to count.
+      writeFileSync(
+        path.join(dir, "reexport-route.tsx"),
+        'import { Banded } from "./banded-child";\nexport default Banded;\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "reexport-route.tsx"))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -15,8 +15,10 @@
  *
  *   2. Format-before-push
  *      verify:cheap does NOT run format:check but CI requires it, so unformatted
- *      files reach CI and fail there. Runs `prettier --check` on the files in the
- *      push range. Override: SKIP_FORMAT_GUARD=1.
+ *      files reach CI and fail there. Checks the *pushed blobs* (`git show
+ *      <sha>:<file>`) for the files in the push range — not the working copies,
+ *      because a push sends commits: formatting after committing left the guard
+ *      green and CI red. Override: SKIP_FORMAT_GUARD=1.
  *
  *   3. Drift-manifest freshness
  *      Editing supabase/schema.sql without regenerating supabase/drift-manifest.json
@@ -108,6 +110,25 @@ function collectChangedFiles(ranges) {
   return [...files];
 }
 
+/**
+ * Changed files paired with the commit they are being pushed at.
+ *
+ * A push sends commits, not the working tree. Checking `<file>` on disk lets a
+ * formatted working copy vouch for an unformatted committed blob: commit
+ * `const a   =    1`, run `npm run format`, and `prettier --check <path>` passes
+ * while `git show HEAD:<path>` is still unformatted — so the guard went green and
+ * CI failed anyway. Carry the sha so the guard can read what is actually pushed.
+ */
+function collectChangedBlobs(ranges) {
+  const seen = new Map();
+  for (const range of ranges) {
+    for (const file of changedFilesForRange(range)) {
+      seen.set(`${range.localSha}:${file}`, { sha: range.localSha, file });
+    }
+  }
+  return [...seen.values()];
+}
+
 // ---------------------------------------------------------------------------
 // Guard 1: auto-merge race sentinel
 // ---------------------------------------------------------------------------
@@ -174,40 +195,66 @@ function resolvePrettierBin() {
   return path.join(path.dirname(pkgJson), "bin", "prettier.cjs");
 }
 
-function formatGuard(changedFiles) {
+/**
+ * Is the pushed content of `file` already Prettier-formatted?
+ *
+ * Fed through stdin with `--stdin-filepath` so Prettier still picks the parser
+ * from the real path and still honours `.prettierignore` for it — an ignored
+ * path comes back byte-identical and therefore reads as formatted. Returns null
+ * when the verdict is unknown (unreadable blob, no parser), so an unknown never
+ * blocks a push.
+ */
+function pushedBlobIsFormatted(prettierBin, sha, file) {
+  let committed;
+  try {
+    committed = execFileSync("git", ["show", `${sha}:${file}`], {
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    // Deleted in this push, or otherwise not present at this sha.
+    return null;
+  }
+  try {
+    const formatted = execFileSync(process.execPath, [prettierBin, "--ignore-unknown", "--stdin-filepath", file], {
+      input: committed,
+      encoding: "utf8",
+      maxBuffer: 32 * 1024 * 1024,
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    return formatted === committed;
+  } catch {
+    return null;
+  }
+}
+
+function formatGuard(changedBlobs) {
   if (process.env.SKIP_FORMAT_GUARD === "1") {
     return { name: "format", ok: true, skipped: "SKIP_FORMAT_GUARD=1" };
   }
-  const existing = changedFiles.filter((f) => existsSync(f));
-  if (existing.length === 0) return { name: "format", ok: true };
+  if (changedBlobs.length === 0) return { name: "format", ok: true };
   let prettierBin;
   try {
     prettierBin = resolvePrettierBin();
   } catch {
     return { name: "format", ok: true, note: "prettier not resolvable — format check skipped" };
   }
-  try {
-    // prettier respects .prettierignore for listed paths; --ignore-unknown skips
-    // files it has no parser for (e.g. images) without failing.
-    execFileSync(process.execPath, [prettierBin, "--check", "--ignore-unknown", ...existing], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return { name: "format", ok: true };
-  } catch (error) {
-    const detail = [error.stdout, error.stderr]
-      .map((b) => (b ? b.toString() : ""))
-      .join("")
-      .trim();
-    return {
-      name: "format",
-      ok: false,
-      message:
-        `Prettier found unformatted files in this push (CI format:check would fail):\n` +
-        (detail ? `${detail}\n` : "") +
-        `  Fix with: npm run format\n` +
-        `  To push anyway: SKIP_FORMAT_GUARD=1 git push`,
-    };
+  const unformatted = [];
+  for (const { sha, file } of changedBlobs) {
+    if (pushedBlobIsFormatted(prettierBin, sha, file) === false) unformatted.push(file);
   }
+  if (unformatted.length === 0) return { name: "format", ok: true };
+  return {
+    name: "format",
+    ok: false,
+    message:
+      `Prettier found unformatted files in this push (CI format:check would fail):\n` +
+      unformatted.map((file) => `  ${file}\n`).join("") +
+      `  These are the committed contents, not your working copy — run \`npm run format\`\n` +
+      `  and commit the result (amend or a follow-up commit).\n` +
+      `  To push anyway: SKIP_FORMAT_GUARD=1 git push`,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -273,7 +320,8 @@ function main() {
   if (ranges.length === 0) process.exit(0); // deletion-only push or nothing to do
   const branch = currentBranch();
   const changedFiles = collectChangedFiles(ranges);
-  const results = [autoMergeGuard(branch), formatGuard(changedFiles), driftGuard(changedFiles)];
+  // formatGuard reads the pushed blobs; driftGuard only needs the paths.
+  const results = [autoMergeGuard(branch), formatGuard(collectChangedBlobs(ranges)), driftGuard(changedFiles)];
   process.exit(report(results));
 }
 
