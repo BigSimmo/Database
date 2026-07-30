@@ -67,8 +67,10 @@ function readScope(files) {
 function selectedScripts(scope, extended) {
   const scripts = [...baseScripts];
   if (scope.build_changed) scripts.push("build");
-  // Full unit testing already includes every offline RAG contract suite.
-  if (!scope.docs_only) scripts.push("check:rag:fixtures");
+  // Fixtures for every non-docs change; full offline RAG contracts when
+  // retrieval/answer surfaces are in scope (eval:rag:offline includes fixtures).
+  if (scope.rag_eval_changed) scripts.push("eval:rag:offline");
+  else if (!scope.docs_only) scripts.push("check:rag:fixtures");
   if (extended && scope.ui_changed) scripts.push("verify:ui");
   return scripts;
 }
@@ -82,7 +84,9 @@ if (options.dryRun) {
   console.log("\nPR-local verification plan (dry run):");
   for (const script of scripts) console.log(`- npm run ${script}`);
   if (!scope.build_changed) console.log("- build skipped: no build-affecting changes detected");
-  if (scope.docs_only) console.log("- offline RAG fixture validation skipped: docs-only change");
+  if (scope.docs_only) console.log("- offline RAG checks skipped: docs-only change");
+  else if (!scope.rag_eval_changed)
+    console.log("- offline RAG production contracts skipped: no RAG-scoped changes (fixtures still selected)");
   if (options.extended && !scope.ui_changed)
     console.log("- Chromium UI gate skipped: no UI-affecting changes detected");
   process.exit(0);

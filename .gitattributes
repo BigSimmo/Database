@@ -8,6 +8,12 @@
 *.png binary
 *.webp binary
 
-# Review records are append-only. Concurrent branches should retain both sets
-# of rows instead of stopping on an add/add conflict at the shared table tail.
-docs/branch-review-ledger.md merge=union
+# Review records are append-only. The custom `ledger` driver unions both sides
+# and drops exact duplicate dated rows (stock `union` kept concurrent appends
+# but also reintroduced babysit twins that failed the ledger guard).
+docs/branch-review-ledger.md merge=ledger
+
+# Outstanding-issue rows are also append-mostly across concurrent agent sessions.
+# Union merge preserves both sides' rows; scripts/check-outstanding-issues.mjs
+# still fails on duplicate IDs because row-level union alone cannot allocate IDs.
+docs/outstanding-issues.md merge=union

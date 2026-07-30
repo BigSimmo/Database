@@ -326,19 +326,27 @@ async function dragScrollBy(page: Page, totalPx: number, stepPx: number): Promis
 const minimumHideTravelPx = 160;
 
 /**
- * Drags down far enough to cross the scroll-hide threshold, and proves the page
- * actually had the runway to do it.
+ * Drags down to cross the scroll-hide threshold, and proves the page had the
+ * runway and that the gesture actually travelled.
  *
- * Failure mode this replaces (CI run 30518866604, `ui-phone-scroll.spec.ts:423`):
- * when a page lays out shorter than the test assumed — content still settling
- * under full-suite CI load — a bare `dragScrollBy(page, 720, 24)` clamps after a
- * fraction of that distance. The chrome then correctly stays visible, and the
- * failure surfaces ten seconds later on `toHaveAttribute("data-scroll-hidden")`,
- * which reads as a product regression rather than a test that never scrolled.
+ * This is a DIAGNOSTIC AND A GUARD, NOT A FIX for the `#127` flake. That issue —
+ * "document-detail hide sticks visible under CI load" — carries trace evidence
+ * from PR #1404 (run `30521269873`) that on its occurrence the drag delivered in
+ * full (`documentElement.scrollTop` = 1272, exactly the 552 + 720 asked for) with
+ * ~1300 px of runway to spare, and that a 10 s non-flip is a latched state rather
+ * than a race. So under-delivery was NOT the cause there, and this helper would
+ * have passed its checks and failed on the same assertion.
  *
- * Waiting on the runway is a condition wait, not a settle sleep, and the
- * assertions at the call sites are untouched: a genuinely stuck header still
- * fails exactly as before once the drag is proven to have happened.
+ * What it does buy: `scrollTop +=` clamps silently, and the old helper returned
+ * nothing, so "the drag was short" could never be ruled out from a CI log alone.
+ * Now it is ruled out by construction — a future failure here proves the gesture
+ * landed, which narrows `#127` to its remaining candidates (`scrollHidden` false
+ * vs `sharedChromePinned` latched). Separating THOSE two still needs the pin
+ * state exposed in the DOM; today only the composite `data-scroll-hidden`
+ * (`scrollHidden && !sharedChromePinned`) is observable, so both look identical.
+ *
+ * The call-site assertions are untouched: a genuinely stuck header fails exactly
+ * as before, once the drag is proven to have happened.
  */
 async function dragScrollUntilHidden(page: Page, totalPx: number, stepPx: number) {
   await expect
