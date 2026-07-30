@@ -961,6 +961,7 @@ test("Services results keep a continuous browser viewport after shared chrome re
 
   const hidden = await page.evaluate(() => {
     const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const header = document.querySelector<HTMLElement>("header#search");
     const dock = document.querySelector<HTMLElement>(".answer-footer-search-dock");
     const backdrop = dock?.querySelector<HTMLElement>(".answer-footer-search-backdrop");
     const main = document.getElementById("main-content");
@@ -969,7 +970,9 @@ test("Services results keep a continuous browser viewport after shared chrome re
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     const scrollingElement = document.scrollingElement ?? document.documentElement;
     return {
+      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
+      headerBottom: header?.getBoundingClientRect().bottom ?? -1,
       dockTop: dock?.getBoundingClientRect().top ?? -1,
       dockOpacity: dock ? getComputedStyle(dock).opacity : "",
       backdropTop: backdrop?.getBoundingClientRect().top ?? -1,
@@ -987,7 +990,12 @@ test("Services results keep a continuous browser viewport after shared chrome re
       viewportHeight: window.innerHeight,
     };
   });
-  expect(hidden.collapseHeight).toBeLessThanOrEqual(1);
+  // Overlay keeps collapse-row geometry; collapse releases it to zero.
+  if (hidden.usesCollapse) {
+    expect(hidden.collapseHeight).toBeLessThanOrEqual(1);
+  } else {
+    expect(hidden.headerBottom, "overlay header clears the viewport top").toBeLessThanOrEqual(1);
+  }
   expect(hidden.dockTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
   expect(hidden.dockOpacity).toBe("0");
   expect(hidden.backdropTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
