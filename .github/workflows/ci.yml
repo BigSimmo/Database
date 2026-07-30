@@ -193,6 +193,9 @@ jobs:
       - name: Installed dependency parity
         run: npm run check:installed-lock-parity
 
+      - name: Upload-limit parity
+        run: npm run check:upload-limit-parity
+
       - name: GitHub Actions pin check
         run: npm run check:github-actions
 
@@ -222,6 +225,9 @@ jobs:
 
       - name: Codebase index coverage
         run: npm run docs:check-index
+
+      - name: Documentation inventory drift
+        run: npm run docs:check-inventory
 
       - name: Check docs scripts
         run: npm run docs:check-scripts
