@@ -186,6 +186,19 @@ type ModuleGraph = {
 /** Which exports of a module the importer actually mounts. `"*"` means any. */
 type MountRoots = Set<string> | "*";
 
+/**
+ * AST keys whose subtrees are type-only, so identifiers inside them are erased at
+ * runtime and must not count as component references.
+ */
+const TYPE_POSITION_KEYS = new Set([
+  "typeAnnotation",
+  "returnType",
+  "typeParameters",
+  "typeArguments",
+  "superTypeParameters",
+  "implements",
+]);
+
 /** `export default () => …` has no name to hang references off. */
 const ANONYMOUS_DEFAULT = "__default__";
 
@@ -329,6 +342,12 @@ function buildModuleGraph(source: string, filename: string): ModuleGraph {
       }
       for (const key of Object.keys(node)) {
         if (key === "loc" || key === "leadingComments" || key === "trailingComments") continue;
+        // Type positions are erased, so an identifier that appears only there is
+        // not a runtime reference. `ComponentProps<typeof Banded>` needs the value
+        // import but never mounts it, and this repo does not enforce
+        // `consistent-type-imports`, so such an import is not necessarily written
+        // as `import type`. Value subtrees never live under these keys.
+        if (TYPE_POSITION_KEYS.has(key)) continue;
         visit(node[key], resultDropped);
       }
     };
@@ -855,6 +874,22 @@ describe("band adoption detection", () => {
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "type-only-route.tsx"))).toBe(false);
+
+      // A *value* import used only in a type position is erased too. This repo does
+      // not enforce `consistent-type-imports`, so this is not necessarily spelled
+      // `import type` — and `ComponentProps<typeof X>` genuinely needs the value
+      // import while never mounting it.
+      // The annotation must be inline on the scanned declaration: a top-level
+      // `type Props = …` alias is never scanned at all, so it would pass for the
+      // wrong reason and prove nothing.
+      writeFileSync(
+        path.join(dir, "type-position-route.tsx"),
+        'import { Banded } from "./banded-child";\n' +
+          "export default function Page(props: { render?: typeof Banded }) {\n" +
+          "  void props;\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "type-position-route.tsx"))).toBe(false);
 
       // A non-exported local the mounted component does render is reachable.
       writeFileSync(
