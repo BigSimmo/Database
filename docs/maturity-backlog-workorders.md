@@ -270,6 +270,6 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 | L1 Archive one-shot scripts      | Later      | IN PROGRESS (#1033 archived m13/july8; refs reconciled; backfills open)            |
 | L2 Action-SHA uniformity         | Later      | **DONE** (#992)                                                                    |
 | L3 Single gate manifest          | Later      | **DONE** (#1002)                                                                   |
-| L4 Ledger rotation               | Later      | OPEN                                                                               |
+| L4 Ledger rotation               | Later      | **DONE** (#1418)                                                                   |
 | L5 AI map / WCAG / RPO-RTO       | Later      | **DONE / SATISFIED** (#985)                                                        |
 | M1 Repo-host hardening           | Maintainer | OPEN (GitHub UI; audit §8; not a repo file)                                        |

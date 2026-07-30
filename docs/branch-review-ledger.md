@@ -4,6 +4,8 @@ Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD
 
 This file is append-only. Never rewrite an existing review record's content; append a correction or superseding record instead. Exact duplicate rows may be removed (run `npm run ledger:dedupe` after a sync if needed). Older records are rotated into `docs/archive/branch-review-ledger-<yyyy-qN>.md` with `npm run ledger:rotate` so this live table stays navigable — that move preserves every unique row. Git uses the custom `ledger` merge driver (union + exact-row dedupe) for this live file.
 
+The merge driver is installed by `npm install` / `npm run hooks:install` (`merge.ledger.driver`). A clone that has not run install falls back to Git's default text merge for this path — if a sync leaves byte-identical twins, run `npm run ledger:dedupe`. The driver (and `ledger:dedupe`) only drop **exact** row twins; near-duplicates that differ in Checks/Outcome/Scope wording are refused by `check:branch-review-ledger` — correct those with `ledger:append --supersede`, not dedupe.
+
 Do not hand-edit this table. Read it with `npm run ledger:lookup` (live + archives) and write new rows with `npm run ledger:append` (live file only).
 
 ## Lookup Procedure
@@ -42,7 +44,7 @@ npm run ledger:rotate -- --dry-run                  # default cutoff: current ca
 npm run ledger:rotate -- --before 2026-07-29        # one-time / operator cutoff
 ```
 
-Default rotation archives every live row dated before the current UTC calendar-quarter start into `docs/archive/branch-review-ledger-<yyyy-qN>.md`. The 2026-07-30 L4 bootstrap used `--before 2026-07-29` because the entire history landed inside one month; going forward, quarterly rotation is enough.
+Default rotation archives every live row dated before the current UTC calendar-quarter start into `docs/archive/branch-review-ledger-<yyyy-qN>.md`. The 2026-07-30 L4 bootstrap used `--before 2026-07-29` because the entire history landed inside one month; going forward, run `npm run ledger:rotate` once per UTC calendar quarter (or when the live table grows unwieldy). Preview with `--dry-run` first.
 
 ### Historical note — 2026-07-28 hygiene pass
 
