@@ -599,6 +599,60 @@ several into one PR/session rather than a dedicated branch each.
 Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still
 gets the smallest correct gate run against it before it joins the PR.
 
+<!-- BEGIN:anti-conflict-speed -->
+
+## Anti-conflict and CI-speed operating procedure
+
+Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — without
+weakening required gates, flake policy, provider boundaries, or clinical/RAG safeguards.
+Do not touch unrelated active PRs unless the user explicitly asks (`Run PR`, sync, or a
+named PR). Future process only.
+
+### Prevent conflicts before they start
+
+- Prefer fewer, shorter-lived PRs. Bundle independently low-risk append-only docs/ledger
+  chores (see "## PR bundling") instead of one PR per line.
+- Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a
+  stale head that already shares hot files with the open queue.
+- Treat `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` as hot shared files.
+  Both use `merge=union`. Append with `npm run ledger:append` / the `/issues` skill — never
+  hand-write ledger rows, and never resolve an outstanding-issues conflict by taking one side
+  wholesale. `npm run check:outstanding-issues` fails on duplicate IDs or a stale
+  `issues:next-id` marker.
+- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run
+  `git merge-tree --write-tree origin/main <tip>`. Clean tree + behind = sync; dirty tree =
+  real conflict.
+
+### Speed CI without skipping quality
+
+- Assemble every commit for a head before the first push, or wait for the current PR CI run
+  to settle before pushing again. `cancel-in-progress: true` cancels Production UI mid-flight
+  on every superseding push (~40% of recent PR CI runs were cancellations).
+- Before push: `npm run format` **and commit the result**, then
+  `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
+  `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
+  blob. Whole-tree Prettier, not a single edited file.
+- If a `claude/*` PR has auto-merge armed, disable it before a settle-then-push bundle, push,
+  then re-enable — otherwise the first green head can squash-merge before the bundled commit
+  lands.
+- Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
+  cannot build `refs/pull/<n>/merge`. The `PR mergeability` check (`pull_request_target`)
+  fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
+  `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
+  `update-branch`.
+- Keep Playwright blocking tests at zero retries. Quarantine only after three reproductions
+  on the same SHA via `tests/flake-ledger.json` (`@quarantine`, not `@critical`, ≤30-day
+  expiry). Do not weaken tap targets to `min-h-11` to chase generic a11y guidance — that
+  reintroduces a known `ui-smoke` flake.
+
+### Operator sync (explicit only)
+
+- Leave active PRs alone unless the user asks. Report-only inventory:
+  `npm run sync:pr-branches`. Apply only with confirmation and human/operator `gh` auth:
+  `npm run sync:pr-branches:apply`.
+
+<!-- END:anti-conflict-speed -->
+
 <!-- BEGIN:codex-productivity-defaults -->
 
 ## Codex productivity defaults

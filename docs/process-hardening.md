@@ -80,6 +80,22 @@ artifact before release; see
   deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
   backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
 
+## Anti-conflict and silent-CI signal (2026-07-30)
+
+- **Operating procedure:** AGENTS.md "Anti-conflict and CI-speed operating procedure".
+  Future-process only — do not mutate unrelated active PRs unless explicitly asked.
+- **Outstanding-issues concurrency (`#112`):** `docs/outstanding-issues.md` now carries
+  `merge=union` (same append-safe driver as the branch-review ledger).
+  `npm run check:outstanding-issues` fails on duplicate table IDs, a stale
+  `<!-- issues:next-id=NNN -->` marker, missing union merge, or committed conflict
+  markers. Wired into `verify:cheap` and CI `static-pr`.
+- **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
+  `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
+  `.github/workflows/pr-mergeability.yml` is a read-only `pull_request_target` job that
+  fails explicitly on `mergeable_state: dirty` and never updates branches. Behind-but-clean
+  heads remain an operator `sync:pr-branches` concern. Contract:
+  `npm run check:pr-mergeability`.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.

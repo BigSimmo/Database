@@ -11,3 +11,8 @@
 # Review records are append-only. Concurrent branches should retain both sets
 # of rows instead of stopping on an add/add conflict at the shared table tail.
 docs/branch-review-ledger.md merge=union
+
+# Outstanding-issue rows are also append-mostly across concurrent agent sessions.
+# Union merge preserves both sides' rows; scripts/check-outstanding-issues.mjs
+# still fails on duplicate IDs because row-level union alone cannot allocate IDs.
+docs/outstanding-issues.md merge=union
