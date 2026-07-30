@@ -34,12 +34,21 @@ describe("verify-pr-local CLI", () => {
     expect(output).not.toContain("\n> npm run ");
   });
 
-  it("selects build, offline RAG, and extended UI checks for affected source", () => {
+  it("selects build and offline RAG contracts for API answer routes without UI", () => {
     const output = dryRun("src/app/api/answer/stream/route.ts", "--extended");
 
     expect(output).toContain("- npm run build");
-    expect(output).toContain("- npm run check:rag:fixtures");
-    expect(output).not.toContain("- npm run eval:rag:offline");
+    expect(output).toContain("- npm run eval:rag:offline");
+    expect(output).not.toContain("- npm run check:rag:fixtures");
+    expect(output).toContain("- Chromium UI gate skipped: no UI-affecting changes detected");
+    expect(output).not.toContain("- npm run verify:ui");
+  });
+
+  it("selects extended UI checks for component changes", () => {
+    const output = dryRun("src/components/clinical-dashboard/answer-content.tsx", "--extended");
+
+    expect(output).toContain("- npm run build");
+    expect(output).toContain("- npm run eval:rag:offline");
     expect(output).toContain("- npm run verify:ui");
   });
 

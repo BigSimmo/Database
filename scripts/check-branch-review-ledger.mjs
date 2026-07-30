@@ -2,9 +2,10 @@
 /**
  * Keep the append-only branch review ledger machine-readable and merge-safe.
  *
- * The union merge driver preserves concurrent appends; this gate catches the ways the
+ * The custom `merge=ledger` driver (union + exact-row dedupe) preserves concurrent
+ * appends without reintroducing byte-identical twins; this gate catches the ways the
  * ledger has actually degraded in practice:
- *   - a missing union attribute, or conflict markers committed verbatim
+ *   - a missing ledger merge attribute, or conflict markers committed verbatim
  *   - exact duplicate records
  *   - mojibake (`???` / U+FFFD) from an append that was not written as UTF-8, which also
  *     hides duplicates from the exact-match check by making the twin rows differ
@@ -19,11 +20,14 @@
  * cell structure on 2026-07-28 but deliberately not rewritten for content.
  *
  * Write new records with `npm run ledger:append` so these rules hold by construction.
+ * After a main sync in a checkout without the merge driver installed, run
+ * `npm run ledger:dedupe` before committing.
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { listLedgerPaths, parseLedgerRows } from "./branch-review-ledger.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
@@ -55,8 +59,12 @@ export function validateLedger({ ledger, mergeAttribute, protocol }) {
   const failures = [];
   const lines = ledger.split(/\r?\n/);
 
-  if (mergeAttribute !== "union") {
-    failures.push(`${LEDGER_PATH} must resolve to merge=union (found ${JSON.stringify(mergeAttribute || "unset")}).`);
+  if (mergeAttribute !== "ledger") {
+    failures.push(
+      `${LEDGER_PATH} must resolve to merge=ledger (union + exact-row dedupe; found ${JSON.stringify(
+        mergeAttribute || "unset",
+      )}).`,
+    );
   }
 
   const markers = [...ledger.matchAll(conflictMarker)];
@@ -208,7 +216,7 @@ function selfTest() {
 
   const valid = {
     ledger: ledgerWith(),
-    mergeAttribute: "union",
+    mergeAttribute: "ledger",
     protocol: "The ledger is append-only: append corrections.",
   };
   const fails = (input, needle, label) =>
@@ -220,7 +228,8 @@ function selfTest() {
   assert(validateLedger(valid).failures.length === 0, "valid ledger passes");
   assert(validateLedger(valid).recordCount === 1, "counts records");
 
-  fails({ mergeAttribute: "" }, "merge=union", "missing union attribute fails");
+  fails({ mergeAttribute: "" }, "merge=ledger", "missing ledger attribute fails");
+  fails({ mergeAttribute: "union" }, "merge=ledger", "stock union attribute fails");
   fails({ protocol: "append records" }, "reviewer instruction", "missing protocol contract fails");
   fails({ ledger: `${valid.ledger}<<<<<<< ours\n` }, "conflict marker", "conflict marker fails");
   fails({ ledger: ledgerWith(row()) }, "exact duplicate", "exact duplicate record fails");
@@ -256,6 +265,31 @@ function selfTest() {
   console.log("branch-review-ledger self-test passed.");
 }
 
+function validateArchiveStructure(relativePath, markdown) {
+  const failures = [];
+  if ([...markdown.matchAll(conflictMarker)].length > 0) {
+    failures.push(`${relativePath}: conflict marker(s) found.`);
+  }
+  if (markdown.includes("???") || markdown.includes("�")) {
+    failures.push(`${relativePath}: mojibake found.`);
+  }
+  const rows = parseLedgerRows(markdown);
+  const wrongWidth = rows.filter((row) => row.cells.length !== 6);
+  if (wrongWidth.length > 0) {
+    failures.push(`${relativePath}: ${wrongWidth.length} record(s) do not have exactly 6 cells.`);
+  }
+  const seen = new Set();
+  const duplicates = [];
+  for (const row of rows) {
+    if (seen.has(row.raw)) duplicates.push(row.line);
+    seen.add(row.raw);
+  }
+  if (duplicates.length > 0) {
+    failures.push(`${relativePath}: ${duplicates.length} exact duplicate record(s).`);
+  }
+  return { failures, recordCount: rows.length };
+}
+
 function main() {
   if (process.argv.includes("--self-test")) {
     selfTest();
@@ -268,18 +302,30 @@ function main() {
     protocol: readFileSync(path.join(root, PROTOCOL_PATH), "utf8"),
   });
 
-  if (result.failures.length > 0) {
+  const failures = [...result.failures];
+  let archiveRecords = 0;
+  for (const relative of listLedgerPaths().slice(1)) {
+    const archive = validateArchiveStructure(relative, readFileSync(path.join(root, relative), "utf8"));
+    failures.push(...archive.failures);
+    archiveRecords += archive.recordCount;
+  }
+
+  if (failures.length > 0) {
     console.error("Branch review ledger guard failed:");
-    for (const failure of result.failures) console.error(`- ${failure}`);
+    for (const failure of failures) console.error(`- ${failure}`);
     process.exit(1);
   }
 
   console.log(
-    `Branch review ledger guard passed: ${result.recordCount} table records ` +
-      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), union merge active, ` +
+    `Branch review ledger guard passed: ${result.recordCount} live table records` +
+      `${archiveRecords > 0 ? ` + ${archiveRecords} archived` : ""} ` +
+      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), ledger merge active, ` +
       `six cells each, no conflict markers, mojibake, heading records, or duplicates.`,
   );
 }
 
 // Guarded so the unit tests can import validateLedger without running the gate.
-if (process.argv[1]?.endsWith("check-branch-review-ledger.mjs")) main();
+const isMain =
+  process.argv[1]?.endsWith("/check-branch-review-ledger.mjs") ||
+  process.argv[1]?.endsWith("\\check-branch-review-ledger.mjs");
+if (isMain) main();
