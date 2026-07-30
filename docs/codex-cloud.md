@@ -115,6 +115,34 @@ Use the same repository gates as local work:
 Never describe Chromium as physical iPhone Safari/PWA evidence. Physical-device,
 desktop-app, local-secret, and provider-backed acceptance remains outside Codex Cloud.
 
+## Authenticated live testing
+
+Do not expose provider credentials to the Codex Cloud agent. Cloud secrets are removed
+before the agent phase, and copying them into ordinary environment variables or files
+would bypass that security boundary.
+
+Use the manual **Authenticated live tests** GitHub Actions workflow instead. It runs the
+repository's explicit `npm run test:live` suite on the selected trusted ref, requires the
+`run-authenticated-live-tests` dispatch confirmation, records the run against the
+`Database / production` environment, checks the expected Supabase project, and receives
+only the GitHub secrets required by the current authenticated Supabase test. It is not
+triggered by pushes, pull requests, or schedules.
+
+To run it after a Codex Cloud change:
+
+1. Publish the trusted branch or commit through the normal reviewed GitHub workflow.
+2. Open **Actions → Authenticated live tests → Run workflow**.
+3. Select the reviewed ref and choose `run-authenticated-live-tests`.
+4. Review the `Database / production` environment deployment and test log.
+
+The current GitHub plan does not support required environment reviewers for this private
+repository, so the workflow's manual dispatch and explicit confirmation are the approval
+gate. Add required reviewers to the environment if the repository plan later supports
+them.
+
+Adding a future provider to `*.live.test.ts` does not automatically grant its credentials.
+Expand the workflow's secret list deliberately and preserve the project/target guard.
+
 ## Troubleshooting
 
 - Wrong Node version: select Node 24 under **Set package versions**, then reset the
