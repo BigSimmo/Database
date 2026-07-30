@@ -51,6 +51,8 @@ describe("scripts documentation inventory", () => {
     expect(packageJson.scripts["docs:check-inventory"]).toContain("--check");
     expect(hook).toContain("npm run sitemap:update");
     expect(hook).toContain("node scripts/update-docs-inventory.mjs");
+    expect(hook).toContain('git cat-file -e "HEAD:scripts/update-docs-inventory.mjs"');
+    expect(hook).toContain("was removed or renamed by the pending commit; refusing to skip");
     expect(hook).toContain("npm run docs:check-index");
     expect(hook).toContain("sync_sitemap=0");
     expect(hook).toContain("--diff-filter=ACMRD");
