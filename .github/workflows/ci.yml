@@ -208,6 +208,9 @@ jobs:
       - name: Branch review ledger integrity
         run: npm run check:branch-review-ledger
 
+      - name: Outstanding-issues ledger integrity
+        run: npm run check:outstanding-issues
+
       - name: Codebase index coverage
         run: npm run docs:check-index
 
