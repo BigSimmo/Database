@@ -15,7 +15,7 @@ describe("production error tracking privacy boundary", () => {
       exception: {
         values: [
           {
-            type: "ProviderError",
+            type: "JaneDoeMRN123456Error",
             value: "Jane Doe MRN 123456 reported suicidal thoughts",
             stacktrace: {
               frames: [
@@ -41,12 +41,12 @@ describe("production error tracking privacy boundary", () => {
     expect(event).not.toHaveProperty("user");
     expect(event).not.toHaveProperty("breadcrumbs");
     expect(event.exception?.values?.[0]).toMatchObject({
-      type: "ProviderError",
+      type: "Error",
       value: "Unhandled server request error",
       stacktrace: { frames: [{ filename: "src/app/api/answer/route.ts", function: "POST", lineno: 42 }] },
     });
     expect(event.exception?.values?.[0].stacktrace?.frames?.[0]).not.toHaveProperty("vars");
     expect(event.tags).toEqual({ route_path: "/api/answer" });
-    expect(event.fingerprint).toEqual(["/api/answer", "ProviderError"]);
+    expect(event.fingerprint).toEqual(["/api/answer", "Error", "src/app/api/answer/route.ts", "POST"]);
   });
 });

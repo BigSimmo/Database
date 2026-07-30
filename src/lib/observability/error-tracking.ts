@@ -3,11 +3,28 @@ import type { Instrumentation } from "next";
 
 const SAFE_ERROR_MESSAGE = "Unhandled server request error";
 const SAFE_TAGS = ["router_kind", "route_type", "route_path"] as const;
+const SAFE_EXCEPTION_TYPES = new Set([
+  "AggregateError",
+  "Error",
+  "EvalError",
+  "RangeError",
+  "ReferenceError",
+  "SyntaxError",
+  "TypeError",
+  "URIError",
+]);
+
+function privacySafeExceptionType(value: string | undefined) {
+  return value && SAFE_EXCEPTION_TYPES.has(value) ? value : "Error";
+}
 
 /** Keep code locations while removing all free-form/request data before export. */
 export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   const exceptions = event.exception?.values?.map((exception) => ({
-    type: exception.type || "Error",
+    // Error.name is mutable and can contain request or clinical text. Retain
+    // only fixed JavaScript runtime types; custom/provider names collapse to a
+    // generic type while their scrubbed stack location still supports grouping.
+    type: privacySafeExceptionType(exception.type),
     value: SAFE_ERROR_MESSAGE,
     stacktrace: exception.stacktrace
       ? {
@@ -28,6 +45,7 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   );
   const exceptionType = exceptions?.[0]?.type || "Error";
   const routePath = tags.route_path;
+  const topFrame = exceptions?.[0]?.stacktrace?.frames?.at(-1);
 
   return {
     type: undefined,
@@ -39,7 +57,9 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     environment: event.environment,
     message: exceptions?.length ? undefined : SAFE_ERROR_MESSAGE,
     exception: exceptions?.length ? { values: exceptions } : undefined,
-    fingerprint: routePath ? [routePath, exceptionType] : undefined,
+    fingerprint: routePath
+      ? [routePath, exceptionType, topFrame?.filename ?? "unknown", topFrame?.function ?? "unknown"]
+      : undefined,
     tags: Object.keys(tags).length ? tags : undefined,
   };
 }
