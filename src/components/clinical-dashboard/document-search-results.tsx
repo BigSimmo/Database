@@ -1,16 +1,19 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import Link from "next/link";
 import {
   BookOpen,
   Clock3,
+  Copy,
   ExternalLink,
   FileImage,
   FileText,
-  Filter,
+  Link2,
   ListChecks,
   Loader2,
+  MessageSquareText,
+  MoreHorizontal,
   Pill,
   Route,
   Shield,
@@ -36,14 +39,11 @@ import {
 import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
-import { SafeBoldText } from "@/components/SafeBoldText";
 import {
   DocumentActionButton,
   DocumentActionLink,
   DocumentBadge,
-  DocumentFileTile,
-  documentFileKind,
-  documentTileTone,
+  documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
 import {
   cn,
@@ -54,6 +54,7 @@ import {
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
@@ -219,19 +220,14 @@ function DocumentTagFacetRail({
   );
 }
 
-function documentKindLabel(document: DocumentMatch) {
-  const fileName = document.file_name.toLowerCase();
-  if (document.imageCount > 0 && document.tableCount > 0) return "Guideline";
-  if (document.tableCount > 0) return "Table source";
-  if (fileName.endsWith(".pdf")) return "PDF";
-  return "Document";
-}
-
 function documentPageLabel(document: DocumentMatch) {
   const pages = document.bestPages.filter((page) => Number.isFinite(page));
-  if (pages.length === 0) return "Page n/a";
-  if (pages.length === 1) return `p.${pages[0]}`;
-  return `p.${pages[0]} +${pages.length - 1}`;
+  if (pages.length === 0) return "Page unavailable";
+  if (pages.length === 1) return `Page ${pages[0]}`;
+
+  const consecutive = pages.every((page, index) => index === 0 || page === pages[index - 1]! + 1);
+  if (consecutive) return `Pages ${pages[0]}–${pages.at(-1)}`;
+  return `Page ${pages[0]} +${pages.length - 1}`;
 }
 
 function resultTypeTabs(matches: DocumentMatch[]) {
@@ -256,25 +252,6 @@ function filterMatchesByResultType(matches: DocumentMatch[], filter: ResultTypeF
   return matches;
 }
 
-function compactMatchReason(document: DocumentMatch) {
-  const relevance = document.relevance;
-  if (relevance?.verdict === "direct") {
-    if (document.tableCount > 0) return `Table match - ${documentPageLabel(document)}`;
-    if (document.imageCount > 0) return `Image match - ${documentPageLabel(document)}`;
-    return `Source match - ${documentPageLabel(document)}`;
-  }
-  if (relevance?.verdict === "partial") return `Related source - ${documentPageLabel(document)}`;
-  if (document.matchReason) return document.matchReason;
-  return `${documentKindLabel(document)} - ${documentPageLabel(document)}`;
-}
-
-function cleanDocumentCardSummary(value: string) {
-  if (/source-backed review/i.test(value)) {
-    return "Indexed source text is available for this document.";
-  }
-  return value;
-}
-
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = documentRelevancePercent(document);
@@ -287,19 +264,234 @@ function relevanceTone(document: DocumentMatch) {
   return { label: "Related", short: "Related", detail: `${percent}% nearby` };
 }
 
-function contextualOpenLabel(document: DocumentMatch) {
-  if (document.tableCount > 0) return "Open table";
-  if (document.imageCount > 0) return "Open image";
-  if (document.file_name.toLowerCase().endsWith(".pdf")) return "Open PDF";
-  return "Open source";
-}
-
 function documentOpenHref(document: DocumentMatch) {
   const params = new URLSearchParams();
   params.set("page", String(document.bestPages[0] ?? 1));
   const chunkId = document.bestChunkIds[0];
   if (chunkId) params.set("chunk", chunkId);
   return `/documents/${document.document_id}?${params.toString()}`;
+}
+
+const resultMenuItemClass =
+  "flex min-h-12 w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+
+function DocumentPagePreview({ document, href }: { document: DocumentMatch; href: string }) {
+  const pageNumber = document.bestPages[0] ?? 1;
+  const lineWidths = [74, 88, 63, 79, 56];
+
+  return (
+    <Link
+      href={href}
+      aria-label={`Preview page ${pageNumber} of ${document.title}`}
+      data-testid="document-page-preview"
+      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24 sm:p-2.5"
+    >
+      <span className="flex items-center justify-between text-[color:var(--clinical-accent)]" aria-hidden="true">
+        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="h-1.5 w-5 rounded-full bg-[color:var(--clinical-accent-soft)]" />
+      </span>
+      <span className="mt-3 space-y-1.5" aria-hidden="true">
+        {lineWidths.map((width, index) => (
+          <span
+            key={`${document.document_id}-preview-line-${index}`}
+            className={cn(
+              "block h-1 rounded-full bg-[color:var(--border-strong)]",
+              index < 2 && "bg-[color:var(--clinical-accent)]",
+            )}
+            style={{ width: `${width}%` }}
+          />
+        ))}
+      </span>
+      <span className="mt-auto grid grid-cols-3 gap-1 opacity-80 transition group-hover:opacity-100" aria-hidden="true">
+        <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
+        <span className="h-3 rounded-sm bg-[color:var(--surface-subtle)]" />
+        <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
+      </span>
+      <span className="absolute bottom-1.5 right-1.5 rounded bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+        {pageNumber}
+      </span>
+    </Link>
+  );
+}
+
+type ResultCopyStatus = "idle" | "citation-copied" | "citation-failed" | "link-copied" | "link-failed";
+
+function DocumentResultMoreMenu({
+  document,
+  openHref,
+  onScopeDocument,
+}: {
+  document: DocumentMatch;
+  openHref: string;
+  onScopeDocument: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<ResultCopyStatus>("idle");
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerId = useId();
+  const menuId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOutside(event: PointerEvent) {
+      if (menuRef.current?.contains(event.target as Node) || buttonRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      buttonRef.current?.focus({ preventScroll: true });
+    }
+
+    window.document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  function focusMenuItem(position: "first" | "last" = "first") {
+    window.requestAnimationFrame(() => {
+      const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+      const target = position === "first" ? items[0] : items.at(-1);
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  function openMenu(position: "first" | "last" = "first") {
+    setOpen(true);
+    setCopyStatus("idle");
+    focusMenuItem(position);
+  }
+
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const currentIndex = items.findIndex((item) => item === window.document.activeElement);
+
+    if (event.key === "Tab") {
+      setOpen(false);
+      return;
+    }
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
+    if (event.key === "ArrowUp")
+      nextIndex = currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = items.length - 1;
+
+    if (nextIndex !== null && items[nextIndex]) {
+      event.preventDefault();
+      items[nextIndex].focus({ preventScroll: true });
+    }
+  }
+
+  async function copyValue(value: string, action: "citation" | "link") {
+    try {
+      await copyTextToClipboard(value);
+      setCopyStatus(action === "citation" ? "citation-copied" : "link-copied");
+    } catch {
+      setCopyStatus(action === "citation" ? "citation-failed" : "link-failed");
+    }
+  }
+
+  const citation = `${documentDisplayTitle(document)}. ${documentPageLabel(document)}.`;
+
+  return (
+    <div className="relative min-w-0">
+      <button
+        ref={buttonRef}
+        id={triggerId}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls={open ? menuId : undefined}
+        aria-label={`More actions for ${document.title}`}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          openMenu(event.key === "ArrowUp" ? "last" : "first");
+        }}
+        className={cn(
+          documentActionClass,
+          "min-h-12 w-full min-w-0 rounded-br-xl px-2 text-sm font-bold text-[color:var(--text-heading)]",
+        )}
+      >
+        <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+        More
+      </button>
+      {open ? (
+        <div
+          ref={menuRef}
+          id={menuId}
+          role="menu"
+          aria-labelledby={triggerId}
+          onKeyDown={handleMenuKeyDown}
+          className="absolute bottom-[calc(100%+0.5rem)] right-0 z-30 w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] py-1.5 shadow-[var(--shadow-lift)]"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className={resultMenuItemClass}
+            onClick={() => {
+              onScopeDocument();
+              setOpen(false);
+            }}
+          >
+            <Target className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+            Search only this source
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={resultMenuItemClass}
+            onClick={() => void copyValue(citation, "citation")}
+          >
+            <Copy className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+            {copyStatus === "citation-copied"
+              ? "Citation copied"
+              : copyStatus === "citation-failed"
+                ? "Copy failed"
+                : "Copy citation"}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={resultMenuItemClass}
+            onClick={() => void copyValue(new URL(openHref, window.location.origin).toString(), "link")}
+          >
+            <Link2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+            {copyStatus === "link-copied" ? "Link copied" : copyStatus === "link-failed" ? "Copy failed" : "Copy link"}
+          </button>
+          {document.imageCount > 0 ? (
+            <Link
+              href={`${openHref}#source-images`}
+              role="menuitem"
+              className={resultMenuItemClass}
+              onClick={() => setOpen(false)}
+            >
+              <FileImage className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+              View images ({document.imageCount})
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      <span className="sr-only" role="status" aria-live="polite">
+        {copyStatus === "citation-copied"
+          ? `${document.title} citation copied`
+          : copyStatus === "link-copied"
+            ? `${document.title} link copied`
+            : copyStatus === "citation-failed" || copyStatus === "link-failed"
+              ? "Unable to copy"
+              : ""}
+      </span>
+    </div>
+  );
 }
 
 function DocumentSearchHome({
@@ -421,20 +613,6 @@ function DocumentSourceTypeFilters({
       </div>
     </div>
   );
-}
-
-function metadataBadgeLabel(document: DocumentMatch) {
-  const kind = documentKindLabel(document);
-  const page = documentPageLabel(document);
-  return `${kind} - ${page}`;
-}
-
-function cautionBadgeLabel(document: DocumentMatch) {
-  if (document.tableCount > 0) return `${document.tableCount} table${document.tableCount === 1 ? "" : "s"}`;
-  if (document.imageCount > 0) return `${document.imageCount} image${document.imageCount === 1 ? "" : "s"}`;
-  const missingTerms = document.relevance?.missingTerms?.length ?? 0;
-  if (missingTerms > 0) return `${missingTerms} term${missingTerms === 1 ? "" : "s"} nearby`;
-  return contextualOpenLabel(document);
 }
 
 export function MatchExplanationChips({ source }: { source: SearchResult }) {
@@ -906,116 +1084,124 @@ function DocumentSearchResultsPanelImpl({
                   No document matches include all selected filters.
                 </div>
               ) : null}
-              {renderedMatches.map((document, index) => {
-                const relevanceDisplay = relevanceTone(document);
-                const fileKind = documentFileKind(document.file_name, "DOC");
-                const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
-                const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
-                const openHref = documentOpenHref(document);
-                return (
-                  <article
-                    key={document.document_id}
-                    className={cn(
-                      sourceCard,
-                      "content-auto",
-                      "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
-                    )}
-                  >
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
-                      <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-medium uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
-                              <span>{documentKindLabel(document)}</span>
-                              {index === 0 ? (
-                                <>
-                                  <span
-                                    className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span className="font-semibold text-[color:var(--clinical-accent)]">Best match</span>
-                                </>
-                              ) : null}
-                            </p>
+              <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+                {renderedMatches.map((document, index) => {
+                  const relevanceDisplay = relevanceTone(document);
+                  const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
+                  const openHref = documentOpenHref(document);
+                  return (
+                    <article
+                      key={document.document_id}
+                      data-testid="document-result-card"
+                      className={cn(
+                        sourceCard,
+                        "content-auto",
+                        "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
+                        index === 0 && "border-t-[3px] border-t-[color:var(--clinical-accent)]",
+                      )}
+                    >
+                      <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4">
+                        <DocumentPagePreview document={document} href={openHref} />
+                        <div className="min-w-0">
+                          <h3 className="flex min-w-0 items-start gap-2">
+                            <span
+                              data-testid="document-result-rank"
+                              className="nums mt-2 grid h-8 min-w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                              aria-hidden="true"
+                            >
+                              {index + 1}
+                            </span>
                             <Link
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7 sm:text-base sm:leading-6"
+                              className="inline-flex min-h-12 min-w-0 items-center rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-lg sm:leading-6"
                             >
+                              <span className="sr-only">Result {index + 1}: </span>
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </Link>
+                          </h3>
+                          <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-2.5">
+                            {index === 0 ? (
+                              <DocumentBadge
+                                variant="best"
+                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:700]"
+                              >
+                                Best match
+                              </DocumentBadge>
+                            ) : null}
+                            <DocumentBadge
+                              variant={relevanceVariant}
+                              icon={Target}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                            >
+                              {relevanceDisplay.short}
+                              <span className="sr-only">, {relevanceDisplay.detail}</span>
+                            </DocumentBadge>
+                            <DocumentBadge
+                              variant="neutral"
+                              icon={BookOpen}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                            >
+                              {documentPageLabel(document)}
+                            </DocumentBadge>
+                            {document.tableCount > 0 ? (
+                              <DocumentBadge
+                                variant="relevant"
+                                icon={ListChecks}
+                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                              >
+                                {document.tableCount} table{document.tableCount === 1 ? "" : "s"}
+                              </DocumentBadge>
+                            ) : null}
+                            {document.imageCount > 0 ? (
+                              <DocumentBadge
+                                variant="relevant"
+                                icon={FileImage}
+                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                              >
+                                {document.imageCount} image{document.imageCount === 1 ? "" : "s"}
+                              </DocumentBadge>
+                            ) : null}
                           </div>
+                          <DocumentTagCloud
+                            labels={document.labels}
+                            query={query}
+                            limit={2}
+                            compact
+                            className="mt-2.5"
+                            onTagClick={onTagSearch}
+                          />
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-1.5 sm:mt-1.5">
-                          <DocumentBadge
-                            variant={relevanceVariant}
-                            icon={Target}
-                            className="min-h-6 rounded-md px-2 text-2xs [font-weight:500] sm:min-h-7 sm:rounded-lg sm:px-2.5"
-                          >
-                            {relevanceDisplay.short}
-                            <span className="sr-only">, {relevanceDisplay.detail}</span>
-                          </DocumentBadge>
-                          <DocumentBadge
-                            variant="neutral"
-                            icon={BookOpen}
-                            className="min-h-6 rounded-md px-2 text-2xs [font-weight:500] sm:min-h-7 sm:rounded-lg sm:px-2.5"
-                          >
-                            {metadataBadgeLabel(document)}
-                          </DocumentBadge>
-                          <DocumentBadge
-                            variant={document.tableCount > 0 || document.imageCount > 0 ? "relevant" : "neutral"}
-                            icon={
-                              document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
-                            }
-                            className="min-h-6 rounded-md px-2 text-2xs [font-weight:500] sm:min-h-7 sm:rounded-lg sm:px-2.5"
-                          >
-                            {cautionBadgeLabel(document)}
-                          </DocumentBadge>
-                        </div>
-                        <p className={cn("mt-1.5 line-clamp-2 text-sm-minus font-normal leading-5", textMuted)}>
-                          <SafeBoldText text={summaryText} />
-                        </p>
-                        <DocumentTagCloud
-                          labels={document.labels}
-                          query={query}
-                          limit={2}
-                          compact
-                          className="mt-1.5 sm:mt-2"
-                          onTagClick={onTagSearch}
+                      </div>
+                      <div
+                        data-testid="document-result-actions"
+                        className="grid grid-cols-3 items-stretch divide-x divide-[color:var(--border)] rounded-b-xl border-t border-[color:var(--border)] bg-[color:var(--surface)]"
+                      >
+                        <DocumentActionLink
+                          href={openHref}
+                          icon={FileText}
+                          className="min-h-12 min-w-0 rounded-bl-xl bg-[color:var(--clinical-accent-soft)] px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-border)] [&_svg]:h-5 [&_svg]:w-5"
+                          aria-label={`Open ${document.title}`}
+                        >
+                          Open
+                        </DocumentActionLink>
+                        <DocumentActionButton
+                          onClick={() => onAnswerFromDocument(document.document_id)}
+                          icon={MessageSquareText}
+                          className="min-h-12 min-w-0 px-2 text-sm font-bold text-[color:var(--text-heading)] [&_svg]:h-5 [&_svg]:w-5"
+                          aria-label={`Ask about ${document.title}`}
+                        >
+                          Ask
+                        </DocumentActionButton>
+                        <DocumentResultMoreMenu
+                          document={document}
+                          openHref={openHref}
+                          onScopeDocument={() => onScopeDocument(document.document_id)}
                         />
                       </div>
-                    </div>
-                    <div
-                      data-testid="document-result-actions"
-                      className="grid grid-cols-3 items-stretch border-t border-[color:var(--border)] px-1 sm:flex sm:flex-wrap sm:items-center sm:gap-1 sm:px-3 sm:py-1.5"
-                    >
-                      <DocumentActionLink
-                        href={openHref}
-                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
-                        aria-label={`Open ${document.title}`}
-                      >
-                        {contextualOpenLabel(document)}
-                      </DocumentActionLink>
-                      <DocumentActionButton
-                        onClick={() => onScopeDocument(document.document_id)}
-                        icon={Filter}
-                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--text-muted)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] [&_svg]:size-icon-sm sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
-                        aria-label={`Scope search to ${document.title}`}
-                      >
-                        Scope
-                      </DocumentActionButton>
-                      <DocumentActionButton
-                        onClick={() => onAnswerFromDocument(document.document_id)}
-                        icon={Sparkles}
-                        className="min-h-12 min-w-0 flex-col rounded-md px-1 text-2xs text-[color:var(--clinical-accent)] [font-size:var(--text-2xs)] [font-weight:500] [gap:0.125rem] hover:bg-[color:var(--clinical-accent-soft)] [&_svg]:size-icon-sm sm:ml-auto sm:w-auto sm:flex-row sm:rounded-lg sm:px-2.5 sm:text-xs sm:[font-size:var(--text-xs)] sm:[gap:0.375rem]"
-                        aria-label={`Answer from ${document.title}`}
-                      >
-                        Answer
-                      </DocumentActionButton>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
+              </div>
               {hasMoreMatches ? (
                 <button
                   type="button"

@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DocumentSearchResultsPanel } from "@/components/clinical-dashboard/document-search-results";
 import type { DocumentMatch } from "@/lib/types";
@@ -64,6 +64,10 @@ const lithiumMatch: DocumentMatch = {
 };
 
 describe("document search record path fault reporting", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("reports a failed registry once, not twice", () => {
     render(<DocumentSearchResultsPanel {...baseProps} recordStatus="error" />);
 
@@ -118,8 +122,27 @@ describe("document search record path fault reporting", () => {
     expect(screen.queryByRole("button", { name: /Preview evidence/i })).toBeNull();
     expect(screen.getByText("1 source marked outdated.")).toBeInTheDocument();
     expect(screen.getByText("1 source due for review.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: `Open ${lithiumMatch.title}` })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `Scope search to ${lithiumMatch.title}` })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `Answer from ${lithiumMatch.title}` })).toBeInTheDocument();
+    const resultCard = screen.getByTestId("document-result-card");
+    expect(within(resultCard).getByTestId("document-result-rank")).toHaveTextContent("1");
+    expect(within(resultCard).queryByText("PDF", { exact: true })).toBeNull();
+    expect(
+      within(resultCard).getByRole("link", { name: `Preview page 3 of ${lithiumMatch.title}` }),
+    ).toBeInTheDocument();
+    expect(within(resultCard).getByRole("link", { name: `Open ${lithiumMatch.title}` })).toHaveTextContent("Open");
+
+    const askButton = within(resultCard).getByRole("button", { name: `Ask about ${lithiumMatch.title}` });
+    fireEvent.click(askButton);
+    expect(baseProps.onAnswerFromDocument).toHaveBeenCalledWith(lithiumMatch.document_id);
+
+    expect(within(resultCard).queryByRole("button", { name: /Scope search to/i })).toBeNull();
+    const moreButton = within(resultCard).getByRole("button", { name: `More actions for ${lithiumMatch.title}` });
+    fireEvent.click(moreButton);
+    const menu = within(resultCard).getByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: "Copy citation" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "Copy link" })).toBeInTheDocument();
+    expect(within(menu).getByRole("menuitem", { name: "View images (2)" })).toBeInTheDocument();
+
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Search only this source" }));
+    expect(baseProps.onScopeDocument).toHaveBeenCalledWith(lithiumMatch.document_id);
   });
 });
