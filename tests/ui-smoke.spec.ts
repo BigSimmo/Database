@@ -972,6 +972,17 @@ test.beforeEach(stubZeroTouchPoints);
 test.describe("Clinical KB UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
 
+  test("Supabase connection hints reach the document head without provider traffic", async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const preconnect = page.locator('head link[rel="preconnect"][href="http://127.0.0.1:1"]');
+    const dnsPrefetch = page.locator('head link[rel="dns-prefetch"][href="http://127.0.0.1:1"]');
+
+    await expect(preconnect).toHaveCount(1);
+    await expect(preconnect).toHaveAttribute("crossorigin", "anonymous");
+    await expect(dnsPrefetch).toHaveCount(1);
+  });
+
   for (const viewport of dashboardViewports) {
     test(`dashboard loads without page overflow at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -3584,6 +3595,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     ).toBeVisible();
 
     const sourceSearch = page.getByLabel("Search within indexed source text").last();
+    await waitForReactEventHandler(sourceSearch, "onChange");
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
     await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
