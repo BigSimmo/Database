@@ -33,7 +33,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -199,140 +199,107 @@ function resolvePrettierBin() {
 }
 
 /**
- * Files in the pushed commit that change Prettier's verdict.
+ * Does this path decide Prettier's verdict for files other than itself?
  *
- * The config has to come from the pushed tree, not from disk. Commit a broken
- * `.prettierrc`, fix it in the working tree without committing, and a guard that
- * reads the working-tree config approves a push that CI — which only ever sees
- * the pushed SHA — rejects.
+ * Matched on the basename so a nested config counts too. When one of these
+ * changes, the verdict for *unchanged* files can change with it — a `tabWidth`
+ * edit can make existing source fail CI's repository-wide `prettier --check .`
+ * while a changed-paths-only check passes — so a policy change escalates to a
+ * whole-tree check.
  */
-const PRETTIER_CONFIG_FILES = [
-  ".prettierrc",
-  ".prettierrc.json",
-  ".prettierrc.json5",
-  ".prettierrc.yml",
-  ".prettierrc.yaml",
-  ".prettierrc.toml",
-  ".prettierignore",
-  ".editorconfig",
-  "package.json",
-];
-
-/**
- * Config formats that cannot be evaluated outside the repo — they are modules
- * and may import plugins from `node_modules`. Copying one into a scratch tree
- * would make Prettier fail to load it, so their presence downgrades the guard to
- * the working-tree config with a visible note instead of a wrong verdict.
- */
-const DYNAMIC_PRETTIER_CONFIG_FILES = [
-  ".prettierrc.js",
-  ".prettierrc.cjs",
-  ".prettierrc.mjs",
-  ".prettierrc.ts",
-  "prettier.config.js",
-  "prettier.config.cjs",
-  "prettier.config.mjs",
-  "prettier.config.ts",
-];
-
-function pushedBlob(sha, file) {
-  try {
-    return execFileSync("git", ["show", `${sha}:${file}`], {
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
-    // Absent at this sha (deleted in the push, or never existed).
-    return null;
-  }
+function isPrettierPolicyFile(file) {
+  return /^(?:\.prettierrc(?:\..+)?|prettier\.config\.(?:js|cjs|mjs|ts)|\.prettierignore|\.editorconfig|package\.json)$/.test(
+    path.basename(file),
+  );
 }
 
 /**
- * Materialise the pushed SHA's config plus the pushed contents of `files` into a
- * scratch directory, at their repo-relative paths.
+ * Check the pushed commit the way CI does: in a real checkout of it.
  *
- * Running Prettier with that directory as cwd reproduces what CI does to a fresh
- * checkout: config discovery, `.prettierignore` matching and parser inference all
- * resolve against the pushed tree rather than the working copy.
+ * A worktree is what makes the verdict trustworthy, and it is cheap (<1s here).
+ * Every earlier attempt leaked working-tree state into the answer:
+ * - checking `<file>` on disk let a formatted working copy vouch for an
+ *   unformatted committed blob (a push sends commits, not the working tree)
+ * - piping committed blobs through stdin still resolved `.prettierrc` from disk,
+ *   so a committed-broken/tree-corrected config passed here and failed CI
+ * - hand-staging config files could not evaluate a dynamic `prettier.config.mjs`
+ *   at all, because it may import plugins from `node_modules`
+ * A checkout with `node_modules` linked in has none of those gaps.
  */
-function stagePushedTree(sha, files) {
+function checkPushedCommit(prettierBin, sha, files) {
+  tryGit(["worktree", "prune"]); // clear any worktree a crashed run left behind
   const dir = mkdtempSync(path.join(tmpdir(), "guard-push-format-"));
-  const write = (relative, contents) => {
-    const target = path.join(dir, relative);
-    mkdirSync(path.dirname(target), { recursive: true });
-    writeFileSync(target, contents);
-  };
-  for (const config of PRETTIER_CONFIG_FILES) {
-    const contents = pushedBlob(sha, config);
-    if (contents) write(config, contents);
+  rmSync(dir, { recursive: true, force: true }); // `git worktree add` wants a fresh path
+  try {
+    execFileSync("git", ["worktree", "add", "--detach", "--quiet", dir, sha], {
+      stdio: ["ignore", "ignore", "pipe"],
+    });
+  } catch (error) {
+    // Fail CLOSED. Being unable to check is not evidence that the push is clean,
+    // and SKIP_FORMAT_GUARD=1 is the escape hatch when this is genuinely stuck.
+    const detail = (error?.stderr ? error.stderr.toString() : "").trim();
+    return {
+      verdict: "error",
+      detail: `could not check out ${sha} to verify formatting${detail ? `: ${detail}` : ""}`,
+    };
   }
-  const staged = [];
-  for (const file of files) {
-    const contents = pushedBlob(sha, file);
-    // Deleted in this push: nothing to check, and nothing CI will check either.
-    if (!contents) continue;
-    write(file, contents);
-    staged.push(file);
+  try {
+    // A dynamic config may import plugins; without this it cannot load at all.
+    const modules = path.resolve("node_modules");
+    if (existsSync(modules)) {
+      try {
+        symlinkSync(modules, path.join(dir, "node_modules"), "dir");
+      } catch {
+        // Already present, or symlinks unavailable — prettier still loads static configs.
+      }
+    }
+    const policyChanged = files.some(isPrettierPolicyFile);
+    // Deleted paths are gone from the checkout, and prettier errors on a missing
+    // argument, so ask only for what is actually there.
+    const present = files.filter((file) => existsSync(path.join(dir, file)));
+    if (!policyChanged && present.length === 0) return { verdict: "formatted" };
+    // A policy change alters the verdict for files this push never touched, so
+    // check the whole tree — exactly what CI's `prettier --check .` does.
+    const batches = policyChanged ? [["."]] : chunk(present, 200);
+    for (const batch of batches) {
+      const result = runPrettierCheck(prettierBin, dir, batch);
+      if (result.verdict !== "formatted") return result;
+    }
+    return { verdict: "formatted" };
+  } finally {
+    tryGit(["worktree", "remove", "--force", dir]);
+    rmSync(dir, { recursive: true, force: true });
   }
-  return { dir, staged };
 }
 
-/** Prettier: 0 clean, 1 unformatted files found, anything else a real failure. */
-function checkStagedTree(prettierBin, dir, staged) {
-  // Chunked so a large push cannot exceed the platform argument limit.
-  for (let index = 0; index < staged.length; index += 200) {
-    const batch = staged.slice(index, index + 200);
-    try {
-      execFileSync(process.execPath, [prettierBin, "--check", "--ignore-unknown", ...batch], {
-        cwd: dir,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-    } catch (error) {
-      const detail = [error?.stdout, error?.stderr]
-        .map((buffer) => (buffer ? buffer.toString() : ""))
-        .join("")
-        .trim();
-      // An invalid config option also exits 1 under --check, reported as
-      // `[error] Invalid tabWidth value…`, so the status alone cannot tell a
-      // formatting difference from a broken config.
-      if (error?.status === 1 && !detail.includes("[error]")) return { verdict: "unformatted", detail };
-      // A malformed config in the push exits 2 here and fails CI's
-      // `prettier --check .` for the same reason. Treating it as "unknown, allow"
-      // is how the guard would wave through the break it exists to catch.
-      return { verdict: "error", detail: detail || `prettier exited ${error?.status ?? "non-zero"}` };
-    }
-  }
-  return { verdict: "formatted" };
+function chunk(items, size) {
+  const out = [];
+  for (let index = 0; index < items.length; index += size) out.push(items.slice(index, index + size));
+  return out;
 }
 
-/**
- * Fallback for a dynamic config: check the pushed blob through stdin against the
- * *working-tree* config. `--stdin-filepath` keeps parser inference and
- * `.prettierignore` matching keyed to the real path.
- */
-function checkViaWorkingTreeConfig(prettierBin, changedBlobs) {
-  const unformatted = [];
-  for (const { sha, file } of changedBlobs) {
-    const committed = pushedBlob(sha, file);
-    if (!committed) continue;
-    try {
-      const formatted = execFileSync(process.execPath, [prettierBin, "--ignore-unknown", "--stdin-filepath", file], {
-        input: committed,
-        maxBuffer: 64 * 1024 * 1024,
-        stdio: ["pipe", "pipe", "pipe"],
-      });
-      if (!formatted.equals(committed)) unformatted.push(file);
-    } catch (error) {
-      const detail = [error?.stderr, error?.stdout]
-        .map((buffer) => (buffer ? buffer.toString() : ""))
-        .join("")
-        .trim();
-      return { verdict: "error", detail: detail || `prettier exited ${error?.status ?? "non-zero"} for ${file}` };
-    }
+/** Prettier: 0 clean, 1 unformatted, anything else a real failure. */
+function runPrettierCheck(prettierBin, cwd, args) {
+  try {
+    execFileSync(process.execPath, [prettierBin, "--check", "--ignore-unknown", ...args], {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return { verdict: "formatted" };
+  } catch (error) {
+    const detail = [error?.stdout, error?.stderr]
+      .map((buffer) => (buffer ? buffer.toString() : ""))
+      .join("")
+      .trim();
+    // An invalid config option also exits 1 under --check, reported as
+    // `[error] Invalid tabWidth value…`, so the status alone cannot tell a
+    // formatting difference from a broken config.
+    if (error?.status === 1 && !detail.includes("[error]")) return { verdict: "unformatted", detail };
+    // A malformed or unloadable config in the push fails CI's `prettier --check .`
+    // for the same reason. Treating it as "unknown, allow" is how the guard would
+    // wave through the break it exists to catch.
+    return { verdict: "error", detail: detail || `prettier exited ${error?.status ?? "non-zero"}` };
   }
-  return unformatted.length === 0
-    ? { verdict: "formatted" }
-    : { verdict: "unformatted", detail: unformatted.map((file) => `[warn] ${file}`).join("\n") };
 }
 
 function formatGuard(changedBlobs) {
@@ -355,35 +322,16 @@ function formatGuard(changedBlobs) {
 
   const unformatted = [];
   const errors = [];
-  let note;
   for (const [sha, files] of bySha) {
-    const dynamic = DYNAMIC_PRETTIER_CONFIG_FILES.filter((config) => pushedBlob(sha, config));
-    if (dynamic.length > 0) {
-      note = `pushed ${dynamic.join(", ")} cannot be loaded outside the repo — used the working-tree prettier config`;
-      const { verdict, detail } = checkViaWorkingTreeConfig(
-        prettierBin,
-        changedBlobs.filter((b) => b.sha === sha),
-      );
-      if (verdict === "unformatted") unformatted.push(detail);
-      else if (verdict === "error") errors.push(detail);
-      continue;
-    }
-    const { dir, staged } = stagePushedTree(sha, files);
-    try {
-      if (staged.length === 0) continue;
-      const { verdict, detail } = checkStagedTree(prettierBin, dir, staged);
-      if (verdict === "unformatted") unformatted.push(detail);
-      else if (verdict === "error") errors.push(detail);
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
+    const { verdict, detail } = checkPushedCommit(prettierBin, sha, files);
+    if (verdict === "unformatted") unformatted.push(detail);
+    else if (verdict === "error") errors.push(detail);
   }
 
   if (errors.length > 0) {
     return {
       name: "format",
       ok: false,
-      note,
       message:
         `Prettier could not check this push, so CI's \`prettier --check .\` will fail too:\n` +
         errors.map((detail) => `${detail}\n`).join("") +
@@ -391,16 +339,15 @@ function formatGuard(changedBlobs) {
         `  To push anyway: SKIP_FORMAT_GUARD=1 git push`,
     };
   }
-  if (unformatted.length === 0) return { name: "format", ok: true, note };
+  if (unformatted.length === 0) return { name: "format", ok: true };
   return {
     name: "format",
     ok: false,
-    note,
     message:
       `Prettier found unformatted files in this push (CI format:check would fail):\n` +
       unformatted.map((detail) => `${detail}\n`).join("") +
-      `  These are the committed contents checked against the pushed prettier config,\n` +
-      `  not your working copy — run \`npm run format\` and commit the result.\n` +
+      `  This is a checkout of the pushed commit, not your working copy — run\n` +
+      `  \`npm run format\` and commit the result.\n` +
       `  To push anyway: SKIP_FORMAT_GUARD=1 git push`,
   };
 }
