@@ -36,6 +36,7 @@ npm run docs:check-links
 - [pwa.md](pwa.md) — PWA install assets, privacy-first service worker, offline shell
 - [webhooks.md](webhooks.md) — the two inbound webhook receivers and the outbound Actions notifier
 - [api-jobs-ops-surface.md](api-jobs-ops-surface.md) — standing decision to keep `GET /api/jobs` as an ops/admin surface
+- [verified-answer-incremental-delivery-design.md](verified-answer-incremental-delivery-design.md) — staged, clinical-safety-preserving design for delivering verified evidence and answer sections before the canonical final SSE frame
 
 ## Operations runbooks
 
