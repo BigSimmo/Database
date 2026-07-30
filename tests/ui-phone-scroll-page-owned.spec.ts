@@ -720,7 +720,24 @@ test("Services results keep a continuous browser viewport after shared chrome re
   // scroll. Document ownership must keep the reading offset and its content
   // anchor stable without switching back to a fixed or nested canvas.
   await page.setViewportSize({ width: phoneViewport.width, height: phoneViewport.height - 64 });
-  await page.waitForTimeout(100);
+  // Wait for the chrome to settle rather than sleeping a fixed 100 ms and hoping
+  // (#146). The resize transiently re-shows the shared header, and while it is up
+  // the results anchor sits exactly `collapseHeight + safe-area-top` lower — 72 + 59
+  // = the 131 px jump that failed this assertion identically on three separate
+  // heads, with `documentScrollTop` unchanged at 504 in the trace, so the content
+  // moved and the scroll position never did. A fixed sleep makes that a coin flip
+  // against CI load; polling the same geometry the hidden-state assertions use
+  // either settles or fails naming the real condition.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const header = document.querySelector("header#search");
+          return header?.getBoundingClientRect().bottom ?? -1;
+        }),
+      { timeout: 10_000, message: "shared header did not re-settle hidden after the viewport shrink" },
+    )
+    .toBeLessThanOrEqual(1);
   const afterViewportResize = await page.evaluate(() => {
     const main = document.getElementById("main-content");
     const resultList = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
