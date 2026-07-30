@@ -87,7 +87,7 @@ describe("playwright browser preflight", () => {
     });
   });
 
-  it("selects the newest container shell only when managed downloads are disabled", () => {
+  it("selects the newest shell only for the designated download-disabled container root", () => {
     const root = mkdtempSync(join(tmpdir(), "pw-container-browsers-"));
     const older = join(root, "chromium_headless_shell-1194", "chrome-linux", "headless_shell");
     const newer = join(root, "chromium_headless_shell-1200", "chrome-linux", "headless_shell");
@@ -108,7 +108,12 @@ describe("playwright browser preflight", () => {
             PLAYWRIGHT_BROWSERS_PATH: root,
             PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
           },
-          { managedChromiumPath: managedPath, platform: "linux", architecture: "x64" },
+          {
+            managedChromiumPath: managedPath,
+            platform: "linux",
+            architecture: "x64",
+            containerBrowsersRoot: root,
+          },
         ),
       ).toMatchObject({
         family: "chromium",
@@ -119,7 +124,11 @@ describe("playwright browser preflight", () => {
       expect(
         resolvePlaywrightBrowserExecutable(
           "chromium",
-          { NODE_ENV: "test", PLAYWRIGHT_BROWSERS_PATH: root },
+          {
+            NODE_ENV: "test",
+            PLAYWRIGHT_BROWSERS_PATH: root,
+            PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1",
+          },
           { managedChromiumPath: managedPath, platform: "linux", architecture: "x64" },
         ),
       ).toEqual({

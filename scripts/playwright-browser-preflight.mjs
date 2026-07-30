@@ -72,9 +72,8 @@ function preinstalledChromiumLayouts(platform = process.platform, architecture =
  * Find the newest headless shell supplied by a download-disabled container.
  *
  * This is intentionally narrower than scanning every Playwright cache: a stale
- * developer cache must still fail closed. The fallback is available only when
- * the caller explicitly exposes PLAYWRIGHT_BROWSERS_PATH and disables browser
- * downloads, which is the immutable-container shape recorded in issue #121.
+ * developer cache must still fail closed. The caller separately validates the
+ * designated immutable-container root before invoking this search.
  */
 export function newestPreinstalledChromiumHeadlessShell(
   browsersRoot,
@@ -164,6 +163,7 @@ export function resolvePlaywrightBrowserExecutable(
     fileExists = existsSync,
     platform = process.platform,
     architecture = process.arch,
+    containerBrowsersRoot = platform === "linux" ? "/opt/pw-browsers" : null,
   } = {},
 ) {
   if (family === "chromium") {
@@ -183,8 +183,13 @@ export function resolvePlaywrightBrowserExecutable(
       };
     }
     const downloadsDisabled = /^(?:1|true)$/i.test(env.PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD?.trim() ?? "");
-    if (downloadsDisabled) {
-      const preinstalled = newestPreinstalledChromiumHeadlessShell(env.PLAYWRIGHT_BROWSERS_PATH?.trim(), {
+    const exposedBrowsersRoot = env.PLAYWRIGHT_BROWSERS_PATH?.trim();
+    const normalizedExposedRoot = exposedBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
+    const normalizedContainerRoot = containerBrowsersRoot?.replaceAll("\\", "/").replace(/\/+$/, "");
+    const designatedContainerRoot =
+      normalizedExposedRoot && normalizedContainerRoot && normalizedExposedRoot === normalizedContainerRoot;
+    if (downloadsDisabled && designatedContainerRoot) {
+      const preinstalled = newestPreinstalledChromiumHeadlessShell(exposedBrowsersRoot, {
         fileExists,
         platform,
         architecture,
