@@ -229,7 +229,7 @@ export function parseIssues(markdown) {
   };
 }
 
-export function checkIssues(markdown) {
+export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   const problems = [];
   const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount } = parseIssues(markdown);
   const lines = markdown.split("\n");
@@ -244,7 +244,12 @@ export function checkIssues(markdown) {
         `line ${index + 1} is not a compact canonical table row — use one space around each cell delimiter`,
       );
     }
-    if (/^\|/.test(line) && SEPARATOR.test(lines[index + 1] ?? "") && lines[index - 1]?.trim() !== PRETTIER_IGNORE) {
+    if (
+      !prettierIgnored &&
+      /^\|/.test(line) &&
+      SEPARATOR.test(lines[index + 1] ?? "") &&
+      lines[index - 1]?.trim() !== PRETTIER_IGNORE
+    ) {
       problems.push(
         `line ${index + 1} starts a table without ${PRETTIER_IGNORE} immediately above it — ` +
           "formatting would re-pad every row and amplify merge conflicts",
@@ -360,6 +365,10 @@ export function checkIssues(markdown) {
   }
 
   return problems;
+}
+
+export function prettierIgnoreCoversIssues(prettierIgnore) {
+  return prettierIgnore.split(/\r?\n/).some((line) => line.trim() === ISSUES_PATH);
 }
 
 /**
@@ -492,6 +501,19 @@ function selfTest() {
       for (const problem of problems) console.error(`  - ${problem}`);
     }
   }
+  const fileWideIgnoreProblems = checkIssues(good.replaceAll(`${PRETTIER_IGNORE}\n`, ""), {
+    prettierIgnored: true,
+  });
+  if (fileWideIgnoreProblems.length !== 0) {
+    failures += 1;
+    console.error(
+      `self-test FAILED: a file-wide prettier ignore replaces scoped table comments — expected 0 problems, got ${fileWideIgnoreProblems.length}`,
+    );
+  }
+  if (!prettierIgnoreCoversIssues(`# ledger files\n${ISSUES_PATH}\n`) || prettierIgnoreCoversIssues("docs/*.md\n")) {
+    failures += 1;
+    console.error("self-test FAILED: file-wide prettier-ignore detection must require the exact ledger path");
+  }
   if (failures > 0) process.exit(1);
 
   const deletionCases = [
@@ -559,7 +581,13 @@ function main() {
     return;
   }
   const markdown = readFileSync(ISSUES_PATH, "utf8");
-  const problems = checkIssues(markdown);
+  let prettierIgnored = false;
+  try {
+    prettierIgnored = prettierIgnoreCoversIssues(readFileSync(".prettierignore", "utf8"));
+  } catch {
+    // Without a file-wide ignore, each table must carry its own scoped comment.
+  }
+  const problems = checkIssues(markdown, { prettierIgnored });
   const base = issueBaseRevision();
   let checkedBase = null;
   if (base) {
