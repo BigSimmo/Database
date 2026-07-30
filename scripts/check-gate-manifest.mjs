@@ -83,6 +83,47 @@ for (const gate of localGates) {
   }
 }
 
+// Prose that states a gate COUNT drifts silently, because nothing derives it. Both
+// numbers below were wrong when found: CLAUDE.md said 24 static gates against an actual
+// 25 (`check:assets` landed before the line was written), and the gates skill said "check
+// 2 of 26" against an actual 28. A stale count is not cosmetic — an agent that believes
+// the chain is 26 long cannot tell how much of it a mid-chain failure skipped. These
+// assertions fail closed: if the anchor phrase disappears, the guard reports the lost
+// anchor rather than passing on a document it no longer checks.
+const HEAVY_GATES = new Set(["lint", "typecheck", "test"]);
+const staticGateCount = localGates.filter((gate) => !HEAVY_GATES.has(gate)).length;
+
+const documentedCounts = [
+  {
+    file: "CLAUDE.md",
+    pattern: /(\d+) static\/consistency gates/,
+    expected: staticGateCount,
+    describes: "static/consistency gates in the verify:cheap chain (excludes lint/typecheck/test)",
+  },
+  {
+    file: ".claude/skills/gates/SKILL.md",
+    pattern: /check \d+ of (\d+)/,
+    expected: localGates.length,
+    describes: "total gates in the verify:cheap chain (includes lint/typecheck/test)",
+  },
+];
+
+for (const { file, pattern, expected, describes } of documentedCounts) {
+  const text = readFileSync(file, "utf8");
+  const match = text.match(pattern);
+  if (!match) {
+    failures.push(
+      `${file} no longer matches ${pattern} — the gate-count guard lost its anchor. Restore the phrasing or update the pattern in scripts/check-gate-manifest.mjs.`,
+    );
+    continue;
+  }
+  if (Number(match[1]) !== expected) {
+    failures.push(
+      `${file} says ${match[1]} where the chain has ${expected} (${describes}). Update the document, or the chain, so they agree.`,
+    );
+  }
+}
+
 if (failures.length > 0) {
   console.error("Gate-manifest drift — a local verify:cheap gate is not enforced in CI:");
   for (const failure of failures) console.error(`- ${failure}`);
@@ -90,5 +131,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Gate-manifest OK: all ${localGates.length} verify:cheap gates are enforced in CI (static-pr + mapped jobs).`,
+  `Gate-manifest OK: all ${localGates.length} verify:cheap gates are enforced in CI (static-pr + mapped jobs), ` +
+    `and the ${staticGateCount} static gates are documented consistently.`,
 );

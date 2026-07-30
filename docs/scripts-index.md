@@ -42,7 +42,7 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 `check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
 `check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
 `check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
-`verify-release-offline.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
+`verify-release-offline.mjs`, `check-codex-cloud-setup.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
 `verify:cheap:internal` chain also runs in CI's `static-pr` job, so the two lists can't drift.
 
 Also in the gate set: `check-assets.mjs`, `check-branch-review-ledger.mjs`,
@@ -52,6 +52,9 @@ the `postgres` role), `check-edge-functions.mjs`, `check-env-parity.mjs`, `check
 contract), `check-lighthouse-budget.mjs` + `run-lighthouse-budget.mjs`, and the workflow-contract
 guards `check-pr-policy-workflow.mjs` and `check-codex-autofix-workflow.mjs`.
 `audit-formatting-fixtures.ts` checks the formatting fixtures themselves.
+`setup-codex-cloud.sh` and `maintain-codex-cloud.sh` reproduce the provider-free Cloud
+runtime documented in `docs/codex-cloud.md`; `npm run check:codex-cloud` verifies that
+the runtime pins, install commands, offline defaults, and documentation stay aligned.
 
 For executable phone-chrome changes, use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
 
