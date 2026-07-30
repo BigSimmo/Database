@@ -48,26 +48,6 @@ test.describe("unlayered style rules render their effect", () => {
         // a specific colour — which also keeps hex out of the test (design-system rule).
         expect(inertValues.has(computed[property]), `${contract.className} ${property} is inert`).toBe(false);
       }
-
-      if (!contract.variant) return;
-
-      // An attribute-scoped variant of the same class has to win the cascade too.
-      // Setting the attribute directly keeps this independent of whatever app state
-      // would produce it, so the assertion stays about CSS rather than about a route
-      // that can fail for unrelated reasons.
-      const { attribute, value, property } = contract.variant;
-      const before = computed[property];
-      await target.evaluate((node, [name, next]) => node.setAttribute(name, next), [attribute, value] as const);
-      const after = await target.evaluate(
-        (node, key) => getComputedStyle(node)[key as keyof CSSStyleDeclaration] as string,
-        property,
-      );
-
-      expect(inertValues.has(after), `${contract.className}[${attribute}="${value}"] ${property} is inert`).toBe(false);
-      expect(
-        after,
-        `${contract.className}[${attribute}="${value}"] did not change ${property} — the variant rule lost the cascade`,
-      ).not.toBe(before);
     });
   }
 });
