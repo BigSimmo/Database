@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { phoneHeaderCollapseAddonSlotId } from "../src/lib/mode-home-composer";
 import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
 import { expectSingleSettledOwner } from "./playwright-settlement";
 
@@ -290,6 +291,67 @@ async function dragScrollBy(page: Page, totalPx: number, stepPx: number) {
   );
 }
 
+/**
+ * Asserts the phone chrome hid, and on failure names *why* it did not.
+ *
+ * `data-scroll-hidden` on the collapse wrapper is `scrollHidden && !sharedChromePinned`
+ * (master-search-header.tsx), so a missing attribute has two very different causes that
+ * the attribute alone cannot separate: the scroll state machine never fired, or it fired
+ * and a pin held the chrome open. The bare assertion reads as the first even when it is
+ * the second — which is how a stuck pin was misread as a flaky scroll gesture on
+ * 2026-07-30 (ledger #127) across two CI runs before a trace settled it.
+ *
+ * The discriminator is already in the DOM. DocumentViewer's page-owned composer hides on
+ * `composerScrollHidden`, which consults `scrollHidden` and NOT the pin, so composer-hidden
+ * + header-visible proves the pin. Every term of `sharedChromePinned` also has a DOM tell
+ * (an `aria-expanded` trigger, a popover, or focus inside the portaled addon host), so when
+ * all of them read false the pin is a stale latch rather than a live surface.
+ */
+async function expectChromeHidden(page: Page, collapse: Locator, phase: string) {
+  try {
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true", { timeout: 10_000 });
+    return;
+  } catch (error) {
+    const state = await page.evaluate((addonSlotId) => {
+      const hiddenAttribute = (selector: string) =>
+        document.querySelector(selector)?.getAttribute("data-scroll-hidden") ?? null;
+      const describe = (element: Element | null) => {
+        if (!element) return "none";
+        const testId = element.getAttribute("data-testid");
+        return `${element.tagName.toLowerCase()}${testId ? `[data-testid="${testId}"]` : ""}`;
+      };
+      const active = document.activeElement;
+      const addonHost = document.getElementById(addonSlotId);
+      return {
+        // scrollHidden, read through surfaces that ignore sharedChromePinned.
+        documentComposer: hiddenAttribute("form.document-viewer-composer"),
+        documentContent: hiddenAttribute('[data-testid="document-viewer-content"]'),
+        // scrollHidden && !sharedChromePinned.
+        headerCollapse: hiddenAttribute('[data-testid="universal-header-collapse"]'),
+        // One tell per sharedChromePinned term.
+        activeElement: describe(active),
+        focusInsideAddonHost: Boolean(addonHost && active && addonHost.contains(active)),
+        addonHostPresent: Boolean(addonHost),
+        expandedMenuTrigger: document.querySelector('[aria-haspopup="menu"][aria-expanded="true"]') !== null,
+        expandedCombobox: document.querySelector('[role="combobox"][aria-expanded="true"]') !== null,
+        scopePopover: document.querySelector('[data-testid="scope-command-popover"]') !== null,
+        openDialogs: document.querySelectorAll('[role="dialog"]').length,
+        openMenus: document.querySelectorAll('[role="menu"]').length,
+      };
+    }, phoneHeaderCollapseAddonSlotId);
+
+    const pinned = state.documentComposer === "true" || state.documentContent === "true";
+    const verdict = pinned
+      ? "scrollHidden is TRUE and sharedChromePinned is holding the header open"
+      : "scrollHidden itself is FALSE — the scroll state machine never fired";
+
+    throw new Error(
+      `${phase}: the phone chrome never hid.\n${verdict}\nchrome state: ${JSON.stringify(state, null, 2)}\n\n` +
+        `Original assertion failure:\n${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 interface PageOwnedFooterGeometry {
   footerOpacity: number;
   footerPosition: string;
@@ -483,7 +545,7 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await sectionTrigger.evaluate((element) => element.blur());
 
     await dragScrollBy(page, 720, 24);
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await expectChromeHidden(page, collapse, "first hide with motion enabled");
     await expect(overlayStack).toHaveAttribute("data-scroll-hidden", "true");
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
 
@@ -583,7 +645,7 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await dragScrollBy(page, -480, 16);
     await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
     await dragScrollBy(page, 720, 24);
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await expectChromeHidden(page, collapse, "reduced-motion hide after the section-sheet round-trip");
     const reducedHidden = await readPrimaryScrollAndDomGeometry(page, {
       stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
       content: '[data-testid="document-viewer-content"]',
