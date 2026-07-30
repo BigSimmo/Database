@@ -40,12 +40,20 @@ function requireMatch(errors, value, pattern, message) {
   if (!pattern.test(value)) errors.push(message);
 }
 
+/**
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @returns {string[]}
+ */
 export function obsoleteNpmProxyVariables(env = process.env) {
   return ["npm_config_http_proxy", "npm_config_https_proxy", "npm_config_proxy"].filter(
     (name) => Object.hasOwn(env, name) && Boolean(env[name]),
   );
 }
 
+/**
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @returns {string[]}
+ */
 export function configuredProviderCredentialNames(env = process.env) {
   return providerCredentialVariables.filter((name) => Object.hasOwn(env, name) && Boolean(env[name]));
 }
@@ -71,6 +79,15 @@ export function executableFile(filePath) {
 
 export const pythonWorkerImports = ["fitz", "PIL", "pytesseract", "medspacy"];
 
+/**
+ * @param {string} pythonCommand
+ * @param {(
+ *   command: string,
+ *   args: string[],
+ *   options?: { encoding?: BufferEncoding; shell?: boolean },
+ * ) => { status: number | null }} [run]
+ * @returns {string | null}
+ */
 export function pythonWorkerImportError(pythonCommand, run = spawnSync) {
   if (!pythonCommand || !executableFile(pythonCommand)) {
     return "The configured Codex Cloud OCR Python executable is unavailable.";

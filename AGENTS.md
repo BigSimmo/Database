@@ -822,20 +822,46 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 ## Codex Cloud environment
 
-- Use `bash scripts/setup-codex-cloud.sh` as the environment setup command and
-  `bash scripts/maintain-codex-cloud.sh` as the maintenance command. See
-  `docs/codex-cloud.md` for the product-settings checklist and acceptance task.
+Codex Cloud uses an isolated Linux container and does not inherit desktop files,
+credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
+Use `docs/codex-cloud.md` as the environment contract:
+
+- Setup: `bash scripts/setup-codex-cloud.sh`.
+- Maintenance: `bash scripts/maintain-codex-cloud.sh`.
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
+  Use `connected` only when the user explicitly authorizes the required provider access.
 - Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
   read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
   clean disposable checkout on a task-specific non-protected branch.
-- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
-  Use `connected` only when the user explicitly authorizes the required provider access.
+- Cloud mirrors the tracked repository toolchain, not Windows files, `.env.local`,
+  desktop plugins, browser sessions, OAuth sessions, user-global skills, or uncommitted
+  work. Keep required workflows in tracked instructions, scripts, tests, and repo-local
+  skills.
 - Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
   policy, or provider credentials. Treat those as product/account settings and verify them
   separately without printing secret values.
 - Run `npm run check:codex-cloud` for the tracked contract and
-  `npm run check:codex-cloud -- --runtime` for the installed toolchain. A skipped browser
-  install is not full browser readiness.
+  `npm run check:codex-cloud -- --runtime` for the installed toolchain. Also run
+  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
+  or reset environment. A skipped browser install is not full browser readiness.
+- Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
+  Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
+  agent phase; do not copy them into files to bypass that boundary.
+- Provider-backed checks, hosted CI mutations, deployment, production data access, and
+  Git publishing still require the explicit authorization defined above.
+- The Codex GitHub connection used to clone a repository is separate from agent-shell
+  `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
+  controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
+- For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
+  tools as the default remote control plane. Use them for repository, PR, issue, review
+  thread, and Actions work, including inline-thread replies/resolution and approved branch,
+  file, or PR mutations. Missing `gh`, shell GitHub credentials, or direct shell network
+  access is not a loss of this capability and must not prompt a PAT workaround.
+- Confirm the exact repository and PR/thread/job before a write. If the connector lacks a
+  needed GitHub setting or organisation control, report that limit rather than attempting a
+  credential, secret, or shell-based bypass.
+- Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
+  physical iPhone Safari/PWA acceptance.
 
 ## Cursor Cloud specific instructions (not Codex Cloud)
 

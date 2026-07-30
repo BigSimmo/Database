@@ -45,10 +45,8 @@ describe("Codex Cloud environment contract", () => {
       return { status: 0 };
     };
 
-    expect(pythonWorkerImportError(process.execPath, run as typeof spawnSync)).toBeNull();
+    expect(pythonWorkerImportError(process.execPath, run)).toBeNull();
     expect(invocation).toEqual([process.execPath, "-c", `import ${pythonWorkerImports.join(", ")}`]);
-    expect(pythonWorkerImportError(process.execPath, (() => ({ status: 1 })) as typeof spawnSync)).toContain(
-      "Python worker imports failed",
-    );
+    expect(pythonWorkerImportError(process.execPath, () => ({ status: 1 }))).toContain("Python worker imports failed");
   });
 });
