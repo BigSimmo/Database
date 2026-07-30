@@ -166,6 +166,12 @@ When a branch or PR review completes, record it with `npm run ledger:append -- -
 - For non-trivial source/config/test changes, prefer `npm run verify:cheap` as the first broad gate and `npm run verify:pr-local` before PR handoff when the change is ready. The PR-local gate runs the full unit suite once, then conditionally adds the production build/client-bundle scan and RAG fixture/manifest validation. Browser, dependency-audit, Docker/Supabase replay, and provider-backed checks remain separate gates. Use `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` to inspect selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
 - Let the repository run coordinator control cross-worktree verification. It permits at most two focused Vitest/read-only typecheck leases from different worktrees; full Vitest, coverage, lint, build, Playwright, and live-provider tests remain exclusive. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
 - For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors changes, run `npm run ensure` before browser work and use `npm run verify:ui` as the Chromium UI gate. For phone-chrome changes, run `npm run verify:phone-chrome` first: it checks installed-lock parity, selects the affected browser/PWA owners and exact journeys, and adds `verify:ui` last only when shared chrome foundations make the broad gate necessary. Inspect uncertain scope with `-- --dry-run`.
+- **Run `npm run format` and commit the result before every push.** `format:check` is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop reports green while `Static PR checks` and `ci/circleci: verify` both fail on `prettier --check .`. Three CI failures on 2026-07-30 came from exactly this. Two traps beyond simply running it:
+  - **Formatting without committing does nothing for the push.** A push sends commits, not your working tree, so formatting after committing leaves the unformatted blob on the branch. Amend or add a follow-up commit.
+  - **A per-file check is not the repository-wide check.** `prettier --check <file>` on the source file you edited passes while a doc or ledger edit in the same push fails; that was the missed file twice out of three.
+
+  `.githooks/pre-push` carries the guard, and since 2026-07-30 it checks the pushed commit where CI checks it: `guard-push.mjs` puts the pushed SHA in a temporary `git worktree` with `node_modules` linked in and runs Prettier there, so neither the working tree's contents nor its prettier config can vouch for the commit, and a dynamic `prettier.config.*` still loads. A push that changes prettier policy (`.prettierrc*`, `.prettierignore`, `.editorconfig`, or a `package.json` carrying a `prettier` field) escalates to a whole-tree `prettier --check .`, because a policy change alters the verdict for files the push never touched. But `core.hooksPath` is set by this checkout's `npm install`, so an agent pushing from its own environment bypasses the hook entirely and only CI catches the break — which is why the rule above is still a rule.
+
 - For release or handoff confidence, use `npm run verify:release`; this includes the full Playwright project set.
 - For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
 - For pull requests that touch ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output, complete the clinical governance preflight in `.github/pull_request_template.md`.
@@ -511,6 +517,87 @@ Procedure: in Claude Code sessions, invoke the `run-pr` skill (`.claude/skills/r
 Record one `docs/branch-review-ledger.md` row per PR touched, and end with the per-PR before/after summary defined in the skill.
 
 <!-- END:run-pr-shortcut -->
+
+## PR bundling (reduce one-task-one-PR churn)
+
+Every `newtask`/`handoff` cycle mints a dedicated `claude/<task-slug>` branch and PR, so a
+single docs/ledger-append line pays the same required-CI bill as a large change:
+`static-pr`, `pr-required`, and whatever path-scoped job the diff happens to trigger.
+Measured 2026-07-30 (PR #1406, sampling the last 500 CI workflow runs, ~3 days of PR
+traffic): 437 PR-triggered runs, ~40% cancelled mid-run (mostly superseded by a newer
+push before Production UI finished), roughly 12 Production-UI-hours burned on runs that
+never completed. More PRs also means more `docs/branch-review-ledger.md` rows and more
+of the anti-churn re-syncing described above.
+
+Before opening a new branch, check whether the task can ride an **already-open PR you
+still own** or be bundled with **other currently-queued low-risk work** instead of
+minting a new one. If the target PR's CI is already running, either wait for it to settle
+before pushing the addition or assemble every commit before that PR's first push —
+`.github/workflows/ci.yml` sets `cancel-in-progress: true`, so a push mid-run cancels and
+restarts CI rather than saving an invocation, reproducing the exact cancellation waste
+this rule exists to cut (reproduced 2026-07-30 pushing a second commit to PR #1406: the
+in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale head).
+A settle-then-push addition also lands after this repo's one automatic Codex review may
+already have run against the earlier head — in practice the connector re-reviews each new
+push (observed on this same PR), but if it doesn't, request a fresh review explicitly
+before merging rather than assuming the addition was covered. **If the target PR has
+auto-merge armed, settling-then-pushing races the merge itself** — `claude/*` branches
+auto-merge on green by this repo's own default (`.claude/skills/newtask/SKILL.md`), so
+"wait for CI to settle" can mean "wait for it to squash-merge and close" before the
+bundled commit ever gets pushed, silently dropping it. `guard-push.mjs`'s auto-merge
+sentinel exists to catch this but fails open without `gh` available (observed directly
+in this repo's own sessions) — don't rely on it. Before using the settle-then-push path,
+confirm the target PR does not have auto-merge enabled, or disable it first and
+re-enable only after the bundled commit is pushed.
+Bundle only when every item being combined is:
+
+- **Independently low-risk, checked two ways — neither is exhaustive alone.**
+  First, `scripts/pr-policy.mjs` / `classifyPullRequestFiles` must return
+  `clinicalRisk: false`, `operationalRisk: false` (dependency manifests, lockfiles,
+  `.github/workflows/**`, build/test-runner config), and no RAG-ranking-surface path.
+  Second, the diff must not touch anything in this repo's own broader "PR risk
+  detection" list below (auth, privacy, migrations/RLS, clinical/RAG/retrieval,
+  **background jobs/workers/queue processing**, payment/billing, public API contracts,
+  production config/deployment, file upload/download, provider/paid-API calls) —
+  that list catches real high-risk paths the narrower classifier doesn't flag at all
+  (e.g. `worker/**` trips neither `clinicalRisk` nor `operationalRisk`, but ingestion
+  workers are exactly the kind of change this exclusion exists for). When a path's risk
+  category is genuinely unclear under either check, default to its own PR rather than
+  extending the exclusion list further — the two checks together are a floor, not a
+  closed enumeration.
+- **Still its own committed, separately revertible commit while the PR is open** —
+  bundling means one PR with multiple commits, never one squashed diff; `git revert <sha>`
+  must undo any one item without touching the others before merge. That guarantee ends at
+  merge: this repo's normal squash-merge folds every commit into one on `main`, and once
+  the feature branch is deleted those original SHAs are unreachable. Reverting a single
+  bundled item after merge means reverting the relevant hunks of the squash commit by
+  hand, not `git revert <sha>` on an item's original commit — keep an item out of the
+  bundle if it might need its own durable post-merge revert.
+- **Listed as its own bullet** in the PR body's Summary, not blended into one narrative
+  — a reviewer (and `pr-policy.mjs`) still needs to find each item's own
+  governance/RAG-impact statement if it needs one.
+- **Not already mid-edit** in another open PR or session — check local context first
+  (`docs/branch-review-ledger.md`, `git branch`/`git log`). Confirming against the live
+  open-PR list means a GitHub API read: only do that with this session's already-
+  authorized GitHub access, or ask before querying GitHub, per "API and provider
+  confirmation boundary" — do not treat it as a silent, unconditional prerequisite that
+  blocks starting ordinary work.
+
+**Best candidates:** queued `docs/branch-review-ledger.md` / `docs/outstanding-issues.md`
+append-only tasks. They carry no revert risk of their own, always pass the same static
+gates, and are exactly the single-line-diff PRs the #1406 measurement counted — batch
+several into one PR/session rather than a dedicated branch each.
+
+**Never bundle:**
+
+- A change needing its own `RAG impact:` line together with one that doesn't.
+- A change needing `## Clinical Governance Preflight` together with unrelated chores.
+- Anything explicitly scoped "1 PR per work order" by its own tracking doc (e.g. the
+  maturity backlog in `docs/maturity-backlog-workorders.md`, ledger `#086`) — those are
+  deliberately isolated for staged rollout and review.
+
+Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still
+gets the smallest correct gate run against it before it joins the PR.
 
 <!-- BEGIN:codex-productivity-defaults -->
 
