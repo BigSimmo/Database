@@ -16,6 +16,11 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+        # Without a prefix fallback, any lockfile bump forces a cold browser download in
+        # every UI job at once. A stale archive is harmless: `playwright install` below
+        # still fetches whatever the new version needs.
+        restore-keys: |
+          playwright-chromium-${{ runner.os }}-
 
     # The browser archive is cached, but apt libraries are runner-local and must be
     # installed even on a browser-cache hit.
