@@ -20,10 +20,11 @@ import { phoneHeaderCollapseAddonSlotId } from "../../src/lib/mode-home-composer
  * it is exactly how #964 shipped green. Every test using these fixtures re-enables
  * motion via page.emulateMedia({ reducedMotion: "no-preference" }).
  *
- * The phone-scroll coverage is split across three spec files so a single file
- * cannot dominate one `--shard` (it was 65% of shard 1 at 267s; see
- * docs/process-hardening.md). `phoneScrollSpecFiles` in playwright.config.ts is
- * the list CI collects, and check-phone-scroll-specs.mjs holds the two in step.
+ * The phone-scroll coverage is split across three spec files (see
+ * docs/process-hardening.md). `tests/playwright-project-isolation.test.ts`
+ * asserts every `ui-phone-scroll*.spec.ts` on disk is matched by both
+ * `productionSpecPattern` and `testMatch` in playwright.config.ts, so a new
+ * sibling that those patterns miss fails closed rather than silently not running.
  */
 
 // Standalone mode homes share GlobalSearchShell's phone scroller. They keep the
