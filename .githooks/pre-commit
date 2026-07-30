@@ -89,6 +89,29 @@ fi
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
+# core.hooksPath is an absolute path to the primary checkout, so this hook also
+# runs from linked worktrees whose branch predates the sync tooling and therefore
+# does not contain scripts/update-docs-inventory.mjs. Those commits aborted with
+# MODULE_NOT_FOUND before the author could do anything about it. Fail open for
+# that one task instead.
+if [ "$sync_inventory" = "1" ] && [ ! -f scripts/update-docs-inventory.mjs ]; then
+  if git cat-file -e "HEAD:scripts/update-docs-inventory.mjs" 2>/dev/null; then
+    echo "[pre-commit] scripts/update-docs-inventory.mjs was removed or renamed by the pending commit; refusing to skip inventory synchronization." >&2
+    exit 1
+  fi
+  echo "[pre-commit] scripts/update-docs-inventory.mjs is absent from this worktree - skipping inventory sync." >&2
+  sync_inventory=0
+  # `|| true`: grep exits 1 when it filters everything out, which `set -e` would
+  # otherwise treat as a hook failure.
+  docs_to_check=$(printf '%s\n' $docs_to_check | grep -v '^docs/scripts-index\.md$' || true)
+fi
+
+# Re-check after dropping a task: an empty docs_to_check would make the trailing
+# unstaged-docs diff match every modified file in the tree.
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ]; then
+  exit 0
+fi
+
 echo "[pre-commit] Synchronizing generated documentation..."
 if [ "$sync_sitemap" = "1" ]; then
   npm run sitemap:update
