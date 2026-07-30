@@ -96,7 +96,7 @@ structural change, not a single mixed PR.
   unit into `src/lib/rag/rag-second-stage.ts`: engagement policy, score adjustment, document
   diversity, subject-match protection, and its retrieval-layer telemetry moved together without
   changing the public `@/lib/rag/rag` export. `rag.ts` remains the retrieval orchestrator and
-  calls the extracted unit at the same pipeline points (4,780 → 4,592; budget ratcheted to 4,592).
+  calls the extracted unit at the same pipeline points (4,780 → 4,351; budget ratcheted to 4,351).
 - **Progress (`DocumentViewer.tsx`):** extracted the cohesive leaf modules into
   `src/components/document-viewer/` — shared row `types.ts`, `source-panels.tsx` (summary
   profile, high-yield summary, source images/tables, pinned evidence, indexed-text panel), the
