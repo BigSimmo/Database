@@ -207,10 +207,21 @@ function resolvePrettierBin() {
  * while a changed-paths-only check passes — so a policy change escalates to a
  * whole-tree check.
  */
-function isPrettierPolicyFile(file) {
-  return /^(?:\.prettierrc(?:\..+)?|prettier\.config\.(?:js|cjs|mjs|ts)|\.prettierignore|\.editorconfig|package\.json)$/.test(
-    path.basename(file),
-  );
+function isPrettierPolicyFile(file, checkoutDir) {
+  const base = path.basename(file);
+  if (/^(?:\.prettierrc(?:\..+)?|prettier\.config\.(?:js|cjs|mjs|ts)|\.prettierignore|\.editorconfig)$/.test(base)) {
+    return true;
+  }
+  // A package.json is policy only when it actually carries a `prettier` field.
+  // Matching every package.json would send each routine dependency bump through a
+  // whole-tree check it cannot possibly need.
+  if (base !== "package.json") return false;
+  try {
+    return JSON.parse(readFileSync(path.join(checkoutDir, file), "utf8")).prettier !== undefined;
+  } catch {
+    // Unreadable or unparseable: assume it is policy rather than assume it is not.
+    return true;
+  }
 }
 
 /**
@@ -253,7 +264,7 @@ function checkPushedCommit(prettierBin, sha, files) {
         // Already present, or symlinks unavailable — prettier still loads static configs.
       }
     }
-    const policyChanged = files.some(isPrettierPolicyFile);
+    const policyChanged = files.some((file) => isPrettierPolicyFile(file, dir));
     // Deleted paths are gone from the checkout, and prettier errors on a missing
     // argument, so ask only for what is actually there.
     const present = files.filter((file) => existsSync(path.join(dir, file)));
