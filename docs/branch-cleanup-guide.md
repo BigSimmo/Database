@@ -21,6 +21,28 @@ For broad multi-worktree reconciliation, first run `node scripts/reconciliation-
 [`docs/reconciliation-playbook.md`](reconciliation-playbook.md). The preflight is report-only and
 does not replace the fetch/approval and per-branch content proof below.
 
+**Precondition — the clone must have full history. Check this first, before anything else:**
+
+```bash
+git rev-parse --is-shallow-repository   # must print false
+git fetch --unshallow --tags origin     # if it printed true
+```
+
+Every signal in this guide — ahead/behind, `--cherry-pick` patch-uniqueness, `git diff main...BRANCH`
+— is derived from a **merge-base**. A shallow clone has a grafted root, so those results are wrong
+_without erroring_: nothing fails, the numbers are simply fiction. Remote Claude Code sessions clone
+shallow by default, so this is the normal state, not an edge case.
+
+Measured 2026-07-29 (ledger `#109`): a session swept this repo with 74 of 2829 commits present. It
+reported **90 of 91** branches as carrying unmerged work, and a stale local `main` as `ahead 52` with
+`refusing to merge unrelated histories`. In a `--depth 1` clone the sweep exited **0** and named the
+live checked-out branch as a deletion candidate with "no unique patch content" — a green run
+recommending deletion of an active branch. `npm run sweep:branch-ledger` now refuses outright on a
+shallow clone (`shallowCloneRefusal`, guarded in `tests/repo-hygiene.test.ts`), but the raw `git`
+commands below have no such protection, so verify the precondition yourself before trusting them.
+
+**Never delete a branch, or report one as unmerged, from a shallow clone.**
+
 1. Fetch and prune:
 
    ```powershell

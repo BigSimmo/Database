@@ -12,7 +12,11 @@ import {
   parseEnvSchemaNames,
   railwayVariableArgs,
 } from "../scripts/check-env-parity.mjs";
-import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
+import {
+  hasCompletedCleanupReview,
+  parseLedgerBranches,
+  shallowCloneRefusal,
+} from "../scripts/sweep-branch-ledger.mjs";
 import { buildRow, findReviews, headMatches, parseLedgerRows, sanitizeCell } from "../scripts/branch-review-ledger.mjs";
 import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
 
@@ -167,6 +171,47 @@ describe("hasCompletedCleanupReview", () => {
   it("does NOT match when the HEAD has moved since the review", () => {
     const md = "| 2026-07-14 | codex/foo | oldsha | branch-cleanup | out | c |";
     expect(hasCompletedCleanupReview(md, "codex/foo", "newsha")).toBe(false);
+  });
+});
+
+describe("shallowCloneRefusal", () => {
+  /*
+   * Ledger #109. Every signal the sweep reports comes from a merge-base, and a shallow
+   * clone has a grafted root, so those numbers are wrong WITHOUT erroring. Measured
+   * 2026-07-29 in a real `--depth 1` clone: the unguarded sweep exited 0 and named the
+   * live checked-out branch as a deletion candidate with "no unique patch content". A
+   * green exit recommending deletion of an active branch is the exact hazard here, so
+   * the guard must refuse rather than degrade.
+   */
+  it("refuses on a shallow clone and names the remedy", () => {
+    // The exact stdout of `git rev-parse --is-shallow-repository` in a shallow clone.
+    const refusal = shallowCloneRefusal("true");
+    expect(refusal).not.toBe("");
+    // The operator must be told how to fix it, not merely that something is wrong.
+    expect(refusal).toContain("git fetch --unshallow");
+    // Cite the ledger item so the reason survives without this comment.
+    expect(refusal).toContain("#109");
+    // Name the specific signals that are untrustworthy, not just "unreliable".
+    expect(refusal).toContain("merge-base");
+  });
+
+  it("stays silent on a complete clone so the sweep runs normally", () => {
+    // A full clone prints the STRING "false" — truthy. Coercing on truthiness rather than
+    // on the exact value would refuse on every healthy repo, so this is the regression
+    // that matters most in the safe direction.
+    expect(shallowCloneRefusal("false")).toBe("");
+  });
+
+  it("does not treat unexpected or absent git output as shallow", () => {
+    // tryGit returns "" when the command fails; an older git could print something else.
+    // Neither may be read as shallow, or the sweep becomes unusable.
+    expect(shallowCloneRefusal("")).toBe("");
+    expect(shallowCloneRefusal(undefined)).toBe("");
+    expect(shallowCloneRefusal("shallow")).toBe("");
+  });
+
+  it("tolerates surrounding whitespace from git stdout", () => {
+    expect(shallowCloneRefusal(" true\n")).not.toBe("");
   });
 });
 

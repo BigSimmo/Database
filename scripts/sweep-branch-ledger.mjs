@@ -94,8 +94,54 @@ export function hasCompletedCleanupReview(markdown, shortName, headSha) {
   return false;
 }
 
+/**
+ * Refusal message for a shallow clone, or "" when the history is complete.
+ *
+ * Every signal this sweep reports — ahead/behind, `--cherry-pick` patch-uniqueness,
+ * and therefore `deletionCandidate` — is computed from merge-bases. A shallow clone has
+ * a grafted root, so merge-bases are missing or wrong and those numbers are silently
+ * fiction rather than an error. On 2026-07-29 a remote session swept this repo with 74
+ * of 2829 commits present and got `90 of 91` branches reported as carrying unmerged
+ * work, while a stale local `main` read as `ahead 52` with "unrelated histories"
+ * (ledger `#109`). Acting on that meant either deleting live branches or abandoning
+ * cleanup as impossible, so this fails closed: no inventory is printed at all, because a
+ * partial inventory is what invites someone to act on it.
+ *
+ * Takes the raw `git rev-parse --is-shallow-repository` output rather than a boolean, so the
+ * coercion is covered too: treating any non-empty output as shallow would refuse on every
+ * complete clone (that command prints the string "false"), which is the one way this guard
+ * could fail dangerously in the opposite direction.
+ */
+export function shallowCloneRefusal(isShallowOutput) {
+  if (String(isShallowOutput ?? "").trim() !== "true") return "";
+  return [
+    "refusing to sweep: this is a SHALLOW clone, so every merge-base is unreliable.",
+    "",
+    "ahead/behind counts, --cherry-pick patch-uniqueness and the deletion candidates are",
+    "all derived from merge-bases. With a grafted root they are wrong without erroring —",
+    "see ledger #109, where a shallow sweep reported 90 of 91 branches as unmerged.",
+    "",
+    "Fix: git fetch --unshallow --tags origin",
+    "Then re-run. Never delete a branch, or report one as unmerged, from a shallow clone.",
+  ].join("\n");
+}
+
 function main() {
   const asJson = process.argv.includes("--json");
+
+  // Fail closed BEFORE the fetch and before any branch maths: a shallow clone cannot
+  // produce a trustworthy inventory, and an untrustworthy inventory is worse than none.
+  const refusal = shallowCloneRefusal(tryGit(["rev-parse", "--is-shallow-repository"]));
+  if (refusal) {
+    if (asJson) {
+      console.log(JSON.stringify({ error: "shallow-clone", message: refusal, branches: null }, null, 2));
+    } else {
+      console.error(refusal);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
   if (!process.argv.includes("--no-fetch")) {
     try {
       execFileSync("git", ["fetch", "--prune", "--quiet", "origin"], { cwd: root, stdio: "ignore" });
