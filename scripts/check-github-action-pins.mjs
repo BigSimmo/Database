@@ -124,10 +124,16 @@ failures.push(...collectPinFailures(process.cwd()));
 
 const ciWorkflowPath = path.join(workflowDir, "ci.yml");
 const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
+const ciPullRequestTrigger = yamlBlock(ciWorkflow, "pull_request:", 2);
 const migrationJob = yamlBlock(ciWorkflow, "db-reset-verify:", 2);
 const setupSupabaseStep = yamlBlock(migrationJob, "- name: Setup Supabase CLI", 6);
 const restoreSupabaseStep = yamlBlock(migrationJob, "- name: Restore Supabase Docker image cache", 6);
 const saveSupabaseStep = yamlBlock(migrationJob, "- name: Save Supabase Docker images", 6);
+if (!/^    types: \[opened, synchronize, reopened, ready_for_review\]$/m.test(ciPullRequestTrigger)) {
+  failures.push(
+    "ci.yml: pull_request events must retain opened/synchronize/reopened and include ready_for_review so undrafting starts required CI.",
+  );
+}
 if (!new RegExp(`^  SUPABASE_CLI_VERSION: ${expectedSupabaseCliVersionPattern}$`, "m").test(ciWorkflow)) {
   failures.push(`ci.yml: global SUPABASE_CLI_VERSION must remain pinned to ${expectedSupabaseCliVersion}.`);
 }
