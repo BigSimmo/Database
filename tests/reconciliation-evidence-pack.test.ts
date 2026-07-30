@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -151,5 +152,29 @@ describe("reconciliation evidence pack (#078)", () => {
     });
     expect(pack.bundle.sizeBytes).toBeGreaterThan(0);
     expect(pack.frozen.primaryHead).toBe(head);
+  });
+
+  // #109: this builder is the caller that bypassed the CLI-only shallow guard. In a depth-1
+  // clone the guarded preflight exited 1 while this command exited 0 and wrote a pack stamped
+  // `status: "complete"` around merge-base-derived ahead/behind numbers that were fiction. The
+  // refusal now lives in collectReconciliationState, so the rejection happens before any pack
+  // object exists to write.
+  it("refuses to build a completed pack from a shallow clone", async () => {
+    const origin = createFixtureRepository().root;
+    writeFileSync(path.join(origin, "second.md"), "second\n", "utf8");
+    git(["add", "second.md"], origin);
+    git(["commit", "-m", "second commit"], origin);
+    // `--depth` is ignored for local-path clones, so address the origin as a file:// URL.
+    const shallowRoot = temporaryDirectory("evidence-shallow-");
+    git(["clone", "--depth", "1", pathToFileURL(origin).href, shallowRoot], origin);
+    expect(git(["rev-parse", "--is-shallow-repository"], shallowRoot)).toBe("true");
+
+    await expect(
+      buildReconciliationEvidencePack({
+        repositoryRoot: shallowRoot,
+        baseRef: "main",
+        now: () => new Date("2026-07-24T18:00:00.000Z"),
+      }),
+    ).rejects.toMatchObject({ code: "history-not-verified" });
   });
 });
