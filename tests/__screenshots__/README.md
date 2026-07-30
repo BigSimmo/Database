@@ -26,16 +26,22 @@ page genuinely does not produce identical pixels on Windows and Linux.
 
 The CI job is the supported recorder. It runs `npm run test:e2e:visual` and uploads
 `test-results/` plus `tests/__screenshots__/` as the `visual-baseline-<run_id>`
-artifact. On a first run the missing snapshots are written and reported as failures;
-`continue-on-error: true` keeps the job advisory, and the written PNGs are what you
-commit.
+artifact. On a first run, targets listed in `AWAITING_BASELINE` are skipped after
+writing candidate PNGs under `test-results/visual-candidates/linux/`. The suite does
+not write directly into the tracked snapshot directory: doing so could let a retry
+adopt its own output and report a false green.
 
 1. Push a branch whose diff sets `ui_changed=true` (any `tests/ui-*.spec.ts`,
    `playwright*.config.ts`, `src/`, or a path under `tests/__screenshots__/` — the
    trigger list lives in `scripts/ci-change-scope.mjs`).
 2. Download the `visual-baseline-<run_id>` artifact from that run.
-3. Commit the `linux/` PNGs it contains.
-4. Re-run. The job now compares against them instead of writing them.
+3. Copy the reviewed PNGs from `test-results/visual-candidates/linux/` into
+   `tests/__screenshots__/linux/`.
+4. Remove those target names from `AWAITING_BASELINE` in
+   `tests/ui-visual-baseline.spec.ts` in the same commit. The
+   `declares no baseline it already has` test fails if a committed golden remains
+   exempted.
+5. Re-run. The job now compares against the committed PNGs.
 
 Locally, `npm run test:e2e:visual:update` refreshes baselines for **your** platform
 only. That is useful for iterating on the spec; it cannot produce the `linux/`
