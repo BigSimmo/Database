@@ -5,6 +5,12 @@ import { normalizeImageBbox } from "@/lib/image-filtering";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { metadataText, safeRecord } from "@/lib/rag/rag-answer-text";
 import { compactContextText } from "@/lib/rag/rag-source-block";
+import type { RetrievalAccessScope } from "@/lib/owner-scope";
+import {
+  applyMemoryBoostArtifacts,
+  loadMemoryBoostArtifacts,
+  type MemoryCardCache,
+} from "@/lib/rag/rag-candidate-sources";
 
 // Extracted from rag.ts (maturity X3 / #101): per-request hydration of retrieved
 // results — document ranking metadata, cached index quality, and page visual
@@ -25,6 +31,40 @@ export function createDocumentRankingMetadataCache(): DocumentRankingMetadataCac
     documentMetadata: new Map(),
     indexQuality: new Map(),
   };
+}
+
+/** Overlap independent metadata and memory reads, then merge them deterministically. */
+export async function hydrateCandidatesWithMetadataAndMemory(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  candidates: SearchResult[];
+  queryEmbedding?: number[];
+  ownerId?: string;
+  accessScope?: RetrievalAccessScope;
+  documentIds?: string[];
+  matchCount: number;
+  metadataCache: DocumentRankingMetadataCache;
+  cardCache: MemoryCardCache;
+  measurePhase: <T>(phase: string, operation: () => Promise<T>) => Promise<T>;
+}) {
+  // Neither read consumes the other's result. Candidate assembly remains ordered because
+  // memory boosts are applied only after both promises settle, preserving the serial output.
+  const [metadataCandidates, memoryArtifacts] = await args.measurePhase("metadata_and_memory_hydration", () =>
+    Promise.all([
+      attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache),
+      loadMemoryBoostArtifacts({
+        supabase: args.supabase,
+        query: args.query,
+        queryEmbedding: args.queryEmbedding,
+        ownerId: args.ownerId,
+        accessScope: args.accessScope,
+        documentIds: args.documentIds,
+        matchCount: args.matchCount,
+        cardCache: args.cardCache,
+      }),
+    ]),
+  );
+  return { ...applyMemoryBoostArtifacts(args.query, metadataCandidates, memoryArtifacts), metadataCandidates };
 }
 
 /** Attach document ranking metadata. */
