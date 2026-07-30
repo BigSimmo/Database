@@ -127,9 +127,7 @@ async function main() {
     ...job,
     documents: Array.isArray(job.documents) ? (job.documents[0] as RecoveryDocument | undefined) : job.documents,
   })) as IngestionRecoveryJob[];
-  const ownerIdByDocumentId = new Map(
-    jobs.map((job) => [job.document_id, job.documents?.owner_id ?? null] as const),
-  );
+  const ownerIdByDocumentId = new Map(jobs.map((job) => [job.document_id, job.documents?.owner_id ?? null] as const));
   const plan = buildIngestionRecoveryPlan({ jobs, staleAfterMinutes });
   const actions = plan.actions.slice(0, limit);
   const resetDocuments = Array.from(
