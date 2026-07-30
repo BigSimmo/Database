@@ -843,6 +843,14 @@ Use `docs/codex-cloud.md` as the environment contract:
 - The Codex GitHub connection used to clone a repository is separate from agent-shell
   `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
+- For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
+  tools as the default remote control plane. Use them for repository, PR, issue, review
+  thread, and Actions work, including inline-thread replies/resolution and approved branch,
+  file, or PR mutations. Missing `gh`, shell GitHub credentials, or direct shell network
+  access is not a loss of this capability and must not prompt a PAT workaround.
+- Confirm the exact repository and PR/thread/job before a write. If the connector lacks a
+  needed GitHub setting or organisation control, report that limit rather than attempting a
+  credential, secret, or shell-based bypass.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
   physical iPhone Safari/PWA acceptance.
 
