@@ -1214,13 +1214,19 @@ test("page-owned focus clearance places a below-fold calculator control above th
   );
 });
 
-test("calculator combined chrome stays visible with only 96px of near-bottom runway", async ({ page }) => {
+// Renamed 2026-07-30: the old title said "96px of near-bottom runway", but 96 is
+// `collapseRunwaySlack`, which only exists on the in-flow branch of
+// `computeScrollHideUpdate`. Reserve-only overlay has no slack term at all — its
+// near-bottom refusal is `offset <= postCollapseMaxOffset + bottomClampTolerance`.
+// One test covers both owners, so the title names the behaviour rather than one
+// motion's constant. No flake-ledger or allowlist entry referenced the old name.
+test("calculator combined chrome refuses a near-bottom hide that would clamp the reader", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
   await gotoPhoneSurface(page, "/calculators", 112);
   await addPhoneScrollRunway(page);
 
-  const frames = await page.evaluate(async () => {
+  const { frames, diag } = await page.evaluate(async () => {
     const main = document.getElementById("main-content");
     const dock = document.querySelector<HTMLElement>('[data-testid="calculators-phone-dock"]');
     const reserve = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
@@ -1250,22 +1256,85 @@ test("calculator combined chrome stays visible with only 96px of near-bottom run
     const safeAreaRelease = headerRelease > 0 && safeArea ? safeArea.getBoundingClientRect().height : 0;
     const reserveRelease = Math.max(0, Number.parseFloat(getComputedStyle(reserve).paddingBottom) || 0);
     const collapseBudget = headerRelease + safeAreaRelease + reserveRelease;
-    // In-flow: 96px after combined chrome release must refuse hide (collapse
-    // runway slack). Reserve-only overlay: refuse when the current offset would
-    // not fit the post-reserve range — sit inside the reserve-release band of
-    // the bottom rather than 96px above a mis-counted header budget.
+    // Both target offsets are derived from `computeScrollHideUpdate`'s own
+    // refusal clauses (use-hide-on-scroll.ts) rather than from a chosen number,
+    // because the two motions refuse for genuinely different reasons:
+    //
+    //   in-flow       refuse while runwayAfterCollapse <= revealIntentDistance
+    //                 + collapseRunwaySlack  (12 + 96)
+    //   reserve-only  refuse while offset > postCollapseMaxOffset
+    //                 + bottomClampTolerance
+    //
+    // Mirrored constants — keep in step with use-hide-on-scroll.ts.
+    const revealIntentDistance = 12;
+    const collapseRunwaySlack = 96;
+    const bottomClampTolerance = 1;
     const maxOffset = Math.max(0, scrollOwner.scrollHeight - scrollOwner.clientHeight);
-    scrollOwner.scrollTop = phoneOverlayMotion
-      ? Math.max(0, maxOffset - Math.max(8, Math.min(reserveRelease, 48)))
-      : Math.max(0, maxOffset - collapseBudget - 96);
+    const postCollapseMaxOffset = Math.max(0, maxOffset - collapseBudget);
+    // Reserve-only: land strictly inside the refusal band but not at the very
+    // bottom, so this stays a boundary case rather than the trivial one.
+    const overlayTarget = Math.min(
+      maxOffset,
+      postCollapseMaxOffset + bottomClampTolerance + Math.max(1, Math.round(reserveRelease / 3)),
+    );
+    const inFlowTarget = Math.max(0, maxOffset - collapseBudget - collapseRunwaySlack);
+    scrollOwner.scrollTop = phoneOverlayMotion ? overlayTarget : inFlowTarget;
+    // Capture the offset we actually landed on BEFORE dispatching, and never
+    // re-read it afterwards. If the policy regresses and the hide is wrongly
+    // allowed, the reserve collapses, maxOffset shrinks and the browser clamps
+    // scrollTop — so a post-loop read reports the offset after the bug rather
+    // than the offset under test. Asserting the band against that clamped value
+    // made a policy regression surface as "the test setup is wrong", which is
+    // the opposite of a useful failure. Found by removing the refusal clause and
+    // watching this test fail for the wrong reason (2026-07-30).
+    const targetScrollTop = scrollOwner.scrollTop;
     (mainOwnsScroll ? main : window).dispatchEvent(new Event("scroll", { bubbles: true }));
     const frames = [read()];
     for (let index = 0; index < 18; index += 1) {
       await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
       frames.push(read());
     }
-    return frames;
+    return {
+      frames,
+      diag: {
+        phoneOverlayMotion,
+        reserveRelease,
+        collapseBudget,
+        maxOffset,
+        postCollapseMaxOffset,
+        targetScrollTop,
+        // The other reserve-only clause. If the post-collapse range were shorter
+        // than this, hide would be refused for being too short overall and the
+        // near-bottom clause would never be reached — the test would pass
+        // without testing anything.
+        minimumRangeForHide: 8 + 24,
+        inFlowRunwayAfterCollapse: maxOffset - targetScrollTop - collapseBudget,
+        inFlowRefusalCeiling: revealIntentDistance + collapseRunwaySlack,
+      },
+    };
   });
+
+  // Non-vacuity first. "Chrome stayed visible" is only evidence of a refusal if
+  // the scroll position actually sat inside the refusal band AND the other
+  // clauses were satisfied — otherwise chrome stays visible for an unrelated
+  // reason and this test silently guards nothing. Added 2026-07-30: the overlay
+  // branch previously used chosen offsets, so nothing checked that it landed
+  // anywhere meaningful.
+  expect(diag.collapseBudget, "chrome must have geometry to release, or nothing can be refused").toBeGreaterThan(1);
+  if (diag.phoneOverlayMotion) {
+    expect(
+      diag.postCollapseMaxOffset,
+      "post-collapse range must clear the short-range clause, so the near-bottom clause is what refuses",
+    ).toBeGreaterThanOrEqual(diag.minimumRangeForHide);
+    expect(diag.targetScrollTop, "reserve-only offset must sit inside the near-bottom refusal band").toBeGreaterThan(
+      diag.postCollapseMaxOffset + 1,
+    );
+  } else {
+    expect(
+      diag.inFlowRunwayAfterCollapse,
+      "in-flow runway after collapse must sit inside the slack refusal band",
+    ).toBeLessThanOrEqual(diag.inFlowRefusalCeiling);
+  }
 
   expect(frames.every((frame) => !frame.headerHidden && !frame.dockHidden)).toBe(true);
   for (let index = 1; index < frames.length; index += 1) {
