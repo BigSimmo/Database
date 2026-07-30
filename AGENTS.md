@@ -618,8 +618,11 @@ named PR). Future process only.
 - Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a
   stale head that already shares hot files with the open queue.
 - Treat `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` as hot shared files.
-  Both use `merge=union`. Append with `npm run ledger:append` / the `/issues` skill — never
-  hand-write ledger rows, and never resolve an outstanding-issues conflict by taking one side
+  `docs/branch-review-ledger.md` uses the custom `merge=ledger` driver (union with exact-row
+  dedupe); `docs/outstanding-issues.md` deliberately has **no** driver, so overlapping edits
+  conflict loudly rather than being silently concatenated — union was tried and removed
+  (`#133`). Append with `npm run ledger:append` / the `/issues` skill — never hand-write
+  ledger rows, and never resolve an outstanding-issues conflict by taking one side
   wholesale. `npm run check:outstanding-issues` fails on duplicate IDs or a stale
   `issues:next-id` marker.
 - Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run
@@ -817,7 +820,33 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 `@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with <!-- codex-thread-disposition:resolved --> as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
 
-## Cursor Cloud specific instructions
+## Codex Cloud environment
+
+Codex Cloud uses an isolated Linux container and does not inherit desktop files,
+credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
+Use `docs/codex-cloud.md` as the environment contract:
+
+- Setup: `bash scripts/setup-codex-cloud.sh`.
+- Maintenance: `bash scripts/maintain-codex-cloud.sh`.
+- Default to demo/offline mode with agent internet disabled and no provider credentials.
+- Cloud mirrors the tracked repository toolchain, not Windows files, `.env.local`,
+  desktop plugins, browser sessions, OAuth sessions, user-global skills, or uncommitted
+  work. Keep required workflows in tracked instructions, scripts, tests, and repo-local
+  skills.
+- Run `npm run check:codex-cloud`, `npm run check:runtime`, and
+  `npm run check:installed-lock-parity` before trusting a new or reset environment.
+- Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
+  Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
+  agent phase; do not copy them into files to bypass that boundary.
+- Provider-backed checks, hosted CI mutations, deployment, production data access, and
+  Git publishing still require the explicit authorization defined above.
+- The Codex GitHub connection used to clone a repository is separate from agent-shell
+  `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
+  controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
+- Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
+  physical iPhone Safari/PWA acceptance.
+
+## Cursor Cloud specific instructions (not Codex Cloud)
 
 Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
 

@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { phoneHeaderCollapseAddonSlotId } from "../src/lib/mode-home-composer";
 import { readPrimaryScrollAndDomGeometry } from "./playwright-scroll";
 import { expectSingleSettledOwner } from "./playwright-settlement";
 
@@ -365,6 +366,73 @@ async function dragScrollUntilHidden(page: Page, totalPx: number, stepPx: number
   ).toBeGreaterThanOrEqual(minimumHideTravelPx);
 }
 
+/**
+ * Asserts the phone chrome hid, and on failure says whether the header's own scroll
+ * signal arrived or a pin swallowed it.
+ *
+ * `dragScrollUntilHidden` above already proves the gesture happened, so what is left is
+ * the split its doc comment names as unobservable: `data-scroll-hidden` is the composite
+ * `scrollHidden && !sharedChromePinned`, so a reporter that never fired and a latched pin
+ * look identical. `data-scroll-signal` on the same element publishes the raw `scrollHidden`
+ * before the pin is applied, which separates them.
+ *
+ * Note the header and DocumentViewer run SEPARATE reporters — the shell's
+ * `chromeScrollHide` (global-search-shell.tsx) versus
+ * use-document-viewer-chrome-scroll.ts — so the page-owned composer is never a proxy for
+ * the header's state. It is reported only as context, and a divergence between the two is
+ * itself a finding.
+ */
+async function expectChromeHidden(page: Page, collapse: Locator, phase: string) {
+  try {
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true", { timeout: 10_000 });
+    return;
+  } catch (error) {
+    const state = await page.evaluate((addonSlotId) => {
+      const attribute = (selector: string, name: string) =>
+        document.querySelector(selector)?.getAttribute(name) ?? null;
+      const describe = (element: Element | null) => {
+        if (!element) return "none";
+        const testId = element.getAttribute("data-testid");
+        return `${element.tagName.toLowerCase()}${testId ? `[data-testid="${testId}"]` : ""}`;
+      };
+      const active = document.activeElement;
+      const addonHost = document.getElementById(addonSlotId);
+      const collapseSelector = '[data-testid="universal-header-collapse"]';
+      return {
+        headerScrollSignal: attribute(collapseSelector, "data-scroll-signal"),
+        headerCollapse: attribute(collapseSelector, "data-scroll-hidden"),
+        documentComposer: attribute("form.document-viewer-composer", "data-scroll-hidden"),
+        documentContent: attribute('[data-testid="document-viewer-content"]', "data-scroll-hidden"),
+        activeElement: describe(active),
+        focusInsideAddonHost: Boolean(addonHost && active && addonHost.contains(active)),
+        addonHostPresent: Boolean(addonHost),
+        expandedMenuTrigger: document.querySelector('[aria-haspopup="menu"][aria-expanded="true"]') !== null,
+        expandedCombobox: document.querySelector('[role="combobox"][aria-expanded="true"]') !== null,
+        scopePopover: document.querySelector('[data-testid="scope-command-popover"]') !== null,
+        openDialogs: document.querySelectorAll('[role="dialog"]').length,
+        openMenus: document.querySelectorAll('[role="menu"]').length,
+      };
+    }, phoneHeaderCollapseAddonSlotId);
+
+    const documentViewerHidden = state.documentComposer === "true" || state.documentContent === "true";
+    const verdict =
+      state.headerScrollSignal === "hidden"
+        ? "the header's own scrollHidden is TRUE, so sharedChromePinned swallowed it — see the pin tells below"
+        : state.headerScrollSignal === "visible"
+          ? `the header's own scrollHidden is FALSE — the shell reporter never saw the proven gesture${
+              documentViewerHidden
+                ? ", while DocumentViewer's independent reporters DID: the two scroll feeds diverged"
+                : ""
+            }`
+          : "data-scroll-signal is absent, so the two causes cannot be separated";
+
+    throw new Error(
+      `${phase}: the phone chrome never hid.\n${verdict}\nchrome state: ${JSON.stringify(state, null, 2)}\n\n` +
+        `Original assertion failure:\n${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 interface PageOwnedFooterGeometry {
   footerOpacity: number;
   footerPosition: string;
@@ -558,7 +626,7 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await sectionTrigger.evaluate((element) => element.blur());
 
     await dragScrollUntilHidden(page, 720, 24);
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await expectChromeHidden(page, collapse, "first hide with motion enabled");
     await expect(overlayStack).toHaveAttribute("data-scroll-hidden", "true");
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
 
@@ -658,7 +726,7 @@ for (const phoneOwner of ["browser document", "standalone PWA main"] as const) {
     await dragScrollBy(page, -480, 16);
     await expect(collapse).not.toHaveAttribute("data-scroll-hidden", "true");
     await dragScrollUntilHidden(page, 720, 24);
-    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    await expectChromeHidden(page, collapse, "reduced-motion hide after the section-sheet round-trip");
     const reducedHidden = await readPrimaryScrollAndDomGeometry(page, {
       stack: '.phone-sticky-header-stack[data-phone-motion="overlay"]',
       content: '[data-testid="document-viewer-content"]',
