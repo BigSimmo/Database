@@ -210,11 +210,14 @@ structural change, not a single mixed PR.
 - **Files:** `scripts/check-gate-manifest.mjs`, `package.json`, `.github/workflows/ci.yml`.
 - **Verification:** the self-test passes (20 gates) and fails if the two lists diverge.
 
-### L4 · Rotate the branch-review ledger — `OPEN`
+### L4 · Rotate the branch-review ledger — `DONE`
 
-- **Outcome:** `docs/branch-review-ledger.md` (361 KB, append-only) stays navigable.
-- **Approach:** archive entries older than a quarter into `docs/archive/branch-review-ledger-<q>.md`;
-  keep the live ledger to the current quarter.
+- **Outcome:** `docs/branch-review-ledger.md` stays navigable; historical rows live under
+  `docs/archive/branch-review-ledger-<yyyy-qN>.md`.
+- **Approach:** `npm run ledger:rotate` moves rows older than a cutoff (default: current
+  calendar-quarter start); `ledger:lookup` / `sweep:branch-ledger` read live + archives;
+  `check:branch-review-ledger` validates archive structure. Bootstrap on 2026-07-30 used
+  `--before 2026-07-29` because the whole history was one month old.
 - **Risk:** low.
 
 ### L5 · Documentation quick-wins — `DONE` / `SATISFIED`
@@ -267,6 +270,6 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 | L1 Archive one-shot scripts      | Later      | IN PROGRESS (#1033 archived m13/july8; refs reconciled; backfills open)            |
 | L2 Action-SHA uniformity         | Later      | **DONE** (#992)                                                                    |
 | L3 Single gate manifest          | Later      | **DONE** (#1002)                                                                   |
-| L4 Ledger rotation               | Later      | OPEN                                                                               |
+| L4 Ledger rotation               | Later      | **DONE** (#1418)                                                                   |
 | L5 AI map / WCAG / RPO-RTO       | Later      | **DONE / SATISFIED** (#985)                                                        |
 | M1 Repo-host hardening           | Maintainer | OPEN (GitHub UI; audit §8; not a repo file)                                        |

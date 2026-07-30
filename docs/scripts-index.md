@@ -11,21 +11,23 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 
 ## Runner & guard infrastructure [infra]
 
-| Script                                                                                     | Role                                                                                                        |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `run-heavy.mjs`                                                                            | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely  |
-| `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                 | Typed/test/e2e/eval entrypoint wrappers                                                                     |
-| `dev-free-port.mjs`, `ensure-local-server.mjs`                                             | Project-stable localhost port selection + background server ensure                                          |
-| `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs` | Install/preflight guards                                                                                    |
-| `ci-change-scope.mjs`, `ci-triage.mjs`, `pr-policy.mjs`                                    | CI change classification + PR policy (self-tested via `check:ci-scope`/`check:ci-triage`/`check:pr-policy`) |
-| `check-installed-lock-parity.mjs`, `phone-chrome-plan.mjs`, `verify-phone-chrome.mjs`      | Lock-trust preflight plus change-scoped phone contracts, ownership journeys, and smart full-UI escalation   |
-| `final-merge-audit.mjs`                                                                    | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof       |
-| `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                        | Shared helpers                                                                                              |
+| Script                                                                                     | Role                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-heavy.mjs`                                                                            | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely                                            |
+| `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                 | Typed/test/e2e/eval entrypoint wrappers                                                                                                               |
+| `dev-free-port.mjs`, `ensure-local-server.mjs`                                             | Project-stable localhost port selection + background server ensure                                                                                    |
+| `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs` | Install/preflight guards                                                                                                                              |
+| `ci-change-scope.mjs`, `ci-triage.mjs`, `pr-policy.mjs`, `pr-mergeability.mjs`             | CI change classification + PR policy + conflict signal (self-tested via `check:ci-scope`/`check:ci-triage`/`check:pr-policy`/`check:pr-mergeability`) |
+| `check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`                       | Outstanding-issues ID/marker/union guard + PR mergeability workflow contract                                                                          |
+| `check-installed-lock-parity.mjs`, `phone-chrome-plan.mjs`, `verify-phone-chrome.mjs`      | Lock-trust preflight plus change-scoped phone contracts, ownership journeys, and smart full-UI escalation                                             |
+| `final-merge-audit.mjs`                                                                    | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof                                                 |
+| `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                        | Shared helpers                                                                                                                                        |
 
 ## Verification gates [live]
 
 `verify:cheap` → `verify:pr-local` → `verify:ui` → `verify:release`. Building blocks:
 `check-runtime.ts`, `check-github-action-pins.mjs`, `check-gate-manifest.mjs`,
+`check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`,
 `check-maintainability-budgets.mjs`, `check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
 `check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
 `check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
