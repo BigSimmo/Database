@@ -172,7 +172,7 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
   - **Formatting without committing does nothing for the push.** A push sends commits, not your working tree, so formatting after committing leaves the unformatted blob on the branch. Amend or add a follow-up commit.
   - **A per-file check is not the repository-wide check.** `prettier --check <file>` on the source file you edited passes while a doc or ledger edit in the same push fails; that was the missed file twice out of three.
 
-  `.githooks/pre-push` carries the guard, and since 2026-07-30 it checks the pushed commit where CI checks it: `guard-push.mjs` puts the pushed SHA in a temporary `git worktree` with `node_modules` linked in and runs Prettier there, so neither the working tree's contents nor its prettier config can vouch for the commit, and a dynamic `prettier.config.*` still loads. A push that changes prettier policy (`.prettierrc*`, `.prettierignore`, `.editorconfig`, or a `package.json` carrying a `prettier` field) escalates to a whole-tree `prettier --check .`, because a policy change alters the verdict for files the push never touched. But `core.hooksPath` is set by this checkout's `npm install`, so an agent pushing from its own environment bypasses the hook entirely and only CI catches the break — which is why the rule above is still a rule.
+  `.githooks/pre-push` carries the guard, and since 2026-07-30 it checks the pushed commit where CI checks it: `guard-push.mjs` puts the pushed SHA in a temporary `git worktree` with an exact-lock `node_modules` linked in and runs Prettier there, so neither the working tree's contents nor its prettier config can vouch for the commit, and a dynamic `prettier.config.*` still loads. An isolated worktree without local dependencies may reuse Prettier only from a registered worktree with a byte-identical lockfile and matching installed Prettier version; if none exists, the guard blocks with the explicit `npm ci --include=dev` remediation instead of skipping formatting. A push that changes prettier policy (`.prettierrc*`, `.prettierignore`, `.editorconfig`, or a `package.json` carrying a `prettier` field) escalates to a whole-tree `prettier --check .`, because a policy change alters the verdict for files the push never touched. But `core.hooksPath` is set by this checkout's `npm install`, so an agent pushing from its own environment bypasses the hook entirely and only CI catches the break — which is why the rule above is still a rule.
 
 - For release or handoff confidence, use `npm run verify:release`; this includes the full Playwright project set.
 - For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
@@ -201,8 +201,10 @@ action must perform one; a page that ships must be reachable.
   (`src/lib/app-modes.ts`, `src/lib/tools-catalog.ts`, `src/lib/universal-search.ts`), not
   hardcoded strings scattered across components.
 - **New-route checklist.** Add the page → link it from real nav (sidebar / launcher / mode home /
-  search) → `npm run sitemap:update` → document it in `docs/codebase-index.md` → add a
+  search) → `npm run docs:update` → document it in `docs/codebase-index.md` → add a
   reachability/coverage assertion. A production page route with no inbound link is an orphan.
+  The committed pre-commit hook runs this synchronization for relevant staged changes and stops
+  when generated docs need review/staging; it never stages files automatically.
 - **Gates.** `eslint-rules/require-button-wiring.mjs` (in `npm run lint`) fails on an un-wired
   `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
   route has no inbound nav link unless it is consciously added to that test's documented
@@ -828,13 +830,22 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 - Setup: `bash scripts/setup-codex-cloud.sh`.
 - Maintenance: `bash scripts/maintain-codex-cloud.sh`.
-- Default to demo/offline mode with agent internet disabled and no provider credentials.
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
+  Use `connected` only when the user explicitly authorizes the required provider access.
+- Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
+  read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
+  clean disposable checkout on a task-specific non-protected branch.
 - Cloud mirrors the tracked repository toolchain, not Windows files, `.env.local`,
   desktop plugins, browser sessions, OAuth sessions, user-global skills, or uncommitted
   work. Keep required workflows in tracked instructions, scripts, tests, and repo-local
   skills.
-- Run `npm run check:codex-cloud`, `npm run check:runtime`, and
-  `npm run check:installed-lock-parity` before trusting a new or reset environment.
+- Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
+  policy, or provider credentials. Treat those as product/account settings and verify them
+  separately without printing secret values.
+- Run `npm run check:codex-cloud` for the tracked contract and
+  `npm run check:codex-cloud -- --runtime` for the installed toolchain. Also run
+  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
+  or reset environment. A skipped browser install is not full browser readiness.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
   agent phase; do not copy them into files to bypass that boundary.
