@@ -163,6 +163,23 @@ animated or zeroed on hide would reintroduce exactly the shift overlay removes.
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
 
+**The overlay transform is a containing block — keep viewport-fixed footers out
+of it.** The hide translates the header stack, and a non-`none` `transform`
+(including `translateY(0)` at rest) makes an element a containing block for
+`position: fixed` descendants. A phone bottom dock left inside that subtree
+resolves `bottom: 0` against the header stack instead of the viewport and lands
+near the top of the screen — measured as a form bottom 772px away from the
+viewport bottom at 390×844, with `bottom` still computing to `0px`, which is why
+this reads as a positioning puzzle rather than a CSS error. `MasterSearchHeader`
+therefore wraps the composer in `PhoneFooterLayerPortal` when
+`phoneOverlayMotion && usesPhoneBottomDock`, so phones host it on the footer
+layer while `sm+` keeps it inline in the sticky [top bar | search] stack. This is
+the same mechanism invariant 21 already requires of the DocumentViewer,
+calculator and differential footers, and it is why document routes never hit the
+bug. Do not "simplify" that back to an inline composer, and do not solve it by
+rendering the composer twice per breakpoint — duplicate page-root `data-testid`s
+are their own failure mode (see invariant 17).
+
 Rules that keep this working:
 
 - **Hide the top bar, not the search field.** The collapse wrapper (`data-testid="universal-header-collapse"`) wraps `header#search` plus page navigation mounted through `PhoneHeaderCollapsePortal` into `#phone-header-collapse-addon-slot`. Keep composers outside the collapse row: tablet search stays pinned independently, and desktop search scrolls with page content rather than being translated by the header.

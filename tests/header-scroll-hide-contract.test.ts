@@ -148,6 +148,21 @@ describe("shared header hide/reveal wiring", () => {
     expect(reserveHookSource).toContain("ResizeObserver");
   });
 
+  it("portals the phone bottom dock out of the transformed overlay layer", () => {
+    // The overlay hide translates the header stack, and a non-none `transform`
+    // makes an element a containing block for `position: fixed` descendants. A
+    // phone dock left inside that subtree resolves `bottom: 0` against the
+    // ~72px header rather than the viewport and renders near the top of the
+    // screen (observed as formBottom 772px from the viewport bottom at 390x844).
+    // Portalling on phones is the fix; `sm+` must stay inline because tablet
+    // may not double-sticky the composer.
+    expect(headerSource).toContain("PhoneFooterLayerPortal");
+    expect(headerSource).toContain("{phoneOverlayMotion && usesPhoneBottomDock ? (");
+    // The translate that creates the containing block, so the pairing is visible
+    // to anyone editing either half.
+    expect(headerSource).toContain("max-sm:-translate-y-full");
+  });
+
   it("moves submitted search composers into normal page flow on desktop only", () => {
     expect(composerSlotSource).toContain(
       'export const desktopPageComposerSlotId = "desktop-page-search-composer-slot"',
