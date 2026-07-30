@@ -570,22 +570,59 @@ jobs:
         run: |
           set -euo pipefail
 
-          require_success() {
+          # A cancelled job proves nothing, so it must never report success — relaxing that is
+          # exactly what #095's stop rule forbids, and `if: always()` above is deliberate: a
+          # skipped required check counts as PASSING on GitHub, so skipping this aggregate on
+          # cancellation would make a manually-cancelled run mergeable with nothing verified.
+          #
+          # But a cancelled result is not a real failure either, and reporting it as an
+          # indistinguishable red has a measured cost: `cancel-in-progress` supersedes an
+          # in-flight run on every push, and one 2026-07-30 session spent four separate
+          # investigations on `::error::changes result was cancelled` before recognising it —
+          # while a docs-only PR merged straight through a red it had learned to ignore.
+          # So the result stays red and the reason stops being ambiguous.
+          #
+          # This reads each job's own `cancelled` result rather than the workflow-level
+          # cancelled status function. An earlier revision passed that function through an env
+          # value, which is INVALID: GitHub allows the status-check functions (success, failure,
+          # cancelled, always) only in `if:` conditions, so the whole workflow file failed to
+          # parse — the run was named `.github/workflows/ci.yml` instead of `CI` and created zero
+          # jobs. Valid YAML, invalid Actions schema, so prettier and every local gate passed it;
+          # `tests/ci-cache-safety.test.ts` now guards the rule directly. Note the interpolation
+          # syntax is deliberately not written out even here, because expressions are evaluated
+          # inside `run:` blocks too — a comment naming it would reproduce the same parse failure.
+          # The per-result check loses nothing: a superseded run cancels the upstream jobs, so
+          # they are all reported below.
+          #
+          # Both lists are collected before anything is reported, and GENUINE FAILURES WIN. A run
+          # can be cancelled AND broken at once — e.g. `safety` cancelled while `build` had already
+          # failed — and exiting on the first non-success would announce "not a real failure" while
+          # hiding the break. That is worse than the ambiguity this change set out to remove, so a
+          # cancellation is only ever the headline when nothing actually failed. Reported by Codex
+          # on PR #1409.
+          failures=()
+          cancellations=()
+
+          record() {
             local name="$1"
             local result="$2"
-            if [ "$result" != "success" ]; then
-              echo "::error::$name result was $result"
-              exit 1
+            local skipped_ok="$3"
+            if [ "$result" = "success" ]; then return 0; fi
+            if [ "$skipped_ok" = "true" ] && [ "$result" = "skipped" ]; then return 0; fi
+            if [ "$result" = "cancelled" ]; then
+              cancellations+=("$name")
+            else
+              failures+=("$name result was $result")
             fi
+            return 0
+          }
+
+          require_success() {
+            record "$1" "$2" false
           }
 
           require_skipped_or_success() {
-            local name="$1"
-            local result="$2"
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "::error::$name result was $result"
-              exit 1
-            fi
+            record "$1" "$2" true
           }
 
           require_success "changes" "$CHANGES_RESULT"
@@ -625,6 +662,32 @@ jobs:
             require_success "db-reset-verify" "$DB_RESULT"
           else
             require_skipped_or_success "db-reset-verify" "$DB_RESULT"
+          fi
+
+          # A real break is always the headline. Every failure is listed, not just the first, and a
+          # concurrent cancellation is demoted to context so it cannot read as an excuse.
+          if [ ${#failures[@]} -gt 0 ]; then
+            for entry in "${failures[@]}"; do
+              echo "::error::$entry"
+            done
+            if [ ${#cancellations[@]} -gt 0 ]; then
+              echo "::warning::also cancelled: ${cancellations[*]} — the failures above are real" \
+                "and must be fixed regardless."
+            fi
+            exit 1
+          fi
+
+          # Cancelled with nothing failing. Stays RED, because a cancelled job verified nothing,
+          # but the cause is stated as the two possibilities rather than asserted as supersession:
+          # a hand-cancelled run on the current head has no newer run to look at.
+          if [ ${#cancellations[@]} -gt 0 ]; then
+            echo "::error::CANCELLED with no failing job: ${cancellations[*]}. Nothing here" \
+              "describes the diff, so this is not a broken change — but a cancelled job verified" \
+              "nothing, so it cannot go green either. Usually a newer push superseded this run" \
+              "(cancel-in-progress); look for a newer 'PR required' run on the PR's current head" \
+              "SHA. If there is none, this run was cancelled by hand and must be re-run rather" \
+              "than merged past."
+            exit 1
           fi
 
           echo "Required in-scope PR checks passed."
