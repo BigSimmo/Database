@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 
 import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
-import { authSessionFingerprint } from "@/lib/auth-request-lifecycle";
+import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { useAuthSession } from "@/lib/supabase/client";
 
 export type RegistryRequestStatus = "loading" | "refetching" | "ready" | "unauthorized" | "not_found" | "error";
@@ -80,6 +80,7 @@ export function useRegistryRecords(
   const [state, setState] = useState<RegistryRecordsKeyedState>(recordsState("loading", kind));
   const [attempt, setAttempt] = useState(0);
   const [lastRequestIdentity, setLastRequestIdentity] = useState({ authIdentity, authorizationHeader, enabled, kind });
+  const [requestLifecycle] = useState(() => createAuthRequestLifecycle());
 
   const resourceChanged = lastRequestIdentity.kind !== kind || lastRequestIdentity.enabled !== enabled;
   const identityChanged = lastRequestIdentity.authIdentity !== authIdentity;
@@ -101,6 +102,12 @@ export function useRegistryRecords(
   }
   const visibleState: RegistryRecordsState = state.kind === kind ? state : recordsState("loading", kind);
 
+  // Abort prior-identity work during commit, before paint and before passive
+  // effects can start the replacement request.
+  useLayoutEffect(() => {
+    requestLifecycle.invalidate();
+  }, [authIdentity, authorizationHeader, enabled, kind, requestLifecycle]);
+
   // A same-identity refresh keeps already-authorized rows visible. Resource or
   // identity changes clear synchronously above, before another owner can paint.
   const refetch = useCallback(() => {
@@ -115,9 +122,12 @@ export function useRegistryRecords(
   useEffect(() => {
     if (!enabled) return undefined;
     let active = true;
-    fetch(`/api/registry/records?kind=${kind}`, { headers: authorizationHeader })
+    const controller = new AbortController();
+    const registration = requestLifecycle.register(controller);
+    const isCurrentRequest = () => active && requestLifecycle.isCurrent(registration.epoch);
+    fetch(`/api/registry/records?kind=${kind}`, { headers: authorizationHeader, signal: controller.signal })
       .then(async (response) => {
-        if (!active) return;
+        if (!isCurrentRequest()) return;
         if (response.status === 401) {
           // In real auth deployments the first request can race AuthProvider's
           // session load. Keep loading until the auth status changes and this
@@ -142,6 +152,7 @@ export function useRegistryRecords(
           demoMode?: boolean;
           governance?: Record<string, { validationStatus?: RegistryValidationStatus }>;
         };
+        if (!isCurrentRequest()) return;
         const governance: Record<string, RegistryValidationStatus> = {};
         for (const [slug, entry] of Object.entries(payload.governance ?? {})) {
           if (entry?.validationStatus) governance[slug] = entry.validationStatus;
@@ -156,12 +167,14 @@ export function useRegistryRecords(
         );
       })
       .catch(() => {
-        if (active) setState(recordsState("error", kind));
+        if (isCurrentRequest()) setState(recordsState("error", kind));
       });
     return () => {
       active = false;
+      controller.abort();
+      registration.release();
     };
-  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired, attempt]);
+  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired, attempt, requestLifecycle]);
 
   return { ...visibleState, refetch };
 }

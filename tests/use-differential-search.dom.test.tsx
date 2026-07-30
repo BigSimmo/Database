@@ -215,6 +215,62 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.status).toBe("ready");
   });
 
+  it("ignores a late previous-user refresh after the auth identity changes", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
+    rerender();
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    authSession.authorizationHeader = { Authorization: "Bearer user-b" };
+    authSession.session = { user: { id: "user-b" } };
+    rerender();
+    expect(result.current).toMatchObject({
+      status: "loading",
+      matches: { diagnoses: [], presentations: [] },
+    });
+    await advanceDebounce();
+    expect(pending).toHaveLength(4);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({
+      status: "loading",
+      matches: { diagnoses: [], presentations: [] },
+    });
+
+    await act(async () => {
+      pending[2](jsonResponse({ matches: [], demoMode: false }));
+      pending[3](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+  });
+
   it("clears the search LRU on 401 so prior authorized hits cannot resurface", async () => {
     const diagnosisMatch = {
       record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },

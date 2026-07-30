@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 
-import { authSessionFingerprint } from "@/lib/auth-request-lifecycle";
+import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import type { DifferentialDetailContext } from "@/lib/differential-detail";
 import type { DifferentialSourceStatus, DifferentialValidationStatus } from "@/lib/differential-records";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differentials";
@@ -129,6 +129,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   const [lastRequestKey, setLastRequestKey] = useState(requestKey);
   const [lastAuthSignature, setLastAuthSignature] = useState(authSignature);
   const [lastAuthorizationHeader, setLastAuthorizationHeader] = useState(authorizationHeader);
+  const [requestLifecycle] = useState(() => createAuthRequestLifecycle());
   const requestChanged = lastRequestKey !== requestKey;
   const identityChanged = lastAuthSignature !== authSignature;
   const credentialChanged = lastAuthorizationHeader !== authorizationHeader;
@@ -150,6 +151,10 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
     }
   }
+
+  useLayoutEffect(() => {
+    requestLifecycle.invalidate();
+  }, [authSignature, authorizationHeader, requestKey, requestLifecycle]);
 
   // Retry bumps this so the fetch effect re-runs on an unchanged query. Without
   // it a Retry button is inert: the hook keys on query + auth identity, neither
@@ -174,6 +179,8 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
     }
 
     const controller = new AbortController();
+    const registration = requestLifecycle.register(controller);
+    const isCurrentRequest = () => requestLifecycle.isCurrent(registration.epoch);
     const timer = window.setTimeout(() => {
       const encoded = encodeURIComponent(requestKey);
       Promise.all([
@@ -187,7 +194,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
         }),
       ])
         .then(async ([diagnosisResponse, presentationResponse]) => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !isCurrentRequest()) return;
           if (diagnosisResponse.status === 401 || presentationResponse.status === 401) {
             if (authStatus === "loading") return;
             if (authStatus === "authenticated") markSessionExpired();
@@ -209,7 +216,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
             matches?: DifferentialSearchMatches["presentations"];
             demoMode?: boolean;
           };
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || !isCurrentRequest()) return;
           const matches: DifferentialSearchMatches = {
             diagnoses: diagnosisPayload.matches ?? [],
             presentations: presentationPayload.matches ?? [],
@@ -219,7 +226,12 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
           setState({ status: "ready", matches, demoMode });
         })
         .catch((error: unknown) => {
-          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          if (
+            controller.signal.aborted ||
+            !isCurrentRequest() ||
+            (error instanceof DOMException && error.name === "AbortError")
+          )
+            return;
           setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
         });
     }, debounceMs);
@@ -227,8 +239,18 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
     return () => {
       window.clearTimeout(timer);
       controller.abort();
+      registration.release();
     };
-  }, [requestKey, cacheKey, authStatus, authorizationHeader, markSessionExpired, retryAttempt, state.status]);
+  }, [
+    requestKey,
+    cacheKey,
+    authStatus,
+    authorizationHeader,
+    markSessionExpired,
+    retryAttempt,
+    state.status,
+    requestLifecycle,
+  ]);
 
   if (!requestKey) {
     return { status: "ready", matches: emptyDifferentialMatches, demoMode: false, refetch };
