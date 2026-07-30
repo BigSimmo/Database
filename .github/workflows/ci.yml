@@ -5,6 +5,7 @@ on:
     branches: [main, "release/**"]
   pull_request:
     branches: [main, "release/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
   schedule:
@@ -140,6 +141,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       # GitHub cron fires are best-effort, and the canary's own failure-issue step only reacts
@@ -193,6 +195,9 @@ jobs:
       - name: Installed dependency parity
         run: npm run check:installed-lock-parity
 
+      - name: Upload-limit parity
+        run: npm run check:upload-limit-parity
+
       - name: GitHub Actions pin check
         run: npm run check:github-actions
 
@@ -215,6 +220,8 @@ jobs:
         run: npm run check:branch-review-ledger
 
       - name: Outstanding-issues ledger integrity
+        env:
+          OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: npm run check:outstanding-issues
 
       - name: PR mergeability workflow contract
@@ -222,6 +229,9 @@ jobs:
 
       - name: Codebase index coverage
         run: npm run docs:check-index
+
+      - name: Documentation inventory drift
+        run: npm run docs:check-inventory
 
       - name: Check docs scripts
         run: npm run docs:check-scripts
