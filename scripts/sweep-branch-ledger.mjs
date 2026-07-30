@@ -13,12 +13,11 @@
  * Flags: --no-fetch (skip the network fetch), --json (machine-readable output).
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readLedgerCorpus } from "./branch-review-ledger.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const LEDGER = path.join(root, "docs/branch-review-ledger.md");
 
 function git(args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -281,7 +280,7 @@ function main() {
 
   const ledgerText = (() => {
     try {
-      return readFileSync(LEDGER, "utf8");
+      return readLedgerCorpus();
     } catch {
       return "";
     }
