@@ -636,8 +636,9 @@ named PR). Future process only.
   then re-enable — otherwise the first green head can squash-merge before the bundled commit
   lands.
 - Missing CI checks are not a green pass. `pull_request` workflows do not run when GitHub
-  cannot build `refs/pull/<n>/merge`. The `PR mergeability` check (`pull_request_target`)
-  fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
+  cannot build `refs/pull/<n>/merge`. The `PR mergeability` check uses trusted
+  `pull_request_target` events and refreshes unchanged PR heads after protected-base
+  pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads still use
   `npm run sync:pr-branches` / `:apply` with a human `gh` identity — never bot
   `update-branch`.
 - Keep Playwright blocking tests at zero retries. Quarantine only after three reproductions

@@ -92,10 +92,11 @@ artifact before release; see
   required.
 - **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
   `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
-  `.github/workflows/pr-mergeability.yml` is a read-only `pull_request_target` job that
-  fails explicitly on `mergeable_state: dirty` and never updates branches. Behind-but-clean
-  heads remain an operator `sync:pr-branches` concern. Contract:
-  `npm run check:pr-mergeability`.
+  `.github/workflows/pr-mergeability.yml` checks trusted `pull_request_target` events and
+  uses a protected-base `push` sweep to publish a fresh `PR mergeability` check on each
+  unchanged open-PR head. Only that sweep receives job-scoped `checks: write`; neither path
+  checks out PR code or updates branches. Behind-but-clean heads remain an operator
+  `sync:pr-branches` concern. Contract: `npm run check:pr-mergeability`.
 
 ## Phase 1 - Active now
 
