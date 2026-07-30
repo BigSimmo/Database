@@ -11,14 +11,15 @@
  *    inside the repository.
  *
  * Scanned by default: README.md, AGENTS.md, and docs/**\/*.md excluding
- * docs/archive/, docs/audit/, and dated point-in-time filenames
+ * docs/archive/, docs/audit/, dated point-in-time filenames
  * (docs/README.md classifies those as historical records that intentionally
- * reference the repo as it was). Pass --all to scan those too
- * (informational deeper sweep; still fails on missing paths).
+ * reference the repo as it was), and docs/prompts/codex-cloud-review/ (verbatim
+ * as-provided prompt inputs whose paths must not be edited). Pass --all to scan
+ * those too (informational deeper sweep; still fails on missing paths).
  *
- * Advisory tool: run `npm run docs:check-links` before doc handoffs. It is
- * deliberately NOT part of verify:cheap or CI so historical docs cannot
- * block unrelated PRs.
+ * Blocking for maintained docs: runs in verify:cheap and CI. Historical
+ * directories and dated point-in-time records stay excluded unless --all is
+ * requested, so preserved history cannot block unrelated PRs.
  */
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -57,6 +58,9 @@ const ALLOWLIST = new Set([
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;
 // Historical directories: only scanned with --all.
 const HISTORICAL_DIRS = new Set(["archive", "audit"]);
+// Verbatim as-provided inputs: retained byte-for-byte, so their internal path
+// references cannot be corrected. Only scanned with --all.
+const VERBATIM_DIRS = new Set(["codex-cloud-review"]);
 const APP_ROUTE_GROUPS = ["(search-app)"];
 
 function repoPathExists(repoRelative) {
@@ -73,8 +77,8 @@ function collectDocs(dirRelative, targets) {
   for (const entry of readdirSync(absolute, { withFileTypes: true })) {
     const entryRelative = path.posix.join(dirRelative, entry.name);
     if (entry.isDirectory()) {
-      const isHistorical = HISTORICAL_DIRS.has(entry.name);
-      if (isHistorical && !scanAll) continue;
+      const isSkippable = HISTORICAL_DIRS.has(entry.name) || VERBATIM_DIRS.has(entry.name);
+      if (isSkippable && !scanAll) continue;
       collectDocs(entryRelative, targets);
       continue;
     }

@@ -4,7 +4,9 @@
  * same-repository pull-request branches.
  *
  * Default is dry-run (report only). Pass `--apply` to call GitHub's
- * update-branch API for every open same-repo PR that is behind `main`.
+ * update-branch API for eligible open same-repo PRs that are behind `main`.
+ * A behind branch with required CI still queued or running is deferred so the
+ * update does not cancel a healthy run just before it completes.
  *
  * Requires human/operator `gh` auth with pull-requests:write (or an explicitly
  * supplied GH_TOKEN). Never rebases, never merges into main, never force-pushes.
@@ -23,6 +25,7 @@ import { pathToFileURL } from "node:url";
 const APPLY = process.argv.includes("--apply");
 const BASE = "main";
 const SKIP_LABELS = new Set(["hold", "do-not-merge", "skip-branch-sync"]);
+const ACTIVE_RUN_STATES = new Set(["pending", "queued", "in_progress", "requested", "waiting"]);
 
 function ghJson(args) {
   const result = spawnSync("gh", args, { encoding: "utf8" });
@@ -46,7 +49,15 @@ export function classifyPr(pr, behindBy) {
   const skip = shouldSkip(pr);
   if (skip) return { action: "skip", reason: skip };
   if ((behindBy ?? 0) <= 0) return { action: "skip", reason: "already-current" };
+  if (pr.requiredCiInFlight) return { action: "skip", reason: "required-ci-in-flight" };
   return { action: "update", reason: `behind=${behindBy}` };
+}
+
+export function hasRequiredCiInFlight(payload) {
+  return (payload?.workflow_runs ?? []).some((run) => {
+    const isRequiredCi = run?.name === "CI" || /(?:^|\/)ci\.yml$/.test(String(run?.path ?? ""));
+    return isRequiredCi && ACTIVE_RUN_STATES.has(String(run?.status ?? "").toLowerCase());
+  });
 }
 
 export function validateApplyIdentity(viewer) {
@@ -92,8 +103,17 @@ function main() {
   for (const pr of prs) {
     const cmp = ghJson(["api", `repos/${repo}/compare/${BASE}...${pr.headRefName}`]);
     const behindBy = cmp.behind_by ?? 0;
-    const decision = classifyPr(pr, behindBy);
-    plan.push({ pr, behindBy, ...decision });
+    const requiredCiInFlight =
+      behindBy > 0 && !shouldSkip(pr)
+        ? hasRequiredCiInFlight(
+            ghJson([
+              "api",
+              `repos/${repo}/actions/runs?head_sha=${encodeURIComponent(pr.headRefOid)}&event=pull_request&per_page=100`,
+            ]),
+          )
+        : false;
+    const decision = classifyPr({ ...pr, requiredCiInFlight }, behindBy);
+    plan.push({ pr, behindBy, requiredCiInFlight, ...decision });
   }
 
   console.log(`Open PRs against ${BASE}: ${plan.length} (${APPLY ? "APPLY" : "dry-run"})`);
