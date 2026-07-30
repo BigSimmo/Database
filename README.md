@@ -104,6 +104,13 @@ heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
 It uses the conservative worker defaults from `.env.example` when those vars are
 set in `.env.local`.
 
+### Codex Cloud
+
+For isolated provider-free Cloud work, create the environment with the exact values in
+[`docs/codex-cloud.md`](docs/codex-cloud.md). Its checked-in setup and maintenance
+scripts match the Node/npm, Deno, Python/OCR, and Playwright toolchain without copying
+local credentials or enabling live provider access.
+
 ## Environment Notes
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it in the browser.
@@ -173,6 +180,7 @@ records vs archive). The most load-bearing entries:
 - `docs/site-map.md` — generated route map (`npm run sitemap:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
 - `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
+- `docs/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
 - `docs/clinical-governance.md` — deployment and source governance checklist
 - `docs/deployment-architecture.md` — app/worker/Supabase deployment topology
 - `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
