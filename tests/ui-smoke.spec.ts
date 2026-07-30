@@ -3233,7 +3233,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page).toHaveURL(/[?&]mode=prescribing/);
   });
 
-  test("document search mode lists matching documents and scope actions @critical", async ({ page }) => {
+  test("document search mode lists matching documents and result actions @critical", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
@@ -3323,9 +3323,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
-    // Phone actions share the card width evenly, then become a natural toolbar
-    // from tablet upward. Keep the production result card inside every viewport
-    // used by the design workflow and prove the quieter action typography.
+    // The three primary actions keep a symmetric 48px footer at every width.
+    // The page preview and inline rank must stay inside the card without forcing
+    // the title or the page itself to overflow.
     for (const width of [320, 390, 639, 768, 1440, 1920]) {
       await page.setViewportSize({ width, height: 900 });
       await expectNoPageHorizontalOverflow(page);
@@ -3347,20 +3347,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
       });
       expect(actionGeometry.cardLeft).toBeGreaterThanOrEqual(0);
       expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
-      if (width < 640) {
-        expect(actionGeometry.display).toBe("grid");
-        expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
-        expect(actionGeometry.actionFontSize).toBe("11px");
-        expect(actionGeometry.actionDirection).toBe("column");
-        for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
-          await expectMinTouchTarget(action, 48);
-        }
-      } else {
-        expect(actionGeometry.display).toBe("flex");
-        expect(actionGeometry.actionFontSize).toBe("12px");
-        expect(actionGeometry.actionDirection).toBe("row");
+      expect(actionGeometry.display).toBe("grid");
+      expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
+      expect(actionGeometry.actionFontSize).toBe("14px");
+      expect(actionGeometry.actionDirection).toBe("row");
+      expect(actionGeometry.actionFontWeight).toBe("800");
+      for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
+        await expectMinTouchTarget(action, 48);
       }
-      expect(actionGeometry.actionFontWeight).toBe("500");
     }
     await page.setViewportSize({ width: 390, height: 820 });
     const openResultLink = documentResults.getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i });
@@ -3370,6 +3364,43 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults.getByTestId("document-result-actions")).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
     await page.emulateMedia({ forcedColors: "none" });
+
+    const rankBox = await documentResults.getByTestId("document-result-rank").boundingBox();
+    const titleBox = await documentResults
+      .getByRole("link", { name: /Result 1: Synthetic lithium monitoring protocol/i })
+      .boundingBox();
+    expect(rankBox).not.toBeNull();
+    expect(titleBox).not.toBeNull();
+    expect(rankBox!.x + rankBox!.width).toBeLessThanOrEqual(titleBox!.x + 1);
+
+    const moreActions = documentResults.getByRole("button", {
+      name: /More actions for Synthetic lithium monitoring protocol/i,
+    });
+    await moreActions.focus();
+    await page.keyboard.press("ArrowDown");
+    const resultMenu = page.getByTestId("document-result-more-menu");
+    await expect(documentResults.getByRole("menu")).toHaveCount(0);
+    const menuBox = await resultMenu.boundingBox();
+    const triggerBox = await moreActions.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(triggerBox).not.toBeNull();
+    expect(menuBox!.x).toBeGreaterThanOrEqual(0);
+    expect(menuBox!.y).toBeGreaterThanOrEqual(0);
+    expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(390);
+    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(820);
+    expect(menuBox!.y + menuBox!.height).toBeLessThanOrEqual(triggerBox!.y);
+    await expect(resultMenu.getByRole("menuitem", { name: "Search only this source" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    const copyCitation = resultMenu.getByRole("menuitem", { name: "Copy citation" });
+    await expect(copyCitation).toBeFocused();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+      Object.defineProperty(document, "execCommand", { configurable: true, value: () => true });
+    });
+    await page.keyboard.press("Enter");
+    await expect(resultMenu.getByRole("menuitem", { name: "Citation copied" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(moreActions).toBeFocused();
 
     if ((await mobileTypeFilter.locator('option[value="tables"]').count()) > 0) {
       await mobileTypeFilter.selectOption("tables");
