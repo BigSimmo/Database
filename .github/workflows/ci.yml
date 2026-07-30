@@ -504,6 +504,16 @@ jobs:
         #   npm run ensure
         #   PLAYWRIGHT_BASE_URL=<printed> npx playwright test --project=chromium \
         #     --grep-invert "@quarantine|@mockup" --shard=i/N --list
+        #
+        # MEASURED on the first real sharded run (CI 30530618838, 2026-07-30):
+        #   shard 1 -> 121 tests, 9m36
+        #   shard 2 -> 111 tests, 6m54
+        #   shard 3 -> 110 tests, 6m20
+        # Per-test cost is NOT uniform — 111 tests took 6m54 while 121 took 9m36 —
+        # so counting tests UNDERSTATES the largest shard. A count-balanced split is
+        # the best `--shard` can do; balancing by duration would mean splitting the
+        # slow spec files themselves. Predicting from test count alone was wrong by
+        # ~40% here, so trust a measured run over the arithmetic.
         shard: [1, 2, 3]
     steps:
       - name: Checkout

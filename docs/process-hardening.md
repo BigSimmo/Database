@@ -139,9 +139,15 @@ API rather than estimated:
   (needs a running server via `npm run ensure` and `PLAYWRIGHT_BASE_URL`) before changing N,
   and keep every shard non-empty.
 - **These timings predate `ui-critical-fast`.** The `@critical` fail-fast job (15 tests) now
-  runs before the full suite, so the UI critical path is that job plus the slowest shard, not
-  the full 13.5-minute suite. Both numbers must be re-measured together from a real run rather
-  than assumed — this branch's own CI is the first execution of the sharded shape.
+  runs before the full suite, so the UI critical path is that job plus the slowest shard.
+- **Measured on the first real sharded run** (CI `30530618838`, 2026-07-30, all green):
+  `ui-critical-fast` 3m14, then shards of 9m36 / 6m54 / 6m20; whole run **13m39** against a
+  16.8–18.6 min unsharded baseline. **The prediction from test counts was wrong by ~40%:**
+  6.8 min was expected for the largest shard, 9m36 happened. Per-test cost is not uniform —
+  111 tests took 6m54 while 121 took 9m36 — so a count-balanced split understates the slowest
+  shard whenever the slow specs land together. `--shard` can only balance by count; balancing
+  by duration would require splitting the slow spec files themselves. Prefer a measured run
+  over the arithmetic when judging any further shard change.
 
 ## Phase 1 - Active now
 
