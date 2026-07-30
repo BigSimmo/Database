@@ -11,6 +11,11 @@ export default defineConfig({
     timeout: 10_000,
   },
   reporter: "list",
+  // Match the production config's deliberate serialisation. Left unset, this config
+  // inherited Playwright's default `workers = 50% of CPUs`, so the visual lane ran under
+  // a concurrency the rest of the suite is explicitly configured to avoid.
+  fullyParallel: false,
+  workers: 1,
   use: {
     baseURL,
     trace: "retain-on-failure",
