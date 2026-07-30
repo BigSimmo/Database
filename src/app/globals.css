@@ -2329,9 +2329,32 @@ td,
    cannot overflow at any width or text size (WCAG 1.4.4 Resize Text, 1.4.10
    Reflow).
 
-   Budgets, measured against this app's phone type ramp with slot padding
-   counted: four full labels need 394px and fit from 26rem; three plus More need
-   256px and fit from 16rem.
+   Slots size to their CONTENT at every band, never to equal `1fr` tracks.
+   Equal tracks make the widest slot set what every slot needs, and the label's
+   `truncate` then hides the shortfall — silently, because nothing overflows and
+   nothing fails. Measured in Chromium on 2026-07-29 against the Therapy set,
+   that clipped at every phone width: 320px showed 15 of Compare's 56px, and
+   430px was WORSE at three of four labels clipped, because crossing a band adds
+   a slot to the same space. See ledger #113.
+
+   Budgets are therefore the sum of the slots' intrinsic widths, remeasured:
+   Search 92.4px, Compare 144.3px, Recommend 125.6px, Pathways 108.5px, More
+   ~77px, plus the bar's own 8px inline padding. Three slots (first two + More)
+   need ~322px; four need ~479px.
+
+   The thresholds carry ~8% over those numbers rather than a pixel or two, and
+   that margin is not padding for its own sake: the SAME labels measure wider on
+   a CI runner than on a development box, because the variable face rasterises
+   differently per environment. A first attempt at 21/31rem passed locally and
+   failed on CI by exactly one pixel ("Compare" needed 59px and had 58px, having
+   needed 56px locally). A threshold calibrated to one machine's font metrics is
+   calibrated to nothing, so these sit clear of the whole spread.
+
+   These are calibrated to the widest label set currently shipped, which a fixed
+   `rem` threshold cannot generalise to an arbitrary item list. That gap is held
+   by a gate, not by hope: `ui-mode-nav-density.spec.ts` asserts no label
+   truncates at either band boundary, so a mode whose labels are longer fails CI
+   rather than shipping clipped words.
    ───────────────────────────────────────────────────────────────────────── */
 
 @utility mode-nav {
@@ -2360,21 +2383,22 @@ td,
   display: none;
 }
 
-@container mode-nav (min-width: 16rem) {
+@container mode-nav (min-width: 22rem) {
   .mode-nav__control {
     display: none;
   }
 
+  /* Content-sized and left-aligned at EVERY band, which is what the widest band
+     always did: "the bar reads as a continuation of the header rather than four
+     columns stretched across it". Extending it downward is the fix for #113 —
+     one layout mode instead of two, and no track can be narrower than its own
+     label. */
   .mode-nav__bar {
-    display: grid;
-    grid-auto-flow: column;
-    /* Equal columns, so outer margins and inter-slot gaps are identical by
-       construction rather than by hand-tuned padding. */
-    grid-auto-columns: 1fr;
+    display: flex;
   }
 }
 
-@container mode-nav (min-width: 26rem) {
+@container mode-nav (min-width: 33rem) {
   .mode-nav__slot[data-band="4"] {
     display: flex;
   }
@@ -2384,19 +2408,13 @@ td,
   }
 }
 
-@container mode-nav (min-width: 34rem) {
+@container mode-nav (min-width: 42rem) {
   .mode-nav__slot[data-band="5"] {
     display: flex;
   }
 
   .mode-nav__slot[data-until="4"] {
     display: none;
-  }
-
-  /* Wide: slots size to their content and sit left, so the bar reads as a
-     continuation of the header rather than four columns stretched across it. */
-  .mode-nav__bar {
-    display: flex;
   }
 }
 
