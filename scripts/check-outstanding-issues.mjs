@@ -407,6 +407,36 @@ function selfTest() {
   console.log("outstanding-issues self-test passed.");
 }
 
+/**
+ * The only acceptable state for this file's `merge` attribute.
+ *
+ * Git distinguishes three non-driver states, and they are NOT interchangeable
+ * (see gitattributes, "merge"): *Unspecified* — no pattern matches — is the
+ * documented default 3-way text merge, which is the contract here. *Unset*
+ * (`-merge`) instead takes the current branch's version and declares the merge
+ * conflicted, so every two-sided edit becomes a manual resolution — a different
+ * regression from a driver, but a regression all the same, and one a global or
+ * future attributes file could introduce while this gate stayed green. A named
+ * driver (`union`, `ledger`, …) is the case #133 removed.
+ *
+ * Exported so the distinction is unit-tested rather than only reasoned about.
+ */
+export function mergeAttributeProblem(mergeAttribute) {
+  if (mergeAttribute === "unspecified") return null;
+  if (mergeAttribute === "unset") {
+    return (
+      `${ISSUES_PATH} must leave \`merge\` unspecified (found \`-merge\`, i.e. Unset) — ` +
+      "Unset takes the current branch's version and declares a conflict instead of running the " +
+      "default 3-way merge, so drop the negated attribute rather than adding one (ledger #133)"
+    );
+  }
+  return (
+    `${ISSUES_PATH} must have NO merge driver (found merge=${mergeAttribute || "empty"}) — ` +
+    "remove it from .gitattributes so overlapping edits conflict loudly instead of " +
+    "silently concatenating both sides (ledger #133)"
+  );
+}
+
 function effectiveMergeAttribute() {
   const output = execFileSync("git", ["check-attr", "merge", "--", ISSUES_PATH], {
     encoding: "utf8",
@@ -422,18 +452,12 @@ function main() {
   }
   const markdown = readFileSync(ISSUES_PATH, "utf8");
   const problems = checkIssues(markdown);
-  const mergeAttribute = effectiveMergeAttribute();
   // A merge driver on this file is a regression, not an improvement: union
   // concatenated conflicting hunks and duplicated the whole table rather than
   // failing (#133, and four times on PR #1430). Honest conflicts are the
   // contract; ids still need manual renumbering either way.
-  if (mergeAttribute && mergeAttribute !== "unspecified" && mergeAttribute !== "unset") {
-    problems.push(
-      `${ISSUES_PATH} must have NO merge driver (found merge=${mergeAttribute}) — ` +
-        "remove it from .gitattributes so overlapping edits conflict loudly instead of " +
-        "silently concatenating both sides (ledger #133)",
-    );
-  }
+  const mergeProblem = mergeAttributeProblem(effectiveMergeAttribute());
+  if (mergeProblem) problems.push(mergeProblem);
   if (problems.length > 0) {
     console.error(`${ISSUES_PATH} check FAILED:`);
     for (const problem of problems) console.error(`  - ${problem}`);
