@@ -78,6 +78,15 @@ appear in `STYLE_EFFECT_CONTRACTS` or carry a reasoned exemption in
 chooses which it is — the missing piece before, when the one existing rail assertion was a one-off.
 Prefer deleting an exemption by adding a contract.
 
+**Known gap — the inventory is closed for single-line selectors only.** The parser reads the line
+that opens each rule, so in a selector list split across lines only the class on the final line is
+inventoried: `.medication-also-matches` at `globals.css:1577` is currently unpoliced while
+`.medication-patient-strip` beside it is covered. So this gate narrows the hole rather than closing
+it, and a multiline selector can still introduce an unlayered class with neither a contract nor an
+exemption. Fixing it means walking back over preceding selector lines in
+`parseUnlayeredVisualClasses` and inverting the parser test that presently documents the current
+behaviour as intended.
+
 **Pixel baselines (`tests/ui-visual-baseline.spec.ts`) — advisory.** Run by
 `playwright.visual.config.ts`, which also still runs the older attach-only
 `ui-visual-artifacts.spec.ts`. Three constraints are deliberate: never `fullPage` (under CI load
