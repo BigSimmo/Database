@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -46,6 +47,22 @@ function createFixtureRepository() {
   git(["add", "README.md"], root);
   git(["commit", "-m", "fixture root"], root);
   return root;
+}
+
+/**
+ * A genuinely shallow clone (#109). `--depth` is ignored for local-path clones, so the origin
+ * has to be addressed as a `file://` URL, and it needs two commits for depth 1 to truncate
+ * anything at all — hence the explicit is-shallow assertion in the caller rather than trusting
+ * the flag.
+ */
+function createShallowCloneFixture() {
+  const origin = createFixtureRepository();
+  writeFileSync(path.join(origin, "second.md"), "second\n", "utf8");
+  git(["add", "second.md"], origin);
+  git(["commit", "-m", "second commit"], origin);
+  const clone = temporaryDirectory("reconcil-shallow-");
+  git(["clone", "--depth", "1", pathToFileURL(origin).href, clone], origin);
+  return clone;
 }
 
 describe("reconciliation preflight", () => {
@@ -179,5 +196,45 @@ describe("reconciliation preflight", () => {
     expect(path.resolve(payload.repositoryRoot)).not.toBe(liveRoot);
     expect(path.resolve(payload.primaryPath)).toBe(path.resolve(fixtureRoot));
     expect(payload.totals.worktrees).toBe(1);
+  });
+
+  // #109: every worktree's ahead/behind comes from `rev-list --left-right --count`, which is
+  // merge-base-derived and silently wrong on a shallow clone. The guard therefore has to sit in
+  // the collector, not in the CLI — `buildReconciliationEvidencePack` calls the collector
+  // directly and stamps `status: "complete"`, so a CLI-only check let the pack persist shallow
+  // numbers as completed evidence while the CLI itself exited 1.
+  describe("shallow-history refusal", () => {
+    it("throws instead of returning fiction when the injected root is a shallow clone", () => {
+      const shallowRoot = createShallowCloneFixture();
+      // Precondition: prove the fixture really is shallow, so a git behaviour change cannot
+      // make this test pass vacuously against a full clone.
+      expect(git(["rev-parse", "--is-shallow-repository"], shallowRoot)).toBe("true");
+
+      let thrown: unknown;
+      try {
+        collectReconciliationState({ repositoryRoot: shallowRoot, baseRef: "main" });
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(Error);
+      const error = thrown as Error & { code?: string };
+      expect(error.code).toBe("history-not-verified");
+      expect(error.message).toContain("SHALLOW clone");
+      expect(error.message).toContain("git fetch --unshallow --tags origin");
+      expect(error.message).toContain("#109");
+    });
+
+    it("judges the injected root, not the module's own repository", () => {
+      // The live checkout backing this suite has complete history, so the only way the shallow
+      // fixture can refuse is if the guard runs `git` inside the passed root.
+      const shallowRoot = createShallowCloneFixture();
+      expect(() => collectReconciliationState({ repositoryRoot: shallowRoot, baseRef: "main" })).toThrow(
+        /history-not-verified|SHALLOW clone/,
+      );
+      expect(() =>
+        collectReconciliationState({ repositoryRoot: createFixtureRepository(), baseRef: "main" }),
+      ).not.toThrow();
+    });
   });
 });
