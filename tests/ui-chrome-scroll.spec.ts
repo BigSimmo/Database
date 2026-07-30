@@ -33,6 +33,11 @@ const surfaces = [
   { name: "shell results", route: "/forms?q=form%201A&run=1" },
   { name: "shell service detail", route: "/services/13yarn" },
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
+  // Therapy search carries the shared `ModeNav` inside the collapse row. The
+  // phone case is covered by ui-phone-scroll; this is the tablet/desktop proof
+  // that the bar travels with the header at every width, which is the whole
+  // reason its portal drops PhoneHeaderCollapsePortal's 639px gate.
+  { name: "shell mode nav", route: "/therapy-compass/search?q=CBT&run=1" },
 ];
 
 const requiredRunway = 700;
