@@ -406,12 +406,42 @@ jobs:
       contents: read
     uses: ./.github/workflows/docker-image.yml
 
+  # Sharded across runners, NOT across workers. Playwright stays `workers: 1` /
+  # `fullyParallel: false` / `retries: 0` inside each shard, so determinism is
+  # unchanged and per-runner load goes down rather than up — which matters because
+  # the duplicate-page-root strict-mode failures (#093) are load-dependent.
+  #
+  # Measured 2026-07-30: this job ran 15m26 of an 18m36 run (83% of wall clock)
+  # while every other job finished by minute 4. Playwright itself reported
+  # `339 passed (13.5m)`; the balance is the isolated production build.
+  #
+  # Branch protection requires only the `pr-required` aggregate, and `needs` on a
+  # matrix job yields the roll-up of all shards, so the aggregate below needs no
+  # change and the per-shard job names are free to differ.
   ui-critical:
     name: Production UI
     needs: changes
     if: needs.changes.outputs.ui_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      # One shard's failure must not cancel the others: a cancelled sibling would
+      # report as `cancelled` and re-create exactly the ambiguity #095 removed.
+      fail-fast: false
+      matrix:
+        # THREE, and the count is measured rather than chosen. `fullyParallel: false`
+        # makes a spec file the indivisible unit, so shard sizes are lumpy and more
+        # shards is not monotonically faster. Measured 2026-07-30 over the 340
+        # non-quarantine/non-mockup chromium tests (`--list --shard=i/N`):
+        #   N=3 -> 121/106/113   largest 121
+        #   N=4 -> 121/106/96/17 largest 121  (same critical path, one more runner)
+        #   N=6 -> 65/56/106/5/91/17 largest 106
+        #   N=5 -> 121/106/0/96/17   and N=8 -> two empty shards
+        # N=4 buys nothing over N=3 because the same 121-test shard bounds both, and
+        # any N with an empty shard would go RED: `test:e2e:pr` deliberately omits
+        # `--pass-with-no-tests` (only the advisory lane carries it).
+        # Re-measure before changing this number, and keep every shard non-empty.
+        shard: [1, 2, 3]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -422,7 +452,7 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium production journeys
-        run: npm run test:e2e:pr
+        run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/3
 
       - name: Classify exact failed test identities
         if: failure()
@@ -432,7 +462,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: production-ui-diagnostics-${{ github.run_id }}
+          # Shard-scoped: upload-artifact v7 runs with `overwrite: false`, so a
+          # shared name would make the second failing shard fail on upload.
+          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
@@ -723,6 +755,10 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # Prefix fallback so a lockfile bump does not force a cold download of all
+          # four browsers; `playwright install` below still fetches any missing version.
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
         run: |

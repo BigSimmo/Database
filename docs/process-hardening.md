@@ -80,6 +80,41 @@ artifact before release; see
   deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
   backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
 
+## CI shape and cost, measured per job (2026-07-30)
+
+The PR #1406 sample above counts runs. This is where the time inside one goes — job-level
+timings from two full UI-scope PR runs (`30520443076`, `30519912667`), read from the Actions
+API rather than estimated:
+
+| Job               | Duration        | On the critical path?    |
+| ----------------- | --------------- | ------------------------ |
+| Change scope      | 13 s            | yes                      |
+| Static PR checks  | 3m03            | no                       |
+| Safety and config | 47 s            | no                       |
+| Unit coverage     | 3m57            | no                       |
+| Advisory UI       | 3m14            | no                       |
+| **Production UI** | **15m26–16m31** | **yes — 83–89% of wall** |
+| PR required       | 5 s             | yes                      |
+| **Whole run**     | **16.8–18.6 m** |                          |
+
+- **Every other job finishes by minute 4 and then waits ~12 minutes for Production UI.**
+  Inside it, Playwright reported `339 passed (13.5m)`; the remaining ~2 min is the isolated
+  production build (see outstanding-issues `#126`). Docs-only PRs run 3–5.5 min.
+- Because the 42% cancellation rate is dominated by pushes that supersede a run mid-Production-UI,
+  almost all of the wasted runner time is this one job. Shortening it cuts churn cost directly.
+- **`ui-critical` is therefore sharded across runners** (`ci.yml`), not parallelised within one:
+  `workers: 1` / `fullyParallel: false` / `retries: 0` are unchanged inside each shard, so
+  determinism is identical and per-runner load falls — which matters because `#093`'s duplicate
+  page root is load-dependent.
+- **The shard count is measured, not chosen.** With `fullyParallel: false` a spec file is
+  indivisible, so shard sizes are lumpy: over the 340 required chromium tests, N=3 gives
+  121/106/113 while N=4 gives 121/106/96/17 — the same 121-test critical path for an extra
+  runner. N=5 and N=8 produce **empty** shards, which would go red because `test:e2e:pr`
+  deliberately omits `--pass-with-no-tests`. Re-measure with
+  `npx playwright test --project=chromium --grep-invert "@quarantine|@mockup" --shard=i/N --list`
+  (needs a running server via `npm run ensure` and `PLAYWRIGHT_BASE_URL`) before changing N,
+  and keep every shard non-empty.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
