@@ -70,6 +70,11 @@ required checks, unresolved-thread count, and behind/ahead relative to `main`.
 
 ### Step 2 — branch drift first (so CI fixes target the merged state)
 
+- If the current head has required CI queued or in progress and the PR is only
+  behind-but-clean, let that run settle before mutating the branch. Re-snapshot
+  the head/base afterwards and sync once, late, after review/fix work is
+  assembled. The canonical `sync:pr-branches:apply` helper enforces this guard;
+  do not bypass it with a direct update call merely to make the PR current.
 - Automatic `GITHUB_TOKEN` branch mutation is prohibited because bot-authored heads leave
   required checks awaiting approval. Do not treat a fresh `DIRTY` state as a product bug until
   you confirm the tip is still behind or `git merge-tree` reports real conflicts.
