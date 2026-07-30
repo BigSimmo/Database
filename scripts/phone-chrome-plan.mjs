@@ -12,8 +12,11 @@ const phoneChromeContractTests = [
   "tests/use-hide-on-scroll.test.ts",
 ];
 
+// The `-<suffix>` arm covers the phone-scroll split (ui-phone-scroll{,-routes,
+// -page-owned}.spec.ts). Without it a changed sibling is not recognised as a
+// phone-chrome browser spec and never reaches the changed-browser stage.
 const phoneChromeBrowserSpecPattern =
-  /^tests\/ui-(?:phone-scroll|smoke|tools|chrome-scroll|therapy-nav-scroll)\.spec\.ts$/;
+  /^tests\/ui-(?:phone-scroll(?:-[a-z0-9-]+)?|smoke|tools|chrome-scroll|therapy-nav-scroll)\.spec\.ts$/;
 
 const patterns = {
   docs: [/^docs\//, /^AGENTS\.md$/],
@@ -22,7 +25,7 @@ const patterns = {
     /^scripts\/(?:check-installed-lock-parity|phone-chrome-plan|verify-phone-chrome)\.mjs$/,
     /^tests\/(?:installed-lock-parity|verify-phone-chrome)\.test\.ts$/,
   ],
-  playwrightHelper: [/^tests\/playwright-(?:scroll|settlement)\.ts$/],
+  playwrightHelper: [/^tests\/playwright-(?:scroll|settlement)\.ts$/, /^tests\/helpers\/phone-scroll\.ts$/],
   dashboard: [
     /^src\/components\/ClinicalDashboard\.tsx$/,
     /^src\/components\/clinical-dashboard\/use-dashboard-chrome-coordinator\.ts$/,
@@ -145,9 +148,12 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
   }
 
   const focusedBrowserJourneys = [];
-  if (runOwnership && !changedBrowserFileSet.has("tests/ui-phone-scroll.spec.ts")) {
+  // All four ownership journeys live in the page-owned split, not the shell file
+  // that kept the original name — pointing this at ui-phone-scroll.spec.ts would
+  // grep patterns that file no longer contains and select nothing.
+  if (runOwnership && !changedBrowserFileSet.has("tests/ui-phone-scroll-page-owned.spec.ts")) {
     focusedBrowserJourneys.push({
-      file: "tests/ui-phone-scroll.spec.ts",
+      file: "tests/ui-phone-scroll-page-owned.spec.ts",
       pattern:
         "phone browser results use document scrolling|document detail header overlay and footer follow|compiled standalone PWA rules bind full-height footer chrome|standalone .* is frame-owned",
     });

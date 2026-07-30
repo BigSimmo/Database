@@ -51,12 +51,14 @@ describe("phoneChromePlan", () => {
     expect(selected).toEqual(["lock-parity", "runtime", "contracts", "focused-browser", "full-ui"]);
   });
 
-  it.each(["tests/ui-phone-scroll.spec.ts", "tests/ui-tools.spec.ts"])(
-    "runs every journey in changed browser spec %s",
-    (file) => {
-      const changedBrowser = stage([file], "changed-browser");
-      expect(changedBrowser?.command.args).toContain(file);
-      expect(changedBrowser?.command.args).not.toContain("--grep");
-    },
-  );
+  it.each([
+    "tests/ui-phone-scroll.spec.ts",
+    "tests/ui-phone-scroll-routes.spec.ts",
+    "tests/ui-phone-scroll-page-owned.spec.ts",
+    "tests/ui-tools.spec.ts",
+  ])("runs every journey in changed browser spec %s", (file) => {
+    const changedBrowser = stage([file], "changed-browser");
+    expect(changedBrowser?.command.args).toContain(file);
+    expect(changedBrowser?.command.args).not.toContain("--grep");
+  });
 });
