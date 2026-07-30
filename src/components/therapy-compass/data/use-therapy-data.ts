@@ -16,8 +16,8 @@ type TherapyDataOptions = {
   includeReference?: boolean;
 };
 
-// Cache each route-sized payload once per session. Catalogue routes use the compact
-// index; detail/compare/recommend/artifact routes opt into the full records.
+// Cache each route-sized payload once per session. Home uses the smallest catalogue,
+// search/pathways use the index, and detail/compare/recommend/artifact use full records.
 const cache = new Map<string, Promise<TherapyDataset>>();
 
 /** Test helper: drop the session-scoped dataset cache between cases. */
