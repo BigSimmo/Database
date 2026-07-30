@@ -35,4 +35,8 @@ failure. This skill sets up an isolated, current worktree so new work starts cle
 - Never `git stash` here — the stash stack is global across all worktrees. Use a
   throwaway worktree or a patch file instead.
 - Do the work on the `claude/<task-slug>` branch; commit only your own paths.
+- Before minting this new branch, check whether the task can instead ride an
+  already-open PR you own or bundle with other queued low-risk work — see AGENTS.md
+  "PR bundling (reduce one-task-one-PR churn)". A new branch is still right for
+  anything clinical-risk, RAG-ranking-surface, or otherwise not independently low-risk.
 - When done, hand off with the `handoff` skill.

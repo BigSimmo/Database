@@ -512,6 +512,51 @@ Record one `docs/branch-review-ledger.md` row per PR touched, and end with the p
 
 <!-- END:run-pr-shortcut -->
 
+## PR bundling (reduce one-task-one-PR churn)
+
+Every `newtask`/`handoff` cycle mints a dedicated `claude/<task-slug>` branch and PR, so a
+single docs/ledger-append line pays the same required-CI bill as a large change:
+`static-pr`, `pr-required`, and whatever path-scoped job the diff happens to trigger.
+Measured 2026-07-30 (PR #1406, sampling the last 500 CI workflow runs, ~3 days of PR
+traffic): 437 PR-triggered runs, ~40% cancelled mid-run (mostly superseded by a newer
+push before Production UI finished), roughly 12 Production-UI-hours burned on runs that
+never completed. More PRs also means more `docs/branch-review-ledger.md` rows and more
+of the anti-churn re-syncing described above.
+
+Before opening a new branch, check whether the task can ride an **already-open PR you
+still own** or be bundled with **other currently-queued low-risk work** instead of
+minting a new one. Bundle only when every item being combined is:
+
+- **Independently low-risk** under this repo's own classifier
+  (`scripts/pr-policy.mjs` / `classifyPullRequestFiles`): no clinical-risk path, no
+  RAG-ranking-surface path, no auth/privacy/migration/Supabase path. High-risk work
+  always gets its own PR.
+- **Still its own committed, separately revertible commit** — bundling means one PR with
+  multiple commits, never one squashed diff; `git revert <sha>` must undo any one item
+  without touching the others.
+- **Listed as its own bullet** in the PR body's Summary, not blended into one narrative
+  — a reviewer (and `pr-policy.mjs`) still needs to find each item's own
+  governance/RAG-impact statement if it needs one.
+- **Not already mid-edit** in another open PR or session — check
+  `docs/branch-review-ledger.md` / the open-PR list first so bundling doesn't create a
+  merge race.
+
+**Best candidates:** queued `docs/branch-review-ledger.md` / `docs/outstanding-issues.md`
+append-only tasks. They carry no revert risk of their own, always pass the same static
+gates, and are exactly the single-line-diff PRs the #1406 measurement counted — batch
+several into one PR/session rather than a dedicated branch each.
+
+**Never bundle:**
+
+- A change needing its own `RAG impact:` line together with one that doesn't.
+- A change needing `## Clinical Governance Preflight` together with unrelated chores.
+- Anything explicitly scoped "1 PR per work order" by its own tracking doc (e.g. the
+  maturity backlog in `docs/maturity-backlog-workorders.md`, ledger `#086`) — those are
+  deliberately isolated for staged rollout and review.
+
+Bundling saves PR/CI-invocation count, not verification rigor — every bundled item still
+gets the smallest correct gate run against it before it joins the PR.
+
 <!-- BEGIN:codex-productivity-defaults -->
 
 ## Codex productivity defaults
