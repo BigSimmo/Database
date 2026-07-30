@@ -13,6 +13,8 @@ import {
   railwayVariableArgs,
 } from "../scripts/check-env-parity.mjs";
 import {
+  branchCoverageRefusal,
+  fetchRefspecCoversAllBranches,
   hasCompletedCleanupReview,
   parseLedgerBranches,
   shallowCloneRefusal,
@@ -228,6 +230,128 @@ describe("shallowCloneRefusal", () => {
     expect(shallowCloneRefusal(" true\n")).not.toBe("");
     // A padded "false" must still be recognised as healthy, or every sweep refuses.
     expect(shallowCloneRefusal(" false\n")).toBe("");
+  });
+});
+
+/*
+ * Complete history is NOT complete branch coverage — the second way to get a confident wrong
+ * answer, and it survives the shallow guard. `git clone --depth 1` implies `--single-branch`,
+ * pinning `remote.origin.fetch` to one branch; `git fetch --unshallow` converts the history so
+ * `--is-shallow-repository` reads `false`, but leaves the refspec narrow. Measured in a fixture
+ * with `main` and `feature`: after unshallowing, `ls-remote` listed both while
+ * `refs/remotes/origin` held only `origin/main`, and the sweep exited 0 with `"branches": []`.
+ * Codex raised this on PR #1392 after the shallow fix landed.
+ */
+describe("branchCoverageRefusal", () => {
+  it("treats a heads wildcard into refs/remotes/origin as covering every branch", () => {
+    expect(fetchRefspecCoversAllBranches("+refs/heads/*:refs/remotes/origin/*")).toBe(true);
+    // Unprefixed (non-forced) wildcards are still wildcards.
+    expect(fetchRefspecCoversAllBranches("refs/heads/*:refs/remotes/origin/*")).toBe(true);
+  });
+
+  it("rejects a wildcard whose destination is not refs/remotes/origin", () => {
+    /*
+     * The source says which refs are fetched; `<dst>` says which local ref is updated, and the
+     * sweep enumerates `refs/remotes/origin` and nothing else. An earlier revision of this test
+     * asserted that a mirror's `+refs/*:refs/*` counted as covered — mine, and wrong in the
+     * dangerous direction. Measured with `+refs/heads/*:refs/remotes/upstream/*`:
+     * `refs/remotes/upstream` held `upstream/main` and `upstream/feature` while
+     * `refs/remotes/origin` was empty and the sweep exited 0 with `"branches": []`.
+     * Codex raised this on PR #1398.
+     */
+    expect(fetchRefspecCoversAllBranches("+refs/*:refs/*")).toBe(false);
+    expect(fetchRefspecCoversAllBranches("+refs/heads/*:refs/remotes/upstream/*")).toBe(false);
+    expect(branchCoverageRefusal("+refs/*:refs/*", false)).not.toBe("");
+    // The sweep's own fetch writes into refs/remotes/origin explicitly, so it still repairs this.
+    expect(branchCoverageRefusal("+refs/*:refs/*", true)).toBe("");
+  });
+
+  it("rejects a refs/* source even when the destination is refs/remotes/origin/*", () => {
+    /*
+     * Git substitutes the matched suffix into `<dst>`. Fetching `refs/heads/main` against
+     * `+refs/*:refs/remotes/origin/*` therefore writes `refs/remotes/origin/heads/main`, not
+     * `refs/remotes/origin/main`. Measured in a two-branch fixture: the sweep enumerated
+     * `heads/main` and `heads/feature`, failed to resolve its `origin/main` comparison base,
+     * swallowed both comparison failures as zeroes, and exited 0 marking both as deletion
+     * candidates. An earlier revision of this suite asserted the opposite — that a `refs/*`
+     * source counted as covered when the destination looked right. Codex raised this on PR #1398.
+     */
+    expect(fetchRefspecCoversAllBranches("+refs/*:refs/remotes/origin/*")).toBe(false);
+    expect(branchCoverageRefusal("+refs/*:refs/remotes/origin/*", false)).not.toBe("");
+    expect(branchCoverageRefusal("+refs/*:refs/remotes/origin/*", false)).toContain("refs/remotes/origin/heads/");
+    // The sweep's own fetch still uses +refs/heads/*:…, so a completed fetch repairs this.
+    expect(branchCoverageRefusal("+refs/*:refs/remotes/origin/*", true)).toBe("");
+  });
+
+  it("rejects the single-branch refspec that `git clone --depth 1` leaves behind", () => {
+    expect(fetchRefspecCoversAllBranches("+refs/heads/main:refs/remotes/origin/main")).toBe(false);
+    // Several narrow refspecs are still narrow: naming two branches does not cover the rest.
+    expect(
+      fetchRefspecCoversAllBranches(
+        "+refs/heads/main:refs/remotes/origin/main\n+refs/heads/feature:refs/remotes/origin/feature",
+      ),
+    ).toBe(false);
+    // `git config --get-all` exits 1 when the key is absent, which `tryGit` turns into "".
+    expect(fetchRefspecCoversAllBranches("")).toBe(false);
+    expect(fetchRefspecCoversAllBranches(undefined)).toBe(false);
+  });
+
+  it("treats a negative refspec as not covering every branch", () => {
+    /*
+     * A `^` exclusion sits alongside a wildcard and removes branches from it. Measured on git
+     * 2.43.0 with `+refs/heads/*:refs/remotes/origin/*` plus `^refs/heads/feature`: an ordinary
+     * `git fetch --prune origin` honoured the exclusion and left `origin/feature` absent, so
+     * reading the wildcard alone and calling it covered would report a partial inventory as
+     * complete. Codex raised this on PR #1392.
+     */
+    const excluded = "+refs/heads/*:refs/remotes/origin/*\n^refs/heads/feature";
+    expect(fetchRefspecCoversAllBranches(excluded)).toBe(false);
+    expect(branchCoverageRefusal(excluded, false)).not.toBe("");
+    // But the sweep's explicit command-line wildcard OVERRIDES a configured exclusion — measured
+    // in the same fixture, the ref came back — so a completed fetch still establishes coverage.
+    expect(branchCoverageRefusal(excluded, true)).toBe("");
+  });
+
+  it("accepts a mixed config as long as one refspec is a wildcard", () => {
+    const mixed = "+refs/heads/main:refs/remotes/origin/main\n+refs/heads/*:refs/remotes/origin/*";
+    expect(fetchRefspecCoversAllBranches(mixed)).toBe(true);
+    expect(branchCoverageRefusal(mixed, false)).toBe("");
+  });
+
+  it("stays silent when the configured refspec already covers every branch", () => {
+    // The ordinary case for a normal clone: no fetch needed to establish coverage.
+    expect(branchCoverageRefusal("+refs/heads/*:refs/remotes/origin/*", false)).toBe("");
+  });
+
+  it("stays silent when the sweep's own wildcard fetch completed", () => {
+    // The sweep passes an explicit +refs/heads/*:refs/remotes/origin/* rather than relying on
+    // the configured refspec, so a successful fetch establishes coverage even in a
+    // single-branch clone — without rewriting the operator's config.
+    expect(branchCoverageRefusal("+refs/heads/main:refs/remotes/origin/main", true)).toBe("");
+  });
+
+  it("refuses a narrow refspec when nothing established coverage", () => {
+    // --no-fetch, offline, or a failed fetch. An empty inventory is NOT a safe failure here:
+    // it reads as "nothing to clean up".
+    const refusal = branchCoverageRefusal("+refs/heads/main:refs/remotes/origin/main", false);
+    expect(refusal).not.toBe("");
+    // Name the actual cause, so the operator does not go looking at the history again.
+    expect(refusal).toContain("remote.origin.fetch");
+    expect(refusal).toContain("--single-branch");
+    // And give the remedy, not just the diagnosis.
+    expect(refusal).toContain("git remote set-branches origin '*'");
+  });
+
+  it("is distinct from the shallow refusal, because the remedies differ", () => {
+    const refusal = branchCoverageRefusal("", false);
+    expect(refusal).not.toBe(shallowCloneRefusal("true"));
+    // `--unshallow` fixes history and does nothing for the refspec, so it must not be the
+    // prescribed command — it appears in the body only as the thing that does NOT fix this.
+    // Sending the operator to `--unshallow` here means they re-run and get the same empty
+    // inventory, now doubly convinced it is correct.
+    const fixLine = refusal.split("\n").find((line) => line.startsWith("Fix:")) ?? "";
+    expect(fixLine).toContain("git remote set-branches origin '*'");
+    expect(fixLine).not.toContain("--unshallow");
   });
 });
 
