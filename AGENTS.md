@@ -525,15 +525,26 @@ of the anti-churn re-syncing described above.
 
 Before opening a new branch, check whether the task can ride an **already-open PR you
 still own** or be bundled with **other currently-queued low-risk work** instead of
-minting a new one. Bundle only when every item being combined is:
+minting a new one. If the target PR's CI is already running, either wait for it to settle
+before pushing the addition or assemble every commit before that PR's first push —
+`.github/workflows/ci.yml` sets `cancel-in-progress: true`, so a push mid-run cancels and
+restarts CI rather than saving an invocation, reproducing the exact cancellation waste
+this rule exists to cut (reproduced 2026-07-30 pushing a second commit to PR #1406: the
+in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale head).
+Bundle only when every item being combined is:
 
 - **Independently low-risk** under this repo's own classifier
   (`scripts/pr-policy.mjs` / `classifyPullRequestFiles`): no clinical-risk path, no
   RAG-ranking-surface path, no auth/privacy/migration/Supabase path. High-risk work
   always gets its own PR.
-- **Still its own committed, separately revertible commit** — bundling means one PR with
-  multiple commits, never one squashed diff; `git revert <sha>` must undo any one item
-  without touching the others.
+- **Still its own committed, separately revertible commit while the PR is open** —
+  bundling means one PR with multiple commits, never one squashed diff; `git revert <sha>`
+  must undo any one item without touching the others before merge. That guarantee ends at
+  merge: this repo's normal squash-merge folds every commit into one on `main`, and once
+  the feature branch is deleted those original SHAs are unreachable. Reverting a single
+  bundled item after merge means reverting the relevant hunks of the squash commit by
+  hand, not `git revert <sha>` on an item's original commit — keep an item out of the
+  bundle if it might need its own durable post-merge revert.
 - **Listed as its own bullet** in the PR body's Summary, not blended into one narrative
   — a reviewer (and `pr-policy.mjs`) still needs to find each item's own
   governance/RAG-impact statement if it needs one.
