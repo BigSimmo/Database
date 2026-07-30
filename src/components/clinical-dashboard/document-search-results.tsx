@@ -473,7 +473,7 @@ function DocumentResultMoreMenu({
               aria-labelledby={triggerId}
               onKeyDown={handleMenuKeyDown}
               style={menuPosition}
-              className="fixed z-[70] w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] py-1.5 shadow-[var(--shadow-lift)]"
+              className="fixed z-80 w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] py-1.5 shadow-[var(--shadow-lift)]"
             >
               <button
                 type="button"
