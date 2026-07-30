@@ -8,11 +8,11 @@ import {
   obsoleteNpmProxyVariables,
   pythonWorkerImportError,
   pythonWorkerImports,
-} from "../scripts/check-codex-cloud.mjs";
+} from "../scripts/check-codex-cloud-setup.mjs";
 
 describe("Codex Cloud environment contract", () => {
   it("keeps the checked-in setup reproducible and provider-safe", () => {
-    const result = spawnSync(process.execPath, ["scripts/check-codex-cloud.mjs"], {
+    const result = spawnSync(process.execPath, ["scripts/check-codex-cloud-setup.mjs"], {
       cwd: path.resolve(import.meta.dirname, ".."),
       encoding: "utf8",
       shell: false,

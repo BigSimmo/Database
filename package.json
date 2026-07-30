@@ -90,7 +90,7 @@
     "check:cross-mode-index": "node scripts/build-cross-mode-differentials-index.mjs --check",
     "check:runtime": "node scripts/run-tsx.mjs scripts/check-runtime.ts",
     "check:installed-lock-parity": "node scripts/check-installed-lock-parity.mjs",
-    "check:codex-cloud": "node scripts/check-codex-cloud.mjs",
+    "check:codex-cloud": "node scripts/check-codex-cloud-setup.mjs",
     "cloud:setup": "bash scripts/setup-codex-cloud.sh",
     "cloud:maintain": "bash scripts/maintain-codex-cloud.sh",
     "check:codex-autofix-workflow": "node scripts/check-codex-autofix-workflow.mjs",
