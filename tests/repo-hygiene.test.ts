@@ -195,23 +195,39 @@ describe("shallowCloneRefusal", () => {
     expect(refusal).toContain("merge-base");
   });
 
-  it("stays silent on a complete clone so the sweep runs normally", () => {
+  it("stays silent ONLY on an explicit complete-history result", () => {
     // A full clone prints the STRING "false" — truthy. Coercing on truthiness rather than
     // on the exact value would refuse on every healthy repo, so this is the regression
     // that matters most in the safe direction.
     expect(shallowCloneRefusal("false")).toBe("");
   });
 
-  it("does not treat unexpected or absent git output as shallow", () => {
-    // tryGit returns "" when the command fails; an older git could print something else.
-    // Neither may be read as shallow, or the sweep becomes unusable.
-    expect(shallowCloneRefusal("")).toBe("");
-    expect(shallowCloneRefusal(undefined)).toBe("");
-    expect(shallowCloneRefusal("shallow")).toBe("");
+  it("refuses when the shallow state cannot be determined", () => {
+    /*
+     * `tryGit` swallows every error into "", so an unverifiable precondition is
+     * indistinguishable from a healthy one unless it is treated as its own failure.
+     * Proceeding here would emit merge-base-derived numbers while unable to establish that
+     * the merge-bases are real — the #109 defect in a different guise. Both CodeRabbit and
+     * Codex flagged this independently on PR #1392; an earlier revision of this test
+     * asserted the opposite and was wrong.
+     */
+    for (const indeterminate of ["", "shallow", "yes"]) {
+      expect(shallowCloneRefusal(indeterminate)).not.toBe("");
+    }
+    expect(shallowCloneRefusal(undefined)).not.toBe("");
   });
 
-  it("tolerates surrounding whitespace from git stdout", () => {
+  it("distinguishes a known-shallow clone from an undeterminable one", () => {
+    // The remedy differs: one needs --unshallow, the other needs a real git checkout.
+    expect(shallowCloneRefusal("true")).toContain("SHALLOW clone");
+    expect(shallowCloneRefusal("")).toContain("could not determine");
+    expect(shallowCloneRefusal("true")).not.toBe(shallowCloneRefusal(""));
+  });
+
+  it("tolerates surrounding whitespace from git stdout in both directions", () => {
     expect(shallowCloneRefusal(" true\n")).not.toBe("");
+    // A padded "false" must still be recognised as healthy, or every sweep refuses.
+    expect(shallowCloneRefusal(" false\n")).toBe("");
   });
 });
 

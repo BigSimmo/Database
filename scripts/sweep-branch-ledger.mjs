@@ -107,22 +107,38 @@ export function hasCompletedCleanupReview(markdown, shortName, headSha) {
  * cleanup as impossible, so this fails closed: no inventory is printed at all, because a
  * partial inventory is what invites someone to act on it.
  *
- * Takes the raw `git rev-parse --is-shallow-repository` output rather than a boolean, so the
- * coercion is covered too: treating any non-empty output as shallow would refuse on every
- * complete clone (that command prints the string "false"), which is the one way this guard
- * could fail dangerously in the opposite direction.
+ * Takes the raw `git rev-parse --is-shallow-repository` output rather than a boolean, because
+ * the decision is three-way and only ONE branch may proceed:
+ *
+ *   "false" -> complete history, sweep is trustworthy, return ""
+ *   "true"  -> shallow, refuse
+ *   anything else (including "" from a failed `tryGit`) -> INDETERMINATE, refuse
+ *
+ * The third case is the subtle one. `tryGit` swallows every error into "", so an unverifiable
+ * precondition is indistinguishable from a healthy one unless it is treated as its own
+ * failure. Proceeding there would emit merge-base-derived numbers while unable to establish
+ * that the merge-bases are real, which is precisely the #109 defect wearing a different hat.
+ * Note that "false" is a truthy string, so this must compare the exact value both ways —
+ * coercing on truthiness would refuse on every healthy clone instead.
  */
 export function shallowCloneRefusal(isShallowOutput) {
-  if (String(isShallowOutput ?? "").trim() !== "true") return "";
+  const status = String(isShallowOutput ?? "").trim();
+  if (status === "false") return "";
+  const why =
+    status === "true"
+      ? "this is a SHALLOW clone, so every merge-base is unreliable."
+      : `could not determine whether this clone is shallow (git reported ${JSON.stringify(status)}).`;
   return [
-    "refusing to sweep: this is a SHALLOW clone, so every merge-base is unreliable.",
+    `refusing to sweep: ${why}`,
     "",
     "ahead/behind counts, --cherry-pick patch-uniqueness and the deletion candidates are",
     "all derived from merge-bases. With a grafted root they are wrong without erroring —",
     "see ledger #109, where a shallow sweep reported 90 of 91 branches as unmerged.",
     "",
     "Fix: git fetch --unshallow --tags origin",
-    "Then re-run. Never delete a branch, or report one as unmerged, from a shallow clone.",
+    "Then re-run, from a real git checkout, and confirm `git rev-parse",
+    "--is-shallow-repository` prints false. Never delete a branch, or report one as",
+    "unmerged, without that confirmation.",
   ].join("\n");
 }
 
@@ -134,7 +150,7 @@ function main() {
   const refusal = shallowCloneRefusal(tryGit(["rev-parse", "--is-shallow-repository"]));
   if (refusal) {
     if (asJson) {
-      console.log(JSON.stringify({ error: "shallow-clone", message: refusal, branches: null }, null, 2));
+      console.log(JSON.stringify({ error: "history-not-verified", message: refusal, branches: null }, null, 2));
     } else {
       console.error(refusal);
     }
