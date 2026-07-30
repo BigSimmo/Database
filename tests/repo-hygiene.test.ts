@@ -20,12 +20,15 @@ import {
   shallowCloneRefusal,
 } from "../scripts/sweep-branch-ledger.mjs";
 import {
+  archiveQuarterLabel,
   buildRow,
+  calendarQuarterStart,
   dedupeLedgerMarkdown,
   findReviews,
   headMatches,
   mergeLedgerMarkdown,
   parseLedgerRows,
+  rotateLedgerMarkdown,
   sanitizeCell,
 } from "../scripts/branch-review-ledger.mjs";
 import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
@@ -459,6 +462,28 @@ describe("branch-review-ledger row parsing", () => {
     );
     expect(merged.recordCount).toBe(3);
     expect(merged.markdown.match(/Run PR sweep/g)).toHaveLength(1);
+  });
+
+  it("rotates older rows into a quarterly archive while keeping newer live rows", () => {
+    expect(calendarQuarterStart("2026-07-30")).toBe("2026-07-01");
+    expect(archiveQuarterLabel("2026-07-15")).toBe("2026-q3");
+    const preamble = [
+      "# Ledger",
+      "",
+      "This file is append-only.",
+      "",
+      "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |",
+      "| --- | --- | --- | --- | --- | --- |",
+    ].join("\n");
+    const oldRow = `| 2026-07-01 | old/x | ${"a".repeat(40)} | s | o | c |`;
+    const newRow = `| 2026-07-29 | new/x | ${"b".repeat(40)} | s | o | c |`;
+    const rotated = rotateLedgerMarkdown(`${preamble}\n${oldRow}\n${newRow}\n`, { before: "2026-07-29" });
+    expect(rotated.moved).toBe(1);
+    expect(rotated.kept).toBe(1);
+    expect(rotated.liveMarkdown).toContain(newRow);
+    expect(rotated.liveMarkdown).not.toContain(oldRow);
+    expect(rotated.archives[0]?.path).toBe("docs/archive/branch-review-ledger-2026-q3.md");
+    expect(rotated.archives[0]?.markdown).toContain(oldRow);
   });
 });
 
