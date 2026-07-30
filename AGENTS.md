@@ -168,7 +168,7 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 - For non-trivial source/config/test changes, prefer `npm run verify:cheap` as the first broad gate and `npm run verify:pr-local` before PR handoff when the change is ready. The PR-local gate runs the full unit suite once, then conditionally adds the production build/client-bundle scan and RAG fixture/manifest validation. Browser, dependency-audit, Docker/Supabase replay, and provider-backed checks remain separate gates. Use `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` to inspect selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
 - Let the repository run coordinator control cross-worktree verification. It permits at most two focused Vitest/read-only typecheck leases from different worktrees; full Vitest, coverage, lint, build, Playwright, and live-provider tests remain exclusive. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
 - For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors changes, run `npm run ensure` before browser work and use `npm run verify:ui` as the Chromium UI gate. For phone-chrome changes, run `npm run verify:phone-chrome` first: it checks installed-lock parity, selects the affected browser/PWA owners and exact journeys, and adds `verify:ui` last only when shared chrome foundations make the broad gate necessary. Inspect uncertain scope with `-- --dry-run`.
-- **Run `npm run format` and commit the result before every push.** `format:check` is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop reports green while `Static PR checks` and `ci/circleci: verify` both fail on `prettier --check .`. Three CI failures on 2026-07-30 came from exactly this. Two traps beyond simply running it:
+- **Run `npm run format` and commit the result before every push.** `format:check` is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop reports green while `Static PR checks` fails on `prettier --check .`. Three CI failures on 2026-07-30 came from exactly this (two of them on `ci/circleci: verify`, since removed from the repo by PR #1412). Two traps beyond simply running it:
   - **Formatting without committing does nothing for the push.** A push sends commits, not your working tree, so formatting after committing leaves the unformatted blob on the branch. Amend or add a follow-up commit.
   - **A per-file check is not the repository-wide check.** `prettier --check <file>` on the source file you edited passes while a doc or ledger edit in the same push fails; that was the missed file twice out of three.
 
@@ -830,13 +830,22 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 - Setup: `bash scripts/setup-codex-cloud.sh`.
 - Maintenance: `bash scripts/maintain-codex-cloud.sh`.
-- Default to demo/offline mode with agent internet disabled and no provider credentials.
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
+  Use `connected` only when the user explicitly authorizes the required provider access.
+- Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
+  read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
+  clean disposable checkout on a task-specific non-protected branch.
 - Cloud mirrors the tracked repository toolchain, not Windows files, `.env.local`,
   desktop plugins, browser sessions, OAuth sessions, user-global skills, or uncommitted
   work. Keep required workflows in tracked instructions, scripts, tests, and repo-local
   skills.
-- Run `npm run check:codex-cloud`, `npm run check:runtime`, and
-  `npm run check:installed-lock-parity` before trusting a new or reset environment.
+- Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
+  policy, or provider credentials. Treat those as product/account settings and verify them
+  separately without printing secret values.
+- Run `npm run check:codex-cloud` for the tracked contract and
+  `npm run check:codex-cloud -- --runtime` for the installed toolchain. Also run
+  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
+  or reset environment. A skipped browser install is not full browser readiness.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
   agent phase; do not copy them into files to bypass that boundary.

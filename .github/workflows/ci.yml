@@ -31,19 +31,22 @@ jobs:
     name: Change scope
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # Only outputs a job actually reads are exported. `source_changed`,
+    # `workflow_changed` and `changed_files` were exported here and consumed by
+    # nothing, which reads as live wiring and invites a job to be gated on a
+    # value no one maintains. The script still computes all three — `docs_only`
+    # derives from the first two — they are simply not job outputs (#139).
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
-      source_changed: ${{ steps.scope.outputs.source_changed }}
       coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
       ui_changed: ${{ steps.scope.outputs.ui_changed }}
+      advisory_ui_changed: ${{ steps.scope.outputs.advisory_ui_changed }}
       db_changed: ${{ steps.scope.outputs.db_changed }}
       container_changed: ${{ steps.scope.outputs.container_changed }}
       rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
-      workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
       codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
-      changed_files: ${{ steps.scope.outputs.changed_files }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -189,6 +192,9 @@ jobs:
 
       - name: Installed dependency parity
         run: npm run check:installed-lock-parity
+
+      - name: Upload-limit parity
+        run: npm run check:upload-limit-parity
 
       - name: GitHub Actions pin check
         run: npm run check:github-actions
@@ -551,7 +557,16 @@ jobs:
   ui-advisory:
     name: Advisory UI
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    # Also requires something for this lane to actually cover (#137). It runs
+    # `@quarantine` + `@mockup`; with an empty flake ledger and no `@quarantine`
+    # tag in the suite it was spending ~3m14 on every UI PR to run five mockup
+    # tests. `advisory_ui_changed` is true when a mockup surface changed or the
+    # flake ledger is non-empty, so quarantining a test brings the lane straight
+    # back without anyone remembering to re-enable it.
+    if: >
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.ui_changed == 'true' &&
+      needs.changes.outputs.advisory_ui_changed == 'true'
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
