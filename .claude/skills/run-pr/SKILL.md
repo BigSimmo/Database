@@ -68,7 +68,7 @@ Never, even during a sweep:
 Via `mcp__github__pull_request_read` (`get` + `get_status`): head SHA, mergeable state, failing
 required checks, unresolved-thread count, and behind/ahead relative to `main`.
 
-### Step 2 — branch drift first (so CI fixes target the merged state)
+### Step 2 — settle current-head CI, then repair branch drift
 
 - If the current head has required CI queued or in progress and the PR is only
   behind-but-clean, let that run settle before mutating the branch. Re-snapshot
