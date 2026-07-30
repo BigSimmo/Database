@@ -543,8 +543,9 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
   each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
   PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
-  CI `format:check` gap; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness (`SKIP_DRIFT_GUARD=1`).
-  `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
+  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness
+  (`SKIP_DRIFT_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
   installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
   Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
 - **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory

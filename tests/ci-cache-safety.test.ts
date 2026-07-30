@@ -82,11 +82,19 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
-    const result = spawnSync("bash", ["-c", script], {
-      // process.env is spread because this repo augments ProcessEnv with required keys, so a
-      // bare object does not typecheck. All sixteen variables the script reads are overridden
-      // below, and it runs under `set -u`, so the ambient environment cannot change the outcome.
-      env: { ...process.env, ...allGreen, ...overrides },
+    const controlledEnvironment = { ...allGreen, ...overrides };
+    const exports = Object.entries(controlledEnvironment)
+      .map(([key, value]) => `export ${key}='${value.replaceAll("'", "'\"'\"'")}'`)
+      .join("\n");
+    const result = spawnSync("bash", [], {
+      // Feed the program over stdin instead of serialising a multiline `-c`
+      // argument through Windows. The WSL bash.exe launcher re-quotes that
+      // argument and can turn backticks inside comments into command
+      // substitutions, producing a false exit 0 for failure scenarios. WSL also
+      // does not reliably inherit Node's Windows environment overrides, so the
+      // controlled values are exported inside the stdin program itself.
+      input: `${exports}\n${script}`,
+      env: process.env,
       encoding: "utf8",
     });
     return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
