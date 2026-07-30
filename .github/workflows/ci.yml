@@ -597,7 +597,11 @@ jobs:
     name: PR required
     needs:
       [changes, static-pr, safety, coverage, build, container-images, ui-critical-fast, ui-critical, db-reset-verify]
-    if: always()
+    # #095: do not re-run the aggregate on concurrency-cancelled workflows.
+    # `always() && !cancelled()` leaves superseded runs cancelled/skipped
+    # instead of false-red, without treating cancelled needs as success on a
+    # tip that never produced proof (cancel-to-green).
+    if: always() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -622,25 +626,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Superseded runs cancel in-flight jobs (#095). Treat cancelled as
-          # neutral so this aggregate does not paint a false failure on a run
-          # that was replaced by a newer head. Genuine failures still fail.
-          accept_cancelled() {
-            local name="$1"
-            local result="$2"
-            if [ "$result" = "cancelled" ]; then
-              echo "::notice::$name was cancelled (likely superseded); not treating as failure"
-              return 0
-            fi
-            return 1
-          }
-
           require_success() {
             local name="$1"
             local result="$2"
-            if accept_cancelled "$name" "$result"; then
-              return 0
-            fi
             if [ "$result" != "success" ]; then
               echo "::error::$name result was $result"
               exit 1
@@ -650,9 +638,6 @@ jobs:
           require_skipped_or_success() {
             local name="$1"
             local result="$2"
-            if accept_cancelled "$name" "$result"; then
-              return 0
-            fi
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "::error::$name result was $result"
               exit 1
