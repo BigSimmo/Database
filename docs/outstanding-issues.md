@@ -82,7 +82,6 @@ removed after current-main verification; it is not missing recommended work.
 |    34 | `#105`         | Optional | High — browser/UI verification              | When the heavy-run lock is free                                    | 20–40 minutes                         | Run `verify:ui` over the ten `LoadingPanel` fallbacks and confirm the Supabase `preconnect` reaches `<head>` on a live page. Implementation already shipped; this row is the outstanding verification only.                                                                                                                                                                                                                                                                    |
 |    35 | `#126`         | Optional | Standard — repository hygiene               | Once per UTC calendar quarter, or when the live ledger grows large | 5–15 minutes                          | Run `npm run ledger:rotate -- --dry-run`, then `npm run ledger:rotate` if the preview looks right; commit the live+archive diff. Stop if dry-run shows unexpected mass moves or archive path collisions.                                                                                                                                                                                                                                                                       |
 
-
 <!-- issues:next-id=144 -->
 
 ## Open items
