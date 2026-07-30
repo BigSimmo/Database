@@ -1,9 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
-import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
+import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs, type RetrievalAccessScope } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
+  applyMemoryBoostArtifacts,
   createChunkLoadCache,
+  loadMemoryBoostArtifacts,
   memoryCardChunkScore,
   mergeSearchResults,
   recordHybridRpcError,
@@ -1491,6 +1493,42 @@ function createDocumentRankingMetadataCache(): DocumentRankingMetadataCache {
   };
 }
 
+/** Overlap independent metadata and memory reads, then merge them deterministically. */
+async function hydrateCandidatesWithMetadataAndMemory(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  candidates: SearchResult[];
+  queryEmbedding?: number[];
+  ownerId?: string;
+  accessScope?: RetrievalAccessScope;
+  documentIds?: string[];
+  matchCount: number;
+  metadataCache: DocumentRankingMetadataCache;
+  cardCache: MemoryCardCache;
+  timing: SearchTiming;
+}) {
+  // Neither read consumes the other's result. Candidate assembly remains ordered because
+  // memory boosts are applied only after both promises settle, preserving the serial output.
+  const [metadataCandidates, memoryArtifacts] = await Promise.all([
+    measureSearchPhase(args.timing, "metadata_hydration", () =>
+      attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache),
+    ),
+    measureSearchPhase(args.timing, "memory_hydration", () =>
+      loadMemoryBoostArtifacts({
+        supabase: args.supabase,
+        query: args.query,
+        queryEmbedding: args.queryEmbedding,
+        ownerId: args.ownerId,
+        accessScope: args.accessScope,
+        documentIds: args.documentIds,
+        matchCount: args.matchCount,
+        cardCache: args.cardCache,
+      }),
+    ),
+  ]);
+  return { ...applyMemoryBoostArtifacts(args.query, metadataCandidates, memoryArtifacts), metadataCandidates };
+}
+
 /** Attach document ranking metadata. */
 export async function attachDocumentRankingMetadata(
   supabase: ReturnType<typeof createAdminClient>,
@@ -2343,27 +2381,20 @@ export async function searchChunksWithTelemetry(
 
     if (documentLookupData.length > 0) {
       const rerankStartedAt = Date.now();
-      const documentLookupCandidates = await measureSearchPhase(searchTiming, "metadata_hydration", () =>
-        attachDocumentRankingMetadata(
-          supabase,
-          mergeSearchResults(documentLookupData, textFastResults),
-          args.ownerId,
-          documentRankingMetadataCache,
-        ),
-      );
+      const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
+        supabase,
+        query: args.query,
+        candidates: mergeSearchResults(documentLookupData, textFastResults),
+        ownerId: args.ownerId,
+        accessScope: args.accessScope,
+        documentIds: documentFilterList,
+        matchCount: candidateCount,
+        metadataCache: documentRankingMetadataCache,
+        cardCache: memoryCardCache,
+        timing: searchTiming,
+      });
+      const documentLookupCandidates = memoryBoost.metadataCandidates;
       expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, documentLookupCandidates);
-      const memoryBoost = await measureSearchPhase(searchTiming, "memory_hydration", () =>
-        withMemoryBoostedCandidates({
-          supabase,
-          query: args.query,
-          candidates: documentLookupCandidates,
-          ownerId: args.ownerId,
-          accessScope: args.accessScope,
-          documentIds: documentFilterList,
-          matchCount: candidateCount,
-          cardCache: memoryCardCache,
-        }),
-      );
       telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
       telemetry.memory_top_score = Math.max(
         telemetry.memory_top_score ?? 0,
@@ -2594,22 +2625,19 @@ export async function searchChunksWithTelemetry(
   if (!hybridError) {
     const rerankStartedAt = Date.now();
     const merged = args.forceEmbedding ? vectorCandidates : mergeSearchResults(vectorCandidates, textFastResults);
-    const mergedWithMetadata = await measureSearchPhase(searchTiming, "metadata_hydration", () =>
-      attachDocumentRankingMetadata(supabase, merged, args.ownerId, documentRankingMetadataCache),
-    );
-    const memoryBoost = await measureSearchPhase(searchTiming, "memory_hydration", () =>
-      withMemoryBoostedCandidates({
-        supabase,
-        query: retrievalQuery,
-        candidates: mergedWithMetadata,
-        queryEmbedding: embedding,
-        ownerId: args.ownerId,
-        accessScope: args.accessScope,
-        documentIds: documentFilterList,
-        matchCount: candidateCount,
-        cardCache: memoryCardCache,
-      }),
-    );
+    const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
+      supabase,
+      query: retrievalQuery,
+      candidates: merged,
+      queryEmbedding: embedding,
+      ownerId: args.ownerId,
+      accessScope: args.accessScope,
+      documentIds: documentFilterList,
+      matchCount: candidateCount,
+      metadataCache: documentRankingMetadataCache,
+      cardCache: memoryCardCache,
+      timing: searchTiming,
+    });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
       telemetry.memory_top_score ?? 0,
@@ -2682,27 +2710,21 @@ export async function searchChunksWithTelemetry(
     mergeSearchResults(resultSets.flat(), embeddingFieldCandidates),
     indexUnitCandidates,
   );
-  const mergedWithMetadata = await measureSearchPhase(searchTiming, "metadata_hydration", () =>
-    attachDocumentRankingMetadata(
-      supabase,
-      args.forceEmbedding ? fallbackVectorCandidates : mergeSearchResults(fallbackVectorCandidates, textFastResults),
-      args.ownerId,
-      documentRankingMetadataCache,
-    ),
-  );
-  const memoryBoost = await measureSearchPhase(searchTiming, "memory_hydration", () =>
-    withMemoryBoostedCandidates({
-      supabase,
-      query: retrievalQuery,
-      candidates: mergedWithMetadata,
-      queryEmbedding: embedding,
-      ownerId: args.ownerId,
-      accessScope: args.accessScope,
-      documentIds: documentFilterList,
-      matchCount: candidateCount,
-      cardCache: memoryCardCache,
-    }),
-  );
+  const memoryBoost = await hydrateCandidatesWithMetadataAndMemory({
+    supabase,
+    query: retrievalQuery,
+    candidates: args.forceEmbedding
+      ? fallbackVectorCandidates
+      : mergeSearchResults(fallbackVectorCandidates, textFastResults),
+    queryEmbedding: embedding,
+    ownerId: args.ownerId,
+    accessScope: args.accessScope,
+    documentIds: documentFilterList,
+    matchCount: candidateCount,
+    metadataCache: documentRankingMetadataCache,
+    cardCache: memoryCardCache,
+    timing: searchTiming,
+  });
   telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
   telemetry.memory_top_score = Math.max(
     telemetry.memory_top_score ?? 0,
