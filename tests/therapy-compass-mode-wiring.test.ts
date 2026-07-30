@@ -13,6 +13,11 @@ const loaderSrc = readFileSync(
   "utf8",
 );
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
+const legacyCatalogueAssets = {
+  full: "therapies.json",
+  index: "therapies-index.json",
+  home: "therapies-home.json",
+} as const;
 const therapyMetadataFiles = [
   "../src/app/(search-app)/therapy-compass/page.tsx",
   "../src/app/(search-app)/therapy-compass/search/page.tsx",
@@ -78,6 +83,14 @@ describe("Therapy Compass production-mode wiring", () => {
   it("ships the dataset at the non-mockups public path the loader points to", () => {
     for (const file of [...Object.values(THERAPY_CATALOGUE_ASSETS), "pathways.json", "reference.json"]) {
       expect(existsSync(new URL(file, dataDir))).toBe(true);
+    }
+  });
+
+  it("keeps unversioned catalogue aliases for clients spanning a deployment", () => {
+    for (const kind of ["full", "index", "home"] as const) {
+      const current = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir));
+      const legacy = readFileSync(new URL(legacyCatalogueAssets[kind], dataDir));
+      expect(legacy.equals(current), legacyCatalogueAssets[kind]).toBe(true);
     }
   });
 

@@ -8,7 +8,7 @@
 //   node scripts/build-therapies-index.mjs && npm run format
 //
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -118,10 +118,15 @@ if (!checkOnly) {
     const contents = readFileSync(target);
     const hash = createHash("sha256").update(contents).digest("hex").slice(0, 16);
     const filename = `${stem}.${hash}.json`;
-    renameSync(target, join(publicData, filename));
+    writeFileSync(join(publicData, filename), contents);
     return filename;
   };
-  const fullFilename = hashedAsset(source, "therapies");
+  // Keep the unversioned aliases for clients loaded before this deployment.
+  // Content-addressed files remain immutable, while an already-open older client
+  // can still fetch the URL embedded in its JavaScript bundle after assets swap.
+  const legacyFullTarget = join(publicData, "therapies.json");
+  if (source !== legacyFullTarget) writeFileSync(legacyFullTarget, readFileSync(source));
+  const fullFilename = hashedAsset(legacyFullTarget, "therapies");
   const indexFilename = hashedAsset(browserTarget, "therapies-index");
   const homeFilename = hashedAsset(browserHomeTarget, "therapies-home");
   writeFileSync(
@@ -142,6 +147,11 @@ if (!checkOnly) {
     const hash = createHash("sha256").update(contents).digest("hex").slice(0, 16);
     if (!filename.includes(`.${hash}.json`) || JSON.stringify(JSON.parse(contents)) !== JSON.stringify(records)) {
       throw new Error(`Generated therapy asset is stale: ${filename}`);
+    }
+    const legacyFilename = kind === "full" ? "therapies.json" : `therapies-${kind}.json`;
+    const legacyContents = readFileSync(join(publicData, legacyFilename));
+    if (!legacyContents.equals(contents)) {
+      throw new Error(`Therapy compatibility alias is stale: ${legacyFilename}`);
     }
   }
 }
