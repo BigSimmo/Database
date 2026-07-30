@@ -103,16 +103,17 @@ The `rag.ts` orchestrator and its `rag-*` cluster live in **`src/lib/rag/`** (th
 domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below remain flat in
 `src/lib/`.
 
-| Module                                                                                                                  | Role                                              |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                 |
-| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface        |
-| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy |
-| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants             |
-| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection               |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                      |
-| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                            |
-| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                  |
+| Module                                                                                                                  | Role                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                                        |
+| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface                               |
+| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy                        |
+| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`                                                                         | Evidence-sufficiency predicates and the fast-path evidence coverage gate |
+| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants                                    |
+| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection                                      |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                                             |
+| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                                                   |
+| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                                         |
 
 ### Ingestion and indexing
 
