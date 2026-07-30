@@ -626,7 +626,13 @@ describe("provider-safe test environment", () => {
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));
     expect(ragRunner).toContain("cwd: projectRoot");
-    expect(playwrightConfig).toContain("visual-artifacts");
+    // Attach-only visual captures stay on the dedicated local config — not the
+    // required production matcher (false-green CI cost without baseline compare).
+    expect(playwrightConfig).not.toContain("visual-artifacts");
+    expect(packageJson.scripts["test:e2e:visual"]).toContain("playwright.visual.config.ts");
+    const visualConfig = readFileSync(new URL("../playwright.visual.config.ts", import.meta.url), "utf8");
+    expect(visualConfig).toContain("ui-visual-artifacts");
+    expect(visualConfig).toContain('serviceWorkers: "block"');
   });
 
   it("uses webpack when shared worktree dependencies resolve outside the project", () => {

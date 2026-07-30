@@ -1,3 +1,10 @@
+/**
+ * Local-only screenshot capture helper (`npm run test:e2e:visual`).
+ *
+ * Not included in required CI / `test:e2e:pr`. Captures attach PNG artifacts with
+ * no baseline comparison. Prefer real visual-regression baselines (#040) before
+ * putting any compare gate back on the merge path.
+ */
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 
 const documentPath =
@@ -20,7 +27,7 @@ async function attachViewportScreenshot(
   });
 }
 
-test.describe("Clinical KB visual QA artifacts", () => {
+test.describe("Clinical KB local visual capture artifacts", () => {
   test("captures dashboard and document viewer screenshots", async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await attachViewportScreenshot(page, testInfo, "dashboard-mobile", { width: 390, height: 820 }, "/");
