@@ -78,10 +78,18 @@ Selecting `BigSimmo/Database` proves that the Codex GitHub connection can discov
 clone the repository. Codex can also show task diffs and offer pull-request workflows
 through its GitHub integration when that installation has write permission.
 
+For an explicitly authorised GitHub task, treat the authenticated GitHub connector/MCP
+tools as the default remote control plane. Use the connector for repository and PR reads,
+issue and PR comments, inline-review-thread replies/resolution, Actions logs/retries, and
+approved branch, file, or PR mutations. Do not infer that GitHub is unavailable because
+`gh`, shell GitHub credentials, or direct shell access are absent.
+
 GitHub connector permission is separate from credentials inside the agent shell. Do
 not add a personal access token to Cloud secrets or environment variables to make
 `git push` or `gh` work. If a Cloud task cannot publish a branch, reconnect the
-repository in Codex settings and run a controlled branch/PR write test.
+repository in Codex settings and run a controlled branch/PR write test. If the connector
+does not expose a required repository/organisation setting, report the limit rather than
+attempting a credential or secret workaround.
 
 ## First Cloud task
 
