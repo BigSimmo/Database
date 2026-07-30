@@ -95,6 +95,10 @@ cd "$repo_root"
 # MODULE_NOT_FOUND before the author could do anything about it. Fail open for
 # that one task instead.
 if [ "$sync_inventory" = "1" ] && [ ! -f scripts/update-docs-inventory.mjs ]; then
+  if git cat-file -e "HEAD:scripts/update-docs-inventory.mjs" 2>/dev/null; then
+    echo "[pre-commit] scripts/update-docs-inventory.mjs was removed or renamed by the pending commit; refusing to skip inventory synchronization." >&2
+    exit 1
+  fi
   echo "[pre-commit] scripts/update-docs-inventory.mjs is absent from this worktree - skipping inventory sync." >&2
   sync_inventory=0
   # `|| true`: grep exits 1 when it filters everything out, which `set -e` would
