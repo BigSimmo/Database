@@ -480,6 +480,12 @@ Durable mitigations in this repo:
   `do not merge` title.
 - Prefer fewer long-lived open PRs; land or close queue items rather than
   repeatedly re-merging `main` by hand.
+- Before mutating an open PR with `update-branch` or `git merge origin/main`,
+  check whether its current head has required CI in flight. If the branch is
+  merely behind and the merge tree is clean, let that run settle and sync once,
+  late, after review/fix work is assembled. Preempt an in-flight run only when
+  the branch is genuinely blocking-conflicted or the user explicitly asks for
+  an immediate sync; do not disable `cancel-in-progress`.
 - `docs/branch-review-ledger.md` stays append-only with the `ledger` merge driver
   (union + exact-row dedupe); do not rewrite existing rows during syncs. If a
   sync still surfaces exact twins, run `npm run ledger:dedupe` only.
@@ -634,8 +640,11 @@ named PR). Future process only.
 ### Speed CI without skipping quality
 
 - Assemble every commit for a head before the first push, or wait for the current PR CI run
-  to settle before pushing again. `cancel-in-progress: true` cancels Production UI mid-flight
-  on every superseding push (~40% of recent PR CI runs were cancellations).
+  to settle before pushing again. Apply the same settle-first rule to branch syncs: for a
+  behind-but-clean PR with required CI in flight, wait, then perform at most one late
+  `update-branch` / `git merge origin/main` after review and fix work is assembled.
+  `cancel-in-progress: true` should remain enabled, but every superseding push or sync cancels
+  Production UI mid-flight (~40% of recent PR CI runs were cancellations).
 - Before push: `npm run format` **and commit the result**, then
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
