@@ -19,7 +19,18 @@ import {
   parseLedgerBranches,
   shallowCloneRefusal,
 } from "../scripts/sweep-branch-ledger.mjs";
-import { buildRow, findReviews, headMatches, parseLedgerRows, sanitizeCell } from "../scripts/branch-review-ledger.mjs";
+import {
+  archiveQuarterLabel,
+  buildRow,
+  calendarQuarterStart,
+  dedupeLedgerMarkdown,
+  findReviews,
+  headMatches,
+  mergeLedgerMarkdown,
+  parseLedgerRows,
+  rotateLedgerMarkdown,
+  sanitizeCell,
+} from "../scripts/branch-review-ledger.mjs";
 import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
 
 describe("check-env-parity name parsing", () => {
@@ -432,12 +443,54 @@ describe("branch-review-ledger row parsing", () => {
     expect(() => buildRow({ ...base, head: "abc1234" })).toThrow(/full 40-character SHA/);
     expect(buildRow({ ...base, head: "n/a - branch never pushed" })).toContain("n/a - branch never pushed");
   });
+
+  it("dedupes exact twin records and merges concurrent appends without twins", () => {
+    const preamble = [
+      "This file is append-only.",
+      "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |",
+      "| --- | --- | --- | --- | --- | --- |",
+    ].join("\n");
+    const shared = `| 2026-07-30 | codex/x | ${"a".repeat(40)} | Run PR sweep | o | c |`;
+    const oursOnly = `| 2026-07-30 | codex/x | ${"b".repeat(40)} | product review | o | c |`;
+    const theirsOnly = `| 2026-07-30 | codex/y | ${"c".repeat(40)} | product review | o | c |`;
+    const deduped = dedupeLedgerMarkdown(`${preamble}\n${shared}\n${shared}\n`);
+    expect(deduped.removed).toBe(1);
+    expect(deduped.kept).toBe(1);
+    const merged = mergeLedgerMarkdown(
+      `${preamble}\n${shared}\n${oursOnly}\n`,
+      `${preamble}\n${shared}\n${theirsOnly}\n`,
+    );
+    expect(merged.recordCount).toBe(3);
+    expect(merged.markdown.match(/Run PR sweep/g)).toHaveLength(1);
+  });
+
+  it("rotates older rows into a quarterly archive while keeping newer live rows", () => {
+    expect(calendarQuarterStart("2026-07-30")).toBe("2026-07-01");
+    expect(archiveQuarterLabel("2026-07-15")).toBe("2026-q3");
+    const preamble = [
+      "# Ledger",
+      "",
+      "This file is append-only.",
+      "",
+      "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |",
+      "| --- | --- | --- | --- | --- | --- |",
+    ].join("\n");
+    const oldRow = `| 2026-07-01 | old/x | ${"a".repeat(40)} | s | o | c |`;
+    const newRow = `| 2026-07-29 | new/x | ${"b".repeat(40)} | s | o | c |`;
+    const rotated = rotateLedgerMarkdown(`${preamble}\n${oldRow}\n${newRow}\n`, { before: "2026-07-29" });
+    expect(rotated.moved).toBe(1);
+    expect(rotated.kept).toBe(1);
+    expect(rotated.liveMarkdown).toContain(newRow);
+    expect(rotated.liveMarkdown).not.toContain(oldRow);
+    expect(rotated.archives[0]?.path).toBe("docs/archive/branch-review-ledger-2026-q3.md");
+    expect(rotated.archives[0]?.markdown).toContain(oldRow);
+  });
 });
 
 describe("branch-review-ledger guard", () => {
   const valid = {
     ledger: ["This file is append-only.", `| 2026-07-29 | codex/x | ${"a".repeat(40)} | s | o | c |`, ""].join("\n"),
-    mergeAttribute: "union",
+    mergeAttribute: "ledger",
     protocol: "The ledger is append-only: append corrections.",
   };
 
