@@ -156,6 +156,19 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("offers retry without hiding an honest partial count", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn();
+
+    render(
+      <SearchResultsHeaderBand modeId="favourites" query="saved" matchCount={3} status="partial" onRetry={onRetry} />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("3 matches · some sources unavailable");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   // The accent used to be an absolutely-positioned bar inside an overflow:hidden
   // rounded card, so the corner arc sliced its ends and it tapered away from the
   // corner while the 1px border curved past it. It is now the card's own

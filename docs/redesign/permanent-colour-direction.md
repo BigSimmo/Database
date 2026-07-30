@@ -61,23 +61,24 @@ Every status `-text` step clears 5.5:1 on its own background, and danger is clea
 
 Keep the black-polish direction and pair it with a brighter version of the same blue — not a different hue.
 
-| Role                 | Token                    | Hex       |
-| -------------------- | ------------------------ | --------- |
-| Canvas               | `--background`           | `#060708` |
-| Wash surface         | `--surface-wash`         | `#0A0C0E` |
-| Subtle surface       | `--surface-subtle`       | `#0D0F11` |
-| Surface              | `--surface`              | `#101315` |
-| Raised surface       | `--surface-raised`       | `#171B1E` |
-| Inset surface        | `--surface-inset`        | `#08090B` |
-| Border               | `--border`               | `#2B3136` |
-| Strong border        | `--border-strong`        | `#3B444B` |
-| Text                 | `--text`                 | `#F4F6F8` |
-| Muted text           | `--text-muted`           | `#A4ADB7` |
-| Clinical accent      | `--clinical-accent`      | `#74BDF0` |
-| Clinical accent soft | `--clinical-accent-soft` | `#123556` |
-| Success              | `--success`              | `#7DE0A3` |
-| Warning              | `--warning`              | `#F2C45A` |
-| Danger               | `--danger`               | `#FF9CA4` |
+| Role                   | Token                      | Hex       |
+| ---------------------- | -------------------------- | --------- |
+| Canvas                 | `--background`             | `#060708` |
+| Wash surface           | `--surface-wash`           | `#0A0C0E` |
+| Subtle surface         | `--surface-subtle`         | `#0D0F11` |
+| Surface                | `--surface`                | `#101315` |
+| Raised surface         | `--surface-raised`         | `#171B1E` |
+| Inset surface          | `--surface-inset`          | `#08090B` |
+| Border                 | `--border`                 | `#2B3136` |
+| Strong border          | `--border-strong`          | `#3B444B` |
+| Text                   | `--text`                   | `#F4F6F8` |
+| Muted text             | `--text-muted`             | `#A4ADB7` |
+| Clinical accent        | `--clinical-accent`        | `#74BDF0` |
+| Clinical accent strong | `--clinical-accent-strong` | `#A9D8F8` |
+| Clinical accent soft   | `--clinical-accent-soft`   | `#123556` |
+| Success                | `--success`                | `#7DE0A3` |
+| Warning                | `--warning`                | `#F2C45A` |
+| Danger                 | `--danger`                 | `#FF9CA4` |
 
 Dark status colours stay hot on purpose: they must clearly outrank the muted `--type-*` identity set.
 

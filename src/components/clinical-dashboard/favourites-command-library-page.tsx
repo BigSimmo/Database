@@ -1215,7 +1215,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               // differentials, etc.) visible without presenting their nonzero
               // count as the complete library.
               status={favouritesRegistryStatus}
-              onRetry={favouritesRegistryStatus === "error" ? refetchFavouritesRegistry : undefined}
+              onRetry={
+                favouritesRegistryStatus === "error" || favouritesRegistryStatus === "partial"
+                  ? refetchFavouritesRegistry
+                  : undefined
+              }
               filterLabel="Active favourites filters"
               filterControls={
                 selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
