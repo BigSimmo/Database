@@ -216,8 +216,14 @@ assert(
 const globals = textAt("src/app/globals.css");
 assert(!/^\s*--space-\d+\s*:/m.test(globals), "unused --space-* tokens returned");
 
-/** Names the `@layer`/`@media` block enclosing `index`, or null at top level. */
-function enclosingAtRule(source, index) {
+/**
+ * Every `@layer`/`@media`/`@supports` block enclosing `index`, outermost first.
+ *
+ * All ancestors matter, not just the innermost: `@layer components { @media (…) {
+ * .search-band { … } } }` still loses to Tailwind's utilities layer, so returning
+ * only the nearest at-rule (`@media`) would let that nesting pass.
+ */
+function enclosingAtRules(source, index) {
   const stack = [];
   for (let cursor = 0; cursor < index; cursor += 1) {
     const character = source[cursor];
@@ -229,7 +235,7 @@ function enclosingAtRule(source, index) {
     }
     if (character === "}") stack.pop();
   }
-  return stack.filter(Boolean).pop() ?? null;
+  return stack.filter(Boolean);
 }
 
 for (const selector of UNLAYERED_EFFECT_SELECTORS) {
@@ -242,11 +248,13 @@ for (const selector of UNLAYERED_EFFECT_SELECTORS) {
   const match = pattern.exec(globals);
   assert(Boolean(match), `${selector} base rule is missing from globals.css`);
   if (!match) continue;
-  const enclosing = enclosingAtRule(globals, match.index);
+  const enclosing = enclosingAtRules(globals, match.index);
+  const layers = enclosing.filter((atRule) => atRule.startsWith("@layer"));
   assert(
-    enclosing === null || !enclosing.startsWith("@layer"),
-    `${selector} must stay UNLAYERED — it is inside "${enclosing}", where Tailwind's utilities layer ` +
-      `outranks it regardless of specificity and its declared effect becomes inert`,
+    layers.length === 0,
+    `${selector} must stay UNLAYERED — it is inside "${layers.join(" > ")}" (full ancestry: ` +
+      `${enclosing.join(" > ") || "top level"}), where Tailwind's utilities layer outranks it ` +
+      `regardless of specificity and its declared effect becomes inert`,
   );
 }
 const primitives = textAt("src/components/ui-primitives.tsx");

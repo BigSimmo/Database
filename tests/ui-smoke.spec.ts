@@ -3501,29 +3501,56 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // point of this gate is the rendered result. `display: inline` is excluded
     // because CSS genuinely does not apply min-height to inline boxes — such an
     // element is reported separately rather than silently counted as a pass.
-    const tapTargets = await page.evaluate(() => {
+    const tapAudit = await page.evaluate(() => {
       const describe = (element: Element) =>
         `${element.tagName.toLowerCase()}.${(element.className || "").toString().split(/\s+/).slice(0, 3).join(".")}`;
-      const measured: { id: string; height: number; display: string }[] = [];
+      // Derive the floor from the token rather than hard-coding 44: --spacing-tap
+      // is the source of truth, and the documented 48px sheet exception must also
+      // qualify. Anything at or above the token is held to its OWN declared
+      // min-height, so this stays correct if the token or a control moves.
+      const tapToken = getComputedStyle(document.documentElement).getPropertyValue("--spacing-tap").trim();
+      const probe = document.createElement("div");
+      probe.style.height = tapToken || "2.75rem";
+      document.body.appendChild(probe);
+      const tapFloor = probe.getBoundingClientRect().height;
+      probe.remove();
+
+      const inlineCarriers: string[] = [];
+      const undersized: string[] = [];
+      let measuredCount = 0;
       for (const element of document.querySelectorAll("*")) {
         const style = getComputedStyle(element);
-        if (style.minHeight !== "44px") continue;
+        const declared = Number.parseFloat(style.minHeight);
+        if (!Number.isFinite(declared) || declared < tapFloor - 0.5) continue;
         const rect = element.getBoundingClientRect();
         if (rect.width <= 0 || rect.height <= 0) continue;
-        measured.push({
-          id: describe(element),
-          height: Math.round(rect.height * 10) / 10,
-          display: style.display,
-        });
+        measuredCount += 1;
+        // Validate EVERY match; only the diagnostic list is capped.
+        if (style.display === "inline") {
+          if (inlineCarriers.length < 10) inlineCarriers.push(`${describe(element)} (min-height ${style.minHeight})`);
+          continue;
+        }
+        if (rect.height < declared - 0.5) {
+          if (undersized.length < 10) {
+            undersized.push(
+              `${describe(element)} declared ${style.minHeight}, rendered ${Math.round(rect.height * 10) / 10}px`,
+            );
+          }
+        }
       }
-      return measured.slice(0, 20);
+      return { tapFloor, measuredCount, inlineCarriers, undersized };
     });
 
-    expect(tapTargets.length, "expected at least one control with a 44px computed min-height").toBeGreaterThan(0);
-    const inlineCarriers = tapTargets.filter((target) => target.display === "inline");
-    expect(inlineCarriers, "min-h-tap is inert on an inline box — CSS ignores min-height there").toEqual([]);
-    const undersized = tapTargets.filter((target) => target.height < 43.5);
-    expect(undersized, `controls with a 44px min-height rendered smaller: ${JSON.stringify(undersized)}`).toEqual([]);
+    expect(tapAudit.tapFloor, "--spacing-tap must resolve to a real pixel floor").toBeGreaterThanOrEqual(44);
+    expect(
+      tapAudit.measuredCount,
+      "expected at least one control declaring a tap-sized min-height (a vacuous pass otherwise)",
+    ).toBeGreaterThan(0);
+    expect(
+      tapAudit.inlineCarriers,
+      "a tap-sized min-height sits on an inline box, where CSS ignores it outright",
+    ).toEqual([]);
+    expect(tapAudit.undersized, "controls rendered below their own declared min-height").toEqual([]);
   });
 
   test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {
