@@ -72,7 +72,13 @@ describe("ModeNav band planning", () => {
 describe("ModeNav density contract", () => {
   it("chooses density by container width in rem, never px", () => {
     const thresholds = [...modeNavCss.matchAll(/@container mode-nav \(min-width: ([^)]+)\)/g)].map((m) => m[1].trim());
-    expect(thresholds).toEqual(["16rem", "26rem", "34rem"]);
+    // Raised from 16/26/34 by ledger #113. Those were budgeted for equal `1fr`
+    // tracks and were short by roughly the count badge; the slots are now
+    // content-sized, so each threshold is the measured sum of the intrinsic
+    // widths it must hold, plus ~8% — enough to absorb the font-metric
+    // difference between a development box and a CI runner, which is real and
+    // failed a first attempt at 21/31rem by a single pixel.
+    expect(thresholds).toEqual(["22rem", "33rem", "42rem"]);
 
     // The unit is the mechanism: raising the browser or OS text size grows the
     // root font, so a phone crosses a threshold exactly when its labels would
@@ -100,7 +106,7 @@ describe("ModeNav density contract", () => {
     expect(baseBar).toContain("display: none");
     expect(baseControl).toContain("display: flex");
     // The bar is only ever revealed inside a container query.
-    expect(modeNavCss.indexOf(".mode-nav__bar {\n    display: grid")).toBeGreaterThan(
+    expect(modeNavCss.indexOf(".mode-nav__bar {\n    display: flex")).toBeGreaterThan(
       modeNavCss.indexOf("@container mode-nav"),
     );
   });
@@ -111,10 +117,22 @@ describe("ModeNav density contract", () => {
     expect(modeNavCss).not.toMatch(/overflow(-x)?:\s*(auto|scroll)/);
   });
 
-  it("distributes phone slots as equal columns", () => {
-    // Equal columns make the outer margins and inter-slot gaps identical by
-    // construction, rather than by hand-tuned padding that drifts.
-    expect(modeNavCss).toContain("grid-auto-columns: 1fr");
+  it("sizes slots to their content, never to equal tracks", () => {
+    // Ledger #113: equal `1fr` tracks make the WIDEST slot set what every slot
+    // needs, and the label's `truncate` then hides the shortfall silently —
+    // nothing overflows, nothing fails, the word is just gone. Measured in
+    // Chromium, that clipped at every phone width. Content-sized slots cannot
+    // be narrower than their own label, so the failure mode is gone rather
+    // than merely retuned.
+    expect(modeNavCss).not.toContain("grid-auto-columns");
+    expect(modeNavCss).not.toMatch(/\.mode-nav__bar\s*\{[^}]*display:\s*grid/);
+
+    // Exactly one bar layout, so a future edit cannot reintroduce a second one
+    // that behaves differently at a band nobody re-measures.
+    const barDisplays = [...modeNavCss.matchAll(/\.mode-nav__bar\s*\{([^}]*)\}/g)]
+      .map((match) => match[1].match(/display:\s*([a-z]+)/)?.[1])
+      .filter(Boolean);
+    expect(barDisplays).toEqual(["none", "flex"]);
   });
 });
 
