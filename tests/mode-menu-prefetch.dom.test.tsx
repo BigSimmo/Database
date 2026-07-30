@@ -33,7 +33,6 @@ vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => (
     items: [],
     status: "ready",
     registryStatus: "ready",
-    sourceStatus: "ready",
     refetch: () => undefined,
   }),
 }));

@@ -36,9 +36,6 @@ export type SavedRegistryFavouritesResult = {
   status: SavedFavouritesBandStatus;
   /** Raw folded registry status before account/nonempty overrides. */
   registryStatus: SavedFavouritesBandStatus;
-  /** Combined account + registry status before a nonempty result masks a
-      partial source failure for the main results band. */
-  sourceStatus: SavedFavouritesBandStatus;
   /** Re-runs every registry this hook actually requested. */
   refetch: () => void;
 };
@@ -97,7 +94,7 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
       : requested.includes("loading")
         ? "loading"
         : "ready";
-  const { status, registryStatus, sourceStatus } = foldSavedFavouritesStatus({
+  const { status, registryStatus } = foldSavedFavouritesStatus({
     isAuthenticated,
     accountReady,
     accountLoadError,
@@ -116,5 +113,5 @@ export function useSavedRegistryFavourites(): SavedRegistryFavouritesResult {
     if (savedForms.length > 0) refetchForms();
   }, [isAuthenticated, reloadAccount, savedServices.length, savedForms.length, refetchServices, refetchForms]);
 
-  return { items, status, registryStatus, sourceStatus, refetch };
+  return { items, status, registryStatus, refetch };
 }

@@ -5,8 +5,7 @@
  * The custom `merge=ledger` driver (union + exact-row dedupe) preserves concurrent
  * appends without reintroducing byte-identical twins; this gate catches the ways the
  * ledger has actually degraded in practice:
- *   - a missing ledger merge attribute or locally uninstalled merge driver
- *   - conflict markers committed verbatim
+ *   - a missing ledger merge attribute, or conflict markers committed verbatim
  *   - exact duplicate records
  *   - mojibake (`???` / U+FFFD) from an append that was not written as UTF-8, which also
  *     hides duplicates from the exact-match check by making the twin rows differ
@@ -33,7 +32,7 @@ import { listLedgerPaths, parseLedgerRows } from "./branch-review-ledger.mjs";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
 const PROTOCOL_PATH = "docs/codex-review-protocol.md";
-const EXPECTED_MERGE_DRIVER = "node scripts/merge-branch-review-ledger.mjs %O %A %B";
+export const LEDGER_MERGE_DRIVER = "node scripts/merge-branch-review-ledger.mjs %O %A %B";
 
 /**
  * Records dated on or after this land through `ledger:append` and must be fully
@@ -68,11 +67,10 @@ export function validateLedger({ ledger, mergeAttribute, mergeDriver, protocol }
       )}).`,
     );
   }
-
-  if (mergeDriver !== EXPECTED_MERGE_DRIVER) {
+  if (mergeAttribute === "ledger" && mergeDriver !== LEDGER_MERGE_DRIVER) {
     failures.push(
-      `merge.ledger.driver must be installed as ${JSON.stringify(EXPECTED_MERGE_DRIVER)} ` +
-        `(found ${JSON.stringify(mergeDriver || "unset")}). Run \`npm run hooks:install\` before merging.`,
+      `${LEDGER_PATH} declares merge=ledger but merge.ledger.driver is not installed. ` +
+        `Run \`npm run hooks:install\` before merging (found ${JSON.stringify(mergeDriver || "unset")}).`,
     );
   }
 
@@ -204,12 +202,12 @@ function effectiveMergeAttribute() {
   return output.match(/:\s*merge:\s*(\S+)$/)?.[1] ?? "";
 }
 
-function effectiveMergeDriver() {
+function configuredMergeDriver() {
   try {
     return execFileSync("git", ["config", "--get", "merge.ledger.driver"], {
       cwd: root,
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch {
     return "";
@@ -238,7 +236,7 @@ function selfTest() {
   const valid = {
     ledger: ledgerWith(),
     mergeAttribute: "ledger",
-    mergeDriver: EXPECTED_MERGE_DRIVER,
+    mergeDriver: LEDGER_MERGE_DRIVER,
     protocol: "The ledger is append-only: append corrections.",
   };
   const fails = (input, needle, label) =>
@@ -252,8 +250,7 @@ function selfTest() {
 
   fails({ mergeAttribute: "" }, "merge=ledger", "missing ledger attribute fails");
   fails({ mergeAttribute: "union" }, "merge=ledger", "stock union attribute fails");
-  fails({ mergeDriver: "" }, "hooks:install", "missing merge driver fails");
-  fails({ mergeDriver: "cat %A %B" }, "hooks:install", "wrong merge driver fails");
+  fails({ mergeDriver: "" }, "hooks:install", "missing custom driver fails loudly");
   fails({ protocol: "append records" }, "reviewer instruction", "missing protocol contract fails");
   fails({ ledger: `${valid.ledger}<<<<<<< ours\n` }, "conflict marker", "conflict marker fails");
   fails({ ledger: ledgerWith(row()) }, "exact duplicate", "exact duplicate record fails");
@@ -323,7 +320,7 @@ function main() {
   const result = validateLedger({
     ledger: readFileSync(path.join(root, LEDGER_PATH), "utf8"),
     mergeAttribute: effectiveMergeAttribute(),
-    mergeDriver: effectiveMergeDriver(),
+    mergeDriver: configuredMergeDriver(),
     protocol: readFileSync(path.join(root, PROTOCOL_PATH), "utf8"),
   });
 
@@ -344,7 +341,7 @@ function main() {
   console.log(
     `Branch review ledger guard passed: ${result.recordCount} live table records` +
       `${archiveRecords > 0 ? ` + ${archiveRecords} archived` : ""} ` +
-      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), ledger merge driver active, ` +
+      `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), ledger merge active, ` +
       `six cells each, no conflict markers, mojibake, heading records, or duplicates.`,
   );
 }

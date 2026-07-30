@@ -213,6 +213,7 @@
   --clinical-accent: var(--primary-500);
   --clinical-accent-hover: #185c99;
   --clinical-accent-active: #14507f;
+  --clinical-accent-strong: var(--primary-700);
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #c6dcf2;
   --clinical-accent-contrast: #ffffff;
@@ -451,6 +452,7 @@
   --clinical-accent: var(--primary-500);
   --clinical-accent-hover: var(--primary-600);
   --clinical-accent-active: var(--primary-700);
+  --clinical-accent-strong: var(--primary-700);
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #235a7d;
   --clinical-accent-contrast: #082e4d;
@@ -2973,6 +2975,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --clinical-accent: LinkText;
     --clinical-accent-hover: LinkText;
     --clinical-accent-active: LinkText;
+    --clinical-accent-strong: LinkText;
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: ButtonBorder;
     --clinical-accent-contrast: ButtonText;

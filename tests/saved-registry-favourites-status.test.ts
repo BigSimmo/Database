@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  foldSavedFavouritesStatus,
-  resolveSavedFavouritesPresentation,
-} from "@/components/clinical-dashboard/saved-registry-favourites-status";
+import { foldSavedFavouritesStatus } from "@/components/clinical-dashboard/saved-registry-favourites-status";
 
 describe("foldSavedFavouritesStatus", () => {
   it("reports loading while an authenticated account favourites request is pending", () => {
@@ -41,51 +38,16 @@ describe("foldSavedFavouritesStatus", () => {
     expect(folded.status).not.toBe("ready");
   });
 
-  it("keeps ready when unaffected items already exist beside a registry fault", () => {
-    const folded = foldSavedFavouritesStatus({
-      isAuthenticated: true,
-      accountReady: true,
-      accountLoadError: null,
-      registryStatus: "error",
-      itemCount: 2,
-    });
-    expect(folded).toEqual({ status: "ready", registryStatus: "error", sourceStatus: "error" });
-    expect(resolveSavedFavouritesPresentation({ ...folded, itemCount: 2 })).toEqual({
-      status: "ready",
-      partialStatus: "error",
-    });
-  });
-
-  it.each(["loading", "unauthorized", "error"] as const)(
-    "preserves a partial %s source state beside an honest loaded count",
-    (sourceStatus) => {
-      expect(resolveSavedFavouritesPresentation({ status: "ready", sourceStatus, itemCount: 3 })).toEqual({
-        status: "ready",
-        partialStatus: sourceStatus,
-      });
-    },
-  );
-
-  it("preserves an account-source failure beside unaffected loaded items", () => {
-    const folded = foldSavedFavouritesStatus({
-      isAuthenticated: true,
-      accountReady: true,
-      accountLoadError: "Saved items could not be loaded.",
-      registryStatus: "ready",
-      itemCount: 2,
-    });
-    expect(folded).toEqual({ status: "ready", registryStatus: "ready", sourceStatus: "error" });
-    expect(resolveSavedFavouritesPresentation({ ...folded, itemCount: 2 })).toEqual({
-      status: "ready",
-      partialStatus: "error",
-    });
-  });
-
-  it("keeps a whole-source failure when no favourites loaded", () => {
-    expect(resolveSavedFavouritesPresentation({ status: "error", sourceStatus: "error", itemCount: 0 })).toEqual({
-      status: "error",
-      partialStatus: null,
-    });
+  it("reports a partial count when unaffected items already exist beside a registry fault", () => {
+    expect(
+      foldSavedFavouritesStatus({
+        isAuthenticated: true,
+        accountReady: true,
+        accountLoadError: null,
+        registryStatus: "error",
+        itemCount: 2,
+      }).status,
+    ).toBe("partial");
   });
 
   it("surfaces registry unauthorized when the account layer is settled and empty", () => {

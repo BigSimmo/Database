@@ -31,7 +31,7 @@ import {
   rotateLedgerMarkdown,
   sanitizeCell,
 } from "../scripts/branch-review-ledger.mjs";
-import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
+import { LEDGER_MERGE_DRIVER, validateLedger } from "../scripts/check-branch-review-ledger.mjs";
 import { mergeAttributeProblem } from "../scripts/check-outstanding-issues.mjs";
 
 describe("check-env-parity name parsing", () => {
@@ -520,7 +520,7 @@ describe("branch-review-ledger guard", () => {
   const valid = {
     ledger: ["This file is append-only.", `| 2026-07-29 | codex/x | ${"a".repeat(40)} | s | o | c |`, ""].join("\n"),
     mergeAttribute: "ledger",
-    mergeDriver: "node scripts/merge-branch-review-ledger.mjs %O %A %B",
+    mergeDriver: LEDGER_MERGE_DRIVER,
     protocol: "The ledger is append-only: append corrections.",
   };
 
@@ -528,7 +528,7 @@ describe("branch-review-ledger guard", () => {
     expect(validateLedger(valid).failures).toEqual([]);
   });
 
-  it("rejects an uninstalled ledger merge driver", () => {
+  it("rejects a checkout where the custom merge driver is not installed", () => {
     expect(validateLedger({ ...valid, mergeDriver: "" }).failures.join(" ")).toMatch(/hooks:install/);
   });
 

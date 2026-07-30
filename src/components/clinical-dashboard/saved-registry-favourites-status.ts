@@ -1,16 +1,4 @@
-export type SavedFavouritesBandStatus = "ready" | "loading" | "unauthorized" | "error";
-export type SavedFavouritesPartialStatus = Exclude<SavedFavouritesBandStatus, "ready">;
-
-export function resolveSavedFavouritesPresentation(input: {
-  status: SavedFavouritesBandStatus;
-  sourceStatus: SavedFavouritesBandStatus;
-  itemCount: number;
-}): { status: SavedFavouritesBandStatus; partialStatus: SavedFavouritesPartialStatus | null } {
-  if (input.itemCount > 0 && input.sourceStatus !== "ready") {
-    return { status: "ready", partialStatus: input.sourceStatus };
-  }
-  return { status: input.status, partialStatus: null };
-}
+export type SavedFavouritesBandStatus = "ready" | "loading" | "partial" | "unauthorized" | "error";
 
 /**
  * Fold account-favourites readiness with downstream registry status.
@@ -27,11 +15,7 @@ export function foldSavedFavouritesStatus(input: {
   accountLoadError: string | null;
   registryStatus: SavedFavouritesBandStatus;
   itemCount: number;
-}): {
-  status: SavedFavouritesBandStatus;
-  registryStatus: SavedFavouritesBandStatus;
-  sourceStatus: SavedFavouritesBandStatus;
-} {
+}): { status: SavedFavouritesBandStatus; registryStatus: SavedFavouritesBandStatus } {
   const accountStatus: SavedFavouritesBandStatus =
     input.isAuthenticated && !input.accountReady
       ? "loading"
@@ -44,7 +28,15 @@ export function foldSavedFavouritesStatus(input: {
     accountStatus === "loading" ? "loading" : accountStatus === "error" ? "error" : registryStatus;
 
   // Unaffected items (local differentials, or one registry that succeeded) keep
-  // an honest nonzero count visible instead of hiding behind a whole-band fault.
-  const status = input.itemCount > 0 && folded !== "ready" ? "ready" : folded;
-  return { status, registryStatus, sourceStatus: folded };
+  // an honest nonzero count visible, but retain the fact that another source
+  // failed. Without `partial`, the count looks complete when it is only a lower
+  // bound. A pending sibling source keeps the established ready-with-items
+  // behaviour until it settles; `partial` is reserved for an actual fault.
+  const status =
+    folded === "partial" || (input.itemCount > 0 && (folded === "error" || folded === "unauthorized"))
+      ? "partial"
+      : input.itemCount > 0 && folded === "loading"
+        ? "ready"
+        : folded;
+  return { status, registryStatus };
 }
