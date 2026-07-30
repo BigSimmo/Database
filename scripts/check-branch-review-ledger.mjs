@@ -290,4 +290,7 @@ function main() {
 }
 
 // Guarded so the unit tests can import validateLedger without running the gate.
-if (process.argv[1]?.endsWith("check-branch-review-ledger.mjs")) main();
+const isMain =
+  process.argv[1]?.endsWith("/check-branch-review-ledger.mjs") ||
+  process.argv[1]?.endsWith("\\check-branch-review-ledger.mjs");
+if (isMain) main();

@@ -502,4 +502,8 @@ function main() {
   process.exitCode = 2;
 }
 
-if (process.argv[1]?.endsWith("branch-review-ledger.mjs")) main();
+// Use a path-segment match: `check-branch-review-ledger.mjs`.endsWith("branch-review-ledger.mjs")
+// is true and would wrongly run this CLI when the checker imports the module.
+const isMain =
+  process.argv[1]?.endsWith("/branch-review-ledger.mjs") || process.argv[1]?.endsWith("\\branch-review-ledger.mjs");
+if (isMain) main();

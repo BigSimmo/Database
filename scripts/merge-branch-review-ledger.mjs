@@ -72,4 +72,7 @@ function main() {
   process.exit(0);
 }
 
-if (process.argv[1]?.endsWith("merge-branch-review-ledger.mjs")) main();
+const isMain =
+  process.argv[1]?.endsWith("/merge-branch-review-ledger.mjs") ||
+  process.argv[1]?.endsWith("\\merge-branch-review-ledger.mjs");
+if (isMain) main();
