@@ -45,7 +45,7 @@ src/components/*mockups.tsx
 src/components/clinical-dashboard/global-mockup-search-shell.tsx
 
 # One-off Codex review prompt dumps (not product code)
-codex-cloud-review/
+docs/prompts/codex-cloud-review/
 
 # Generated schema-drift inventory (large JSON)
 supabase/drift-manifest.json

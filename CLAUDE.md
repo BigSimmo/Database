@@ -87,14 +87,18 @@ src/components/   UI; clinical-dashboard/ is the shell, *-mockups.tsx are design
 src/lib/          ~200 modules — rag/, supabase/, validation/, observability/,
                   extractors/, webhooks/ are the extracted subdirectories
 src/data/         Static clinical content (DSM, formulation, therapies indexes)
+data/             Generated clinical snapshot exports loaded at runtime — regenerate, never hand-edit
 supabase/         migrations/ (source of truth), schema.sql (mirror), functions/
 worker/           Ingestion worker; worker/python/ is the OCR stack
 scripts/          ~160 files backing 194 npm scripts: gates, eval, reindex, governance, dev
 tests/            Vitest unit + Playwright E2E, side by side
 docs/             Runbooks, governance, plans; docs/README.md categorises them
 eslint-rules/     Repo-specific lint rules (see Conventions below)
+mockups/          Notes for the design-scratch routes under src/app/mockups/
+plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .claude/          Claude Code agents, skills, hooks, settings
 .agents/          Single-word skill catalogue (`npm run skills`)
+.githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
 ```
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
