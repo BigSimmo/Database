@@ -49,10 +49,10 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 - Renders themselves stay clean: 10/10, no thin/blank/variantsIdentical flags
   (re-confirmed 2026-07-30).
 - `[TOKENS_MISSING]` 7 CSS custom properties — triaged 2026-07-30, all seven
-  are **expected in the bundle**, so the warn line itself is known. Two are
-  benign by construction; five are undefined references in repo code that the
-  bundle merely carries along (tracked in `docs/outstanding-issues.md`, not a
-  sync defect):
+  are **expected in the bundle**, so the warn line itself is known. Four are
+  benign by construction (runtime-set or scan artifacts); three are undefined
+  references in repo code that the bundle merely carries along (tracked as
+  `#141` in `docs/outstanding-issues.md`, not a sync defect):
   - `--mobile-composer-reserve` — set at runtime by
     `clinical-dashboard/mobile-composer-reserve.ts` and always read through a
     `var(…, 0rem)` fallback. Never in a static stylesheet. Do not "fix".
@@ -60,12 +60,17 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     `bg-[color:var(--x)]` in `docs/redesign/03-decision-log.md` prose, and
     emitted a class for it. An artifact of documenting a class name; nothing
     renders it.
-  - `--med-accent`, `--med-accent-border` (4 sites in
-    `clinical-dashboard/medication-record-page.tsx`) and
-    `--clinical-accent-strong` (`clinical-dashboard/answer-status.tsx`) —
-    genuinely undefined production references, no fallback, so the declaration
-    is dropped at parse time. Same defect family as the dead `--text-4xs`
-    classes repaired on 2026-07-30.
+  - `--med-accent`, `--med-accent-border` — also runtime-set, not defects.
+    `medicationAccentStyle()` in
+    `clinical-dashboard/medication-record-page.tsx:88-94` assigns both, and
+    that style object is applied to the ancestor that contains every
+    referenced class (`:393`). A stylesheet-only missing-token scan cannot
+    see React `style` assignments; do not "fix" these.
+  - `--clinical-accent-strong`
+    (`clinical-dashboard/answer-status.tsx:252`) — genuinely undefined
+    production reference, no stylesheet or React `style` definition and no
+    fallback, so the declaration is dropped at parse time. Same defect
+    family as the dead `--text-4xs` classes repaired on 2026-07-30.
   - `--primary-hover`, `--success-hover` —
     `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
     gate-exempt design scratch. Lowest priority.
