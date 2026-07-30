@@ -12,13 +12,25 @@ const BROWSER_TYPES = {
 export const playwrightProjectNames = Object.freeze({
   chromium: "chromium",
   chromiumMockups: "chromium-mockups",
+  chromiumArtifacts: "chromium-artifacts",
   firefox: "firefox",
   webkit: "webkit",
+});
+
+const DEFAULT_CONFIG_PROJECTS = Object.freeze({
+  "playwright.config.ts": [
+    playwrightProjectNames.chromium,
+    playwrightProjectNames.chromiumMockups,
+    playwrightProjectNames.firefox,
+    playwrightProjectNames.webkit,
+  ],
+  "playwright.visual.config.ts": [playwrightProjectNames.chromiumArtifacts],
 });
 
 const PROJECT_BROWSER_FAMILIES = Object.freeze({
   [playwrightProjectNames.chromium]: "chromium",
   [playwrightProjectNames.chromiumMockups]: "chromium",
+  [playwrightProjectNames.chromiumArtifacts]: "chromium",
   [playwrightProjectNames.firefox]: "firefox",
   [playwrightProjectNames.webkit]: "webkit",
 });
@@ -54,8 +66,18 @@ export function defaultChromiumHeadlessShellPath(chromeExecutablePath = chromium
 
 export function requestedPlaywrightBrowserProjects(args = []) {
   const projects = new Set();
+  let configPath = "playwright.config.ts";
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
+    if (token === "--config" && args[index + 1]) {
+      configPath = args[index + 1];
+      index += 1;
+      continue;
+    }
+    if (token.startsWith("--config=")) {
+      configPath = token.slice("--config=".length);
+      continue;
+    }
     if (token === "--project" && args[index + 1]) {
       projects.add(args[index + 1]);
       index += 1;
@@ -63,7 +85,10 @@ export function requestedPlaywrightBrowserProjects(args = []) {
     }
     if (token.startsWith("--project=")) projects.add(token.slice("--project=".length));
   }
-  if (projects.size === 0) return Object.values(playwrightProjectNames);
+  if (projects.size === 0) {
+    const configName = path.basename(configPath);
+    return DEFAULT_CONFIG_PROJECTS[configName] ?? [`config:${configPath}`];
+  }
   return [...projects];
 }
 

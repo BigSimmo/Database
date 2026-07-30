@@ -9,9 +9,29 @@ import {
 
 describe("playwright browser preflight", () => {
   it("defaults to every configured project when no project is requested", () => {
-    const configuredProjects = Object.values(playwrightProjectNames);
+    const configuredProjects = [
+      playwrightProjectNames.chromium,
+      playwrightProjectNames.chromiumMockups,
+      playwrightProjectNames.firefox,
+      playwrightProjectNames.webkit,
+    ];
     expect(requestedPlaywrightBrowserProjects([])).toEqual(configuredProjects);
     expect(requestedPlaywrightBrowserProjects(["tests/ui-smoke.spec.ts"])).toEqual(configuredProjects);
+  });
+
+  it("uses the selected config's projects when no project flag is present", () => {
+    expect(requestedPlaywrightBrowserProjects(["--config=playwright.visual.config.ts"])).toEqual([
+      playwrightProjectNames.chromiumArtifacts,
+    ]);
+    expect(requestedPlaywrightBrowserProjects(["--config", "playwright.visual.config.ts"])).toEqual([
+      playwrightProjectNames.chromiumArtifacts,
+    ]);
+  });
+
+  it("fails closed for an unmapped config without explicit projects", () => {
+    const result = playwrightBrowserPreflight(["--config=future.config.ts"]);
+    expect(result.ok).toBe(false);
+    expect(result.missing?.[0]?.source).toContain("unmapped Playwright project config:future.config.ts");
   });
 
   it("collects explicit --project flags", () => {
