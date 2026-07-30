@@ -35,14 +35,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
-# The server limit is non-secret build input used only by the parity guard;
-# Railway still injects the authoritative runtime value into the runner.
-# Its browser mirror is inlined into the client bundle at build time.
-ARG MAX_UPLOAD_MB=
+# The server value is also exposed to the build so the parity guard can compare
+# the runtime configuration Railway supplies with the public value Next inlines.
 ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
+ARG MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
-ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # The repo build script allocates an 8 GiB heap. Prefer builders with >= 10 GiB
 # locally (Docker Desktop hard-fails under the RAM guard by default). CI image
@@ -50,7 +48,11 @@ ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # while still completing this Next build.
 ARG ALLOW_LOW_RAM_BUILD=0
 ENV ALLOW_LOW_RAM_BUILD=${ALLOW_LOW_RAM_BUILD}
-RUN npm run build
+# MAX_UPLOAD_MB remains a runtime-only server variable. Copy its build argument
+# into the parity guard's checker-only name, then remove MAX_UPLOAD_MB from the
+# Next build process so application env validation cannot mistake an empty
+# build argument for a runtime value.
+RUN UPLOAD_LIMIT_PARITY_SERVER_MB="${MAX_UPLOAD_MB}" env -u MAX_UPLOAD_MB npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app

@@ -191,11 +191,11 @@ jobs:
       - name: Runtime alignment
         run: npm run check:runtime
 
-      - name: Upload limit configuration parity
-        run: npm run check:upload-limits
-
       - name: Installed dependency parity
         run: npm run check:installed-lock-parity
+
+      - name: Upload-limit parity
+        run: npm run check:upload-limit-parity
 
       - name: GitHub Actions pin check
         run: npm run check:github-actions
