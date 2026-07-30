@@ -71,6 +71,7 @@ describe("Railway config as code", () => {
     "scripts/run-heavy.mjs",
     "scripts/guard-next-build.mjs",
     "scripts/check-client-bundle-secrets.mjs",
+    "scripts/check-upload-limit-parity.mjs",
   ])("deploys the app for runtime input %s", (filePath) => {
     expect(triggersDeploy(app, filePath)).toBe(true);
   });

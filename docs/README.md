@@ -13,12 +13,13 @@ npm run docs:check-links
 
 ## Start here
 
-| Doc                                    | What it is                                                                                              |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [codebase-index.md](codebase-index.md) | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts              |
-| [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run sitemap:update`, verify with `npm run sitemap:check` |
-| [agents-guide.md](agents-guide.md)     | Human onboarding pointer; authoritative agent rules live in the root `AGENTS.md`                        |
-| [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                             |
+| Doc                                    | What it is                                                                                           |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| [codebase-index.md](codebase-index.md) | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts           |
+| [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check` |
+| [agents-guide.md](agents-guide.md)     | Human onboarding pointer; authoritative agent rules live in the root `AGENTS.md`                     |
+| [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                          |
+| [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, platform settings, and acceptance checks                         |
 
 ## Architecture
 
@@ -34,6 +35,7 @@ npm run docs:check-links
 - [pwa.md](pwa.md) — PWA install assets, privacy-first service worker, offline shell
 - [webhooks.md](webhooks.md) — the two inbound webhook receivers and the outbound Actions notifier
 - [api-jobs-ops-surface.md](api-jobs-ops-surface.md) — standing decision to keep `GET /api/jobs` as an ops/admin surface
+- [verified-answer-incremental-delivery-design.md](verified-answer-incremental-delivery-design.md) — staged, clinical-safety-preserving design for delivering verified evidence and answer sections before the canonical final SSE frame
 
 ## Operations runbooks
 
