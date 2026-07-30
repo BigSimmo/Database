@@ -2,13 +2,13 @@
 // Structural gate for docs/outstanding-issues.md.
 //
 // Ledger #112. The `issues:next-id` marker is a plain HTML comment that every
-// editor read-modify-writes with no lock, and this file — unlike
-// docs/branch-review-ledger.md — has NO `merge=union` driver. So two agents
-// allocating in the same hour collide, and the collision surfaces as an
-// ordinary content conflict that a hurried resolution can settle by taking one
-// side wholesale and dropping the other's rows. On 2026-07-29 that happened
-// three times in one hour on a single PR, and nothing noticed: no gate read
-// this file's structure at all.
+// editor read-modify-writes with no lock. The file now has `merge=union` (PR
+// #1416), which preserves concurrent row appends the same way as
+// docs/branch-review-ledger.md, but union merge cannot allocate unique IDs —
+// two agents can still collide, and a hurried conflict resolution can still
+// take one side wholesale. On 2026-07-29 that happened three times in one hour
+// on a single PR, and nothing noticed: no gate read this file's structure at
+// all. This structural gate is what makes those failures loud.
 //
 // This makes each of those failures loud:
 //   - an id used twice is a merge that kept both sides' rows under one number
@@ -21,6 +21,7 @@
 // is right, because that is a judgement a gate cannot make and pretending
 // otherwise would make the gate noisy enough to be ignored.
 
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 export const ISSUES_PATH = "docs/outstanding-issues.md";
@@ -403,6 +404,14 @@ function selfTest() {
   console.log("outstanding-issues self-test passed.");
 }
 
+function effectiveMergeAttribute() {
+  const output = execFileSync("git", ["check-attr", "merge", "--", ISSUES_PATH], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+  return output.match(/:\s*merge:\s*(\S+)$/)?.[1] ?? "";
+}
+
 function main() {
   if (process.argv.includes("--self-test")) {
     selfTest();
@@ -410,6 +419,13 @@ function main() {
   }
   const markdown = readFileSync(ISSUES_PATH, "utf8");
   const problems = checkIssues(markdown);
+  const mergeAttribute = effectiveMergeAttribute();
+  if (mergeAttribute !== "union") {
+    problems.push(
+      `${ISSUES_PATH} must resolve to merge=union (found ${JSON.stringify(mergeAttribute || "unset")}) — ` +
+        "set it in .gitattributes so concurrent appends keep both sides' rows",
+    );
+  }
   if (problems.length > 0) {
     console.error(`${ISSUES_PATH} check FAILED:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -423,7 +439,7 @@ function main() {
   const open = rows.filter((row) => row.table === "open").length;
   console.log(
     `Outstanding-issues guard passed: ${rows.length} rows (${open} open, ${rows.length - open} archived), ` +
-      `unique ids, next-id=${nextId} above the highest.`,
+      `unique ids, next-id=${nextId} above the highest, union merge active.`,
   );
 }
 
