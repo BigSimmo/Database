@@ -47,6 +47,7 @@ This keeps the app clean and crisp while preserving a clinical identity.
 | Clinical accent        | `--clinical-accent`        | `#1D6FB8` | Evidence, selected mode, source confidence, send action              |
 | Clinical accent hover  | `--clinical-accent-hover`  | `#185C99` | Hover/pressed clinical action                                        |
 | Clinical accent active | `--clinical-accent-active` | `#14507F` | Settled `:active` state — never below the resting baseline           |
+| Clinical accent strong | `--clinical-accent-strong` | `#185C99` | High-contrast accent text on neutral surfaces                        |
 | Clinical accent soft   | `--clinical-accent-soft`   | `#EFF5FC` | Small evidence chips and icon tiles only                             |
 | Clinical accent border | `--clinical-accent-border` | `#C6DCF2` | Selected/evidence borders                                            |
 | Info                   | `--info`                   | `#1C4FBF` | Document/search information where clinical confidence is not implied |

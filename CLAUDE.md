@@ -98,7 +98,10 @@ mockups/          Notes for the design-scratch routes under src/app/mockups/
 plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .claude/          Claude Code agents, skills, hooks, settings
 .agents/          Single-word skill catalogue (`npm run skills`)
+.cursor/          Cursor project rules and local-agent configuration
+.design-sync/     Generated design-system package metadata and validation notes
 .githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.vscode/          Shared VS Code workspace recommendations and settings
 ```
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
@@ -138,7 +141,7 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                            |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                              |
-| `npm run verify:cheap`                    | The broad local gate: 27 static/consistency gates + `lint` + `typecheck` + full offline unit suite                                                                                    |
+| `npm run verify:cheap`                    | The broad local gate: 28 static/consistency gates + `lint` + `typecheck` + full offline unit suite                                                                                    |
 | `npm run verify:pr-local`                 | Closest local mirror of the PR gate; adds format and conditional build / client-bundle scan / RAG fixture validation. `-- --dry-run --files <paths>` shows selection without running. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                             |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                               |

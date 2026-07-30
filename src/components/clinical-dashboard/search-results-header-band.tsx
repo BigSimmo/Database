@@ -24,6 +24,8 @@ export type SearchResultsBandStatus =
   | "loading"
   /** Background refresh. The prior count is still trustworthy. */
   | "refetching"
+  /** Available sources returned an honest count, but at least one source failed. */
+  | "partial"
   /** The search failed. The count is NOT trustworthy and must not be rendered. */
   | "error"
   /** Sign-in required. The count is NOT trustworthy and must not be rendered. */
@@ -148,6 +150,7 @@ export function SearchResultsHeaderBand({
   // report, so no number may reach the DOM. "0 matches" on a failed services
   // search reads as "there are no crisis services" rather than "we could not check".
   const faulted = resolvedStatus === "error" || resolvedStatus === "unauthorized";
+  const partial = resolvedStatus === "partial";
   const busy = resolvedStatus === "loading" || resolvedStatus === "refetching";
   // "Service matches" -> "Services", leaving already-plural headings ("Favourites",
   // "DSM diagnoses") untouched. Phrasing the title as "<noun> could not be loaded"
@@ -199,12 +202,12 @@ export function SearchResultsHeaderBand({
           <span
             className={cn(
               "grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10",
-              faulted
+              faulted || partial
                 ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
                 : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
             )}
           >
-            {faulted ? (
+            {faulted || partial ? (
               <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
               <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
@@ -231,8 +234,8 @@ export function SearchResultsHeaderBand({
               "shrink-0 whitespace-nowrap",
               faulted ? "search-band-fault" : "search-band-count-word",
               busy && "text-[color:var(--clinical-accent)]",
-              faulted && "text-[color:var(--warning)]",
-              !busy && !faulted && "text-[color:var(--text-muted)]",
+              (faulted || partial) && "text-[color:var(--warning)]",
+              !busy && !faulted && !partial && "text-[color:var(--text-muted)]",
             )}
             role="status"
             aria-live={faulted ? "off" : "polite"}
@@ -267,6 +270,11 @@ export function SearchResultsHeaderBand({
                   </span>{" "}
                   {matchCount === 1 ? "match" : "matches"}
                 </span>
+                {partial ? (
+                  <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
+                    {" · some sources unavailable"}
+                  </span>
+                ) : null}
               </span>
             )}
           </span>

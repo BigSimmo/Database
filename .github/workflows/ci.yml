@@ -5,6 +5,7 @@ on:
     branches: [main, "release/**"]
   pull_request:
     branches: [main, "release/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
   schedule:
@@ -189,6 +190,9 @@ jobs:
 
       - name: Runtime alignment
         run: npm run check:runtime
+
+      - name: Upload limit configuration parity
+        run: npm run check:upload-limits
 
       - name: Installed dependency parity
         run: npm run check:installed-lock-parity

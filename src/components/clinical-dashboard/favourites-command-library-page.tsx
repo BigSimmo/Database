@@ -1042,9 +1042,15 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     [demoMode, savedRegistryFavourites],
   );
   // Demo prototypes live outside the hook. If they are the only items while a
-  // registry/account read failed, keep the band ready so the table's nonzero
-  // list is not contradicted by a whole-band fault.
-  const favouritesRegistryStatus = items.length > 0 ? "ready" : favouritesHookStatus;
+  // registry/account read failed, keep their honest nonzero count but mark it
+  // partial so it cannot be mistaken for the complete saved library.
+  const favouritesRegistryStatus =
+    items.length > 0 &&
+    (favouritesHookStatus === "partial" || favouritesHookStatus === "error" || favouritesHookStatus === "unauthorized")
+      ? "partial"
+      : items.length > 0
+        ? "ready"
+        : favouritesHookStatus;
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -1205,9 +1211,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               matchCount={scopedItems.length}
               // Without this a failed registry read renders as "0 matches", which
               // reads as "you have no saved favourites" rather than "we could not
-              // load them". `status` stays ready when unaffected items already
-              // exist (local differentials, etc.) so a partial registry fault
-              // does not hide a valid nonzero count.
+              // load them". `partial` keeps unaffected items (local
+              // differentials, etc.) visible without presenting their nonzero
+              // count as the complete library.
               status={favouritesRegistryStatus}
               onRetry={favouritesRegistryStatus === "error" ? refetchFavouritesRegistry : undefined}
               filterLabel="Active favourites filters"
