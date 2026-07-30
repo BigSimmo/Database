@@ -166,6 +166,12 @@ export type StyleEffectContract = {
   readonly selector: string;
   /** Computed values that must match exactly. */
   readonly computed: Readonly<Record<string, string>>;
+  /** A computed colour that must resolve to the named CSS custom-property token. */
+  readonly colorToken?: Readonly<{ property: string; token: `--${string}` }>;
+  /** Computed properties that must remain visually distinct from each other. */
+  readonly distinct?: readonly (readonly [string, string])[];
+  /** Exact computed values after `forced-colors: active` is emulated. */
+  readonly forcedColors?: Readonly<Record<string, string>>;
   /**
    * Properties that must resolve to something actually visible. A layered (inert)
    * rule leaves these at the UA/utility default — `rgba(0, 0, 0, 0)` or `none` —
@@ -194,6 +200,12 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     // nothing while the rule was layered.
     computed: { borderTopWidth: "2px", borderTopStyle: "solid" },
     nonInert: ["borderTopColor"],
+    colorToken: { property: "borderTopColor", token: "--clinical-accent" },
+    distinct: [
+      ["borderTopColor", "borderRightColor"],
+      ["borderTopWidth", "borderRightWidth"],
+    ],
+    forcedColors: { borderTopWidth: "3px" },
     // NOTE: an attribute-variant assertion (`[data-status="error"]` re-colours the
     // rail via `--warning`) was written and removed again. It failed in CI and then
     // reproduced locally, so it is NOT a timing race — the computed border colour

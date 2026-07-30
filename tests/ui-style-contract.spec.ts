@@ -33,7 +33,14 @@ test.describe("unlayered style rules render their effect", () => {
       // only ever the first half of the check.
       await expect(target).toHaveClass(new RegExp(`(^|\\s)${contract.className}(\\s|$)`));
 
-      const properties = [...Object.keys(contract.computed), ...(contract.nonInert ?? [])];
+      const properties = [
+        ...new Set([
+          ...Object.keys(contract.computed),
+          ...(contract.nonInert ?? []),
+          ...(contract.distinct?.flat() ?? []),
+          ...(contract.colorToken ? [contract.colorToken.property] : []),
+        ]),
+      ];
       const computed = await target.evaluate((node, keys) => {
         const style = getComputedStyle(node);
         return Object.fromEntries(keys.map((key) => [key, style[key as keyof CSSStyleDeclaration] as string]));
@@ -48,6 +55,84 @@ test.describe("unlayered style rules render their effect", () => {
         // a specific colour — which also keeps hex out of the test (design-system rule).
         expect(inertValues.has(computed[property]), `${contract.className} ${property} is inert`).toBe(false);
       }
+
+      if (contract.colorToken) {
+        const tokenColor = await target.evaluate((node, token) => {
+          // Reading the custom property itself can return another `var(...)`.
+          // Resolve it through a real colour property for a comparable value.
+          const probe = document.createElement("span");
+          probe.style.color = `var(${token})`;
+          node.appendChild(probe);
+          const color = getComputedStyle(probe).color;
+          probe.remove();
+          return color;
+        }, contract.colorToken.token);
+        expect(computed[contract.colorToken.property], `${contract.className} token colour`).toBe(tokenColor);
+      }
+
+      for (const [property, comparison] of contract.distinct ?? []) {
+        expect(computed[property], `${contract.className} ${property} must differ from ${comparison}`).not.toBe(
+          computed[comparison],
+        );
+      }
+
+      if (contract.forcedColors) {
+        await page.emulateMedia({ forcedColors: "active" });
+        for (const [property, expected] of Object.entries(contract.forcedColors)) {
+          await expect
+            .poll(() =>
+              target.evaluate(
+                (node, key) => getComputedStyle(node)[key as keyof CSSStyleDeclaration] as string,
+                property,
+              ),
+            )
+            .toBe(expected);
+        }
+        await page.emulateMedia({ forcedColors: null });
+      }
     });
   }
+
+  test("tap-sized minimum heights survive the rendered cascade", async ({ page }) => {
+    await page.goto("/services?q=CMHT&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.locator('[data-testid="search-query-ribbon"]:visible').first()).toBeVisible({ timeout: 20_000 });
+
+    const audit = await page.evaluate(() => {
+      const describe = (element: Element) =>
+        `${element.tagName.toLowerCase()}.${(element.className || "").toString().split(/\s+/).slice(0, 3).join(".")}`;
+      const tapToken = getComputedStyle(document.documentElement).getPropertyValue("--spacing-tap").trim();
+      const probe = document.createElement("div");
+      probe.style.height = tapToken || "2.75rem";
+      document.body.appendChild(probe);
+      const tapFloor = probe.getBoundingClientRect().height;
+      probe.remove();
+
+      const inlineCarriers: string[] = [];
+      const undersized: string[] = [];
+      let measuredCount = 0;
+      for (const element of document.querySelectorAll("*")) {
+        const style = getComputedStyle(element);
+        const declared = Number.parseFloat(style.minHeight);
+        if (!Number.isFinite(declared) || declared < tapFloor - 0.5) continue;
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        measuredCount += 1;
+        if (style.display === "inline") {
+          if (inlineCarriers.length < 10) inlineCarriers.push(`${describe(element)} (min-height ${style.minHeight})`);
+          continue;
+        }
+        if (rect.height < declared - 0.5 && undersized.length < 10) {
+          undersized.push(
+            `${describe(element)} declared ${style.minHeight}, rendered ${Math.round(rect.height * 10) / 10}px`,
+          );
+        }
+      }
+      return { tapFloor, measuredCount, inlineCarriers, undersized };
+    });
+
+    expect(audit.tapFloor, "--spacing-tap must resolve to a real pixel floor").toBeGreaterThanOrEqual(44);
+    expect(audit.measuredCount, "expected at least one rendered tap-sized control").toBeGreaterThan(0);
+    expect(audit.inlineCarriers, "tap-sized min-height is inert on inline boxes").toEqual([]);
+    expect(audit.undersized, "controls rendered below their declared min-height").toEqual([]);
+  });
 });
