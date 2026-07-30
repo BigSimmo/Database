@@ -251,7 +251,10 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
   // Preserve the pre-consolidation unit gate for every non-documentation
   // change. Narrower signals still scope build/UI/database work, but must not
-  // leave runtime, worker, or configuration changes without unit coverage.
+  // leave runtime, worker, workflow, or configuration changes without unit
+  // coverage. A workflow-only edit can change test setup or the
+  // coverage gate itself, so its ~4 minute proof is deliberate rather than an
+  // accidental over-trigger (#139).
   const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
   const advisoryUiChanged =
@@ -697,6 +700,7 @@ function selfTest() {
   );
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
+    coverage_changed: true,
     docs_only: false,
     build_changed: false,
   });
@@ -709,6 +713,9 @@ function selfTest() {
   assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
     workflow_changed: true,
     source_changed: false,
+    // Skill Markdown is documentation-like: static policy checks still run,
+    // but unit coverage has no executable product surface to measure.
+    coverage_changed: false,
     docs_only: false,
     build_changed: false,
   });
