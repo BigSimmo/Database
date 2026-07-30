@@ -32,6 +32,7 @@ import {
   sanitizeCell,
 } from "../scripts/branch-review-ledger.mjs";
 import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
+import { mergeAttributeProblem } from "../scripts/check-outstanding-issues.mjs";
 
 describe("check-env-parity name parsing", () => {
   it("extracts UPPER_SNAKE schema keys from env.ts-style text", () => {
@@ -546,5 +547,32 @@ describe("branch-review-ledger guard", () => {
     expect(validateLedger({ ...valid, ledger: strict }).failures.join(" ")).toMatch(/no lookup can match/);
     const legacy = strict.replace("2026-07-29", "2026-07-01");
     expect(validateLedger({ ...valid, ledger: legacy }).failures).toEqual([]);
+  });
+});
+
+describe("outstanding-issues merge attribute", () => {
+  // Ledger #133 removed `merge=union` so overlapping edits conflict loudly rather
+  // than being silently concatenated. Git's three non-driver states are not
+  // interchangeable, and only one of them is that contract.
+  it("accepts an unspecified attribute, the documented default 3-way merge", () => {
+    expect(mergeAttributeProblem("unspecified")).toBeNull();
+  });
+
+  it("rejects `-merge`, which conflicts every two-sided edit instead of merging", () => {
+    // Unset is not Unspecified: it takes the current branch's version and declares
+    // a conflict. `git check-attr` reports it as "unset", and an earlier revision of
+    // this guard accepted that string while printing "no merge driver".
+    expect(mergeAttributeProblem("unset")).toMatch(/must leave `merge` unspecified/);
+  });
+
+  it("rejects a named driver, including the one #133 removed", () => {
+    expect(mergeAttributeProblem("union")).toMatch(/must have NO merge driver/);
+    expect(mergeAttributeProblem("ledger")).toMatch(/must have NO merge driver/);
+  });
+
+  it("rejects an empty reading rather than treating it as absence", () => {
+    // An empty string means check-attr output did not parse — silently accepting it
+    // would make the whole check vacuous.
+    expect(mergeAttributeProblem("")).toMatch(/must have NO merge driver/);
   });
 });

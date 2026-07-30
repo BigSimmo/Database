@@ -1,7 +1,7 @@
 # Audit remediation plan — 2026-07-14
 
 Plan derived from the multi-skill repository audit of `main` @ `570e6ba` (ledger rows in
-[`branch-review-ledger.md`](branch-review-ledger.md)). This document is the sequenced address plan for
+[`branch-review-ledger.md`](../branch-review-ledger.md)). This document is the sequenced address plan for
 every finding: major blockers first, then P2 sub-issues, then P3 cleanup.
 
 **Findings handover (inventory + status):** [`audit-handover-2026-07-14.md`](audit-handover-2026-07-14.md).
@@ -31,8 +31,8 @@ every finding against current `main` found the code side largely landed since th
 - Code fixes use `npm run verify:cheap` first, then the smallest domain check, then
   `npm run verify:pr-local` before handoff.
 - Provider/live actions are **operator-gated** (`⏸`). Do not run them without explicit confirmation.
-- Reconcile [`operator-backlog.md`](operator-backlog.md) against
-  [`launch-operator-runbook.md`](launch-operator-runbook.md) before repeating any historical apply.
+- Reconcile [`operator-backlog.md`](../operator-backlog.md) against
+  [`launch-operator-runbook.md`](../launch-operator-runbook.md) before repeating any historical apply.
 
 **Legend**
 
@@ -102,48 +102,48 @@ Suggested PR granularity (one theme per PR):
 
 ### B1. Close PIA-1 APP 8 / overseas processing basis
 
-|             |                                                                                                                                                                                                                                                   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Finding** | M1 — Railway Singapore + OpenAI US process incidental PHI queries                                                                                                                                                                                 |
-| **Owner**   | OWNER:LEGAL + OWNER:OPS                                                                                                                                                                                                                           |
-| **Address** | Execute checklist in [`openai-cross-border-basis.md`](openai-cross-border-basis.md): OpenAI DPA, ZDR eligibility enablement where chosen, Railway DPA/processor record, update PIA status tables and `/privacy` copy only after counsel approval. |
-| **Prove**   | Status record rows move from `_no_` to dated `_yes_` / approved alternative; PIA-1 no longer High-open                                                                                                                                            |
+|             |                                                                                                                                                                                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Finding** | M1 — Railway Singapore + OpenAI US process incidental PHI queries                                                                                                                                                                                    |
+| **Owner**   | OWNER:LEGAL + OWNER:OPS                                                                                                                                                                                                                              |
+| **Address** | Execute checklist in [`openai-cross-border-basis.md`](../openai-cross-border-basis.md): OpenAI DPA, ZDR eligibility enablement where chosen, Railway DPA/processor record, update PIA status tables and `/privacy` copy only after counsel approval. |
+| **Prove**   | Status record rows move from `_no_` to dated `_yes_` / approved alternative; PIA-1 no longer High-open                                                                                                                                               |
 
 ### B2. Verify Railway `RAG_QUERY_HASH_SECRET` (PIA-2)
 
-|             |                                                                                                                                                                                                                                                                                                                 |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Finding** | M2 — secret verified in GitHub CI, Railway runtime still `🔎 verify`                                                                                                                                                                                                                                            |
-| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                       |
-| **Address** | Set/confirm a ≥16-char value in Railway **production** that matches the GitHub Actions secret used for CI smoke. For staging, set a **separate** staging-only `RAG_QUERY_HASH_SECRET` per [`staging-setup.md`](staging-setup.md) — do not reuse the production HMAC key. Confirm boot smoke and deep readiness. |
-| **Prove**   | `⏸ npm run check:deployment-readiness` / production health boot; backlog → `✅`                                                                                                                                                                                                                                 |
+|             |                                                                                                                                                                                                                                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Finding** | M2 — secret verified in GitHub CI, Railway runtime still `🔎 verify`                                                                                                                                                                                                                                               |
+| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                          |
+| **Address** | Set/confirm a ≥16-char value in Railway **production** that matches the GitHub Actions secret used for CI smoke. For staging, set a **separate** staging-only `RAG_QUERY_HASH_SECRET` per [`staging-setup.md`](../staging-setup.md) — do not reuse the production HMAC key. Confirm boot smoke and deep readiness. |
+| **Prove**   | `⏸ npm run check:deployment-readiness` / production health boot; backlog → `✅`                                                                                                                                                                                                                                    |
 
 ### B3. Restore OpenAI quota and run release gates
 
-|             |                                                                                                                                                                                                                                                                                                                |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Finding** | M3 — release gate + golden evals incomplete; prior quota exhaustion                                                                                                                                                                                                                                            |
-| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                      |
-| **Address** | Complete the runbook §0 identity preflight with `npm run check:supabase-project`, then restore embedding/completions quota → run `npm run eval:retrieval:quality` (36/36) → `npm run eval:quality -- --rag-only` → `npm run verify:release` per [`launch-operator-runbook.md`](launch-operator-runbook.md) §2. |
-| **Prove**   | Paste summaries into release notes / backlog; canary path in B4                                                                                                                                                                                                                                                |
+|             |                                                                                                                                                                                                                                                                                                                   |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Finding** | M3 — release gate + golden evals incomplete; prior quota exhaustion                                                                                                                                                                                                                                               |
+| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                         |
+| **Address** | Complete the runbook §0 identity preflight with `npm run check:supabase-project`, then restore embedding/completions quota → run `npm run eval:retrieval:quality` (36/36) → `npm run eval:quality -- --rag-only` → `npm run verify:release` per [`launch-operator-runbook.md`](../launch-operator-runbook.md) §2. |
+| **Prove**   | Paste summaries into release notes / backlog; canary path in B4                                                                                                                                                                                                                                                   |
 
 ### B4. Eval Canary trust + staging soak
 
-|             |                                                                                                                                                                                               |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Finding** | M3 leftovers — canary not yet “two greens”; staging soak pending                                                                                                                              |
-| **Owner**   | OWNER:OPS                                                                                                                                                                                     |
-| **Address** | Provision staging if absent ([`staging-setup.md`](staging-setup.md)); soak (`scripts/soak-test.ts --confirm-staging`, answer p95 ≤ 25 s); run two consecutive Eval Canary greens from `main`. |
-| **Prove**   | Soak log + two green workflow runs recorded in backlog                                                                                                                                        |
+|             |                                                                                                                                                                                                  |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Finding** | M3 leftovers — canary not yet “two greens”; staging soak pending                                                                                                                                 |
+| **Owner**   | OWNER:OPS                                                                                                                                                                                        |
+| **Address** | Provision staging if absent ([`staging-setup.md`](../staging-setup.md)); soak (`scripts/soak-test.ts --confirm-staging`, answer p95 ≤ 25 s); run two consecutive Eval Canary greens from `main`. |
+| **Prove**   | Soak log + two green workflow runs recorded in backlog                                                                                                                                           |
 
 ### B5. Worker image / secret / seed post-deploy confirm
 
-|             |                                                                                                                                                                                                                                                |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Finding** | Worker redeploy, registry seed, `HEALTH_DEEP_PROBE_SECRET`, auth connection cap                                                                                                                                                                |
-| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                      |
-| **Address** | Follow runbook §6 after B3: `reindex:health`, seed registry/differentials, wire ops-digest secrets if desired, flip auth connection allocation **before** vertical scale ([`auth-connection-cap-runbook.md`](auth-connection-cap-runbook.md)). |
-| **Prove**   | Non-empty Services/Forms; reindex health clear; optional ops-digest cron enabled                                                                                                                                                               |
+|             |                                                                                                                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Finding** | Worker redeploy, registry seed, `HEALTH_DEEP_PROBE_SECRET`, auth connection cap                                                                                                                                                                   |
+| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                         |
+| **Address** | Follow runbook §6 after B3: `reindex:health`, seed registry/differentials, wire ops-digest secrets if desired, flip auth connection allocation **before** vertical scale ([`auth-connection-cap-runbook.md`](../auth-connection-cap-runbook.md)). |
+| **Prove**   | Non-empty Services/Forms; reindex health clear; optional ops-digest cron enabled                                                                                                                                                                  |
 
 ---
 
@@ -447,7 +447,7 @@ After Waves B–H land (or are deferred with dated waiver):
 4. `⏸ npm run eval:retrieval:quality` + `npm run eval:quality -- --rag-only`
 5. `⏸ npm run verify:release`
 6. Update PIA / backlog / this plan’s status column (add a “Status” column locally as work completes)
-7. Record outcomes in [`branch-review-ledger.md`](branch-review-ledger.md)
+7. Record outcomes in [`branch-review-ledger.md`](../branch-review-ledger.md)
 
 ---
 
@@ -477,5 +477,5 @@ After Waves B–H land (or are deferred with dated waiver):
 ## Tracking
 
 Append progress to the review ledger when a wave completes, and flip matching rows in
-[`operator-backlog.md`](operator-backlog.md). Prefer linking PRs back to issue IDs in this document
+[`operator-backlog.md`](../operator-backlog.md). Prefer linking PRs back to issue IDs in this document
 (`Wave C1`, `Wave E2`, …) in the PR body.

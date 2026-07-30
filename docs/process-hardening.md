@@ -86,10 +86,12 @@ artifact before release; see
   Future-process only — do not mutate unrelated active PRs unless explicitly asked.
 - **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
   (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
-  both-tables, stale `issues:next-id`, malformed rows). PR #1416 adds `merge=union` in
-  `.gitattributes` and a runtime attribute check so concurrent appends keep both sides'
-  rows; union merge still cannot allocate unique IDs, so the structural gate remains
-  required.
+  both-tables, stale `issues:next-id`, malformed rows). PR #1416 added `merge=union` in
+  `.gitattributes`; it is now **removed** and the runtime attribute check inverted to require
+  no driver at all. Union could not allocate unique IDs either, and it concatenated
+  conflicting hunks instead of failing — two marker bumps became two `next-id` lines (`#133`),
+  and on 2026-07-30 it duplicated the whole open-items table on four merges (PR #1430).
+  Default 3-way merge conflicts loudly instead; the structural gate remains required.
 - **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
   `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
   `.github/workflows/pr-mergeability.yml` checks trusted `pull_request_target` events and
