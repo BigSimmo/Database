@@ -316,10 +316,22 @@ describe("repository-wide heavyweight lock", () => {
 
     try {
       const queueDirectory = testRunLockInternals.coordinatorPaths(first.coordinatorPath).queue;
+      // A file this poll cannot parse is not a ticket yet — keep waiting rather
+      // than throwing. The coordinator's own reader has always been tolerant
+      // here (`readJson` returns null and `queueRecords` filters it out); this
+      // predicate was the only reader that treated a torn read as fatal, which
+      // is how an IO-timing artefact surfaced as `SyntaxError: Unexpected end of
+      // JSON input` instead of the priority assertion below. `writeJson` now
+      // publishes via rename so the torn read cannot happen at all; this stays
+      // because the test should measure ordering, not write timing.
       await waitForCondition(() =>
         readdirSync(queueDirectory).some((file) => {
-          const ticket = JSON.parse(readFileSync(path.join(queueDirectory, file), "utf8")) as { mode: string };
-          return ticket.mode === "exclusive";
+          try {
+            const ticket = JSON.parse(readFileSync(path.join(queueDirectory, file), "utf8")) as { mode: string };
+            return ticket.mode === "exclusive";
+          } catch {
+            return false;
+          }
         }),
       );
       expect(() =>
