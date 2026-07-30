@@ -1509,23 +1509,24 @@ async function hydrateCandidatesWithMetadataAndMemory(args: {
 }) {
   // Neither read consumes the other's result. Candidate assembly remains ordered because
   // memory boosts are applied only after both promises settle, preserving the serial output.
-  const [metadataCandidates, memoryArtifacts] = await Promise.all([
-    measureSearchPhase(args.timing, "metadata_hydration", () =>
-      attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache),
-    ),
-    measureSearchPhase(args.timing, "memory_hydration", () =>
-      loadMemoryBoostArtifacts({
-        supabase: args.supabase,
-        query: args.query,
-        queryEmbedding: args.queryEmbedding,
-        ownerId: args.ownerId,
-        accessScope: args.accessScope,
-        documentIds: args.documentIds,
-        matchCount: args.matchCount,
-        cardCache: args.cardCache,
-      }),
-    ),
-  ]);
+  const [metadataCandidates, memoryArtifacts] = await measureSearchPhase(
+    args.timing,
+    "metadata_and_memory_hydration",
+    () =>
+      Promise.all([
+        attachDocumentRankingMetadata(args.supabase, args.candidates, args.ownerId, args.metadataCache),
+        loadMemoryBoostArtifacts({
+          supabase: args.supabase,
+          query: args.query,
+          queryEmbedding: args.queryEmbedding,
+          ownerId: args.ownerId,
+          accessScope: args.accessScope,
+          documentIds: args.documentIds,
+          matchCount: args.matchCount,
+          cardCache: args.cardCache,
+        }),
+      ]),
+  );
   return { ...applyMemoryBoostArtifacts(args.query, metadataCandidates, memoryArtifacts), metadataCandidates };
 }
 
