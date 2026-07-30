@@ -141,6 +141,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       # GitHub cron fires are best-effort, and the canary's own failure-issue step only reacts
@@ -219,6 +220,8 @@ jobs:
         run: npm run check:branch-review-ledger
 
       - name: Outstanding-issues ledger integrity
+        env:
+          OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: npm run check:outstanding-issues
 
       - name: PR mergeability workflow contract
