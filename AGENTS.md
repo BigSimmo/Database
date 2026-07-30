@@ -851,6 +851,10 @@ Use `docs/codex-cloud.md` as the environment contract:
   agent phase; do not copy them into files to bypass that boundary.
 - Provider-backed checks, hosted CI mutations, deployment, production data access, and
   Git publishing still require the explicit authorization defined above.
+- Authenticated live tests run through the manual
+  `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
+  dispatch confirmation, and the `Database / production` environment, never by exposing
+  credentials to the Codex Cloud agent shell.
 - The Codex GitHub connection used to clone a repository is separate from agent-shell
   `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
