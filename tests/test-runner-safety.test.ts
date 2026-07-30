@@ -8,6 +8,7 @@ import { childProcessExitCode, childProcessFailureSummary } from "../scripts/chi
 import {
   offlineTestEnvironment,
   offlineUrlValues,
+  providerFreeCloudLiveTestGap,
   providerEnvironmentKeys,
   requireProviderTestPermission,
 } from "../scripts/test-environment.mjs";
@@ -553,6 +554,22 @@ describe("provider-safe test environment", () => {
     expect(() => requireProviderTestPermission({ ALLOW_PROVIDER_TESTS: "true" })).not.toThrow();
   });
 
+  it("reports the intentional Cloud credential boundary after live-test authorization", () => {
+    const environment = {
+      ALLOW_PROVIDER_TESTS: "true",
+      CODEX_CLOUD: "1",
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      RAG_PROVIDER_MODE: "offline",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+      OPENAI_API_KEY: "must-not-appear",
+    };
+    const gap = providerFreeCloudLiveTestGap(environment);
+    expect(gap).toContain("agent-phase provider credentials are intentionally unavailable");
+    expect(gap).not.toContain(environment.OPENAI_API_KEY);
+    expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: "connected" })).toBeNull();
+  });
+
   it("keeps live tests out of default Vitest discovery", () => {
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
     expect(config).toContain('exclude: liveProviderTests ? [] : ["tests/**/*.live.test.ts"]');
@@ -581,6 +598,29 @@ describe("provider-safe test environment", () => {
     });
     expect(childProcessExitCode(result)).toBe(1);
     expect(`${result.stdout}${result.stderr}`).toContain("Live provider tests are disabled");
+  });
+
+  it("fails the authorized live-test command with a sanitized offline Cloud capability gap", () => {
+    const secret = "sensitive-test-value";
+    const result = spawnSync(process.execPath, ["scripts/run-live-tests.mjs"], {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+      env: {
+        ...process.env,
+        ALLOW_PROVIDER_TESTS: "true",
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        RAG_PROVIDER_MODE: "offline",
+        NEXT_PUBLIC_DEMO_MODE: "true",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+        OPENAI_API_KEY: secret,
+      },
+      encoding: "utf8",
+    });
+    const output = `${result.stdout}${result.stderr}`;
+    expect(childProcessExitCode(result)).toBe(2);
+    expect(output).toContain("Live provider test capability gap");
+    expect(output).not.toContain(secret);
+    expect(output).not.toContain("sensitive-test");
   });
 
   it("loads credentials from Next environment files without accepting persisted permission", () => {

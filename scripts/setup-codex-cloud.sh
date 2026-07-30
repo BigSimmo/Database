@@ -16,8 +16,25 @@ cd "$repo_root"
 
 expected_node_major="$(tr -cd '0-9' < .node-version)"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
+railway_cli_version="5.30.1"
+codex_cli_version="0.146.0"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
 [[ -n "$expected_npm_version" ]] || fail "Could not read the npm version from package.json."
+
+install_npm_cli() {
+  local package_name="$1"
+  local expected_version="$2"
+  local command_name="$3"
+  local actual_version
+  actual_version="$("$command_name" --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  if [[ "$actual_version" != "$expected_version" ]]; then
+    log "Installing ${package_name}@${expected_version}."
+    npm install --global "${package_name}@${expected_version}"
+    hash -r
+    actual_version="$("$command_name" --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  fi
+  [[ "$actual_version" = "$expected_version" ]] || fail "${command_name} ${expected_version} is required; detected ${actual_version:-unavailable}."
+}
 
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 actual_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
@@ -70,7 +87,7 @@ fi
 EOF
 
 profile_source='[ -f "$HOME/.clinical-kb-codex-cloud.sh" ] && . "$HOME/.clinical-kb-codex-cloud.sh"'
-for shell_profile in "$HOME/.bashrc" "$HOME/.profile"; do
+for shell_profile in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile"; do
   touch "$shell_profile"
   if ! grep -Fq '.clinical-kb-codex-cloud.sh' "$shell_profile"; then
     printf '\n# Clinical KB Codex Cloud runtime\n%s\n' "$profile_source" >> "$shell_profile"
@@ -82,6 +99,11 @@ source "$runtime_profile"
 
 log "Installing locked Node dependencies."
 npm ci --include=dev
+
+install_npm_cli "@railway/cli" "$railway_cli_version" "railway"
+install_npm_cli "@openai/codex" "$codex_cli_version" "codex"
+
+node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
 
 if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -n '1s/^deno \([0-9]*\).*/\1/p')" != "2" ]]; then
   log "Installing Deno 2.x."

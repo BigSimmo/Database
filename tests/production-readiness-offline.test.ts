@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { openAIReadinessPolicy } from "../scripts/production-readiness";
+import { isProviderFreeCodexCloud, openAIReadinessPolicy } from "../scripts/production-readiness";
 
 describe("production readiness provider policy", () => {
   it("passes the explicit staging declaration to the shared project guard", () => {
@@ -18,6 +18,27 @@ describe("production readiness provider policy", () => {
 
   it("allows a missing OpenAI key only for explicit offline mode", () => {
     expect(openAIReadinessPolicy("offline")).toEqual({ required: false, ready: true });
+  });
+
+  it("distinguishes the provider-free Cloud contract from connected live verification", () => {
+    expect(
+      isProviderFreeCodexCloud({
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        RAG_PROVIDER_MODE: "offline",
+        NEXT_PUBLIC_DEMO_MODE: "true",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+      }),
+    ).toBe(true);
+    expect(
+      isProviderFreeCodexCloud({
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_ACCESS_PROFILE: "connected",
+        RAG_PROVIDER_MODE: "auto",
+        NEXT_PUBLIC_DEMO_MODE: "false",
+        PLAYWRIGHT_OFFLINE_MODE: "false",
+      }),
+    ).toBe(false);
   });
 
   it("documents local presence fill guidance for safety/query-hash/deep-probe gaps", () => {
