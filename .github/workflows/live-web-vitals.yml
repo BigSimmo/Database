@@ -18,7 +18,8 @@ name: Live Web Vitals baseline
 #
 # The decision rule is written down BEFORE the numbers are read, so the gate
 # cannot be rationalised after the fact:
-#   mobile LCP < 2.5s AND CLS < 0.1 AND INP < 200ms on every route
+#   mobile MEDIAN LCP < 2.5s AND CLS < 0.1 AND INP < 200ms on every route,
+#   with the samples behind each median all on one side of the line
 #     -> close #017 "metrics acceptable"; only the explicitly measured payload
 #        findings gated by #017 become WONTFIX (e.g. #013 route-chunk weight).
 #        #016's motion/CSS/waterfall/caching/dynamic-import items stay open
@@ -39,6 +40,10 @@ on:
         # `page.tsx` (see docs/site-map.md), so it would have measured the 404
         # document. `/documents/search` is the canonical documents-mode route.
         default: "/,/therapy-compass,/documents/search,/dsm,/forms"
+      samples:
+        description: "Lighthouse runs per route/strategy (median is graded)"
+        required: false
+        default: "3"
 
 permissions:
   contents: read
@@ -57,6 +62,12 @@ jobs:
       # matching live-domain-monitor.yml.
       LIVE_DOMAIN_URL: ${{ vars.LIVE_DOMAIN_URL || 'https://psychiatry.tools' }}
       ROUTES: ${{ inputs.routes }}
+      # Ledger #114: one run per route cannot measure dispersion, so it cannot
+      # detect the "evidence is too noisy" condition #017 says to stop on, and a
+      # route near the threshold resolves on variance alone. The summariser
+      # grades the MEDIAN of these and refuses to grade a cell whose samples
+      # straddle the line.
+      SAMPLES: ${{ inputs.samples || '3' }}
       # Pinned exactly, not `lighthouse@12`. That range is >=12.0.0 <13.0.0-0,
       # so a patch published between a baseline run and its follow-up would
       # change metric collection independently of the application and silently
@@ -110,8 +121,9 @@ jobs:
               # Filename-safe slug: "/" -> root, "/a/b" -> a-b
               slug="$(echo "$route" | sed 's|^/||; s|/|-|g')"
               [ -n "$slug" ] || slug="root"
-              out="web-vitals/${strategy}-${slug}"
-              echo "::group::$strategy $route"
+              for sample in $(seq 1 "$SAMPLES"); do
+              out="web-vitals/${strategy}-${slug}-${sample}"
+              echo "::group::$strategy $route (sample $sample/$SAMPLES)"
               # One flaky route must not discard the whole run, so a failure is
               # a warning here; the summary step fails if NOTHING was produced.
               npx --yes "lighthouse@$LIGHTHOUSE_VERSION" "$LIVE_DOMAIN_URL$route" \
@@ -120,8 +132,9 @@ jobs:
                 --only-categories=performance \
                 --chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage" \
                 --max-wait-for-load=60000 \
-                --quiet || echo "::warning::lighthouse failed for $strategy $route"
+                --quiet || echo "::warning::lighthouse failed for $strategy $route sample $sample"
               echo "::endgroup::"
+              done
             done
           done
 
@@ -129,7 +142,7 @@ jobs:
       # as a breach. Grading only the reports that happen to exist would let a
       # partially failed run read as "every mobile route passed".
       - name: Summarise LCP / CLS / TBT against the decision rule
-        run: node scripts/summarise-web-vitals.mjs web-vitals "$ROUTES"
+        run: node scripts/summarise-web-vitals.mjs web-vitals "$ROUTES" "$SAMPLES"
 
       - name: Upload the reports
         if: always()

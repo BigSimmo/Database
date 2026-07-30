@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  WEB_VITALS_SAMPLES,
   WEB_VITALS_THRESHOLDS,
-  expectedMobileRuns,
+  aggregateCells,
+  cellOf,
+  chromeBuilds,
+  expectedCells,
+  expectedMobileCells,
   expectedRuns,
   collidingRouteSlugs,
   incompleteEvidence,
   isProductionVerdict,
   measuredRequestedPage,
+  median,
   missingRuns,
   mobileBreaches,
+  straddlesThreshold,
   renderTable,
   routeSlug,
   summariseReport,
@@ -19,6 +26,21 @@ import {
 // be a real page route in docs/site-map.md: a bare `/documents` has no
 // `page.tsx`, so measuring it would have profiled the 404 document.
 const DEFAULT_ROUTES = "/,/therapy-compass,/documents/search,/dsm,/forms";
+
+/** All `WEB_VITALS_SAMPLES` reports for one cell, every sample identical. */
+function cell(name: string, lcpMs: number | null, cls: number | null) {
+  return Array.from({ length: WEB_VITALS_SAMPLES }, (_, index) => row(`${name}-${index + 1}`, lcpMs, cls));
+}
+
+/** The report names a cell expands to: "mobile-dsm" -> mobile-dsm-1..3. */
+function samplesOf(...names: string[]) {
+  return names.flatMap((name) => Array.from({ length: WEB_VITALS_SAMPLES }, (_, i) => `${name}-${i + 1}`));
+}
+
+/** One cell's reports with an explicit value per sample, for spread cases. */
+function samples(name: string, lcps: (number | null)[], clsValues?: (number | null)[]) {
+  return lcps.map((lcpMs, index) => row(`${name}-${index + 1}`, lcpMs, clsValues?.[index] ?? 0.01));
+}
 
 function row(run: string, lcpMs: number | null, cls: number | null) {
   const url = `https://psychiatry.tools/${run}`;
@@ -46,9 +68,9 @@ describe("routeSlug", () => {
   });
 });
 
-describe("expectedMobileRuns", () => {
+describe("expectedMobileCells", () => {
   it("derives one mobile run per requested route", () => {
-    expect(expectedMobileRuns(DEFAULT_ROUTES)).toEqual([
+    expect(expectedMobileCells(DEFAULT_ROUTES)).toEqual([
       "mobile-root",
       "mobile-therapy-compass",
       "mobile-documents-search",
@@ -60,21 +82,21 @@ describe("expectedMobileRuns", () => {
 
 describe("mobileBreaches", () => {
   it("passes when every requested mobile route reports inside the thresholds", () => {
-    const rows = expectedMobileRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    const rows = expectedMobileCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01));
     expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]);
   });
 
   it("treats a missing metric as a breach", () => {
-    const rows = expectedMobileRuns(DEFAULT_ROUTES).map((run) =>
-      run === "mobile-dsm" ? row(run, null, 0.01) : row(run, 1200, 0.01),
+    const rows = expectedMobileCells(DEFAULT_ROUTES).map((run) =>
+      cellOf(run) === "mobile-dsm" ? row(run, null, 0.01) : row(run, 1200, 0.01),
     );
     const breaches = mobileBreaches(rows, DEFAULT_ROUTES);
     expect(breaches.map((breach) => breach.run)).toEqual(["mobile-dsm"]);
   });
 
   it("treats an over-threshold metric as a breach", () => {
-    const rows = expectedMobileRuns(DEFAULT_ROUTES).map((run) =>
-      run === "mobile-forms" ? row(run, WEB_VITALS_THRESHOLDS.lcpMs + 1, 0.01) : row(run, 1200, 0.01),
+    const rows = expectedMobileCells(DEFAULT_ROUTES).map((run) =>
+      cellOf(run) === "mobile-forms" ? row(run, WEB_VITALS_THRESHOLDS.lcpMs + 1, 0.01) : row(run, 1200, 0.01),
     );
     expect(mobileBreaches(rows, DEFAULT_ROUTES).map((breach) => breach.run)).toEqual(["mobile-forms"]);
   });
@@ -104,34 +126,30 @@ describe("mobileBreaches", () => {
 // exited 0 before this: a complete mobile sweep with no desktop reports at all,
 // and a mobile report that exists but carries no LCP/CLS number.
 describe("incompleteEvidence", () => {
-  const allRuns = () => expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+  const allRuns = () => expectedCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01));
 
   it("is empty when every requested mobile and desktop run reported", () => {
     expect(incompleteEvidence(allRuns(), DEFAULT_ROUTES)).toEqual([]);
   });
 
   it("covers both strategies, so a missing desktop report is incomplete evidence", () => {
-    const mobileOnly = expectedMobileRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    const mobileOnly = expectedMobileCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01));
     expect(mobileBreaches(mobileOnly, DEFAULT_ROUTES)).toEqual([]); // thresholds all pass
-    expect(missingRuns(mobileOnly, DEFAULT_ROUTES)).toEqual([
-      "desktop-root",
-      "desktop-therapy-compass",
-      "desktop-documents-search",
-      "desktop-dsm",
-      "desktop-forms",
-    ]);
-    expect(incompleteEvidence(mobileOnly, DEFAULT_ROUTES)).toHaveLength(5);
+    expect(missingRuns(mobileOnly, DEFAULT_ROUTES)).toEqual(
+      samplesOf("desktop-root", "desktop-therapy-compass", "desktop-documents-search", "desktop-dsm", "desktop-forms"),
+    );
+    expect(incompleteEvidence(mobileOnly, DEFAULT_ROUTES)).toHaveLength(5 * WEB_VITALS_SAMPLES);
     expect(renderTable(mobileOnly, DEFAULT_ROUTES)).toContain("NOT an #017 verdict");
   });
 
   it("treats a present report with no LCP/CLS number as incomplete, not merely a breach", () => {
-    const rows = allRuns().map((r) => (r.run === "mobile-dsm" ? { ...r, lcpMs: null } : r));
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm"]);
+    const rows = allRuns().map((r) => (cellOf(r.run) === "mobile-dsm" ? { ...r, lcpMs: null } : r));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("mobile-dsm"));
   });
 
   it("does not treat an over-threshold measurement as incomplete evidence", () => {
     const rows = allRuns().map((r) =>
-      r.run === "mobile-forms" ? { ...r, lcpMs: WEB_VITALS_THRESHOLDS.lcpMs + 1 } : r,
+      cellOf(r.run) === "mobile-forms" ? { ...r, lcpMs: WEB_VITALS_THRESHOLDS.lcpMs + 1 } : r,
     );
     expect(mobileBreaches(rows, DEFAULT_ROUTES).map((b) => b.run)).toEqual(["mobile-forms"]);
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
@@ -140,10 +158,10 @@ describe("incompleteEvidence", () => {
   // Completeness is a property of the whole matrix. Checking metric validity
   // only on mobile left a desktop report with null metrics reading as evidence.
   it("rejects a desktop report that exists but carries no LCP/CLS number", () => {
-    const rows = allRuns().map((r) => (r.run === "desktop-forms" ? { ...r, cls: null } : r));
+    const rows = allRuns().map((r) => (cellOf(r.run) === "desktop-forms" ? { ...r, cls: null } : r));
     expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]); // mobile verdict is clean
     expect(missingRuns(rows, DEFAULT_ROUTES)).toEqual([]); // the file is present
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["desktop-forms"]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("desktop-forms"));
   });
 
   // `/a/b` and `/a-b` both slug to `a-b`, so the second Lighthouse run
@@ -152,7 +170,7 @@ describe("incompleteEvidence", () => {
   it("rejects colliding route slugs, which silently drop a requested route", () => {
     const colliding = "/a/b,/a-b";
     expect(collidingRouteSlugs(colliding)).toEqual(["a-b"]);
-    const rows = [row("mobile-a-b", 1200, 0.01), row("desktop-a-b", 1200, 0.01)];
+    const rows = [...cell("mobile-a-b", 1200, 0.01), ...cell("desktop-a-b", 1200, 0.01)];
     expect(missingRuns(rows, colliding)).toEqual([]); // every expected key is "present"
     expect(incompleteEvidence(rows, colliding)).toContain("route slug collision: a-b");
   });
@@ -166,15 +184,17 @@ describe("incompleteEvidence", () => {
   // route. The numbers are clean but they describe a different page, and the
   // filename cannot reveal it.
   it("rejects a run that redirected to a different same-origin path", () => {
-    const rows = allRuns().map((r) => (r.run === "mobile-dsm" ? { ...r, url: "https://psychiatry.tools/login" } : r));
+    const rows = allRuns().map((r) =>
+      cellOf(r.run) === "mobile-dsm" ? { ...r, url: "https://psychiatry.tools/login" } : r,
+    );
     expect(isProductionVerdict(rows)).toBe(true); // origin is still canonical
-    expect(measuredRequestedPage(rows.find((r) => r.run === "mobile-dsm"))).toBe(false);
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm"]);
+    expect(measuredRequestedPage(rows.find((r) => cellOf(r.run) === "mobile-dsm"))).toBe(false);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("mobile-dsm"));
   });
 
   it("rejects a run that reported a Lighthouse runtime error", () => {
-    const rows = allRuns().map((r) => (r.run === "desktop-forms" ? { ...r, runtimeError: "NO_FCP" } : r));
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["desktop-forms"]);
+    const rows = allRuns().map((r) => (cellOf(r.run) === "desktop-forms" ? { ...r, runtimeError: "NO_FCP" } : r));
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("desktop-forms"));
   });
 
   // /documents/search?q=depression and /documents/search are different pages to
@@ -182,16 +202,16 @@ describe("incompleteEvidence", () => {
   it("rejects a redirect that drops the query string", () => {
     const requested = "https://psychiatry.tools/documents/search?q=depression";
     const rows = allRuns().map((r) =>
-      r.run === "mobile-documents-search"
+      cellOf(r.run) === "mobile-documents-search"
         ? { ...r, requestedUrl: requested, url: "https://psychiatry.tools/documents/search" }
         : r,
     );
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-documents-search"]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("mobile-documents-search"));
   });
 
   it("accepts the same query with params in a different order", () => {
     const rows = allRuns().map((r) =>
-      r.run === "mobile-dsm"
+      cellOf(r.run) === "mobile-dsm"
         ? {
             ...r,
             requestedUrl: "https://psychiatry.tools/dsm?a=1&b=2",
@@ -216,19 +236,19 @@ describe("incompleteEvidence", () => {
       }),
     ).toBe(false);
     const rows = allRuns().map((r) =>
-      r.run === "mobile-forms" ? { ...r, requestedUrl: requested, url: rewritten } : r,
+      cellOf(r.run) === "mobile-forms" ? { ...r, requestedUrl: requested, url: rewritten } : r,
     );
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-forms"]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("mobile-forms"));
   });
 
   it("accepts the same encoded query value on both requested and final URLs", () => {
     const url = "https://psychiatry.tools/forms?q=alpha%26run%3D1";
-    const rows = allRuns().map((r) => (r.run === "mobile-forms" ? { ...r, requestedUrl: url, url } : r));
+    const rows = allRuns().map((r) => (cellOf(r.run) === "mobile-forms" ? { ...r, requestedUrl: url, url } : r));
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
   });
 
   it("tolerates a trailing-slash difference between requested and final URL", () => {
-    const rows = allRuns().map((r) => (r.run === "mobile-forms" ? { ...r, url: `${r.requestedUrl}/` } : r));
+    const rows = allRuns().map((r) => (cellOf(r.run) === "mobile-forms" ? { ...r, url: `${r.requestedUrl}/` } : r));
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
   });
 });
@@ -249,7 +269,7 @@ describe("production-origin gate", () => {
   });
 
   it("states the #017 closure only for the canonical production origin", () => {
-    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01));
     expect(isProductionVerdict(rows)).toBe(true);
     expect(renderTable(rows, DEFAULT_ROUTES)).toContain("NOT yet an #017 closure");
   });
@@ -266,7 +286,7 @@ describe("production-origin gate", () => {
   });
 
   it("refuses a verdict when only some reports left the canonical origin", () => {
-    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => row(run, 1200, 0.01));
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01));
     expect(isProductionVerdict([...rows.slice(1), staging("mobile-root")])).toBe(false);
   });
 });
@@ -301,11 +321,13 @@ describe("verdict prose is gated on the run being able to produce a verdict", ()
 
   it("suppresses the threshold claim when a run measured the wrong page", () => {
     const rows = expectedRuns(DEFAULT_ROUTES).map((run) =>
-      run === "mobile-dsm" ? { ...row(run, 1200, 0.01), url: "https://psychiatry.tools/login" } : row(run, 1200, 0.01),
+      cellOf(run) === "mobile-dsm"
+        ? { ...row(run, 1200, 0.01), url: "https://psychiatry.tools/login" }
+        : row(run, 1200, 0.01),
     );
     // The redirected run still carries passing numbers, so nothing breaches.
     expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]);
-    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm"]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(samplesOf("mobile-dsm"));
 
     const table = renderTable(rows, DEFAULT_ROUTES);
     expect(table).toContain("NOT an #017 verdict");
@@ -318,7 +340,7 @@ describe("verdict prose is gated on the run being able to produce a verdict", ()
   });
 
   it("does not call a staging breach actionable", () => {
-    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => staging(run, run === "mobile-forms" ? 3000 : 1200));
+    const rows = expectedRuns(DEFAULT_ROUTES).map((run) => staging(run, cellOf(run) === "mobile-forms" ? 3000 : 1200));
     expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]); // evidence is complete…
     expect(isProductionVerdict(rows)).toBe(false); // …but not from production
     expect(mobileBreaches(rows, DEFAULT_ROUTES)).toHaveLength(1);
@@ -359,5 +381,146 @@ describe("measurement environment", () => {
 
   it("leaves the field null when the report does not state it", () => {
     expect(summariseReport("mobile-root", { audits: {} }).chromeVersion).toBeNull();
+  });
+});
+
+// Ledger #114. A single Lighthouse run cannot measure dispersion, so it cannot
+// detect the "evidence is too noisy" condition #017 tells the operator to stop
+// on — and against a hard threshold, a route near the line resolves to a pass
+// or a breach on run-to-run variance alone, invisibly. Each cell is now
+// sampled, the MEDIAN is graded, and a spread that crosses the line is refused.
+describe("sampling", () => {
+  it("expects every sample of every route/strategy cell", () => {
+    expect(WEB_VITALS_SAMPLES).toBeGreaterThanOrEqual(3);
+    expect(expectedCells(DEFAULT_ROUTES)).toHaveLength(10);
+    expect(expectedRuns(DEFAULT_ROUTES)).toHaveLength(10 * WEB_VITALS_SAMPLES);
+    expect(expectedRuns(DEFAULT_ROUTES).slice(0, 3)).toEqual(["mobile-root-1", "mobile-root-2", "mobile-root-3"]);
+    expect(cellOf("mobile-documents-search-2")).toBe("mobile-documents-search");
+    // A slug ending in a digit must not lose its last character to the sample
+    // suffix: only the trailing "-<n>" the workflow appends is stripped.
+    expect(cellOf("mobile-covid-19-3")).toBe("mobile-covid-19");
+  });
+
+  it("takes the median, so one bad sample cannot decide a cell", () => {
+    expect(median([1200, 9000, 1300])).toBe(1300);
+    expect(median([1000, 2000])).toBe(1500);
+    expect(median([])).toBeNull();
+
+    // 9000ms in one of three samples is a cold cache, not a regression.
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) =>
+      name === "mobile-dsm" ? samples(name, [1200, 9000, 1300]) : cell(name, 1200, 0.01),
+    );
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]);
+    expect(aggregateCells(rows).get("mobile-dsm")?.lcpMs).toBe(1300);
+  });
+
+  it("refuses to grade a cell whose samples straddle the threshold", () => {
+    // 2400 / 2600 around a 2500ms line: the median says pass, but a rerun would
+    // say breach. That is measured noise, not a verdict.
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) =>
+      name === "mobile-forms" ? samples(name, [2400, 2600, 2450]) : cell(name, 1200, 0.01),
+    );
+    const summary = aggregateCells(rows).get("mobile-forms");
+    expect(summary?.lcpMs).toBe(2450); // median is under the line…
+    expect(straddlesThreshold(summary)).toBe(true); // …but the spread crosses it
+
+    // So it is incomplete evidence, NOT a pass and NOT a breach.
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]);
+    const incomplete = incompleteEvidence(rows, DEFAULT_ROUTES);
+    expect(incomplete).toHaveLength(1);
+    expect(incomplete[0]).toContain("mobile-forms");
+    expect(incomplete[0]).toContain("too noisy to grade");
+
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    expect(table).toContain("NOT an #017 verdict");
+    expect(table).not.toContain("Every mobile route is within");
+  });
+
+  it("catches a straddle on CLS as well as LCP", () => {
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) =>
+      name === "mobile-root" ? samples(name, [1200, 1200, 1200], [0.09, 0.11, 0.095]) : cell(name, 1200, 0.01),
+    );
+    expect(straddlesThreshold(aggregateCells(rows).get("mobile-root"))).toBe(true);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)[0]).toContain("too noisy to grade");
+  });
+
+  it("does not call a consistent result noisy", () => {
+    // Spread well clear of the line on one side is a stable measurement, and a
+    // guard that fired here would make every run unverdictable.
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) =>
+      name === "mobile-dsm" ? samples(name, [1100, 1400, 1250]) : cell(name, 1200, 0.01),
+    );
+    expect(straddlesThreshold(aggregateCells(rows).get("mobile-dsm"))).toBe(false);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
+    expect(renderTable(rows, DEFAULT_ROUTES)).toContain("NOT yet an #017 closure");
+  });
+
+  it("still breaches when the whole spread is over the line", () => {
+    // Consistently slow is a real, reportable verdict — not noise.
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) =>
+      name === "mobile-forms" ? samples(name, [3000, 3200, 3100]) : cell(name, 1200, 0.01),
+    );
+    expect(straddlesThreshold(aggregateCells(rows).get("mobile-forms"))).toBe(false);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
+    const breaches = mobileBreaches(rows, DEFAULT_ROUTES);
+    expect(breaches.map((breach) => breach.run)).toEqual(["mobile-forms"]);
+    expect(breaches[0]?.reason).toContain("3000");
+  });
+
+  it("treats a missing sample as incomplete even when the others are fine", () => {
+    const rows = expectedRuns(DEFAULT_ROUTES)
+      .filter((run) => run !== "mobile-dsm-2")
+      .map((run) => row(run, 1200, 0.01));
+    expect(missingRuns(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm-2"]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual(["mobile-dsm-2"]);
+  });
+
+  it("shows the median and the spread it came from", () => {
+    const rows = expectedCells(DEFAULT_ROUTES).flatMap((name) =>
+      name === "mobile-dsm" ? samples(name, [1100, 1400, 1250]) : cell(name, 1200, 0.01),
+    );
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    // One row per cell with its sample count, not one row per report.
+    expect(table).toContain("| mobile-dsm | 3/3 |");
+    expect(table).toContain("1250");
+    expect(table).toContain("1100–1400");
+  });
+});
+
+// Chrome ships with the runner image, not with the pinned LIGHTHOUSE_VERSION.
+// Two builds in one dispatch means half the matrix was measured by a different
+// browser, so the cells are not comparable even to each other.
+describe("Chrome build drift", () => {
+  const withBuild = (rows: ReturnType<typeof row>[], build: string) =>
+    rows.map((entry) => ({ ...entry, chromeVersion: build }));
+
+  it("disqualifies the verdict when the runner changed browser mid-run", () => {
+    const clean = expectedCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01));
+    const rows = withBuild(clean, "Chrome/141").map((entry) =>
+      entry.run === "mobile-dsm-3" ? { ...entry, chromeVersion: "Chrome/142" } : entry,
+    );
+    expect(chromeBuilds(rows)).toEqual(["Chrome/141", "Chrome/142"]);
+
+    // Every threshold passes and the evidence is complete — only the browser
+    // split makes this unverdictable, so this isolates that gate.
+    expect(mobileBreaches(rows, DEFAULT_ROUTES)).toEqual([]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES)).toEqual([]);
+
+    const table = renderTable(rows, DEFAULT_ROUTES);
+    expect(table).toContain("NOT an #017 verdict");
+    expect(table).toContain("2 different Chrome builds");
+    // The regression this guards: the job already failed on a split build, but
+    // the step summary still carried the threshold sentence, and the summary is
+    // what outlives the run.
+    expect(table).not.toContain("Every mobile route is within");
+  });
+
+  it("says nothing about the browser when every report used the same one", () => {
+    const rows = withBuild(
+      expectedCells(DEFAULT_ROUTES).flatMap((name) => cell(name, 1200, 0.01)),
+      "Chrome/141",
+    );
+    expect(chromeBuilds(rows)).toEqual(["Chrome/141"]);
+    expect(renderTable(rows, DEFAULT_ROUTES)).toContain("NOT yet an #017 closure");
   });
 });
