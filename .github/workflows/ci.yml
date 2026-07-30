@@ -561,7 +561,6 @@ jobs:
           CONTAINER_RESULT: ${{ needs.container-images.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
-          RUN_CANCELLED: ${{ cancelled() }}
         run: |
           set -euo pipefail
 
@@ -576,6 +575,18 @@ jobs:
           # investigations on `::error::changes result was cancelled` before recognising it —
           # while a docs-only PR merged straight through a red it had learned to ignore.
           # So the result stays red and the reason stops being ambiguous.
+          #
+          # This reads each job's own `cancelled` result rather than the workflow-level
+          # cancelled status function. An earlier revision passed that function through an env
+          # value, which is INVALID: GitHub allows the status-check functions (success, failure,
+          # cancelled, always) only in `if:` conditions, so the whole workflow file failed to
+          # parse — the run was named `.github/workflows/ci.yml` instead of `CI` and created zero
+          # jobs. Valid YAML, invalid Actions schema, so prettier and every local gate passed it;
+          # `tests/ci-cache-safety.test.ts` now guards the rule directly. Note the interpolation
+          # syntax is deliberately not written out even here, because expressions are evaluated
+          # inside `run:` blocks too — a comment naming it would reproduce the same parse failure.
+          # The per-result check loses nothing: a superseded run cancels the upstream jobs, so
+          # the first require_* call reports it.
           cancelled_error() {
             echo "::error::$1 was CANCELLED — not a real failure. A newer push superseded this" \
               "run before its jobs finished, so nothing here describes the diff. Look at the" \
@@ -583,13 +594,6 @@ jobs:
               "commit. If no newer run exists, the run was cancelled by hand and genuinely" \
               "verified nothing — re-run it rather than merging."
           }
-
-          # Workflow-level cancellation: report it once, clearly, instead of letting the
-          # first require_* call below describe a superseded run as a plain failure.
-          if [ "$RUN_CANCELLED" = "true" ]; then
-            cancelled_error "this run"
-            exit 1
-          fi
 
           require_success() {
             local name="$1"

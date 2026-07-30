@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -68,7 +68,6 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     BUILD_CHANGED: "false",
     CONTAINER_CHANGED: "false",
     EVENT_NAME: "pull_request",
-    RUN_CANCELLED: "false",
     CHANGES_RESULT: "success",
     STATIC_RESULT: "success",
     // `safety` is required whenever DOCS_ONLY is false, so the green baseline must run it.
@@ -83,7 +82,7 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
   function runAggregate(overrides: Record<string, string> = {}) {
     const result = spawnSync("bash", ["-c", script], {
       // process.env is spread because this repo augments ProcessEnv with required keys, so a
-      // bare object does not typecheck. All sixteen variables the script reads are overridden
+      // bare object does not typecheck. All fifteen variables the script reads are overridden
       // below, and it runs under `set -u`, so the ambient environment cannot change the outcome.
       env: { ...process.env, ...allGreen, ...overrides },
       encoding: "utf8",
@@ -101,8 +100,9 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     expect(runAggregate().status).toBe(0);
   });
 
-  it("fails a workflow-level cancellation, and says CANCELLED rather than describing a failure", () => {
-    const { status, output } = runAggregate({ RUN_CANCELLED: "true" });
+  it("reports a superseded run as CANCELLED rather than describing a failure", () => {
+    // A supersession cancels the upstream jobs, so this is what a real one looks like.
+    const { status, output } = runAggregate({ CHANGES_RESULT: "cancelled", STATIC_RESULT: "cancelled" });
     expect(status).toBe(1);
     expect(output).toContain("CANCELLED");
     expect(output).toContain("not a real failure");
@@ -144,6 +144,29 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     // Guards the unsafe "fix": `if: !cancelled()` would skip this job on cancellation, and
     // GitHub treats a skipped required check as PASSING — mergeable with nothing verified.
     expect(workflow).toMatch(/pr-required:[\s\S]*?if: always\(\)/);
-    expect(workflow).toContain("RUN_CANCELLED: ${{ cancelled() }}");
+  });
+
+  it("never puts a status-check function anywhere but an `if:` condition", () => {
+    /*
+     * GitHub allows success()/failure()/cancelled()/always() ONLY in `if:` conditions. Using
+     * one elsewhere is valid YAML and an invalid Actions schema, so the whole file fails to
+     * parse: the run is named after the file path instead of the workflow, creates ZERO jobs,
+     * and reports a bare failure. Nothing local catches it — prettier, lint, typecheck,
+     * check:github-actions and the full unit suite all passed the broken version, and it was
+     * only visible on hosted CI. Measured 2026-07-30 on PR #1409, from
+     * `RUN_CANCELLED: ${{ cancelled() }}` in an env block.
+     */
+    const workflowDirectory = new URL("../.github/workflows/", import.meta.url);
+    const offenders: string[] = [];
+    for (const file of readdirSync(workflowDirectory).filter((name) => /\.ya?ml$/.test(name))) {
+      const text = readFileSync(new URL(file, workflowDirectory), "utf8");
+      text.split("\n").forEach((line, index) => {
+        if (!/\$\{\{[^}]*\b(success|failure|cancelled|always)\s*\(/.test(line)) return;
+        // `if:` may be the key on this line, or the expression may continue a multi-line if.
+        if (/^\s*(-\s+)?if\s*:/.test(line)) return;
+        offenders.push(`${file}:${index + 1}: ${line.trim()}`);
+      });
+    }
+    expect(offenders).toEqual([]);
   });
 });
