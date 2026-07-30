@@ -46,7 +46,31 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 
 ## Known render warns
 
-- None — 10/10 render clean, no thin/blank/variantsIdentical flags.
+- Renders themselves stay clean: 10/10, no thin/blank/variantsIdentical flags
+  (re-confirmed 2026-07-30).
+- `[TOKENS_MISSING]` 7 CSS custom properties — triaged 2026-07-30, all seven
+  are **expected in the bundle**, so the warn line itself is known. Two are
+  benign by construction; five are undefined references in repo code that the
+  bundle merely carries along (tracked in `docs/outstanding-issues.md`, not a
+  sync defect):
+  - `--mobile-composer-reserve` — set at runtime by
+    `clinical-dashboard/mobile-composer-reserve.ts` and always read through a
+    `var(…, 0rem)` fallback. Never in a static stylesheet. Do not "fix".
+  - `--x` — Tailwind v4 scans the whole repo, found the literal string
+    `bg-[color:var(--x)]` in `docs/redesign/03-decision-log.md` prose, and
+    emitted a class for it. An artifact of documenting a class name; nothing
+    renders it.
+  - `--med-accent`, `--med-accent-border` (4 sites in
+    `clinical-dashboard/medication-record-page.tsx`) and
+    `--clinical-accent-strong` (`clinical-dashboard/answer-status.tsx`) —
+    genuinely undefined production references, no fallback, so the declaration
+    is dropped at parse time. Same defect family as the dead `--text-4xs`
+    classes repaired on 2026-07-30.
+  - `--primary-hover`, `--success-hover` —
+    `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
+    gate-exempt design scratch. Lowest priority.
+- If a future sync sees a **different** var in the `[TOKENS_MISSING]` warn, that
+  one is new — look at it before recording it.
 
 ## Re-sync risks
 
@@ -64,3 +88,17 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
   components, but prop renames need preview edits.
 - The `prompt-for-codex-medical-knowledge-base` import specifier in previews is
   the package.json `name`; if the repo is renamed, update previews + config.
+- `conventions.md` drifts silently when the token set moves. The 2026-07-30
+  re-sync caught two dead claims after the Clinical Sky port: a `-solid` /
+  `-solid-contrast` pair claimed for every status family when only `danger`
+  has one, and `controlBase` listed as module-private when
+  `ui-primitives.tsx:34` exports it. Re-validate every enumerated token/class/
+  icon against `ds-bundle/_ds_bundle.css` (definitions only — match
+  `--name\s*:`, not bare `var(--name)`, or referenced-but-undefined vars read
+  as defined) and the bundle's export list on every re-sync. A helper lives at
+  `.design-sync/.cache/validate-conventions.mjs` (gitignored, cheap to rewrite).
+- The driver reports the token port as `changed: []` with `sourceKeys`
+  unchanged: `sourceKeys` track the authored preview + preview-affecting config,
+  NOT component source. A component-source or token change surfaces instead as
+  render churn (`canary`/`[SPOT_CHECK]`) plus `styling: true`. Grade the
+  spot-check sheets — the churn is real even though nothing is listed "changed".
