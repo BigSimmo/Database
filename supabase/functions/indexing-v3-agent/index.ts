@@ -20,6 +20,7 @@ import {
 
 import {
   completionGateFromRow,
+  agentFailureDecision,
   deferralDecision,
   missingArtifactPlan,
   parseJobStatusRpcResult,
@@ -1756,8 +1757,12 @@ async function completeJob(job: ClaimedJob): Promise<void> {
 }
 
 async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean> {
-  const shouldRetry = job.attempt_count < job.max_attempts;
-  const nextRunAt = shouldRetry ? new Date(Date.now() + INDEXING_V3_RETRY_DELAY_MS).toISOString() : null;
+  const decision = agentFailureDecision({
+    attemptCount: job.attempt_count,
+    maxAttempts: job.max_attempts,
+    nowMs: Date.now(),
+    retryDelayMs: INDEXING_V3_RETRY_DELAY_MS,
+  });
   await sql`
     update public.documents
     set
@@ -1767,22 +1772,22 @@ async function markJobFailure(job: ClaimedJob, message: string): Promise<boolean
           - 'indexing_v3_agent_locked_at'
           - 'indexing_v3_agent_next_run_at')
         || jsonb_build_object(
-          'indexing_v3_agent_status', ${shouldRetry ? "retry_pending" : "failed"}::text,
+          'indexing_v3_agent_status', ${decision.status}::text,
           'indexing_v3_agent_version', 'visual-core-v3',
           'indexing_v3_agent_updated_at', now(),
           'indexing_v3_agent_attempt_count', ${job.attempt_count}::integer,
           'indexing_v3_agent_max_attempts', ${job.max_attempts}::integer,
-          'indexing_v3_agent_next_run_at', ${nextRunAt}::timestamptz,
+          'indexing_v3_agent_next_run_at', ${decision.nextRunAt}::timestamptz,
           'indexing_v3_agent_last_error', ${message}::text,
-          'enrichment_status', ${shouldRetry ? "pending" : "failed"}::text,
+          'enrichment_status', ${decision.enrichmentStatus}::text,
           'enrichment_error', ${message}::text
         )
       ),
       updated_at = now()
     where id = ${job.document_id}::uuid
   `;
-  await updateAgentJobStatus(job, shouldRetry ? "pending" : "failed", message, nextRunAt);
-  return shouldRetry;
+  await updateAgentJobStatus(job, decision.jobStatus, message, decision.nextRunAt);
+  return decision.shouldRetry;
 }
 
 async function processJob(job: ClaimedJob): Promise<{ status: "completed" | "deferred"; missing: string[] }> {
