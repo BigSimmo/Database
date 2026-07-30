@@ -223,15 +223,16 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
   is public by design; the placeholder default exists so CI can build without
   secrets. **Production images must be built with the real publishable key.**
 - `NEXT_PUBLIC_MAX_UPLOAD_MB` is also a build-time public variable (Docker
-  `ARG`/`ENV` before `npm run build`). The Docker build also declares the
-  non-secret server-side `MAX_UPLOAD_MB` as a build argument so the parity
-  guard sees the runtime configuration Railway supplies. When operators lower
-  the limit, both build arguments must carry the same value; runtime-only
-  changes are insufficient because Next inlines `NEXT_PUBLIC_*` at build time.
-  The local, static-PR, and production-build `check:upload-limit-parity` guard
-  uses Next's production environment-file precedence (`process.env`,
-  `.env.production.local`, `.env.local`, `.env.production`, then `.env`) and
-  fails when the effective client and server values differ.
+  `ARG`/`ENV` before `npm run build`). When operators lower server-side
+  `MAX_UPLOAD_MB`, mirror the same value in `NEXT_PUBLIC_MAX_UPLOAD_MB` before
+  building the production image so the browser precheck rejects over-limit
+  files without a full transfer. Runtime-only Railway variables are not enough
+  for this value because Next inlines `NEXT_PUBLIC_*` at build time. Docker also
+  accepts `MAX_UPLOAD_MB` as a build arg solely for this parity check; it is not
+  copied into the final runtime image, where Railway remains authoritative. The
+  checker loads Next's production dotenv precedence, and the local, static-PR,
+  and production-build guard fails when the effective client and server values
+  differ.
 - Runtime is a non-root `node` user, prod-only `node_modules`, direct
   `next start -H 0.0.0.0 -p $PORT` (Railway injects `$PORT`; the local
   port-picker script is deliberately bypassed), and a `HEALTHCHECK` against
