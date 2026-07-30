@@ -76,13 +76,16 @@ describe("golden retrieval eval helpers", () => {
       telemetry: {
         query_class: "table_threshold",
         search_total_latency_ms: 321,
-        retrieval_phase_latencies_ms: { query_classification: 12, metadata_hydration: 34 },
+        retrieval_phase_latencies_ms: { query_classification: 12, metadata_and_memory_hydration: 34 },
       },
       latencyMs: 321,
     });
 
     expect(evaluated.searchTotalLatencyMs).toBe(321);
-    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({ query_classification: 12, metadata_hydration: 34 });
+    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({
+      query_classification: 12,
+      metadata_and_memory_hydration: 34,
+    });
   });
 
   it("scores ideal graded signal ranking, coverage, and irrelevant sources", () => {

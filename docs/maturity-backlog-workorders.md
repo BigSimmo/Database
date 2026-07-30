@@ -109,7 +109,7 @@ structural change, not a single mixed PR.
   extracted hook's `useSyncExternalStore` wiring. The residual is a tightly-coupled orchestrator
   core; further safe extractions are smaller, incremental units. `rag.ts` remains the largest open
   target.
-- **Progress (#101):** extracted per-request hydration from `rag.ts` into
+- **Progress (X3 hydration unit, PR #1463):** extracted per-request hydration from `rag.ts` into
   `src/lib/rag/rag-hydration.ts` — `DocumentRankingMetadataCache`,
   `createDocumentRankingMetadataCache`, `attachDocumentRankingMetadata`, `withCachedIndexQuality`,
   `attachIndexQualityMetadata`, `attachPageVisualEvidence`, moved byte-for-byte (rag.ts 4,780 →
