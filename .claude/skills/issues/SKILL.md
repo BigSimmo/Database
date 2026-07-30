@@ -64,6 +64,9 @@ paragraph; put the smallest next action in **Detail / next action**.
   open or resolved table as appropriate.
 - IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
 - Escape `|` inside cell text (write `\|`) so the markdown table stays intact.
+- This file uses `merge=union` in `.gitattributes`. Never resolve a conflict by taking one side
+  wholesale — that drops the other agent's rows. `npm run check:outstanding-issues` fails on
+  duplicate IDs or a stale next-id marker.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 
