@@ -146,9 +146,9 @@ export function shallowCloneRefusal(isShallowOutput) {
  * Whether `remote.origin.fetch` maps EVERY remote head into `refs/remotes/origin`.
  *
  * Takes the raw `git config --get-all remote.origin.fetch` output (one refspec per line).
- * BOTH halves have to hold, because the sweep enumerates `refs/remotes/origin` and nothing else:
+ * BOTH halves have to hold, because the sweep enumerates `refs/remotes/origin/<branch>` and nothing else:
  *
- *   source `refs/heads/*` or `refs/*`  — otherwise only the named branch is fetched
+ *   source `refs/heads/*`              — otherwise only the named branch is fetched
  *   destination `refs/remotes/origin/*` — otherwise the heads land somewhere this never reads
  *
  * Checking the source alone was wrong, and wrong in the dangerous direction. Git's `<dst>` decides
@@ -156,6 +156,14 @@ export function shallowCloneRefusal(isShallowOutput) {
  * fetches every branch and leaves `refs/remotes/origin` empty. Measured with the upstream refspec
  * above: `refs/remotes/upstream` held `upstream/main` and `upstream/feature` while the sweep exited
  * **0** reporting `"branches": []`. Codex raised this on PR #1398.
+ *
+ * `refs/*` as the source is also rejected even when the destination is `refs/remotes/origin/*`.
+ * Git's wildcard substitution puts the matched suffix into `<dst>`: fetching `refs/heads/main`
+ * against `+refs/*:refs/remotes/origin/*` writes `refs/remotes/origin/heads/main`, not
+ * `refs/remotes/origin/main`. Measured in a two-branch fixture: the sweep enumerated
+ * `heads/main` and `heads/feature`, failed to resolve its `origin/main` comparison base,
+ * swallowed both comparison failures as zeroes, and exited 0 marking both as deletion
+ * candidates. Codex raised this on PR #1398.
  *
  * A `^`-prefixed NEGATIVE refspec excludes branches from an otherwise-wildcard config, so its
  * presence means coverage cannot be established from the config at all. Measured on git 2.43.0
@@ -172,8 +180,9 @@ export function fetchRefspecCoversAllBranches(configOutput) {
   if (specs.some((spec) => spec.startsWith("^"))) return false;
   return specs.some((spec) => {
     const [source, destination] = spec.replace(/^\+/, "").split(":");
-    const coversEveryHead = source === "refs/heads/*" || source === "refs/*";
-    return coversEveryHead && destination === "refs/remotes/origin/*";
+    // Only refs/heads/* → refs/remotes/origin/*. A refs/* source nests under
+    // refs/remotes/origin/heads/<branch> (see docstring), which this never reads.
+    return source === "refs/heads/*" && destination === "refs/remotes/origin/*";
   });
 }
 
@@ -213,12 +222,14 @@ export function branchCoverageRefusal(configOutput, wildcardFetchCompleted) {
     "otherwise-wildcard config, so the configured fetch cannot be shown to cover them.",
     "So does a refspec whose destination is not refs/remotes/origin/* — a mirror",
     "(+refs/*:refs/*) fetches every branch into refs/heads/*, which this never reads.",
+    "So does `+refs/*:refs/remotes/origin/*`: git's wildcard nests the matched suffix,",
+    "writing refs/remotes/origin/heads/<branch> instead of origin/<branch>.",
     "",
     "Fix: git remote set-branches origin '*'",
     "     git fetch --prune origin",
     "Then re-run and confirm `git config --get-all remote.origin.fetch` maps",
-    "refs/heads/* with no ^ exclusions — or drop --no-fetch and let the sweep fetch the",
-    "wildcard itself, which overrides a configured exclusion.",
+    "refs/heads/* → refs/remotes/origin/* with no ^ exclusions — or drop --no-fetch and",
+    "let the sweep fetch the wildcard itself, which overrides a configured exclusion.",
   ].join("\n");
 }
 

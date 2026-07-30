@@ -243,12 +243,10 @@ describe("shallowCloneRefusal", () => {
  * Codex raised this on PR #1392 after the shallow fix landed.
  */
 describe("branchCoverageRefusal", () => {
-  it("treats a wildcard refspec into refs/remotes/origin as covering every branch", () => {
+  it("treats a heads wildcard into refs/remotes/origin as covering every branch", () => {
     expect(fetchRefspecCoversAllBranches("+refs/heads/*:refs/remotes/origin/*")).toBe(true);
     // Unprefixed (non-forced) wildcards are still wildcards.
     expect(fetchRefspecCoversAllBranches("refs/heads/*:refs/remotes/origin/*")).toBe(true);
-    // A refs/* source covers every head too, as long as it lands in refs/remotes/origin.
-    expect(fetchRefspecCoversAllBranches("+refs/*:refs/remotes/origin/*")).toBe(true);
   });
 
   it("rejects a wildcard whose destination is not refs/remotes/origin", () => {
@@ -266,6 +264,23 @@ describe("branchCoverageRefusal", () => {
     expect(branchCoverageRefusal("+refs/*:refs/*", false)).not.toBe("");
     // The sweep's own fetch writes into refs/remotes/origin explicitly, so it still repairs this.
     expect(branchCoverageRefusal("+refs/*:refs/*", true)).toBe("");
+  });
+
+  it("rejects a refs/* source even when the destination is refs/remotes/origin/*", () => {
+    /*
+     * Git substitutes the matched suffix into `<dst>`. Fetching `refs/heads/main` against
+     * `+refs/*:refs/remotes/origin/*` therefore writes `refs/remotes/origin/heads/main`, not
+     * `refs/remotes/origin/main`. Measured in a two-branch fixture: the sweep enumerated
+     * `heads/main` and `heads/feature`, failed to resolve its `origin/main` comparison base,
+     * swallowed both comparison failures as zeroes, and exited 0 marking both as deletion
+     * candidates. An earlier revision of this suite asserted the opposite — that a `refs/*`
+     * source counted as covered when the destination looked right. Codex raised this on PR #1398.
+     */
+    expect(fetchRefspecCoversAllBranches("+refs/*:refs/remotes/origin/*")).toBe(false);
+    expect(branchCoverageRefusal("+refs/*:refs/remotes/origin/*", false)).not.toBe("");
+    expect(branchCoverageRefusal("+refs/*:refs/remotes/origin/*", false)).toContain("refs/remotes/origin/heads/");
+    // The sweep's own fetch still uses +refs/heads/*:…, so a completed fetch repairs this.
+    expect(branchCoverageRefusal("+refs/*:refs/remotes/origin/*", true)).toBe("");
   });
 
   it("rejects the single-branch refspec that `git clone --depth 1` leaves behind", () => {
