@@ -531,12 +531,19 @@ before pushing the addition or assemble every commit before that PR's first push
 restarts CI rather than saving an invocation, reproducing the exact cancellation waste
 this rule exists to cut (reproduced 2026-07-30 pushing a second commit to PR #1406: the
 in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale head).
+A settle-then-push addition also lands after this repo's one automatic Codex review may
+already have run against the earlier head — in practice the connector re-reviews each new
+push (observed on this same PR), but if it doesn't, request a fresh review explicitly
+before merging rather than assuming the addition was covered.
 Bundle only when every item being combined is:
 
 - **Independently low-risk** under this repo's own classifier
-  (`scripts/pr-policy.mjs` / `classifyPullRequestFiles`): no clinical-risk path, no
-  RAG-ranking-surface path, no auth/privacy/migration/Supabase path. High-risk work
-  always gets its own PR.
+  (`scripts/pr-policy.mjs` / `classifyPullRequestFiles`): `clinicalRisk === false`,
+  no RAG-ranking-surface path, no auth/privacy/migration/Supabase path, AND
+  `operationalRisk === false` — dependency manifests (`package.json`/lockfiles),
+  `.github/workflows/**`, and build/test-runner config are classified high-risk in
+  this repo (see the automatic-resolve routing below) even though they carry neither
+  the clinical nor RAG flag. High-risk work always gets its own PR.
 - **Still its own committed, separately revertible commit while the PR is open** —
   bundling means one PR with multiple commits, never one squashed diff; `git revert <sha>`
   must undo any one item without touching the others before merge. That guarantee ends at
@@ -548,9 +555,12 @@ Bundle only when every item being combined is:
 - **Listed as its own bullet** in the PR body's Summary, not blended into one narrative
   — a reviewer (and `pr-policy.mjs`) still needs to find each item's own
   governance/RAG-impact statement if it needs one.
-- **Not already mid-edit** in another open PR or session — check
-  `docs/branch-review-ledger.md` / the open-PR list first so bundling doesn't create a
-  merge race.
+- **Not already mid-edit** in another open PR or session — check local context first
+  (`docs/branch-review-ledger.md`, `git branch`/`git log`). Confirming against the live
+  open-PR list means a GitHub API read: only do that with this session's already-
+  authorized GitHub access, or ask before querying GitHub, per "API and provider
+  confirmation boundary" — do not treat it as a silent, unconditional prerequisite that
+  blocks starting ordinary work.
 
 **Best candidates:** queued `docs/branch-review-ledger.md` / `docs/outstanding-issues.md`
 append-only tasks. They carry no revert risk of their own, always pass the same static
