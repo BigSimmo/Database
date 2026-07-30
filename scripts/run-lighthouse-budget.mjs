@@ -5,10 +5,12 @@
  *
  * Builds and serves an isolated production app the same way the Playwright runner
  * does: offline provider mode, demo corpus, inert loopback Supabase URL, a safe
- * project port, and an isolated `.next-lighthouse/<run-id>` output directory. That
- * matters for two reasons — the production boot guard only permits this profile when
- * credentials are absent, and demo mode makes the measured pages deterministic so a
- * number movement means the app changed rather than the corpus.
+ * project port, and an isolated `.next-playwright/<run-id>/dist` output directory
+ * (that exact prefix is required by the boot guard in `next.config.ts` — see the
+ * run-root comment below). That matters for two reasons — the production boot guard
+ * only permits this profile when credentials are absent, and demo mode makes the
+ * measured pages deterministic so a number movement means the app changed rather
+ * than the corpus.
  *
  * Lighthouse itself comes from `npx --yes lighthouse@<pinned>`, matching
  * `.github/workflows/live-web-vitals.yml`. It is deliberately not a devDependency:
@@ -23,7 +25,7 @@
  *        --keep (leave reports in place), --dir <path>.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
@@ -45,9 +47,17 @@ const keep = argv.includes("--keep");
 const dirIndex = argv.indexOf("--dir");
 const reportDirectory = path.resolve(projectRoot, dirIndex >= 0 ? (argv[dirIndex + 1] ?? "lighthouse") : "lighthouse");
 
-const runId = `${process.pid}-${Date.now()}`;
-const relativeDistDir = path.join(".next-lighthouse", runId);
-const absoluteDistDir = path.join(projectRoot, relativeDistDir);
+// `next.config.ts` guards NEXT_DIST_DIR/NEXT_TSCONFIG_PATH against an allowlist —
+// `.next-playwright/<run-id>/{dist,tsconfig.json}` — so a production build can only
+// ever write to an owned, throwaway output. That guard is deliberate and is NOT
+// widened for this runner: the prefix means "isolated ephemeral build output", which
+// is exactly what this is. The run id carries `lighthouse-` so a stray directory is
+// still attributable to the runner that made it, and `[a-z0-9-]+` accepts it.
+const runId = `lighthouse-${process.pid}-${Date.now()}`;
+const relativeRunRoot = `.next-playwright/${runId}`;
+const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
+const relativeDistDir = `${relativeRunRoot}/dist`;
+const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
 
 /** Filename-safe slug, matching scripts/summarise-web-vitals.mjs `routeSlug`. */
 function slugFor(route) {
@@ -115,7 +125,7 @@ function cleanup() {
     }
   }
   try {
-    rmSync(absoluteDistDir, { recursive: true, force: true });
+    rmSync(absoluteRunRoot, { recursive: true, force: true });
   } catch {
     /* best effort */
   }
@@ -167,18 +177,34 @@ try {
 
   const port = await findFreePort(stableProjectPort(projectRoot));
   const baseUrl = `http://localhost:${port}`;
-  mkdirSync(absoluteDistDir, { recursive: true });
+  mkdirSync(absoluteRunRoot, { recursive: true });
   mkdirSync(reportDirectory, { recursive: true });
+  // The isolated build needs its own tsconfig for the same reason the Playwright
+  // runner writes one: `@/*` must still resolve from the repository root while the
+  // build output lives under the run root.
+  writeFileSync(
+    path.join(absoluteRunRoot, "tsconfig.json"),
+    `${JSON.stringify(
+      {
+        extends: "../../tsconfig.json",
+        compilerOptions: { baseUrl: "../..", paths: { "@/*": ["src/*"] } },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 
   const offlineEnv = offlineTestEnvironment(lock.environment ?? process.env, {
     PORT: String(port),
     NEXT_DIST_DIR: relativeDistDir,
+    NEXT_TSCONFIG_PATH: relativeTsConfigPath,
     NODE_ENV: "production",
     PLAYWRIGHT_OFFLINE_MODE: "true",
     NEXT_PUBLIC_MOCKUPS_ENABLED: "false",
   });
 
-  console.log(`Building isolated production app for Lighthouse (${relativeDistDir})`);
+  console.log(`Building isolated production app for Lighthouse (${relativeRunRoot})`);
   const build = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
     cwd: projectRoot,
     env: offlineEnv,

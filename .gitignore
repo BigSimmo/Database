@@ -75,7 +75,6 @@
 # next.js
 /.next/
 /.next-playwright/
-/.next-lighthouse/
 /out/
 
 # Lighthouse budget reports (scripts/run-lighthouse-budget.mjs). Regenerated per run;
