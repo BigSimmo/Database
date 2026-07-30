@@ -66,10 +66,15 @@ export function dedupeLedgerMarkdown(markdown) {
 }
 
 /**
- * Union ours + theirs dated records (ours order first), drop exact duplicate rows,
- * and keep ours preamble (header/contract prose). Used by the `merge.ledger` driver.
+ * Three-way merge dated records while preserving intentional deletions.
+ *
+ * Rows added independently on either side are unioned. A row that existed in the
+ * merge base is retained only while both tips still contain it, so rotating rows
+ * out of the live ledger on one side cannot be undone by a stale branch. Preamble
+ * and trailing prose use ordinary three-way semantics and fail on divergent edits.
+ * Used by the `merge.ledger` driver.
  */
-export function mergeLedgerMarkdown(ours, theirs) {
+export function mergeLedgerMarkdown(base, ours, theirs) {
   const split = (markdown) => {
     const lines = markdown.split(/\r?\n/);
     const preamble = [];
@@ -88,17 +93,34 @@ export function mergeLedgerMarkdown(ours, theirs) {
     return { preamble, records, trailing };
   };
 
+  const ancestor = split(base);
   const a = split(ours);
   const b = split(theirs);
+  const baseRecords = new Set(ancestor.records);
+  const oursRecords = new Set(a.records);
+  const theirsRecords = new Set(b.records);
   const seen = new Set();
   const records = [];
+  const keep = (line) => !baseRecords.has(line) || (oursRecords.has(line) && theirsRecords.has(line));
   for (const line of [...a.records, ...b.records]) {
+    if (!keep(line)) continue;
     if (seen.has(line)) continue;
     seen.add(line);
     records.push(line);
   }
-  const preamble = a.preamble.length > 0 ? a.preamble : b.preamble;
-  const trailing = a.trailing.length > 0 ? a.trailing : b.trailing;
+
+  const chooseSection = (label, baseSection, oursSection, theirsSection) => {
+    const ancestorText = baseSection.join("\n");
+    const oursText = oursSection.join("\n");
+    const theirsText = theirsSection.join("\n");
+    if (oursText === theirsText) return oursSection;
+    if (oursText === ancestorText) return theirsSection;
+    if (theirsText === ancestorText) return oursSection;
+    throw new Error(`ledger ${label} changed differently on both sides`);
+  };
+
+  const preamble = chooseSection("preamble", ancestor.preamble, a.preamble, b.preamble);
+  const trailing = chooseSection("trailing content", ancestor.trailing, a.trailing, b.trailing);
   let markdown = [...preamble, ...records, ...trailing].join("\n");
   if (!markdown.endsWith("\n")) markdown += "\n";
   return { markdown, recordCount: records.length };
@@ -206,7 +228,9 @@ export function rotateLedgerMarkdown(liveMarkdown, { before, existingArchives = 
 
   const archives = [];
   for (const [label, moved] of [...byLabel.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const relative = path.join(ARCHIVE_DIR, `${ARCHIVE_PREFIX}${label}.md`);
+    // Repository-relative paths are serialized into docs and command output, so
+    // keep them stable across Windows and POSIX hosts.
+    const relative = path.posix.join(ARCHIVE_DIR, `${ARCHIVE_PREFIX}${label}.md`);
     const prior = existingArchives.get(relative) ?? "";
     const priorRecords = prior ? splitLedgerMarkdown(prior).records : [];
     const seen = new Set(priorRecords);
@@ -673,6 +697,7 @@ function selfTest() {
   const dedupedRows = dedupeLedgerMarkdown(`${preamble}\n${twinRow}\n${twinRow}\n`);
   assert(dedupedRows.removed === 1 && dedupedRows.kept === 1, "dedupe drops exact twin");
   const mergedTips = mergeLedgerMarkdown(
+    `${preamble}\n${twinRow}\n`,
     `${preamble}\n${twinRow}\n`,
     `${preamble}\n${twinRow}\n| 2026-07-28 | y | ${"f".repeat(40)} | s | o | c |\n`,
   );
