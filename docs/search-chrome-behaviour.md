@@ -152,33 +152,54 @@ removes the cause rather than damping the symptom: `headerRelease` and
 all. Do not reintroduce a route-conditional collapse.
 
 Because overlay takes the stack out of flow, phone content owns a **constant**
-top clearance: `usePhoneOverlayChromeReserve` publishes the measured stack
-height as `--phone-overlay-chrome-h` and the shell's
-`mobile-composer-reserve-pad` reads it as `max-sm:pt-[…]`. Two properties are
-load-bearing. It is measured, not tokenised, because the collapse row grows with
-portaled page navigation (`header-collapse-addon`) and a fixed `4rem` would clip
-those routes. And it never varies with hide state — `offsetHeight` ignores the
-hide transform, so the same value is correct in both states; a reserve that
-animated or zeroed on hide would reintroduce exactly the shift overlay removes.
+top clearance: `usePhoneOverlayChromeReserve` refines `--phone-overlay-chrome-h`
+to the measured stack height and the shell's `mobile-composer-reserve-pad` reads
+it as `max-sm:pt-[…]`. Three properties are load-bearing.
+
+It is **measured, not tokenised**, because the collapse row grows with portaled
+page navigation (`header-collapse-addon`) and a fixed `4rem` would clip those
+routes. It **never varies with hide state** — `offsetHeight` ignores the hide
+transform, so the same value is correct in both states; a reserve that animated
+or zeroed on hide would reintroduce exactly the shift overlay removes. And it
+must be **correct before the first paint**, which is a separate requirement from
+both of those: the property is seeded in `globals.css` as
+`calc(var(--safe-area-top) + var(--shell-header-h))` and refined in a
+`useLayoutEffect`, never a passive `useEffect`, and the utility carries no `,0px`
+fallback. Leaving the property unset until an effect ran painted the first
+content underneath the out-of-flow header and then pushed it down at hydration —
+a cold-load jump, which is the same defect class as the scroll jump this design
+exists to remove (Codex P1, 2026-07-30). SSR cannot measure, so the seed is exact
+only for routes without an addon row; addon routes refine by that row's height.
+
 The clearance is only visible near scroll top, where the header is always
 revealed, so it costs no usable height.
 
-**The overlay transform is a containing block — keep viewport-fixed footers out
-of it.** The hide translates the header stack, and a non-`none` `transform`
-(including `translateY(0)` at rest) makes an element a containing block for
-`position: fixed` descendants. A phone bottom dock left inside that subtree
-resolves `bottom: 0` against the header stack instead of the viewport and lands
-near the top of the screen — measured as a form bottom 772px away from the
-viewport bottom at 390×844, with `bottom` still computing to `0px`, which is why
-this reads as a positioning puzzle rather than a CSS error. `MasterSearchHeader`
-therefore wraps the composer in `PhoneFooterLayerPortal` when
-`phoneOverlayMotion && usesPhoneBottomDock`, so phones host it on the footer
-layer while `sm+` keeps it inline in the sticky [top bar | search] stack. This is
-the same mechanism invariant 21 already requires of the DocumentViewer,
-calculator and differential footers, and it is why document routes never hit the
-bug. Do not "simplify" that back to an inline composer, and do not solve it by
-rendering the composer twice per breakpoint — duplicate page-root `data-testid`s
-are their own failure mode (see invariant 17).
+**Keep the resting state transform-free — a transform is a containing block.** A
+non-`none` `transform`, _including `translateY(0)`_, makes an element a containing
+block for `position: fixed` descendants. A phone bottom dock inside that subtree
+resolves `bottom: 0` against the header stack rather than the viewport and lands
+near the top of the screen — measured as a form bottom 772px from the viewport
+bottom at 390×844, with `bottom` still computing to `0px`, which is why it reads
+as a positioning puzzle rather than a CSS error.
+
+So the revealed state applies **no** transform utility; only the hidden state
+carries `max-sm:-translate-y-full`. A transition from `none` interpolates from the
+identity transform, so the hide still animates. This ordering matters beyond
+tidiness: a resting `translateY(0)` creates the containing block in the
+server-rendered markup, before any portal exists to escape it, so the dock is
+mis-anchored on first paint and only corrects at hydration (Codex P1,
+2026-07-30). Resting-state-clean is the general rule — do not reintroduce a
+no-op transform for symmetry with the hidden branch.
+
+`MasterSearchHeader` additionally wraps the composer in `PhoneFooterLayerPortal`
+when `phoneOverlayMotion && usesPhoneBottomDock`, which covers the during-hide
+window when the transform genuinely exists, and matches the mechanism invariant
+21 already requires of the DocumentViewer, calculator and differential footers.
+Treat it as defence in depth, not the primary fix — `PhoneFooterLayerPortal`
+starts with `isPhone === false`, so it does nothing until hydration and cannot
+protect first paint on its own. Do not solve any of this by rendering the
+composer twice per breakpoint: duplicate page-root `data-testid`s are their own
+failure mode (see invariant 17).
 
 Rules that keep this working:
 
