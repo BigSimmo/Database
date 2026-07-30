@@ -27,6 +27,11 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 | `npm run verify:pr-local`                 | PR-like local gate. Formatting is checked on the changed set, the full unit suite runs once, and RAG scope adds fixture/manifest validation.            |
 | `npm run verify:phone-chrome`             | Smart phone-chrome gate: lock parity, affected contracts, browser/PWA owners and exact journeys, then full UI only for shared foundations.              |
 | `npm run verify:ui`                       | Complete required production Chromium gate.                                                                                                             |
+| `npm run test:e2e:style-contract`         | Focused rendered-effect assertions for the unlayered classes in `globals.css` (also runs inside `test:e2e:pr`).                                         |
+| `npm run test:e2e:visual`                 | Pixel baselines. Advisory in CI; a platform with no committed baseline fails by design.                                                                 |
+| `npm run test:e2e:visual:update`          | Rewrite the pixel baselines for the current platform. Review every changed PNG before committing.                                                       |
+| `npm run verify:lighthouse`               | Build, serve, and measure the budgeted routes with Lighthouse, then grade against the committed baseline. `-- --dry-run` prints the plan.               |
+| `npm run check:lighthouse-budget`         | Grade Lighthouse JSON that already exists. `-- --update` refreshes the baseline in `lighthouse-budget.json`.                                            |
 
 Set `FAST_CHECK_SEED` to reproduce a property-test run. Local and ordinary CI runs default to `424242`; scheduled CI may derive a bounded seed from the run ID.
 
@@ -54,6 +59,64 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 
 Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification with `-- --dry-run` or provide an explicit changed set with `-- --files pathA,pathB`. The default `--full=auto` escalates shared shell/header/footer, scroll-coordinator, reserve, or global-style changes to `verify:ui` only after focused ownership and journey checks pass. Page-local owners and test-helper changes remain focused; use `--full=always` for deliberate extra confidence or `--full=never` only when the dry run records why the recommended broad gate is unavailable. Physical Safari and cold-launch PWA paint still follow [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
+## Visual regression and style contracts
+
+Appearance is verified at two levels, because they fail differently.
+
+**Style contracts (`tests/ui-style-contract.spec.ts`) — required, deterministic.** Class rules in
+`globals.css` that sit outside `@layer` are there to beat a Tailwind utility. If one is moved into a
+layer it goes inert: still in the DOM, still in the class list, painting nothing. That is ledger
+#094 — PR #1316 shipped the search band's accent rail inert, and the test guarding it asserted
+`toHaveClass("search-band")`, i.e. the cause rather than the effect. jsdom cannot catch this (it does
+not implement cascade layers) and `check:design-system-contract` cannot either (it reads source
+text), so the assertions run in a real browser and read computed style. Where a rule has an
+attribute-scoped variant, the contract also proves the variant wins the cascade.
+
+`tests/style-contract-registry.test.ts` keeps the inventory closed: every unlayered visual class must
+appear in `STYLE_EFFECT_CONTRACTS` or carry a reasoned exemption in
+`tests/helpers/style-contracts.ts`. A newly-added unlayered class fails that test until someone
+chooses which it is — the missing piece before, when the one existing rail assertion was a one-off.
+Prefer deleting an exemption by adding a contract.
+
+The parser walks back over comma-continued selector lines, so a selector list split across lines inventories every class in it, not just the one on the line that opens the block. Closing that hole immediately surfaced three previously-unpoliced classes — `dashboard-composer-edge`, `edge-glass-header` and `medication-also-matches` — which is the gate doing its job.
+
+**Pixel baselines (`tests/ui-visual-baseline.spec.ts`) — advisory.** Run by
+`playwright.visual.config.ts`, which also still runs the older attach-only
+`ui-visual-artifacts.spec.ts`. Three constraints are deliberate: never `fullPage` (under CI load
+Next.js leaves a hidden duplicate page root in the stream — ledger #093 — so a whole-page capture can
+contain the layout twice; every target is clipped to a locator), demo mode only (the Playwright
+runner forces `NEXT_PUBLIC_DEMO_MODE` and offline providers, so content is stable between runs), and
+motion off with carets hidden.
+
+Baselines are committed per platform (`tests/__screenshots__/{platform}/`). **Adopt them from the CI
+job's artifact, not from a developer machine** — font hinting and antialiasing differ, and a
+laptop-generated baseline makes every CI run red. A platform with no baseline fails loudly rather
+than passing silently. The CI job is `continue-on-error` until the baselines have held across a few
+runs; promote it by adding it to `pr-required` and dropping that flag together.
+
+## Performance budget
+
+`npm run verify:lighthouse` builds and serves an isolated production app in demo mode, measures the
+routes in `lighthouse-budget.json` on mobile and desktop, and grades the result. It is a **relative**
+gate: absolute web-vitals thresholds are meaningless against a localhost server with no network
+latency, so each route is compared to a committed known-good baseline with a per-metric tolerance,
+following the same shape as `check:bundle-budget`.
+
+- No baseline recorded → warn, exit 0. Within tolerance → pass. Over tolerance → fail when
+  `enforce` is true, warn otherwise.
+- Incomplete evidence — a route that produced no report, a report with no LCP/CLS, or a report that
+  measured a different page after a redirect — **always fails**, regardless of `enforce`. An ungraded
+  route counted as a pass is the failure mode `summarise-web-vitals.mjs` documents at length.
+- CLS is graded on absolute movement; LCP and TBT need to clear both a percentage and an absolute
+  floor, so 12 ms → 16 ms is not reported as a 33% regression.
+
+Refresh the baseline deliberately after a known-good run: `npm run check:lighthouse-budget -- --update`.
+
+This is distinct from `.github/workflows/live-web-vitals.yml`, which measures the deployed origin for
+ledger #017 and is dispatch-only — by the time it runs, `main` has already auto-deployed. Both pin
+the same Lighthouse version, and `tests/check-lighthouse-budget.test.ts` fails if they drift apart.
+Neither uses secrets or providers.
+
 ## Flake policy
 
 `tests/flake-ledger.json` may be empty. Each entry must match the exact spec and title, and the test title must include `@quarantine` but not `@critical`. Entries require an owner, reproduction command, local tracking reference, first/last-seen dates, and an expiry no more than 30 days away. Reproduce a candidate three times on the same SHA before adding or retaining it: fix fail/pass races, treat repeatable failures as regressions, and remove entries that no longer reproduce.
@@ -61,6 +124,8 @@ Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification
 ## CI topology
 
 PR CI keeps static checks separate from one required full unit run with coverage. UI scope uses one required production Chromium invocation for non-quarantined critical, regression, and dashboard/document visual-artifact journeys, plus one advisory invocation for quarantined and mockup journeys. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the `pr-required` aggregate. Build, migration, security, and release behavior remain independently scoped.
+
+Two further jobs are advisory (`continue-on-error`, deliberately outside `pr-required`): `visual-baseline` on UI scope and `lighthouse-budget` on UI-or-build scope. Both upload their evidence on every run, pass or fail, because the artifact is the whole point on a first run — the baselines to adopt and the reports to grade. Promote either to required by adding it to `pr-required` and removing `continue-on-error` in the same edit.
 
 ## Contribution checklist (UI changes)
 
@@ -71,5 +136,6 @@ Before opening a UI PR, confirm:
 - **States.** Handle loading / empty / error / disabled where they apply; async surfaces expose a retry, not a dead end.
 - **Accessibility** ([design-system §7](./design-system.md)): keyboard operable, visible focus, accessible names on icon controls, live regions for async status, and reduced motion honoured — scripted `scrollTo`/`scrollIntoView` go through `resolveScrollBehavior` (`src/lib/scroll-behavior.ts`), never a hard-coded `behavior: "smooth"`.
 - **Tests.** Add a `.dom.test.tsx` for changed component behaviour (see "Component tests" above) and update the E2E journeys for changed flows.
+- **Unlayered CSS.** If the change adds a class rule outside `@layer` that sets a border, background, colour, shadow or outline, `tests/style-contract-registry.test.ts` will fail until it is registered. Add a rendered-effect contract rather than an exemption where the rule matters visually — see "Visual regression and style contracts".
 - **Verify** ([design-system §9](./design-system.md)): run `npm run verify:cheap`, then `npm run verify:pr-local` before handoff; run `npm run ensure` before browser work and `npm run verify:ui` for UI/routing/styling changes, plus a manual dark-mode + forced-colors spot check on touched surfaces.
 - Architecture and state-ownership conventions: [`docs/frontend-architecture.md`](./frontend-architecture.md).
