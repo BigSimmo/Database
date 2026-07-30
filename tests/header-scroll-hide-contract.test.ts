@@ -344,6 +344,21 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("`h-0` while hidden");
   });
 
+  it("paints the visible top safe-area with the header surface, not the page background", () => {
+    // While visible the spacer is the top of the header. `--background` there
+    // drew a page-coloured status-bar band above the `--surface` bar on every
+    // collapse-strategy mode, which answer mode (overlay, pads the inset in the
+    // header itself) never showed.
+    const spacerStart = headerSource.indexOf('data-testid="chrome-safe-area-top"');
+    expect(spacerStart).toBeGreaterThan(-1);
+    // Bound the window to this element so a later call site cannot satisfy or
+    // break the assertion from outside the spacer.
+    const safeAreaSpacer = headerSource.slice(spacerStart, headerSource.indexOf("/>", spacerStart));
+    expect(safeAreaSpacer).toContain("bg-[color:var(--surface)]");
+    expect(safeAreaSpacer).not.toContain("bg-[color:var(--background)]");
+    expect(behaviourDocSource).toContain("paints `var(--surface)`");
+  });
+
   it("keeps the header out of sticky positioning wherever its row collapses", () => {
     // Sticky pins the bar inside the viewport and fights the 1fr -> 0fr grid.
     expect(headerSource).toMatch(/sticksAbovePhones \|\| collapsesAtEveryWidth\s*\?\s*"relative"/);

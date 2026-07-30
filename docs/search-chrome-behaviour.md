@@ -21,7 +21,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 3. A visible fixed phone dock may include `var(--safe-area-bottom)` so the pill clears the home indicator.
 4. A hidden phone dock must release the content-facing reserve to `0rem`; do not use `env(safe-area-inset-bottom)` or `var(--safe-area-bottom)` for hidden content padding.
 5. Edge-to-edge phone dock mode is `left: 0; right: 0; bottom: 0; width: 100%`; inset the pill with padding, not with a non-zero bottom offset. Keep the dock form transparent and use its absolute `.answer-footer-search-backdrop` child for localized translucent gradient/blur around the pill. The gradient and every blur mask must return to fully transparent at the physical bottom edge. It must move and fade with the dock, then become `visibility: hidden` after the hide transition so WebKit cannot retain a safe-area compositor strip; it must never become a viewport-fixed or opaque slab.
-6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically for the surfaces that actually hide. **Collapse motion only:** when the phone top bar is hidden, `chrome-safe-area-top` and the controls both release to `0rem` so underlying content paints to the physical viewport edge. **Overlay motion (every `GlobalSearchShell` phone route):** the stack translates instead; `chrome-safe-area-top` stays inside the translated layer at a stable height, and the content-facing `--phone-overlay-chrome-h` clearance is constant across hide/reveal — zeroing it on hide would reintroduce the layout shift overlay exists to remove. The visible phone header still owns `var(--safe-area-top)`; tablet/desktop sticky chrome keeps its pinned inset. Top-bar hide/reveal is cross-breakpoint; the search field stays pinned on tablets, while desktop search belongs to page flow and scrolls away naturally; the bottom search dock is phone-only. Hidden bottom dock reserve stays `0rem` (invariant 4). Read "Scroll hide/reveal" below before changing either.
+6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically for the surfaces that actually hide. **Collapse motion:** when the phone top bar is hidden, `chrome-safe-area-top` and the controls both release to `0rem` so underlying content paints to the physical viewport edge. **Overlay motion (default for `GlobalSearchShell` phones; collapse remains for `isCollapseMotionPhoneRoute`):** the stack translates instead; `chrome-safe-area-top` stays inside the translated layer at a stable height, and the content-facing `--phone-overlay-chrome-h` clearance is constant across hide/reveal — zeroing it on hide would reintroduce the layout shift overlay exists to remove. The visible phone header still owns `var(--safe-area-top)`; tablet/desktop sticky chrome keeps its pinned inset. While visible that spacer is the top of the header, so it paints `var(--surface)` — the bar's own opaque phone colour — never `var(--background)`: the page colour there reads as a status-bar band above the bar, the seam overlay-strategy answer mode never shows because its header pads the inset itself. Keep it opaque so the sm+ pinned inset still hides scrolled content. Top-bar hide/reveal is cross-breakpoint; the search field stays pinned on tablets, while desktop search belongs to page flow and scrolls away naturally; the bottom search dock is phone-only. Hidden bottom dock reserve stays `0rem` (invariant 4). Read "Scroll hide/reveal" below before changing either.
 7. Do not add page-local dock-sized `pb-[calc(...safe-area...)]` under a shell-owned dock. Put clearance in the shared reserve or the page-owned composer, never both.
 8. `GlobalSearchShell` uses an inner `mobile-composer-reserve-pad` so phone padding contributes to scroll height; do not move phone shell clearance back to scrollport padding without a browser proof.
 9. Page-owned fixed phone composers follow the same release contract: calculators use the shared footer backdrop; DocumentViewer keeps its floating pill but synchronizes transform, opacity, pointer release, and its own zero-reserve content padding. In-flow hero composers remain free of fixed-footer glass.
@@ -132,29 +132,29 @@ Choose the hide mechanism from where the host's scrollport lives, because that d
 | `ClinicalDashboard` (other modes) | Document on browser phones; `<main>` in standalone and at `sm+`                            | `strategy: "collapse", wide: "collapse"` | Top-bar row collapses; tablet search stays sticky; desktop search portals into `<main>` page flow                  |
 | `GlobalSearchShell`               | Document in browser phones and at `sm+`; `#main-content` only in installed standalone mode | `strategy: "collapse", wide: "sticky"`   | Tablet pins [top bar \| search]; desktop portals search into `#main-content`, leaving a sticky auto-hiding top bar |
 
-`GlobalSearchShell` uses `phoneMotion: "overlay"` on **every** phone route. The
+`GlobalSearchShell` defaults to `phoneMotion: "overlay"` on phones. The
 safe-area region, universal top bar, and any page navigation portaled into the
 collapse row form one fixed browser/absolute standalone layer, and the complete
 layer translates over content without changing the scrollport or content
 geometry. Tablet and desktop continue using `wide: "sticky"`.
 
-This was route-conditional until 2026-07-29 — overlay for
-`isDocumentViewerOwnedRoute(pathname)`, collapse everywhere else. Collapse is
-the 1fr → 0fr grid on the header row **plus** a `height` transition on
-`chrome-safe-area-top` **plus** the reserve-pad `padding-bottom` transition, so
-every hide animated three heights and handed that layout back to the scroller.
-Content slid up under the animation, which reads as choppy however well the
-timing is tuned — and it is the layout-shift class that
-`readChromeCollapseMetrics`' collapse budget, the near-bottom clamp rules
-(invariants 10 and 11) and the anchoring markers all exist to contain. Overlay
-removes the cause rather than damping the symptom: `headerRelease` and
-`phoneSafeAreaRelease` are both `0`, so hiding costs the scroller no layout at
-all. Do not reintroduce a route-conditional collapse.
+**Collapse remains the deliberate exception** for `isCollapseMotionPhoneRoute`
+(`/therapy-compass/*` and `/differentials/diagnoses/*`): those routes portal
+page navigation into the collapse row and still have phone-scroll journeys that
+assert in-flow collapse geometry. Migrating those contracts to overlay is
+tracked separately — do not widen collapse beyond that predicate.
 
-Because overlay takes the stack out of flow, phone content owns a **constant**
-top clearance: `usePhoneOverlayChromeReserve` refines `--phone-overlay-chrome-h`
-to the measured stack height and the shell's `mobile-composer-reserve-pad` reads
-it as `max-sm:pt-[…]`. Three properties are load-bearing.
+Elsewhere, collapse was the cause of the reported choppiness: a 1fr → 0fr grid
+on the header row **plus** a `height` transition on `chrome-safe-area-top`
+**plus** the reserve-pad `padding-bottom` transition handed layout back to the
+scroller on every hide. Overlay removes that cause: `headerRelease` and
+`phoneSafeAreaRelease` are both `0`, so hiding costs the scroller no layout.
+
+Because overlay takes the stack out of flow, overlay phone routes own a
+**constant** top clearance: `usePhoneOverlayChromeReserve` refines
+`--phone-overlay-chrome-h` to the measured stack height and the shell's
+`mobile-composer-reserve-pad` reads it as `max-sm:pt-[…]` only where overlay is
+active. Three properties are load-bearing.
 
 It is **measured, not tokenised**, because the collapse row grows with portaled
 page navigation (`header-collapse-addon`) and a fixed `4rem` would clip those

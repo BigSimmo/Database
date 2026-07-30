@@ -2175,7 +2175,15 @@ export function MasterSearchHeader({
           // header row's timing to avoid a one-frame gap during hide/reveal.
           // sm+ keeps its pinned inset because the sticky [bar | search] stack
           // is a separate wide-layout contract.
-          "relative z-40 shrink-0 bg-[color:var(--background)] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          //
+          // Paint the header's own surface, not the page background. While the
+          // spacer is visible it is the top of the header, so `--background`
+          // drew a page-coloured status-bar band above a `--surface` bar on
+          // every collapse-strategy mode — the seam answer mode never had,
+          // because its overlay header pads the inset itself and paints
+          // straight through. Opaque on purpose: the spacer must keep hiding
+          // scrolled content at the sm+ pinned inset.
+          "relative z-40 shrink-0 bg-[color:var(--surface)] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
           phoneOverlayMotion
             ? "max-sm:h-[var(--safe-area-top)]"
             : cn(
