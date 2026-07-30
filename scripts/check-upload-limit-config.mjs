@@ -1,5 +1,8 @@
 #!/usr/bin/env node
+import nextEnv from "@next/env";
 import { pathToFileURL } from "node:url";
+
+const { loadEnvConfig } = nextEnv;
 
 export const DEFAULT_MAX_UPLOAD_MB = 150;
 
@@ -36,6 +39,10 @@ export function inspectUploadLimitConfiguration(environment = {}) {
 }
 
 function main() {
+  // Match Next's build-time environment exactly, including root .env* files.
+  // Without this, a value in .env.production.local could be loaded by
+  // `next build` after this guard had already approved the inherited shell env.
+  loadEnvConfig(process.cwd(), process.env.NODE_ENV === "development");
   const result = inspectUploadLimitConfiguration(process.env);
   if (!result.ok) {
     console.error("Upload limit configuration is inconsistent:");

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { inspectUploadLimitConfiguration } from "../scripts/check-upload-limit-config.mjs";
 
@@ -54,5 +58,34 @@ describe("upload limit configuration", () => {
       "MAX_UPLOAD_MB must be an integer from 1 to 150.",
       "NEXT_PUBLIC_MAX_UPLOAD_MB must be an integer from 1 to 150.",
     ]);
+  });
+
+  it("checks the same .env.production.local values that Next loads for a build", () => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), "upload-limit-config-"));
+    const environment = { ...process.env, NODE_ENV: "production" };
+    delete environment.MAX_UPLOAD_MB;
+    delete environment.NEXT_PUBLIC_MAX_UPLOAD_MB;
+    writeFileSync(
+      join(fixtureRoot, ".env.production.local"),
+      "MAX_UPLOAD_MB=50\nNEXT_PUBLIC_MAX_UPLOAD_MB=40\n",
+      "utf8",
+    );
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [fileURLToPath(new URL("../scripts/check-upload-limit-config.mjs", import.meta.url))],
+        {
+          cwd: fixtureRoot,
+          env: environment,
+          encoding: "utf8",
+          stdio: "pipe",
+        },
+      );
+      expect(result.status).toBe(1);
+      expect(result.stderr).toMatch(/MAX_UPLOAD_MB \(50\).*NEXT_PUBLIC_MAX_UPLOAD_MB \(40\)/s);
+    } finally {
+      rmSync(fixtureRoot, { recursive: true, force: true });
+    }
   });
 });
