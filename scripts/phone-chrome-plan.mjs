@@ -19,8 +19,8 @@ const patterns = {
   docs: [/^docs\//, /^AGENTS\.md$/],
   infrastructure: [
     /^package(?:-lock)?\.json$/,
-    /^scripts\/(?:check-installed-lock-parity|phone-chrome-plan|verify-phone-chrome)\.mjs$/,
-    /^tests\/(?:installed-lock-parity|verify-phone-chrome)\.test\.ts$/,
+    /^scripts\/(?:check-installed-lock-parity|phone-chrome-plan|playwright-browser-preflight|run-playwright|verify-phone-chrome)\.mjs$/,
+    /^tests\/(?:installed-lock-parity|playwright-browser-preflight|verify-phone-chrome)\.test\.ts$/,
   ],
   playwrightHelper: [/^tests\/playwright-(?:scroll|settlement)\.ts$/],
   dashboard: [
