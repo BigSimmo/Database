@@ -16,7 +16,7 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // they share a spec file. Every required browser project uses the same
 // production matcher and tag exclusion.
 const productionSpecPattern =
-  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|visual-artifacts|hydration))\.spec\.ts/;
+  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/;
 const mockupSpecPattern =
   /.*ui-(document-top-navigation-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-task-directory)\.spec\.ts/;
 const mockupTag = /@mockup/;
@@ -24,7 +24,7 @@ const mockupTag = /@mockup/;
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|document-top-navigation-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|document-top-navigation-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|chrome-scroll|therapy-nav-scroll|phone-scroll|pwa|route-coverage|style-contract|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently

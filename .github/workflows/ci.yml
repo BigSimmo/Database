@@ -470,6 +470,84 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  # Pixel baselines (tests/ui-visual-baseline.spec.ts). Advisory on purpose, and NOT
+  # part of `pr-required`:
+  #   - Baselines are platform-specific, so the FIRST run on a platform with no
+  #     committed baseline fails with "snapshot doesn't exist" by design. Adopt the
+  #     images from this job's artifact — never from a developer machine, or font
+  #     hinting alone makes every later run red.
+  #   - Pixel comparison needs a soak before it can block a merge; this repo has
+  #     already paid for a sub-pixel rounding flake (the min-h-11 -> min-h-12 change).
+  # Promote to a required check by adding it to `pr-required` once the baselines have
+  # held across a few runs, and drop `continue-on-error` at the same time.
+  visual-baseline:
+    name: Visual baselines (advisory)
+    needs: changes
+    if: needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Chromium visual baselines
+        run: npm run test:e2e:visual
+
+      # The actual/diff/expected PNGs live here. On a first run these are the images
+      # to commit as the baseline; on a later run they are the evidence of what moved.
+      - name: Upload visual diffs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-baseline-${{ github.run_id }}
+          path: |
+            test-results/
+            tests/__screenshots__/
+          if-no-files-found: ignore
+
+  # Pre-merge performance budget against a LOCAL production build, graded relative to
+  # the committed baseline in lighthouse-budget.json. Advisory until that baseline
+  # exists and `enforce` is flipped to true — see the notes in that file.
+  #
+  # Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed
+  # origin for ledger #017 and by then cannot stop a regression from merging. Uses no
+  # secrets and no providers: the server runs in demo mode with inert loopback
+  # Supabase values, exactly like the Playwright runner.
+  lighthouse-budget:
+    name: Lighthouse budget (advisory)
+    needs: changes
+    if: needs.changes.outputs.ui_changed == 'true' || needs.changes.outputs.build_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Lighthouse drives the Chrome that ships in the ubuntu-24.04 runner image, so
+      # no browser install is needed here (matching live-web-vitals.yml).
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Measure routes and grade against the baseline
+        run: npm run verify:lighthouse -- --keep --dir lighthouse
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: lighthouse-budget-${{ github.run_id }}
+          path: lighthouse/
+          if-no-files-found: ignore
+
   db-reset-verify:
     name: Migration replay
     needs: changes

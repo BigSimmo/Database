@@ -75,7 +75,13 @@
 # next.js
 /.next/
 /.next-playwright/
+/.next-lighthouse/
 /out/
+
+# Lighthouse budget reports (scripts/run-lighthouse-budget.mjs). Regenerated per run;
+# the committed artefact is the baseline inside lighthouse-budget.json, not the JSON
+# reports. Visual baselines under tests/__screenshots__/ ARE tracked deliberately.
+/lighthouse/
 
 # production
 /build
