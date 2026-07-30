@@ -817,7 +817,24 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 `@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with <!-- codex-thread-disposition:resolved --> as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
 
-## Cursor Cloud specific instructions
+## Codex Cloud environment
+
+- Use `bash scripts/setup-codex-cloud.sh` as the environment setup command and
+  `bash scripts/maintain-codex-cloud.sh` as the maintenance command. See
+  `docs/codex-cloud.md` for the product-settings checklist and acceptance task.
+- Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
+  read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
+  clean disposable checkout on a task-specific non-protected branch.
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
+  Use `connected` only when the user explicitly authorizes the required provider access.
+- Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
+  policy, or provider credentials. Treat those as product/account settings and verify them
+  separately without printing secret values.
+- Run `npm run check:codex-cloud` for the tracked contract and
+  `npm run check:codex-cloud -- --runtime` for the installed toolchain. A skipped browser
+  install is not full browser readiness.
+
+## Cursor Cloud specific instructions (not Codex Cloud)
 
 Durable notes for Cloud Agents. Standard commands live in `README.md` and `package.json`; only non-obvious caveats are captured here.
 
