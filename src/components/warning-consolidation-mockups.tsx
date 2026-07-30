@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   ChevronDown,
@@ -92,9 +93,15 @@ function CurrentStack() {
         <span>{OBLIGATION}</span>
       </p>
       <p className="text-center text-2xs leading-4">
-        <span className="font-medium text-[color:var(--text-muted)] underline decoration-[color:var(--border-strong)] underline-offset-2">
+        <Link
+          href="/privacy"
+          className={cn(
+            "font-medium text-[color:var(--text-muted)] underline decoration-[color:var(--border-strong)] underline-offset-2",
+            focusRing,
+          )}
+        >
           {PRIVACY_LINK}
-        </span>
+        </Link>
       </p>
       <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
         <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
@@ -176,14 +183,15 @@ function AssuranceBar({ compact = false, instanceId }: { compact?: boolean; inst
             <ShieldAlert className="mt-px h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
             <span>
               {OBLIGATION}{" "}
-              <span
+              <Link
+                href="/privacy"
                 className={cn(
                   "whitespace-nowrap font-semibold text-[color:var(--clinical-accent)] underline decoration-[color:var(--border-strong)] underline-offset-2",
                   focusRing,
                 )}
               >
                 {PRIVACY_LINK}
-              </span>
+              </Link>
             </span>
           </p>
         </div>
@@ -224,14 +232,15 @@ function SafetyCard({ compact = false }: { compact?: boolean }) {
         </p>
         <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
           {VERIFY}{" "}
-          <span
+          <Link
+            href="/privacy"
             className={cn(
               "whitespace-nowrap font-semibold text-[color:var(--clinical-accent)] underline decoration-[color:var(--border-strong)] underline-offset-2",
               focusRing,
             )}
           >
             {PRIVACY_LINK}
-          </span>
+          </Link>
         </p>
       </div>
     </div>
@@ -298,14 +307,15 @@ function QuietFootnote({ compact = false, instanceId }: { compact?: boolean; ins
             <span>{VERIFY}</span>
           </p>
           <p className="pl-[1.375rem]">
-            <span
+            <Link
+              href="/privacy"
               className={cn(
                 "whitespace-nowrap font-semibold text-[color:var(--clinical-accent)] underline decoration-[color:var(--border-strong)] underline-offset-2",
                 focusRing,
               )}
             >
               {PRIVACY_LINK}
-            </span>
+            </Link>
           </p>
         </div>
       ) : null}
