@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -95,34 +96,94 @@ const BAND_ROUTE_ALLOWLIST = new Map<string, string>([
   ],
 ]);
 
-/** Resolve a mode href like `/services` to its App Router page file when present. */
-function modeHrefToPagePath(href: string): string | null {
-  const pathOnly = href.split("?")[0]?.trim() ?? "";
-  if (!pathOnly.startsWith("/") || pathOnly === "/") return null;
-  const candidate = path.join(APP_DIR, "(search-app)", pathOnly.slice(1), "page.tsx");
+const ROOT_DASHBOARD_ROUTE = path.join(APP_DIR, "(search-app)", "page.tsx");
+
+/**
+ * Resolve a mode href to its App Router page file.
+ *
+ * Query-backed modes are the reason this is not a plain path join. `prescribing`
+ * declares `href: "/?mode=prescribing"`, whose pathname is `/`, and the previous
+ * implementation returned null for that — so it, and every href-less mode such
+ * as Documents, stayed outside the inventory and the root dashboard page was
+ * never checked at all.
+ */
+function modeHrefToPagePath(href: string | null): string | null {
+  const pathOnly = (href ?? "/").split("?")[0]?.trim() || "/";
+  if (!pathOnly.startsWith("/")) return null;
+  const candidate =
+    pathOnly === "/" ? ROOT_DASHBOARD_ROUTE : path.join(APP_DIR, "(search-app)", pathOnly.slice(1), "page.tsx");
   if (!existsSync(candidate)) return null;
   return path.relative(REPO_ROOT, candidate).replaceAll(path.sep, "/");
 }
 
-/** One or two import hops from a route into `@/components/**` that mounts the band. */
-function routeReachesBand(routeSource: string, componentSources: Map<string, string>) {
-  if (rendersBand(routeSource)) return true;
-  const imported = [...routeSource.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
-  for (const specifier of imported) {
-    const componentPath = `src/${specifier}.tsx`;
-    const source = componentSources.get(componentPath);
-    if (!source) continue;
-    if (rendersBand(source)) return true;
-    // Page wrappers often re-export a child that mounts the band (e.g. differentials).
-    const nested = [...source.matchAll(/from "@\/(components\/[^"]+)"/g)].map((match) => match[1]);
-    if (
-      nested.some((nestedSpec) => {
-        const nestedSource = componentSources.get(`src/${nestedSpec}.tsx`);
-        return nestedSource ? rendersBand(nestedSource) : false;
-      })
-    ) {
-      return true;
+/** Every `layout.tsx` that wraps a route, nearest first. In App Router a page's
+    rendered output includes its layouts, and the root dashboard route relies on
+    that: `(search-app)/page.tsx` renders only a pass-through, while the band
+    arrives through the group layout's shared shell. Ignoring layouts would
+    report that route as an orphan when it is correctly wired. */
+function layoutsFor(routeAbs: string): string[] {
+  const layouts: string[] = [];
+  let dir = path.dirname(routeAbs);
+  while (dir.startsWith(APP_DIR)) {
+    const candidate = path.join(dir, "layout.tsx");
+    if (existsSync(candidate)) layouts.push(candidate);
+    if (dir === APP_DIR) break;
+    dir = path.dirname(dir);
+  }
+  return layouts;
+}
+
+/** `from "x"` and `import("x")`. The lazy form is load-bearing: the dashboard
+    code-splits its mode workspaces through `dynamic(() => import(...))` in
+    `clinical-dashboard-lazy.tsx`, so a static-only walk cannot see the band
+    behind Differentials, Favourites or the prescribing workspace. */
+const IMPORT_SPECIFIER = /(?:from\s*"([^"]+)")|(?:import\(\s*"([^"]+)"\s*\))/g;
+
+function resolveSpecifier(specifier: string, fromFile: string): string | null {
+  let base: string;
+  if (specifier.startsWith("@/")) base = path.join(REPO_ROOT, "src", specifier.slice(2));
+  else if (specifier.startsWith(".")) base = path.resolve(path.dirname(fromFile), specifier);
+  else return null;
+  const candidates = [`${base}.tsx`, `${base}.ts`, path.join(base, "index.tsx"), path.join(base, "index.ts")];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+/**
+ * Breadth-first search from a route (and its layouts) to a rendered band.
+ *
+ * The previous implementation hard-coded two hops into `@/components/**`. The
+ * real chain on the root dashboard route is four —
+ * `layout → shared-search-app-shell → global-search-shell → ClinicalDashboard →
+ * document-search-results` — so a fixed hop count silently under-reported
+ * reachability rather than failing loudly.
+ */
+const MAX_IMPORT_DEPTH = 8;
+
+function routeReachesBand(routeAbs: string): boolean {
+  const roots = [routeAbs, ...layoutsFor(routeAbs)];
+  const seen = new Set(roots);
+  let frontier = roots.map((file) => ({ file, depth: 0 }));
+  while (frontier.length > 0) {
+    const next: Array<{ file: string; depth: number }> = [];
+    for (const { file, depth } of frontier) {
+      let source: string;
+      try {
+        source = readFileSync(file, "utf8");
+      } catch {
+        continue;
+      }
+      if (rendersBand(source)) return true;
+      if (depth >= MAX_IMPORT_DEPTH) continue;
+      for (const match of source.matchAll(IMPORT_SPECIFIER)) {
+        const specifier = match[1] ?? match[2];
+        if (!specifier) continue;
+        const target = resolveSpecifier(specifier, file);
+        if (!target || seen.has(target) || isMockupPath(target)) continue;
+        seen.add(target);
+        next.push({ file: target, depth: depth + 1 });
+      }
     }
+    frontier = next;
   }
   return false;
 }
@@ -161,9 +222,11 @@ describe("search results band adoption", () => {
 
     // Top-level mode homes such as /services and /favourites also present result
     // lists. Restricting the inventory to `/search/` left those pages unchecked.
+    // An href-less mode (Documents) is served by the root dashboard route, so it
+    // resolves to the same page as the query-backed hrefs rather than dropping out.
     const modeHomeRoutes = appModeDefinitions
       .filter((mode) => mode.search.resultsSurface === "results-band")
-      .map((mode) => ("href" in mode && typeof mode.href === "string" ? modeHrefToPagePath(mode.href) : null))
+      .map((mode) => modeHrefToPagePath("href" in mode && typeof mode.href === "string" ? mode.href : null))
       .filter((rel): rel is string => Boolean(rel))
       .map((rel) => ({ abs: path.join(REPO_ROOT, rel), rel }));
 
@@ -180,16 +243,18 @@ describe("search results band adoption", () => {
       searchRoutes.some((route) => route.rel === "src/app/(search-app)/services/page.tsx"),
       "Mode-href discovery must include top-level results pages such as /services.",
     ).toBe(true);
-
-    const componentSources = new Map(
-      productionComponents.map(({ abs, rel }) => [rel.replaceAll(path.sep, "/"), readFileSync(abs, "utf8")]),
-    );
+    // Query-backed and href-less modes (`/?mode=prescribing`, Documents) are all
+    // served by the root dashboard route. Leaving it out is how the gate could
+    // report "every production search route" while never checking that page.
+    expect(
+      searchRoutes.some((route) => route.rel === "src/app/(search-app)/page.tsx"),
+      "Mode-href discovery must include the root dashboard route that serves query-backed modes.",
+    ).toBe(true);
 
     const orphans: string[] = [];
     for (const { abs, rel } of searchRoutes) {
       if (BAND_ROUTE_ALLOWLIST.has(rel)) continue;
-      const routeSource = readFileSync(abs, "utf8");
-      if (!routeReachesBand(routeSource, componentSources)) orphans.push(rel);
+      if (!routeReachesBand(abs)) orphans.push(rel);
     }
 
     expect(
@@ -250,15 +315,39 @@ describe("band adoption detection", () => {
     expect(mounted.includes("<SearchResultsHeaderBand")).toBe(true);
   });
 
-  it("treats a root-level mode page that never reaches the band as an orphan", () => {
-    const componentSources = new Map<string, string>([
-      [
-        "src/components/orphan-results-page.tsx",
-        'export function OrphanResultsPage() { return <div data-testid="orphan-results" />; }',
-      ],
-    ]);
-    const routeSource =
-      'import { OrphanResultsPage } from "@/components/orphan-results-page";\nexport default OrphanResultsPage;';
-    expect(routeReachesBand(routeSource, componentSources)).toBe(false);
+  it("resolves a route to the band through imports, and reports one that never gets there", () => {
+    // Real files on disk, because the walker resolves specifiers rather than
+    // consulting a map. Both directions are asserted: a fixture that only ever
+    // returns false would pass against a walker that is broken outright.
+    const dir = mkdtempSync(path.join(tmpdir(), "band-adoption-"));
+    try {
+      writeFileSync(
+        path.join(dir, "child.tsx"),
+        "export function Child() { return <div data-testid='child' />; }\n",
+        "utf8",
+      );
+      writeFileSync(
+        path.join(dir, "orphan-route.tsx"),
+        'import { Child } from "./child";\nexport default Child;\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "orphan-route.tsx"))).toBe(false);
+
+      // Same shape, but the child mounts the band — and via a lazy import, which
+      // is how the dashboard code-splits its mode workspaces.
+      writeFileSync(
+        path.join(dir, "banded-child.tsx"),
+        `export function Banded() { return <${BAND_IDENTIFIER} modeId="documents" />; }\n`,
+        "utf8",
+      );
+      writeFileSync(
+        path.join(dir, "wired-route.tsx"),
+        'const Lazy = () => import("./banded-child");\nexport default Lazy;\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "wired-route.tsx"))).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
