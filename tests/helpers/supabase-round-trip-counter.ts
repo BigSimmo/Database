@@ -19,11 +19,15 @@
  * only one for a builder awaited twice — which really is two requests. Both
  * cases are pinned by tests.
  *
- * **Known limitation.** A promise, unlike a builder, memoises: awaiting the same
- * promise twice performs one request but invokes `then` twice, so it would be
- * counted twice. Real `from()`/`rpc()` return lazy builders where re-execution
- * genuinely re-requests, so this only misleads for code that deliberately
- * re-awaits a stored promise. Stated rather than silently assumed away.
+ * **Native promises are counted eagerly, lazy builders on execution.** A promise
+ * memoises: awaiting it twice performs one request but invokes `then` twice, so
+ * counting a promise on `then` would double-count a re-awaited one. An async stub
+ * that returns a promise has already issued its request by the time it returns,
+ * so the call itself is the right moment. Only a lazy thenable — a real
+ * PostgrestFilterBuilder, which re-requests on each execution — is counted when
+ * it executes. The rule is therefore "count when the request is issued", which
+ * both cases satisfy. (Refinement adopted from Codex's parallel fix on PR #1450,
+ * which handled this better than the first version of this file did.)
  *
  * **What this cannot see.** Only calls made through the wrapped client. A
  * round trip issued via a different client instance, a direct `fetch`, or a
@@ -87,6 +91,12 @@ export function countSupabaseRoundTrips<T extends MinimalSupabaseClient>(
    */
   const trackExecution = (target: unknown, kind: "rpc" | "from", name: unknown): unknown => {
     if (target === null || (typeof target !== "object" && typeof target !== "function")) return target;
+    // A native promise has already issued its request; count it now and hand it
+    // back untouched, so re-awaiting it cannot inflate the count.
+    if (target instanceof Promise) {
+      record(kind, name);
+      return target;
+    }
     return new Proxy(target as object, {
       get(obj, prop, receiver) {
         const value = Reflect.get(obj, prop, receiver);
