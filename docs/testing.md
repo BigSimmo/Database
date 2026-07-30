@@ -14,6 +14,15 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 **Provider-backed boundary:** `test:live`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, and other OpenAI/Supabase/hosted workflows need **explicit user approval** before agents run them (see root `AGENTS.md`). Prefer offline gates (`verify:cheap`, `verify:pr-local`, `eval:rag:offline`) unless that approval is in the task.
 
+Codex Cloud agents remain provider-free. Run authenticated Supabase tests through the
+manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the
+explicit `run-authenticated-live-tests` dispatch confirmation, records the run against the
+`Database / production` environment, and injects GitHub secrets only into the identity
+guard and live-test steps. The secret-bearing job runs only from `refs/heads/main` and
+checks out that trusted ref; it never runs on a push, pull request, or schedule. This suite
+is not read-only: the confirmation explicitly authorizes bounded E2E-user sign-in/sign-out,
+test requests, and production rate-limit row updates.
+
 ## Commands
 
 | Command                                   | Purpose                                                                                                                                                 |

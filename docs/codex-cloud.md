@@ -159,6 +159,38 @@ report cost or mutation risk before any write. OpenAI generation, Supabase live 
 Railway changes, hosted CI reruns, ingestion, deployment, and release workflows remain
 separate explicit actions.
 
+## Authenticated live testing
+
+Do not expose provider credentials to the Codex Cloud agent. Cloud secrets are removed
+before the agent phase, and copying them into ordinary environment variables or files
+would bypass that security boundary.
+
+Use the manual **Authenticated live tests** GitHub Actions workflow instead. It runs the
+repository's explicit `npm run test:live` suite from protected `main`, requires the
+`run-authenticated-live-tests` dispatch confirmation, records the run against the
+`Database / production` environment, checks the expected Supabase project, and receives
+only the GitHub secrets required by the current authenticated Supabase test. It is not
+triggered by pushes, pull requests, or schedules.
+
+The suite is not read-only. Dispatching it explicitly authorizes the bounded mutations made
+by the E2E user: production sign-in/sign-out, authenticated test requests, and rate-limit
+row inserts or updates. It does not authorize unrelated production changes.
+
+To run it after a Codex Cloud change:
+
+1. Merge the reviewed change to `main` through the normal protected workflow.
+2. Open **Actions → Authenticated live tests → Run workflow**.
+3. Select `main` and choose `run-authenticated-live-tests` after reviewing the disclosed mutations.
+4. Review the `Database / production` environment deployment and test log.
+
+The current GitHub plan does not support required environment reviewers for this private
+repository, so the workflow's manual dispatch and explicit confirmation are the approval
+gate. Add required reviewers to the environment if the repository plan later supports
+them.
+
+Adding a future provider to `*.live.test.ts` does not automatically grant its credentials.
+Expand the workflow's secret list deliberately and preserve the project/target guard.
+
 ## RAG X3 prompt
 
 The corrected structure-only extraction prompt is tracked at
