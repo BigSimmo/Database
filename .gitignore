@@ -97,6 +97,8 @@ yarn-error.log*
 .pnpm-debug.log*
 dev-server*.log
 worker-*.log
+# Codex Cloud CLI diagnostic; may contain account/session metadata.
+/error.log
 tmp-*.py
 test-output.txt
 
