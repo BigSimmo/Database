@@ -69,7 +69,7 @@ npm run docs:check-links
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
-- [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read it with `npm run ledger:lookup`, write it with `npm run ledger:append` (never by hand)
+- [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (live + `docs/archive/branch-review-ledger-*.md`), write with `npm run ledger:append`, rotate older rows with `npm run ledger:rotate`
 
 ## Plans and workstreams (living)
 

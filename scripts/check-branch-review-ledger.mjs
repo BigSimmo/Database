@@ -24,6 +24,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { listLedgerPaths, parseLedgerRows } from "./branch-review-ledger.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LEDGER_PATH = "docs/branch-review-ledger.md";
@@ -256,6 +257,31 @@ function selfTest() {
   console.log("branch-review-ledger self-test passed.");
 }
 
+function validateArchiveStructure(relativePath, markdown) {
+  const failures = [];
+  if ([...markdown.matchAll(conflictMarker)].length > 0) {
+    failures.push(`${relativePath}: conflict marker(s) found.`);
+  }
+  if (markdown.includes("???") || markdown.includes("�")) {
+    failures.push(`${relativePath}: mojibake found.`);
+  }
+  const rows = parseLedgerRows(markdown);
+  const wrongWidth = rows.filter((row) => row.cells.length !== 6);
+  if (wrongWidth.length > 0) {
+    failures.push(`${relativePath}: ${wrongWidth.length} record(s) do not have exactly 6 cells.`);
+  }
+  const seen = new Set();
+  const duplicates = [];
+  for (const row of rows) {
+    if (seen.has(row.raw)) duplicates.push(row.line);
+    seen.add(row.raw);
+  }
+  if (duplicates.length > 0) {
+    failures.push(`${relativePath}: ${duplicates.length} exact duplicate record(s).`);
+  }
+  return { failures, recordCount: rows.length };
+}
+
 function main() {
   if (process.argv.includes("--self-test")) {
     selfTest();
@@ -268,18 +294,30 @@ function main() {
     protocol: readFileSync(path.join(root, PROTOCOL_PATH), "utf8"),
   });
 
-  if (result.failures.length > 0) {
+  const failures = [...result.failures];
+  let archiveRecords = 0;
+  for (const relative of listLedgerPaths().slice(1)) {
+    const archive = validateArchiveStructure(relative, readFileSync(path.join(root, relative), "utf8"));
+    failures.push(...archive.failures);
+    archiveRecords += archive.recordCount;
+  }
+
+  if (failures.length > 0) {
     console.error("Branch review ledger guard failed:");
-    for (const failure of result.failures) console.error(`- ${failure}`);
+    for (const failure of failures) console.error(`- ${failure}`);
     process.exit(1);
   }
 
   console.log(
-    `Branch review ledger guard passed: ${result.recordCount} table records ` +
+    `Branch review ledger guard passed: ${result.recordCount} live table records` +
+      `${archiveRecords > 0 ? ` + ${archiveRecords} archived` : ""} ` +
       `(${result.strictCount} under the ${STRICT_FROM} machine-readable contract), union merge active, ` +
       `six cells each, no conflict markers, mojibake, heading records, or duplicates.`,
   );
 }
 
 // Guarded so the unit tests can import validateLedger without running the gate.
-if (process.argv[1]?.endsWith("check-branch-review-ledger.mjs")) main();
+const isMain =
+  process.argv[1]?.endsWith("/check-branch-review-ledger.mjs") ||
+  process.argv[1]?.endsWith("\\check-branch-review-ledger.mjs");
+if (isMain) main();

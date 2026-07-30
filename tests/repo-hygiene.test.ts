@@ -19,7 +19,16 @@ import {
   parseLedgerBranches,
   shallowCloneRefusal,
 } from "../scripts/sweep-branch-ledger.mjs";
-import { buildRow, findReviews, headMatches, parseLedgerRows, sanitizeCell } from "../scripts/branch-review-ledger.mjs";
+import {
+  archiveQuarterLabel,
+  buildRow,
+  calendarQuarterStart,
+  findReviews,
+  headMatches,
+  parseLedgerRows,
+  rotateLedgerMarkdown,
+  sanitizeCell,
+} from "../scripts/branch-review-ledger.mjs";
 import { validateLedger } from "../scripts/check-branch-review-ledger.mjs";
 
 describe("check-env-parity name parsing", () => {
@@ -431,6 +440,28 @@ describe("branch-review-ledger row parsing", () => {
     expect(() => buildRow({ ...base, head: "see PR head" })).toThrow(/full 40-character SHA/);
     expect(() => buildRow({ ...base, head: "abc1234" })).toThrow(/full 40-character SHA/);
     expect(buildRow({ ...base, head: "n/a - branch never pushed" })).toContain("n/a - branch never pushed");
+  });
+
+  it("rotates older rows into a quarterly archive while keeping newer live rows", () => {
+    expect(calendarQuarterStart("2026-07-30")).toBe("2026-07-01");
+    expect(archiveQuarterLabel("2026-07-15")).toBe("2026-q3");
+    const preamble = [
+      "# Ledger",
+      "",
+      "This file is append-only.",
+      "",
+      "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |",
+      "| --- | --- | --- | --- | --- | --- |",
+    ].join("\n");
+    const oldRow = `| 2026-07-01 | old/x | ${"a".repeat(40)} | s | o | c |`;
+    const newRow = `| 2026-07-29 | new/x | ${"b".repeat(40)} | s | o | c |`;
+    const rotated = rotateLedgerMarkdown(`${preamble}\n${oldRow}\n${newRow}\n`, { before: "2026-07-29" });
+    expect(rotated.moved).toBe(1);
+    expect(rotated.kept).toBe(1);
+    expect(rotated.liveMarkdown).toContain(newRow);
+    expect(rotated.liveMarkdown).not.toContain(oldRow);
+    expect(rotated.archives[0]?.path).toBe("docs/archive/branch-review-ledger-2026-q3.md");
+    expect(rotated.archives[0]?.markdown).toContain(oldRow);
   });
 });
 
