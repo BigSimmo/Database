@@ -1,15 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { coverageGaps, schemaTableGaps } from "../scripts/check-codebase-index-coverage.mjs";
+import { coverageGaps, schemaTableGaps, trackedRootDirectoryNames } from "../scripts/check-codebase-index-coverage.mjs";
 
 const index = `
 ## Top-level layout
 
-| Path | Purpose |
-| ---- | ------- |
-| \`src/\` | app code |
-| \`data/\` | generated snapshot exports |
-
-**Do not commit:** \`node_modules/\`.
+Roots: \`src/\`, \`docs/\`, \`.agents/\`.
 
 ## Application architecture
 
@@ -64,34 +59,33 @@ describe("coverageGaps", () => {
     expect(gaps.map((gap) => gap.full)).toEqual(["src/app/api/medications"]);
   });
 
-  it("reports a tracked repo-root directory that the layout section never names", () => {
-    const gaps = coverageGaps(index, [{ kind: "root", dir: ".", name: "worker" }]);
-    expect(gaps.map((gap) => gap.full)).toEqual(["worker"]);
-  });
-
-  it("treats a root directory named in the layout section as covered", () => {
-    const gaps = coverageGaps(index, [
-      { kind: "root", dir: ".", name: "src" },
-      { kind: "root", dir: ".", name: "data" },
-    ]);
-    expect(gaps).toEqual([]);
-  });
-
-  it("does not let a src/lib module name satisfy a repo-root directory", () => {
-    // `validation/` is named in the src/lib section only; root coverage must not
-    // borrow it, otherwise a root dir sharing a module name is silently covered.
-    const gaps = coverageGaps(index, [{ kind: "root", dir: ".", name: "validation" }]);
-    expect(gaps.map((gap) => gap.full)).toEqual(["validation"]);
-  });
-
-  it("honours the allowlist for root directories", () => {
-    const gaps = coverageGaps(index, [{ kind: "root", dir: ".", name: "worker" }], new Set(["worker"]));
-    expect(gaps).toEqual([]);
-  });
-
   it("honours the allowlist", () => {
     const gaps = coverageGaps(index, [{ kind: "route", dir: "src/app", name: "icons" }], new Set(["src/app/icons"]));
     expect(gaps).toEqual([]);
+  });
+
+  it("checks tracked repository-root directories in the top-level layout section", () => {
+    expect(
+      coverageGaps(index, [
+        { kind: "root", dir: ".", name: "src" },
+        { kind: "root", dir: ".", name: ".agents" },
+      ]),
+    ).toEqual([]);
+    expect(coverageGaps(index, [{ kind: "root", dir: ".", name: "plugins" }])).toEqual([
+      { full: "./plugins", kind: "root", tried: ["plugins/"] },
+    ]);
+  });
+
+  it("derives unique root directories from tracked paths only", () => {
+    expect(
+      trackedRootDirectoryNames([
+        "src/app/page.tsx",
+        "src/lib/env.ts",
+        "docs/codebase-index.md",
+        ".agents/skills/task/SKILL.md",
+        "README.md",
+      ]),
+    ).toEqual([".agents", "docs", "src"]);
   });
 
   it("reports missing and stale schema-table entries", () => {
