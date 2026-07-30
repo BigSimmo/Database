@@ -80,6 +80,24 @@ artifact before release; see
   deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
   backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
 
+## Anti-conflict and silent-CI signal (2026-07-30)
+
+- **Operating procedure:** AGENTS.md "Anti-conflict and CI-speed operating procedure".
+  Future-process only — do not mutate unrelated active PRs unless explicitly asked.
+- **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
+  (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
+  both-tables, stale `issues:next-id`, malformed rows). PR #1416 adds `merge=union` in
+  `.gitattributes` and a runtime attribute check so concurrent appends keep both sides'
+  rows; union merge still cannot allocate unique IDs, so the structural gate remains
+  required.
+- **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
+  `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
+  `.github/workflows/pr-mergeability.yml` checks trusted `pull_request_target` events and
+  uses a protected-base `push` sweep to publish a fresh `PR mergeability` check on each
+  unchanged open-PR head. Only that sweep receives job-scoped `checks: write`; neither path
+  checks out PR code or updates branches. Behind-but-clean heads remain an operator
+  `sync:pr-branches` concern. Contract: `npm run check:pr-mergeability`.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
@@ -137,6 +155,47 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - Tune the full-browser CI cadence if release branches or weekly schedules prove too slow or too sparse.
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.
+
+## Visual regression, style contracts and the pre-merge performance budget (2026-07-30)
+
+Three gates added for the "mature repo" verification pass. Full usage is in
+[`docs/testing.md`](testing.md); this records the reasoning and the remaining debt.
+
+- **Problem addressed.** Nothing verified rendered appearance. `playwright.visual.config.ts` and
+  `npm run test:e2e:visual` existed but pointed at `ui-visual-artifacts.spec.ts`, which only
+  `testInfo.attach()`es four screenshots for a human to eyeball — there was no `toHaveScreenshot`
+  call and no baseline directory anywhere in the repo. Separately, ledger #094 showed a style
+  contract passing while the style was inert, and Lighthouse only ran against the deployed origin,
+  after a merge had already auto-deployed.
+- **Style contracts are required and deterministic.** `tests/ui-style-contract.spec.ts` joins
+  `test:e2e:pr` through `productionSpecPattern`, so it blocks like any other production journey. It
+  is Chromium-only by design (computed-style serialisation is engine-specific) and self-skips on the
+  other engines in the release matrix. `tests/style-contract-registry.test.ts` closes the inventory
+  so the next unlayered class cannot be added unnoticed.
+- **Verified it bites, not just that it passes.** The contract was re-run against a production build
+  with `.search-band` deliberately moved back into `@layer components`; it failed on
+  `borderTopWidth` as intended, and passed once reverted. A gate that has never been observed to
+  fail is not yet evidence of anything.
+- **Pixel baselines are advisory on purpose.** `visual-baseline` in CI is `continue-on-error` and
+  outside `pr-required`. Two reasons: no baselines are committed yet (the first run's artifact is
+  what supplies them), and this repo has already paid for a sub-pixel rounding flake — the
+  `min-h-11` → `min-h-12` tap-target change. Promote by adding the job to `pr-required` and dropping
+  `continue-on-error` in the same edit, once baselines have held across a few runs.
+- **Baselines must come from CI, not a laptop.** Paths are platform-scoped
+  (`tests/__screenshots__/{platform}/`). Font hinting and antialiasing differ between a developer
+  machine and the `ubuntu-24.04` runner, so a locally-generated baseline would make every CI run red.
+- **The performance budget is relative, not absolute.** `lighthouse-budget.json` holds a committed
+  per-route baseline and a per-metric tolerance, following `check:bundle-budget`. Absolute
+  web-vitals thresholds are meaningless against localhost with no network latency. `enforce` starts
+  `false` with no baseline; incomplete evidence fails regardless of `enforce`.
+- **Verification debt remaining.** (1) No pixel baselines are committed, so `visual-baseline` reports
+  rather than gates until an operator adopts them from the CI artifact. (2) No Lighthouse baseline is
+  recorded, so the budget warns rather than grades until `--update` runs against a known-good build.
+  (3) 37 of the 38 unlayered visual classes carry exemptions rather than effect contracts — the debt
+  is enumerated in `STYLE_CONTRACT_EXEMPTIONS`, and ledger #094 stays open until the load-bearing
+  ones have contracts. (4) `scripts/run-lighthouse-budget.mjs` duplicates roughly 50 lines of the
+  isolated-server boot in `scripts/run-playwright.mjs`; extracting a shared module was deliberately
+  deferred rather than destabilise the required UI gate in the same change.
 
 ## Text formatting and copy conventions
 
