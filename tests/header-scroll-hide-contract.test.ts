@@ -20,6 +20,9 @@ const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`
 const hookSource = read("src/components/clinical-dashboard/use-hide-on-scroll.ts");
 const headerSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
+const reserveHookSource = read("src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts");
+const globalsSource = read("src/app/globals.css");
+const reserveSource = read("src/components/clinical-dashboard/mobile-composer-reserve.ts");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
 const dashboardCoordinatorSource = read("src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts");
 const activeScrollOwnerSource = read("src/components/clinical-dashboard/use-active-scroll-owner.ts");
@@ -103,7 +106,7 @@ describe("shared header hide/reveal wiring", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
     // the outer stack sticks while only the top-bar row collapses.
     expect(shellSource).toContain('strategy: "collapse"');
-    expect(shellSource).toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    expect(shellSource).toContain('phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay"');
     expect(shellSource).toContain('wide: "sticky"');
     // ClinicalDashboard uses the document on browser phones and <main> in
     // standalone/sm+; both feed the same collapse reporter.
@@ -114,16 +117,76 @@ describe("shared header hide/reveal wiring", () => {
     expect(dashboardSource).toContain('data-chrome-transitioning={chromeTransitioning ? "true" : undefined}');
   });
 
-  it("uses overlay phone motion only for document-viewer-owned routes", () => {
+  it("overlays phone motion on every route so hiding moves no content", () => {
     expect(headerSource).toContain('phoneMotion?: "collapse" | "overlay"');
     expect(headerSource).toContain('const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse"');
     expect(headerSource).toContain('hideStrategy === "collapse" && phoneMotion === "overlay"');
-    expect(shellSource).toContain("isDocumentViewerOwnedRoute");
-    expect(shellSource).toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    // Every phone route overlays. The 1fr -> 0fr grid plus the
+    // `chrome-safe-area-top` height transition handed layout back to the
+    // scroller on every hide, so content slid under the animation. Do not
+    // reintroduce a route-conditional collapse here.
+    // Overlay is the default; the exception is routes that portal page navigation
+    // into the collapse row, whose journeys assert in-flow collapse geometry.
+    expect(shellSource).toContain('phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay"');
+    expect(shellSource).not.toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    expect(reserveSource).toContain("export function isCollapseMotionPhoneRoute");
     expect(dashboardSource).not.toContain("phoneMotion:");
     expect(headerSource).toContain("data-phone-motion={phoneMotion}");
     expect(headerSource).toContain("max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0");
-    expect(behaviourDocSource).toContain("`/documents/search` and every non-document route keep the default");
+  });
+
+  it("reserves a constant phone top clearance beneath the overlay header", () => {
+    // Overlay takes the stack out of flow (`.phone-overlay-header` is fixed in
+    // browser tabs, absolute in standalone), so content needs clearance or the
+    // first row sits under the chrome at scroll top. The reserve must be
+    // constant: an animated or hidden-state-dependent value is the layout shift
+    // overlay exists to remove.
+    expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
+    expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h)]");
+    // Reserve only where overlay is active.
+    expect(shellSource).toContain('!isCollapseMotionPhoneRoute(pathname) && "max-sm:pt-');
+    expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
+    // The property must be seeded in CSS and refined before paint. A passive
+    // effect or a `,0px` fallback paints content under the out-of-flow header
+    // and shifts it down at hydration — a cold-load jump, which is the defect
+    // class this whole change removes (Codex P1, 2026-07-30).
+    // The top term is `max(0.5rem, inset)`, matching the header's own
+    // `pt-[max(0.5rem,var(--safe-area-top))]`. Seeding the bare inset
+    // under-reserves by 8px wherever the phone reports no top inset, so the
+    // layout effect corrects it after paint (Codex P1, 2026-07-30 — second
+    // round). `--shell-header-h` already covers the inner min-h-14 bar + pb-2.
+    expect(globalsSource).toContain(
+      "--phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h))",
+    );
+    expect(headerSource).toContain("pt-[max(0.5rem,var(--safe-area-top))]");
+    expect(reserveHookSource).toContain("useLayoutEffect");
+    expect(shellSource).not.toContain("--phone-overlay-chrome-h,0px");
+    // offsetHeight ignores transforms, so the measurement is the revealed
+    // height in either state. The hook must therefore never branch on the hide
+    // state — that is what would make the reserve vary and shift content.
+    expect(reserveHookSource).not.toContain('getAttribute("data-scroll-hidden")');
+    expect(reserveHookSource).not.toContain("dataset.scrollHidden");
+    expect(reserveHookSource).toContain("offsetHeight");
+    expect(reserveHookSource).toContain("ResizeObserver");
+  });
+
+  it("portals the phone bottom dock out of the transformed overlay layer", () => {
+    // The overlay hide translates the header stack, and a non-none `transform`
+    // makes an element a containing block for `position: fixed` descendants. A
+    // phone dock left inside that subtree resolves `bottom: 0` against the
+    // ~72px header rather than the viewport and renders near the top of the
+    // screen (observed as formBottom 772px from the viewport bottom at 390x844).
+    // Portalling on phones is the fix; `sm+` must stay inline because tablet
+    // may not double-sticky the composer.
+    expect(headerSource).toContain("PhoneFooterLayerPortal");
+    expect(headerSource).toContain("{phoneOverlayMotion && usesPhoneBottomDock ? (");
+    // The translate that creates the containing block, so the pairing is visible
+    // to anyone editing either half.
+    // Resting state must be transform-free: a transform at rest is a containing
+    // block for the fixed dock from the very first paint, before the portal that
+    // escapes it exists (Codex P1, 2026-07-30).
+    expect(headerSource).not.toContain("max-sm:translate-y-0");
+    expect(headerSource).toContain("max-sm:-translate-y-full");
   });
 
   it("moves submitted search composers into normal page flow on desktop only", () => {

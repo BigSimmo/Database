@@ -42,7 +42,7 @@ const patterns = {
     /^src\/app\/globals\.css$/,
     /^src\/styles\//,
     /^src\/components\/ClinicalDashboard\.tsx$/,
-    /^src\/components\/clinical-dashboard\/(?:global-search-shell|master-search-header|mobile-composer-reserve|phone-footer-layer-portal|scroll-surface|use-active-scroll-owner|use-dashboard-chrome-coordinator|use-hide-on-scroll)\.(?:ts|tsx)$/,
+    /^src\/components\/clinical-dashboard\/(?:global-search-shell|master-search-header|mobile-composer-reserve|phone-footer-layer-portal|scroll-surface|use-active-scroll-owner|use-dashboard-chrome-coordinator|use-hide-on-scroll|use-phone-overlay-chrome-reserve)\.(?:ts|tsx)$/,
     /^package-lock\.json$/,
   ],
   phoneContract: [
