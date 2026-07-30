@@ -13,6 +13,17 @@ import { hasDirectTitleSupport } from "@/lib/rag/rag-routing";
 // decide fast-path eligibility and evidence sufficiency. Behaviour-preserving —
 // the function bodies are byte-identical to their previous rag.ts definitions.
 
+export const visualEvidenceUnitTypes = new Set([
+  "visual_summary",
+  "visual_askable_question",
+  "table_threshold",
+  "medication_chart_row",
+  "flowchart_step",
+  "diagram_decision",
+  "risk_matrix_cell",
+  "chart_finding",
+]);
+
 /** Normalize document alias text. */
 function normalizeDocumentAliasText(value: string) {
   return value
