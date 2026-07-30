@@ -1,4 +1,8 @@
-import { expect, test, type Locator, type Page } from "playwright/test";
+import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { dirname, join } from "node:path";
+
+import { expect, test, type Locator, type Page, type TestInfo } from "playwright/test";
 
 /**
  * Pixel baselines for the surfaces whose appearance is the product.
@@ -20,10 +24,15 @@ import { expect, test, type Locator, type Page } from "playwright/test";
  * 3. **Motion off, carets hidden.** Both are frame-timing noise rather than
  *    appearance; the suite already runs `reducedMotion: "reduce"`.
  *
- * Baselines are platform-suffixed (see `playwright.visual.config.ts`). A run on a
- * platform with no committed baseline fails with "snapshot doesn't exist" rather
- * than silently passing — adopt baselines from the CI artifact, not from a
- * developer laptop, or font hinting alone will make every subsequent run red.
+ * Baselines are platform-suffixed (see `playwright.visual.config.ts`). Adopt them
+ * from the CI artifact, not from a developer laptop, or font hinting alone will
+ * make every subsequent run red.
+ *
+ * A target with no committed baseline reports SKIPPED and writes a candidate PNG
+ * for review, but only while it is declared in `AWAITING_BASELINE` below; an
+ * undeclared missing baseline still fails. That split is the point — see the
+ * comment on that list for why a permanently-red advisory check is worse than no
+ * check at all.
  */
 
 const documentPath =
@@ -102,21 +111,115 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   return region;
 }
 
+/**
+ * Targets that knowingly have no committed baseline yet.
+ *
+ * Without this list "no baseline" and "the pixels moved" are the same red, and
+ * because the first state persists until someone adopts baselines from a CI
+ * artifact, the job would be red on every UI-touching PR indefinitely. A check
+ * that is always red is a check nobody reads, so the day a real regression
+ * appears it looks exactly like the eleven runs before it. That is the same
+ * failure mode as ledger #095's false red, arrived at from the other direction.
+ *
+ * So the two states are separated. A target listed here reports SKIPPED with the
+ * path to commit, and its candidate PNG is written to `test-results/` for review.
+ * A target NOT listed here with no baseline still FAILS — that is a deleted or
+ * mis-pathed golden, which must stay loud.
+ *
+ * Adopting a baseline means deleting its name from this list in the same commit
+ * that adds the PNG. `declares no baseline it already has` below fails if the two
+ * ever disagree, so the list cannot rot into a permanent exemption.
+ */
+const AWAITING_BASELINE: ReadonlySet<string> = new Set([
+  "dashboard-shell",
+  "dashboard-shell-phone",
+  "search-results-band",
+  "search-results-band-phone",
+  "document-viewer",
+  "therapy-compass-home",
+]);
+
+/**
+ * Where a candidate PNG is written when no baseline exists.
+ *
+ * Deliberately NOT the snapshot directory. Writing into `__screenshots__` would
+ * let a second attempt in the same job compare against a golden this very run
+ * produced and report green — the self-adoption hole `retries: 0` exists to
+ * close in playwright.visual.config.ts. Keeping candidates in `test-results/`
+ * means the baseline directory is only ever written by a human.
+ */
+function candidatePath(testInfo: TestInfo, name: string): string {
+  return join(testInfo.project.outputDir, "visual-candidates", process.platform, `${name}.png`);
+}
+
 test.describe("visual baselines", () => {
   test.describe.configure({ timeout: 90_000 });
 
   for (const target of targets) {
-    test(`${target.name} matches its baseline`, async ({ page }) => {
-      const region = await settle(page, target);
+    test(`${target.name} matches its baseline`, async ({ page }, testInfo) => {
+      const baseline = testInfo.snapshotPath(`${target.name}.png`);
+      const masks = (target.mask ?? []).map((selector) => page.locator(selector));
 
+      if (!existsSync(baseline)) {
+        // Capture anyway: a skipped target with nothing to look at gives a
+        // reviewer no way to adopt it, which is how "adopt from CI" stalls.
+        const region = await settle(page, target);
+        const candidate = candidatePath(testInfo, target.name);
+        await mkdir(dirname(candidate), { recursive: true });
+        await region.screenshot({
+          path: candidate,
+          animations: "disabled",
+          caret: "hide",
+          scale: "css",
+          mask: masks,
+        });
+        await testInfo.attach(`${target.name} (candidate baseline)`, { path: candidate, contentType: "image/png" });
+
+        // Not listed as awaiting: the golden was deleted, renamed, or the
+        // platform path changed. That is a real fault and stays red.
+        expect(
+          AWAITING_BASELINE.has(target.name),
+          `No baseline at ${baseline}, and "${target.name}" is not in AWAITING_BASELINE. ` +
+            "Either the committed golden was deleted/renamed, or a new target was added without declaring it.",
+        ).toBe(true);
+
+        test.skip(
+          true,
+          `No baseline committed yet for "${target.name}". Download this run's artifact and copy ` +
+            `visual-candidates/${process.platform}/${target.name}.png to ${baseline}, then remove ` +
+            `"${target.name}" from AWAITING_BASELINE in the same commit.`,
+        );
+        return;
+      }
+
+      const region = await settle(page, target);
       await expect(region).toHaveScreenshot(`${target.name}.png`, {
         animations: "disabled",
         caret: "hide",
         // CSS pixels, so a runner with a different device-pixel-ratio does not
         // produce a differently-sized image against the same baseline.
         scale: "css",
-        mask: (target.mask ?? []).map((selector) => page.locator(selector)),
+        mask: masks,
       });
     });
   }
+
+  // Keeps the declaration honest in both directions. Without these two the list
+  // would silently become a permanent opt-out: a stale entry would skip a target
+  // whose golden is sitting right there, and a typo would exempt nothing while
+  // looking like it exempted something.
+  test("declares no baseline it already has", async ({}, testInfo) => {
+    const stale = [...AWAITING_BASELINE].filter((name) => existsSync(testInfo.snapshotPath(`${name}.png`)));
+    expect(
+      stale,
+      `These targets have a committed baseline but are still listed as awaiting one: ${stale.join(", ")}. ` +
+        "Remove them from AWAITING_BASELINE so the comparison actually runs.",
+    ).toEqual([]);
+  });
+
+  test("declares only real targets", async () => {
+    const names = new Set(targets.map((target) => target.name));
+    const unknown = [...AWAITING_BASELINE].filter((name) => !names.has(name));
+    expect(unknown, `AWAITING_BASELINE names no such target: ${unknown.join(", ")}`).toEqual([]);
+  });
 });
