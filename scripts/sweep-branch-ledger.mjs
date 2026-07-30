@@ -142,28 +142,141 @@ export function shallowCloneRefusal(isShallowOutput) {
   ].join("\n");
 }
 
+/**
+ * Whether `remote.origin.fetch` maps EVERY remote head into `refs/remotes/origin`.
+ *
+ * Takes the raw `git config --get-all remote.origin.fetch` output (one refspec per line).
+ * BOTH halves have to hold, because the sweep enumerates `refs/remotes/origin/<branch>` and nothing else:
+ *
+ *   source `refs/heads/*`              — otherwise only the named branch is fetched
+ *   destination `refs/remotes/origin/*` — otherwise the heads land somewhere this never reads
+ *
+ * Checking the source alone was wrong, and wrong in the dangerous direction. Git's `<dst>` decides
+ * which local ref is updated, so `+refs/*:refs/*` (a mirror) or `+refs/heads/*:refs/remotes/upstream/*`
+ * fetches every branch and leaves `refs/remotes/origin` empty. Measured with the upstream refspec
+ * above: `refs/remotes/upstream` held `upstream/main` and `upstream/feature` while the sweep exited
+ * **0** reporting `"branches": []`. Codex raised this on PR #1398.
+ *
+ * `refs/*` as the source is also rejected even when the destination is `refs/remotes/origin/*`.
+ * Git's wildcard substitution puts the matched suffix into `<dst>`: fetching `refs/heads/main`
+ * against `+refs/*:refs/remotes/origin/*` writes `refs/remotes/origin/heads/main`, not
+ * `refs/remotes/origin/main`. Measured in a two-branch fixture: the sweep enumerated
+ * `heads/main` and `heads/feature`, failed to resolve its `origin/main` comparison base,
+ * swallowed both comparison failures as zeroes, and exited 0 marking both as deletion
+ * candidates. Codex raised this on PR #1398.
+ *
+ * A `^`-prefixed NEGATIVE refspec excludes branches from an otherwise-wildcard config, so its
+ * presence means coverage cannot be established from the config at all. Measured on git 2.43.0
+ * with `+refs/heads/*:refs/remotes/origin/*` plus `^refs/heads/feature`: an ordinary
+ * `git fetch --prune origin` honoured the exclusion and left `origin/feature` absent. Passing an
+ * explicit `+refs/heads/*:…` on the command line overrode it and restored the ref, which is why
+ * this returning `false` does not by itself block the sweep — see `branchCoverageRefusal`.
+ */
+export function fetchRefspecCoversAllBranches(configOutput) {
+  const specs = String(configOutput ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (specs.some((spec) => spec.startsWith("^"))) return false;
+  return specs.some((spec) => {
+    const [source, destination] = spec.replace(/^\+/, "").split(":");
+    // Only refs/heads/* → refs/remotes/origin/*. A refs/* source nests under
+    // refs/remotes/origin/heads/<branch> (see docstring), which this never reads.
+    return source === "refs/heads/*" && destination === "refs/remotes/origin/*";
+  });
+}
+
+/**
+ * Refusal message when the inventory cannot be shown to cover every remote branch, or "" when
+ * it can.
+ *
+ * A second, independent way to get a confident wrong answer, and it survives the shallow fix:
+ * `git clone --depth 1` implies `--single-branch`, which pins `remote.origin.fetch` to the one
+ * cloned branch. `git fetch --unshallow` converts the history — `is-shallow-repository` flips to
+ * `false`, satisfying `shallowCloneRefusal` — but it does NOT widen the refspec, and an ordinary
+ * `git fetch origin` then respects the narrow one. Measured in a fixture with `main` and
+ * `feature`: after unshallowing, `git ls-remote --heads origin` listed both while
+ * `refs/remotes/origin` held only `origin/main`, so the sweep exited 0 reporting
+ * `"branches": []`. An empty inventory is not a safe failure here — it reads as "nothing to
+ * clean up", and where `origin/main` itself is missing every `rev-list` fails into 0/0, making
+ * every branch look like a deletion candidate with no unique patch content.
+ *
+ * `wildcardFetchCompleted` is why this is not simply a config check: the sweep's own fetch passes
+ * an explicit `+refs/heads/*:refs/remotes/origin/*`, which populates every remote-tracking ref
+ * without rewriting the operator's config, so a successful fetch establishes coverage on its own.
+ * The refusal is therefore reserved for the cases where nothing established it — `--no-fetch`,
+ * offline, or a failed fetch over a narrow refspec.
+ */
+export function branchCoverageRefusal(configOutput, wildcardFetchCompleted) {
+  if (fetchRefspecCoversAllBranches(configOutput) || wildcardFetchCompleted) return "";
+  return [
+    "refusing to report: remote.origin.fetch does not cover every branch, and no",
+    "wildcard fetch completed to make up for it.",
+    "",
+    "`git clone --depth 1` implies `--single-branch`, which pins the refspec to the one",
+    "cloned branch. `git fetch --unshallow` fixes the history but NOT the refspec, so",
+    "`--is-shallow-repository` reads false while every other branch stays invisible:",
+    "the sweep would report an empty or partial inventory as if it were complete.",
+    "",
+    "A ^-prefixed negative refspec has the same effect: it excludes branches from an",
+    "otherwise-wildcard config, so the configured fetch cannot be shown to cover them.",
+    "So does a refspec whose destination is not refs/remotes/origin/* — a mirror",
+    "(+refs/*:refs/*) fetches every branch into refs/heads/*, which this never reads.",
+    "So does `+refs/*:refs/remotes/origin/*`: git's wildcard nests the matched suffix,",
+    "writing refs/remotes/origin/heads/<branch> instead of origin/<branch>.",
+    "",
+    "Fix: git remote set-branches origin '*'",
+    "     git fetch --prune origin",
+    "Then re-run and confirm `git config --get-all remote.origin.fetch` maps",
+    "refs/heads/* → refs/remotes/origin/* with no ^ exclusions — or drop --no-fetch and",
+    "let the sweep fetch the wildcard itself, which overrides a configured exclusion.",
+  ].join("\n");
+}
+
 function main() {
   const asJson = process.argv.includes("--json");
+  const refuse = (message) => {
+    if (asJson) {
+      console.log(JSON.stringify({ error: "history-not-verified", message, branches: null }, null, 2));
+    } else {
+      console.error(message);
+    }
+    process.exitCode = 1;
+  };
 
   // Fail closed BEFORE the fetch and before any branch maths: a shallow clone cannot
   // produce a trustworthy inventory, and an untrustworthy inventory is worse than none.
   const refusal = shallowCloneRefusal(tryGit(["rev-parse", "--is-shallow-repository"]));
   if (refusal) {
-    if (asJson) {
-      console.log(JSON.stringify({ error: "history-not-verified", message: refusal, branches: null }, null, 2));
-    } else {
-      console.error(refusal);
-    }
-    process.exitCode = 1;
+    refuse(refusal);
     return;
   }
 
+  let wildcardFetchCompleted = false;
   if (!process.argv.includes("--no-fetch")) {
     try {
-      execFileSync("git", ["fetch", "--prune", "--quiet", "origin"], { cwd: root, stdio: "ignore" });
+      // Explicit wildcard refspec, not the configured one: a --depth 1 / --single-branch clone
+      // pins remote.origin.fetch to one branch, and unshallowing does not widen it. Passing the
+      // refspec fetches every head without rewriting the operator's config.
+      execFileSync("git", ["fetch", "--prune", "--quiet", "origin", "+refs/heads/*:refs/remotes/origin/*"], {
+        cwd: root,
+        stdio: "ignore",
+      });
+      wildcardFetchCompleted = true;
     } catch {
-      /* offline — use last-known refs */
+      /* offline — fall through to the coverage guard, which refuses on a narrow refspec */
     }
+  }
+
+  // Complete history is not the same as complete branch coverage; both have to hold before any
+  // inventory is printed.
+  const coverageRefusal = branchCoverageRefusal(
+    tryGit(["config", "--get-all", "remote.origin.fetch"]),
+    wildcardFetchCompleted,
+  );
+  if (coverageRefusal) {
+    refuse(coverageRefusal);
+    return;
   }
 
   const ledgerText = (() => {

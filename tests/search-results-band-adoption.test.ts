@@ -172,13 +172,19 @@ function reachabilityRoots(routeAbs: string): string[] {
  * its own default rendered `<div />`. Wherever that re-export is finally
  * mounted, this walk sees the JSX there instead.
  *
- * Three forms are followed unconditionally, because each *is* a mount mechanism
- * rather than a binding that might go unused:
+ * Followed unconditionally, because each *is* a mount mechanism rather than a
+ * binding that might go unused:
  * - `import("…")` — how `clinical-dashboard-lazy.tsx` code-splits the mode
  *   workspaces, so the band behind Differentials/Favourites/prescribing is only
  *   reachable this way
- * - `export … from "…"` — a barrel or pass-through re-export
+ * - `export { default } from "…"` / `export { X as default } from "…"` — a
+ *   pass-through page whose default component comes from elsewhere
  * - side-effect `import "…"`
+ *
+ * `export { X } from "…"` and `export * from "…"` are *not* followed. They are
+ * the one-statement spelling of the named re-export above and carry the same
+ * false green: a page can re-export a banded component while its own default
+ * renders `<div />`.
  */
 function followableSpecifiers(source: string, filename: string): string[] {
   let ast: ReturnType<typeof parse>;
@@ -245,12 +251,15 @@ function followableSpecifiers(source: string, filename: string): string[] {
       else staticImports.push({ source: spec, locals });
       continue;
     }
-    if (
-      (statement.type === "ExportNamedDeclaration" || statement.type === "ExportAllDeclaration") &&
-      statement.source
-    ) {
+    // `export { default } from "…"` / `export { X as default } from "…"` supplies
+    // this module's default component, so it mounts. A named or star re-export
+    // does not, and following it is the same false green as `export { X }` above.
+    if (statement.type === "ExportNamedDeclaration" && statement.source) {
       const spec = (statement.source as { value?: string })?.value;
-      if (typeof spec === "string") always.push(spec);
+      const suppliesDefault = ((statement.specifiers ?? []) as Array<Record<string, unknown>>).some(
+        (s) => (s.exported as { name?: string })?.name === "default",
+      );
+      if (typeof spec === "string" && suppliesDefault) always.push(spec);
       continue;
     }
   }
@@ -525,6 +534,33 @@ describe("band adoption detection", () => {
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "named-reexport-route.tsx"))).toBe(false);
+
+      // Same hole in one statement rather than two. `export { Banded } from "…"`
+      // took the re-export path and was followed unconditionally.
+      writeFileSync(
+        path.join(dir, "direct-named-reexport-route.tsx"),
+        'export { Banded } from "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "direct-named-reexport-route.tsx"))).toBe(false);
+
+      // And `export * from "…"`, which re-exports the band component by name
+      // without mounting it either.
+      writeFileSync(
+        path.join(dir, "star-reexport-route.tsx"),
+        'export * from "./banded-child";\nexport default function Page() {\n  return <div />;\n}\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "star-reexport-route.tsx"))).toBe(false);
+
+      // But a default re-export still is a mount: this page's default component
+      // *is* the banded one.
+      writeFileSync(
+        path.join(dir, "default-reexport-route.tsx"),
+        'export { Banded as default } from "./banded-child";\n',
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "default-reexport-route.tsx"))).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
