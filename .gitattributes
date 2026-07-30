@@ -13,7 +13,13 @@
 # but also reintroduced babysit twins that failed the ledger guard).
 docs/branch-review-ledger.md merge=ledger
 
-# Outstanding-issue rows are also append-mostly across concurrent agent sessions.
-# Union merge preserves both sides' rows; scripts/check-outstanding-issues.mjs
-# still fails on duplicate IDs because row-level union alone cannot allocate IDs.
-docs/outstanding-issues.md merge=union
+# Outstanding-issue rows deliberately get NO merge driver. Union was tried (PR
+# #1416) and removed: ledger #133 recorded that it "concatenates conflicting
+# hunks, so two sides each bumping the marker produce two `next-id` lines,
+# corrupting the file silently where a conflict would fail loudly", and on
+# 2026-07-30 (PR #1430) it duplicated the entire open-items table on four
+# separate merges. Unlike docs/branch-review-ledger.md this file allocates IDs
+# by read-modify-write, so concurrent appends need manual renumbering whatever
+# the driver does — union bought nothing and hid the overlap. Default 3-way
+# merge conflicts honestly instead; check-outstanding-issues.mjs enforces that
+# no driver is set, and still gates IDs, the marker and row shape.
