@@ -86,10 +86,14 @@ describe("Database skill catalog", () => {
     expect(repositoryWorkflow).toContain("$env:USERPROFILE");
     expect(repositoryWorkflow).not.toContain("C:\\Users\\joshs");
     expect(repositoryWorkflow).toContain("start-codex-task.ps1");
-    expect(repositoryWorkflow).toContain("TASK_START git=true");
+    expect(repositoryWorkflow).toContain("TASK_START");
+    expect(repositoryWorkflow).toContain("git=true");
+    expect(repositoryWorkflow).toContain("$taskState.TASK_START -ne 'git=true'");
     expect(repositoryWorkflow).toContain("verify-repository-isolation.mjs");
     expect(repositoryWorkflow).toContain("--allow-dirty");
-    expect(repositoryWorkflow).toContain("do not provide an OS-level sandbox");
+    expect(repositoryWorkflow).toContain("does not provide an OS-level sandbox");
+    expect(repositoryWorkflow).toContain("git rev-parse --show-toplevel");
+    expect(repositoryWorkflow).toContain("git worktree add");
     expect(verifier).toContain("dirty_override_requires_expected_state");
     expect(verifier).toContain("expected_state_required");
     expect(verifier).toContain("primary_worktree");
