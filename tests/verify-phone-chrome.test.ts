@@ -64,7 +64,7 @@ describe("phoneChromePlan", () => {
 
 describe("runPhoneChromeStages", () => {
   it("aborts on the first non-zero stage exit and never continues", () => {
-    const exit = vi.fn();
+    const exit = vi.fn() as unknown as typeof process.exit;
     const runCommand = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(1).mockReturnValueOnce(0);
     const stages = [
       { id: "lock-parity", label: "ok", command: { executable: "npm", args: ["run", "a"] } },

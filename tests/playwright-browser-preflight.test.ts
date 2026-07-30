@@ -25,7 +25,7 @@ describe("playwright browser preflight", () => {
     expect(
       defaultChromiumHeadlessShellPath(
         "/home/ubuntu/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome",
-      ).replaceAll("\\", "/"),
+      )?.replaceAll("\\", "/"),
     ).toBe(
       "/home/ubuntu/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell",
     );
@@ -53,6 +53,7 @@ describe("playwright browser preflight", () => {
 
   it("honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH for Chromium projects", () => {
     const resolved = resolvePlaywrightBrowserExecutable("chromium", {
+      NODE_ENV: "test",
       PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: "/tmp/custom-chrome",
     });
     expect(resolved).toEqual({
@@ -64,6 +65,7 @@ describe("playwright browser preflight", () => {
 
   it("fails closed when the required Chromium binary is missing", () => {
     const result = playwrightBrowserPreflight(["--project=chromium"], {
+      NODE_ENV: "test",
       PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: `/tmp/missing-chrome-${Date.now()}`,
     });
     expect(result.ok).toBe(false);
@@ -87,6 +89,7 @@ describe("playwright browser preflight", () => {
     try {
       writeFileSync(binary, "");
       const result = playwrightBrowserPreflight(["--project=chromium-mockups"], {
+        NODE_ENV: "test",
         PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: binary,
       });
       expect(result.ok).toBe(true);
