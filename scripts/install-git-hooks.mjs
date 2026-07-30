@@ -5,7 +5,7 @@
  *
  * Runs automatically from the package.json `postinstall` script, so every
  * `npm install` / `npm ci` (local, CI, and Claude web containers) self-installs
- * the pre-push guards. The repo's SessionStart hook only runs on remote web
+ * the pre-commit documentation sync and pre-push guards. The repo's SessionStart hook only runs on remote web
  * containers, so postinstall is the reliable cross-surface install point.
  *
  * Contract: this must NEVER fail an install. Every failure path swallows the
@@ -48,11 +48,12 @@ try {
     console.log(`[install-git-hooks] core.hooksPath set to ${HOOKS_DIR}`);
   }
 
-  // Best-effort: ensure the hook is executable on POSIX (harmless on Windows).
-  const prePush = path.join(process.cwd(), HOOKS_DIR, "pre-push");
-  if (existsSync(prePush)) {
+  // Best-effort: ensure committed hooks are executable on POSIX (harmless on Windows).
+  for (const hookName of ["pre-commit", "pre-push"]) {
+    const hook = path.join(process.cwd(), HOOKS_DIR, hookName);
+    if (!existsSync(hook)) continue;
     try {
-      chmodSync(prePush, 0o755);
+      chmodSync(hook, 0o755);
     } catch {
       /* non-fatal */
     }

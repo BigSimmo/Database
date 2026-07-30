@@ -201,8 +201,10 @@ action must perform one; a page that ships must be reachable.
   (`src/lib/app-modes.ts`, `src/lib/tools-catalog.ts`, `src/lib/universal-search.ts`), not
   hardcoded strings scattered across components.
 - **New-route checklist.** Add the page → link it from real nav (sidebar / launcher / mode home /
-  search) → `npm run sitemap:update` → document it in `docs/codebase-index.md` → add a
+  search) → `npm run docs:update` → document it in `docs/codebase-index.md` → add a
   reachability/coverage assertion. A production page route with no inbound link is an orphan.
+  The committed pre-commit hook runs this synchronization for relevant staged changes and stops
+  when generated docs need review/staging; it never stages files automatically.
 - **Gates.** `eslint-rules/require-button-wiring.mjs` (in `npm run lint`) fails on an un-wired
   `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
   route has no inbound nav link unless it is consciously added to that test's documented
