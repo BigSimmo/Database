@@ -122,7 +122,7 @@ API rather than estimated:
 
 - **Every other job finishes by minute 4 and then waits ~12 minutes for Production UI.**
   Inside it, Playwright reported `339 passed (13.5m)`; the remaining ~2 min is the isolated
-  production build (see outstanding-issues `#137`). Docs-only PRs run 3–5.5 min.
+  production build (see outstanding-issues `#136`). Docs-only PRs run 3–5.5 min.
 - Because the 42% cancellation rate is dominated by pushes that supersede a run mid-Production-UI,
   almost all of the wasted runner time is this one job. Shortening it cuts churn cost directly.
 - **`ui-critical` is therefore sharded across runners** (`ci.yml`), not parallelised within one:
