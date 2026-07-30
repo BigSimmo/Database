@@ -208,7 +208,7 @@ const containerPatterns = [
   "railway.worker.json",
   "tests/stubs/server-only.ts",
   /^worker\/.+/,
-  /^scripts\/(check-node-engine|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -225,7 +225,7 @@ const buildPatterns = [
   "package.json",
   "package-lock.json",
   "scripts/check-bundle-budget.mjs",
-  /^scripts\/(check-node-engine|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
 ];
 
 const staticConfigPatterns = [
@@ -751,6 +751,12 @@ function selfTest() {
     source_changed: true,
     build_changed: true,
   });
+  assertScope("upload-limit-parity-input", ["scripts/check-upload-limit-parity.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
   assertScope(
     "container",
     [
@@ -764,6 +770,7 @@ function selfTest() {
       "scripts/build-worker.mjs",
       "scripts/run-heavy.mjs",
       "scripts/check-client-bundle-secrets.mjs",
+      "scripts/check-upload-limit-parity.mjs",
       "scripts/install-git-hooks.mjs",
       "tests/stubs/server-only.ts",
       "tsconfig.json",

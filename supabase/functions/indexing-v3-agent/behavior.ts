@@ -64,6 +64,22 @@ export type JobStatusRpcResult = {
   status: string;
 };
 
+export function agentFailureDecision(args: {
+  attemptCount: number;
+  maxAttempts: number;
+  nowMs: number;
+  retryDelayMs: number;
+}) {
+  const shouldRetry = args.attemptCount < args.maxAttempts;
+  return {
+    shouldRetry,
+    status: shouldRetry ? "retry_pending" : "failed",
+    jobStatus: shouldRetry ? "pending" : "failed",
+    enrichmentStatus: shouldRetry ? "pending" : "failed",
+    nextRunAt: shouldRetry ? new Date(args.nowMs + args.retryDelayMs).toISOString() : null,
+  } as const;
+}
+
 function asObjectRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
