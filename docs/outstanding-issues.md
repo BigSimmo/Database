@@ -81,7 +81,7 @@ removed after current-main verification; it is not missing recommended work.
 |    33 | `#103`         | A3       | Operator — Supabase schema                  | Same window as `#102`                                              | 30–60 minutes                         | Confirm whether the wide `document_table_facts` trigram index from `20260714190000` exists live, then either mirror it into `schema.sql` (retained) or drop it via a forward migration (redundant). **Not the allowlist** — it suppresses live-vs-`schema.sql` findings only and cannot make the migration chain and the mirror agree. Stop: do not drop it without live scan evidence.                                                                                        |
 |    34 | `#105`         | Optional | High — browser/UI verification              | When the heavy-run lock is free                                    | 20–40 minutes                         | Run `verify:ui` over the ten `LoadingPanel` fallbacks and confirm the Supabase `preconnect` reaches `<head>` on a live page. Implementation already shipped; this row is the outstanding verification only.                                                                                                                                                                                                                                                                    |
 
-<!-- issues:next-id=123 -->
+<!-- issues:next-id=125 -->
 
 ## Open items
 
