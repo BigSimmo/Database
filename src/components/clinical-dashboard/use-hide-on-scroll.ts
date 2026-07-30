@@ -9,7 +9,7 @@ import { mobileComposerHiddenReserveRem } from "@/components/clinical-dashboard/
 // phone/tablet seam. Hide-on-scroll runs below the sm breakpoint unless the
 // host opts into all breakpoints (both app shells do this for the header; the
 // bottom search dock stays phone-only).
-const phoneMediaQuery = "(max-width: 639px)";
+export const phoneMediaQuery = "(max-width: 639px)";
 
 // Scroll offset (px) that must be passed before the chrome may hide; the
 // header's own height (72px borderless bar; <main> reserves the same strip)
