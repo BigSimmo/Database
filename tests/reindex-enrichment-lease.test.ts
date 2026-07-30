@@ -140,8 +140,11 @@ describe("reindex enrichment-lease gate (#052)", () => {
     );
   });
 
-  it("blocks bulk full reindex when any selected document has a fresh enrichment lease", async () => {
-    const rpc = vi.fn();
+  it("returns per-document results when one selected document has a fresh enrichment lease", async () => {
+    const rpc = vi.fn(async (_name: string, args: { p_document_id: string }) => ({
+      data: { outcome: "queued", job: { id: `job-${args.p_document_id}` } },
+      error: null,
+    }));
     const documentsQuery = {
       select: vi.fn(),
       eq: vi.fn(),
@@ -186,15 +189,36 @@ describe("reindex enrichment-lease gate (#052)", () => {
       }),
     );
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toMatchObject({
-      error: "Bulk reindex is paused while enrichment is active for one or more selected documents.",
-      blockedDocumentIds: [documentId],
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: false,
+      results: [
+        {
+          documentId,
+          mode: "full",
+          ok: false,
+          error: "Reindex paused while enrichment is active.",
+        },
+        {
+          documentId: otherDocumentId,
+          mode: "full",
+          ok: true,
+          jobId: `job-${otherDocumentId}`,
+        },
+      ],
+      missingDocumentIds: [],
     });
+    expect(checkIngestionMutationSafety).toHaveBeenCalledWith(
+      expect.objectContaining({ checkActiveAgentEnrichmentJobs: false }),
+    );
     expect(listDocumentsWithActiveAgentEnrichment).toHaveBeenCalledWith(
       expect.objectContaining({ documentIds: expect.arrayContaining([documentId, otherDocumentId]) }),
     );
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      "request_ingestion_reindex_if_agent_idle",
+      expect.objectContaining({ p_document_id: otherDocumentId }),
+    );
   });
 
   it("keeps bulk enrichment mode free of the full-reindex lease preflight", async () => {
