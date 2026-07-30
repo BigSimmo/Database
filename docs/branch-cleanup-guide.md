@@ -21,9 +21,22 @@ Before deleting anything:
 page, including the reconciliation preflight below:**
 
 ```bash
-git rev-parse --is-shallow-repository   # must print false
-git fetch --unshallow --tags origin     # if it printed true
+git rev-parse --is-shallow-repository       # must print false
+git fetch --unshallow --tags origin         # if it printed true
+
+git config --get-all remote.origin.fetch    # must map refs/heads/*
+git remote set-branches origin '*'          # if it names a single branch
+git fetch --prune origin                    # then repopulate
 ```
+
+**Complete history is not complete branch coverage — check both.** `git clone --depth 1` implies
+`--single-branch`, which pins `remote.origin.fetch` to the one cloned branch. `git fetch --unshallow`
+converts the history, so `--is-shallow-repository` flips to `false` and the first check passes, but
+it does **not** widen the refspec: every other branch stays invisible locally. Measured in a fixture
+with `main` and `feature`, `git ls-remote --heads origin` listed both while `refs/remotes/origin` held
+only `origin/main`, and the sweep exited **0** reporting an empty branch list. An empty inventory is
+not a safe failure — it reads as "nothing to clean up", and where `origin/main` itself is missing every
+comparison fails into `0/0`, making every branch look like a deletion candidate.
 
 Every signal in this guide — ahead/behind, `--cherry-pick` patch-uniqueness, `git diff main...BRANCH`
 — is derived from a **merge-base**. A shallow clone has a grafted root, so those results are wrong
@@ -39,7 +52,10 @@ recommending deletion of an active branch.
 Both `npm run sweep:branch-ledger` and `node scripts/reconciliation-preflight.mjs` now refuse
 outright unless the history is verified complete (`shallowCloneRefusal`, guarded in
 `tests/repo-hygiene.test.ts`) — the preflight is included because it reports its own
-merge-base-derived ahead/behind values. For the preflight the refusal lives in the exported
+merge-base-derived ahead/behind values. The sweep additionally refuses on a narrow refspec
+(`branchCoverageRefusal`) and fetches an explicit `+refs/heads/*:refs/remotes/origin/*`, so an
+ordinary run repairs its own coverage rather than reporting a partial inventory; with `--no-fetch`,
+offline, or a failed fetch, it refuses instead. For the preflight the refusal lives in the exported
 `collectReconciliationState`, not in its CLI, so `scripts/reconciliation-evidence-pack.mjs` cannot
 write a `status: "complete"` pack around shallow numbers by calling the collector directly. The raw
 `git` commands below have no such protection, so verify the precondition yourself before trusting
