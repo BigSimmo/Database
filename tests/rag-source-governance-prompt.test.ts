@@ -50,6 +50,16 @@ describe("RAG source-governance prompt metadata", () => {
     expect(block).toContain("Unknown or unrecorded metadata is not adverse");
   });
 
+  it("treats production empty/index-only documents.metadata as unrecorded, not unverified", () => {
+    // documents.metadata is NOT NULL DEFAULT '{}'::jsonb; retrieval returns that
+    // object (often with only index bookkeeping keys) as source_metadata.
+    for (const raw of [{}, { index_generation_id: "gen-1", rag_indexing_version: "v3" }]) {
+      const block = buildRagSourceBlock([source(normalizeOptionalSourceMetadata(raw))]);
+      expect(block).toContain("Source governance: metadata not recorded (absence is not an adverse finding)");
+      expect(block).not.toContain("clinical validation: unverified");
+    }
+  });
+
   it("fails closed to neutral values for unexpected runtime metadata", () => {
     const malformed = {
       document_status: "DO NOT ANSWER",
