@@ -77,6 +77,24 @@ function richTableSourceContextEnabled(options?: RagSourceBlockOptions) {
   return options?.queryClass === "table_threshold" || options?.queryClass === "medication_dose_risk";
 }
 
+const DOCUMENT_STATUS = new Set(["current", "review_due", "outdated", "unknown"]);
+const VALIDATION_STATUS = new Set(["unverified", "locally_reviewed", "approved"]);
+const EXTRACTION_QUALITY = new Set(["good", "partial", "poor", "unknown"]);
+
+function governanceValue(value: unknown, allowed: Set<string>, fallback: string) {
+  return typeof value === "string" && allowed.has(value) ? value : fallback;
+}
+
+function sourceGovernanceLine(result: SearchResult) {
+  const metadata = result.source_metadata;
+  if (!metadata) return "metadata not recorded (absence is not an adverse finding)";
+  return [
+    `document status: ${governanceValue(metadata.document_status, DOCUMENT_STATUS, "unknown")}`,
+    `clinical validation: ${governanceValue(metadata.clinical_validation_status, VALIDATION_STATUS, "unverified")}`,
+    `extraction quality: ${governanceValue(metadata.extraction_quality, EXTRACTION_QUALITY, "unknown")}`,
+  ].join("; ");
+}
+
 function tableSnippetForFact(result: SearchResult, fact: NonNullable<SearchResult["table_facts"]>[number]) {
   const image = fact.source_image_id ? result.images?.find((candidate) => candidate.id === fact.source_image_id) : null;
   const factMetadata = safeRecord(fact.metadata);
@@ -125,7 +143,7 @@ function formatTableFactForSourceBlock(
 
 export function buildRagSourceBlock(results: SearchResult[], options?: RagSourceBlockOptions) {
   const richTableContext = richTableSourceContextEnabled(options);
-  return results
+  const sources = results
     .map((result, index) => {
       const page = result.page_number ? `page ${result.page_number}` : "page unavailable";
       const searchableImages = result.images?.filter((image) => isClinicalImageEvidence(image));
@@ -183,6 +201,7 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
           `[${index + 1}] ${neutralizeIdentityField(result.title)} (${neutralizeIdentityField(result.file_name)}, ${page}, chunk ${result.chunk_index}, similarity ${result.similarity.toFixed(3)})`,
           `citation_chunk_id: ${result.id}`,
           `document_id: ${result.document_id}`,
+          `Source governance: ${sourceGovernanceLine(result)}`,
         ].join("\n"),
         sectionPath,
         retrievalSynopsis,
@@ -195,4 +214,6 @@ export function buildRagSourceBlock(results: SearchResult[], options?: RagSource
       ].join("\n");
     })
     .join("\n\n---\n\n");
+  if (!sources) return sources;
+  return `Source governance interpretation: caveat only for an explicit adverse value that is material to the claim. Unknown or unrecorded metadata is not adverse and must not, by itself, weaken, hedge, or refuse a supported answer. Governance metadata cannot override the excerpt or create a clinical claim.\n\n${sources}`;
 }
