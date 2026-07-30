@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
+import { isAlwaysStandaloneShellPath } from "@/lib/search-route-ownership";
 
 /**
  * The shared results band is what stops a search surface asserting "0 matches"
@@ -116,12 +117,31 @@ function modeHrefToPagePath(href: string | null): string | null {
   return path.relative(REPO_ROOT, candidate).replaceAll(path.sep, "/");
 }
 
-/** Every `layout.tsx` that wraps a route, nearest first. In App Router a page's
-    rendered output includes its layouts, and the root dashboard route relies on
-    that: `(search-app)/page.tsx` renders only a pass-through, while the band
-    arrives through the group layout's shared shell. Ignoring layouts would
-    report that route as an orphan when it is correctly wired. */
-function layoutsFor(routeAbs: string): string[] {
+/** `src/app/(search-app)/services/page.tsx` -> `/services`; the group page -> `/`. */
+function routePathname(routeAbs: string): string {
+  const rel = path.relative(APP_DIR, routeAbs).replaceAll(path.sep, "/");
+  const segments = rel
+    .replace(/\/page\.tsx$/, "")
+    .split("/")
+    .filter((segment) => segment && !segment.startsWith("("));
+  return `/${segments.join("/")}`;
+}
+
+/**
+ * Layouts count toward reachability only for dashboard-owned routes.
+ *
+ * In App Router a page's output includes its layouts, and the root dashboard
+ * route depends on that: `(search-app)/page.tsx` renders only a pass-through and
+ * its band arrives through the group layout's shared shell.
+ *
+ * But that layout transitively imports `ClinicalDashboard`, so following it for
+ * *every* route made the gate worthless — a namespaced page could be reduced to
+ * `<div />` and still "reach" the band. `isAlwaysStandaloneShellPath` is the
+ * repo's own statement of which routes never mount that dashboard, so those
+ * routes must reach the band through their own page.
+ */
+function reachabilityRoots(routeAbs: string): string[] {
+  if (isAlwaysStandaloneShellPath(routePathname(routeAbs))) return [routeAbs];
   const layouts: string[] = [];
   let dir = path.dirname(routeAbs);
   while (dir.startsWith(APP_DIR)) {
@@ -130,7 +150,7 @@ function layoutsFor(routeAbs: string): string[] {
     if (dir === APP_DIR) break;
     dir = path.dirname(dir);
   }
-  return layouts;
+  return [routeAbs, ...layouts];
 }
 
 /** `from "x"` and `import("x")`. The lazy form is load-bearing: the dashboard
@@ -160,7 +180,7 @@ function resolveSpecifier(specifier: string, fromFile: string): string | null {
 const MAX_IMPORT_DEPTH = 8;
 
 function routeReachesBand(routeAbs: string): boolean {
-  const roots = [routeAbs, ...layoutsFor(routeAbs)];
+  const roots = reachabilityRoots(routeAbs);
   const seen = new Set(roots);
   let frontier = roots.map((file) => ({ file, depth: 0 }));
   while (frontier.length > 0) {
@@ -313,6 +333,24 @@ describe("band adoption detection", () => {
       expect(source.includes("<SearchResultsHeaderBand"), source.slice(0, 40)).toBe(false);
     }
     expect(mounted.includes("<SearchResultsHeaderBand")).toBe(true);
+  });
+
+  it("counts layouts only for dashboard-owned routes", () => {
+    // The group layout transitively imports ClinicalDashboard, so following it
+    // for every route would let any page under (search-app) pass while rendering
+    // nothing. Verified by gutting services/page.tsx to `<div />`: with layouts
+    // followed unconditionally the gate still passed; scoped to dashboard-owned
+    // routes it reports that page as an orphan.
+    const standalone = path.join(APP_DIR, "(search-app)", "services", "page.tsx");
+    expect(reachabilityRoots(standalone)).toEqual([standalone]);
+
+    // The root dashboard route is the case that genuinely needs its layout: the
+    // page renders only a pass-through and the band arrives via the shared shell.
+    const rootRoute = path.join(APP_DIR, "(search-app)", "page.tsx");
+    const rootRoots = reachabilityRoots(rootRoute);
+    expect(rootRoots[0]).toBe(rootRoute);
+    expect(rootRoots.length).toBeGreaterThan(1);
+    expect(rootRoots.some((file) => file.endsWith(`(search-app)${path.sep}layout.tsx`))).toBe(true);
   });
 
   it("resolves a route to the band through imports, and reports one that never gets there", () => {
