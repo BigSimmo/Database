@@ -69,14 +69,12 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     see React `style` assignments; do not "fix" these. Verified 2026-07-30 by
     computed style: all four consuming sites paint `rgb(225,29,72)` on
     `/medications/acamprosate` in light and dark. (`--med-accent-soft` is set
-    but unread — tracked as `#145`, not a missing-token defect.)
+    but unread — tracked as `#149`, not a missing-token defect.)
   - `--clinical-accent-strong`
-    (`clinical-dashboard/answer-status.tsx:252`) — **was** a genuinely undefined
-    production reference with no stylesheet or React `style` definition and no
-    fallback, so the declaration was dropped at parse time. Same defect family
-    as the dead `--text-4xs` classes repaired on 2026-07-30. **Fixed in PR
-    #1451** by mapping it to `--clinical-accent`; `-strong` was never part of
-    the family.
+    (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
+    to `--primary-700` in both themes and `LinkText` in forced-colors,
+    with contrast and token-presence contracts in
+    `tests/design-token-contract.test.ts`.
   - `--primary-hover`, `--success-hover` —
     `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
     gate-exempt design scratch. Also undefined; **fixed in PR #1451**

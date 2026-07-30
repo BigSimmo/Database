@@ -213,6 +213,18 @@ describe("accent ramp", () => {
     expect(hover, "hover must not repeat the resting colour").not.toBe(rest);
     expect(active, "active must not repeat the hover colour").not.toBe(hover);
   });
+
+  it.each(themes)("keeps strong accent text on the high-contrast ramp step in $name", ({ tokens }) => {
+    expect(resolve(tokens, "--clinical-accent-strong")).toBe(resolve(tokens, "--primary-700"));
+    expect(
+      contrastRatio(resolve(tokens, "--clinical-accent-strong"), colourOf(tokens, "--surface")),
+      "strong accent text must remain readable on the default surface",
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("maps strong accent text to a system colour in forced-colors mode", () => {
+    expect(globals).toContain("--clinical-accent-strong: LinkText;");
+  });
 });
 
 describe("disabled and pre-paint values", () => {

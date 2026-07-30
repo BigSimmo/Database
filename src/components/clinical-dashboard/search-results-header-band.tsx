@@ -24,6 +24,8 @@ export type SearchResultsBandStatus =
   | "loading"
   /** Background refresh. The prior count is still trustworthy. */
   | "refetching"
+  /** Available sources returned an honest count, but at least one source failed. */
+  | "partial"
   /** The search failed. The count is NOT trustworthy and must not be rendered. */
   | "error"
   /** Sign-in required. The count is NOT trustworthy and must not be rendered. */
@@ -148,6 +150,7 @@ export function SearchResultsHeaderBand({
   // report, so no number may reach the DOM. "0 matches" on a failed services
   // search reads as "there are no crisis services" rather than "we could not check".
   const faulted = resolvedStatus === "error" || resolvedStatus === "unauthorized";
+  const partial = resolvedStatus === "partial";
   const busy = resolvedStatus === "loading" || resolvedStatus === "refetching";
   // "Service matches" -> "Services", leaving already-plural headings ("Favourites",
   // "DSM diagnoses") untouched. Phrasing the title as "<noun> could not be loaded"
@@ -163,6 +166,18 @@ export function SearchResultsHeaderBand({
       ? "Your session has expired. Sign in again to run this search."
       : "The search could not be completed. Try again shortly.");
   const [retrying, setRetrying] = useState(false);
+  const retry = async () => {
+    if (!onRetry) return;
+    setRetrying(true);
+    try {
+      await onRetry();
+    } catch {
+      // The existing fault/partial state remains the failure surface; a
+      // rejected retry must not escape as an unhandled promise.
+    } finally {
+      setRetrying(false);
+    }
+  };
   // Page-supplied filter/mobile controls carry their own result counts ("Forms 0",
   // "All (0)"). Suppressing the number in the spine while those still render it
   // defeats the whole invariant — the reader still sees a zero asserted about a
@@ -177,7 +192,9 @@ export function SearchResultsHeaderBand({
   const pageMobileControls = countUntrusted ? null : mobileControls;
   const hasUtilities =
     visibleScopes.length > 0 ||
-    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls);
+    Boolean(
+      onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
+    );
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
 
@@ -199,12 +216,12 @@ export function SearchResultsHeaderBand({
           <span
             className={cn(
               "grid h-9 w-9 shrink-0 place-items-center rounded-lg sm:h-10 sm:w-10",
-              faulted
+              faulted || partial
                 ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
                 : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
             )}
           >
-            {faulted ? (
+            {faulted || partial ? (
               <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
               <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
@@ -231,8 +248,8 @@ export function SearchResultsHeaderBand({
               "shrink-0 whitespace-nowrap",
               faulted ? "search-band-fault" : "search-band-count-word",
               busy && "text-[color:var(--clinical-accent)]",
-              faulted && "text-[color:var(--warning)]",
-              !busy && !faulted && "text-[color:var(--text-muted)]",
+              (faulted || partial) && "text-[color:var(--warning)]",
+              !busy && !faulted && !partial && "text-[color:var(--text-muted)]",
             )}
             role="status"
             aria-live={faulted ? "off" : "polite"}
@@ -267,6 +284,11 @@ export function SearchResultsHeaderBand({
                   </span>{" "}
                   {matchCount === 1 ? "match" : "matches"}
                 </span>
+                {partial ? (
+                  <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
+                    {" · some sources unavailable"}
+                  </span>
+                ) : null}
               </span>
             )}
           </span>
@@ -307,6 +329,20 @@ export function SearchResultsHeaderBand({
             {/* Desktop only: pushes the controls to the trailing edge while the chips
                 stay next to the query. On the phone rail this collapses away. */}
             <span className="hidden lg:block lg:flex-1" aria-hidden />
+            {partial && onRetry ? (
+              <AsyncButton
+                type="button"
+                busy={retrying}
+                busyLabel="Retrying…"
+                onClick={retry}
+                className={cn(
+                  "inline-flex min-h-tap shrink-0 items-center justify-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 text-[color:var(--warning)] search-band-ghost hover:border-[color:var(--warning)] sm:min-h-10",
+                  focusRing,
+                )}
+              >
+                Retry
+              </AsyncButton>
+            ) : null}
             {onSortChange && pageMobileControls ? (
               <div
                 data-testid="search-query-ribbon-mobile-control-pair"
@@ -423,17 +459,7 @@ export function SearchResultsHeaderBand({
                   type="button"
                   busy={retrying}
                   busyLabel="Retrying…"
-                  onClick={async () => {
-                    setRetrying(true);
-                    try {
-                      await onRetry();
-                    } catch {
-                      // The fault panel is already the failure surface; a rejected
-                      // retry leaves it in place rather than escaping unhandled.
-                    } finally {
-                      setRetrying(false);
-                    }
-                  }}
+                  onClick={retry}
                   className={cn(
                     "inline-flex min-h-tap shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-[color:var(--text-muted)] search-band-ghost hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                     focusRing,
