@@ -97,6 +97,57 @@ artifact before release; see
   unchanged open-PR head. Only that sweep receives job-scoped `checks: write`; neither path
   checks out PR code or updates branches. Behind-but-clean heads remain an operator
   `sync:pr-branches` concern. Contract: `npm run check:pr-mergeability`.
+- **Confirmed in the field the same day (PR #1427):** that PR pushed, opened, and was marked
+  ready for review while producing **zero** `pull_request` runs — no `CI`, no `Gitleaks`, no
+  `Semgrep` — with only `pull_request_target` (`PR policy`) firing. `git merge-tree` showed
+  real conflicts against a base 35 commits ahead. The new `PR mergeability` check caught it
+  and named the cause. Read a missing check list as a conflict signal, never as a pass.
+
+## CI shape and cost, measured per job (2026-07-30)
+
+The PR #1406 sample above counts runs. This is where the time inside one goes — job-level
+timings from two full UI-scope PR runs (`30520443076`, `30519912667`), read from the Actions
+API rather than estimated:
+
+| Job               | Duration        | On the critical path?    |
+| ----------------- | --------------- | ------------------------ |
+| Change scope      | 13 s            | yes                      |
+| Static PR checks  | 3m03            | no                       |
+| Safety and config | 47 s            | no                       |
+| Unit coverage     | 3m57            | no                       |
+| Advisory UI       | 3m14            | no                       |
+| **Production UI** | **15m26–16m31** | **yes — 83–89% of wall** |
+| PR required       | 5 s             | yes                      |
+| **Whole run**     | **16.8–18.6 m** |                          |
+
+- **Every other job finishes by minute 4 and then waits ~12 minutes for Production UI.**
+  Inside it, Playwright reported `339 passed (13.5m)`; the remaining ~2 min is the isolated
+  production build (see outstanding-issues `#136`). Docs-only PRs run 3–5.5 min.
+- Because the 42% cancellation rate is dominated by pushes that supersede a run mid-Production-UI,
+  almost all of the wasted runner time is this one job. Shortening it cuts churn cost directly.
+- **`ui-critical` is therefore sharded across runners** (`ci.yml`), not parallelised within one:
+  `workers: 1` / `fullyParallel: false` / `retries: 0` are unchanged inside each shard, so
+  determinism is identical and per-runner load falls — which matters because `#093`'s duplicate
+  page root is load-dependent.
+- **The shard count is measured, not chosen.** With `fullyParallel: false` a spec file is
+  indivisible, so shard sizes are lumpy. Against the 342 required chromium tests on the
+  post-merge tree, N=3 gives 121/111/110 and N=4 gives 121/106/98/17 — the same 121-test
+  bound for an extra runner. On the 340-test tree just before, N=5 and N=8 produced **empty**
+  shards, which would go red because `test:e2e:pr` deliberately omits `--pass-with-no-tests`.
+  Re-measure with
+  `npx playwright test --project=chromium --grep-invert "@quarantine|@mockup" --shard=i/N --list`
+  (needs a running server via `npm run ensure` and `PLAYWRIGHT_BASE_URL`) before changing N,
+  and keep every shard non-empty.
+- **These timings predate `ui-critical-fast`.** The `@critical` fail-fast job (15 tests) now
+  runs before the full suite, so the UI critical path is that job plus the slowest shard.
+- **Measured on the first real sharded run** (CI `30530618838`, 2026-07-30, all green):
+  `ui-critical-fast` 3m14, then shards of 9m36 / 6m54 / 6m20; whole run **13m39** against a
+  16.8–18.6 min unsharded baseline. **The prediction from test counts was wrong by ~40%:**
+  6.8 min was expected for the largest shard, 9m36 happened. Per-test cost is not uniform —
+  111 tests took 6m54 while 121 took 9m36 — so a count-balanced split understates the slowest
+  shard whenever the slow specs land together. `--shard` can only balance by count; balancing
+  by duration would require splitting the slow spec files themselves. Prefer a measured run
+  over the arithmetic when judging any further shard change.
 
 ## Phase 1 - Active now
 
