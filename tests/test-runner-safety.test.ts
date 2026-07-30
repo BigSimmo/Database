@@ -605,6 +605,7 @@ describe("provider-safe test environment", () => {
 
   it("builds and starts an isolated production server for Playwright", () => {
     const runner = readFileSync(new URL("../scripts/run-playwright.mjs", import.meta.url), "utf8");
+    const preflight = readFileSync(new URL("../scripts/playwright-browser-preflight.mjs", import.meta.url), "utf8");
     const baseUrl = readFileSync(new URL("../scripts/playwright-base-url.ts", import.meta.url), "utf8");
     const ragRunner = readFileSync(new URL("../scripts/eval-rag-offline.mjs", import.meta.url), "utf8");
     const playwrightConfig = readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
@@ -622,6 +623,16 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");
     expect(runner).not.toContain("if (!body || body.includes(missingErrorComponentsNeedle))");
     expect(runner).not.toContain("supabase.co");
+    // Missing browser binaries must fail before the heavy lock / production build (#120).
+    expect(runner).toContain("assertPlaywrightBrowsersReady(playwrightArgs);");
+    expect(runner.indexOf("assertPlaywrightBrowsersReady(playwrightArgs);")).toBeLessThan(
+      runner.indexOf("lock = acquireHeavyRunLock("),
+    );
+    expect(runner.indexOf("assertPlaywrightBrowsersReady(playwrightArgs);")).toBeLessThan(
+      runner.indexOf("console.log(`Building isolated production Playwright app"),
+    );
+    expect(preflight).toContain("chromium_headless_shell");
+    expect(preflight).toContain("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH");
     expect(packageJson.scripts["test:e2e:pr"]).toContain('--grep-invert "@quarantine|@mockup"');
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));
