@@ -65,7 +65,9 @@ and is exactly what the ESLint gate below now catches.
 1. Create the `page.tsx`.
 2. **Link it from real navigation** — sidebar, a launcher tile, a mode home, search, or a `redirect()`.
    A production page with no inbound link is an **orphan** (reachable only by typing the URL).
-3. Run `npm run sitemap:update` to regenerate `docs/site-map.md`.
+3. Run `npm run docs:update` to regenerate `docs/site-map.md` and refresh the generated repository
+   inventory in `docs/scripts-index.md`. The pre-commit hook does this automatically for relevant
+   staged changes, then stops if the generated diff still needs review/staging.
 4. Document the route in `docs/codebase-index.md` (the product-pages table).
 5. The reachability gate then enforces step 2 automatically (see below).
 
