@@ -27,8 +27,21 @@ export const ISSUES_PATH = "docs/outstanding-issues.md";
 const OPEN_HEADING = "## Open items";
 const ARCHIVE_HEADING = "## Resolved / archive";
 const MARKER = /<!--\s*issues:next-id=(\d+)\s*-->/;
-/** A data row: `| #NNN | …`. Separator and header rows never match. */
-const ROW = /^\|\s*(#\d+)\s*\|/;
+/**
+ * A data row's id cell, e.g. `| #042 |`.
+ *
+ * Matching only well-formed ids and skipping the rest would make this gate
+ * claim more than it does: a hand edit turning `#001` into `001` or `#OO1`
+ * would drop that row from EVERY check below — duplicate detection, the marker
+ * comparison, the width check — and the file would pass while carrying exactly
+ * the malformed row the gate advertises. So `DATA_ROW` recognises any row in a
+ * table body and the id shape is validated, not assumed.
+ */
+const ID_CELL = /^#\d+$/;
+/** Any table row that is not a header or separator, so a bad id is still seen. */
+const DATA_ROW = /^\|/;
+/** The header row of either table, which names its first column `ID`. */
+const HEADER_ROW = /^\|\s*ID\s*\|/i;
 /**
  * A table's separator row, e.g. `| ---- | --- |`, which declares its width.
  * The inner pipes must be in the class: without them this only ever matched a
@@ -57,19 +70,24 @@ export function parseIssues(markdown) {
   const lines = markdown.split("\n");
   const openStart = lines.findIndex((line) => line.startsWith(OPEN_HEADING));
   const archiveStart = lines.findIndex((line) => line.startsWith(ARCHIVE_HEADING));
-  const marker = markdown.match(MARKER);
+  const markers = [...markdown.matchAll(new RegExp(MARKER, "g"))];
+  const marker = markers[0] ?? null;
 
   const rows = [];
   lines.forEach((line, index) => {
-    const match = line.match(ROW);
-    if (!match) return;
+    if (openStart < 0 || index < openStart) return;
+    if (!DATA_ROW.test(line) || SEPARATOR.test(line) || HEADER_ROW.test(line)) return;
     const table = archiveStart >= 0 && index > archiveStart ? "archive" : "open";
+    const parsed = cells(line);
+    const id = parsed[0] ?? "";
+    const valid = ID_CELL.test(id);
     rows.push({
-      id: match[1],
-      number: Number(match[1].slice(1)),
+      id,
+      valid,
+      number: valid ? Number(id.slice(1)) : null,
       line: index + 1,
       table,
-      cellCount: cells(line).length,
+      cellCount: parsed.length,
     });
   });
 
@@ -86,6 +104,7 @@ export function parseIssues(markdown) {
     openStart,
     archiveStart,
     nextId: marker ? Number(marker[1]) : null,
+    markerCount: markers.length,
     rows,
     widths: {
       open: separatorWidth(openStart, archiveStart),
@@ -96,7 +115,7 @@ export function parseIssues(markdown) {
 
 export function checkIssues(markdown) {
   const problems = [];
-  const { openStart, archiveStart, nextId, rows, widths } = parseIssues(markdown);
+  const { openStart, archiveStart, nextId, markerCount, rows, widths } = parseIssues(markdown);
 
   if (openStart < 0) problems.push(`missing the "${OPEN_HEADING}" heading`);
   if (archiveStart < 0) problems.push(`missing the "${ARCHIVE_HEADING}" heading`);
@@ -104,13 +123,28 @@ export function checkIssues(markdown) {
     problems.push(`"${ARCHIVE_HEADING}" appears before "${OPEN_HEADING}"`);
   }
   if (nextId === null) problems.push("missing the <!-- issues:next-id=N --> marker");
+  if (markerCount > 1) {
+    // Only the first is ever read, so a conflict that kept both leaves a stale
+    // value that a later editor can follow straight into a reused id.
+    problems.push(
+      `${markerCount} <!-- issues:next-id=N --> markers — exactly one is allowed; ` +
+        "a second is a conflict resolution that kept both sides",
+    );
+  }
   if (rows.length === 0) problems.push("no `| #NNN |` rows found — the parser or the file shape has drifted");
 
   // The failure this gate exists for: a lost-row merge that left two rows
   // sharing one number, so one item's evidence is silently attributed to
   // another and the next allocation collides again.
+  for (const row of rows.filter((entry) => !entry.valid)) {
+    problems.push(
+      `line ${row.line} (${row.table} table) has a malformed id cell ${JSON.stringify(row.id)} — ` +
+        "ids are `#NNN`; a row the parser cannot identify is a row no other check can protect",
+    );
+  }
+
   const byId = new Map();
-  for (const row of rows) {
+  for (const row of rows.filter((entry) => entry.valid)) {
     if (!byId.has(row.id)) byId.set(row.id, []);
     byId.get(row.id).push(row);
   }
@@ -133,8 +167,9 @@ export function checkIssues(markdown) {
 
   // The marker must lead the whole file, not just the open table: ids are never
   // reused, so an archived row still burns its number.
-  if (nextId !== null && rows.length > 0) {
-    const highest = Math.max(...rows.map((row) => row.number));
+  const numbered = rows.filter((row) => row.valid);
+  if (nextId !== null && numbered.length > 0) {
+    const highest = Math.max(...numbered.map((row) => row.number));
     if (nextId <= highest) {
       problems.push(
         `issues:next-id=${nextId} is not above the highest id #${String(highest).padStart(3, "0")} — ` +
@@ -185,6 +220,19 @@ function selfTest() {
     // A literal pipe inside a cell is escaped, not a column boundary. The real
     // file has rows like this and an earlier draft of the checker failed them.
     ["an escaped pipe inside a cell", good.replace("| #001 | P2 | a |", "| #001 | P2 | a \\| b |"), 0],
+    // Adversarial: a row the id regex cannot parse must FAIL, not disappear.
+    // Skipping it would drop the row from duplicate, marker and width checks
+    // while the file reported green — the gate claiming more than it does.
+    ["a dropped # on an id", good.replace("| #001 | P2 | a |", "| 001 | P2 | a |"), 1],
+    ["a letter O for a zero", good.replace("| #001 | P2 | a |", "| #OO1 | P2 | a |"), 1],
+    ["an empty id cell", good.replace("| #001 | P2 | a |", "|  | P2 | a |"), 1],
+    // Two markers: only the first is ever read, so the second is a stale
+    // allocation a later editor can follow straight into a reused id.
+    [
+      "a second next-id marker kept by a conflict",
+      good.replace("<!-- issues:next-id=3 -->", "<!-- issues:next-id=3 -->\n<!-- issues:next-id=9 -->"),
+      1,
+    ],
   ];
   let failures = 0;
   for (const [name, markdown, expected] of cases) {
