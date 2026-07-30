@@ -23,6 +23,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
   const isSearchHeadingMockup = pathname === "/mockups/search-heading";
+  // Renders the results header inside its own device frames; the shared composer
+  // would read as a second, real search bar over the study.
+  const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // Draws its own composer in every frame, and the notice under study is the one
   // the shared composer renders — showing both would put two different privacy
@@ -70,6 +73,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
         !isSearchHeadingMockup &&
+        !isSearchRefineAdaptiveMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup
