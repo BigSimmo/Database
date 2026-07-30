@@ -229,6 +229,8 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
   the limit, both build arguments must carry the same value; runtime-only
   changes are insufficient because Next inlines `NEXT_PUBLIC_*` at build time.
   The local, static-PR, and production-build `check:upload-limit-parity` guard
+  uses Next's production environment-file precedence (`process.env`,
+  `.env.production.local`, `.env.local`, `.env.production`, then `.env`) and
   fails when the effective client and server values differ.
 - Runtime is a non-root `node` user, prod-only `node_modules`, direct
   `next start -H 0.0.0.0 -p $PORT` (Railway injects `$PORT`; the local

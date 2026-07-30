@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import nextEnv from "@next/env";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const uploadLimitSourcePath = path.join(projectRoot, "src", "lib", "upload-limits.ts");
 const dockerfilePath = path.join(projectRoot, "Dockerfile");
-const trackedNames = new Set(["MAX_UPLOAD_MB", "NEXT_PUBLIC_MAX_UPLOAD_MB"]);
+const { loadEnvConfig, resetEnv } = nextEnv;
 
 export function readUploadLimitCeiling(source = readFileSync(uploadLimitSourcePath, "utf8")) {
   const match = source.match(/export const MAX_UPLOAD_MB_CEILING\s*=\s*(\d+)\s*;/);
@@ -14,17 +16,15 @@ export function readUploadLimitCeiling(source = readFileSync(uploadLimitSourcePa
   return Number(match[1]);
 }
 
-export function loadLocalUploadLimitEnv(env = process.env, filePath = path.join(projectRoot, ".env.local")) {
-  if (!existsSync(filePath)) return env;
-
-  const resolved = { ...env };
-  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
-    if (line.trimStart().startsWith("#")) continue;
-    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-    if (!match || !trackedNames.has(match[1]) || resolved[match[1]] !== undefined) continue;
-    resolved[match[1]] = match[2].trim().replace(/^(['"])(.*)\1$/, "$2");
+export function loadProductionUploadLimitEnv(projectDir = projectRoot) {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    return loadEnvConfig(projectDir, false, console, true).combinedEnv;
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
   }
-  return resolved;
 }
 
 function parseConfiguredLimit(rawValue, name, ceiling) {
@@ -93,6 +93,31 @@ function selfTest() {
     null,
   );
   assert.match(evaluateDockerUploadLimitContract("ARG NEXT_PUBLIC_MAX_UPLOAD_MB=\n"), /ARG MAX_UPLOAD_MB/);
+
+  const envDir = mkdtempSync(path.join(os.tmpdir(), "upload-limit-parity-"));
+  const previousEnv = {
+    MAX_UPLOAD_MB: process.env.MAX_UPLOAD_MB,
+    NEXT_PUBLIC_MAX_UPLOAD_MB: process.env.NEXT_PUBLIC_MAX_UPLOAD_MB,
+    NODE_ENV: process.env.NODE_ENV,
+  };
+  try {
+    delete process.env.MAX_UPLOAD_MB;
+    delete process.env.NEXT_PUBLIC_MAX_UPLOAD_MB;
+    writeFileSync(path.join(envDir, ".env"), "MAX_UPLOAD_MB=10\nNEXT_PUBLIC_MAX_UPLOAD_MB=10\n");
+    writeFileSync(path.join(envDir, ".env.production"), "MAX_UPLOAD_MB=20\nNEXT_PUBLIC_MAX_UPLOAD_MB=20\n");
+    writeFileSync(path.join(envDir, ".env.local"), "MAX_UPLOAD_MB=30\nNEXT_PUBLIC_MAX_UPLOAD_MB=30\n");
+    writeFileSync(path.join(envDir, ".env.production.local"), "MAX_UPLOAD_MB=40\nNEXT_PUBLIC_MAX_UPLOAD_MB=40\n");
+    const loaded = loadProductionUploadLimitEnv(envDir);
+    assert.equal(loaded.MAX_UPLOAD_MB, "40");
+    assert.equal(loaded.NEXT_PUBLIC_MAX_UPLOAD_MB, "40");
+  } finally {
+    resetEnv();
+    for (const [name, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    rmSync(envDir, { recursive: true, force: true });
+  }
   console.log("upload-limit parity self-test passed.");
 }
 
@@ -103,7 +128,7 @@ function main() {
   }
 
   const ceiling = readUploadLimitCeiling();
-  const result = evaluateUploadLimitParity(loadLocalUploadLimitEnv(), ceiling);
+  const result = evaluateUploadLimitParity(loadProductionUploadLimitEnv(), ceiling);
   const dockerProblem = evaluateDockerUploadLimitContract();
   if (!result.ok || dockerProblem) {
     console.error("Upload-limit parity failed:");
