@@ -1,6 +1,15 @@
 "use client";
 
-import { memo, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -334,6 +343,25 @@ function DocumentResultMoreMenu({
   const triggerId = useId();
   const menuId = useId();
 
+  const updateMenuPosition = useCallback(() => {
+    const trigger = buttonRef.current;
+    if (!trigger) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportPadding = 16;
+    const gap = 8;
+    const menuWidth = Math.min(272, window.innerWidth - viewportPadding * 2);
+    const menuHeight = menuRef.current?.getBoundingClientRect().height ?? (document.imageCount > 0 ? 204 : 156);
+    const left = Math.min(
+      Math.max(viewportPadding, triggerRect.right - menuWidth),
+      window.innerWidth - viewportPadding - menuWidth,
+    );
+    const top =
+      triggerRect.top - gap - menuHeight >= viewportPadding
+        ? triggerRect.top - gap - menuHeight
+        : Math.min(triggerRect.bottom + gap, window.innerHeight - viewportPadding - menuHeight);
+    setMenuPosition({ left, top: Math.max(viewportPadding, top) });
+  }, [document.imageCount]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -359,26 +387,7 @@ function DocumentResultMoreMenu({
       window.removeEventListener("resize", updateMenuPosition);
       window.removeEventListener("scroll", updateMenuPosition, true);
     };
-  }, [open]);
-
-  function updateMenuPosition() {
-    const trigger = buttonRef.current;
-    if (!trigger) return;
-    const triggerRect = trigger.getBoundingClientRect();
-    const viewportPadding = 16;
-    const gap = 8;
-    const menuWidth = Math.min(272, window.innerWidth - viewportPadding * 2);
-    const menuHeight = menuRef.current?.getBoundingClientRect().height ?? (document.imageCount > 0 ? 204 : 156);
-    const left = Math.min(
-      Math.max(viewportPadding, triggerRect.right - menuWidth),
-      window.innerWidth - viewportPadding - menuWidth,
-    );
-    const top =
-      triggerRect.top - gap - menuHeight >= viewportPadding
-        ? triggerRect.top - gap - menuHeight
-        : Math.min(triggerRect.bottom + gap, window.innerHeight - viewportPadding - menuHeight);
-    setMenuPosition({ left, top: Math.max(viewportPadding, top) });
-  }
+  }, [open, updateMenuPosition]);
 
   function focusMenuItem(position: "first" | "last" = "first") {
     window.requestAnimationFrame(() => {
