@@ -843,6 +843,7 @@ Use `docs/codex-cloud.md` as the environment contract:
 - The Codex GitHub connection used to clone a repository is separate from agent-shell
   `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
+- For GitHub-related work, use the connected GitHub connector first whenever it supports the task: pull-request, issue, comment, and review-thread reads; review-thread replies and resolution; GitHub Actions run, job, log, and artifact inspection; and supported GitHub API mutations. Do not treat a missing `gh` CLI as a blocker for connector-supported work, and never add a PAT as a workaround. The intended connection is `BigSimmo` with administrator access to this repository; verify the exact target and connector result before any write. Use shell `git` or `gh` only for a genuine connector gap and only when the task permits it.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
   physical iPhone Safari/PWA acceptance.
 
