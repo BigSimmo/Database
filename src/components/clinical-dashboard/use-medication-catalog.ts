@@ -130,7 +130,7 @@ export function useMedicationCatalog(
       controller.abort();
       registration.release();
     };
-  }, [trimmed, enabled, fields, debounceMs, authorizationHeader, requestLifecycle]);
+  }, [trimmed, enabled, fields, debounceMs, authIdentity, authorizationHeader, requestLifecycle]);
 
   return state;
 }

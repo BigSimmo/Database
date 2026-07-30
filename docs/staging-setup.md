@@ -39,13 +39,17 @@ those vars are unset.
 
    ```bash
    supabase link --project-ref <staging-ref>
-   supabase db push          # applies supabase/migrations/* → matches schema.sql
+   # Unavailable until the divergent history is reconciled in an approved window:
+   # do not run a normal `supabase db push`. Preview the full reviewed chain first:
+   supabase db push --linked --include-all --dry-run
+   # Only after explicit approval for the complete 24-version chain:
+   # supabase db push --linked --include-all
    ```
 
-   Preserve the repository migration versions exactly. Do not replay the missing chain through a
-   helper that records new timestamps, because that would make staging history diverge while
-   appearing current. If the staging database credential is unavailable, stop and retain the
-   migration gap as operator debt instead of substituting a different apply mechanism.
+   Preserve the repository migration versions exactly. Do not run a normal or partial push against
+   the current divergent history, and do not replay the missing chain through a helper that records
+   new timestamps. If the staging database credential is unavailable, stop and retain the migration
+   gap as operator debt instead of substituting a different apply mechanism.
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.

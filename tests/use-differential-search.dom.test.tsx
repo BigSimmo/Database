@@ -215,6 +215,66 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.status).toBe("ready");
   });
 
+  it("keeps refetching across back-to-back same-identity credential refreshes", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    const refreshedMatch = {
+      record: { slug: "persistent-depressive-disorder", title: "Persistent depressive disorder" },
+      score: 10,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
+    rerender();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user-again" };
+    rerender();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(4);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    await act(async () => {
+      pending[2](jsonResponse({ matches: [refreshedMatch], demoMode: false }));
+      pending[3](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([refreshedMatch]);
+  });
+
   it("ignores a late previous-user refresh after the auth identity changes", async () => {
     const diagnosisMatch = {
       record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
