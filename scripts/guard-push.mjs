@@ -213,19 +213,29 @@ function pushedBlobIsFormatted(prettierBin, sha, file) {
       stdio: ["ignore", "pipe", "ignore"],
     });
   } catch {
-    // Deleted in this push, or otherwise not present at this sha.
-    return null;
+    // Deleted in this push, or otherwise not present at this sha: nothing to
+    // check, and nothing CI will check either. Skip.
+    return { verdict: "skip" };
   }
   try {
     const formatted = execFileSync(process.execPath, [prettierBin, "--ignore-unknown", "--stdin-filepath", file], {
       input: committed,
       encoding: "utf8",
       maxBuffer: 32 * 1024 * 1024,
-      stdio: ["pipe", "pipe", "ignore"],
+      stdio: ["pipe", "pipe", "pipe"],
     });
-    return formatted === committed;
-  } catch {
-    return null;
+    return { verdict: formatted === committed ? "formatted" : "unformatted" };
+  } catch (error) {
+    // Prettier itself failed — a malformed .prettierrc in this push exits 2, and
+    // `prettier --check .` in CI will fail for the same reason. Treating that as
+    // "unknown, allow" is how the guard would wave through the break it exists to
+    // catch, so surface it instead. `--ignore-unknown` already covers the benign
+    // no-parser case, so a non-zero exit here is a real problem.
+    const detail = [error?.stderr, error?.stdout]
+      .map((b) => (b ? b.toString() : ""))
+      .join("")
+      .trim();
+    return { verdict: "error", detail: detail || `prettier exited ${error?.status ?? "non-zero"} for ${file}` };
   }
 }
 
@@ -241,8 +251,22 @@ function formatGuard(changedBlobs) {
     return { name: "format", ok: true, note: "prettier not resolvable — format check skipped" };
   }
   const unformatted = [];
+  const errors = [];
   for (const { sha, file } of changedBlobs) {
-    if (pushedBlobIsFormatted(prettierBin, sha, file) === false) unformatted.push(file);
+    const { verdict, detail } = pushedBlobIsFormatted(prettierBin, sha, file);
+    if (verdict === "unformatted") unformatted.push(file);
+    else if (verdict === "error") errors.push(detail);
+  }
+  if (errors.length > 0) {
+    return {
+      name: "format",
+      ok: false,
+      message:
+        `Prettier could not check this push, so CI's \`prettier --check .\` will fail too:\n` +
+        errors.map((detail) => `  ${detail}\n`).join("") +
+        `  A malformed prettier config in the push is the usual cause.\n` +
+        `  To push anyway: SKIP_FORMAT_GUARD=1 git push`,
+    };
   }
   if (unformatted.length === 0) return { name: "format", ok: true };
   return {
