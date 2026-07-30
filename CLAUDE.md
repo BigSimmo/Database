@@ -90,7 +90,7 @@ src/data/         Static clinical content (DSM, formulation, therapies indexes)
 data/             Generated clinical snapshot exports loaded at runtime — regenerate, never hand-edit
 supabase/         migrations/ (source of truth), schema.sql (mirror), functions/
 worker/           Ingestion worker; worker/python/ is the OCR stack
-scripts/          ~160 files backing 194 npm scripts: gates, eval, reindex, governance, dev
+scripts/          gates, eval, reindex, governance, dev — counted and mapped in docs/scripts-index.md
 tests/            Vitest unit + Playwright E2E, side by side
 docs/             Runbooks, governance, plans; docs/README.md categorises them
 eslint-rules/     Repo-specific lint rules (see Conventions below)

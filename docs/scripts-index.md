@@ -1,11 +1,11 @@
 # Scripts index
 
-Curated map of `scripts/` (188 files) and the `package.json` script surface (203 entries),
+Curated map of `scripts/` (191 files) and the `package.json` script surface (206 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
-referenced in docs resolves to a real script. Every one of the 168 top-level `.mjs`/`.ts`/`.cjs`
-scripts is named below; the rest of the 188 are fixtures, SQL and subfolder helpers, and small
-shared helpers are grouped rather than itemised.
+referenced in docs resolves to a real script. Every top-level `.mjs`/`.ts`/`.cjs`/`.sh` script is
+named below; the remainder are fixtures, SQL and subfolder helpers, and small shared helpers are
+grouped rather than itemised.
 
 > The two counts in the sentence above are generated facts, not prose. Keep them in the exact
 > `(N files)` / `(N entries)` shape — tooling rewrites that sentence by regex.

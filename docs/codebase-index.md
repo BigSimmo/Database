@@ -43,8 +43,16 @@ Smaller top-level directories that are easy to miss:
 | `.agents/`      | Single-word skill catalogue (`npm run skills`, validated by `npm run check:skills`)                                                                                                                                                                                                                       |
 | `.claude/`      | Claude Code agents, skills, hooks, settings — plus the `.claude/worktrees/` working copies                                                                                                                                                                                                                |
 | `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (format, auto-merge race, drift staleness)                                                                                                                                                                                           |
+| `.cursor/`      | Cursor's agent definitions, skills and `mcp.json` — the Cursor-side counterpart to `.claude/`                                                                                                                                                                                                             |
+| `.design-sync/` | State and conventions for the `/design-sync` skill (config, entry component, font vars, notes)                                                                                                                                                                                                            |
+| `.vscode/`      | Recommended-extensions manifest only                                                                                                                                                                                                                                                                      |
 
 **Do not commit:** `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
+
+`npm run docs:check-index` fails when a tracked repo-root directory, `src/app` route
+group, `src/app/api` route, `src/lib` module directory, or `supabase/schema.sql` table is
+absent from this file — add the entry, or allowlist it with a reason in
+`scripts/check-codebase-index-coverage.mjs`.
 
 ---
 

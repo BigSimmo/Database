@@ -9,13 +9,19 @@
  * staling it. This checks that each top-level directory the index organizes around
  * is referenced somewhere in it.
  *
- * Granularity is deliberately top-level directories (route groups + src/lib module
- * dirs), not every file — the index maps modules by theme, so per-file coverage
- * would be pure noise.
+ * Granularity is deliberately top-level directories (tracked repo-root dirs +
+ * route groups + src/lib module dirs), not every file — the index maps modules by
+ * theme, so per-file coverage would be pure noise.
+ *
+ * The repo-root pass exists because root `data/` was loaded at runtime by seven
+ * src/lib modules while appearing in neither CLAUDE.md nor codebase-index.md, and
+ * nothing caught it: the earlier passes only looked inside src/. Root dirs come
+ * from `git ls-files`, so an untracked local directory cannot fail the gate.
  *
  * Run: `npm run docs:check-index`. Blocking — runs in `verify:cheap:internal` and in
  * CI (`.github/workflows/ci.yml`, the "Codebase index coverage" step). Exit 1 on gaps.
  */
+import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -38,10 +44,12 @@ function dirsIn(relativeDir) {
 export function coverageCandidates(kind, name) {
   if (kind === "api") return [`/api/${name}`];
   if (kind === "route") return [`/${name}`];
+  if (kind === "root") return [`${name}/`];
   return [`${name}/`, `src/lib/${name}/`];
 }
 
 const SECTION_BOUNDS = {
+  root: ["## Top-level layout", "## Application architecture"],
   route: ["### Product pages (`src/app/`)", "### API routes (`src/app/api/`)"],
   api: ["### API routes (`src/app/api/`)", "## `src/lib/` module map"],
   lib: ["## `src/lib/` module map", "## Supabase"],
@@ -74,10 +82,12 @@ function candidateMatches(span, candidate) {
 
 /** Pure: given the index text and the discovered groups, return the uncovered entries. */
 export function coverageGaps(indexText, groups, allowlist = ALLOWLIST) {
-  const spansByKind = new Map(["lib", "route", "api"].map((kind) => [kind, codeSpans(sectionText(indexText, kind))]));
+  const spansByKind = new Map(
+    ["lib", "route", "api", "root"].map((kind) => [kind, codeSpans(sectionText(indexText, kind))]),
+  );
   const gaps = [];
   for (const { kind, dir, name } of groups) {
-    const full = `${dir}/${name}`;
+    const full = dir === "." ? name : `${dir}/${name}`;
     if (allowlist.has(full)) continue;
     const tried = coverageCandidates(kind, name);
     const spans = spansByKind.get(kind) ?? [];
@@ -103,8 +113,28 @@ export function schemaTableGaps(indexText, schemaText) {
   };
 }
 
+/**
+ * Tracked top-level directories, read from git rather than the filesystem: the
+ * index documents the repository, not one machine, so an untracked local
+ * scratch directory (or node_modules) must never fail this gate.
+ */
+function trackedRootDirs() {
+  const output = execFileSync("git", ["ls-files", "-z"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const dirs = new Set();
+  for (const file of output.split("\0")) {
+    const slash = file.indexOf("/");
+    if (slash > 0) dirs.add(file.slice(0, slash));
+  }
+  return [...dirs].sort();
+}
+
 function discoverGroups() {
   const groups = [];
+  for (const name of trackedRootDirs()) groups.push({ kind: "root", dir: ".", name });
   for (const name of dirsIn("src/lib")) groups.push({ kind: "lib", dir: "src/lib", name });
   for (const name of dirsIn("src/app")) {
     if (name === "api") continue;
@@ -122,7 +152,7 @@ function main() {
   const tables = schemaTableGaps(indexText, schemaText);
 
   if (gaps.length > 0 || tables.missing.length > 0 || tables.stale.length > 0) {
-    console.error(`\n${INDEX_PATH} is missing ${gaps.length} top-level module(s)/route(s):`);
+    console.error(`\n${INDEX_PATH} is missing ${gaps.length} top-level directory/module(s)/route(s):`);
     for (const g of gaps) console.error(`  UNINDEXED ${g.full} (${g.kind}) — add it or allowlist it`);
     for (const table of tables.missing) console.error(`  UNINDEXED public.${table} (schema table)`);
     for (const table of tables.stale) console.error(`  STALE ${table} (not present in ${SCHEMA_PATH})`);
