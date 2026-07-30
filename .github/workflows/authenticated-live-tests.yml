@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Explicitly approve the authenticated production read-only test"
+        description: "Approve production E2E sign-in/out, test requests, and rate-limit updates"
         required: true
         default: "do-not-run"
         type: choice
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   live-tests:
-    name: Authenticated production read-only tests
+    name: Authenticated production tests with bounded E2E mutations
     if: github.ref == 'refs/heads/main' && inputs.confirmation == 'run-authenticated-live-tests'
     environment: Database / production
     runs-on: ubuntu-24.04

@@ -19,7 +19,9 @@ manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires
 explicit `run-authenticated-live-tests` dispatch confirmation, records the run against the
 `Database / production` environment, and injects GitHub secrets only into the identity
 guard and live-test steps. The secret-bearing job runs only from `refs/heads/main` and
-checks out that trusted ref; it never runs on a push, pull request, or schedule.
+checks out that trusted ref; it never runs on a push, pull request, or schedule. This suite
+is not read-only: the confirmation explicitly authorizes bounded E2E-user sign-in/sign-out,
+test requests, and production rate-limit row updates.
 
 ## Commands
 

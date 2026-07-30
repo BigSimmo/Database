@@ -15,8 +15,17 @@ describe("authenticated live test workflow", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
     expect(workflow).toContain("persist-credentials: false");
     expect(workflow).toContain("ref: refs/heads/main");
+    expect(workflow).not.toMatch(/read-only/i);
+    expect(workflow).toContain("production E2E sign-in/out, test requests, and rate-limit updates");
+    expect(workflow).toContain("Authenticated production tests with bounded E2E mutations");
     expect(workflow).not.toContain("OPENAI_API_KEY");
     expect(workflow).not.toContain("RAILWAY_API_TOKEN");
+  });
+
+  it("discloses the bounded production state changes before dispatch", () => {
+    expect(workflow).toContain('default: "do-not-run"');
+    expect(workflow).toContain('- "run-authenticated-live-tests"');
+    expect(workflow.indexOf("sign-in/out")).toBeLessThan(workflow.indexOf("environment: Database / production"));
   });
 
   it("uses GitHub secrets and preserves the repository provider-test guard", () => {
