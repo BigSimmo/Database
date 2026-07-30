@@ -3426,6 +3426,106 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
   });
 
+  // Computed-style proof, not class presence. `.search-band` declares
+  // `border-top: 2px solid var(--clinical-accent)` while the same element also
+  // carries the `border-[color:var(--border)]` utility. Tailwind's utilities
+  // layer outranks `@layer components` regardless of specificity, so if the rule
+  // is ever moved into a layer the accent rail renders as a 1px neutral border —
+  // which shipped in PR #1316 while `toHaveClass("search-band")` passed
+  // throughout. Only the rendered value can catch that.
+  test("the search band's accent rail and forced-colors thickness survive the cascade", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    await gotoApp(page, "/documents/search?mode=documents");
+    // Not fillVisibleQuestionInput: that helper gates on the answer composer's
+    // "Generate source-backed answer" submit, which does not exist on this route
+    // (the documents submit is "Find matching documents"), so its precondition
+    // can never be satisfied here. Same hydration-safe shape, correct target.
+    const bandQuery = visibleQuestionInput(page);
+    await expect(bandQuery).toBeVisible();
+    const documentsSubmit = page.getByRole("button", { name: "Find matching documents" });
+    await expect(async () => {
+      await waitForReactEventHandler(bandQuery, "onChange");
+      await bandQuery.fill("lithium monitoring");
+      await expect(bandQuery).toHaveValue("lithium monitoring");
+      await expect(documentsSubmit).toBeEnabled({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    await submitDocumentSearch(page);
+
+    const band = page.getByTestId("search-query-ribbon").first();
+    await expect(band).toBeVisible();
+
+    const rail = await band.evaluate((element) => {
+      const style = getComputedStyle(element);
+      // Resolve the token through a probe: getPropertyValue returns the
+      // *specified* value (`var(--primary-500)`), not a comparable colour.
+      const probe = document.createElement("span");
+      probe.style.color = "var(--clinical-accent)";
+      element.appendChild(probe);
+      const accent = getComputedStyle(probe).color;
+      probe.remove();
+      return {
+        topWidth: style.borderTopWidth,
+        topStyle: style.borderTopStyle,
+        topColor: style.borderTopColor,
+        sideWidth: style.borderRightWidth,
+        sideColor: style.borderRightColor,
+        accent,
+      };
+    });
+
+    expect(rail.topWidth, "the accent rail must render 2px, not the 1px utility border").toBe("2px");
+    expect(rail.topStyle).toBe("solid");
+    expect(rail.topColor, "the rail must paint --clinical-accent, not the neutral --border").toBe(rail.accent);
+    // The precise #1316 symptom: the rail collapsing into the other three edges.
+    expect(rail.topColor, "the rail is indistinguishable from the side borders").not.toBe(rail.sideColor);
+    expect(rail.topWidth).not.toBe(rail.sideWidth);
+
+    // Under forced colors the rail cannot survive as hue — --clinical-accent
+    // resolves to LinkText and --border-strong to CanvasText — so it survives as
+    // thickness instead. That distinction is the clinical signal, and it was
+    // previously only asserted by text-searching globals.css.
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect
+      .poll(async () => band.evaluate((element) => getComputedStyle(element).borderTopWidth), { timeout: 5_000 })
+      .toBe("3px");
+    await page.emulateMedia({ forcedColors: null });
+
+    // Tap targets are a rendered contract too: --spacing-tap is 44px and
+    // min-h-tap must actually produce it.
+    // Select on the COMPUTED value, not the class name: a class-substring match
+    // also catches breakpoint variants that are inert at this width, and the
+    // point of this gate is the rendered result. `display: inline` is excluded
+    // because CSS genuinely does not apply min-height to inline boxes — such an
+    // element is reported separately rather than silently counted as a pass.
+    const tapTargets = await page.evaluate(() => {
+      const describe = (element: Element) =>
+        `${element.tagName.toLowerCase()}.${(element.className || "").toString().split(/\s+/).slice(0, 3).join(".")}`;
+      const measured: { id: string; height: number; display: string }[] = [];
+      for (const element of document.querySelectorAll("*")) {
+        const style = getComputedStyle(element);
+        if (style.minHeight !== "44px") continue;
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        measured.push({
+          id: describe(element),
+          height: Math.round(rect.height * 10) / 10,
+          display: style.display,
+        });
+      }
+      return measured.slice(0, 20);
+    });
+
+    expect(tapTargets.length, "expected at least one control with a 44px computed min-height").toBeGreaterThan(0);
+    const inlineCarriers = tapTargets.filter((target) => target.display === "inline");
+    expect(inlineCarriers, "min-h-tap is inert on an inline box — CSS ignores min-height there").toEqual([]);
+    const undersized = tapTargets.filter((target) => target.height < 43.5);
+    expect(undersized, `controls with a 44px min-height rendered smaller: ${JSON.stringify(undersized)}`).toEqual([]);
+  });
+
   test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);

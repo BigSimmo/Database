@@ -22,6 +22,22 @@ const LITERAL_SHADOW_CLASS = /shadow-\[(?!var\()[^\]]+\]/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
 
+/**
+ * Component classes whose declared effect must beat a Tailwind utility on the
+ * same element, and which therefore MUST stay outside `@layer components`.
+ *
+ * Tailwind's utilities layer outranks `@layer components` regardless of selector
+ * specificity. `.search-band` sets `border-top: 2px solid var(--clinical-accent)`
+ * while the same element also carries `border-[color:var(--border)]`: inside a
+ * layer the utility wins and the accent rail silently renders as a 1px neutral
+ * border. That shipped in PR #1316 and a `toHaveClass("search-band")` assertion
+ * passed the whole time, because class presence is not effect.
+ *
+ * Add a selector here when losing the cascade would make it inert, not merely
+ * restyled.
+ */
+const UNLAYERED_EFFECT_SELECTORS = [".search-band"];
+
 const toPosix = (value) => value.split(path.sep).join("/");
 
 function isPrototype(relativePath) {
@@ -199,6 +215,40 @@ assert(
 
 const globals = textAt("src/app/globals.css");
 assert(!/^\s*--space-\d+\s*:/m.test(globals), "unused --space-* tokens returned");
+
+/** Names the `@layer`/`@media` block enclosing `index`, or null at top level. */
+function enclosingAtRule(source, index) {
+  const stack = [];
+  for (let cursor = 0; cursor < index; cursor += 1) {
+    const character = source[cursor];
+    if (character === "{") {
+      const head = source.slice(Math.max(0, source.lastIndexOf("}", cursor - 1) + 1), cursor);
+      const atRule = /@(layer|media|supports)[^{}]*$/.exec(head);
+      stack.push(atRule ? atRule[0].trim() : null);
+      continue;
+    }
+    if (character === "}") stack.pop();
+  }
+  return stack.filter(Boolean).pop() ?? null;
+}
+
+for (const selector of UNLAYERED_EFFECT_SELECTORS) {
+  // Only the base rule matters. The forced-colors overrides for the same
+  // selector are deliberately inside @media and must stay there.
+  // Allow leading indentation: a nested rule is still *found*, so the failure
+  // below reports the real problem (wrong layer) instead of "missing", and a
+  // purely cosmetic re-indent cannot masquerade as a deleted rule.
+  const pattern = new RegExp(`^[ \\t]*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{`, "m");
+  const match = pattern.exec(globals);
+  assert(Boolean(match), `${selector} base rule is missing from globals.css`);
+  if (!match) continue;
+  const enclosing = enclosingAtRule(globals, match.index);
+  assert(
+    enclosing === null || !enclosing.startsWith("@layer"),
+    `${selector} must stay UNLAYERED — it is inside "${enclosing}", where Tailwind's utilities layer ` +
+      `outranks it regardless of specificity and its declared effect becomes inert`,
+  );
+}
 const primitives = textAt("src/components/ui-primitives.tsx");
 assert(
   primitives.includes('export const chatComposerInput = "chat-composer-input"'),
