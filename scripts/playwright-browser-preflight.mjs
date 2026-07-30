@@ -23,6 +23,17 @@ const PROJECT_BROWSER_FAMILIES = Object.freeze({
   [playwrightProjectNames.webkit]: "webkit",
 });
 
+// Mirrors Playwright's chromium-headless-shell executable table for the
+// platform directory exposed by chromium.executablePath(). Keep this explicit:
+// Linux arm64 intentionally uses chrome-linux/headless_shell, unlike x64.
+const CHROMIUM_HEADLESS_SHELL_LAYOUTS = Object.freeze({
+  "chrome-linux64": ["chrome-headless-shell-linux64", "chrome-headless-shell"],
+  "chrome-linux": ["chrome-linux", "headless_shell"],
+  "chrome-mac-x64": ["chrome-headless-shell-mac-x64", "chrome-headless-shell"],
+  "chrome-mac-arm64": ["chrome-headless-shell-mac-arm64", "chrome-headless-shell"],
+  "chrome-win64": ["chrome-headless-shell-win64", "chrome-headless-shell.exe"],
+});
+
 /**
  * Derive the default headless-shell binary Playwright launches for Chromium
  * tests. `chromium.executablePath()` points at full Chrome for Testing; the
@@ -34,12 +45,11 @@ export function defaultChromiumHeadlessShellPath(chromeExecutablePath = chromium
   const chromiumIndex = segments.findLastIndex((segment) => /^chromium-\d+$/.test(segment));
   const chromiumDirectory = segments[chromiumIndex];
   const platformDirectory = segments[chromiumIndex + 1];
-  if (chromiumIndex < 0 || !chromiumDirectory || !platformDirectory?.startsWith("chrome-")) return null;
+  const shellLayout = CHROMIUM_HEADLESS_SHELL_LAYOUTS[platformDirectory];
+  if (chromiumIndex < 0 || !chromiumDirectory || !shellLayout) return null;
   const revision = chromiumDirectory.slice("chromium-".length);
-  const platform = platformDirectory.slice("chrome-".length);
   const browsersRoot = segments.slice(0, chromiumIndex).join("/");
-  const binary = platform.startsWith("win") ? "chrome-headless-shell.exe" : "chrome-headless-shell";
-  return path.join(browsersRoot, `chromium_headless_shell-${revision}`, `chrome-headless-shell-${platform}`, binary);
+  return path.join(browsersRoot, `chromium_headless_shell-${revision}`, ...shellLayout);
 }
 
 export function requestedPlaywrightBrowserProjects(args = []) {

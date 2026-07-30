@@ -31,11 +31,9 @@ describe("playwright browser preflight", () => {
     );
     expect(
       defaultChromiumHeadlessShellPath(
-        "/home/ubuntu/.cache/ms-playwright/chromium-1234/chrome-linux-arm64/chrome",
+        "/home/ubuntu/.cache/ms-playwright/chromium-1234/chrome-linux/chrome",
       )?.replaceAll("\\", "/"),
-    ).toBe(
-      "/home/ubuntu/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux-arm64/chrome-headless-shell",
-    );
+    ).toBe("/home/ubuntu/.cache/ms-playwright/chromium_headless_shell-1234/chrome-linux/headless_shell");
     expect(
       defaultChromiumHeadlessShellPath(
         "/Users/test/Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium",
