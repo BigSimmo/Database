@@ -40,9 +40,12 @@ function git(directory: string, ...args: string[]) {
 
 describe("Codex Cloud environment contract", () => {
   it("keeps the checked-in setup reproducible and provider-safe", () => {
+    const staticEnvironment = { ...process.env };
+    delete staticEnvironment.CODEX_CLOUD;
     const result = spawnSync(process.execPath, ["scripts/check-codex-cloud-setup.mjs"], {
       cwd: path.resolve(import.meta.dirname, ".."),
       encoding: "utf8",
+      env: staticEnvironment,
       shell: false,
     });
 
