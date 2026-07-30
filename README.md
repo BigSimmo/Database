@@ -181,7 +181,7 @@ Full categorized index: `docs/README.md` (maintained docs vs point-in-time
 records vs archive). The most load-bearing entries:
 
 - `docs/codebase-index.md` — architecture and module map (start here)
-- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
+- `docs/site-map.md` — generated route map (`npm run docs:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
 - `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
 - `docs/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
