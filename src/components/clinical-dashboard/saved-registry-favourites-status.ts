@@ -1,4 +1,4 @@
-export type SavedFavouritesBandStatus = "ready" | "loading" | "unauthorized" | "error";
+export type SavedFavouritesBandStatus = "ready" | "loading" | "partial" | "unauthorized" | "error";
 
 /**
  * Fold account-favourites readiness with downstream registry status.
@@ -28,7 +28,15 @@ export function foldSavedFavouritesStatus(input: {
     accountStatus === "loading" ? "loading" : accountStatus === "error" ? "error" : registryStatus;
 
   // Unaffected items (local differentials, or one registry that succeeded) keep
-  // an honest nonzero count visible instead of hiding behind a whole-band fault.
-  const status = input.itemCount > 0 && folded !== "ready" ? "ready" : folded;
+  // an honest nonzero count visible, but retain the fact that another source
+  // failed. Without `partial`, the count looks complete when it is only a lower
+  // bound. A pending sibling source keeps the established ready-with-items
+  // behaviour until it settles; `partial` is reserved for an actual fault.
+  const status =
+    folded === "partial" || (input.itemCount > 0 && (folded === "error" || folded === "unauthorized"))
+      ? "partial"
+      : input.itemCount > 0 && folded === "loading"
+        ? "ready"
+        : folded;
   return { status, registryStatus };
 }
