@@ -8,12 +8,12 @@ import { readPrimaryScrollGeometry } from "./playwright-scroll";
  *
  *  1. Above the phone breakpoint the top bar used to scroll away with the page
  *     and only return at the very top (no scroll reporter / sticky travel).
- *  2. Search must stay pinned on tablets but belong to normal page flow on
- *     desktop, where it scrolls away independently from the sticky top bar.
+ *  2. Search belongs to normal page flow on tablets and desktops, where it
+ *     scrolls away independently from the sticky top bar.
  *
  * The load-bearing assertions are (a) the reveal *mid-page* and (b) the search
- * input staying pinned on tablet but leaving the viewport on desktop. Asserting only
- * `data-scroll-hidden` would miss both.
+ * input leaving the viewport while the top bar can return mid-page. Asserting
+ * only `data-scroll-hidden` would miss both.
  *
  * The suite-wide `reducedMotion: "reduce"` is kept deliberately: the chrome
  * carries `motion-reduce:transition-none`, so geometry settles in one frame and
