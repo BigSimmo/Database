@@ -46,34 +46,52 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 
 ## Known render warns
 
-- None — 10/10 render clean, no thin/blank/variantsIdentical flags.
+- Renders themselves stay clean: 10/10, no thin/blank/variantsIdentical flags
+  (re-confirmed 2026-07-30).
+- `[TOKENS_MISSING]` 7 CSS custom properties — triaged 2026-07-30, all seven
+  are **expected in the bundle**, so the warn line itself is known. Four are
+  benign by construction (runtime-set or scan artifacts); the other three were
+  genuinely undefined references in repo code and were **repaired by PR #1451**
+  (`#141`, now resolved). The warn count only drops on the next re-sync, once the
+  bundle is rebuilt from the repaired source:
+  - `--mobile-composer-reserve` — set at runtime by
+    `clinical-dashboard/mobile-composer-reserve.ts` and always read through a
+    `var(…, 0rem)` fallback. Never in a static stylesheet. Do not "fix".
+  - `--x` — Tailwind v4 scans the whole repo, found the literal string
+    `bg-[color:var(--x)]` in `docs/redesign/03-decision-log.md` prose, and
+    emitted a class for it. An artifact of documenting a class name; nothing
+    renders it.
+  - `--med-accent`, `--med-accent-border`, `--med-accent-soft` — also
+    runtime-set, not defects. `medicationAccentStyle()` in
+    `clinical-dashboard/medication-record-page.tsx:88-94` assigns all three, and
+    that style object is applied to the ancestor that contains every
+    referenced class (`:393`). A stylesheet-only missing-token scan cannot
+    see React `style` assignments; do not "fix" these. Verified 2026-07-30 by
+    computed style: all four consuming sites paint `rgb(225,29,72)` on
+    `/medications/acamprosate` in light and dark. (`--med-accent-soft` is set
+    but unread — tracked as `#145`, not a missing-token defect.)
+  - `--clinical-accent-strong`
+    (`clinical-dashboard/answer-status.tsx:252`) — **was** a genuinely undefined
+    production reference with no stylesheet or React `style` definition and no
+    fallback, so the declaration was dropped at parse time. Same defect family
+    as the dead `--text-4xs` classes repaired on 2026-07-30. **Fixed in PR
+    #1451** by mapping it to `--clinical-accent`; `-strong` was never part of
+    the family.
+  - `--primary-hover`, `--success-hover` —
+    `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
+    gate-exempt design scratch. Also undefined; **fixed in PR #1451**
+    (`--primary-strong`, and `hover:brightness-110` for success, which has no
+    darker step to hover to).
+- If a future sync sees a **different** var in the `[TOKENS_MISSING]` warn, that
+  one is new — look at it before recording it.
 
-## Known `[TOKENS_MISSING]` false positives (do not "fix")
-
-`package-validate.mjs` reports a custom property as missing when it is
-referenced by scanned code but never defined in the compiled stylesheet. It only
-sees static CSS, so runtime-injected properties and class-like strings scanned
-out of prose always report missing. These three are correct as-is — confirmed
-2026-07-30:
-
-- `--med-accent` / `--med-accent-border` / `--med-accent-soft` — injected at
-  runtime by `medicationAccentStyle()` in
-  `src/components/clinical-dashboard/medication-record-page.tsx`, applied to the
-  `<div>` that wraps every consumer of them. Per-medication identity accent, so
-  it cannot be a static token.
-- `--mobile-composer-reserve` — set at runtime by
-  `src/components/clinical-dashboard/mobile-composer-reserve.ts` and always read
-  through a `var(--mobile-composer-reserve, 0rem)` fallback.
-- `--x` — not a token at all. Tailwind v4 scanned the literal string
-  `bg-[color:var(--x)]` out of prose in `docs/redesign/03-decision-log.md:9`.
-
-A genuinely missing token has no runtime setter and no `var(…, fallback)`, so the
-whole declaration is dropped at parse time and the colour silently does not
-apply — invisible to every static gate. The same 2026-07-30 report also named
-three real ones, all repaired in that pass: `--clinical-accent-strong`,
-`--primary-hover` and `--success-hover`. So check for a setter or a fallback
-before assuming a new report is noise — and check for neither before assuming it
-is a defect.
+The triage rule this warn needs, since it fires on both: a custom property is
+correct-as-reported when it has a runtime setter or is always read through a
+`var(…, fallback)`. It is a real defect when it has **neither** — the whole
+declaration is then dropped at CSS parse time and the colour silently does not
+apply, which no static gate in this repo can see (`#094`). Check for a setter or
+a fallback before calling a new report noise, and for the absence of both before
+calling it a defect.
 
 ## Re-sync risks
 
@@ -91,3 +109,17 @@ is a defect.
   components, but prop renames need preview edits.
 - The `prompt-for-codex-medical-knowledge-base` import specifier in previews is
   the package.json `name`; if the repo is renamed, update previews + config.
+- `conventions.md` drifts silently when the token set moves. The 2026-07-30
+  re-sync caught two dead claims after the Clinical Sky port: a `-solid` /
+  `-solid-contrast` pair claimed for every status family when only `danger`
+  has one, and `controlBase` listed as module-private when
+  `ui-primitives.tsx:34` exports it. Re-validate every enumerated token/class/
+  icon against `ds-bundle/_ds_bundle.css` (definitions only — match
+  `--name\s*:`, not bare `var(--name)`, or referenced-but-undefined vars read
+  as defined) and the bundle's export list on every re-sync. A helper lives at
+  `.design-sync/.cache/validate-conventions.mjs` (gitignored, cheap to rewrite).
+- The driver reports the token port as `changed: []` with `sourceKeys`
+  unchanged: `sourceKeys` track the authored preview + preview-affecting config,
+  NOT component source. A component-source or token change surfaces instead as
+  render churn (`canary`/`[SPOT_CHECK]`) plus `styling: true`. Grade the
+  spot-check sheets — the churn is real even though nothing is listed "changed".
