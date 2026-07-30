@@ -994,7 +994,7 @@ test("Services results keep a continuous browser viewport after shared chrome re
     const scrollingElement = document.scrollingElement ?? document.documentElement;
     return {
       // Missing collapse (Answer strategy:"overlay") is overlay, not collapse.
-      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
       headerBottom: header?.getBoundingClientRect().bottom ?? -1,
       dockTop: dock?.getBoundingClientRect().top ?? -1,
@@ -1490,7 +1490,7 @@ test("phone forms search hides header and footer after submit without stale focu
     const reserve = document.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
     const dockRect = dock?.getBoundingClientRect();
     return {
-      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       dockHidden: dock?.getAttribute("data-scroll-hidden") === "true",
       reservePb: reserve ? getComputedStyle(reserve).paddingBottom : "",
@@ -1528,7 +1528,7 @@ for (const { mode, route } of appModeHeaderRoutes) {
       return {
         // Answer view uses strategy:"overlay" with no collapse track — that is
         // overlay motion, not an in-flow collapse that failed to mount.
-        usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+        usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
         hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
         safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
         safeAreaTopPx,
@@ -1553,7 +1553,7 @@ for (const { mode, route } of appModeHeaderRoutes) {
       const main = document.getElementById("main-content");
       const mainRect = main?.getBoundingClientRect();
       return {
-        usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+        usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
         hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
         collapseHeight: collapse?.getBoundingClientRect().height ?? 0,
         safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
@@ -1813,7 +1813,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
       getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
     );
     return {
-      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
       mainTop: main?.getBoundingClientRect().top ?? -1,
@@ -1842,7 +1842,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
     const safeRect = safeArea?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
     return {
-      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeRect?.height ?? 0,
       mainTop: mainRect?.top ?? -1,
@@ -1871,7 +1871,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
       getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
     );
     return {
-      usesCollapse: Boolean(collapse) && collapse.getAttribute("data-phone-motion") !== "overlay",
+      usesCollapse: collapse !== null && collapse.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
       mainTop: main?.getBoundingClientRect().top ?? -1,
