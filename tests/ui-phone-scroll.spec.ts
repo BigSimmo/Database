@@ -1447,6 +1447,7 @@ test("phone forms search hides header and footer after submit without stale focu
     const reserve = document.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
     const dockRect = dock?.getBoundingClientRect();
     return {
+      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       dockHidden: dock?.getAttribute("data-scroll-hidden") === "true",
       reservePb: reserve ? getComputedStyle(reserve).paddingBottom : "",
@@ -1482,7 +1483,7 @@ for (const { mode, route } of appModeHeaderRoutes) {
         getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
       );
       return {
-        usesCollapse: Boolean(collapse),
+        usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
         hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
         safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
         safeAreaTopPx,
@@ -1507,7 +1508,7 @@ for (const { mode, route } of appModeHeaderRoutes) {
       const main = document.getElementById("main-content");
       const mainRect = main?.getBoundingClientRect();
       return {
-        usesCollapse: Boolean(collapse),
+        usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
         hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
         collapseHeight: collapse?.getBoundingClientRect().height ?? 0,
         safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
@@ -1767,6 +1768,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
       getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
     );
     return {
+      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
       mainTop: main?.getBoundingClientRect().top ?? -1,
@@ -1777,7 +1779,13 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
   expect(initial.safeAreaHeight, "visible header owns the simulated OS inset").toBeGreaterThanOrEqual(
     initial.safeAreaTopPx - 1,
   );
-  expect(initial.mainTop, "visible header and Therapy nav remain in flow").toBeGreaterThan(initial.safeAreaTopPx);
+  // Overlay motion takes the stack out of flow and keeps its geometry stable, so
+  // in-flow height and safe-area release are collapse-only expectations. Branch on
+  // data-phone-motion rather than on the node existing — the collapse row is still
+  // present under overlay, it just no longer owns layout (Codex P1, 2026-07-30).
+  if (initial.usesCollapse) {
+    expect(initial.mainTop, "visible header and Therapy nav remain in flow").toBeGreaterThan(initial.safeAreaTopPx);
+  }
 
   await dragScrollBy(page, 720, 24);
   await page.waitForTimeout(500);
@@ -1789,6 +1797,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
     const safeRect = safeArea?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
     return {
+      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeRect?.height ?? 0,
       mainTop: mainRect?.top ?? -1,
@@ -1799,7 +1808,9 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
   });
 
   expect(afterHide.headerHidden, "shared header collapses after a deliberate descent").toBe(true);
-  expect(afterHide.safeAreaHeight, "hidden header releases the opaque status-bar band").toBeLessThanOrEqual(1);
+  if (afterHide.usesCollapse) {
+    expect(afterHide.safeAreaHeight, "hidden header releases the opaque status-bar band").toBeLessThanOrEqual(1);
+  }
   expect(afterHide.mainTop, "hidden header lets content reach the physical top edge").toBeLessThanOrEqual(1);
   expect(afterHide.mainLeft, "phone scroll surface reaches the left edge").toBeCloseTo(0, 0);
   expect(afterHide.mainRight, "phone scroll surface reaches the right edge").toBeCloseTo(afterHide.viewportWidth, 0);
@@ -1815,6 +1826,7 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
       getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
     );
     return {
+      usesCollapse: collapse?.getAttribute("data-phone-motion") !== "overlay",
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
       mainTop: main?.getBoundingClientRect().top ?? -1,
@@ -1826,7 +1838,10 @@ test("phone shared header releases its top safe-area band after hide", async ({ 
   expect(afterReveal.safeAreaHeight, "revealed header restores the OS inset").toBeGreaterThanOrEqual(
     afterReveal.safeAreaTopPx - 1,
   );
-  expect(afterReveal.mainTop, "revealed header restores its complete flow height").toBeGreaterThan(
-    afterReveal.safeAreaTopPx,
-  );
+  if (!afterReveal.usesCollapse) {
+    // Overlay never changed flow height, so there is nothing to restore.
+  } else
+    expect(afterReveal.mainTop, "revealed header restores its complete flow height").toBeGreaterThan(
+      afterReveal.safeAreaTopPx,
+    );
 });
