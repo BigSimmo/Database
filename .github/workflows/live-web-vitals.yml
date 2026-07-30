@@ -99,6 +99,27 @@ jobs:
           echo "LIVE_DOMAIN_URL=$normalized" >> "$GITHUB_ENV"
           echo "origin -> $normalized"
 
+      - name: Reject a sample count too small to grade
+        run: |
+          set -euo pipefail
+          # `samples` is a free-text dispatch input, so `samples=1` is accepted
+          # by the form and would produce one report per cell — a "median" of
+          # one, a zero-width range, and a straddle check that can never fire.
+          # The summariser refuses the same count, but refusing HERE means the
+          # operator finds out in seconds instead of after a full measurement
+          # pass against the live domain.
+          case "$SAMPLES" in
+            ''|*[!0-9]*)
+              echo "::error::samples must be a positive integer, got '$SAMPLES'"
+              exit 1
+              ;;
+          esac
+          if [ "$SAMPLES" -lt 3 ]; then
+            echo "::error::samples=$SAMPLES cannot be graded — #017 needs at least 3 runs per cell so a median has dispersion behind it"
+            exit 1
+          fi
+          echo "samples -> $SAMPLES per route/strategy"
+
       - name: Confirm the target is reachable before spending a Lighthouse run
         run: |
           set -euo pipefail

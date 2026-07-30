@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  WEB_VITALS_MIN_SAMPLES,
   WEB_VITALS_SAMPLES,
   WEB_VITALS_THRESHOLDS,
+  samplesRefusal,
   aggregateCells,
   cellOf,
   chromeBuilds,
@@ -522,5 +524,57 @@ describe("Chrome build drift", () => {
     );
     expect(chromeBuilds(rows)).toEqual(["Chrome/141"]);
     expect(renderTable(rows, DEFAULT_ROUTES)).toContain("NOT yet an #017 closure");
+  });
+});
+
+describe("a sample count too small to grade", () => {
+  // The default is only a default. `samples` is a free-text `workflow_dispatch`
+  // input, so an operator can dispatch `samples=1` and get back exactly the
+  // single-run matrix ledger #114 exists to abolish — and, without this guard,
+  // output indistinguishable from a sound run.
+  it("refuses one sample per cell", () => {
+    expect(samplesRefusal(1)).toContain("cannot be graded");
+    expect(samplesRefusal(1)).toContain(`at least ${WEB_VITALS_MIN_SAMPLES} runs per cell`);
+  });
+
+  it("refuses two, where the median is just the mean of the pair", () => {
+    expect(samplesRefusal(2)).toContain("cannot be graded");
+  });
+
+  it("accepts the documented default and anything above it", () => {
+    expect(samplesRefusal(WEB_VITALS_SAMPLES)).toBeNull();
+    expect(samplesRefusal(WEB_VITALS_MIN_SAMPLES)).toBeNull();
+    expect(samplesRefusal(9)).toBeNull();
+  });
+
+  it("refuses a count that is not a positive whole number", () => {
+    for (const value of [0, -3, 2.5, Number.NaN]) {
+      expect(samplesRefusal(value)).toContain("cannot be graded");
+    }
+  });
+
+  // The decisive case. With one sample per cell every threshold passes, the
+  // evidence is "complete" for the count requested, and the spread is zero — so
+  // nothing else in the pipeline objects. Only this gate stands between that
+  // matrix and a verdict sentence a reader could record against #017.
+  it("emits no verdict prose for a one-sample-per-cell run that otherwise looks clean", () => {
+    const rows = expectedCells(DEFAULT_ROUTES).map((name) => row(`${name}-1`, 1200, 0.01));
+
+    expect(mobileBreaches(rows, DEFAULT_ROUTES, 1)).toEqual([]);
+    expect(incompleteEvidence(rows, DEFAULT_ROUTES, 1)).toEqual([]);
+    expect(straddlesThreshold([1200], WEB_VITALS_THRESHOLDS.lcpMs)).toBe(false);
+
+    const table = renderTable(rows, DEFAULT_ROUTES, 1);
+    expect(table).toContain("NOT an #017 verdict");
+    expect(table).toContain("at least 3 runs per cell");
+    expect(table).not.toContain("Every mobile route is within");
+    expect(table).not.toContain("NOT yet an #017 closure");
+  });
+
+  it("still renders the measurements, explicitly subordinated", () => {
+    const rows = expectedCells(DEFAULT_ROUTES).map((name) => row(`${name}-1`, 1200, 0.01));
+    const table = renderTable(rows, DEFAULT_ROUTES, 1);
+    expect(table).toContain("mobile-dsm");
+    expect(table).toContain("This is a measurement, not a verdict");
   });
 });

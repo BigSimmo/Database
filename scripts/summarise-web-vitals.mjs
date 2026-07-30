@@ -121,6 +121,35 @@ export function collidingRouteSlugs(routes) {
 export const WEB_VITALS_SAMPLES = 3;
 
 /**
+ * The fewest samples that may be GRADED, as opposed to merely defaulted to.
+ *
+ * The default above is only a default: `samples` is a free-text
+ * `workflow_dispatch` input, so an operator can dispatch `samples=1` and get
+ * back exactly the single-run matrix this change exists to abolish — one report
+ * per cell, a "median" of one, a range of zero width, and therefore a
+ * straddle-check that can never fire. Worse, the output would look identical to
+ * a sound run and could be recorded against #017 as a verdict.
+ *
+ * Two samples are no better for the purpose: the median is their mean, and two
+ * points cannot distinguish a stable cell from a noisy one whose runs happened
+ * to land close together. Three is the `lighthouse-ci` default and the smallest
+ * count that yields a real median.
+ */
+export const WEB_VITALS_MIN_SAMPLES = 3;
+
+/** Why this sample count cannot be graded, or `null` if it can. */
+export function samplesRefusal(samples) {
+  if (!Number.isInteger(samples) || samples < WEB_VITALS_MIN_SAMPLES) {
+    return (
+      `samples=${samples} cannot be graded — #017 needs at least ${WEB_VITALS_MIN_SAMPLES} runs per cell. ` +
+      "Below that there is no dispersion to measure, so a cell near a threshold resolves on variance alone " +
+      "and the straddle check can never fire"
+    );
+  }
+  return null;
+}
+
+/**
  * Every `<strategy>-<slug>` CELL the workflow was asked to measure. A cell is
  * the thing graded; its samples are the evidence behind the grade.
  */
@@ -437,6 +466,12 @@ export function renderTable(rows, routes, samples = WEB_VITALS_SAMPLES) {
   if (builds.length > 1) {
     disqualifiers.push(`reports came from ${builds.length} different Chrome builds: ${builds.join(" | ")}`);
   }
+  // Same list, same reason: a run measured with too few samples per cell is not
+  // a verdict, and the step summary is what outlives the run. main() also exits
+  // non-zero, but a caller that only renders the table must not be handed
+  // verdict prose built on one sample per cell.
+  const refusal = samplesRefusal(samples);
+  if (refusal) disqualifiers.push(refusal);
 
   lines.push("");
   if (disqualifiers.length > 0) {
@@ -486,6 +521,15 @@ function main() {
   // How many samples each cell was asked for, so a dispatch that raised the
   // count is graded against what it actually requested rather than the default.
   const samples = Number.parseInt(process.argv[4] ?? process.env.SAMPLES ?? "", 10) || WEB_VITALS_SAMPLES;
+  // Refuse BEFORE reading a single report. `samples` is a free-text dispatch
+  // input, so `samples=1` reaches here as a valid integer and would otherwise
+  // grade a one-run-per-cell matrix — the exact thing this change removes —
+  // while emitting output indistinguishable from a sound run.
+  const refusal = samplesRefusal(samples);
+  if (refusal) {
+    console.log(`::error::${refusal}`);
+    process.exit(1);
+  }
   const files = readdirSync(directory)
     .filter((file) => file.endsWith(".json") && file !== "summary.json")
     .sort();
