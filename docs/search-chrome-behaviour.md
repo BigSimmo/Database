@@ -132,13 +132,36 @@ Choose the hide mechanism from where the host's scrollport lives, because that d
 | `ClinicalDashboard` (other modes) | Document on browser phones; `<main>` in standalone and at `sm+`                            | `strategy: "collapse", wide: "collapse"` | Top-bar row collapses; tablet search stays sticky; desktop search portals into `<main>` page flow                  |
 | `GlobalSearchShell`               | Document in browser phones and at `sm+`; `#main-content` only in installed standalone mode | `strategy: "collapse", wide: "sticky"`   | Tablet pins [top bar \| search]; desktop portals search into `#main-content`, leaving a sticky auto-hiding top bar |
 
-`GlobalSearchShell` adds `phoneMotion: "overlay"` only on routes matched by
-`isDocumentViewerOwnedRoute(pathname)`. On those phone routes, the safe-area
-region, universal Documents row, document title/section row, and section track
-form one fixed browser/absolute standalone layer. The complete layer translates
-over the document without changing the scrollport or content geometry.
-`/documents/search` and every non-document route keep the default
-`phoneMotion: "collapse"`; tablet and desktop continue using `wide: "sticky"`.
+`GlobalSearchShell` uses `phoneMotion: "overlay"` on **every** phone route. The
+safe-area region, universal top bar, and any page navigation portaled into the
+collapse row form one fixed browser/absolute standalone layer, and the complete
+layer translates over content without changing the scrollport or content
+geometry. Tablet and desktop continue using `wide: "sticky"`.
+
+This was route-conditional until 2026-07-29 — overlay for
+`isDocumentViewerOwnedRoute(pathname)`, collapse everywhere else. Collapse is
+the 1fr → 0fr grid on the header row **plus** a `height` transition on
+`chrome-safe-area-top` **plus** the reserve-pad `padding-bottom` transition, so
+every hide animated three heights and handed that layout back to the scroller.
+Content slid up under the animation, which reads as choppy however well the
+timing is tuned — and it is the layout-shift class that
+`readChromeCollapseMetrics`' collapse budget, the near-bottom clamp rules
+(invariants 10 and 11) and the anchoring markers all exist to contain. Overlay
+removes the cause rather than damping the symptom: `headerRelease` and
+`phoneSafeAreaRelease` are both `0`, so hiding costs the scroller no layout at
+all. Do not reintroduce a route-conditional collapse.
+
+Because overlay takes the stack out of flow, phone content owns a **constant**
+top clearance: `usePhoneOverlayChromeReserve` publishes the measured stack
+height as `--phone-overlay-chrome-h` and the shell's
+`mobile-composer-reserve-pad` reads it as `max-sm:pt-[…]`. Two properties are
+load-bearing. It is measured, not tokenised, because the collapse row grows with
+portaled page navigation (`header-collapse-addon`) and a fixed `4rem` would clip
+those routes. And it never varies with hide state — `offsetHeight` ignores the
+hide transform, so the same value is correct in both states; a reserve that
+animated or zeroed on hide would reintroduce exactly the shift overlay removes.
+The clearance is only visible near scroll top, where the header is always
+revealed, so it costs no usable height.
 
 Rules that keep this working:
 

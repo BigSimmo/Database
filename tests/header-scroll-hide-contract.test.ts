@@ -20,6 +20,7 @@ const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`
 const hookSource = read("src/components/clinical-dashboard/use-hide-on-scroll.ts");
 const headerSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
+const reserveHookSource = read("src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
 const dashboardCoordinatorSource = read("src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts");
 const activeScrollOwnerSource = read("src/components/clinical-dashboard/use-active-scroll-owner.ts");
@@ -103,7 +104,7 @@ describe("shared header hide/reveal wiring", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
     // the outer stack sticks while only the top-bar row collapses.
     expect(shellSource).toContain('strategy: "collapse"');
-    expect(shellSource).toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    expect(shellSource).toContain('phoneMotion: "overlay"');
     expect(shellSource).toContain('wide: "sticky"');
     // ClinicalDashboard uses the document on browser phones and <main> in
     // standalone/sm+; both feed the same collapse reporter.
@@ -114,16 +115,37 @@ describe("shared header hide/reveal wiring", () => {
     expect(dashboardSource).toContain('data-chrome-transitioning={chromeTransitioning ? "true" : undefined}');
   });
 
-  it("uses overlay phone motion only for document-viewer-owned routes", () => {
+  it("overlays phone motion on every route so hiding moves no content", () => {
     expect(headerSource).toContain('phoneMotion?: "collapse" | "overlay"');
     expect(headerSource).toContain('const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse"');
     expect(headerSource).toContain('hideStrategy === "collapse" && phoneMotion === "overlay"');
-    expect(shellSource).toContain("isDocumentViewerOwnedRoute");
-    expect(shellSource).toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
+    // Every phone route overlays. The 1fr -> 0fr grid plus the
+    // `chrome-safe-area-top` height transition handed layout back to the
+    // scroller on every hide, so content slid under the animation. Do not
+    // reintroduce a route-conditional collapse here.
+    expect(shellSource).toContain('phoneMotion: "overlay"');
+    expect(shellSource).not.toContain('phoneMotion: isDocumentViewerOwnedRoute(pathname) ? "overlay" : "collapse"');
     expect(dashboardSource).not.toContain("phoneMotion:");
     expect(headerSource).toContain("data-phone-motion={phoneMotion}");
     expect(headerSource).toContain("max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0");
-    expect(behaviourDocSource).toContain("`/documents/search` and every non-document route keep the default");
+  });
+
+  it("reserves a constant phone top clearance beneath the overlay header", () => {
+    // Overlay takes the stack out of flow (`.phone-overlay-header` is fixed in
+    // browser tabs, absolute in standalone), so content needs clearance or the
+    // first row sits under the chrome at scroll top. The reserve must be
+    // constant: an animated or hidden-state-dependent value is the layout shift
+    // overlay exists to remove.
+    expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
+    expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h,0px)]");
+    expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
+    // offsetHeight ignores transforms, so the measurement is the revealed
+    // height in either state. The hook must therefore never branch on the hide
+    // state — that is what would make the reserve vary and shift content.
+    expect(reserveHookSource).not.toContain('getAttribute("data-scroll-hidden")');
+    expect(reserveHookSource).not.toContain("dataset.scrollHidden");
+    expect(reserveHookSource).toContain("offsetHeight");
+    expect(reserveHookSource).toContain("ResizeObserver");
   });
 
   it("moves submitted search composers into normal page flow on desktop only", () => {
