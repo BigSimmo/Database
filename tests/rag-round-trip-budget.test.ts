@@ -229,6 +229,14 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
         chunk_index: index,
       }),
     );
+    // Guard the fixture itself, so it cannot quietly revert to five chunks of one
+    // document and take this assertion back to proving nothing (suggested by
+    // Codex on this PR — the same non-vacuity discipline as the budgets below).
+    expect(
+      new Set(many.map((entry) => entry.document_id)).size,
+      "fixture must span five distinct documents, or cross-document batching is untested",
+    ).toBe(5);
+
     const { answer, counter } = await answerWithCountedClient("What ANC threshold should withhold clozapine?", many);
 
     expect(answer.grounded, "scenario must produce a grounded answer").toBe(true);
