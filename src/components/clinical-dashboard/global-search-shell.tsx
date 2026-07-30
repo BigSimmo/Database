@@ -924,7 +924,7 @@ function GlobalStandaloneSearchShellBody({
           */}
           <div
             data-testid="mobile-composer-reserve-pad"
-            className="max-sm:pb-[var(--mobile-composer-reserve)] max-sm:pt-[var(--phone-overlay-chrome-h,0px)]"
+            className="max-sm:pb-[var(--mobile-composer-reserve)] max-sm:pt-[var(--phone-overlay-chrome-h)]"
           >
             {shouldShowSearchComposer && !isStandaloneModeHome ? (
               <DesktopComposerPortalSlot

@@ -2201,7 +2201,7 @@ export function MasterSearchHeader({
             phoneOverlayMotion &&
               (headerChromeHidden
                 ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:translate-y-0 max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
+                : "max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
           )}
         >
           {chromeSafeAreaTop}

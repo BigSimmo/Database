@@ -353,6 +353,14 @@
      viewport below it via calc(100dvh - var(--shell-header-h)); one token so the
      header height and those page-fill floors cannot silently drift apart. */
   --shell-header-h: 4rem;
+  /* Server-stable default for the phone overlay header's content clearance.
+     `usePhoneOverlayChromeReserve` refines this to the measured stack height in
+     a layout effect, but the property must never be absent: the overlay header
+     is out of flow, so an unset value paints the first content underneath the
+     chrome and then shifts it down at hydration — the cold-load jump the
+     overlay switch exists to remove. Exact for routes without a
+     `header-collapse-addon` row; addon routes refine by that row's height. */
+  --phone-overlay-chrome-h: calc(var(--safe-area-top) + var(--shell-header-h));
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --keyboard-height: 0px;
   --phone-dock-hidden-pad: 0rem;

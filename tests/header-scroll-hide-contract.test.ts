@@ -21,6 +21,7 @@ const hookSource = read("src/components/clinical-dashboard/use-hide-on-scroll.ts
 const headerSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const reserveHookSource = read("src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts");
+const globalsSource = read("src/app/globals.css");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
 const dashboardCoordinatorSource = read("src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts");
 const activeScrollOwnerSource = read("src/components/clinical-dashboard/use-active-scroll-owner.ts");
@@ -137,8 +138,15 @@ describe("shared header hide/reveal wiring", () => {
     // constant: an animated or hidden-state-dependent value is the layout shift
     // overlay exists to remove.
     expect(shellSource).toContain("usePhoneOverlayChromeReserve()");
-    expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h,0px)]");
+    expect(shellSource).toContain("max-sm:pt-[var(--phone-overlay-chrome-h)]");
     expect(reserveHookSource).toContain('const reserveProperty = "--phone-overlay-chrome-h"');
+    // The property must be seeded in CSS and refined before paint. A passive
+    // effect or a `,0px` fallback paints content under the out-of-flow header
+    // and shifts it down at hydration — a cold-load jump, which is the defect
+    // class this whole change removes (Codex P1, 2026-07-30).
+    expect(globalsSource).toContain("--phone-overlay-chrome-h: calc(var(--safe-area-top) + var(--shell-header-h))");
+    expect(reserveHookSource).toContain("useLayoutEffect");
+    expect(shellSource).not.toContain("--phone-overlay-chrome-h,0px");
     // offsetHeight ignores transforms, so the measurement is the revealed
     // height in either state. The hook must therefore never branch on the hide
     // state — that is what would make the reserve vary and shift content.
@@ -160,6 +168,10 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("{phoneOverlayMotion && usesPhoneBottomDock ? (");
     // The translate that creates the containing block, so the pairing is visible
     // to anyone editing either half.
+    // Resting state must be transform-free: a transform at rest is a containing
+    // block for the fixed dock from the very first paint, before the portal that
+    // escapes it exists (Codex P1, 2026-07-30).
+    expect(headerSource).not.toContain("max-sm:translate-y-0");
     expect(headerSource).toContain("max-sm:-translate-y-full");
   });
 

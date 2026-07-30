@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 import { phoneMediaQuery } from "./use-hide-on-scroll";
 
@@ -30,7 +30,7 @@ const reserveProperty = "--phone-overlay-chrome-h";
  * [top bar | search] stack stays in flow and owns its own offsets.
  */
 export function usePhoneOverlayChromeReserve(): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia(phoneMediaQuery);
 
