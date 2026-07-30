@@ -2,11 +2,14 @@
 // Structural gate for docs/outstanding-issues.md.
 //
 // Ledger #112. The `issues:next-id` marker is a plain HTML comment that every
-// editor read-modify-writes with no lock. The file now has `merge=union` (PR
-// #1416), which preserves concurrent row appends the same way as
-// docs/branch-review-ledger.md, but union merge cannot allocate unique IDs —
-// two agents can still collide, and a hurried conflict resolution can still
-// take one side wholesale. On 2026-07-29 that happened three times in one hour
+// editor read-modify-writes with no lock. A `merge=union` driver was tried (PR
+// #1416) and removed: unlike docs/branch-review-ledger.md this file allocates
+// IDs by read-modify-write, so union could not allocate unique IDs either, and
+// it silently concatenated conflicting hunks — two marker bumps became two
+// `next-id` lines (#133), and on 2026-07-30 the whole open-items table was
+// duplicated on four merges (#1430). This gate now requires that NO driver is
+// set, so overlapping edits conflict loudly. A hurried conflict resolution can
+// still take one side wholesale. On 2026-07-29 that happened three times in one hour
 // on a single PR, and nothing noticed: no gate read this file's structure at
 // all. This structural gate is what makes those failures loud.
 //
@@ -420,10 +423,15 @@ function main() {
   const markdown = readFileSync(ISSUES_PATH, "utf8");
   const problems = checkIssues(markdown);
   const mergeAttribute = effectiveMergeAttribute();
-  if (mergeAttribute !== "union") {
+  // A merge driver on this file is a regression, not an improvement: union
+  // concatenated conflicting hunks and duplicated the whole table rather than
+  // failing (#133, and four times on PR #1430). Honest conflicts are the
+  // contract; ids still need manual renumbering either way.
+  if (mergeAttribute && mergeAttribute !== "unspecified" && mergeAttribute !== "unset") {
     problems.push(
-      `${ISSUES_PATH} must resolve to merge=union (found ${JSON.stringify(mergeAttribute || "unset")}) — ` +
-        "set it in .gitattributes so concurrent appends keep both sides' rows",
+      `${ISSUES_PATH} must have NO merge driver (found merge=${mergeAttribute}) — ` +
+        "remove it from .gitattributes so overlapping edits conflict loudly instead of " +
+        "silently concatenating both sides (ledger #133)",
     );
   }
   if (problems.length > 0) {
@@ -439,7 +447,7 @@ function main() {
   const open = rows.filter((row) => row.table === "open").length;
   console.log(
     `Outstanding-issues guard passed: ${rows.length} rows (${open} open, ${rows.length - open} archived), ` +
-      `unique ids, next-id=${nextId} above the highest, union merge active.`,
+      `unique ids, next-id=${nextId} above the highest, no merge driver.`,
   );
 }
 
