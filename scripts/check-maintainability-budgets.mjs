@@ -5,9 +5,9 @@ const budgets = new Map([
   // Chrome ownership/reporting lives in use-dashboard-chrome-coordinator; keep
   // the reclaimed monolith budget so it cannot silently drift back to 4160.
   ["src/components/ClinicalDashboard.tsx", 4140],
-  // The evidence coverage gate lives in rag-coverage-gate; keep the reclaimed
-  // budget so it cannot silently drift back to 5030.
-  ["src/lib/rag/rag.ts", 4780],
+  // Evidence coverage and second-stage ranking live in focused rag modules;
+  // keep the reclaimed monolith budget so it cannot silently drift back.
+  ["src/lib/rag/rag.ts", 4592],
   ["src/components/DocumentViewer.tsx", 1734],
   ["supabase/functions/indexing-v3-agent/index.ts", 2191],
 ]);
