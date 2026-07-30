@@ -32,6 +32,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // lines on screen at once.
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
+  const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -70,7 +71,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
-        !isWarningLineMockup
+        !isWarningLineMockup &&
+        !isAnswerHomeProposalMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -79,7 +81,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
-        !isWarningLineMockup
+        !isWarningLineMockup &&
+        !isAnswerHomeProposalMockup
       }
     >
       {children}
