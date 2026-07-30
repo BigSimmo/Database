@@ -9,8 +9,8 @@ Origin: [`latency-audit-2026-07-28.md`](audit/latency-audit-2026-07-28.md#l0--st
 Improve time to first useful content without reviving token streaming. The answer stream may
 progressively disclose only immutable, independently verified units:
 
-1. a bounded evidence preview after retrieval, ranking, owner-scope enforcement, and client-payload
-   trimming; then
+1. a bounded evidence preview after retrieval, ranking, owner-scope enforcement, the canonical
+   danger-level source-governance decision, and client-payload trimming; then
 2. answer sections after each complete section has passed the same citation, text, numeric, source,
    and claim-support checks required for the final answer.
 
@@ -76,12 +76,18 @@ Create one pure server-only function for section finalization. It accepts a comp
 selected evidence and returns either a governed immutable unit or a rejection. It must reuse, rather
 than approximate, the current production gates:
 
-1. citation sanitization and source membership;
-2. answer and structured-text sanitization;
-3. numeric verification and unbolding of unverified numbers;
-4. quote-card sanitization where applicable;
-5. claim-support assessment and labelled numeric-band coherence; and
-6. the canonical answer render policy.
+1. the canonical danger-level source-governance refusal used by `buildGovernedAnswerClientResponse`;
+2. citation sanitization and source membership;
+3. answer and structured-text sanitization;
+4. numeric verification and unbolding of unverified numbers;
+5. quote-card sanitization where applicable;
+6. claim-support assessment and labelled numeric-band coherence; and
+7. the canonical answer render policy.
+
+The governance refusal is evaluated before any evidence preview or answer section crosses the route
+boundary. If it refuses the authoritative response, the stream emits zero verified units and continues
+through the existing refusal/fallback contract; a preview must never disclose source content that the
+final governed response withholds.
 
 Do not implement a second, weaker “stream-safe” verifier. If the current gates cannot operate on an
 independent section, that section stays buffered until the final answer. Cross-section comparisons,
@@ -95,6 +101,8 @@ conflicts, and conclusions that depend on later sections are not independently e
   of `token` / `revising`.
 - Add reconciliation tests proving every preview is an exact subset of `final` and is discarded on
   error, cancellation, retry, unknown schema version, or mismatch.
+- Add a source-governance refusal fixture proving an outdated or poorly extracted danger-level source
+  emits zero evidence previews and zero answer-section units.
 - Add owner-boundary fixtures proving private source fields and cross-owner identifiers cannot cross
   the route boundary.
 
@@ -102,8 +110,10 @@ This phase is provider-free and must land before either visible phase.
 
 ### Phase 1 — retrieval-complete evidence preview
 
-- After answer evidence is ranked and the final context pack is selected, build a preview through the
-  existing client-source trimming policy and emit it as `progress.verifiedUnit`.
+- After answer evidence is ranked and the final context pack is selected, run the same danger-level
+  source-governance refusal used by the authoritative final response. Only when it permits disclosure,
+  build a preview through the existing client-source trimming policy and emit it as
+  `progress.verifiedUnit`.
 - Render it in a clearly labelled “Selected evidence — answer still being verified” region. Do not
   render it as answer prose or mark the answer complete.
 - Preserve the current final source list, source governance warnings, feedback token, telemetry, and
@@ -133,8 +143,8 @@ Phase 2 changes answer generation and cannot begin without the provider-backed g
   inside one response.
 - **Verifier rejection:** emit no unit. Continue toward the governed final or existing conservative
   source-only fallback.
-- **Stream error after preview:** display the existing error state, not the preview as a completed
-  answer. Evidence links may remain available only if the product explicitly labels them as incomplete.
+- **Stream error after preview:** discard every preview and display the existing error state. Evidence
+  links from the failed stream do not remain visible; a retry starts with empty preview state.
 - **Rolling deploy:** old clients safely ignore the optional field; new clients accept an absent field.
   No new SSE event name is introduced.
 - **Feature flag:** gate rendering and emission separately. Deploy client parsing first, then server
