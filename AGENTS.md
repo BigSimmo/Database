@@ -534,7 +534,15 @@ in-flight `static-pr` run was cancelled, failing `pr-required` on the now-stale 
 A settle-then-push addition also lands after this repo's one automatic Codex review may
 already have run against the earlier head — in practice the connector re-reviews each new
 push (observed on this same PR), but if it doesn't, request a fresh review explicitly
-before merging rather than assuming the addition was covered.
+before merging rather than assuming the addition was covered. **If the target PR has
+auto-merge armed, settling-then-pushing races the merge itself** — `claude/*` branches
+auto-merge on green by this repo's own default (`.claude/skills/newtask/SKILL.md`), so
+"wait for CI to settle" can mean "wait for it to squash-merge and close" before the
+bundled commit ever gets pushed, silently dropping it. `guard-push.mjs`'s auto-merge
+sentinel exists to catch this but fails open without `gh` available (observed directly
+in this repo's own sessions) — don't rely on it. Before using the settle-then-push path,
+confirm the target PR does not have auto-merge enabled, or disable it first and
+re-enable only after the bundled commit is pushed.
 Bundle only when every item being combined is:
 
 - **Independently low-risk, checked two ways — neither is exhaustive alone.**
