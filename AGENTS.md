@@ -537,13 +537,20 @@ push (observed on this same PR), but if it doesn't, request a fresh review expli
 before merging rather than assuming the addition was covered.
 Bundle only when every item being combined is:
 
-- **Independently low-risk** under this repo's own classifier
-  (`scripts/pr-policy.mjs` / `classifyPullRequestFiles`): `clinicalRisk === false`,
-  no RAG-ranking-surface path, no auth/privacy/migration/Supabase path, AND
-  `operationalRisk === false` — dependency manifests (`package.json`/lockfiles),
-  `.github/workflows/**`, and build/test-runner config are classified high-risk in
-  this repo (see the automatic-resolve routing below) even though they carry neither
-  the clinical nor RAG flag. High-risk work always gets its own PR.
+- **Independently low-risk, checked two ways — neither is exhaustive alone.**
+  First, `scripts/pr-policy.mjs` / `classifyPullRequestFiles` must return
+  `clinicalRisk: false`, `operationalRisk: false` (dependency manifests, lockfiles,
+  `.github/workflows/**`, build/test-runner config), and no RAG-ranking-surface path.
+  Second, the diff must not touch anything in this repo's own broader "PR risk
+  detection" list below (auth, privacy, migrations/RLS, clinical/RAG/retrieval,
+  **background jobs/workers/queue processing**, payment/billing, public API contracts,
+  production config/deployment, file upload/download, provider/paid-API calls) —
+  that list catches real high-risk paths the narrower classifier doesn't flag at all
+  (e.g. `worker/**` trips neither `clinicalRisk` nor `operationalRisk`, but ingestion
+  workers are exactly the kind of change this exclusion exists for). When a path's risk
+  category is genuinely unclear under either check, default to its own PR rather than
+  extending the exclusion list further — the two checks together are a floor, not a
+  closed enumeration.
 - **Still its own committed, separately revertible commit while the PR is open** —
   bundling means one PR with multiple commits, never one squashed diff; `git revert <sha>`
   must undo any one item without touching the others before merge. That guarantee ends at
