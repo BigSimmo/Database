@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { phoneChromePlan } from "../scripts/phone-chrome-plan.mjs";
+import { runPhoneChromeStages } from "../scripts/verify-phone-chrome.mjs";
 
 const ids = (files: string[], fullMode: "auto" | "always" | "never" = "auto") =>
   phoneChromePlan(files, { fullMode }).stages.map((stage) => stage.id);
@@ -59,4 +60,26 @@ describe("phoneChromePlan", () => {
       expect(changedBrowser?.command.args).not.toContain("--grep");
     },
   );
+});
+
+describe("runPhoneChromeStages", () => {
+  it("aborts on the first non-zero stage exit and never continues", () => {
+    const exit = vi.fn();
+    const runCommand = vi.fn().mockReturnValueOnce(0).mockReturnValueOnce(1).mockReturnValueOnce(0);
+    const stages = [
+      { id: "lock-parity", label: "ok", command: { executable: "npm", args: ["run", "a"] } },
+      {
+        id: "focused-browser",
+        label: "browser",
+        command: { executable: "node", args: ["scripts/run-playwright.mjs"] },
+      },
+      { id: "full-ui", label: "full", command: { executable: "npm", args: ["run", "verify:ui"] } },
+    ];
+
+    const code = runPhoneChromeStages(stages, { runCommand, exit, log: () => undefined });
+
+    expect(code).toBe(1);
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(runCommand).toHaveBeenCalledTimes(2);
+  });
 });
