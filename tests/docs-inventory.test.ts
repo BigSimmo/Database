@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { renderScriptsInventorySummary, updateScriptsInventoryText } from "../scripts/update-docs-inventory.mjs";
+import {
+  countTrackedScriptFiles,
+  renderScriptsInventorySummary,
+  updateScriptsInventoryText,
+} from "../scripts/update-docs-inventory.mjs";
 
 describe("scripts documentation inventory", () => {
   it("renders exact repository counts", () => {
@@ -34,6 +38,10 @@ describe("scripts documentation inventory", () => {
     );
   });
 
+  it("counts only null-delimited Git-tracked script paths", () => {
+    expect(countTrackedScriptFiles("scripts/a.mjs\0scripts/nested/b.ts\0docs/scripts-index.md\0")).toBe(2);
+  });
+
   it("wires safe automatic updates without auto-staging", () => {
     const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
     const hook = readFileSync(".githooks/pre-commit", "utf8");
@@ -48,6 +56,8 @@ describe("scripts documentation inventory", () => {
     expect(hook).toContain("--diff-filter=ACMRD");
     expect(hook).toContain("git ls-files --others --exclude-standard");
     expect(hook).toContain("Documentation inputs have unstaged or untracked changes");
+    expect(hook).toContain("Generated documentation has unstaged changes");
+    expect(hook.indexOf("dirty_generated_docs=")).toBeLessThan(hook.indexOf("npm run sitemap:update"));
     expect(hook).not.toMatch(/\bgit\s+add\b/);
     expect(installer).toContain('["pre-commit", "pre-push"]');
   });

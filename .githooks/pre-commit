@@ -58,6 +58,28 @@ if [ -n "$mixed_inputs" ]; then
   exit 1
 fi
 
+docs_to_check=""
+if [ "$sync_sitemap" = "1" ]; then
+  docs_to_check="$docs_to_check docs/site-map.md"
+fi
+if [ "$sync_inventory" = "1" ]; then
+  docs_to_check="$docs_to_check docs/scripts-index.md"
+fi
+if [ "$check_module_map" = "1" ]; then
+  docs_to_check="$docs_to_check docs/codebase-index.md"
+fi
+
+# Generators rewrite whole files. Refuse before running them when a selected
+# output has an unstaged edit, otherwise regeneration can erase local work and
+# leave the hook looking clean afterward.
+dirty_generated_docs=$(git diff --name-only -- $docs_to_check)
+if [ -n "$dirty_generated_docs" ]; then
+  echo "[pre-commit] Generated documentation has unstaged changes:" >&2
+  printf '%s\n' "$dirty_generated_docs" >&2
+  echo "[pre-commit] Stage or separate these outputs before regeneration." >&2
+  exit 1
+fi
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "[pre-commit] npm is required for documentation synchronization." >&2
   echo "[pre-commit] Install the repository toolchain, or bypass once with SKIP_DOCS_SYNC_HOOK=1." >&2
@@ -68,19 +90,15 @@ repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
 echo "[pre-commit] Synchronizing generated documentation..."
-docs_to_check=""
 if [ "$sync_sitemap" = "1" ]; then
   npm run sitemap:update
-  docs_to_check="$docs_to_check docs/site-map.md"
 fi
 if [ "$sync_inventory" = "1" ]; then
   node scripts/update-docs-inventory.mjs
   npm run docs:check-inventory
-  docs_to_check="$docs_to_check docs/scripts-index.md"
 fi
 if [ "$check_module_map" = "1" ]; then
   npm run docs:check-index
-  docs_to_check="$docs_to_check docs/codebase-index.md"
 fi
 
 unstaged_docs=$(git diff --name-only -- $docs_to_check)

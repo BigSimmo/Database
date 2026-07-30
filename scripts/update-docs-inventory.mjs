@@ -6,7 +6,8 @@
  * headline counts are generated facts. Write mode refreshes those counts;
  * --check fails when they drift so verify:cheap and CI catch missed updates.
  */
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -28,19 +29,18 @@ export function updateScriptsInventoryText(markdown, scriptFileCount, npmScriptC
   return markdown.replace(inventoryPattern, renderScriptsInventorySummary(scriptFileCount, npmScriptCount));
 }
 
-function countFilesRecursively(directory) {
-  let count = 0;
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.isDirectory()) count += countFilesRecursively(path.join(directory, entry.name));
-    else if (entry.isFile()) count += 1;
-  }
-  return count;
+export function countTrackedScriptFiles(nullDelimitedPaths) {
+  return nullDelimitedPaths.split("\0").filter((filePath) => filePath.startsWith("scripts/")).length;
 }
 
 export function collectRepositoryInventory() {
   const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+  const trackedScripts = execFileSync("git", ["ls-files", "-z", "--", "scripts"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  });
   return {
-    scriptFileCount: countFilesRecursively(path.join(repoRoot, "scripts")),
+    scriptFileCount: countTrackedScriptFiles(trackedScripts),
     npmScriptCount: Object.keys(packageJson.scripts ?? {}).length,
   };
 }
