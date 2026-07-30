@@ -7,12 +7,23 @@
  * verified the same way. Nothing pinned the resulting counts, so a later
  * refactor could reintroduce a round trip silently. This is the guard.
  *
- * **What counts as one round trip.** One `.rpc(name)` call, or one `.from(table)`
- * chain. Builder methods (`.select`, `.eq`, `.order`, `.limit`, …) are
- * deliberately NOT counted: they are fluent and issue nothing on their own, so
- * counting them would measure query *style* rather than network cost, and would
- * change every time someone added a filter. One chain is one trip regardless of
- * how many links it has.
+ * **What counts as one round trip: execution, not construction.** A Supabase
+ * builder issues its request when it is awaited, not when `.from()` creates it.
+ * So the trip is recorded when the returned thenable is executed (`then` is
+ * invoked), and `.from()` / `.rpc()` on their own record nothing. Builder
+ * methods (`.select`, `.eq`, `.order`, …) are fluent and never counted.
+ *
+ * This distinction is load-bearing rather than pedantic, and the first version
+ * of this helper got it wrong (Codex P2, 2026-07-30). Counting at `.from()`
+ * would charge a trip for a query that was built and abandoned, and would charge
+ * only one for a builder awaited twice — which really is two requests. Both
+ * cases are pinned by tests.
+ *
+ * **Known limitation.** A promise, unlike a builder, memoises: awaiting the same
+ * promise twice performs one request but invokes `then` twice, so it would be
+ * counted twice. Real `from()`/`rpc()` return lazy builders where re-execution
+ * genuinely re-requests, so this only misleads for code that deliberately
+ * re-awaits a stored promise. Stated rather than silently assumed away.
  *
  * **What this cannot see.** Only calls made through the wrapped client. A
  * round trip issued via a different client instance, a direct `fetch`, or a
@@ -41,9 +52,14 @@ export interface SupabaseRoundTripCounter {
   reset(): void;
 }
 
+// Method syntax, and `never[]` params, both deliberate: method signatures are
+// bivariant and `never` is assignable to anything, so a concrete stub such as
+// `(name: string) => Promise<...>` satisfies this constraint. Property syntax
+// with `unknown[]` looks tidier but rejects every real stub, because a parameter
+// typed `unknown` is not assignable to one typed `string`.
 type MinimalSupabaseClient = {
-  rpc?: (...args: never[]) => unknown;
-  from?: (...args: never[]) => unknown;
+  rpc?(...args: never[]): unknown;
+  from?(...args: never[]): unknown;
 };
 
 /**
@@ -64,19 +80,41 @@ export function countSupabaseRoundTrips<T extends MinimalSupabaseClient>(
   // make the two scenarios share state.
   const wrapped = { ...client } as T;
 
-  if (typeof client.rpc === "function") {
-    const original = client.rpc.bind(client) as (...args: unknown[]) => unknown;
-    (wrapped as MinimalSupabaseClient).rpc = ((...args: unknown[]) => {
-      record("rpc", args[0]);
-      return original(...args);
-    }) as T["rpc"];
-  }
-  if (typeof client.from === "function") {
-    const original = client.from.bind(client) as (...args: unknown[]) => unknown;
-    (wrapped as MinimalSupabaseClient).from = ((...args: unknown[]) => {
-      record("from", args[0]);
-      return original(...args);
-    }) as T["from"];
+  /**
+   * Wraps a builder (or promise) so the trip is recorded when it executes.
+   * Fluent methods return the builder, so their results are re-wrapped to keep
+   * the pending trip attached however long the chain gets.
+   */
+  const trackExecution = (target: unknown, kind: "rpc" | "from", name: unknown): unknown => {
+    if (target === null || (typeof target !== "object" && typeof target !== "function")) return target;
+    return new Proxy(target as object, {
+      get(obj, prop, receiver) {
+        const value = Reflect.get(obj, prop, receiver);
+        if (typeof value !== "function") return value;
+
+        if (prop === "then") {
+          // Execution. Record once per execution, so two awaits are two trips.
+          return (...args: unknown[]) => {
+            record(kind, name);
+            return (value as (...a: unknown[]) => unknown).apply(obj, args);
+          };
+        }
+        return (...args: unknown[]) => {
+          const result = (value as (...a: unknown[]) => unknown).apply(obj, args);
+          // Fluent link (`return this`) or a derived builder — keep tracking.
+          return result === obj || (result !== null && typeof result === "object" && "then" in (result as object))
+            ? trackExecution(result, kind, name)
+            : result;
+        };
+      },
+    });
+  };
+
+  for (const method of ["rpc", "from"] as const) {
+    if (typeof client[method] !== "function") continue;
+    const original = (client[method] as (...args: unknown[]) => unknown).bind(client);
+    (wrapped as MinimalSupabaseClient)[method] = ((...args: unknown[]) =>
+      trackExecution(original(...args), method, args[0])) as T[typeof method];
   }
 
   const counter: SupabaseRoundTripCounter = {

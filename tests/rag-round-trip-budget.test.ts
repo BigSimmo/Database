@@ -135,21 +135,54 @@ afterEach(() => {
 });
 
 describe("the counter itself", () => {
-  // A budget guard is only worth having if an added round trip moves it. Proving
-  // that on the real path would mean editing src/lib/rag/** to inject a call, so
-  // this pins the mechanism instead: one extra `.from()` must show up as one
-  // extra trip, and the original client must be left unwrapped.
-  it("counts an added round trip and does not mutate the client it wraps", async () => {
-    const original = { rpc: vi.fn(async () => ({ data: [], error: null })), from: vi.fn(() => ({})) };
+  // A budget guard is only worth having if it counts what actually goes over the
+  // wire. Proving that on the real path would mean editing src/lib/rag/** to
+  // inject calls, so these pin the mechanism instead — and they are the exact
+  // two cases the first version of this helper got wrong: a builder that is
+  // never executed must cost nothing, and one executed twice must cost two.
+  /** Minimal stand-in for a Supabase builder: fluent, and executes on `then`. */
+  const builder = (table: string) => {
+    const self = {
+      select: () => self,
+      eq: () => self,
+      // Echoes the table back so the parameter is genuinely used, and so a
+      // mis-wired proxy that swallowed arguments would show up here.
+      then: <T>(onfulfilled?: (value: { data: unknown[]; error: null; table: string }) => T) =>
+        Promise.resolve({ data: [], error: null, table }).then(onfulfilled),
+    };
+    return self;
+  };
+
+  it("charges nothing for a builder that is never executed", async () => {
+    const { client, counter } = countSupabaseRoundTrips({ from: vi.fn(builder) });
+
+    // Built and abandoned: no request was ever sent, so no trip may be charged.
+    // Counting at `.from()` — the first version of this helper — got this wrong.
+    client.from!("documents").select().eq();
+    expect(counter.total(), "an unexecuted builder must cost zero round trips").toBe(0);
+  });
+
+  it("charges two round trips for a builder executed twice", async () => {
+    const { client, counter } = countSupabaseRoundTrips({ from: vi.fn(builder) });
+    const query = client.from!("documents").select();
+
+    await query;
+    expect(counter.total(), "first execution is one trip").toBe(1);
+    await query;
+    expect(counter.total(), "re-executing a builder really does re-request").toBe(2);
+    expect(counter.breakdown()).toEqual({ "from:documents": 2 });
+  });
+
+  it("counts an executed rpc and does not mutate the client it wraps", async () => {
+    const original = {
+      rpc: vi.fn(async (name: string) => ({ data: [], error: null, name })),
+      from: vi.fn(builder),
+    };
     const { client, counter } = countSupabaseRoundTrips(original);
 
-    await client.rpc();
-    client.from();
-    expect(counter.total()).toBe(2);
-
-    client.from();
-    expect(counter.total(), "an extra round trip must move the count").toBe(3);
-    expect(counter.breakdown()).toEqual({ "rpc:undefined": 1, "from:undefined": 2 });
+    await client.rpc!("match_document_chunks_text_v2");
+    expect(counter.total()).toBe(1);
+    expect(counter.countOf("match_document_chunks_text_v2")).toBe(1);
 
     // Spread-not-mutate: a suite reusing the same stub for a second scenario
     // must not inherit the first scenario's counting.
@@ -182,8 +215,19 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
     // The property worth guarding is shape, not magnitude: hydration and
     // metadata lookups must stay batched. A per-source round trip is the
     // regression this catches, and it is invisible to a single-source budget.
+    //
+    // Each source gets a DISTINCT document_id and page (Codex P2, 2026-07-30).
+    // The first version varied only the chunk id, so all five shared one
+    // document — and a regression hydrating once per distinct document would
+    // still have been a single call, letting this "no scaling" claim pass over
+    // an N+1 path on realistic cross-document results.
     const many = Array.from({ length: 5 }, (_, index) =>
-      source({ id: `clozapine-chunk-${index + 1}`, chunk_index: index }),
+      source({
+        id: `clozapine-chunk-${index + 1}`,
+        document_id: `clozapine-doc-${index + 1}`,
+        page_number: 11 + index,
+        chunk_index: index,
+      }),
     );
     const { answer, counter } = await answerWithCountedClient("What ANC threshold should withhold clozapine?", many);
 
@@ -201,15 +245,20 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
  * not derived from first principles — it is what the path does today. See the
  * file header before changing it.
  *
- * The 14 break down as:
+ * The 13 break down as:
  *
  *   from:rag_aliases                        1
  *   rpc:match_document_chunks_text_v2       3
  *   rpc:get_related_document_metadata_v2    2
  *   from:document_index_quality             1
- *   from:document_memory_cards              1
  *   from:document_images                    3
  *   rpc:match_document_table_facts_text_v2  3
+ *
+ * It was 14 until the counter moved from construction to execution (Codex P2,
+ * 2026-07-30). `document_memory_cards` is *built but never executed* on this
+ * path, so it sends nothing and must not be charged. That is a small finding in
+ * its own right — a constructed-and-abandoned builder — but harmless at runtime;
+ * what mattered is that the original budget over-counted real traffic by one.
  *
  * Two things in that breakdown are worth a reader's attention rather than being
  * silently encoded as "correct". Three calls to each of the text-chunk,
@@ -219,4 +268,4 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
  * elsewhere. This budget does not endorse the count; it stops it growing
  * unnoticed and gives `#101` a number to improve against.
  */
-const OFFLINE_SINGLE_SOURCE_ROUND_TRIPS = 14;
+const OFFLINE_SINGLE_SOURCE_ROUND_TRIPS = 13;
