@@ -61,10 +61,11 @@ describe("production readiness provider policy", () => {
       timeout: 30_000,
     });
 
-    const spawnError = result.error as NodeJS.ErrnoException | undefined;
+    const spawnError = result.error;
+    const timedOut = spawnError !== undefined && "code" in spawnError && spawnError.code === "ETIMEDOUT";
     expect(
       spawnError,
-      spawnError?.code === "ETIMEDOUT"
+      timedOut
         ? "production-readiness --ci timed out after 30s"
         : `production-readiness --ci failed to start: ${spawnError?.message ?? "unknown"}\n${result.stdout}\n${result.stderr}`,
     ).toBeUndefined();
