@@ -10,6 +10,7 @@ import {
   hasSafeGitHubCredentialHelper,
   inspectOriginRemote,
 } from "./ensure-codex-cloud-git-remote.mjs";
+import { providerEnvironmentKeys } from "./test-environment.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -18,18 +19,8 @@ export const expectedCloudCliVersions = Object.freeze({
   codex: "0.146.0",
 });
 
-export const providerCredentialVariables = [
-  "OPENAI_API_KEY",
-  "OPENAI_ORG_ID",
-  "OPENAI_PROJECT_ID",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-  "SUPABASE_PROJECT_REF",
-  "SUPABASE_PROJECT_NAME",
-  "SUPABASE_ACCESS_TOKEN",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "SUPABASE_DB_URL",
-  "DATABASE_URL",
+export const providerCredentialVariables = Object.freeze([
+  ...providerEnvironmentKeys,
   "RAILWAY_API_TOKEN",
   "RAILWAY_TOKEN",
   "GH_TOKEN",
@@ -39,9 +30,7 @@ export const providerCredentialVariables = [
   "CODEX_TRIGGER_TOKEN",
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
-  "E2E_USER_EMAIL",
-  "E2E_USER_PASSWORD",
-];
+]);
 
 function read(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");

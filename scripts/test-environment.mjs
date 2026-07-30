@@ -65,10 +65,7 @@ export function providerFreeCloudLiveTestGap(environment = process.env) {
   const providerFree =
     environment.ALLOW_PROVIDER_TESTS === "true" &&
     environment.CODEX_CLOUD === "1" &&
-    (environment.CODEX_CLOUD_ACCESS_PROFILE ?? "offline") === "offline" &&
-    environment.RAG_PROVIDER_MODE === "offline" &&
-    environment.NEXT_PUBLIC_DEMO_MODE === "true" &&
-    environment.PLAYWRIGHT_OFFLINE_MODE === "true";
+    (environment.CODEX_CLOUD_ACCESS_PROFILE ?? "offline") === "offline";
   if (!providerFree) return null;
   return (
     "Live provider test capability gap: ALLOW_PROVIDER_TESTS is authorized, but agent-phase provider " +

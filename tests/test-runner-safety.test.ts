@@ -567,6 +567,18 @@ describe("provider-safe test environment", () => {
     const gap = providerFreeCloudLiveTestGap(environment);
     expect(gap).toContain("agent-phase provider credentials are intentionally unavailable");
     expect(gap).not.toContain(environment.OPENAI_API_KEY);
+    for (const malformedModes of [
+      { RAG_PROVIDER_MODE: "openai" },
+      { NEXT_PUBLIC_DEMO_MODE: "false" },
+      { PLAYWRIGHT_OFFLINE_MODE: "false" },
+    ]) {
+      expect(providerFreeCloudLiveTestGap({ ...environment, ...malformedModes })).toContain(
+        "Live provider test capability gap",
+      );
+    }
+    expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: undefined })).toContain(
+      "Live provider test capability gap",
+    );
     expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: "connected" })).toBeNull();
   });
 

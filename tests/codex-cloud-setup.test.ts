@@ -9,12 +9,14 @@ import {
   executableFile,
   obsoleteNpmProxyVariables,
   parseMcpServerMetadata,
+  providerCredentialVariables,
   pythonWorkerImportError,
   pythonWorkerImports,
   railwayReadCapability,
   sanitizedCloudCapabilityLines,
   validateCodexCloudEnvironment,
 } from "../scripts/check-codex-cloud-setup.mjs";
+import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
 import {
   CODEX_CLOUD_ORIGIN_URL,
   ensureOriginRemote,
@@ -63,6 +65,10 @@ describe("Codex Cloud environment contract", () => {
 
     expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY"]);
     expect(obsoleteNpmProxyVariables(env)).toEqual(["npm_config_https_proxy"]);
+  });
+
+  it("covers every provider-capable test variable in the Cloud credential inventory", () => {
+    for (const key of providerEnvironmentKeys) expect(providerCredentialVariables).toContain(key);
   });
 
   it("validates effective offline modes and keeps connected verification explicit", () => {
