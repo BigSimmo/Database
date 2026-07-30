@@ -22,7 +22,7 @@ permissions:
 jobs:
   live-tests:
     name: Authenticated production read-only tests
-    if: inputs.confirmation == 'run-authenticated-live-tests'
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'run-authenticated-live-tests'
     environment: Database / production
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -31,6 +31,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/heads/main
           persist-credentials: false
 
       - name: Setup Node and dependencies

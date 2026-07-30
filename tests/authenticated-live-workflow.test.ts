@@ -8,10 +8,13 @@ describe("authenticated live test workflow", () => {
   it("is manual-only, confirmation-gated, and least-privilege", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).not.toMatch(/^\s+(?:pull_request|push|schedule):/m);
-    expect(workflow).toContain("inputs.confirmation == 'run-authenticated-live-tests'");
+    expect(workflow).toContain(
+      "github.ref == 'refs/heads/main' && inputs.confirmation == 'run-authenticated-live-tests'",
+    );
     expect(workflow).toContain("environment: Database / production");
     expect(workflow).toContain("permissions:\n  contents: read");
     expect(workflow).toContain("persist-credentials: false");
+    expect(workflow).toContain("ref: refs/heads/main");
     expect(workflow).not.toContain("OPENAI_API_KEY");
     expect(workflow).not.toContain("RAILWAY_API_TOKEN");
   });

@@ -18,7 +18,8 @@ Codex Cloud agents remain provider-free. Run authenticated Supabase tests throug
 manual `.github/workflows/authenticated-live-tests.yml` workflow, which requires the
 explicit `run-authenticated-live-tests` dispatch confirmation, records the run against the
 `Database / production` environment, and injects GitHub secrets only into the identity
-guard and live-test steps. It never runs on a push, pull request, or schedule.
+guard and live-test steps. The secret-bearing job runs only from `refs/heads/main` and
+checks out that trusted ref; it never runs on a push, pull request, or schedule.
 
 ## Commands
 
