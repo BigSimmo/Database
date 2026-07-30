@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -76,5 +77,32 @@ describe("Database skill catalog", () => {
     expect(rendered).toContain("- skills — List every unique Database-specific skill with a clear explanation");
     expect(rendered).not.toContain("- workflows —");
     for (const category of catalog.categories) expect(rendered).toContain(category.name);
+  });
+
+  it("keeps prompt-perfector execution authorization and repository isolation fail-closed", () => {
+    const skillRoot = path.join(skillsRoot, "prompt-perfector");
+    const skill = fs.readFileSync(path.join(skillRoot, "SKILL.md"), "utf8");
+    const workflow = fs.readFileSync(path.join(skillRoot, "references", "repository-workflow.md"), "utf8");
+    const verifier = fs.readFileSync(path.join(skillRoot, "scripts", "verify-repository-isolation.mjs"), "utf8");
+
+    expect(skill).toContain("Execute only when explicit");
+    expect(skill).not.toContain("Workspace:");
+    expect(workflow).toContain("^TASK_START\\s+git=(true|false)$");
+    expect(workflow).toContain("CODEX_CLOUD=1");
+    expect(workflow).toContain("--expected-status-hash");
+    expect(verifier).toContain('["safe Cloud primary"');
+    expect(verifier).toContain('reasons.push("status_drift")');
+
+    const selfTest = spawnSync(
+      process.execPath,
+      [path.join(skillRoot, "scripts", "verify-repository-isolation.mjs"), "--self-test"],
+      {
+        cwd: path.resolve(import.meta.dirname, ".."),
+        encoding: "utf8",
+        shell: false,
+      },
+    );
+    expect(selfTest.status, `${selfTest.stdout}\n${selfTest.stderr}`).toBe(0);
+    expect(selfTest.stdout).toContain("prompt-perfector isolation self-test passed: 14/14");
   });
 });
