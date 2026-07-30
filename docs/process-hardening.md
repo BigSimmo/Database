@@ -138,6 +138,47 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.
 
+## Visual regression, style contracts and the pre-merge performance budget (2026-07-30)
+
+Three gates added for the "mature repo" verification pass. Full usage is in
+[`docs/testing.md`](testing.md); this records the reasoning and the remaining debt.
+
+- **Problem addressed.** Nothing verified rendered appearance. `playwright.visual.config.ts` and
+  `npm run test:e2e:visual` existed but pointed at `ui-visual-artifacts.spec.ts`, which only
+  `testInfo.attach()`es four screenshots for a human to eyeball — there was no `toHaveScreenshot`
+  call and no baseline directory anywhere in the repo. Separately, ledger #094 showed a style
+  contract passing while the style was inert, and Lighthouse only ran against the deployed origin,
+  after a merge had already auto-deployed.
+- **Style contracts are required and deterministic.** `tests/ui-style-contract.spec.ts` joins
+  `test:e2e:pr` through `productionSpecPattern`, so it blocks like any other production journey. It
+  is Chromium-only by design (computed-style serialisation is engine-specific) and self-skips on the
+  other engines in the release matrix. `tests/style-contract-registry.test.ts` closes the inventory
+  so the next unlayered class cannot be added unnoticed.
+- **Verified it bites, not just that it passes.** The contract was re-run against a production build
+  with `.search-band` deliberately moved back into `@layer components`; it failed on
+  `borderTopWidth` as intended, and passed once reverted. A gate that has never been observed to
+  fail is not yet evidence of anything.
+- **Pixel baselines are advisory on purpose.** `visual-baseline` in CI is `continue-on-error` and
+  outside `pr-required`. Two reasons: no baselines are committed yet (the first run's artifact is
+  what supplies them), and this repo has already paid for a sub-pixel rounding flake — the
+  `min-h-11` → `min-h-12` tap-target change. Promote by adding the job to `pr-required` and dropping
+  `continue-on-error` in the same edit, once baselines have held across a few runs.
+- **Baselines must come from CI, not a laptop.** Paths are platform-scoped
+  (`tests/__screenshots__/{platform}/`). Font hinting and antialiasing differ between a developer
+  machine and the `ubuntu-24.04` runner, so a locally-generated baseline would make every CI run red.
+- **The performance budget is relative, not absolute.** `lighthouse-budget.json` holds a committed
+  per-route baseline and a per-metric tolerance, following `check:bundle-budget`. Absolute
+  web-vitals thresholds are meaningless against localhost with no network latency. `enforce` starts
+  `false` with no baseline; incomplete evidence fails regardless of `enforce`.
+- **Verification debt remaining.** (1) No pixel baselines are committed, so `visual-baseline` reports
+  rather than gates until an operator adopts them from the CI artifact. (2) No Lighthouse baseline is
+  recorded, so the budget warns rather than grades until `--update` runs against a known-good build.
+  (3) 37 of the 38 unlayered visual classes carry exemptions rather than effect contracts — the debt
+  is enumerated in `STYLE_CONTRACT_EXEMPTIONS`, and ledger #094 stays open until the load-bearing
+  ones have contracts. (4) `scripts/run-lighthouse-budget.mjs` duplicates roughly 50 lines of the
+  isolated-server boot in `scripts/run-playwright.mjs`; extracting a shared module was deliberately
+  deferred rather than destabilise the required UI gate in the same change.
+
 ## Text formatting and copy conventions
 
 - **Document-derived text must never be rendered raw.** Any value pulled from an ingested document — answer prose, exact quotes, source snippets, document titles, image captions, extracted table text — must be routed through a `source-text-sanitizer` (`src/lib/source-text-sanitizer.ts`) or `display-text` (`src/components/clinical-dashboard/display-text.ts`) helper before it reaches JSX. Verbatim quotes use `sourceTextForVerbatimQuote`; titles use `cleanDisplayTitle`; snippets/captions use `sourceTextForCompactDisplay`.
@@ -209,10 +250,11 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 
 ## PR merge gate: risk-scoped CI + required aggregate (2026-07-10)
 
-- CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical`, and `db-reset-verify`, then enforces only the jobs whose scopes apply.
-- `static-pr` is the deterministic baseline for every PR: runtime, action pin check, CI scope self-test, format, lint, and typecheck. Coverage is the one required full unit run. Build, safety/config (the `safety` job includes RAG fixture validation), production UI, and migration replay are independent jobs so reruns stay focused. Coverage includes source, tests, package/test-runner configuration, while process-only documentation does not trigger builds.
-- `db-reset-verify` is path-scoped to Supabase migrations/schema/config and database-access code. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
-- `ui-critical` retains its job ID for branch-protection compatibility but runs one required production Chromium invocation covering all non-quarantined critical and regression journeys (`test:e2e:pr`). `ui-advisory` runs quarantined and mockup journeys together when UI scope applies. A JUnit failure is considered a known flake only when its exact spec/title matches the validated ledger. The full browser matrix remains main/release/manual/scheduled.
+- CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical-fast`, `ui-critical`, and `db-reset-verify`, then enforces only the jobs whose scopes apply. The aggregate keeps `if: always()` and labels concurrency `cancelled` distinctly from real failures (#095 / PR #1409); it stays red because a skipped required check would count as passing.
+- `static-pr` is the deterministic baseline for every PR: runtime, action pin check, CI scope self-test, format, lint, and typecheck. Coverage is the one required full unit run. Build, safety/config (fixtures always; `eval:rag:offline` when `rag_eval_changed`), production UI, and migration replay are independent jobs so reruns stay focused. Coverage includes source, tests, package/test-runner configuration, while process-only documentation does not trigger builds.
+- `db-reset-verify` is path-scoped to Supabase migrations/schema/`src/lib/supabase` and drift tooling — not every API route. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
+- `ui-critical` retains its job ID for branch-protection compatibility and still runs the full required production Chromium suite (`test:e2e:pr`). On pull requests / merge_group, `ui-critical-fast` runs `@critical` first for fail-fast signal. `src/app/api/**` does not set `ui_changed`. `ui-advisory` runs quarantined and mockup journeys together when UI scope applies. A JUnit failure is considered a known flake only when its exact spec/title matches the validated ledger. The full browser matrix remains main/release/manual/scheduled and depends on static/build/UI success — not on `pr-required` — so a blocking scheduled dependency audit cannot skip Firefox/WebKit (#023 structural half).
+- Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit (`scripts/run-gitleaks-pinned.mjs`) so a concurrent push cannot invalidate the range (#097).
 - The 2026-07-13 cold-server and historical ledger candidates are tracked through the reproduction policy in `docs/testing.md`: run each three times on the same SHA, fix fail/pass races, treat deterministic failures as regressions, and remove entries that do not reproduce. On `0c56f27a3`, the historical composer/tap/answer-fallback entries and three cold-route candidates did not reproduce in three runs; the narrow differential viewport reproduced once in three cold runs, was fixed with route-specific readiness before its single submit, then passed three of three. The ledger is intentionally empty.
 - Branch protection for `main` should require `CI / PR required` and `Secret Scan / Gitleaks`. Keep `SAST / Semgrep` required only if the repository owner accepts its external-rule/network dependency as part of the normal merge gate. Container-affecting PRs are enforced through `CI / PR required`; do not separately require `Docker image build / app-image` or `Docker image build / worker-image`. Also do not require other path-filtered or scheduled/manual contexts such as `CI / Unit coverage`, `CI / Critical UI smoke`, `CI / Migration replay`, `CI / release-browser-matrix`, `Eval Canary`, or `Live drift check`; they can be skipped on ordinary PRs and would leave branches stuck at "Expected - Waiting for status to be reported."
 
