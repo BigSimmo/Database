@@ -132,6 +132,30 @@ describe("playwright browser preflight", () => {
     }
   });
 
+  it("does not select an x64-only container shell on Linux arm64", () => {
+    const root = mkdtempSync(join(tmpdir(), "pw-container-architectures-"));
+    const x64Only = join(
+      root,
+      "chromium_headless_shell-1300",
+      "chrome-headless-shell-linux64",
+      "chrome-headless-shell",
+    );
+    const arm64Compatible = join(root, "chromium_headless_shell-1200", "chrome-linux", "headless_shell");
+    try {
+      mkdirSync(join(x64Only, ".."), { recursive: true });
+      mkdirSync(join(arm64Compatible, ".."), { recursive: true });
+      writeFileSync(x64Only, "");
+      writeFileSync(arm64Compatible, "");
+
+      expect(newestPreinstalledChromiumHeadlessShell(root, { platform: "linux", architecture: "x64" })).toBe(x64Only);
+      expect(newestPreinstalledChromiumHeadlessShell(root, { platform: "linux", architecture: "arm64" })).toBe(
+        arm64Compatible,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("fails closed when the required Chromium binary is missing", () => {
     const result = playwrightBrowserPreflight(["--project=chromium"], {
       NODE_ENV: "test",

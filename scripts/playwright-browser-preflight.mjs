@@ -47,10 +47,13 @@ const CHROMIUM_HEADLESS_SHELL_LAYOUTS = Object.freeze({
 });
 
 const PREINSTALLED_CHROMIUM_LAYOUTS = Object.freeze({
-  linux: [
-    ["chrome-headless-shell-linux64", "chrome-headless-shell"],
-    ["chrome-linux", "headless_shell"],
-  ],
+  linux: {
+    x64: [
+      ["chrome-headless-shell-linux64", "chrome-headless-shell"],
+      ["chrome-linux", "headless_shell"],
+    ],
+    arm64: [["chrome-linux", "headless_shell"]],
+  },
   darwin: {
     x64: [["chrome-headless-shell-mac-x64", "chrome-headless-shell"]],
     arm64: [["chrome-headless-shell-mac-arm64", "chrome-headless-shell"]],
@@ -59,7 +62,9 @@ const PREINSTALLED_CHROMIUM_LAYOUTS = Object.freeze({
 });
 
 function preinstalledChromiumLayouts(platform = process.platform, architecture = process.arch) {
-  if (platform === "darwin") return PREINSTALLED_CHROMIUM_LAYOUTS.darwin[architecture] ?? [];
+  if (platform === "linux" || platform === "darwin") {
+    return PREINSTALLED_CHROMIUM_LAYOUTS[platform][architecture] ?? [];
+  }
   return PREINSTALLED_CHROMIUM_LAYOUTS[platform] ?? [];
 }
 
