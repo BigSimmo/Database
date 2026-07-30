@@ -130,16 +130,18 @@ API rather than estimated:
   determinism is identical and per-runner load falls — which matters because `#093`'s duplicate
   page root is load-dependent.
 - **The shard count is measured, not chosen.** With `fullyParallel: false` a spec file is
-  indivisible, so shard sizes are lumpy: over the 340 required chromium tests, N=3 gives
-  121/106/113 while N=4 gives 121/106/96/17 — the same 121-test critical path for an extra
-  runner. N=5 and N=8 produce **empty** shards, which would go red because `test:e2e:pr`
-  deliberately omits `--pass-with-no-tests`. Re-measure with
+  indivisible, so shard sizes are lumpy. Against the 342 required chromium tests on the
+  post-merge tree, N=3 gives 121/111/110 and N=4 gives 121/106/98/17 — the same 121-test
+  bound for an extra runner. On the 340-test tree just before, N=5 and N=8 produced **empty**
+  shards, which would go red because `test:e2e:pr` deliberately omits `--pass-with-no-tests`.
+  Re-measure with
   `npx playwright test --project=chromium --grep-invert "@quarantine|@mockup" --shard=i/N --list`
   (needs a running server via `npm run ensure` and `PLAYWRIGHT_BASE_URL`) before changing N,
   and keep every shard non-empty.
-- **These timings predate `ui-critical-fast`.** The `@critical` fail-fast job now runs before
-  the full suite, so the UI critical path is that job plus the slowest shard, not the full
-  13.5-minute suite. Re-measure both together rather than assuming either number.
+- **These timings predate `ui-critical-fast`.** The `@critical` fail-fast job (15 tests) now
+  runs before the full suite, so the UI critical path is that job plus the slowest shard, not
+  the full 13.5-minute suite. Both numbers must be re-measured together from a real run rather
+  than assumed — this branch's own CI is the first execution of the sharded shape.
 
 ## Phase 1 - Active now
 

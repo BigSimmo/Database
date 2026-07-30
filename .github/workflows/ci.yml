@@ -491,16 +491,19 @@ jobs:
       matrix:
         # THREE, and the count is measured rather than chosen. `fullyParallel: false`
         # makes a spec file the indivisible unit, so shard sizes are lumpy and more
-        # shards is not monotonically faster. Measured 2026-07-30 over the 340
-        # non-quarantine/non-mockup chromium tests (`--list --shard=i/N`):
-        #   N=3 -> 121/106/113   largest 121
-        #   N=4 -> 121/106/96/17 largest 121  (same critical path, one more runner)
-        #   N=6 -> 65/56/106/5/91/17 largest 106
-        #   N=5 -> 121/106/0/96/17   and N=8 -> two empty shards
-        # N=4 buys nothing over N=3 because the same 121-test shard bounds both, and
-        # any N with an empty shard would go RED: `test:e2e:pr` deliberately omits
-        # `--pass-with-no-tests` (only the advisory lane carries it).
-        # Re-measure before changing this number, and keep every shard non-empty.
+        # shards is not monotonically faster. Re-measured 2026-07-30 against this
+        # merged tree — 342 non-quarantine/non-mockup chromium tests
+        # (`--list --shard=i/N`):
+        #   N=3 -> 121/111/110   largest 121 (35%)
+        #   N=4 -> 121/106/98/17 largest 121 (35%)  — same bound, one more runner
+        # Earlier on a 340-test tree, N=5 -> 121/106/0/96/17 and N=8 gave two empty
+        # shards. N=4 buys nothing over N=3 because one 121-test spec group bounds
+        # both, and any N with an empty shard would go RED: `test:e2e:pr`
+        # deliberately omits `--pass-with-no-tests` (only the advisory lane has it).
+        # Re-measure before changing this number, and keep every shard non-empty:
+        #   npm run ensure
+        #   PLAYWRIGHT_BASE_URL=<printed> npx playwright test --project=chromium \
+        #     --grep-invert "@quarantine|@mockup" --shard=i/N --list
         shard: [1, 2, 3]
     steps:
       - name: Checkout
