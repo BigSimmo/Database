@@ -83,7 +83,7 @@ removed after current-main verification; it is not missing recommended work.
 |    34 | `#105`         | Optional | High — browser/UI verification              | When a driven-browser session is available                         | 30–60 minutes                         | Decide how the ten `LoadingPanel` fallbacks can be observed at all, then verify or re-scope. A cold-load grep cannot see them — every lazy surface mounts behind interaction state, so nothing renders them on first paint — and a claimed cold-load verification was withdrawn 2026-07-30 after it turned out to be matching `ModeHomePageSkeleton`. Either drive the interaction in a browser and assert the surface's specific label, or record that they are unobservable on cold load. The preconnect half is already verified; do not redo it. **Stop:** do not close this on a cold-load grep. |
 |    35 | `#126`         | Optional | Standard — repository hygiene               | Once per UTC calendar quarter, or when the live ledger grows large | 5–15 minutes                          | Run `npm run ledger:rotate -- --dry-run`, then `npm run ledger:rotate` if the preview looks right; commit the live+archive diff. Stop if dry-run shows unexpected mass moves or archive path collisions.                                                                                                                                                                                                                                                                                                                                                                                              |
 
-<!-- issues:next-id=150 -->
+<!-- issues:next-id=149 -->
 
 ## Open items
 
