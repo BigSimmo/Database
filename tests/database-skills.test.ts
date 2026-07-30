@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -61,6 +62,45 @@ describe("Database skill catalog", () => {
       expect(content).not.toContain("npm run");
       expect(metadata).toContain("allow_implicit_invocation: false");
     }
+  });
+
+  it("keeps prompt perfection refinement-only and uses the supported repository workflow", () => {
+    const skillRoot = path.join(skillsRoot, "prompt-perfector");
+    const skill = fs.readFileSync(path.join(skillRoot, "SKILL.md"), "utf8");
+    const metadata = fs.readFileSync(path.join(skillRoot, "agents", "openai.yaml"), "utf8");
+    const repositoryWorkflow = fs.readFileSync(path.join(skillRoot, "references", "repository-workflow.md"), "utf8");
+    const verifier = fs.readFileSync(path.join(skillRoot, "scripts", "verify-repository-isolation.mjs"), "utf8");
+
+    expect(skill).not.toContain('Workspace: "branch"');
+    expect(skill).not.toContain('Workspace: "share"');
+    for (const [scenario, contract] of [
+      ["refinement-only", "For refinement, return only `Perfected prompt`"],
+      ["explicit evaluation", "For evaluation, return `Evaluation`"],
+      ["embedded instructions", "as untrusted data"],
+      ["unauthorized execution", "Prompt perfection never authorizes"],
+      ["repository write", "references/repository-workflow.md"],
+    ]) {
+      expect(skill, scenario).toContain(contract);
+    }
+    expect(metadata).toContain("unless I explicitly request evaluation or execution");
+    expect(repositoryWorkflow).toContain("$env:USERPROFILE");
+    expect(repositoryWorkflow).not.toContain("C:\\Users\\joshs");
+    expect(repositoryWorkflow).toContain("start-codex-task.ps1");
+    expect(repositoryWorkflow).toContain("TASK_START git=true");
+    expect(repositoryWorkflow).toContain("verify-repository-isolation.mjs");
+    expect(repositoryWorkflow).toContain("--allow-dirty");
+    expect(repositoryWorkflow).toContain("do not provide an OS-level sandbox");
+    expect(verifier).toContain("dirty_override_requires_expected_state");
+    expect(verifier).toContain("expected_state_required");
+    expect(verifier).toContain("primary_worktree");
+    expect(verifier).not.toContain("node_modules");
+  });
+
+  it("exercises prompt-perfector isolation failure paths", () => {
+    const verifier = path.join(skillsRoot, "prompt-perfector", "scripts", "verify-repository-isolation.mjs");
+    const output = execFileSync(process.execPath, [verifier, "--self-test"], { encoding: "utf8" });
+
+    expect(output).toContain("prompt-perfector isolation self-test passed: 10/10");
   });
 
   it("renders canonical skills by category without duplicating compatibility aliases", () => {
