@@ -269,6 +269,14 @@ function checkPushedCommit(prettierBin, sha, files) {
     };
   }
   try {
+    // The Prettier doing the checking is this checkout's, not the pushed
+    // lockfile's. That only matters when the push changes dependencies — then a
+    // version difference can make CI disagree with this verdict, so say so rather
+    // than answer confidently with the wrong Prettier.
+    if (files.some((file) => ["package.json", "package-lock.json"].includes(path.basename(file)))) {
+      const mismatch = prettierVersionMismatch(prettierBin, dir);
+      if (mismatch) return { verdict: "error", detail: mismatch };
+    }
     // A dynamic config may import plugins; without this it cannot load at all.
     const modules = path.resolve("node_modules");
     if (existsSync(modules)) {
@@ -301,6 +309,31 @@ function chunk(items, size) {
   const out = [];
   for (let index = 0; index < items.length; index += size) out.push(items.slice(index, index + size));
   return out;
+}
+
+/**
+ * Does the pushed lockfile pin a different Prettier than the one installed?
+ *
+ * The guard formats with this checkout's Prettier while CI installs the pushed
+ * lockfile, so a push that bumps Prettier itself would be judged by the wrong
+ * version. Returns a message when they disagree, and null when they agree or when
+ * either version cannot be read — an unknown must not manufacture a block.
+ */
+function prettierVersionMismatch(prettierBin, checkoutDir) {
+  const readJson = (file) => {
+    try {
+      return JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      return undefined;
+    }
+  };
+  const installed = readJson(path.join(path.dirname(path.dirname(prettierBin)), "package.json"))?.version;
+  const pinned = readJson(path.join(checkoutDir, "package-lock.json"))?.packages?.["node_modules/prettier"]?.version;
+  if (!installed || !pinned || installed === pinned) return null;
+  return (
+    `node_modules has prettier ${installed}, but the pushed lockfile pins ${pinned}, so this ` +
+    `check would not match CI. Run \`npm ci\` and push again.`
+  );
 }
 
 /** Prettier: 0 clean, 1 unformatted, anything else a real failure. */

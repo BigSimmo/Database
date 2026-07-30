@@ -353,9 +353,14 @@ function buildModuleGraph(source: string, filename: string): ModuleGraph {
     if (type === "ImportDeclaration") {
       const specifier = (raw.source as { value?: string })?.value;
       if (typeof specifier !== "string") continue;
+      // `import type { X }` is erased at runtime and cannot mount anything, so it
+      // is not an edge. Both spellings matter: the declaration-level `importKind`
+      // and the per-specifier one from `import { type X }`.
+      if (raw.importKind === "type") continue;
       // A bare `import "x"` executes the module but renders nothing, so it is not
       // a mount and is deliberately not followed.
       for (const spec of (raw.specifiers ?? []) as Array<Record<string, unknown>>) {
+        if (spec.importKind === "type") continue;
         const local = (spec.local as { name?: string })?.name;
         if (!local) continue;
         const imported =
@@ -378,7 +383,10 @@ function buildModuleGraph(source: string, filename: string): ModuleGraph {
     if (type === "ExportNamedDeclaration") {
       const specifier = (raw.source as { value?: string })?.value;
       if (typeof specifier === "string") {
+        // `export type { X } from "…"` is erased too.
+        if (raw.exportKind === "type") continue;
         for (const spec of (raw.specifiers ?? []) as Array<Record<string, unknown>>) {
+          if (spec.exportKind === "type") continue;
           const exported = (spec.exported as { name?: string })?.name;
           const imported = (spec.local as { name?: string })?.name ?? exported;
           if (exported && imported) graph.reexports.push({ source: specifier, exported, imported });
@@ -836,6 +844,17 @@ describe("band adoption detection", () => {
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "preload-route.tsx"))).toBe(false);
+
+      // A type-only import is erased at runtime, so it cannot mount the band even
+      // though the identifier appears in the mounted component's annotations.
+      writeFileSync(
+        path.join(dir, "type-only-route.tsx"),
+        'import type { Banded } from "./banded-child";\n' +
+          "export default function Page({ render }: { render?: typeof Banded }) {\n" +
+          "  void render;\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "type-only-route.tsx"))).toBe(false);
 
       // A non-exported local the mounted component does render is reachable.
       writeFileSync(
