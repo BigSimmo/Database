@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import nextEnv from "@next/env";
+
+const { loadEnvConfig, resetEnv } = nextEnv;
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const uploadLimitSourcePath = path.join(projectRoot, "src", "lib", "upload-limits.ts");
-const dockerfilePath = path.join(projectRoot, "Dockerfile");
-const trackedNames = new Set(["MAX_UPLOAD_MB", "NEXT_PUBLIC_MAX_UPLOAD_MB"]);
 
 export function readUploadLimitCeiling(source = readFileSync(uploadLimitSourcePath, "utf8")) {
   const match = source.match(/export const MAX_UPLOAD_MB_CEILING\s*=\s*(\d+)\s*;/);
@@ -14,17 +16,8 @@ export function readUploadLimitCeiling(source = readFileSync(uploadLimitSourcePa
   return Number(match[1]);
 }
 
-export function loadLocalUploadLimitEnv(env = process.env, filePath = path.join(projectRoot, ".env.local")) {
-  if (!existsSync(filePath)) return env;
-
-  const resolved = { ...env };
-  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
-    if (line.trimStart().startsWith("#")) continue;
-    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
-    if (!match || !trackedNames.has(match[1]) || resolved[match[1]] !== undefined) continue;
-    resolved[match[1]] = match[2].trim().replace(/^(['"])(.*)\1$/, "$2");
-  }
-  return resolved;
+export function loadProductionUploadLimitEnv(directory = projectRoot) {
+  return loadEnvConfig(directory, false, console, true).combinedEnv;
 }
 
 function parseConfiguredLimit(rawValue, name, ceiling) {
@@ -40,7 +33,8 @@ function parseConfiguredLimit(rawValue, name, ceiling) {
 }
 
 export function evaluateUploadLimitParity(env, ceiling) {
-  const server = parseConfiguredLimit(env.MAX_UPLOAD_MB, "MAX_UPLOAD_MB", ceiling);
+  const serverRaw = env.UPLOAD_LIMIT_PARITY_SERVER_MB ?? env.MAX_UPLOAD_MB;
+  const server = parseConfiguredLimit(serverRaw, "MAX_UPLOAD_MB", ceiling);
   const client = parseConfiguredLimit(env.NEXT_PUBLIC_MAX_UPLOAD_MB, "NEXT_PUBLIC_MAX_UPLOAD_MB", ceiling);
   const errors = [server.error, client.error].filter(Boolean);
 
@@ -53,18 +47,6 @@ export function evaluateUploadLimitParity(env, ceiling) {
   return { ok: errors.length === 0, errors, serverValue: server.value, clientValue: client.value };
 }
 
-export function evaluateDockerUploadLimitContract(source = readFileSync(dockerfilePath, "utf8")) {
-  const requiredLines = [
-    "ARG MAX_UPLOAD_MB=150",
-    "ARG NEXT_PUBLIC_MAX_UPLOAD_MB=",
-    "ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}",
-    "ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}",
-  ];
-  const sourceLines = source.split(/\r?\n/);
-  const missing = requiredLines.filter((line) => !sourceLines.includes(line));
-  return missing.length === 0 ? null : `Dockerfile cannot enforce upload-limit parity; missing: ${missing.join(", ")}.`;
-}
-
 function selfTest() {
   assert.equal(readUploadLimitCeiling("export const MAX_UPLOAD_MB_CEILING = 150;"), 150);
   assert.deepEqual(evaluateUploadLimitParity({}, 150), {
@@ -74,6 +56,10 @@ function selfTest() {
     clientValue: 150,
   });
   assert.equal(evaluateUploadLimitParity({ MAX_UPLOAD_MB: "50", NEXT_PUBLIC_MAX_UPLOAD_MB: "50" }, 150).ok, true);
+  assert.equal(
+    evaluateUploadLimitParity({ UPLOAD_LIMIT_PARITY_SERVER_MB: "50", NEXT_PUBLIC_MAX_UPLOAD_MB: "50" }, 150).ok,
+    true,
+  );
   assert.match(evaluateUploadLimitParity({ MAX_UPLOAD_MB: "50" }, 150).errors.join(" "), /50 MB.*150 MB/);
   assert.match(evaluateUploadLimitParity({ NEXT_PUBLIC_MAX_UPLOAD_MB: "50" }, 150).errors.join(" "), /150 MB.*50 MB/);
   assert.match(evaluateUploadLimitParity({ MAX_UPLOAD_MB: "151" }, 150).errors.join(" "), /positive integer/);
@@ -81,18 +67,30 @@ function selfTest() {
     evaluateUploadLimitParity({ NEXT_PUBLIC_MAX_UPLOAD_MB: "not-a-number" }, 150).errors.join(" "),
     /positive integer/,
   );
-  assert.equal(
-    evaluateDockerUploadLimitContract(
-      [
-        "ARG MAX_UPLOAD_MB=150",
-        "ARG NEXT_PUBLIC_MAX_UPLOAD_MB=",
-        "ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}",
-        "ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}",
-      ].join("\n"),
-    ),
-    null,
-  );
-  assert.match(evaluateDockerUploadLimitContract("ARG NEXT_PUBLIC_MAX_UPLOAD_MB=\n"), /ARG MAX_UPLOAD_MB/);
+
+  const directory = mkdtempSync(path.join(tmpdir(), "upload-limit-env-"));
+  const preserved = {
+    NODE_ENV: process.env.NODE_ENV,
+    MAX_UPLOAD_MB: process.env.MAX_UPLOAD_MB,
+    NEXT_PUBLIC_MAX_UPLOAD_MB: process.env.NEXT_PUBLIC_MAX_UPLOAD_MB,
+  };
+  try {
+    delete process.env.MAX_UPLOAD_MB;
+    delete process.env.NEXT_PUBLIC_MAX_UPLOAD_MB;
+    process.env.NODE_ENV = "production";
+    writeFileSync(path.join(directory, ".env"), "MAX_UPLOAD_MB=25\nNEXT_PUBLIC_MAX_UPLOAD_MB=25\n");
+    writeFileSync(path.join(directory, ".env.production"), 'MAX_UPLOAD_MB="50"\nNEXT_PUBLIC_MAX_UPLOAD_MB="50"\n');
+    const loaded = loadProductionUploadLimitEnv(directory);
+    assert.equal(loaded.MAX_UPLOAD_MB, "50");
+    assert.equal(loaded.NEXT_PUBLIC_MAX_UPLOAD_MB, "50");
+  } finally {
+    resetEnv();
+    for (const [name, value] of Object.entries(preserved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
   console.log("upload-limit parity self-test passed.");
 }
 
@@ -103,12 +101,10 @@ function main() {
   }
 
   const ceiling = readUploadLimitCeiling();
-  const result = evaluateUploadLimitParity(loadLocalUploadLimitEnv(), ceiling);
-  const dockerProblem = evaluateDockerUploadLimitContract();
-  if (!result.ok || dockerProblem) {
+  const result = evaluateUploadLimitParity(loadProductionUploadLimitEnv(), ceiling);
+  if (!result.ok) {
     console.error("Upload-limit parity failed:");
     for (const error of result.errors) console.error(`- ${error}`);
-    if (dockerProblem) console.error(`- ${dockerProblem}`);
     process.exitCode = 1;
     return;
   }

@@ -39,6 +39,7 @@ ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
 # the runtime configuration Railway supplies with the public value Next inlines.
 ARG MAX_UPLOAD_MB=150
 ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
+ARG MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}
@@ -49,7 +50,10 @@ ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # while still completing this Next build.
 ARG ALLOW_LOW_RAM_BUILD=0
 ENV ALLOW_LOW_RAM_BUILD=${ALLOW_LOW_RAM_BUILD}
-RUN npm run build
+# MAX_UPLOAD_MB remains a runtime-only server variable. Its build arg is scoped
+# to the parity guard so a lowered production limit can be checked without
+# baking the private server configuration into the final runtime image.
+RUN UPLOAD_LIMIT_PARITY_SERVER_MB="${MAX_UPLOAD_MB}" npm run build
 
 FROM node:24-bookworm-slim AS prod-deps
 WORKDIR /app
