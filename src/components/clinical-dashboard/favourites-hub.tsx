@@ -15,6 +15,8 @@ import {
   primaryControl,
 } from "@/components/ui-primitives";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
+import { FavouritesPartialSourceNotice } from "@/components/clinical-dashboard/favourites-partial-source-notice";
+import { resolveSavedFavouritesPresentation } from "@/components/clinical-dashboard/saved-registry-favourites-status";
 import {
   favouriteItems,
   favouriteSets,
@@ -51,7 +53,8 @@ export function FavouritesHub({
   // from an empty library.
   const {
     items: savedRegistryFavourites,
-    status: savedRegistryStatus,
+    status: savedRegistryHookStatus,
+    sourceStatus: savedRegistryRawSourceStatus,
     refetch: refetchFavouritesRegistry,
   } = useSavedRegistryFavourites();
   const allFavouriteItems = useMemo(
@@ -81,6 +84,13 @@ export function FavouritesHub({
       ...dynamicSets,
     ].filter((set) => set.count > 0);
   }, [allFavouriteItems, demoMode, savedRegistryFavourites]);
+  const { status: savedRegistryStatus, partialStatus: savedRegistryPartialStatus } = resolveSavedFavouritesPresentation(
+    {
+      status: savedRegistryHookStatus,
+      sourceStatus: savedRegistryRawSourceStatus,
+      itemCount: allFavouriteItems.length,
+    },
+  );
   const [selectedTab, setSelectedTab] = useState<FavouriteTabId>("all");
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -182,6 +192,8 @@ export function FavouritesHub({
           icon={Heart}
           headingLevel={headingLevel}
         />
+
+        <FavouritesPartialSourceNotice status={savedRegistryPartialStatus} onRetry={refetchFavouritesRegistry} />
 
         {desktopComposerSlotId ? (
           <DesktopComposerPortalSlot

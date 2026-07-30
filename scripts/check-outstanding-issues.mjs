@@ -32,6 +32,7 @@ export const ISSUES_PATH = "docs/outstanding-issues.md";
 const OPEN_HEADING = "## Open items";
 const ARCHIVE_HEADING = "## Resolved / archive";
 const MARKER = /<!--\s*issues:next-id=(\d+)\s*-->/;
+const PRETTIER_IGNORE = "<!-- prettier-ignore -->";
 /**
  * An id cell's shape, e.g. `#042`. Used to READ the number, never to decide
  * whether a line is a row.
@@ -69,6 +70,10 @@ function cells(line) {
     .replace(/(?<!\\)\|\s*$/, "")
     .split(/(?<!\\)\|/)
     .map((cell) => cell.trim());
+}
+
+function canonicalTableRow(line) {
+  return `| ${cells(line).join(" | ")} |`;
 }
 
 /**
@@ -226,6 +231,25 @@ export function parseIssues(markdown) {
 export function checkIssues(markdown) {
   const problems = [];
   const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount } = parseIssues(markdown);
+  const lines = markdown.split("\n");
+
+  // Prettier pads every Markdown table cell to the widest value in its column.
+  // In this long-lived ledger, changing one cell would then rewrite hundreds
+  // of unrelated rows and make concurrent merges needlessly conflict.
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^\|.*\|\s*$/.test(line) && line !== canonicalTableRow(line)) {
+      problems.push(
+        `line ${index + 1} is not a compact canonical table row — use one space around each cell delimiter`,
+      );
+    }
+    if (/^\|/.test(line) && SEPARATOR.test(lines[index + 1] ?? "") && lines[index - 1]?.trim() !== PRETTIER_IGNORE) {
+      problems.push(
+        `line ${index + 1} starts a table without ${PRETTIER_IGNORE} immediately above it — ` +
+          "formatting would re-pad every row and amplify merge conflicts",
+      );
+    }
+  }
 
   if (openStart < 0) problems.push(`missing the "${OPEN_HEADING}" heading`);
   if (archiveStart < 0) problems.push(`missing the "${ARCHIVE_HEADING}" heading`);
@@ -340,17 +364,26 @@ export function checkIssues(markdown) {
 function selfTest() {
   const good = [
     "<!-- issues:next-id=3 -->",
+    "## Recommended execution queue",
+    PRETTIER_IGNORE,
+    "| Rank | ID |",
+    "| --- | --- |",
+    "| 1 | #001 |",
     "## Open items",
+    PRETTIER_IGNORE,
     "| ID | Pri | Summary |",
     "| --- | --- | --- |",
     "| #001 | P2 | a |",
     "## Resolved / archive",
+    PRETTIER_IGNORE,
     "| ID | Summary |",
     "| --- | --- |",
     "| #002 | b |",
   ].join("\n");
   const cases = [
     ["a well-formed file", good, 0],
+    ["a table without a scoped prettier ignore", good.replace(`${PRETTIER_IGNORE}\n| Rank | ID |`, "| Rank | ID |"), 1],
+    ["a padded table row", good.replace("| #001 | P2 | a |", "| #001 | P2      | a |"), 1],
     ["a duplicated id", good.replace("| #002 | b |", "| #001 | b |"), 2], // duplicate + both-tables
     ["an id at the marker", good.replace("next-id=3", "next-id=2"), 1],
     ["a row with a stray pipe", good.replace("| #001 | P2 | a |", "| #001 | P2 | a | b |"), 1],

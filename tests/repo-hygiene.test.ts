@@ -520,11 +520,16 @@ describe("branch-review-ledger guard", () => {
   const valid = {
     ledger: ["This file is append-only.", `| 2026-07-29 | codex/x | ${"a".repeat(40)} | s | o | c |`, ""].join("\n"),
     mergeAttribute: "ledger",
+    mergeDriver: "node scripts/merge-branch-review-ledger.mjs %O %A %B",
     protocol: "The ledger is append-only: append corrections.",
   };
 
   it("accepts a well-formed ledger", () => {
     expect(validateLedger(valid).failures).toEqual([]);
+  });
+
+  it("rejects an uninstalled ledger merge driver", () => {
+    expect(validateLedger({ ...valid, mergeDriver: "" }).failures.join(" ")).toMatch(/hooks:install/);
   });
 
   it("rejects mojibake left by a non-UTF-8 append", () => {

@@ -1,4 +1,16 @@
 export type SavedFavouritesBandStatus = "ready" | "loading" | "unauthorized" | "error";
+export type SavedFavouritesPartialStatus = Exclude<SavedFavouritesBandStatus, "ready">;
+
+export function resolveSavedFavouritesPresentation(input: {
+  status: SavedFavouritesBandStatus;
+  sourceStatus: SavedFavouritesBandStatus;
+  itemCount: number;
+}): { status: SavedFavouritesBandStatus; partialStatus: SavedFavouritesPartialStatus | null } {
+  if (input.itemCount > 0 && input.sourceStatus !== "ready") {
+    return { status: "ready", partialStatus: input.sourceStatus };
+  }
+  return { status: input.status, partialStatus: null };
+}
 
 /**
  * Fold account-favourites readiness with downstream registry status.
@@ -15,7 +27,11 @@ export function foldSavedFavouritesStatus(input: {
   accountLoadError: string | null;
   registryStatus: SavedFavouritesBandStatus;
   itemCount: number;
-}): { status: SavedFavouritesBandStatus; registryStatus: SavedFavouritesBandStatus } {
+}): {
+  status: SavedFavouritesBandStatus;
+  registryStatus: SavedFavouritesBandStatus;
+  sourceStatus: SavedFavouritesBandStatus;
+} {
   const accountStatus: SavedFavouritesBandStatus =
     input.isAuthenticated && !input.accountReady
       ? "loading"
@@ -30,5 +46,5 @@ export function foldSavedFavouritesStatus(input: {
   // Unaffected items (local differentials, or one registry that succeeded) keep
   // an honest nonzero count visible instead of hiding behind a whole-band fault.
   const status = input.itemCount > 0 && folded !== "ready" ? "ready" : folded;
-  return { status, registryStatus };
+  return { status, registryStatus, sourceStatus: folded };
 }

@@ -244,7 +244,9 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   // Preserve the pre-consolidation unit gate for every non-documentation
   // change. Narrower signals still scope build/UI/database work, but must not
   // leave runtime, worker, or configuration changes without unit coverage.
-  const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
+  const coverageChanged = normalized.some(
+    (file) => !pathMatches(file, docPatterns) && !pathMatches(file, [".github/workflows", ".github/actions"]),
+  );
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
   const advisoryUiChanged =
     normalized.some((file) => pathMatches(file, mockupPatterns)) || quarantineLedgerHasEntries(readLedger);
@@ -538,6 +540,18 @@ function selfTest() {
       },
     },
   );
+
+  assertScope("workflow-only-skips-coverage", [".github/workflows/ci.yml"], {
+    coverage_changed: false,
+    workflow_changed: true,
+  });
+  assertScope("composite-action-only-skips-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
+    coverage_changed: false,
+    workflow_changed: true,
+  });
+  assertScope("runtime-config-keeps-coverage", ["lighthouse-budget.json"], {
+    coverage_changed: true,
+  });
 
   assertScope("unstaged-status", parseStatusPorcelain(" M scripts/ci-change-scope.mjs\0"), {
     source_changed: true,

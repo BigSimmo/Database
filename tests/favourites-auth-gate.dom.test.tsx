@@ -22,6 +22,14 @@ const authSession = vi.hoisted(() => ({
   signOut: vi.fn(),
 }));
 
+const savedFavouritesHook = vi.hoisted(() => ({
+  items: [],
+  status: "ready" as "ready" | "loading" | "error" | "unauthorized",
+  registryStatus: "ready" as "ready" | "loading" | "error" | "unauthorized",
+  sourceStatus: "ready" as "ready" | "loading" | "error" | "unauthorized",
+  refetch: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => authSession,
 }));
@@ -31,12 +39,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => ({
-  useSavedRegistryFavourites: () => ({
-    items: [],
-    status: "ready",
-    registryStatus: "ready",
-    refetch: () => undefined,
-  }),
+  useSavedRegistryFavourites: () => savedFavouritesHook,
 }));
 
 vi.mock("@/components/clinical-dashboard/search-command-context", () => ({
@@ -89,6 +92,10 @@ describe("favourites auth gate DOM", () => {
     authSession.status = "signed_out";
     authSession.session = null;
     authSession.error = null;
+    savedFavouritesHook.status = "ready";
+    savedFavouritesHook.registryStatus = "ready";
+    savedFavouritesHook.sourceStatus = "ready";
+    savedFavouritesHook.refetch.mockClear();
   });
 
   it("keeps the six canonical navigation entries separate from conditional Favourites", () => {
@@ -143,6 +150,19 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Sign up to save favourites" })).toBeNull();
     expect(screen.queryByTestId("favourites-open-account-setup")).toBeNull();
+  });
+
+  it("shows an honest count and partial-source warning when demo rows survive a registry failure", () => {
+    authSession.status = "signed_out";
+    savedFavouritesHook.status = "error";
+    savedFavouritesHook.registryStatus = "error";
+    savedFavouritesHook.sourceStatus = "error";
+    render(<FavouritesCommandLibraryPage query="" demoMode />);
+
+    expect(screen.getByTestId("search-query-ribbon")).toHaveAttribute("data-status", "ready");
+    expect(screen.getByRole("alert")).toHaveTextContent("Some saved sources could not be loaded");
+    screen.getByRole("button", { name: "Retry unavailable sources" }).click();
+    expect(savedFavouritesHook.refetch).toHaveBeenCalledOnce();
   });
 
   it("uses favourites intent copy on the account setup dialog", () => {

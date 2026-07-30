@@ -39,6 +39,8 @@ import {
   type FavouriteItem as PrototypeFavouriteItem,
 } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
+import { FavouritesPartialSourceNotice } from "@/components/clinical-dashboard/favourites-partial-source-notice";
+import { resolveSavedFavouritesPresentation } from "@/components/clinical-dashboard/saved-registry-favourites-status";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -1035,16 +1037,19 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const {
     items: savedRegistryFavourites,
     status: favouritesHookStatus,
+    sourceStatus: favouritesRawSourceStatus,
     refetch: refetchFavouritesRegistry,
   } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
   );
-  // Demo prototypes live outside the hook. If they are the only items while a
-  // registry/account read failed, keep the band ready so the table's nonzero
-  // list is not contradicted by a whole-band fault.
-  const favouritesRegistryStatus = items.length > 0 ? "ready" : favouritesHookStatus;
+  const { status: favouritesRegistryStatus, partialStatus: favouritesPartialStatus } =
+    resolveSavedFavouritesPresentation({
+      status: favouritesHookStatus,
+      sourceStatus: favouritesRawSourceStatus,
+      itemCount: items.length,
+    });
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -1227,6 +1232,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 ) : null
               }
             />
+
+            <FavouritesPartialSourceNotice status={favouritesPartialStatus} onRetry={refetchFavouritesRegistry} />
 
             <FavouritesMobileQuickViews
               items={items}
