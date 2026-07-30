@@ -39,8 +39,11 @@ recommending deletion of an active branch.
 Both `npm run sweep:branch-ledger` and `node scripts/reconciliation-preflight.mjs` now refuse
 outright unless the history is verified complete (`shallowCloneRefusal`, guarded in
 `tests/repo-hygiene.test.ts`) — the preflight is included because it reports its own
-merge-base-derived ahead/behind values. The raw `git` commands below have no such protection, so
-verify the precondition yourself before trusting them.
+merge-base-derived ahead/behind values. For the preflight the refusal lives in the exported
+`collectReconciliationState`, not in its CLI, so `scripts/reconciliation-evidence-pack.mjs` cannot
+write a `status: "complete"` pack around shallow numbers by calling the collector directly. The raw
+`git` commands below have no such protection, so verify the precondition yourself before trusting
+them.
 
 **Never delete a branch, or report one as unmerged, from a shallow clone.**
 

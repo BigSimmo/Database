@@ -193,12 +193,25 @@ export function collectProcessDiagnostics(worktrees, listProcesses = listRepoNod
 }
 
 /**
+ * Thrown when the clone's history cannot be shown to be complete. Carries the operator-facing
+ * refusal text as its message so every entry point can surface the same remedy.
+ */
+export class UnverifiedHistoryError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UnverifiedHistoryError";
+    this.code = "history-not-verified";
+  }
+}
+
+/**
  * @param {{
  *   baseRef?: string,
  *   includeProcesses?: boolean,
  *   repositoryRoot?: string,
  *   now?: () => Date,
  * }} [options]
+ * @throws {UnverifiedHistoryError} when the repository's history is shallow or unverifiable.
  */
 export function collectReconciliationState({
   baseRef: explicitBaseRef,
@@ -207,6 +220,25 @@ export function collectReconciliationState({
   now = () => new Date(),
 } = {}) {
   const resolvedRoot = path.resolve(root);
+  // Fail closed on unverified history, for the same reason sweep-branch-ledger does: the
+  // per-worktree ahead/behind values come from `git rev-list --left-right --count`, which is
+  // merge-base-derived and therefore fiction on a shallow clone — wrong without erroring
+  // (ledger #109).
+  //
+  // This guard lives in the collector, not in main(), because main() is not the only caller:
+  // `buildReconciliationEvidencePack` calls this directly and stamps the result
+  // `status: "complete"`. With the check in the CLI only, a depth-1 clone made the guarded CLI
+  // exit 1 while the evidence-pack command exited 0 and persisted shallow ahead/behind numbers
+  // as completed evidence. Throwing here means every caller — CLI, evidence pack, and any
+  // future one — fails closed by default rather than by remembering to ask.
+  //
+  // The check uses `resolvedRoot`, not the module's own `repositoryRoot`, so an injected
+  // fixture root is judged on its own history. NOTE: this file's `tryGit` returns
+  // { ok, output }, not a bare string like the one in sweep-branch-ledger — passing the object
+  // stringifies to "[object Object]", which the guard correctly reads as indeterminate and then
+  // refuses on a HEALTHY clone. Pass `.output`.
+  const historyRefusal = shallowCloneRefusal(tryGit(["rev-parse", "--is-shallow-repository"], resolvedRoot).output);
+  if (historyRefusal) throw new UnverifiedHistoryError(historyRefusal);
   const baseRef = resolveBaseRef(explicitBaseRef, resolvedRoot);
   const baseCommit = git(["rev-parse", "--verify", "--quiet", baseRef], resolvedRoot, { allowFailure: true });
   const rawWorktrees = parseWorktreePorcelain(git(["worktree", "list", "--porcelain"], resolvedRoot));
@@ -279,27 +311,24 @@ function main() {
     );
     return;
   }
-  // Fail closed on unverified history, for the same reason sweep-branch-ledger does: the
-  // ahead/behind values below come from `git rev-list --left-right --count`, which is
-  // merge-base-derived and therefore fiction on a shallow clone — wrong without erroring.
-  // docs/branch-cleanup-guide.md names this preflight as the FIRST step of broad
-  // reconciliation, so it is the earliest place an operator can be handed bad numbers.
-  // Ledger #109.
-  // NOTE: this file's `tryGit` returns { ok, output }, not a bare string like the one in
-  // sweep-branch-ledger. Passing the object stringifies to "[object Object]", which the
-  // guard correctly reads as indeterminate and then refuses on a HEALTHY clone — the
-  // symmetric failure. Pass `.output`.
-  const historyRefusal = shallowCloneRefusal(tryGit(["rev-parse", "--is-shallow-repository"]).output);
-  if (historyRefusal) {
+  // The shallow/unverifiable-history refusal is enforced inside collectReconciliationState so
+  // every caller fails closed (ledger #109). This only re-formats it: docs/branch-cleanup-guide.md
+  // names this preflight as the FIRST step of broad reconciliation, so it is the earliest place an
+  // operator can be handed bad numbers, and `--json` consumers need the structured envelope rather
+  // than the bare stack the outer handler would print.
+  let result;
+  try {
+    result = collectReconciliationState(options);
+  } catch (error) {
+    if (error?.code !== "history-not-verified") throw error;
     if (options.json) {
-      console.log(JSON.stringify({ error: "history-not-verified", message: historyRefusal }, null, 2));
+      console.log(JSON.stringify({ error: "history-not-verified", message: error.message }, null, 2));
     } else {
-      console.error(historyRefusal);
+      console.error(error.message);
     }
     process.exitCode = 1;
     return;
   }
-  const result = collectReconciliationState(options);
   if (options.json) console.log(JSON.stringify(result, null, 2));
   else render(result);
   if (options.strict && result.blocking) process.exitCode = 2;
