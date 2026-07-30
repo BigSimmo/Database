@@ -61,9 +61,27 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   };
 }
 
-/** Preserve a genuinely absent metadata record while normalizing recorded data. */
+const GOVERNANCE_FIELDS = ["document_status", "clinical_validation_status", "extraction_quality"] as const;
+
+/** True when the record carries at least one explicit governance field. */
+export function hasRecordedGovernanceFields(input: unknown): boolean {
+  if (input == null || typeof input !== "object") return false;
+  const value = input as Record<string, unknown>;
+  return GOVERNANCE_FIELDS.some((field) => {
+    const fieldValue = value[field];
+    return typeof fieldValue === "string" && fieldValue.trim().length > 0;
+  });
+}
+
+/**
+ * Preserve genuinely unrecorded governance metadata while normalizing recorded data.
+ * Production `documents.metadata` is NOT NULL DEFAULT '{}'::jsonb and often holds only
+ * index bookkeeping keys — treat those the same as null so prompts do not invent
+ * adverse `clinical_validation_status: "unverified"`.
+ */
 export function normalizeOptionalSourceMetadata(input: unknown): ClinicalSourceMetadata | null {
-  return input == null ? null : normalizeSourceMetadata(input);
+  if (input == null || !hasRecordedGovernanceFields(input)) return null;
+  return normalizeSourceMetadata(input);
 }
 
 export function formatClinicalDate(value: string | null | undefined) {

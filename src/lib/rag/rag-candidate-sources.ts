@@ -35,7 +35,7 @@ import {
 import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
-import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import type { DocumentIndexUnitMatch, DocumentMemoryCard, SearchResult } from "@/lib/types";
 
@@ -630,7 +630,7 @@ export async function searchDocumentLookupFastPath(args: {
       content: chunk.content,
       retrieval_synopsis: chunk.retrieval_synopsis ?? null,
       image_ids: chunk.image_ids ?? [],
-      source_metadata: normalizeSourceMetadata(document.metadata),
+      source_metadata: normalizeOptionalSourceMetadata(document.metadata),
       similarity,
       text_rank: documentScore,
       hybrid_score: Math.min(0.94, similarity + 0.02),
@@ -725,7 +725,7 @@ export async function loadChunksForMemoryCards(
         content: chunk.content,
         retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
-        source_metadata: normalizeSourceMetadata(document.metadata),
+        source_metadata: normalizeOptionalSourceMetadata(document.metadata),
         similarity,
         text_rank: card?.confidence ?? 0,
         hybrid_score: Math.min(0.96, similarity + 0.03),
@@ -921,7 +921,7 @@ export async function loadChunksForSignalMatches(args: {
         content: chunk.content,
         retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
-        source_metadata: normalizeSourceMetadata(document.metadata),
+        source_metadata: normalizeOptionalSourceMetadata(document.metadata),
         // ChunkSignalMatch similarities are fabricated from table-fact text rank (RC9).
         similarity_origin: "synthetic_text" as const,
         similarity: match.similarity,
@@ -1166,20 +1166,22 @@ export async function searchIndexUnitCandidates(args: {
 
 export type MemoryCardCache = Map<string, ReturnType<typeof fetchMemoryCardsForQuery>>;
 
-/** With memory boosted candidates. */
-export async function withMemoryBoostedCandidates(args: {
+export type MemoryBoostArtifacts = {
+  cards: Awaited<ReturnType<typeof fetchMemoryCardsForQuery>>;
+  memoryChunkResults: SearchResult[];
+};
+
+/** Load the memory evidence that is independent of the current candidate payload. */
+export async function loadMemoryBoostArtifacts(args: {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
-  candidates: SearchResult[];
   queryEmbedding?: number[];
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   matchCount: number;
   cardCache?: MemoryCardCache;
-}) {
-  // A3: the memory-card fetch is invoked at several waterfall stages. Memoize per request,
-  // scoped by owner/document filters because fetchMemoryCardsForQuery applies those filters.
+}): Promise<MemoryBoostArtifacts> {
   const effectiveMatchCount = Math.max(args.matchCount, 48);
   const documentScope = args.documentIds?.length ? [...args.documentIds].sort().join(",") : "all-documents";
   const cacheKey = [
@@ -1203,12 +1205,34 @@ export async function withMemoryBoostedCandidates(args: {
     args.cardCache?.set(cacheKey, cardsPromise);
   }
   const cards = await cardsPromise;
-  if (cards.length === 0) return { results: args.candidates, cards };
+  const memoryChunkResults = cards.length
+    ? await loadChunksForMemoryCards(args.supabase, cards, retrievalAccessScopeForArgs(args))
+    : [];
+  return { cards, memoryChunkResults };
+}
 
-  const memoryChunkResults = await loadChunksForMemoryCards(args.supabase, cards, retrievalAccessScopeForArgs(args));
-  const merged = mergeSearchResults(memoryChunkResults, args.candidates);
+/** Apply already-loaded memory evidence to the final hydrated candidate payload. */
+export function applyMemoryBoostArtifacts(query: string, candidates: SearchResult[], artifacts: MemoryBoostArtifacts) {
+  if (artifacts.cards.length === 0) return { results: candidates, cards: artifacts.cards };
+  const merged = mergeSearchResults(artifacts.memoryChunkResults, candidates);
   return {
-    results: applyMemoryCardBoosts(args.query, merged, cards),
-    cards,
+    results: applyMemoryCardBoosts(query, merged, artifacts.cards),
+    cards: artifacts.cards,
   };
+}
+
+/** With memory boosted candidates. */
+export async function withMemoryBoostedCandidates(args: {
+  supabase: ReturnType<typeof createAdminClient>;
+  query: string;
+  candidates: SearchResult[];
+  queryEmbedding?: number[];
+  ownerId?: string;
+  accessScope?: RetrievalAccessScope;
+  documentIds?: string[];
+  matchCount: number;
+  cardCache?: MemoryCardCache;
+}) {
+  const artifacts = await loadMemoryBoostArtifacts(args);
+  return applyMemoryBoostArtifacts(args.query, args.candidates, artifacts);
 }
