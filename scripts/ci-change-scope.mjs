@@ -79,8 +79,18 @@ function isUiChangedPath(filePath) {
 const mockupPatterns = [
   "src/app/mockups",
   "tests/ui-mockups.spec.ts",
-  /^src\/components\/.*-mockups\.tsx$/,
+  // Component filenames are both singular and plural (`task-directory-mockup.tsx`
+  // next to `split-pane-refined-mockups.tsx`), and several live in `*-mockups/`
+  // directories. Matching the directory as well as the filename keeps a mockup
+  // component edited on its own — without its `src/app/mockups` route wrapper —
+  // from losing the only lane that runs its `@mockup` journey.
+  /^src\/components\/[^/]+-mockups?\//,
+  /^src\/components\/.*-mockups?\.tsx$/,
+  // Three of the advisory specs carry `@mockup` without "mockup" in the
+  // filename, so a name-based rule alone misses them. `assertMockupSpecParity`
+  // below holds this list to `mockupSpecPattern` in playwright.config.ts.
   /^tests\/.*mockup.*\.spec\.ts$/,
+  /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -430,6 +440,45 @@ function assertScope(name, files, expected, options = { readLedger: emptyLedger 
   }
 }
 
+/**
+ * `mockupPatterns` decides whether the advisory lane starts; `mockupSpecPattern`
+ * in playwright.config.ts decides which specs that lane then contains. They are
+ * two hand-maintained lists of the same set, so they drift — and the drift is
+ * silent, because a mockup spec added to the config but missed here still shows
+ * a green PR: the production projects `grepInvert` its `@mockup` tag and the
+ * advisory lane never starts. The journey simply stops being run anywhere.
+ *
+ * Fails CLOSED on a lost anchor: a renamed constant is reported rather than
+ * quietly turning this into a guard that checks nothing.
+ */
+function assertMockupSpecParity() {
+  const source = readFileSync("playwright.config.ts", "utf8");
+  const alternation = source.match(/const mockupSpecPattern\s*=\s*\/\.\*ui-\(([^)]+)\)\\\.spec\\\.ts\//);
+  if (!alternation) {
+    throw new Error(
+      "mockup-spec-parity: could not read the `mockupSpecPattern` alternation from playwright.config.ts. " +
+        "If that constant moved or changed shape, update this guard — do not delete it.",
+    );
+  }
+
+  const specs = alternation[1]
+    .split("|")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => `tests/ui-${name}.spec.ts`);
+  if (specs.length === 0) throw new Error("mockup-spec-parity: the `mockupSpecPattern` alternation is empty.");
+
+  for (const spec of specs) {
+    if (!pathMatches(spec, mockupPatterns)) {
+      throw new Error(
+        `mockup-spec-parity: playwright.config.ts runs ${spec} in the advisory project, but mockupPatterns ` +
+          "does not match it, so editing that spec would leave advisory_ui_changed=false and the journey unrun.",
+      );
+    }
+  }
+  console.log(`Mockup spec parity: ${specs.length} advisory specs all match mockupPatterns.`);
+}
+
 function selfTest() {
   // #137: the advisory lane runs only when it has something to cover. All four
   // directions matter — a lane that silently never runs is the failure mode.
@@ -440,6 +489,37 @@ function selfTest() {
   assertScope("advisory-on-for-mockup-source", ["src/app/mockups/page.tsx"], { advisory_ui_changed: true });
   assertScope("advisory-on-for-mockup-component", ["src/components/search-mockups.tsx"], {
     advisory_ui_changed: true,
+  });
+  // A mockup component edited without its `src/app/mockups` route wrapper. The
+  // filename is singular, and `ui-tools-task-directory.spec.ts` is its only
+  // browser coverage — excluded from every production project by its `@mockup`
+  // tag, so a missed match here means the journey runs nowhere.
+  assertScope(
+    "advisory-on-for-singular-mockup-component",
+    ["src/components/tools-page-mockups/task-directory-mockup.tsx"],
+    {
+      ui_changed: true,
+      advisory_ui_changed: true,
+    },
+  );
+  assertScope(
+    "advisory-on-for-mockup-component-directory",
+    ["src/components/calculator-mockups/guided-flow-mockup.tsx"],
+    {
+      advisory_ui_changed: true,
+    },
+  );
+  // Advisory specs whose filenames carry no "mockup" at all.
+  assertScope("advisory-on-for-untagged-mockup-spec-names", ["tests/ui-tools-collapse.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  assertScope("advisory-on-for-tools-task-directory-spec", ["tests/ui-tools-task-directory.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  // The directory rule must not swallow ordinary component paths.
+  assertScope("advisory-off-for-non-mockup-component-directory", ["src/components/clinical-dashboard/mode-nav.tsx"], {
+    ui_changed: true,
+    advisory_ui_changed: false,
   });
   assertScope(
     "advisory-on-when-a-test-is-quarantined",
@@ -706,6 +786,7 @@ function selfTest() {
 
 const args = process.argv.slice(2);
 if (args.includes("--self-test")) {
+  assertMockupSpecParity();
   selfTest();
   process.exit(0);
 }
