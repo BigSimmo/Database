@@ -457,11 +457,39 @@ describe("branch-review-ledger row parsing", () => {
     expect(deduped.removed).toBe(1);
     expect(deduped.kept).toBe(1);
     const merged = mergeLedgerMarkdown(
+      `${preamble}\n${shared}\n`,
       `${preamble}\n${shared}\n${oursOnly}\n`,
       `${preamble}\n${shared}\n${theirsOnly}\n`,
     );
     expect(merged.recordCount).toBe(3);
     expect(merged.markdown.match(/Run PR sweep/g)).toHaveLength(1);
+  });
+
+  it("does not restore rotated base rows or discard the updated preamble", () => {
+    const oldPreamble = [
+      "# Branch Review Ledger",
+      "",
+      "Old live-ledger instructions.",
+      "",
+      "| Date | Branch or ref | Reviewed HEAD | Scope | Outcome | Checks |",
+      "| --- | --- | --- | --- | --- | --- |",
+    ].join("\n");
+    const newPreamble = oldPreamble.replace("Old live-ledger instructions.", "New archive-aware instructions.");
+    const archived = `| 2026-07-01 | old/x | ${"a".repeat(40)} | s | o | c |`;
+    const oursOnly = `| 2026-07-30 | ours/x | ${"b".repeat(40)} | s | o | c |`;
+    const theirsOnly = `| 2026-07-30 | theirs/x | ${"c".repeat(40)} | s | o | c |`;
+
+    const merged = mergeLedgerMarkdown(
+      `${oldPreamble}\n${archived}\n`,
+      `${oldPreamble}\n${archived}\n${oursOnly}\n`,
+      `${newPreamble}\n${theirsOnly}\n`,
+    );
+
+    expect(merged.markdown).not.toContain(archived);
+    expect(merged.markdown).toContain(oursOnly);
+    expect(merged.markdown).toContain(theirsOnly);
+    expect(merged.markdown).toContain("New archive-aware instructions.");
+    expect(merged.markdown).not.toContain("Old live-ledger instructions.");
   });
 
   it("rotates older rows into a quarterly archive while keeping newer live rows", () => {
