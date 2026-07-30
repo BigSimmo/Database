@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { classifyPr, repositoryNameWithOwner, validateApplyIdentity } from "../scripts/sync-open-pr-branches.mjs";
+import {
+  classifyPr,
+  inFlightRunNames,
+  repositoryNameWithOwner,
+  validateApplyIdentity,
+} from "../scripts/sync-open-pr-branches.mjs";
 
 describe("sync-open-pr-branches classifyPr", () => {
   it("skips hold / do-not-merge / skip-branch-sync labels", () => {
@@ -33,6 +38,21 @@ describe("sync-open-pr-branches classifyPr", () => {
       action: "update",
       reason: "behind=12",
     });
+  });
+
+  it("does not update a behind branch while exact-head CI is queued or running", () => {
+    expect(
+      classifyPr({ title: "ready", labels: [] }, 3, [
+        { name: "Secret Scan", status: "completed", conclusion: "success" },
+        { name: "CI", status: "in_progress", conclusion: "" },
+        { name: "PR Policy", status: "queued", conclusion: "" },
+      ]),
+    ).toEqual({
+      action: "skip",
+      reason: "ci-in-flight:CI,PR Policy",
+    });
+
+    expect(inFlightRunNames([{ name: "CI", status: "completed", conclusion: "failure" }])).toEqual([]);
   });
 });
 

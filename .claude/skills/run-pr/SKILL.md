@@ -68,11 +68,16 @@ Never, even during a sweep:
 Via `mcp__github__pull_request_read` (`get` + `get_status`): head SHA, mergeable state, failing
 required checks, unresolved-thread count, and behind/ahead relative to `main`.
 
-### Step 2 — branch drift first (so CI fixes target the merged state)
+### Step 2 — settle current-head CI, then repair branch drift
 
 - Automatic `GITHUB_TOKEN` branch mutation is prohibited because bot-authored heads leave
   required checks awaiting approval. Do not treat a fresh `DIRTY` state as a product bug until
   you confirm the tip is still behind or `git merge-tree` reports real conflicts.
+- Before any `update-branch` call or `git merge origin/main`, inspect the current head's workflow
+  runs. If the branch is behind but cleanly mergeable and any exact-head run is queued or in
+  progress, let it settle and perform at most one late sync after review/fix work is assembled.
+  Preempt only for a genuinely blocking conflict or an explicit user request. The canonical
+  `npm run sync:pr-branches:apply` helper enforces this fail-closed for automated batch updates.
 - Behind `main` but cleanly mergeable, with no local checkout otherwise needed → use the current
   explicitly authenticated user via `mcp__github__update_pull_request_branch` (or
   `npm run sync:pr-branches:apply`, which refuses bot identities, or

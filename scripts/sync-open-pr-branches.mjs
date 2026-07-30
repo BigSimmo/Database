@@ -4,7 +4,8 @@
  * same-repository pull-request branches.
  *
  * Default is dry-run (report only). Pass `--apply` to call GitHub's
- * update-branch API for every open same-repo PR that is behind `main`.
+ * update-branch API for open same-repo PRs that are behind `main` and do not
+ * have exact-head workflow runs queued or in progress.
  *
  * Requires human/operator `gh` auth with pull-requests:write (or an explicitly
  * supplied GH_TOKEN). Never rebases, never merges into main, never force-pushes.
@@ -42,10 +43,21 @@ function shouldSkip(pr) {
   return null;
 }
 
-export function classifyPr(pr, behindBy) {
+export function inFlightRunNames(runs = []) {
+  return runs
+    .filter((run) => String(run?.status ?? "").toLowerCase() !== "completed")
+    .map((run) => String(run?.name ?? "unknown-workflow").trim() || "unknown-workflow")
+    .sort((a, b) => a.localeCompare(b));
+}
+
+export function classifyPr(pr, behindBy, runs = []) {
   const skip = shouldSkip(pr);
   if (skip) return { action: "skip", reason: skip };
   if ((behindBy ?? 0) <= 0) return { action: "skip", reason: "already-current" };
+  const inFlight = inFlightRunNames(runs);
+  if (inFlight.length > 0) {
+    return { action: "skip", reason: `ci-in-flight:${inFlight.join(",")}` };
+  }
   return { action: "update", reason: `behind=${behindBy}` };
 }
 
@@ -92,7 +104,22 @@ function main() {
   for (const pr of prs) {
     const cmp = ghJson(["api", `repos/${repo}/compare/${BASE}...${pr.headRefName}`]);
     const behindBy = cmp.behind_by ?? 0;
-    const decision = classifyPr(pr, behindBy);
+    const runs =
+      behindBy > 0
+        ? ghJson([
+            "run",
+            "list",
+            "--repo",
+            repo,
+            "--commit",
+            pr.headRefOid,
+            "--limit",
+            "100",
+            "--json",
+            "name,status,conclusion,headSha",
+          ])
+        : [];
+    const decision = classifyPr(pr, behindBy, runs);
     plan.push({ pr, behindBy, ...decision });
   }
 
