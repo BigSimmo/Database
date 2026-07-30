@@ -5,7 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions } from "@/lib/app-modes";
-import { isAlwaysStandaloneShellPath } from "@/lib/search-route-ownership";
+import { isAlwaysStandaloneShellPath, isStandaloneModeHomePath } from "@/lib/search-route-ownership";
 
 /**
  * The shared results band is what stops a search surface asserting "0 matches"
@@ -136,12 +136,16 @@ function routePathname(routeAbs: string): string {
  *
  * But that layout transitively imports `ClinicalDashboard`, so following it for
  * *every* route made the gate worthless — a namespaced page could be reduced to
- * `<div />` and still "reach" the band. `isAlwaysStandaloneShellPath` is the
- * repo's own statement of which routes never mount that dashboard, so those
- * routes must reach the band through their own page.
+ * `<div />` and still "reach" the band. Page-owned result surfaces must reach
+ * the band through their own page:
+ * - `isAlwaysStandaloneShellPath` — never mounts the dashboard (services, forms, …)
+ * - `isStandaloneModeHomePath` — mode homes with their own results page, including
+ *   `/tools`, which is intentionally outside the always-standalone Suspense list
+ *   but still mounts `ApplicationsLauncherPage` rather than the dashboard body
  */
 function reachabilityRoots(routeAbs: string): string[] {
-  if (isAlwaysStandaloneShellPath(routePathname(routeAbs))) return [routeAbs];
+  const pathname = routePathname(routeAbs);
+  if (isAlwaysStandaloneShellPath(pathname) || isStandaloneModeHomePath(pathname)) return [routeAbs];
   const layouts: string[] = [];
   let dir = path.dirname(routeAbs);
   while (dir.startsWith(APP_DIR)) {
@@ -343,6 +347,12 @@ describe("band adoption detection", () => {
     // routes it reports that page as an orphan.
     const standalone = path.join(APP_DIR, "(search-app)", "services", "page.tsx");
     expect(reachabilityRoots(standalone)).toEqual([standalone]);
+
+    // `/tools` is a standalone mode home but not always-standalone (Suspense
+    // boundary differs). It must still be page-only — otherwise gutting
+    // tools/page.tsx stays green via the layout → dashboard import chain.
+    const tools = path.join(APP_DIR, "(search-app)", "tools", "page.tsx");
+    expect(reachabilityRoots(tools)).toEqual([tools]);
 
     // The root dashboard route is the case that genuinely needs its layout: the
     // page renders only a pass-through and the band arrives via the shared shell.
