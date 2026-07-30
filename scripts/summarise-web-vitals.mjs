@@ -110,26 +110,151 @@ export function collidingRouteSlugs(routes) {
   return [...counts.entries()].filter(([, count]) => count > 1).map(([slug]) => slug);
 }
 
-/** Every `<strategy>-<slug>` run name the workflow was asked to produce. */
-export function expectedRuns(routes, strategies = WEB_VITALS_STRATEGIES) {
+/**
+ * Samples taken per route/strategy. Ledger #114: a SINGLE Lighthouse run cannot
+ * measure dispersion, so it cannot detect the "evidence is too noisy" condition
+ * #017 itself tells the operator to stop on — and against a hard threshold, a
+ * route near the line resolves to a pass or a breach on run-to-run variance
+ * alone, invisibly. Three is the `lighthouse-ci` default and the smallest count
+ * that yields a median rather than a mean of two.
+ */
+export const WEB_VITALS_SAMPLES = 3;
+
+/**
+ * The fewest samples that may be GRADED, as opposed to merely defaulted to.
+ *
+ * The default above is only a default: `samples` is a free-text
+ * `workflow_dispatch` input, so an operator can dispatch `samples=1` and get
+ * back exactly the single-run matrix this change exists to abolish — one report
+ * per cell, a "median" of one, a range of zero width, and therefore a
+ * straddle-check that can never fire. Worse, the output would look identical to
+ * a sound run and could be recorded against #017 as a verdict.
+ *
+ * Two samples are no better for the purpose: the median is their mean, and two
+ * points cannot distinguish a stable cell from a noisy one whose runs happened
+ * to land close together. Three is the `lighthouse-ci` default and the smallest
+ * count that yields a real median.
+ */
+export const WEB_VITALS_MIN_SAMPLES = 3;
+
+/** Why this sample count cannot be graded, or `null` if it can. */
+export function samplesRefusal(samples) {
+  if (!Number.isInteger(samples) || samples < WEB_VITALS_MIN_SAMPLES) {
+    return (
+      `samples=${samples} cannot be graded — #017 needs at least ${WEB_VITALS_MIN_SAMPLES} runs per cell. ` +
+      "Below that there is no dispersion to measure, so a cell near a threshold resolves on variance alone " +
+      "and the straddle check can never fire"
+    );
+  }
+  return null;
+}
+
+/**
+ * Every `<strategy>-<slug>` CELL the workflow was asked to measure. A cell is
+ * the thing graded; its samples are the evidence behind the grade.
+ */
+export function expectedCells(routes, strategies = WEB_VITALS_STRATEGIES) {
   const slugs = routeSlugs(routes);
   return strategies.flatMap((strategy) => slugs.map((slug) => `${strategy}-${slug}`));
 }
 
-/** The `mobile-<slug>` runs — the threshold rule in #017 is graded on mobile only. */
-export function expectedMobileRuns(routes) {
-  return expectedRuns(routes, ["mobile"]);
+/** Every `<strategy>-<slug>-<sample>` report the workflow was asked to produce. */
+export function expectedRuns(routes, strategies = WEB_VITALS_STRATEGIES, samples = WEB_VITALS_SAMPLES) {
+  return expectedCells(routes, strategies).flatMap((cell) =>
+    Array.from({ length: samples }, (_, index) => `${cell}-${index + 1}`),
+  );
+}
+
+/** The `mobile-<slug>` cells — the threshold rule in #017 is graded on mobile only. */
+export function expectedMobileCells(routes) {
+  return expectedCells(routes, ["mobile"]);
+}
+
+/** The cell a report belongs to: `mobile-dsm-2` -> `mobile-dsm`. */
+export function cellOf(run) {
+  return String(run ?? "").replace(/-\d+$/, "");
+}
+
+/** Middle value; the mean of the middle two for an even count. */
+export function median(values) {
+  const sorted = [...values]
+    .filter((value) => typeof value === "number" && Number.isFinite(value))
+    .sort((a, b) => a - b);
+  if (sorted.length === 0) return null;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
 /**
- * Requested runs of EITHER strategy that produced no report. The threshold
+ * Collapse each cell's samples into the graded figure plus the spread behind it.
+ *
+ * The median is graded rather than the mean: one pathological cold-cache sample
+ * should not drag a cell across a threshold, which is the whole reason for
+ * taking more than one. The min/max are retained because they, not the median,
+ * are what says whether the median can be trusted.
+ */
+export function aggregateCells(rows, samples = WEB_VITALS_SAMPLES) {
+  const grouped = new Map();
+  for (const row of rows) {
+    const cell = cellOf(row.run);
+    if (!grouped.has(cell)) grouped.set(cell, []);
+    grouped.get(cell).push(row);
+  }
+  return new Map(
+    [...grouped.entries()].map(([cell, cellRows]) => {
+      // Metric validity only. A report that measured the WRONG page still has
+      // real numbers, so excluding it here would turn a redirect into a
+      // "no usable metric" breach and blur two different failures.
+      // `incompleteEvidence` owns the did-it-measure-the-right-page check.
+      const usable = cellRows.filter((row) => hasUsableMetrics(row));
+      const lcps = usable.map((row) => row.lcpMs);
+      const clss = usable.map((row) => row.cls);
+      return [
+        cell,
+        {
+          cell,
+          rows: cellRows,
+          usable,
+          expectedSamples: samples,
+          lcpMs: median(lcps),
+          cls: median(clss),
+          lcpMin: lcps.length ? Math.min(...lcps) : null,
+          lcpMax: lcps.length ? Math.max(...lcps) : null,
+          clsMin: clss.length ? Math.min(...clss) : null,
+          clsMax: clss.length ? Math.max(...clss) : null,
+        },
+      ];
+    }),
+  );
+}
+
+/**
+ * Whether a cell's samples sit on both sides of a threshold.
+ *
+ * This is the check #114 exists for. When the spread straddles the line, the
+ * median is an artefact of which samples happened to land where — the same
+ * route would grade differently on a rerun, so the run has measured noise
+ * rather than the site. That is missing evidence, not a verdict, and the
+ * operator is told to rerun rather than handed a number.
+ */
+export function straddlesThreshold(summary) {
+  if (summary == null) return false;
+  const spans = (min, max, limit) => min !== null && max !== null && min < limit && max >= limit;
+  return (
+    spans(summary.lcpMin, summary.lcpMax, WEB_VITALS_THRESHOLDS.lcpMs) ||
+    spans(summary.clsMin, summary.clsMax, WEB_VITALS_THRESHOLDS.cls)
+  );
+}
+
+/**
+ * Requested reports of EITHER strategy that were never produced. The threshold
  * verdict is mobile-only, but #017 asks for reproducible mobile *and* desktop
  * evidence (`docs/outstanding-issues.md`), so a run with every mobile report and
  * no desktop report is not a baseline and must not be reported as one.
  */
-export function missingRuns(rows, routes) {
+export function missingRuns(rows, routes, samples = WEB_VITALS_SAMPLES) {
   const seen = new Set(rows.map((row) => row.run));
-  return expectedRuns(routes).filter((run) => !seen.has(run));
+  return expectedRuns(routes, WEB_VITALS_STRATEGIES, samples).filter((run) => !seen.has(run));
 }
 
 /** A report is usable evidence only if it carries both graded numbers. */
@@ -195,13 +320,26 @@ export function measuredRequestedPage(row) {
  * An over-threshold number is deliberately NOT here: that is a real measurement
  * and a real verdict, not missing evidence.
  */
-export function incompleteEvidence(rows, routes) {
+export function incompleteEvidence(rows, routes, samples = WEB_VITALS_SAMPLES) {
   const byRun = new Map(rows.map((row) => [row.run, row]));
-  const expected = expectedRuns(routes);
+  const expected = expectedRuns(routes, WEB_VITALS_STRATEGIES, samples);
   const problems = new Set(collidingRouteSlugs(routes).map((slug) => `route slug collision: ${slug}`));
   for (const run of expected) {
     const row = byRun.get(run);
     if (!hasUsableMetrics(row) || !measuredRequestedPage(row)) problems.add(run);
+  }
+  // Ledger #114. A cell whose samples land on both sides of a threshold has
+  // measured noise, not the site: the median is then an artefact of which
+  // samples fell where, and a rerun would grade it differently. Reporting a
+  // verdict from that is exactly the "evidence too noisy" case #017 says to
+  // stop on, so it is incomplete evidence rather than a pass or a breach.
+  for (const [cell, summary] of aggregateCells(rows, samples)) {
+    if (straddlesThreshold(summary)) {
+      problems.add(
+        `${cell} (samples straddle a threshold: LCP ${formatRange(summary.lcpMin, summary.lcpMax, 0)}ms, ` +
+          `CLS ${formatRange(summary.clsMin, summary.clsMax, 3)} — too noisy to grade)`,
+      );
+    }
   }
   // With no route list to check against, an absence of mobile reports entirely
   // is still not a pass — the guard must not be bypassable by omitting the arg.
@@ -209,6 +347,21 @@ export function incompleteEvidence(rows, routes) {
     problems.add("mobile-*");
   }
   return [...problems].sort();
+}
+
+/**
+ * Distinct Chrome builds across the reports. More than one means the runner
+ * image rolled mid-dispatch, so half the matrix was measured by a different
+ * browser and the cells are not comparable even to each other.
+ */
+export function chromeBuilds(rows) {
+  return [...new Set(rows.map((row) => row.chromeVersion).filter(Boolean))].sort();
+}
+
+/** `1200` for a single value, `1180\u20131320` for a spread. */
+export function formatRange(min, max, digits) {
+  if (min === null || max === null) return "n/a";
+  return min === max ? min.toFixed(digits) : `${min.toFixed(digits)}\u2013${max.toFixed(digits)}`;
 }
 
 /**
@@ -220,30 +373,42 @@ export function incompleteEvidence(rows, routes) {
  * exists precisely because this repo has acted on unmeasured latency claims
  * before. An absent number is not evidence of passing; nor is an absent run.
  */
-export function mobileBreaches(rows, routes) {
-  const present = rows.filter((row) => row.run.startsWith("mobile-"));
-  const seen = new Set(present.map((row) => row.run));
-  const expected = expectedMobileRuns(routes);
+export function mobileBreaches(rows, routes, samples = WEB_VITALS_SAMPLES) {
+  const cells = aggregateCells(rows, samples);
+  const present = [...cells.keys()].filter((cell) => cell.startsWith("mobile-"));
+  const expected = expectedMobileCells(routes);
   const missing = expected
-    .filter((run) => !seen.has(run))
-    .map((run) => ({ run, reason: "no Lighthouse report produced", missingReport: true, missingMetric: false }));
-  const failed = present
+    .filter((cell) => !cells.has(cell))
+    .map((cell) => ({ run: cell, reason: "no Lighthouse report produced", missingReport: true, missingMetric: false }));
+
+  // Graded on the MEDIAN of the cell's samples, not on any one report. A cell
+  // whose spread straddles the threshold is not graded here at all — it is
+  // incomplete evidence (see `incompleteEvidence`), because a verdict drawn
+  // from it would flip on a rerun.
+  const failed = expected
+    .filter((cell) => cells.has(cell))
+    .map((cell) => cells.get(cell))
     .filter(
-      (row) =>
-        row.lcpMs === null ||
-        row.cls === null ||
-        row.lcpMs >= WEB_VITALS_THRESHOLDS.lcpMs ||
-        row.cls >= WEB_VITALS_THRESHOLDS.cls,
+      (summary) =>
+        summary.lcpMs === null ||
+        summary.cls === null ||
+        summary.lcpMs >= WEB_VITALS_THRESHOLDS.lcpMs ||
+        summary.cls >= WEB_VITALS_THRESHOLDS.cls,
     )
-    .map((row) => {
-      const missingMetric = row.lcpMs === null || row.cls === null;
+    .map((summary) => {
+      const missingMetric = summary.lcpMs === null || summary.cls === null;
       return {
-        ...row,
-        reason: missingMetric ? "report has no LCP or CLS number" : "outside the threshold",
+        ...summary,
+        run: summary.cell,
+        reason: missingMetric
+          ? "no usable LCP or CLS across its samples"
+          : `median outside the threshold (LCP ${formatRange(summary.lcpMin, summary.lcpMax, 0)}ms, ` +
+            `CLS ${formatRange(summary.clsMin, summary.clsMax, 3)})`,
         missingReport: false,
         missingMetric,
       };
     });
+
   // With no expected list to check against, zero mobile reports is still not a
   // pass — never let an all-desktop directory read as "every mobile route ok".
   if (expected.length === 0 && present.length === 0) {
@@ -254,19 +419,24 @@ export function mobileBreaches(rows, routes) {
   return [...missing, ...failed];
 }
 
-export function renderTable(rows, routes) {
+export function renderTable(rows, routes, samples = WEB_VITALS_SAMPLES) {
   const format = (value, digits = 0) => (value === null ? "n/a" : value.toFixed(digits));
+  // One line per CELL, not per report: the graded median with the spread it came
+  // from, so a reader can see at a glance whether the number is stable. A table
+  // of raw samples would bury that; the samples are all in the artifact.
+  const cells = aggregateCells(rows, samples);
   const lines = [
-    "| run | perf | LCP ms | CLS | TBT ms | FCP ms |",
+    "| run | samples | LCP ms (median) | LCP range | CLS (median) | CLS range |",
     "| --- | ---: | ---: | ---: | ---: | ---: |",
-    ...rows.map(
-      (row) =>
-        `| ${row.run} | ${format((row.performanceScore ?? 0) * 100)} | ${format(row.lcpMs)} | ` +
-        `${format(row.cls, 3)} | ${format(row.tbtMs)} | ${format(row.fcpMs)} |`,
+    ...[...cells.values()].map(
+      (summary) =>
+        `| ${summary.cell} | ${summary.usable.length}/${summary.expectedSamples} | ` +
+        `${format(summary.lcpMs)} | ${formatRange(summary.lcpMin, summary.lcpMax, 0)} | ` +
+        `${format(summary.cls, 3)} | ${formatRange(summary.clsMin, summary.clsMax, 3)} |`,
     ),
   ];
-  const breaches = mobileBreaches(rows, routes);
-  const incomplete = incompleteEvidence(rows, routes);
+  const breaches = mobileBreaches(rows, routes, samples);
+  const incomplete = incompleteEvidence(rows, routes, samples);
   const productionVerdict = isProductionVerdict(rows);
 
   // Disqualifiers are resolved BEFORE any threshold or actionability prose, and
@@ -287,6 +457,21 @@ export function renderTable(rows, routes) {
         `${measuredOrigins(rows).join(", ") || "an unknown origin"}`,
     );
   }
+  // Same reasoning as the two above, and it belongs in the same list rather
+  // than only in main()'s exit: a mid-run browser change was already fatal to
+  // the JOB, but the step summary still carried the threshold sentence, and the
+  // summary is what outlives the run. A disqualified run must not print a
+  // verdict-shaped claim anywhere.
+  const builds = chromeBuilds(rows);
+  if (builds.length > 1) {
+    disqualifiers.push(`reports came from ${builds.length} different Chrome builds: ${builds.join(" | ")}`);
+  }
+  // Same list, same reason: a run measured with too few samples per cell is not
+  // a verdict, and the step summary is what outlives the run. main() also exits
+  // non-zero, but a caller that only renders the table must not be handed
+  // verdict prose built on one sample per cell.
+  const refusal = samplesRefusal(samples);
+  if (refusal) disqualifiers.push(refusal);
 
   lines.push("");
   if (disqualifiers.length > 0) {
@@ -333,6 +518,18 @@ function main() {
   // The routes the workflow was asked to measure, so a route whose Lighthouse
   // run failed is reported as a breach rather than silently omitted.
   const routes = process.argv[3] ?? process.env.ROUTES ?? "";
+  // How many samples each cell was asked for, so a dispatch that raised the
+  // count is graded against what it actually requested rather than the default.
+  const samples = Number.parseInt(process.argv[4] ?? process.env.SAMPLES ?? "", 10) || WEB_VITALS_SAMPLES;
+  // Refuse BEFORE reading a single report. `samples` is a free-text dispatch
+  // input, so `samples=1` reaches here as a valid integer and would otherwise
+  // grade a one-run-per-cell matrix — the exact thing this change removes —
+  // while emitting output indistinguishable from a sound run.
+  const refusal = samplesRefusal(samples);
+  if (refusal) {
+    console.log(`::error::${refusal}`);
+    process.exit(1);
+  }
   const files = readdirSync(directory)
     .filter((file) => file.endsWith(".json") && file !== "summary.json")
     .sort();
@@ -353,17 +550,28 @@ function main() {
   // records what actually measured, and disagreement across reports is itself
   // worth seeing. Compare baselines only when both fields match.
   const lighthouseVersion = process.env.LIGHTHOUSE_VERSION ?? "unpinned";
-  const chromeVersions = [...new Set(rows.map((row) => row.chromeVersion).filter(Boolean))].sort();
+  const chromeVersions = chromeBuilds(rows);
   writeFileSync(
     join(directory, "summary.json"),
-    `${JSON.stringify({ lighthouseVersion, chromeVersions, routes, rows }, null, 2)}\n`,
+    `${JSON.stringify({ lighthouseVersion, samples, chromeVersions, routes, rows }, null, 2)}\n`,
   );
-  const table = renderTable(rows, routes);
+  const table = renderTable(rows, routes, samples);
   console.log(table);
   if (process.env.GITHUB_STEP_SUMMARY) {
     writeFileSync(process.env.GITHUB_STEP_SUMMARY, `## Live Web Vitals\n\n${table}\n`, { flag: "a" });
   }
-  const incomplete = incompleteEvidence(rows, routes);
+  // A runner image that rolled mid-dispatch means half the matrix was measured
+  // by a different browser, so the cells are not comparable even to each other.
+  // Recording the versions makes a cross-RUN comparison checkable at read time;
+  // this makes a within-run split fatal, which is the part that can be enforced.
+  if (chromeVersions.length > 1) {
+    console.log(
+      `::error::reports came from ${chromeVersions.length} different Chrome builds — ` +
+        `the cells are not comparable: ${chromeVersions.join(" | ")}`,
+    );
+    process.exit(1);
+  }
+  const incomplete = incompleteEvidence(rows, routes, samples);
   if (incomplete.length > 0) {
     console.log(
       `::error::${incomplete.length} requested run(s) produced no usable report — evidence is incomplete: ` +
