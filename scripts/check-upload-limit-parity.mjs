@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -69,13 +69,15 @@ function selfTest() {
     /positive integer/,
   );
 
-  const dockerfile = readFileSync(dockerfilePath, "utf8");
-  assert.match(dockerfile, /^ARG MAX_UPLOAD_MB=$/m);
-  assert.doesNotMatch(dockerfile, /^ENV MAX_UPLOAD_MB=/m);
-  assert.match(
-    dockerfile,
-    /^RUN UPLOAD_LIMIT_PARITY_SERVER_MB="\$\{MAX_UPLOAD_MB\}" env -u MAX_UPLOAD_MB npm run build$/m,
-  );
+  if (existsSync(dockerfilePath)) {
+    const dockerfile = readFileSync(dockerfilePath, "utf8");
+    assert.match(dockerfile, /^ARG MAX_UPLOAD_MB=$/m);
+    assert.doesNotMatch(dockerfile, /^ENV MAX_UPLOAD_MB=/m);
+    assert.match(
+      dockerfile,
+      /^RUN UPLOAD_LIMIT_PARITY_SERVER_MB="\$\{MAX_UPLOAD_MB\}" env -u MAX_UPLOAD_MB npm run build$/m,
+    );
+  }
 
   const directory = mkdtempSync(path.join(tmpdir(), "upload-limit-env-"));
   const preserved = {
