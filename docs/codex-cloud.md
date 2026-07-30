@@ -1,127 +1,168 @@
 # Codex Cloud environment
 
-This is the copy/paste setup for provider-free work on `BigSimmo/Database` in an
-OpenAI-managed Codex Cloud container. It mirrors the repository's Node, npm, Deno,
-Python/OCR, and Playwright toolchain without copying local credentials or connecting to
-live OpenAI, Supabase, Railway, or GitHub APIs from the agent shell.
+This repository supports reproducible Codex Cloud work with Node 24, npm 11, locked
+development dependencies, Deno 2, Python/OCR tooling, and the Chromium, Firefox, and
+WebKit Playwright browser matrix. The repository setup can prepare and validate the
+container. It cannot grant GitHub installation permissions, workspace RBAC, agent-network
+policy, or provider-account permissions; those are configured in Codex and each provider.
+
+## Issues this setup resolves
+
+- Codex Cloud had no tracked setup or maintenance command on `main`.
+- Two incompatible Cloud checkers existed only in dirty worktrees.
+- The prompt-perfector bootstrap parsed the Windows task-start output incorrectly and
+  rejected Cloud's legitimate single primary checkout.
+- Tool repair covered Node dependencies but not Deno, OCR, Python, or browsers.
+- Provider-variable clearing was incomplete and the Cursor Cloud guidance was easy to
+  mistake for Codex Cloud guidance.
+- GitHub connector access, shell Git credentials, network access, and provider credentials
+  were treated as one permission even though they are separate controls.
+- The Codex Cloud CLI can emit a root `error.log` containing account/session metadata; the
+  repository now ignores that exact diagnostic path.
 
 ## Create the environment
 
-Open [Codex environment settings](https://chatgpt.com/codex/settings/environments),
-create an environment for `BigSimmo/Database`, and use these values:
+In Codex environment settings, create an environment for `BigSimmo/Database` with the
+controls described in the official [Codex changelog](https://help.openai.com/en/articles/11428266-codex-changelog):
 
 | Setting               | Value                                  |
 | --------------------- | -------------------------------------- |
-| Environment name      | `BigSimmo/Database`                    |
 | Repository            | `BigSimmo/Database`                    |
-| Base image            | Default `universal` image              |
+| Base image            | Default universal image                |
 | Node version          | `24`                                   |
-| Setup script          | `bash scripts/setup-codex-cloud.sh`    |
-| Maintenance script    | `bash scripts/maintain-codex-cloud.sh` |
-| Agent internet access | Off                                    |
-| Environment variables | Use the provider-free values below     |
-| Secrets               | None                                   |
+| Setup command         | `bash scripts/setup-codex-cloud.sh`    |
+| Maintenance command   | `bash scripts/maintain-codex-cloud.sh` |
+| Environment variables | Use the complete profile below         |
 
-Add these non-secret environment variables so every agent shell starts with the same
-provider-free defaults even when shell startup files are not sourced:
+Enable agent internet access only when a task needs it. Prefer a domain allowlist and the
+minimum HTTP methods for the task. Package installation happens during setup; ordinary
+structure-only work, including the RAG decomposition prompt below, should remain offline.
+
+The setup command fails if the complete toolchain cannot be installed. Set
+`CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` only for an explicitly source-only environment; that
+environment is not full browser-ready.
+
+## Access profiles
+
+### Offline (default)
+
+Use this for refactors, static checks, mocked tests, and all work that expressly forbids
+providers:
 
 ```text
 CODEX_CLOUD=1
+CODEX_CLOUD_ACCESS_PROFILE=offline
 RAG_PROVIDER_MODE=offline
 NEXT_PUBLIC_DEMO_MODE=true
 PLAYWRIGHT_OFFLINE_MODE=true
 ```
 
-The setup script installs the exact npm version pinned by `packageManager`, restores
-`package-lock.json` with development dependencies, installs Deno 2.x, prepares the
-Python OCR environment, and installs the Chromium, Firefox, and WebKit Playwright
-browsers. Codex caches this container; the maintenance script repairs runtime or
-lockfile drift when a cached environment resumes on a newer commit.
+The generated shell profile removes known OpenAI, Supabase, Railway, GitHub/GitLab,
+database, CI-trigger, and test-user credential variables. This prevents an unrelated Cloud
+task from silently becoming provider-backed.
 
-Set `CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` only if a source-only environment is required.
-Leaving it unset produces the closest reproducible match to the local verification
-toolchain.
+Set all five offline values in the environment UI. The setup also writes the generated
+profile to `.bashrc` and `.profile`, but exported values from setup cannot by themselves
+guarantee the environment of every later agent process.
 
-## Security boundary
+### Connected (explicit opt-in)
 
-Codex Cloud secrets exist only during setup and are removed before the agent phase.
-Ordinary environment variables remain visible to the agent. Do not work around that
-boundary by adding OpenAI, Supabase, Railway, GitHub, database, or user credentials as
-ordinary environment variables or by writing them into repository files.
+Use `CODEX_CLOUD_ACCESS_PROFILE=connected` only in a separate environment whose tasks are
+expected to call named providers. Configure the smallest domain/method allowlist and the
+least-privileged credentials for those tasks. Never commit credentials or print their
+values. The setup script does not call providers and does not prove provider authorization.
 
-The generated agent-shell profile explicitly selects:
+Codex Cloud secrets and ordinary environment variables have different exposure and
+lifecycle properties. Follow the current Codex environment UI for secret availability;
+do not assume a setup secret remains available to the agent phase. If a provider needs an
+agent-phase token, use a supported connector/OAuth mechanism where possible. Otherwise,
+create a deliberately connected environment and accept that an agent-visible runtime
+variable is sensitive.
 
-```text
-RAG_PROVIDER_MODE=offline
-NEXT_PUBLIC_DEMO_MODE=true
-PLAYWRIGHT_OFFLINE_MODE=true
-```
+## GitHub access
 
-It also unsets known provider credentials. Provider-backed checks, deployments,
-production data operations, hosted CI mutations, and live API tests remain local or
-operator-controlled workflows requiring explicit authorization.
+The GitHub connector is the supported repository/PR path. Follow the official
+[Codex GitHub setup](https://help.openai.com/en/articles/11390924), authorize the
+`BigSimmo/Database` repository, and ensure the installation grants the user write access if
+Cloud tasks must publish PRs. Repository discovery proves read access only.
 
-## What matches local
-
-The environment mirrors the repository development toolchain: Node, npm, locked
-dependencies, Deno, Python/OCR, and the Playwright browser matrix. It also checks out
-tracked repository instructions, scripts, tests, and skills.
-
-It does not inherit Windows files, `.env.local`, desktop browser sessions, user-global
-Codex configuration, desktop plugins, OAuth sessions, local services, or uncommitted
-work. Put durable project behavior in tracked `AGENTS.md` files, repository scripts,
-tests, and repo-local skills rather than relying on machine-global configuration.
-
-## GitHub integration
-
-Selecting `BigSimmo/Database` proves that the Codex GitHub connection can discover and
-clone the repository. Codex can also show task diffs and offer pull-request workflows
-through its GitHub integration when that installation has write permission.
+For an explicitly authorised GitHub task, treat the authenticated GitHub connector/MCP
+tools as the default remote control plane. Use the connector for repository and PR reads,
+issue and PR comments, inline-review-thread replies/resolution, Actions logs/retries, and
+approved branch, file, or PR mutations. Do not infer that GitHub is unavailable because
+`gh`, shell GitHub credentials, or direct shell access are absent.
 
 GitHub connector permission is separate from credentials inside the agent shell. Do
 not add a personal access token to Cloud secrets or environment variables to make
 `git push` or `gh` work. If a Cloud task cannot publish a branch, reconnect the
-repository in Codex settings and run a controlled branch/PR write test.
+repository in Codex settings and run a controlled branch/PR write test. If the connector
+does not expose a required repository/organisation setting, report the limit rather than
+attempting a credential or secret workaround.
 
-## First Cloud task
-
-Start a Cloud task against the default branch with:
+Suggested GitHub acceptance task:
 
 ```text
-Read AGENTS.md and docs/codex-cloud.md. Confirm the repository identity and report
-node --version, npm --version, deno --version, python --version, tesseract --version,
-and npx playwright --version. Run npm run check:codex-cloud, npm run check:runtime,
-and npm run check:installed-lock-parity. Do not call APIs, providers, hosted CI, or
-production-like services. Do not commit or push.
+Read AGENTS.md and docs/codex-cloud.md. Create a task-specific branch, add one harmless
+documentation-only line, and offer a draft pull request through the Codex GitHub workflow.
+Do not merge. Report whether repository clone, branch publication, and draft PR creation
+each succeeded. Remove the draft branch/PR only after I approve cleanup.
 ```
 
-Expected runtime majors are Node 24, npm 11, and Deno 2. The final three checks must
-exit successfully. The Cloud check validates the Python/OCR tools, offline environment
-defaults, and all three browser executables when run inside Cloud, unless the explicit
-source-only browser opt-out is set. Treat a missing required tool as an environment setup
-failure and reset the environment cache after fixing the setup script.
+## Setup and maintenance
 
-## Verification after code changes
+Setup:
 
-Use the same repository gates as local work:
+```bash
+bash scripts/setup-codex-cloud.sh
+```
 
-1. Run the smallest focused test for the changed files.
-2. Run `npm run verify:cheap` for non-trivial source, configuration, or test changes.
-3. Use `npm run verify:pr-local -- --dry-run --files <comma-separated-paths>` to inspect
-   the handoff plan before running broader local gates.
-4. Use `npm run verify:release:offline` only when full offline release confidence is
-   required. It includes the browser matrix and production build and may be expensive.
+Maintenance:
 
-Never describe Chromium as physical iPhone Safari/PWA evidence. Physical-device,
-desktop-app, local-secret, and provider-backed acceptance remains outside Codex Cloud.
+```bash
+bash scripts/maintain-codex-cloud.sh
+```
 
-## Troubleshooting
+The maintenance command runs static acceptance, then runtime acceptance. Any runtime,
+dependency, Deno, Python/OCR, or browser drift reruns the full setup instead of repairing
+only `node_modules`.
 
-- Wrong Node version: select Node 24 under **Set package versions**, then reset the
-  environment cache.
-- Wrong npm version: rerun setup; it installs the exact `packageManager` version.
-- Stale dependencies: rerun the maintenance script or reset the environment cache.
-- Browser missing: confirm `CODEX_CLOUD_SKIP_BROWSER_INSTALL` is absent and reset the
-  cache.
-- Git push cannot authenticate: reconnect the repository in Codex settings. Do not add
-  a personal access token to Cloud environment variables or secrets.
+## Acceptance
+
+Run this in a fresh Cloud task before relying on the environment:
+
+```text
+Read all applicable AGENTS.md files and docs/codex-cloud.md. State whether this is the
+offline or connected profile. Report tool versions without printing environment values.
+Run npm run check:codex-cloud, npm run check:runtime,
+npm run check:installed-lock-parity, and npm run check:codex-cloud -- --runtime. Do not
+call a provider unless this task explicitly names and authorizes that provider. Report the
+decisive line from every command and any unrun check.
+```
+
+Expected decisive lines include:
+
+```text
+[Codex Cloud Check] PASS: static Cloud contracts match.
+[Codex Cloud Check] PASS: static and runtime Cloud contracts match.
+```
+
+The runtime check verifies Node/npm policy and installed-lock parity, Deno 2, Python 3,
+Tesseract, browser executables, local `main`/`origin/main`, offline credential absence when
+applicable, and obsolete npm proxy variable names without reading or printing their values.
+
+## Provider acceptance
+
+Provider access is verified separately because a generic bootstrap must not make paid or
+production-like calls. For a connected environment, name each provider, use a read-only or
+minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
+report cost or mutation risk before any write. OpenAI generation, Supabase live data,
+Railway changes, hosted CI reruns, ingestion, deployment, and release workflows remain
+separate explicit actions.
+
+## RAG X3 prompt
+
+The corrected structure-only extraction prompt is tracked at
+[`prompts/rag-coverage-gate-extraction.md`](prompts/rag-coverage-gate-extraction.md). It
+uses the offline profile, keeps private coverage preparation/telemetry helpers in `rag.ts`,
+and moves only the independently bounded evaluator. This avoids the import back-edge in the
+older proposed three-function extraction.

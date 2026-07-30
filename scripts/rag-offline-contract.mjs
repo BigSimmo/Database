@@ -20,6 +20,9 @@ export const requiredOfflineContractTests = Object.freeze([
   "tests/private-rag-access.test.ts",
   "tests/upload-admission.test.ts",
   "tests/privacy-ui.test.ts",
+  // Ledger #098: pins Supabase round-trip counts on the answer path so an added
+  // round trip is a red gate rather than something a reviewer has to spot.
+  "tests/rag-round-trip-budget.test.ts",
 ]);
 
 export function validateOfflineContractTests(suites) {
