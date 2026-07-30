@@ -120,6 +120,7 @@ async function runRequestScript(options?: {
   files?: PullRequestFile[];
   filesError?: unknown;
   getAuthenticatedError?: unknown;
+  pullRequestHeadRepository?: string | null;
   pullRequestHeadSha?: string;
   pullRequestLabels?: Array<string | { name: string }>;
   review?: Partial<Review>;
@@ -187,7 +188,14 @@ async function runRequestScript(options?: {
       payload: {
         review,
         pull_request: {
-          head: { sha: options?.pullRequestHeadSha ?? "head-sha-4" },
+          head: {
+            ref: "feature/codex-fix",
+            repo:
+              options?.pullRequestHeadRepository === null
+                ? null
+                : { full_name: options?.pullRequestHeadRepository ?? "clinical-kb/database" },
+            sha: options?.pullRequestHeadSha ?? "head-sha-4",
+          },
           labels: options?.pullRequestLabels ?? [],
           number: 42,
           state: "open",
@@ -209,6 +217,7 @@ async function runThreadScript(options?: {
   comment?: Partial<Comment>;
   graphqlError?: unknown;
   graphqlResults?: unknown[];
+  pullRequestHeadSha?: string;
 }) {
   const failures: string[] = [];
   const graphqlCalls: GraphqlCall[] = [];
@@ -216,7 +225,7 @@ async function runThreadScript(options?: {
   const warnings: string[] = [];
 
   const comment: Comment = {
-    body: "<!-- codex-thread-disposition:resolved -->\n\nFixed.",
+    body: "<!-- codex-thread-disposition:resolved -->\n<!-- codex-thread-result:no-change -->\n\nDispositioned.",
     id: 99,
     in_reply_to_id: 41,
     user: { login: "chatgpt-codex-connector[bot]", type: "Bot" },
@@ -236,7 +245,7 @@ async function runThreadScript(options?: {
     {
       payload: {
         comment,
-        pull_request: { head: { sha: "head-sha-4" }, number: 42, state: "open" },
+        pull_request: { head: { sha: options?.pullRequestHeadSha ?? "head-sha-4" }, number: 42, state: "open" },
       },
       repo: { owner: "clinical-kb", repo: "database" },
     },
@@ -650,7 +659,30 @@ describe("Codex auto-resolve request script", () => {
     expect(result.createdComments).toHaveLength(1);
     expect(result.createdComments[0]?.body).toContain("single automatic repair pass");
     expect(result.createdComments[0]?.body).toContain("<!-- codex-thread-disposition:resolved -->");
+    expect(result.createdComments[0]?.body).toContain("clinical-kb/database:feature/codex-fix");
+    expect(result.createdComments[0]?.body).toContain("never publish fixes to a detached or synthetic work branch");
+    expect(result.createdComments[0]?.body).toContain(
+      "<!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->",
+    );
     expect(result.createdComments[0]?.body).toContain("do not perform a fresh review");
+  });
+
+  it("routes a fork repair to the pull request head repository", async () => {
+    const result = await runRequestScript({
+      pullRequestHeadRepository: "external/contributor-repo",
+    });
+
+    expect(result.failures).toHaveLength(0);
+    expect(result.createdComments).toHaveLength(1);
+    expect(result.createdComments[0]?.body).toContain("external/contributor-repo:feature/codex-fix");
+    expect(result.createdComments[0]?.body).not.toContain("clinical-kb/database:feature/codex-fix");
+  });
+
+  it("fails closed when the pull request head repository is unavailable", async () => {
+    const result = await runRequestScript({ pullRequestHeadRepository: null });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.failures).toContainEqual(expect.stringContaining("cannot identify the pull request head repository"));
   });
 
   it("fails visibly when it cannot identify the trigger-token account", async () => {
@@ -722,6 +754,60 @@ describe("Codex auto-resolve thread-resolution script", () => {
 
     expect(result.graphqlCalls).toHaveLength(0);
     expect(result.notices).toContainEqual(expect.stringContaining("without the trusted resolved disposition marker"));
+  });
+
+  it("leaves a fixed thread open when the reported commit is not the pull request head", async () => {
+    const reportedHead = "a".repeat(40);
+    const result = await runThreadScript({
+      comment: {
+        body: `<!-- codex-thread-disposition:resolved -->\n<!-- codex-thread-result:fixed-head:${reportedHead} -->`,
+      },
+      pullRequestHeadSha: "b".repeat(40),
+    });
+
+    expect(result.graphqlCalls).toHaveLength(0);
+    expect(result.failures).toContainEqual(expect.stringContaining("leaving the thread open"));
+  });
+
+  it("accepts a fixed thread only when the reported commit is the pull request head", async () => {
+    const reportedHead = "a".repeat(40);
+    const result = await runThreadScript({
+      comment: {
+        body: `<!-- codex-thread-disposition:resolved -->\n<!-- codex-thread-result:fixed-head:${reportedHead} -->`,
+      },
+      pullRequestHeadSha: reportedHead,
+      graphqlResults: [
+        {
+          repository: {
+            pullRequest: {
+              reviewThreads: {
+                nodes: [
+                  {
+                    comments: { nodes: [{ databaseId: 41 }, { databaseId: 99 }] },
+                    id: "thread-1",
+                    isResolved: false,
+                  },
+                ],
+                pageInfo: { endCursor: null, hasNextPage: false },
+              },
+            },
+          },
+        },
+        { resolveReviewThread: { thread: { id: "thread-1", isResolved: true } } },
+      ],
+    });
+
+    expect(result.failures).toHaveLength(0);
+    expect(result.graphqlCalls).toHaveLength(2);
+  });
+
+  it("rejects a disposition without exactly one machine-readable result", async () => {
+    const result = await runThreadScript({
+      comment: { body: "<!-- codex-thread-disposition:resolved -->\nFixed locally." },
+    });
+
+    expect(result.graphqlCalls).toHaveLength(0);
+    expect(result.failures).toContainEqual(expect.stringContaining("exactly one result"));
   });
 
   it("resolves the exact review thread after a trusted disposition reply", async () => {
