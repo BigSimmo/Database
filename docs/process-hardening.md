@@ -186,7 +186,7 @@ API rather than estimated:
   all three land in the same shard. The shards were already count-balanced; the imbalance is
   duration, and splitting a file cannot fix a metric the scheduler does not use:
 
-  ```
+  ```text
   shard 1  121 tests / 10 files — phone-scroll(56), chrome-scroll(17), accessibility(15), overlap(14), …
   shard 2  111 tests /  4 files — ui-smoke(92), route-coverage(12), specifiers(5), pwa(2)
   shard 3  110 tests /  6 files — ui-tools(87), universal-search(16), stress(3), …
