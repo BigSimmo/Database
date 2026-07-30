@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
 // real breakages caught in review when the mockup was promoted to a live mode.
@@ -75,16 +76,16 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("ships the dataset at the non-mockups public path the loader points to", () => {
-    for (const file of ["therapies.json", "therapies-index.json", "pathways.json", "reference.json"]) {
+    for (const file of [...Object.values(THERAPY_CATALOGUE_ASSETS), "pathways.json", "reference.json"]) {
       expect(existsSync(new URL(file, dataDir))).toBe(true);
     }
   });
 
   it("ships a materially smaller catalogue index for browse and search routes", () => {
-    const fullSize = readFileSync(new URL("therapies.json", dataDir)).byteLength;
-    const indexSize = readFileSync(new URL("therapies-index.json", dataDir)).byteLength;
+    const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
+    const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
     expect(indexSize).toBeLessThan(fullSize * 0.4);
-    expect(loaderSrc).toContain('options.catalogue === "full" ? "therapies.json" : "therapies-index.json"');
+    expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[options.catalogue]");
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
+import { THERAPY_CATALOGUE_ASSETS } from "./generated-assets";
 
 // Served as static public assets. Kept outside /mockups so the production
 // `/therapy-compass` route can load them — `proxy.ts` 404s every /mockups path
@@ -10,7 +11,7 @@ import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 const BASE = "/therapy-compass-data";
 
 type TherapyDataOptions = {
-  catalogue?: "index" | "full";
+  catalogue?: "home" | "index" | "full";
   includePathways?: boolean;
   includeReference?: boolean;
 };
@@ -32,7 +33,7 @@ async function fetchJson<T>(path: string): Promise<T> {
 
 async function loadDataset(options: Required<TherapyDataOptions>): Promise<TherapyDataset> {
   const [therapies, pathways, reference] = await Promise.all([
-    fetchJson<Therapy[]>(`${BASE}/${options.catalogue === "full" ? "therapies.json" : "therapies-index.json"}`),
+    fetchJson<Therapy[]>(`${BASE}/${THERAPY_CATALOGUE_ASSETS[options.catalogue]}`),
     options.includePathways ? fetchJson<Pathway[]>(`${BASE}/pathways.json`) : Promise.resolve([]),
     options.includeReference
       ? fetchJson<ReferenceData>(`${BASE}/reference.json`)

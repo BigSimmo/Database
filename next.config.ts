@@ -123,6 +123,13 @@ const nextConfig: NextConfig = {
         source: "/manifest.webmanifest",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
+      {
+        // Therapy catalogues are content-addressed by the generator. A new data
+        // revision gets a new URL, so browsers and the CDN can retain old bytes
+        // without revalidation while an already-open client finishes using them.
+        source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\.[a-f0-9]{16}\\.json)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
     ];
   },
 };

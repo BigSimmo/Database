@@ -203,9 +203,9 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { screen, slug: routeSlug } = resolveRoute(pathname);
-  const usesCatalogueIndex = screen === "home" || screen === "search" || screen === "pathways";
+  const catalogue = screen === "home" ? "home" : screen === "search" || screen === "pathways" ? "index" : "full";
   const { data, loading, error, retry } = useTherapyData({
-    catalogue: usesCatalogueIndex ? "index" : "full",
+    catalogue,
     includePathways: screen === "pathways",
     includeReference: false,
   });
