@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { listRepoNodeProcesses } from "./run-eval-safe.mjs";
+import { shallowCloneRefusal } from "./sweep-branch-ledger.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const operationMarkers = [
@@ -276,6 +277,26 @@ function main() {
     console.log(
       "Usage: node scripts/reconciliation-preflight.mjs [--json] [--strict] [--include-processes] [--base-ref <ref>]",
     );
+    return;
+  }
+  // Fail closed on unverified history, for the same reason sweep-branch-ledger does: the
+  // ahead/behind values below come from `git rev-list --left-right --count`, which is
+  // merge-base-derived and therefore fiction on a shallow clone — wrong without erroring.
+  // docs/branch-cleanup-guide.md names this preflight as the FIRST step of broad
+  // reconciliation, so it is the earliest place an operator can be handed bad numbers.
+  // Ledger #109.
+  // NOTE: this file's `tryGit` returns { ok, output }, not a bare string like the one in
+  // sweep-branch-ledger. Passing the object stringifies to "[object Object]", which the
+  // guard correctly reads as indeterminate and then refuses on a HEALTHY clone — the
+  // symmetric failure. Pass `.output`.
+  const historyRefusal = shallowCloneRefusal(tryGit(["rev-parse", "--is-shallow-repository"]).output);
+  if (historyRefusal) {
+    if (options.json) {
+      console.log(JSON.stringify({ error: "history-not-verified", message: historyRefusal }, null, 2));
+    } else {
+      console.error(historyRefusal);
+    }
+    process.exitCode = 1;
     return;
   }
   const result = collectReconciliationState(options);

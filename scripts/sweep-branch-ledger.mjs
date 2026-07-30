@@ -129,10 +129,10 @@ export function shallowCloneRefusal(isShallowOutput) {
       ? "this is a SHALLOW clone, so every merge-base is unreliable."
       : `could not determine whether this clone is shallow (git reported ${JSON.stringify(status)}).`;
   return [
-    `refusing to sweep: ${why}`,
+    `refusing to report: ${why}`,
     "",
-    "ahead/behind counts, --cherry-pick patch-uniqueness and the deletion candidates are",
-    "all derived from merge-bases. With a grafted root they are wrong without erroring —",
+    "Branch signals — ahead/behind, --cherry-pick patch-uniqueness, deletion candidates —",
+    "are all derived from merge-bases. With a grafted root they are wrong without erroring:",
     "see ledger #109, where a shallow sweep reported 90 of 91 branches as unmerged.",
     "",
     "Fix: git fetch --unshallow --tags origin",

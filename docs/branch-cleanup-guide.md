@@ -17,11 +17,8 @@ For historical cleanup snapshots (frozen branch inventories and progress logs), 
 
 Before deleting anything:
 
-For broad multi-worktree reconciliation, first run `node scripts/reconciliation-preflight.mjs` and follow
-[`docs/reconciliation-playbook.md`](reconciliation-playbook.md). The preflight is report-only and
-does not replace the fetch/approval and per-branch content proof below.
-
-**Precondition — the clone must have full history. Check this first, before anything else:**
+**Precondition — the clone must have full history. Check this before every other step on this
+page, including the reconciliation preflight below:**
 
 ```bash
 git rev-parse --is-shallow-repository   # must print false
@@ -37,11 +34,19 @@ Measured 2026-07-29 (ledger `#109`): a session swept this repo with 74 of 2829 c
 reported **90 of 91** branches as carrying unmerged work, and a stale local `main` as `ahead 52` with
 `refusing to merge unrelated histories`. In a `--depth 1` clone the sweep exited **0** and named the
 live checked-out branch as a deletion candidate with "no unique patch content" — a green run
-recommending deletion of an active branch. `npm run sweep:branch-ledger` now refuses outright on a
-shallow clone (`shallowCloneRefusal`, guarded in `tests/repo-hygiene.test.ts`), but the raw `git`
-commands below have no such protection, so verify the precondition yourself before trusting them.
+recommending deletion of an active branch.
+
+Both `npm run sweep:branch-ledger` and `node scripts/reconciliation-preflight.mjs` now refuse
+outright unless the history is verified complete (`shallowCloneRefusal`, guarded in
+`tests/repo-hygiene.test.ts`) — the preflight is included because it reports its own
+merge-base-derived ahead/behind values. The raw `git` commands below have no such protection, so
+verify the precondition yourself before trusting them.
 
 **Never delete a branch, or report one as unmerged, from a shallow clone.**
+
+For broad multi-worktree reconciliation, then run `node scripts/reconciliation-preflight.mjs` and follow
+[`docs/reconciliation-playbook.md`](reconciliation-playbook.md). The preflight is report-only and
+does not replace the fetch/approval and per-branch content proof below.
 
 1. Fetch and prune:
 
