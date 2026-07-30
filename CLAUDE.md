@@ -90,7 +90,7 @@ src/data/         Static clinical content (DSM, formulation, therapies indexes)
 data/             Generated clinical snapshot exports loaded at runtime — regenerate, never hand-edit
 supabase/         migrations/ (source of truth), schema.sql (mirror), functions/
 worker/           Ingestion worker; worker/python/ is the OCR stack
-scripts/          ~160 files backing 194 npm scripts: gates, eval, reindex, governance, dev
+scripts/          gates, eval, reindex, governance, dev — counted and mapped in docs/scripts-index.md
 tests/            Vitest unit + Playwright E2E, side by side
 docs/             Runbooks, governance, plans; docs/README.md categorises them
 eslint-rules/     Repo-specific lint rules (see Conventions below)
@@ -98,7 +98,10 @@ mockups/          Notes for the design-scratch routes under src/app/mockups/
 plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .claude/          Claude Code agents, skills, hooks, settings
 .agents/          Single-word skill catalogue (`npm run skills`)
+.cursor/          Cursor project rules and local-agent configuration
+.design-sync/     Generated design-system package metadata and validation notes
 .githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.vscode/          Shared VS Code workspace recommendations and settings
 ```
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
