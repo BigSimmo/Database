@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const uploadLimitSourcePath = path.join(projectRoot, "src", "lib", "upload-limits.ts");
+const dockerfilePath = path.join(projectRoot, "Dockerfile");
 const trackedNames = new Set(["MAX_UPLOAD_MB", "NEXT_PUBLIC_MAX_UPLOAD_MB"]);
 
 export function readUploadLimitCeiling(source = readFileSync(uploadLimitSourcePath, "utf8")) {
@@ -52,6 +53,18 @@ export function evaluateUploadLimitParity(env, ceiling) {
   return { ok: errors.length === 0, errors, serverValue: server.value, clientValue: client.value };
 }
 
+export function evaluateDockerUploadLimitContract(source = readFileSync(dockerfilePath, "utf8")) {
+  const requiredLines = [
+    "ARG MAX_UPLOAD_MB=150",
+    "ARG NEXT_PUBLIC_MAX_UPLOAD_MB=",
+    "ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}",
+    "ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}",
+  ];
+  const sourceLines = source.split(/\r?\n/);
+  const missing = requiredLines.filter((line) => !sourceLines.includes(line));
+  return missing.length === 0 ? null : `Dockerfile cannot enforce upload-limit parity; missing: ${missing.join(", ")}.`;
+}
+
 function selfTest() {
   assert.equal(readUploadLimitCeiling("export const MAX_UPLOAD_MB_CEILING = 150;"), 150);
   assert.deepEqual(evaluateUploadLimitParity({}, 150), {
@@ -68,6 +81,18 @@ function selfTest() {
     evaluateUploadLimitParity({ NEXT_PUBLIC_MAX_UPLOAD_MB: "not-a-number" }, 150).errors.join(" "),
     /positive integer/,
   );
+  assert.equal(
+    evaluateDockerUploadLimitContract(
+      [
+        "ARG MAX_UPLOAD_MB=150",
+        "ARG NEXT_PUBLIC_MAX_UPLOAD_MB=",
+        "ENV MAX_UPLOAD_MB=${MAX_UPLOAD_MB}",
+        "ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}",
+      ].join("\n"),
+    ),
+    null,
+  );
+  assert.match(evaluateDockerUploadLimitContract("ARG NEXT_PUBLIC_MAX_UPLOAD_MB=\n"), /ARG MAX_UPLOAD_MB/);
   console.log("upload-limit parity self-test passed.");
 }
 
@@ -79,9 +104,11 @@ function main() {
 
   const ceiling = readUploadLimitCeiling();
   const result = evaluateUploadLimitParity(loadLocalUploadLimitEnv(), ceiling);
-  if (!result.ok) {
+  const dockerProblem = evaluateDockerUploadLimitContract();
+  if (!result.ok || dockerProblem) {
     console.error("Upload-limit parity failed:");
     for (const error of result.errors) console.error(`- ${error}`);
+    if (dockerProblem) console.error(`- ${dockerProblem}`);
     process.exitCode = 1;
     return;
   }
