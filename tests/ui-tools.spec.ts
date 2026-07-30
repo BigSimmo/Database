@@ -1199,7 +1199,14 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(/pathway/i);
+    // Guards the unsubstantiated pathway-claims feature (supportsPathwayClaims),
+    // not the word itself: result cards now carry the catalogue's own purpose
+    // text, and several official purposes legitimately say "pathway" ("Use for
+    // each leave episode from inpatient treatment order pathway"). Match the
+    // feature's own strings so real form content cannot trip this guard.
+    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(
+      /related pathway|view full pathway/i,
+    );
     await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
