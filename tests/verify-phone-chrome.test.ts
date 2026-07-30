@@ -1,5 +1,7 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { phoneChromePlan } from "../scripts/phone-chrome-plan.mjs";
+import { phoneChromePlan, phoneChromePlanInternals } from "../scripts/phone-chrome-plan.mjs";
 import { runPhoneChromeStages } from "../scripts/verify-phone-chrome.mjs";
 
 const ids = (files: string[], fullMode: "auto" | "always" | "never" = "auto") =>
@@ -10,6 +12,44 @@ const stage = (files: string[], id: string) => phoneChromePlan(files).stages.fin
 describe("phoneChromePlan", () => {
   it("keeps documentation-only work out of browser suites", () => {
     expect(ids(["docs/phone-chrome-physical-acceptance.md"])).toEqual(["docs-index", "docs-links"]);
+  });
+
+  /**
+   * A change confined to the shared helper is `playwrightHelper` scope, which
+   * on its own selects only the focused ownership grep — four cases in one of
+   * the helper's three consumers. A regression in `readGeometry`,
+   * `installFlipCounter` or `dragScrollBy` would pass the gate while two
+   * consumers never ran.
+   */
+  it("runs every consumer of the shared phone-scroll helper in full when only the helper changes", () => {
+    const { sharedPhoneScrollHelper, phoneScrollConsumerSpecs } = phoneChromePlanInternals;
+    const changedBrowser = stage([sharedPhoneScrollHelper], "changed-browser");
+
+    expect(changedBrowser, "a helper-only change must reach the changed-browser stage").toBeDefined();
+    for (const spec of phoneScrollConsumerSpecs) {
+      expect(changedBrowser?.command.args).toContain(spec);
+    }
+    // In full, not grepped down to a handful of named journeys.
+    expect(changedBrowser?.command.args).not.toContain("--grep");
+  });
+
+  /**
+   * The consumer list above is hand-maintained, and a list of spec names kept
+   * in a second place is exactly what fails silently here: the miss does not go
+   * red, it just runs nothing. Pin it to the specs that actually import the
+   * helper so a fourth sibling cannot be added without updating it.
+   */
+  it("keeps the phone-scroll consumer list equal to the specs that import the helper", () => {
+    const { sharedPhoneScrollHelper, phoneScrollConsumerSpecs } = phoneChromePlanInternals;
+    const helperModule = sharedPhoneScrollHelper.replace(/^tests\//, "").replace(/\.ts$/, "");
+
+    const importers = readdirSync(resolve(process.cwd(), "tests"))
+      .filter((file) => file.endsWith(".spec.ts"))
+      .filter((file) => readFileSync(resolve(process.cwd(), "tests", file), "utf8").includes(`./${helperModule}`))
+      .map((file) => `tests/${file}`);
+
+    expect(importers.length, "expected the shared phone-scroll helper to have importers").toBeGreaterThan(0);
+    expect([...importers].sort()).toEqual([...phoneScrollConsumerSpecs].sort());
   });
 
   it("runs focused browser/PWA ownership before the full UI suite for shared chrome", () => {

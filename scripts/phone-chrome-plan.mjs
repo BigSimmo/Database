@@ -18,6 +18,27 @@ const phoneChromeContractTests = [
 const phoneChromeBrowserSpecPattern =
   /^tests\/ui-(?:phone-scroll(?:-[a-z0-9-]+)?|smoke|tools|chrome-scroll|therapy-nav-scroll)\.spec\.ts$/;
 
+/**
+ * Every spec that imports tests/helpers/phone-scroll.ts.
+ *
+ * A helper-only change is `playwrightHelper` scope, which selects the focused
+ * ownership journeys — four grepped cases in ONE of these files. That leaves a
+ * regression in a shared function (`readGeometry`, `installFlipCounter`,
+ * `dragScrollBy`) passing the phone-chrome gate while two of the helper's three
+ * consumers never run. So a change to the helper runs all of its consumers in
+ * full, exactly as if each spec had been edited directly.
+ *
+ * `tests/verify-phone-chrome.test.ts` pins this list against the specs that
+ * actually import the helper, so a fourth sibling cannot be added without
+ * either joining this list or failing that test.
+ */
+const sharedPhoneScrollHelper = "tests/helpers/phone-scroll.ts";
+const phoneScrollConsumerSpecs = [
+  "tests/ui-phone-scroll.spec.ts",
+  "tests/ui-phone-scroll-page-owned.spec.ts",
+  "tests/ui-phone-scroll-routes.spec.ts",
+];
+
 const patterns = {
   docs: [/^docs\//, /^AGENTS\.md$/],
   infrastructure: [
@@ -135,7 +156,12 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     );
   }
 
-  const changedBrowserFiles = files.filter((file) => phoneChromeBrowserSpecPattern.test(file));
+  const changedBrowserFiles = [
+    ...new Set([
+      ...files.filter((file) => phoneChromeBrowserSpecPattern.test(file)),
+      ...(files.includes(sharedPhoneScrollHelper) ? phoneScrollConsumerSpecs : []),
+    ]),
+  ].sort();
   const changedBrowserFileSet = new Set(changedBrowserFiles);
   if (changedBrowserFiles.length > 0) {
     stages.push(
@@ -205,4 +231,4 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
   };
 }
 
-export const phoneChromePlanInternals = { patterns };
+export const phoneChromePlanInternals = { patterns, sharedPhoneScrollHelper, phoneScrollConsumerSpecs };
