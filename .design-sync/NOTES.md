@@ -67,10 +67,10 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     referenced class (`:393`). A stylesheet-only missing-token scan cannot
     see React `style` assignments; do not "fix" these.
   - `--clinical-accent-strong`
-    (`clinical-dashboard/answer-status.tsx:252`) — genuinely undefined
-    production reference, no stylesheet or React `style` definition and no
-    fallback, so the declaration is dropped at parse time. Same defect
-    family as the dead `--text-4xs` classes repaired on 2026-07-30.
+    (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
+    to `--primary-700` in both themes and `LinkText` in forced-colors,
+    with contrast and token-presence contracts in
+    `tests/design-token-contract.test.ts`.
   - `--primary-hover`, `--success-hover` —
     `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
     gate-exempt design scratch. Lowest priority.
