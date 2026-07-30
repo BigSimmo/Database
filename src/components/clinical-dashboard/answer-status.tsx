@@ -249,7 +249,7 @@ export function AnswerProgressStepper({
                     current
                       ? "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]"
                       : complete
-                        ? "text-[color:var(--clinical-accent-strong)]"
+                        ? "text-[color:var(--clinical-accent)]"
                         : "text-[color:var(--text-muted)]",
                   )}
                 >

@@ -200,7 +200,7 @@ const variants: Record<
     accent: "#1d4ed8",
     pageClassName: "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]",
     commandClassName:
-      "bg-[color:var(--primary)] text-white shadow-[0_14px_34px_rgba(29,78,216,0.22)] hover:bg-[color:var(--primary-hover)]",
+      "bg-[color:var(--primary)] text-white shadow-[0_14px_34px_rgba(29,78,216,0.22)] hover:bg-[color:var(--primary-strong)]",
     resumeTitle: "Review lithium monitoring guideline",
     resumeBody: "Check pages 4-9, mark the PDF as reviewed, then ask against the document if needed.",
     primaryFilter: "Review due",
@@ -213,8 +213,11 @@ const variants: Record<
     selectedId: "renal-dose-search",
     accent: "#047857",
     pageClassName: "bg-[color:var(--surface-lux)] text-[color:var(--text-heading)]",
+    // The success triad is text/bg/border only — there is no darker success step
+    // to hover to (unlike --primary-strong above), so shift brightness instead of
+    // inventing a token for a mockup.
     commandClassName:
-      "bg-[color:var(--success)] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:bg-[color:var(--success-hover)]",
+      "bg-[color:var(--success)] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:brightness-110",
     resumeTitle: "Run renal dose saved search",
     resumeBody: "Restart the ward-round saved query across medicines and documents before opening individual items.",
     primaryFilter: "Ward round",
