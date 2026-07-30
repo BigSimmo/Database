@@ -6,11 +6,19 @@
  * push can move the tip so the scan range is not in the workspace (#097).
  * Event payload SHAs are immutable for the run — use those, then verify HEAD.
  */
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
 
 const zeroSha = /^0{40}$/;
+
+/** Keep in lockstep with `.github/workflows/secret-scan.yml` env pins. */
+export const PINNED_GITLEAKS_LINUX_X64 = {
+  version: "8.24.3",
+  sha256: "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c",
+};
 
 export function resolveGitleaksScanRange({ eventName, pinnedBase, pinnedHead, checkedOutHead }) {
   if (!pinnedHead || !checkedOutHead) {
@@ -82,6 +90,18 @@ function selfTest() {
   });
   if (zeroBefore.mode !== "tip") {
     throw new Error(`expected tip scan for zero before-sha, got ${JSON.stringify(zeroBefore)}`);
+  }
+
+  const workflowPath = join(dirname(fileURLToPath(import.meta.url)), "..", ".github", "workflows", "secret-scan.yml");
+  const workflow = readFileSync(workflowPath, "utf8");
+  if (!workflow.includes(`GITLEAKS_VERSION: "${PINNED_GITLEAKS_LINUX_X64.version}"`)) {
+    throw new Error(`secret-scan.yml must pin GITLEAKS_VERSION to ${PINNED_GITLEAKS_LINUX_X64.version}`);
+  }
+  if (!workflow.includes(`GITLEAKS_LINUX_X64_SHA256: "${PINNED_GITLEAKS_LINUX_X64.sha256}"`)) {
+    throw new Error("secret-scan.yml must pin GITLEAKS_LINUX_X64_SHA256 to the release checksum");
+  }
+  if (!workflow.includes("sha256sum -c -")) {
+    throw new Error("secret-scan.yml must verify the Gitleaks archive with sha256sum before install");
   }
 
   console.log("Pinned Gitleaks range self-test passed.");

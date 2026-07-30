@@ -82,7 +82,7 @@ const workflowPatterns = [
   "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
+  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const codexAutofixPatterns = [
@@ -506,6 +506,12 @@ function selfTest() {
   );
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
+    docs_only: false,
+    build_changed: false,
+  });
+  assertScope("gitleaks-pin-script", ["scripts/run-gitleaks-pinned.mjs"], {
+    workflow_changed: true,
+    source_changed: true,
     docs_only: false,
     build_changed: false,
   });
