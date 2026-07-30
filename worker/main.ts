@@ -26,13 +26,7 @@ import {
   lightweightPerceptualHash,
   imagePlacementDedupeKey,
 } from "../src/lib/image-filtering";
-import {
-  isPartialIndexWriteConflict,
-  isRetryableIngestionError,
-  nextRetryAt,
-  shouldPersistJobProgress,
-  terminalBatchStatus,
-} from "../src/lib/ingestion";
+import { shouldPersistJobProgress, terminalBatchStatus } from "../src/lib/ingestion";
 import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
@@ -47,6 +41,7 @@ import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prerequisites";
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
 import { buildTableFactRows } from "./table-facts";
+import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
 
 type JobDocument = {
   id: string;
@@ -1809,24 +1804,13 @@ async function processJob(job: JobRow) {
       await updateJob(job.id, { stage: "core index complete; enrichment deferred", progress: 98 });
     }
 
-    const optionalRepairRequired = optionalIndexWriteIssues.length > 0;
-    const optionalRepairMessage = "Optional index artifact writes failed; queued for indexing-v3-agent repair.";
-    if (optionalRepairRequired && enrichmentStatus === "completed") {
-      enrichmentStatus = "pending";
-      enrichmentErrorMessage = optionalRepairMessage;
-    }
-
-    const agentRepairRequired = enrichmentStatus !== "completed" || optionalRepairRequired;
-    const agentRepairReason = optionalRepairRequired
-      ? "optional_index_write_issues"
-      : enrichmentStatus === "failed"
-        ? "inline_enrichment_failed"
-        : "enrichment_deferred";
-    const agentRepairMessage =
-      enrichmentErrorMessage ??
-      (optionalRepairRequired
-        ? optionalRepairMessage
-        : "Core index complete; enrichment queued for indexing-v3-agent.");
+    const repair = enrichmentRepairDecision({
+      enrichmentStatus,
+      enrichmentErrorMessage,
+      optionalIssueCount: optionalIndexWriteIssues.length,
+    });
+    enrichmentStatus = repair.enrichmentStatus;
+    enrichmentErrorMessage = repair.enrichmentErrorMessage;
     const finalMetadata = {
       ...committedCoreMetadata,
       indexed_at: indexedAt,
@@ -1845,11 +1829,11 @@ async function processJob(job: JobRow) {
       index_quality_issues: finalQuality.issues,
       index_quality_metrics: finalQuality.metrics,
       optional_index_write_issues: optionalIndexWriteIssues,
-      ...(agentRepairRequired
+      ...(repair.repairRequired
         ? {
             indexing_v3_agent_status: "pending",
-            indexing_v3_agent_last_error: agentRepairMessage,
-            indexing_v3_agent_repair_reason: agentRepairReason,
+            indexing_v3_agent_last_error: repair.repairMessage,
+            indexing_v3_agent_repair_reason: repair.repairReason,
             indexing_v3_agent_updated_at: new Date().toISOString(),
           }
         : {
@@ -1896,36 +1880,13 @@ async function processJob(job: JobRow) {
     await refreshRagTableStats();
   } catch (error) {
     console.error("Ingestion job failed", safeErrorLogDetails(error));
-    const message = error instanceof Error ? error.message : String(error);
-    const partialConflict = isPartialIndexWriteConflict(error);
-    const shouldRetry = isRetryableIngestionError(error) && job.attempt_count < job.max_attempts;
-
-    if (partialConflict) {
-      await failOrRetryJob({
-        job,
-        retry: false,
-        documentStatus: atomicReindex ? "indexed" : "failed",
-        stage: "needs recovery after partial index write",
-        errorMessage: `${message}. Run npm run recover:ingestion -- --apply before retrying this document.`,
-      });
-    } else if (shouldRetry) {
-      await failOrRetryJob({
-        job,
-        retry: true,
-        documentStatus: atomicReindex ? "indexed" : "queued",
-        stage: `retry scheduled after attempt ${job.attempt_count}/${job.max_attempts}`,
-        errorMessage: message,
-        nextRunAt: nextRetryAt(job.attempt_count),
-      });
-    } else {
-      await failOrRetryJob({
-        job,
-        retry: false,
-        documentStatus: atomicReindex ? "indexed" : "failed",
-        stage: "failed",
-        errorMessage: message,
-      });
-    }
+    const decision = ingestionFailureDecision({
+      error,
+      attemptCount: job.attempt_count,
+      maxAttempts: job.max_attempts,
+      atomicReindex,
+    });
+    await failOrRetryJob({ job, ...decision });
   } finally {
     await cleanupExtractedTemporaryPaths(extracted);
     // The progress-throttle entry is only needed while this job is processing;
