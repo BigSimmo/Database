@@ -75,8 +75,10 @@ describe("ModeNav density contract", () => {
     // Raised from 16/26/34 by ledger #113. Those were budgeted for equal `1fr`
     // tracks and were short by roughly the count badge; the slots are now
     // content-sized, so each threshold is the measured sum of the intrinsic
-    // widths it must hold, plus ~1rem of headroom.
-    expect(thresholds).toEqual(["21rem", "31rem", "40rem"]);
+    // widths it must hold, plus ~8% — enough to absorb the font-metric
+    // difference between a development box and a CI runner, which is real and
+    // failed a first attempt at 21/31rem by a single pixel.
+    expect(thresholds).toEqual(["22rem", "33rem", "42rem"]);
 
     // The unit is the mechanism: raising the browser or OS text size grows the
     // root font, so a phone crosses a threshold exactly when its labels would

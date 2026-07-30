@@ -13,13 +13,16 @@ import { expect, test, type Page } from "playwright/test";
  * visible. A mode whose labels are longer than the thresholds allow fails this
  * spec rather than shipping clipped words.
  *
- * Widths are the boundaries themselves (21rem = 336px, 31rem = 496px) and one
+ * Widths are the boundaries themselves (22rem = 352px, 33rem = 528px) and one
  * pixel either side, because a threshold that is one slot too generous only
- * misbehaves in the first pixels above it.
+ * misbehaves in the first pixels above it. That makes this the most valuable
+ * place to assert and the least forgiving: the same labels rasterise wider on a
+ * CI runner than on a development box, so the thresholds carry ~8% headroom
+ * rather than the pixel or two a single machine's measurements would suggest.
  */
 
-const BAND_3_PX = 336; // 21rem — first two destinations + More
-const BAND_4_PX = 496; // 31rem — all four destinations
+const BAND_3_PX = 352; // 22rem — first two destinations + More
+const BAND_4_PX = 528; // 33rem — all four destinations
 
 /**
  * The nav as it is actually anchored, not as it is momentarily served.
@@ -130,7 +133,7 @@ test.describe("ModeNav density", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoTherapySearch(page);
 
-    // 390px at a 32px root is 12.19rem — below the 21rem bar band.
+    // 390px at a 32px root is 12.19rem — below the 22rem bar band.
     await expect.poll(async () => (await readNav(page)).state, { timeout: 10_000 }).toBe("collapsed");
 
     const nav = await readNav(page);
