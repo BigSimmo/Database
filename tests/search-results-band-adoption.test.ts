@@ -166,8 +166,11 @@ function reachabilityRoots(routeAbs: string): string[] {
  * `(search-app)/services/page.tsx` to `<div />` with its imports intact and the
  * gate stayed green, which is the regression it exists to catch. So a static
  * `import { X } from "…"` is followed only when `X` is actually mounted:
- * rendered as JSX, re-exported as the default (a wrapper page mounts with no JSX
- * of its own), or re-exported by name.
+ * rendered as JSX, or re-exported as the default (a wrapper page mounts with no
+ * JSX of its own). A named re-export — `export { X }` — is *not* a mount: it
+ * renders nothing, so counting it let a page re-export a banded component while
+ * its own default rendered `<div />`. Wherever that re-export is finally
+ * mounted, this walk sees the JSX there instead.
  *
  * Three forms are followed unconditionally, because each *is* a mount mechanism
  * rather than a binding that might go unused:
@@ -211,13 +214,10 @@ function followableSpecifiers(source: string, filename: string): string[] {
       const decl = node.declaration as Record<string, unknown> | undefined;
       if (decl && decl.type === "Identifier" && typeof decl.name === "string") mounted.add(decl.name);
     }
-    // `export { X }` — the mount happens in whatever imports it.
-    if (type === "ExportNamedDeclaration" && !node.source) {
-      for (const spec of (node.specifiers ?? []) as Array<Record<string, unknown>>) {
-        const local = spec.local as Record<string, unknown> | undefined;
-        if (local && typeof local.name === "string") mounted.add(local.name);
-      }
-    }
+    // Deliberately NOT a mount: `export { X }` for an imported `X`. Re-exporting
+    // a binding renders nothing, so a page that re-exports a banded component
+    // while its own default renders `<div />` would otherwise report adoption.
+    // A consumer that mounts the re-export is caught where it mounts it.
     // `import("…")`, including inside dynamic(() => import("…")).
     if (
       type === "ImportExpression" ||
@@ -513,6 +513,18 @@ describe("band adoption detection", () => {
         "utf8",
       );
       expect(routeReachesBand(path.join(dir, "reexport-route.tsx"))).toBe(true);
+
+      // A *named* re-export is not a mount. Re-exporting `Banded` renders
+      // nothing, so a page whose own default renders `<div />` must still be
+      // reported as an orphan — the false green Codex found on #1400.
+      writeFileSync(
+        path.join(dir, "named-reexport-route.tsx"),
+        'import { Banded } from "./banded-child";\n' +
+          "export { Banded };\n" +
+          "export default function Page() {\n  return <div />;\n}\n",
+        "utf8",
+      );
+      expect(routeReachesBand(path.join(dir, "named-reexport-route.tsx"))).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
