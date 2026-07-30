@@ -107,6 +107,15 @@ const uiPatterns = [
   /^tests\/playwright-.*\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
   /^scripts\/(run-playwright|playwright-base-url)\.(?:mjs|ts)$/,
+  // Committed visual baselines. Without this a commit that changes only a golden
+  // PNG reports ui_changed=false, the visual job is skipped, and an incorrect or
+  // corrupted baseline is never compared against the app it claims to describe.
+  /^tests\/__screenshots__\//,
+  // The pre-merge Lighthouse budget and its inputs. Without these, enabling
+  // enforcement, refreshing the baseline, or breaking the runner is not exercised
+  // until some unrelated UI or build change happens to trigger the job.
+  "lighthouse-budget.json",
+  /^scripts\/(run|check)-lighthouse-budget\.mjs$/,
 ];
 
 // Migration replay validates schema/SQL tooling, not every API handler. API
@@ -421,6 +430,26 @@ function selfTest() {
     coverage_changed: true,
     ui_changed: true,
   });
+  // A baseline-only commit must still run the visual job, or a corrupted golden is
+  // never compared against the app it claims to describe.
+  assertScope("visual-baseline-png", ["tests/__screenshots__/linux/dashboard-shell.png"], {
+    coverage_changed: true,
+    ui_changed: true,
+  });
+  // The Lighthouse budget's own inputs must trigger the job that consumes them.
+  assertScope("lighthouse-budget-config", ["lighthouse-budget.json"], {
+    coverage_changed: true,
+    ui_changed: true,
+  });
+  assertScope(
+    "lighthouse-budget-runner",
+    ["scripts/run-lighthouse-budget.mjs", "scripts/check-lighthouse-budget.mjs"],
+    {
+      source_changed: true,
+      coverage_changed: true,
+      ui_changed: true,
+    },
+  );
   assertScope("runtime-data", ["data/medications-snapshot.json"], {
     source_changed: true,
     coverage_changed: true,
