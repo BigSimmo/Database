@@ -9,7 +9,7 @@ remediation without re-running discovery.
 | Audit date       | 2026-07-14                                                                                   |
 | Mode             | Pure review (no app-code fixes applied as part of the audit)                                 |
 | Remediation plan | [`audit-remediation-plan-2026-07-14.md`](audit-remediation-plan-2026-07-14.md)               |
-| Ledger rows      | [`branch-review-ledger.md`](branch-review-ledger.md) (multi-skill + consolidated rows)       |
+| Ledger rows      | [`branch-review-ledger.md`](../branch-review-ledger.md) (multi-skill + consolidated rows)    |
 | Plan PR          | [#673](https://github.com/BigSimmo/Database/pull/673) (`cursor/audit-remediation-plan-0411`) |
 | Ledger-only PR   | [#652](https://github.com/BigSimmo/Database/pull/652) (`cursor/repo-wide-audit-ledger-0411`) |
 
@@ -238,14 +238,14 @@ Full address sketches: Remediation Wave I in the remediation plan.
 | Doc                                                                            | Role                             |
 | ------------------------------------------------------------------------------ | -------------------------------- |
 | [`audit-remediation-plan-2026-07-14.md`](audit-remediation-plan-2026-07-14.md) | How to fix, sequenced            |
-| [`operator-backlog.md`](operator-backlog.md)                                   | Human/provider actions index     |
-| [`launch-operator-runbook.md`](launch-operator-runbook.md)                     | Sequenced launch commands        |
-| [`privacy-impact-assessment.md`](privacy-impact-assessment.md)                 | PIA register                     |
-| [`openai-cross-border-basis.md`](openai-cross-border-basis.md)                 | APP 8 checklist                  |
-| [`tenancy-defense-in-depth-review.md`](tenancy-defense-in-depth-review.md)     | Tenancy defense notes            |
-| [`process-hardening.md`](process-hardening.md)                                 | Process & known debts            |
-| [`codex-review-protocol.md`](codex-review-protocol.md)                         | Review severity / mutation rules |
-| [`branch-review-ledger.md`](branch-review-ledger.md)                           | Prevent repeat audits            |
+| [`operator-backlog.md`](../operator-backlog.md)                                | Human/provider actions index     |
+| [`launch-operator-runbook.md`](../launch-operator-runbook.md)                  | Sequenced launch commands        |
+| [`privacy-impact-assessment.md`](../privacy-impact-assessment.md)              | PIA register                     |
+| [`openai-cross-border-basis.md`](../openai-cross-border-basis.md)              | APP 8 checklist                  |
+| [`tenancy-defense-in-depth-review.md`](../tenancy-defense-in-depth-review.md)  | Tenancy defense notes            |
+| [`process-hardening.md`](../process-hardening.md)                              | Process & known debts            |
+| [`codex-review-protocol.md`](../codex-review-protocol.md)                      | Review severity / mutation rules |
+| [`branch-review-ledger.md`](../branch-review-ledger.md)                        | Prevent repeat audits            |
 
 ---
 

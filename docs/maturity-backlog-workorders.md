@@ -82,6 +82,16 @@ structural change, not a single mixed PR.
 - **Progress (#997):** extracted the evidence-gate predicates from `rag.ts` into
   `src/lib/rag/rag-evidence-gates.ts` (rag.ts 5,147 → 5,018), pure moves behind the existing
   budgets.
+- **Progress (#086):** extracted the evidence coverage gate from `rag.ts` into
+  `src/lib/rag/rag-coverage-gate.ts` — `evaluateEvidenceCoverageGate` plus the
+  `applyCoverageGateTelemetry` helper it owns, moved byte-for-byte (rag.ts 5,030 → 4,780,
+  budget ratcheted to 4,780). The shared `visualEvidenceUnitTypes` taxonomy moved to
+  `rag-evidence-gates.ts` because rag.ts's second-stage rerank still reads it; that keeps the
+  new module cycle-free, and `rag.ts` re-exports `evaluateEvidenceCoverageGate` so the public
+  `@/lib/rag/rag` API is unchanged. `prepareCoverageGateResults` deliberately stayed in
+  `rag.ts`: it is pipeline orchestration that calls the metadata/visual hydration and
+  second-stage rerank helpers, so moving it would need a runtime back-edge to `rag.ts`. The
+  hydration cluster is the separate later extraction (`rag-hydration.ts`).
 - **Progress (`DocumentViewer.tsx`):** extracted the cohesive leaf modules into
   `src/components/document-viewer/` — shared row `types.ts`, `source-panels.tsx` (summary
   profile, high-yield summary, source images/tables, pinned evidence, indexed-text panel), the
