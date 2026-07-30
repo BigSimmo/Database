@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { phoneChromePlan, renderPhoneChromeCommand } from "./phone-chrome-plan.mjs";
 
@@ -46,29 +47,45 @@ function changedFiles(explicitFiles) {
   return JSON.parse(result).files;
 }
 
-function run(command) {
+export function runPhoneChromeCommand(command, { spawn = spawnSync } = {}) {
   const executable = process.platform === "win32" && command.executable === "npm" ? "cmd.exe" : command.executable;
   const args =
     executable === "cmd.exe" ? ["/d", "/s", "/c", [command.executable, ...command.args].join(" ")] : command.args;
-  const result = spawnSync(executable, args, { stdio: "inherit" });
+  const result = spawn(executable, args, { stdio: "inherit" });
   return childProcessExitCode(result);
 }
 
-const options = parseArgs(process.argv.slice(2));
-const plan = phoneChromePlan(changedFiles(options.files), { fullMode: options.fullMode });
-console.log(`Phone chrome inputs: ${plan.files.length ? plan.files.join(", ") : "(none detected)"}`);
-console.log(`Full UI policy: ${plan.fullMode} (${plan.fullSelected ? "selected" : "not selected"})`);
-for (const note of plan.notes) console.log(`Note: ${note}`);
-
-if (options.dryRun) {
-  console.log("\nPhone chrome verification plan (dry run):");
-  for (const stage of plan.stages) console.log(`- [${stage.id}] ${renderPhoneChromeCommand(stage.command)}`);
-  process.exit(0);
+export function runPhoneChromeStages(
+  stages,
+  { runCommand = runPhoneChromeCommand, exit = process.exit, log = console.log } = {},
+) {
+  for (const stage of stages) {
+    log(`\n[phone-chrome:${stage.id}] ${stage.label}`);
+    log(`> ${renderPhoneChromeCommand(stage.command)}`);
+    const exitCode = runCommand(stage.command);
+    if (exitCode !== 0) {
+      // Announce on stderr so a piped caller without pipefail still has an
+      // unambiguous failure line in the captured log (outstanding-issues #120).
+      console.error(`[phone-chrome] stage "${stage.id}" failed; exiting with code ${exitCode}`);
+      exit(exitCode);
+      return exitCode;
+    }
+  }
+  return 0;
 }
 
-for (const stage of plan.stages) {
-  console.log(`\n[phone-chrome:${stage.id}] ${stage.label}`);
-  console.log(`> ${renderPhoneChromeCommand(stage.command)}`);
-  const exitCode = run(stage.command);
-  if (exitCode !== 0) process.exit(exitCode);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const options = parseArgs(process.argv.slice(2));
+  const plan = phoneChromePlan(changedFiles(options.files), { fullMode: options.fullMode });
+  console.log(`Phone chrome inputs: ${plan.files.length ? plan.files.join(", ") : "(none detected)"}`);
+  console.log(`Full UI policy: ${plan.fullMode} (${plan.fullSelected ? "selected" : "not selected"})`);
+  for (const note of plan.notes) console.log(`Note: ${note}`);
+
+  if (options.dryRun) {
+    console.log("\nPhone chrome verification plan (dry run):");
+    for (const stage of plan.stages) console.log(`- [${stage.id}] ${renderPhoneChromeCommand(stage.command)}`);
+    process.exit(0);
+  }
+
+  runPhoneChromeStages(plan.stages);
 }
