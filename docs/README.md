@@ -19,6 +19,7 @@ npm run docs:check-links
 | [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run sitemap:update`, verify with `npm run sitemap:check` |
 | [agents-guide.md](agents-guide.md)     | Human onboarding pointer; authoritative agent rules live in the root `AGENTS.md`                        |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                             |
+| [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, platform settings, and acceptance checks                            |
 
 ## Architecture
 
