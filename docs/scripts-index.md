@@ -38,7 +38,8 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 `verify:cheap` → `verify:pr-local` → `verify:ui` → `verify:release`. Building blocks:
 `check-runtime.ts`, `check-github-action-pins.mjs`, `check-gate-manifest.mjs`,
 `check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`,
-`check-maintainability-budgets.mjs`, `check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
+`check-maintainability-budgets.mjs`, `check-upload-limit-parity.mjs`,
+`check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
 `check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
 `check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
 `check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
