@@ -82,12 +82,22 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
-    const result = spawnSync("bash", ["-c", script], {
-      // process.env is spread because this repo augments ProcessEnv with required keys, so a
-      // bare object does not typecheck. All sixteen variables the script reads are overridden
-      // below, and it runs under `set -u`, so the ambient environment cannot change the outcome.
-      env: { ...process.env, ...allGreen, ...overrides },
+    const variables = { ...allGreen, ...overrides };
+    const shellQuote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
+    const assignments = Object.entries(variables)
+      .map(([name, value]) => `${name}=${shellQuote(value)}`)
+      .join("\n");
+
+    // Feed the workflow body over stdin instead of a `bash -c` command-line
+    // argument. MSYS bash on Windows reparses backticks in that argument before
+    // preserving the embedded newlines, so explanatory shell comments can be
+    // executed as command substitutions and make this contract false-green. The
+    // fixed test variables are prepended as assignments because WSL bash does not
+    // inherit arbitrary Windows environment variables unless WSLENV names them.
+    const result = spawnSync("bash", [], {
+      env: process.env,
       encoding: "utf8",
+      input: `${assignments}\n${script}`,
     });
     return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
   }
