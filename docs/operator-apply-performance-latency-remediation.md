@@ -60,9 +60,28 @@ RAG-path index: `fetchDocumentTitleAliasRows` (`src/lib/rag/rag-candidate-source
 can change the title-alias set feeding candidate assembly. No query text changes — but recall does
 not follow from that.
 
-- `documents_status_id_idx` and the `documents_title_bare_trgm_idx` benefit to
-  `src/app/api/documents/route.ts:193` are ordering-safe: that path is a user-facing document
-  list with no retrieval consequence.
+- The `documents_title_bare_trgm_idx` benefit to `src/app/api/documents/route.ts:193` is
+  ordering-safe: that path is a user-facing document list with no retrieval consequence.
+- **CORRECTED AGAIN 2026-07-30 — `documents_status_id_idx` is NOT ordering-safe.** The
+  correction above named the unordered `.limit(12)` as the RAG hazard but attributed it only to
+  the trigram index. Re-read the statement it is talking about
+  (`rag-candidate-sources.ts:482`):
+
+  ```js
+  query = query.or(filters).eq("status", "indexed").limit(12);
+  ```
+
+  One statement carries **both** `.eq("status", "indexed")` and the unordered `LIMIT 12` — and
+  `(status, id)` is exactly the index that serves that equality. So the same mechanism already
+  documented for the trigram index applies here verbatim: a new plan for the `status` predicate
+  can return a different twelve title-alias rows into candidate assembly. Treat
+  `documents_status_id_idx` as **canary-gated**, not as the safe half of this pair.
+
+  The genuinely safe consumer is the other one: `search-scope.ts:271-277` pages with an explicit
+  `.order("id")`, so its selection is stable and only its sort cost changes. Two consumers, two
+  verdicts — do not generalise from the ordered one to the unordered one, which is the error
+  this note corrects.
+
 - The **RAG-path** use of the bare-column trigram indexes is **canary-gated**, full stop. Ordering
   that `.limit(12)` with a stable `ORDER BY` does **not** lift the gate: an unordered `LIMIT` has
   no stable selection to preserve, so imposing an order can pick a different twelve than the
@@ -73,15 +92,25 @@ not follow from that.
   changes, not one gate that ordering unlocks. Do not apply on the retracted semantics-neutral
   claim.
 
-Create them outside a transaction:
+**None of these three is safe to run as a block.** All three are reachable from
+`rag-candidate-sources.ts:482`, whose unordered `LIMIT 12` has no stable selection to preserve —
+see the two corrections above. The `if not exists` guards make each statement individually
+re-runnable; they do **not** make the set semantics-neutral. Every one of them needs the live
+eval-canary pair before it stays.
 
 ```sql
+-- CANARY-GATED: serves the `title ILIKE` half of rag-candidate-sources.ts:482.
 create index concurrently if not exists documents_title_bare_trgm_idx
   on public.documents using gin (title gin_trgm_ops);
 
+-- CANARY-GATED: serves the `file_name ILIKE` half of the same unordered LIMIT 12.
 create index concurrently if not exists documents_file_name_bare_trgm_idx
   on public.documents using gin (file_name gin_trgm_ops);
 
+-- CANARY-GATED (corrected 2026-07-30; previously mislabelled ordering-safe):
+-- (status, id) serves the `.eq("status","indexed")` on that same statement, so it can
+-- change which twelve title-alias rows reach candidate assembly. Its OTHER consumer,
+-- search-scope.ts:271-277, is ordered and genuinely safe — that is not transitive.
 create index concurrently if not exists documents_status_id_idx
   on public.documents (status, id);
 ```
