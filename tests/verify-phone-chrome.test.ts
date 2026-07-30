@@ -46,6 +46,11 @@ describe("phoneChromePlan", () => {
     expect(plan.notes.join(" ")).toContain("recommended");
   });
 
+  it("treats the phone overlay reserve hook as shared chrome foundation", () => {
+    const selected = ids(["src/components/clinical-dashboard/use-phone-overlay-chrome-reserve.ts"]);
+    expect(selected).toEqual(["lock-parity", "runtime", "contracts", "focused-browser", "full-ui"]);
+  });
+
   it.each(["tests/ui-phone-scroll.spec.ts", "tests/ui-tools.spec.ts"])(
     "runs every journey in changed browser spec %s",
     (file) => {

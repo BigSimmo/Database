@@ -65,6 +65,28 @@ export function isPageOwnedComposerRoute(pathname: string): boolean {
   return isDocumentViewerOwnedRoute(pathname) || isCalculatorsOwnedRoute(pathname);
 }
 
+/**
+ * Routes that portal their own page navigation into the universal collapse row
+ * (`PhoneHeaderCollapsePortal`) and therefore keep in-flow collapse motion.
+ *
+ * Overlay motion is the default because collapse animates three heights per hide
+ * and moves content with it. These routes are the deliberate exception: their
+ * collapse row carries an extra navigation band, so the released height is both
+ * larger and route-dependent, and `tests/ui-phone-scroll.spec.ts`'s
+ * `pageOwnedHeaderRoutes` journeys assert in-flow collapse geometry for them —
+ * zero collapse/safe-area heights when hidden, and intermediate height frames
+ * through the transition. Migrating those contracts to overlay is tracked
+ * separately; scoping overlay away from them keeps the phone routes that
+ * actually reported choppiness fixed without invalidating that suite.
+ *
+ * Document detail is NOT listed: it has always used overlay, and its journey
+ * declares `phoneMotion: "overlay"` accordingly.
+ */
+export function isCollapseMotionPhoneRoute(pathname: string): boolean {
+  if (pathname === "/therapy-compass" || pathname.startsWith("/therapy-compass/")) return true;
+  return pathname.startsWith("/differentials/diagnoses/");
+}
+
 export function resolveDashboardVisibleMobileComposerReserve(input: {
   searchMode: string;
   hasAnswerFollowUps: boolean;

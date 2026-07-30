@@ -36,6 +36,7 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import {
   ModeActionPopup,
@@ -1453,6 +1454,11 @@ export function MasterSearchHeader({
   const hideStrategy = hideOnScroll?.strategy;
   const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse";
   const phoneOverlayMotion = hideStrategy === "collapse" && phoneMotion === "overlay";
+  // Outer-scope mirror of `renderSearchComposer`'s local `usesPhoneFooterDock`
+  // for the "default" placement, where `isDesktopHomeComposer` is false. Needed
+  // at the stack render site to decide whether the composer must portal out of
+  // the transformed overlay layer; keep the two in step.
+  const usesPhoneBottomDock = usesPhoneSearchLayout && (isAnswerFooterComposer || isMobileBottomComposer);
   // Overlay hosts that opt into all breakpoints take the header fully out of
   // flow (absolute over the scrolling <main>, which reserves matching top
   // padding) so content frosts under the glass bar at every width.
@@ -2203,13 +2209,28 @@ export function MasterSearchHeader({
             phoneOverlayMotion &&
               (headerChromeHidden
                 ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:translate-y-0 max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
+                : "max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
           )}
         >
           {chromeSafeAreaTop}
           <div className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30">
             {collapsingTopBar}
-            {searchComposer}
+            {/*
+              The overlay hide translates this stack, and a non-none `transform`
+              makes an element a containing block for `position: fixed`
+              descendants. A phone bottom dock left in this subtree therefore
+              resolves `bottom: 0` against the ~72px header instead of the
+              viewport, landing near the top of the screen. Portal it to the
+              frame footer host on phones — the mechanism invariant 21 already
+              requires of every phone footer — while `sm+` keeps it inline in
+              this sticky [top bar | search] stack, because tablet must not
+              double-sticky the composer.
+            */}
+            {phoneOverlayMotion && usesPhoneBottomDock ? (
+              <PhoneFooterLayerPortal>{searchComposer}</PhoneFooterLayerPortal>
+            ) : (
+              searchComposer
+            )}
           </div>
         </div>
       );
