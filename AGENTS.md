@@ -618,8 +618,11 @@ named PR). Future process only.
 - Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a
   stale head that already shares hot files with the open queue.
 - Treat `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` as hot shared files.
-  Both use `merge=union`. Append with `npm run ledger:append` / the `/issues` skill — never
-  hand-write ledger rows, and never resolve an outstanding-issues conflict by taking one side
+  `docs/branch-review-ledger.md` uses the custom `merge=ledger` driver (union with exact-row
+  dedupe); `docs/outstanding-issues.md` deliberately has **no** driver, so overlapping edits
+  conflict loudly rather than being silently concatenated — union was tried and removed
+  (`#133`). Append with `npm run ledger:append` / the `/issues` skill — never hand-write
+  ledger rows, and never resolve an outstanding-issues conflict by taking one side
   wholesale. `npm run check:outstanding-issues` fails on duplicate IDs or a stale
   `issues:next-id` marker.
 - Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run

@@ -2,11 +2,14 @@
 // Structural gate for docs/outstanding-issues.md.
 //
 // Ledger #112. The `issues:next-id` marker is a plain HTML comment that every
-// editor read-modify-writes with no lock. The file now has `merge=union` (PR
-// #1416), which preserves concurrent row appends the same way as
-// docs/branch-review-ledger.md, but union merge cannot allocate unique IDs —
-// two agents can still collide, and a hurried conflict resolution can still
-// take one side wholesale. On 2026-07-29 that happened three times in one hour
+// editor read-modify-writes with no lock. A `merge=union` driver was tried (PR
+// #1416) and removed: unlike docs/branch-review-ledger.md this file allocates
+// IDs by read-modify-write, so union could not allocate unique IDs either, and
+// it silently concatenated conflicting hunks — two marker bumps became two
+// `next-id` lines (#133), and on 2026-07-30 the whole open-items table was
+// duplicated on four merges (#1430). This gate now requires that NO driver is
+// set, so overlapping edits conflict loudly. A hurried conflict resolution can
+// still take one side wholesale. On 2026-07-29 that happened three times in one hour
 // on a single PR, and nothing noticed: no gate read this file's structure at
 // all. This structural gate is what makes those failures loud.
 //
@@ -404,6 +407,36 @@ function selfTest() {
   console.log("outstanding-issues self-test passed.");
 }
 
+/**
+ * The only acceptable state for this file's `merge` attribute.
+ *
+ * Git distinguishes three non-driver states, and they are NOT interchangeable
+ * (see gitattributes, "merge"): *Unspecified* — no pattern matches — is the
+ * documented default 3-way text merge, which is the contract here. *Unset*
+ * (`-merge`) instead takes the current branch's version and declares the merge
+ * conflicted, so every two-sided edit becomes a manual resolution — a different
+ * regression from a driver, but a regression all the same, and one a global or
+ * future attributes file could introduce while this gate stayed green. A named
+ * driver (`union`, `ledger`, …) is the case #133 removed.
+ *
+ * Exported so the distinction is unit-tested rather than only reasoned about.
+ */
+export function mergeAttributeProblem(mergeAttribute) {
+  if (mergeAttribute === "unspecified") return null;
+  if (mergeAttribute === "unset") {
+    return (
+      `${ISSUES_PATH} must leave \`merge\` unspecified (found \`-merge\`, i.e. Unset) — ` +
+      "Unset takes the current branch's version and declares a conflict instead of running the " +
+      "default 3-way merge, so drop the negated attribute rather than adding one (ledger #133)"
+    );
+  }
+  return (
+    `${ISSUES_PATH} must have NO merge driver (found merge=${mergeAttribute || "empty"}) — ` +
+    "remove it from .gitattributes so overlapping edits conflict loudly instead of " +
+    "silently concatenating both sides (ledger #133)"
+  );
+}
+
 function effectiveMergeAttribute() {
   const output = execFileSync("git", ["check-attr", "merge", "--", ISSUES_PATH], {
     encoding: "utf8",
@@ -419,13 +452,12 @@ function main() {
   }
   const markdown = readFileSync(ISSUES_PATH, "utf8");
   const problems = checkIssues(markdown);
-  const mergeAttribute = effectiveMergeAttribute();
-  if (mergeAttribute !== "union") {
-    problems.push(
-      `${ISSUES_PATH} must resolve to merge=union (found ${JSON.stringify(mergeAttribute || "unset")}) — ` +
-        "set it in .gitattributes so concurrent appends keep both sides' rows",
-    );
-  }
+  // A merge driver on this file is a regression, not an improvement: union
+  // concatenated conflicting hunks and duplicated the whole table rather than
+  // failing (#133, and four times on PR #1430). Honest conflicts are the
+  // contract; ids still need manual renumbering either way.
+  const mergeProblem = mergeAttributeProblem(effectiveMergeAttribute());
+  if (mergeProblem) problems.push(mergeProblem);
   if (problems.length > 0) {
     console.error(`${ISSUES_PATH} check FAILED:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -439,7 +471,7 @@ function main() {
   const open = rows.filter((row) => row.table === "open").length;
   console.log(
     `Outstanding-issues guard passed: ${rows.length} rows (${open} open, ${rows.length - open} archived), ` +
-      `unique ids, next-id=${nextId} above the highest, union merge active.`,
+      `unique ids, next-id=${nextId} above the highest, no merge driver.`,
   );
 }
 
