@@ -562,7 +562,9 @@ describe("a sample count too small to grade", () => {
 
     expect(mobileBreaches(rows, DEFAULT_ROUTES, 1)).toEqual([]);
     expect(incompleteEvidence(rows, DEFAULT_ROUTES, 1)).toEqual([]);
-    expect(straddlesThreshold([1200], WEB_VITALS_THRESHOLDS.lcpMs)).toBe(false);
+    // The heart of it: with one sample the cell's range has zero width, so the
+    // straddle check — the whole mechanism #114 added — cannot ever fire.
+    expect(straddlesThreshold(aggregateCells(rows, 1).get("mobile-root"))).toBe(false);
 
     const table = renderTable(rows, DEFAULT_ROUTES, 1);
     expect(table).toContain("NOT an #017 verdict");
