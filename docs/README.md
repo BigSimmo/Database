@@ -68,6 +68,7 @@ npm run docs:check-links
 - [productivity-workflows.md](productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
+- [codex-cloud.md](codex-cloud.md) — reproducible provider-free Codex Cloud environment and acceptance check
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (live + archives), write with `npm run ledger:append`, `npm run ledger:dedupe` after sync twins, `npm run ledger:rotate` for quarterly archive
 

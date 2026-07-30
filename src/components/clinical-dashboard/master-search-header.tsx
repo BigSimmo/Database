@@ -2110,6 +2110,17 @@ export function MasterSearchHeader({
     const collapsingTopBar = (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        // `data-scroll-hidden` is `scrollHidden && !sharedChromePinned`, so its absence has
+        // two causes a test cannot separate: this header's own scroll signal never arrived,
+        // or it did and a pin held the chrome open. Publishing the raw signal makes that
+        // observable. Nothing styles this attribute; it exists so a failing assertion can
+        // name its cause. The page-owned document composer is NOT a proxy for it —
+        // DocumentViewer runs its own reporters (use-document-viewer-chrome-scroll) while
+        // this header is driven by the shell's separate one (global-search-shell.tsx
+        // `chromeScrollHide`), and the two can legitimately disagree, notably where an
+        // inner scroller moves but `window.scrollY` does not, which the shell's
+        // document-only feed cannot see.
+        data-scroll-signal={scrollHidden ? "hidden" : "visible"}
         data-phone-motion={phoneMotion}
         data-testid="universal-header-collapse"
         className={cn(
