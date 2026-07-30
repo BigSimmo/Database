@@ -480,6 +480,12 @@ Durable mitigations in this repo:
   `do not merge` title.
 - Prefer fewer long-lived open PRs; land or close queue items rather than
   repeatedly re-merging `main` by hand.
+- Before mutating an open PR with `update-branch` or `git merge origin/main`,
+  check whether its current head has required CI in flight. If the branch is
+  merely behind and the merge tree is clean, let that run settle and sync once,
+  late, after review/fix work is assembled. Preempt an in-flight run only when
+  the branch is genuinely blocking-conflicted or the user explicitly asks for
+  an immediate sync; do not disable `cancel-in-progress`.
 - `docs/branch-review-ledger.md` stays append-only with the `ledger` merge driver
   (union + exact-row dedupe); do not rewrite existing rows during syncs. If a
   sync still surfaces exact twins, run `npm run ledger:dedupe` only.
@@ -634,8 +640,11 @@ named PR). Future process only.
 ### Speed CI without skipping quality
 
 - Assemble every commit for a head before the first push, or wait for the current PR CI run
-  to settle before pushing again. `cancel-in-progress: true` cancels Production UI mid-flight
-  on every superseding push (~40% of recent PR CI runs were cancellations).
+  to settle before pushing again. Apply the same settle-first rule to branch syncs: for a
+  behind-but-clean PR with required CI in flight, wait, then perform at most one late
+  `update-branch` / `git merge origin/main` after review and fix work is assembled.
+  `cancel-in-progress: true` should remain enabled, but every superseding push or sync cancels
+  Production UI mid-flight (~40% of recent PR CI runs were cancellations).
 - Before push: `npm run format` **and commit the result**, then
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
@@ -791,7 +800,7 @@ When explicitly asked to fix or resolve review findings:
 - After fixing a P0 or P1 finding, reply with the fix summary and resolve the review conversation when supported by GitHub permissions/tooling.
 - After fixing an approved P2 or lower finding, reply with the fix summary and resolve the review conversation when supported.
 - After deciding not to fix a P2 or lower finding, reply with the reason, note whether it is deferred or not actionable, and resolve the review conversation when supported.
-- For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`. The workflow uses this trusted marker to close that exact thread.
+- For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`. On the next line, use `<!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->` for a code fix or `<!-- codex-thread-result:no-change -->` for a no-code disposition. The workflow closes the thread only when exactly one result is declared and a reported fixed commit is the pull request head.
 - Do not use the marker when human input or new authorization is required; explain the blocker and leave that thread open.
 - Do not leave a review conversation open after it has been fixed or fully dispositioned. If direct resolution is unavailable, the marker reply is the required fallback and the workflow performs the closure.
 
@@ -809,7 +818,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 - Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
 - Post the `@codex` resolve request with a real (non-bot) user identity — a fine-grained PAT held in the `CODEX_TRIGGER_TOKEN` secret. The Codex connector ignores commands authored by `github-actions[bot]`, so a bot-authored request is silently dropped. The token needs `pull-requests: write` (issue-comment) access and no more.
 - The workflow must treat unmarked review-thread replies as inert. A trusted Codex reply beginning with `<!-- codex-thread-disposition:resolved -->` may only resolve the exact containing thread, and a non-reply Codex review comment must never be turned into a new repair request.
-- The workflow must ask Codex to resolve only existing actionable Codex review findings for the triggering pull request and current head using these repository instructions; the resolve task must not perform a new review or create new findings.
+- The workflow must ask Codex to resolve only existing actionable Codex review findings for the triggering pull request and current head using these repository instructions; the resolve task must not perform a new review or create new findings. It must name the exact repository and PR head branch, require fixes to be published there through the authenticated GitHub connector, forbid detached `work` branches and stacked pull requests, and treat a local-only commit as a visible failure.
 - The workflow may request one automatic repair pass per pull request lifetime. Later heads require an explicit human request.
 - Only trust a pull-request deduplication marker when it was posted by the trigger-token account (the same identity that posts the request), resolved at runtime rather than hard-coded.
 - Permission failures while reading or creating pull-request comments must fail the workflow visibly, not return a successful soft-skip.
@@ -820,7 +829,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 ### Primary PR command
 
-`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with <!-- codex-thread-disposition:resolved --> as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
+`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. The workflow will provide the only allowed repository, pull-request head branch, and starting commit. Publish every approved fix to that exact head branch through the authenticated GitHub connector; never use a detached or synthetic work branch and never create a stacked pull request. Verify the pull-request head contains the pushed commit before reporting success. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. For a fixed thread, reply with <!-- codex-thread-disposition:resolved --> followed by <!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->. For a no-code disposition, use <!-- codex-thread-disposition:resolved --> followed by <!-- codex-thread-result:no-change -->. A local-only commit is not a fix. If publication or verification fails, use neither result marker, do not claim success, and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
 
 ## Codex Cloud environment
 
@@ -851,6 +860,10 @@ Use `docs/codex-cloud.md` as the environment contract:
   agent phase; do not copy them into files to bypass that boundary.
 - Provider-backed checks, hosted CI mutations, deployment, production data access, and
   Git publishing still require the explicit authorization defined above.
+- Authenticated live tests run through the manual
+  `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
+  dispatch confirmation, and the `Database / production` environment, never by exposing
+  credentials to the Codex Cloud agent shell.
 - The Codex GitHub connection used to clone a repository is separate from agent-shell
   `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
