@@ -25,10 +25,10 @@ import { cn } from "@/components/ui-primitives";
 // Two strings are governance copy, not design copy, and are pinned by
 // tests/privacy-ui.test.ts: "Do not enter patient-identifiable information."
 // (APP-5 / PIA-5) and the "Privacy and data processing" link to /privacy.
-// Concept 02 keeps both always visible. Concepts 01 and 03 keep the full
-// strings reachable (Details / Why) but paraphrase the collapsed phone/footnote
-// line — those paraphrases need the same governance sign-off as study-2 F
-// before adoption, and are labelled as such on the page.
+// Concept 01 and 02 keep the pinned APP-5 sentence on the bar/card. Concept 03
+// paraphrases the collapsed footnote line ("No patient identifiers") and parks
+// the privacy link behind Why — that paraphrase needs the same governance
+// sign-off as study-2 F before adoption, and is labelled as such on the page.
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -59,8 +59,8 @@ const concepts: Array<{
     name: "Assurance bar",
     summary:
       "One 24px row. Obligation and verify-before-use stay permanently visible; scope, library and the privacy link move behind a quiet Details disclosure.",
-    strengths: ["Smallest footprint", "Fits the docked composer", "Desktop obligation stays on-bar"],
-    cost: "Scope and the privacy link cost one tap; the compact phone line paraphrases APP-5 (governance-gated), and the row grows to two lines rather than clipping.",
+    strengths: ["Smallest footprint", "Fits the docked composer", "Pinned APP-5 stays on-bar"],
+    cost: "Scope and the privacy link cost one tap, and the row grows to two lines on a narrow phone rather than clipping or paraphrasing APP-5.",
   },
   {
     id: "card",
@@ -139,7 +139,7 @@ function AssuranceBar({ compact = false, instanceId }: { compact?: boolean; inst
             the Details disclosure is allowed to hide anything, and it hides only
             descriptive copy. */}
         <p className="min-w-0 flex-1 text-2xs font-semibold leading-4 text-[color:var(--text-heading)]">
-          {compact ? "No patient-identifiable information" : OBLIGATION}
+          {OBLIGATION}
           <span className="mx-1.5 font-normal text-[color:var(--border-strong)]" aria-hidden>
             |
           </span>
@@ -483,7 +483,7 @@ export function WarningConsolidationMockupsPage() {
           <div className="grid gap-3">
             <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3">
               <p className="mb-2 text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-                Governance copy — pinned; concept 02 keeps both always visible
+                Governance copy — pinned; concepts 01 and 02 keep APP-5 on-bar
               </p>
               <ul className="grid gap-1.5 text-2xs leading-4 text-[color:var(--text-muted)]">
                 <li>
@@ -496,10 +496,10 @@ export function WarningConsolidationMockupsPage() {
                 </li>
               </ul>
               <p className="mt-2 text-2xs leading-4 text-[color:var(--text-soft)]">
-                Both may be re-styled and re-grouped. Concept 02 never paraphrases or drops them. Concepts 01 (compact
-                phone) and 03 (collapsed footnote) paraphrase the obligation and park the privacy link behind a
-                disclosure — those variants need the same clinical/privacy sign-off as study-2 F before adoption, and
-                are not free design options.
+                Both may be re-styled and re-grouped. Concepts 01 and 02 never paraphrase APP-5; 01 still parks the
+                privacy link behind Details. Concept 03 paraphrases the collapsed line to “No patient identifiers” and
+                hides the privacy link behind Why — that variant needs the same clinical/privacy sign-off as study-2 F
+                before adoption, and is not a free design option.
               </p>
             </div>
             {showBaseline ? (
