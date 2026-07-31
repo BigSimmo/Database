@@ -3261,6 +3261,20 @@ html.theme-transitioning *:after {
   font-weight: 560;
   letter-spacing: -0.023em;
 }
+/* The query now sits after the count rather than leading the band, so it steps
+   down to reading weight: it anchors the number without competing with it. */
+.search-band-subject {
+  font-size: 0.875rem;
+  font-weight: 450;
+  letter-spacing: -0.006em;
+}
+/* Small enough to read as a label rather than a control, which is what stops a
+   row of accent chips reading as a second bank of buttons. */
+.search-band-shelf-label {
+  font-size: 0.625rem;
+  font-weight: 560;
+  letter-spacing: 0.1em;
+}
 .search-band-count {
   font-size: 1.21875rem;
   font-weight: 580;

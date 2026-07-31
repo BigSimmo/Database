@@ -877,10 +877,14 @@ Use `docs/codex-cloud.md` as the environment contract:
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
 - For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
   tools as the default remote control plane. Use them for repository, PR, issue, review
-  thread, and Actions work, including inline-thread replies/resolution and approved branch,
-  file, or PR mutations. Missing `gh`, shell GitHub credentials, or direct shell network
-  access is not a loss of this capability and must not prompt a PAT workaround.
-- Confirm the exact repository and PR/thread/job before a write. If the connector lacks a
+  thread, and Actions work, including inline-thread replies/resolution, Actions
+  run/job/log/artifact inspection, and approved branch, file, or PR mutations. Missing
+  `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
+  capability and must not prompt a PAT workaround. The intended connection is `BigSimmo`
+  with administrator access to this repository. Use shell `git` or `gh` only for a
+  genuine connector gap and only when the task permits it.
+- Confirm the exact repository and PR/thread/job before a write, and verify the
+  connector result before treating the write as successful. If the connector lacks a
   needed GitHub setting or organisation control, report that limit rather than attempting a
   credential, secret, or shell-based bypass.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
@@ -896,3 +900,11 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
 - What still won't run in this VM even with secrets: `npm run worker` also needs the Python OCR stack (`worker/python/requirements.txt`) and heavy parsing deps; Supabase edge functions need Deno v2.x + deployment. `verify:release` additionally runs governance/eval gates. Treat missing-secret failures of `check:supabase-project`/`verify:release` in demo mode as expected, not regressions.
 - Dev server: `npm run dev` selects a stable per-project localhost port (e.g. `4461`), binds `0.0.0.0`, and prints the exact URL. Never assume port 3000/3001/3002. `npm run ensure` starts/verifies it in the background.
 - Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/testing.md` for lock, live-test, Playwright, and flake-ledger rules.
+- For GitHub-related work authorised in this session, prefer the connected GitHub
+  connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
+  support (including run/job/log/artifact inspection and review-thread replies/resolution).
+  A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
+  workaround. The intended connection is `BigSimmo` with administrator access to this
+  repository. Verify the exact target and connector result before any write. Ordinary
+  authorised shell `git` branch publication remains allowed; use shell `gh` only for a
+  genuine connector gap and only when the task permits it.

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenText, Clock, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpenText, Clock } from "lucide-react";
 
 import {
   categoryCount,
@@ -136,7 +136,6 @@ export function FactsheetsHomePage() {
 
         <div className="w-full px-4 pt-1 sm:px-0">
           <ModeHomeVerificationFooter
-            icon={ShieldCheck}
             label="Demonstration patient information"
             body="Connect only governance-approved content before publication"
           />
