@@ -13,6 +13,7 @@ RAG impact: no retrieval behaviour change — prompt presentation only adds cons
 - [x] `npm run eval:rag:offline` — 36/36 golden retrieval cases
 - [x] `npm run check:production-readiness:ci` returned READY (offline; expected missing-env warnings)
 - [x] `npm run build` succeeded for production instrumentation wiring
+- [x] Merged `origin/main` and resolved Codex Cloud git-remote helper conflicts; `git merge-tree` vs `origin/main` is clean
 - UI verification not run: no UI, routing, styling, or browser-behavior changes
 - Live answer-generation quality evaluation not run — OpenAI/provider interaction requires explicit owner approval
 
