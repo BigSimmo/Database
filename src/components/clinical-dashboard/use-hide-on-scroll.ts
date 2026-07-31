@@ -148,6 +148,22 @@ export function computeScrollHideUpdate(params: {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
+  // Viewport/layout range changes (Safari toolbar collapse, Playwright
+  // `setViewportSize`, overlay-reserve remeasure) can emit a one-shot upward
+  // scroll reading while the user is still mid-page. Treat that as geometry
+  // feedback, not reveal intent, when the offset remains past the hide band and
+  // the upward delta has not yet reached deliberate reveal travel (#146).
+  if (
+    currentlyHidden &&
+    maxOffset !== undefined &&
+    previousMaxOffset !== undefined &&
+    maxOffset !== previousMaxOffset &&
+    offset > hideActivationOffset + hideIntentDistance &&
+    lastOffset - offset < revealIntentDistance
+  ) {
+    return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+
   const delta = offset - lastOffset;
   if (Math.abs(delta) < minimumDelta) {
     return { hidden: currentlyHidden, lastOffset, direction, directionTravel };
@@ -504,6 +520,10 @@ export function useDocumentScrollHideReporter(
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
+    // Re-sample metrics when the layout viewport changes so maxOffset updates
+    // through the range-change hold above instead of waiting for a user scroll
+    // that may never come after a toolbar-style shrink (#146).
+    window.addEventListener("resize", onScroll, { passive: true });
     window.addEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, {
       capture: true,
       passive: true,
@@ -519,6 +539,7 @@ export function useDocumentScrollHideReporter(
     window.addEventListener("keydown", releaseComposerFocusOnKeyboardScrollIntent, true);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
       window.removeEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, true);
       window.removeEventListener("touchmove", releaseComposerFocusOnOutsideScrollIntent, true);
       window.removeEventListener("pointerdown", releaseComposerFocusOnOutsideScrollIntent, true);
@@ -616,8 +637,11 @@ export function useHideOnScroll({
       if (target === attachedTarget) return true;
 
       attachedTarget?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
       attachedTarget = target;
       target.addEventListener("scroll", onScroll, { passive: true });
+      // Same range-change hold as useDocumentScrollHideReporter (#146).
+      window.addEventListener("resize", onScroll, { passive: true });
       reportScroll(readMetrics());
       return true;
     };
@@ -637,6 +661,7 @@ export function useHideOnScroll({
     return () => {
       disposed = true;
       attachedTarget?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
       if (frame) window.cancelAnimationFrame(frame);
       if (attachFrame) window.cancelAnimationFrame(attachFrame);
     };

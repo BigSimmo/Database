@@ -62,6 +62,11 @@ describe("shared header hide/reveal wiring", () => {
     expect(dashboardCoordinatorSource).toContain(
       "useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainScrollRoot, composerInputRef)",
     );
+    // #146: viewport/toolbar range changes must re-sample maxOffset without
+    // waiting for a user scroll that may never arrive after chrome re-shows.
+    expect(hookSource).toContain('window.addEventListener("resize", onScroll, { passive: true })');
+    expect(hookSource).toContain("maxOffset !== previousMaxOffset");
+    expect(hookSource).toContain("lastOffset - offset < revealIntentDistance");
   });
 
   it("feeds DocumentViewer footer chrome from both possible phone scroll owners", () => {
