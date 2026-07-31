@@ -12,6 +12,10 @@ Design direction is **settled**. Work on the UI is convergence — closing the g
 contract and the code — not reinvention. If a change genuinely needs a new direction, update
 `permanent-colour-direction.md` first, then the code.
 
+Comparison surfaces also follow [`comparison-behaviour.md`](comparison-behaviour.md). That contract
+standardises selection and interaction states while leaving clinical fields and meaning with each
+mode.
+
 ## 1. Non-negotiables
 
 - **Tokens only.** Every colour comes from a CSS custom property defined in
