@@ -3260,7 +3260,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
     await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse sources/i }).first();
+    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
     await expect(recentDocumentsButton).toBeVisible();
     await expect(browseLibraryButton).toBeVisible();
@@ -3324,11 +3324,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await filterPanel.getByTestId("document-filter-done").click();
     await expect(filterPanel).toHaveCount(0);
     await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
-    const ribbonSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
-    await expect(ribbonSourcesButton).toBeVisible();
-    await expectMinTouchTarget(ribbonSourcesButton);
+    // Renamed from "Open source filters": it browses, it does not refine, and
+    // the old name is what made it read as a duplicate of Filter.
+    const ribbonLibraryButton = queryRibbon.getByRole("button", { name: "Open source library" });
+    await expect(ribbonLibraryButton).toBeVisible();
+    await expectMinTouchTarget(ribbonLibraryButton);
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
-    await expect(documentWorkspace.getByRole("button", { name: /Browse sources/i })).toHaveCount(0);
+    await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
     await expect(page.getByText(/Also in your library/i)).toHaveCount(0);
 
@@ -3457,7 +3459,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // The same panel, reached from the wide-viewport copy of the trigger.
     const wideFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-wide");
     await expect(wideFilterTrigger).toBeVisible();
-    await expectMinTouchTarget(wideFilterTrigger);
+    // No tap-target assertion here: from `sm` up the ribbon controls are
+    // deliberately `min-h-10` (40px) for fine pointers. The 44px floor is a
+    // phone contract and is asserted on the phone trigger at 390px above.
     await expect(queryRibbon.getByTestId("document-filter-trigger-phone")).toBeHidden();
     await wideFilterTrigger.click();
     const wideFilterPanel = page.getByTestId("document-filter-panel");
@@ -3466,8 +3470,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(wideFilterPanel).toHaveCount(0);
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
-    const openSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
-    await openSourcesButton.click();
+    await ribbonLibraryButton.click();
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
     // Prefer Playwright's focus waiter over a raw activeElement poll — Sheet
@@ -3482,7 +3485,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
     await expect
-      .poll(async () => openSourcesButton.evaluate((el) => el === document.activeElement), {
+      .poll(async () => ribbonLibraryButton.evaluate((el) => el === document.activeElement), {
         timeout: 15_000,
       })
       .toBe(true);
@@ -3517,7 +3520,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await switchToDocumentSearchMode(page);
     await page
-      .getByRole("button", { name: /Browse sources/i })
+      .getByRole("button", { name: /Browse library/i })
       .first()
       .click();
     await expect.poll(() => requestCounts.documents).toBe(1);

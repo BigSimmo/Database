@@ -752,8 +752,8 @@ function DocumentSearchHome({
       action: onOpenRecentDocuments,
     },
     {
-      label: "Browse sources",
-      description: "Filter all indexed sources.",
+      label: "Browse library",
+      description: "Open any indexed source.",
       icon: BookOpen,
       action: onOpenLibrary,
     },
@@ -1172,20 +1172,27 @@ function DocumentSearchResultsPanelImpl({
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
           onSortChange={matches.length > 0 ? setSortValue : undefined}
+          // Kept in the ribbon rather than deferred to the documents action
+          // menu: that menu item routes through `onSearchModeChange`, which
+          // clears the query and the submitted flag, so reaching the library
+          // that way would discard the search the reader is looking at. This is
+          // the only in-context route to it. Its old name ("Open source
+          // filters" / "Filter and browse sources") is what made it read as a
+          // second filter next to Filter — browsing is not refining.
           utilityControls={
             !loading && !shouldShowHome ? (
               <button
                 type="button"
                 onClick={onOpenLibrary}
-                aria-label="Open source filters"
-                title="Filter and browse sources"
+                aria-label="Open source library"
+                title="Browse all indexed sources"
                 className={cn(
                   floatingControl,
                   "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
                 )}
               >
                 <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
-                <span>Sources</span>
+                <span>Library</span>
               </button>
             ) : null
           }

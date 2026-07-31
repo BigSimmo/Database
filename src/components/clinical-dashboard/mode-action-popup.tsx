@@ -178,7 +178,7 @@ const modeActionSets = {
     },
     { id: "documents-scope", label: "Scope sources", description: "Limit answers to selected sources", icon: Filter },
     { id: "documents-recent", label: "Recent documents", description: "Browse recently updated", icon: Clock3 },
-    { id: "documents-collections", label: "Collections", description: "Open document folders", icon: FolderOpen },
+    { id: "documents-collections", label: "Browse library", description: "All indexed sources", icon: FolderOpen },
     { id: "documents-tables", label: "Tables", description: "Search table evidence", icon: Table2 },
     { id: "documents-viewer", label: "Open source PDF", description: "View a source document", icon: FileText },
   ],
