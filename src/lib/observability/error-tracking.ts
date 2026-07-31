@@ -64,27 +64,14 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   };
 }
 
+/**
+ * Status probe only. Runtime init is owned by `src/sentry.server.config.ts`
+ * (loaded once from `instrumentation.register`) so privacy scrubbing cannot race
+ * a second `Sentry.init()`.
+ */
 export async function initializeErrorTracking(): Promise<boolean> {
   const dsn = process.env.SENTRY_DSN?.trim();
-  if (process.env.NODE_ENV !== "production" || process.env.NEXT_RUNTIME !== "nodejs" || !dsn) return false;
-
-  try {
-    const Sentry = await import("@sentry/nextjs");
-    Sentry.init({
-      dsn,
-      environment: process.env.SENTRY_ENVIRONMENT?.trim() || "production",
-      sendDefaultPii: false,
-      enableLogs: false,
-      tracesSampleRate: 0,
-      attachStacktrace: true,
-      maxBreadcrumbs: 0,
-      beforeSend: privacySafeErrorEvent,
-    });
-    return true;
-  } catch {
-    // Optional observability must never take down the clinical server.
-    return false;
-  }
+  return process.env.NODE_ENV === "production" && process.env.NEXT_RUNTIME === "nodejs" && Boolean(dsn);
 }
 
 export const captureRequestError: Instrumentation.onRequestError = async (error, _request, context) => {
