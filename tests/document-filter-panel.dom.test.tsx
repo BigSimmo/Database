@@ -211,6 +211,9 @@ describe("document filter panel", () => {
 
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
     expect(screen.getByTestId("document-filter-panel")).toBeInTheDocument();
+    // Prove the lock was taken, or the release assertion below passes vacuously
+    // the day the sheet stops locking at all.
+    expect(document.body.style.overflow).toBe("hidden");
 
     rerender(<DocumentSearchResultsPanel {...baseProps} loading />);
 

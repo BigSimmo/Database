@@ -559,12 +559,22 @@ test.describe("Clinical KB accessibility coverage", () => {
       const bounds = element.getBoundingClientRect();
       return { width: bounds.width, height: bounds.height };
     });
+    // 44, not 48. This trigger sits in the ribbon's utility row beside
+    // `ResultSortControl`, which is `min-h-tap` (44px) — raising only this
+    // control would leave the row visibly ragged. The repo's `min-h-12` rule
+    // exists to stop generic a11y advice pulling production down to `min-h-11`
+    // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
+    // sheet's own toggles, which have the room, are `min-h-12`.
     expect(triggerSize.width).toBeGreaterThanOrEqual(44);
     expect(triggerSize.height).toBeGreaterThanOrEqual(44);
 
     await therapyFilterTrigger.click();
     const therapyFilterPanel = page.getByTestId("therapy-filter-panel");
     await expect(therapyFilterPanel).toBeVisible();
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-expanded", "true");
+    const therapyPanelId = await therapyFilterPanel.getAttribute("id");
+    expect(therapyPanelId).toBeTruthy();
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-controls", therapyPanelId!);
 
     // The state the old select could not express: selection is on the control
     // itself, and turning one on leaves the others alone.
@@ -583,6 +593,19 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await therapyFilterPanel.getByTestId("therapy-filter-done").click();
     await expect(therapyFilterPanel).toHaveCount(0);
+
+    // End-to-end guard the component tests cannot give: it is `SearchScreen`
+    // that decides what the trigger counts. A query-only session must offer
+    // Clear all (the phone's only route to `clearSearch`) while the badge still
+    // reports no filters, because a search term is not a filter.
+    await page.goto("/therapy-compass/search?q=anxiety", { waitUntil: "domcontentloaded" });
+    await expect(therapyRibbon.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
+    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    await expect(queryOnlyTrigger).toHaveAccessibleName(/No filters active/);
+    await queryOnlyTrigger.click();
+    const queryOnlyPanel = page.getByTestId("therapy-filter-panel");
+    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toBeVisible();
+    await queryOnlyPanel.getByTestId("therapy-filter-done").click();
 
     await expectNoPageHorizontalOverflow(page);
 

@@ -23,7 +23,12 @@ export function SearchScreen() {
   const availabilityFilterCount = Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
   // Match the sheet: a non-empty query is an active narrowing control on phone,
   // where Clear only lives inside the filter sheet (wide keeps a ribbon Clear).
-  const activeFilterCount = b.search.tags.length + availabilityFilterCount + (q.trim() ? 1 : 0);
+  // Filters only — the query is deliberately excluded. It counts toward the
+  // sheet's Clear all (see `filter-sheet.tsx`), because `clearSearch` resets it,
+  // but the trigger badge is labelled "N filters active" and a search term is
+  // not a filter. Counting it there makes the control announce a state the page
+  // is not in, which is the exact defect this screen's sheet was built to fix.
+  const activeFilterCount = b.search.tags.length + availabilityFilterCount;
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
 

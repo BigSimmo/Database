@@ -53,7 +53,7 @@ export function TherapyFilterSheet({
   // Include the query so a query-only phone session still gets Clear all.
   // Wide viewports always show Clear in the ribbon; the sheet is the phone's
   // equivalent, and onClear already resets query via clearSearch.
-  const activeCount = activeTopics.length + Number(reviewedOnly) + Number(briefOnly) + (query.trim() ? 1 : 0);
+  const clearableCount = activeTopics.length + Number(reviewedOnly) + Number(briefOnly) + (query.trim() ? 1 : 0);
 
   return (
     <Sheet
@@ -64,7 +64,7 @@ export function TherapyFilterSheet({
       id={panelId}
       testId="therapy-filter-panel"
       headerActions={
-        activeCount > 0 ? (
+        clearableCount > 0 ? (
           <button
             type="button"
             onClick={onClear}
@@ -98,7 +98,7 @@ export function TherapyFilterSheet({
                 type="button"
                 onClick={() => onToggleTopic(topic)}
                 aria-pressed={on}
-                className={`tc-btn ${softControl}${on ? " tc-is-selected" : ""}`}
+                className={`tc-btn min-h-12 ${softControl}${on ? " tc-is-selected" : ""}`}
               >
                 {on ? <CheckIcon size={14} strokeWidth={2} /> : null}
                 {topic}
@@ -115,7 +115,7 @@ export function TherapyFilterSheet({
             type="button"
             onClick={onToggleReviewed}
             aria-pressed={reviewedOnly}
-            className={`tc-btn ${softControl}${reviewedOnly ? " tc-is-success" : ""}`}
+            className={`tc-btn min-h-12 ${softControl}${reviewedOnly ? " tc-is-success" : ""}`}
           >
             {reviewedOnly ? <CheckIcon size={14} strokeWidth={2} /> : null}
             Reviewed only
@@ -124,7 +124,7 @@ export function TherapyFilterSheet({
             type="button"
             onClick={onToggleBrief}
             aria-pressed={briefOnly}
-            className={`tc-btn ${softControl}${briefOnly ? " tc-is-selected" : ""}`}
+            className={`tc-btn min-h-12 ${softControl}${briefOnly ? " tc-is-selected" : ""}`}
           >
             {briefOnly ? <CheckIcon size={14} strokeWidth={2} /> : null}
             Brief available
