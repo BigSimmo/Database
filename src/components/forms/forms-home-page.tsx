@@ -136,7 +136,6 @@ export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: st
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
               label="Source catalogue reviewed"
               body="Official-source MHA 2014 forms · verify before use"
               verifiedCount={verifiedCount}

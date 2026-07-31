@@ -22,7 +22,7 @@
 //
 // It deliberately does NOT solve id collisions between concurrent branches:
 // allocation is still read-modify-write against the marker, so two branches can
-// still pick the same number. That is ledger #154's territory and needs a
+// still pick the same number. That is ledger #156 / #168 territory and needs a
 // different id scheme, not a better writer.
 //
 // Usage:

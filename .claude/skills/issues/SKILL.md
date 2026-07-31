@@ -70,7 +70,8 @@ archive), moves rather than copies on `done`, reshapes to each table's width, es
 re-runs the gate against its own output — refusing to write anything CI would reject. Hand-editing
 is what produced the wrong-table inserts, unescaped pipes and broken cell counts this writer exists
 to prevent; treat it like `ledger:append` for the review ledger. It does **not** solve id collisions
-between concurrent branches (see `#154`) — that needs a different id scheme, not a better writer.
+between concurrent branches (see `#156` / `#168`) — that needs a different id scheme, not a better
+writer.
 
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
 - Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
