@@ -119,6 +119,14 @@ describe("Tabs", () => {
     expect(panel).toHaveAttribute("aria-labelledby", tab.id);
     expect(tab).toHaveAttribute("aria-controls", panel.id);
   });
+
+  it("does not point unselected tabs at missing panel ids", () => {
+    render(<Harness />);
+    const selected = screen.getByRole("tab", { name: "Answer" });
+    const other = screen.getByRole("tab", { name: "Sources" });
+    expect(selected).toHaveAttribute("aria-controls");
+    expect(other).not.toHaveAttribute("aria-controls");
+  });
 });
 
 describe("Tooltip", () => {
@@ -137,6 +145,27 @@ describe("Tooltip", () => {
     trigger.focus();
     const tooltip = await screen.findByRole("tooltip");
     expect(trigger.getAttribute("aria-describedby")).toBe(tooltip.id);
+  });
+
+  it("composes over existing child event handlers instead of replacing them", async () => {
+    const onFocus = vi.fn();
+    const onKeyDown = vi.fn();
+    render(
+      <Tooltip content="Extra detail">
+        <button type="button" onFocus={onFocus} onKeyDown={onKeyDown}>
+          Trigger
+        </button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole("button");
+    trigger.focus();
+    await screen.findByRole("tooltip");
+    expect(onFocus).toHaveBeenCalled();
+
+    await userEvent.keyboard("{Escape}");
+    expect(onKeyDown).toHaveBeenCalled();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 });
 

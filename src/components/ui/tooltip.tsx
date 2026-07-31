@@ -27,15 +27,23 @@ export function Tooltip({ children, content, placement = "top", className }: Too
 
   if (!isValidElement(children)) return <>{children}</>;
 
+  const childProps = children.props as Record<string, unknown>;
+  const compose =
+    <E,>(ours: (event: E) => void, theirs?: unknown) =>
+    (event: E) => {
+      ours(event);
+      if (typeof theirs === "function") (theirs as (event: E) => void)(event);
+    };
+
   const trigger = cloneElement(children, {
     "aria-describedby": open ? id : undefined,
-    onMouseEnter: () => setOpen(true),
-    onMouseLeave: () => setOpen(false),
-    onFocus: () => setOpen(true),
-    onBlur: () => setOpen(false),
-    onKeyDown: (event: React.KeyboardEvent) => {
+    onMouseEnter: compose(() => setOpen(true), childProps.onMouseEnter),
+    onMouseLeave: compose(() => setOpen(false), childProps.onMouseLeave),
+    onFocus: compose(() => setOpen(true), childProps.onFocus),
+    onBlur: compose(() => setOpen(false), childProps.onBlur),
+    onKeyDown: compose((event: React.KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
-    },
+    }, childProps.onKeyDown),
   });
 
   return (
