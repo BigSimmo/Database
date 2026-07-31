@@ -94,6 +94,16 @@ describe("Therapy Compass production-mode wiring", () => {
     }
   });
 
+  it("caches hashed catalogue assets immutably and forces alias revalidation", () => {
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+    expect(nextConfig).toContain(
+      'source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.[a-f0-9]{16}\\\\.json)"',
+    );
+    expect(nextConfig).toContain('value: "public, max-age=31536000, immutable"');
+    expect(nextConfig).toContain('source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.json)"');
+    expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
+  });
+
   it("ships a materially smaller catalogue index for browse and search routes", () => {
     const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
     const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
