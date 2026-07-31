@@ -11,7 +11,7 @@ const summarizeDocument = vi.fn(async () => ({
 }));
 
 vi.mock("@/lib/observability/agent-monitoring", () => ({
-  setAgentConversationId: (...args: unknown[]) => setAgentConversationId(...args),
+  setAgentConversationId,
 }));
 
 vi.mock("@/lib/demo-data", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/lib/env", () => ({
 }));
 
 vi.mock("@/lib/rag/rag", () => ({
-  summarizeDocument: (...args: unknown[]) => summarizeDocument(...args),
+  summarizeDocument,
 }));
 
 vi.mock("@/lib/answer-response", () => ({
