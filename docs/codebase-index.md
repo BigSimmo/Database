@@ -226,14 +226,15 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 
 ## Worker (`worker/`)
 
-| File                           | Role                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------ |
-| `index.ts`                     | Bootstrap → `main.ts`                                                    |
-| `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts |
-| `embedding-fields.ts`          | Additional embedding field inputs                                        |
-| `table-facts.ts`               | Table fact extraction                                                    |
-| `prerequisites.ts`             | Python/PDF OCR checks                                                    |
-| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                 |
+| File                           | Role                                                                                    |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `index.ts`                     | Bootstrap → `main.ts`                                                                   |
+| `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts                |
+| `observability.ts`             | Worker-side Sentry init/capture/flush, app privacy scrubbers (`docs/error-tracking.md`) |
+| `embedding-fields.ts`          | Additional embedding field inputs                                                       |
+| `table-facts.ts`               | Table fact extraction                                                                   |
+| `prerequisites.ts`             | Python/PDF OCR checks                                                                   |
+| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                                |
 
 **Flow:** Upload → Storage + job queue → worker parses (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI embeddings → pgvector.
 

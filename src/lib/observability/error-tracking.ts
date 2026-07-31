@@ -2,7 +2,10 @@ import type { ErrorEvent } from "@sentry/nextjs";
 import type { Instrumentation } from "next";
 
 const SAFE_ERROR_MESSAGE = "Unhandled server request error";
-const SAFE_TAGS = ["router_kind", "route_type", "route_path"] as const;
+// `service` / `worker_stage` are set only from fixed code literals by the
+// ingestion worker (worker/observability.ts) — never from job, document, or
+// owner data. Everything else stays stripped.
+const SAFE_TAGS = ["router_kind", "route_type", "route_path", "service", "worker_stage"] as const;
 const SAFE_EXCEPTION_TYPES = new Set([
   "AggregateError",
   "Error",
@@ -271,6 +274,9 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   const exceptionType = exceptions?.[0]?.type || "Error";
   const routePath = tags.route_path;
   const topFrame = exceptions?.[0]?.stacktrace?.frames?.at(-1);
+  // The ingestion worker has no route pattern, so group its events by the
+  // fixed service/stage labels instead of dropping the fingerprint entirely.
+  const workerStage = tags.service === "worker" ? (tags.worker_stage ?? "unknown") : undefined;
 
   return {
     type: undefined,
@@ -282,9 +288,11 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     environment: event.environment,
     message: exceptions?.length ? undefined : SAFE_ERROR_MESSAGE,
     exception: exceptions?.length ? { values: exceptions } : undefined,
-    fingerprint: routePath
-      ? [routePath, exceptionType, topFrame?.filename ?? "unknown", topFrame?.function ?? "unknown"]
-      : undefined,
+    fingerprint: workerStage
+      ? ["worker", workerStage, exceptionType, topFrame?.filename ?? "unknown"]
+      : routePath
+        ? [routePath, exceptionType, topFrame?.filename ?? "unknown", topFrame?.function ?? "unknown"]
+        : undefined,
     tags: Object.keys(tags).length ? tags : undefined,
   };
 }
