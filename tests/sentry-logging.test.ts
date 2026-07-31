@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isSentryLoggingEnabled,
+  isSentryTestLogEnabled,
   mapAppLogMessage,
   privacySafeLog,
   privacySafeLogAttributes,
@@ -120,5 +121,14 @@ describe("resolveSentryLogEmission / logger bridge mapping", () => {
     vi.stubEnv("SENTRY_DSN", "");
     expect(() => sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMITED, { bucket: "answer" })).not.toThrow();
     vi.unstubAllEnvs();
+  });
+
+  it("allowlists the Sentry Logs wizard verify sample", () => {
+    expect(isSentryTestLogEnabled(undefined)).toBe(false);
+    expect(isSentryTestLogEnabled("true")).toBe(true);
+    expect(resolveSentryLogEmission(SENTRY_LOG_MESSAGES.SENTRY_TEST, { log_source: "sentry_test" })).toEqual({
+      message: "User triggered test log",
+      attributes: { log_source: "sentry_test" },
+    });
   });
 });

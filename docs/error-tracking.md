@@ -54,7 +54,17 @@ Examples already wired:
 - API failures via `jsonError` → `logger.error("API request failed", …)` (bridged).
 - Upload cleanup warnings via the existing logger messages (allowlisted).
 
-View samples in Sentry under **Explore → Logs**. Set `SENTRY_ENABLE_LOGS=false` to roll logs back without removing the DSN.
+#### Sentry Logs wizard mapping
+
+| Wizard step                                                                            | This repo                                                                      |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `npm install @sentry/nextjs` (min `9.41.0`)                                            | `@sentry/nextjs@^10.69.0` (installed `10.69.0`)                                |
+| Hardcoded `dsn: "https://…@….ingest…"`                                                 | Env-only `SENTRY_DSN` — never commit a DSN                                     |
+| `enableLogs: true`                                                                     | `enableLogs: isSentryLoggingEnabled()` in `src/sentry.{server,edge}.config.ts` |
+| `consoleLoggingIntegration({ levels: ["log","warn","error"] })`                        | **Not enabled** — too leaky for clinical text; use `sentryLog` / logger bridge |
+| Verify: `Sentry.logger.info('User triggered test log', { log_source: 'sentry_test' })` | `sendSentryTestLog()` after Node init when `SENTRY_SEND_TEST_LOG=true`         |
+
+View samples in Sentry under **Explore → Logs**. Set `SENTRY_ENABLE_LOGS=false` to roll logs back without removing the DSN. For a one-shot wizard verify, set `SENTRY_SEND_TEST_LOG=true`, restart once, confirm the log, then unset the flag.
 
 ## Operator approval and rollout
 

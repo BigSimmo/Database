@@ -8,7 +8,12 @@ import {
   resolveTracesSampleRate,
 } from "@/lib/observability/error-tracking";
 import { registerSentryLogForwarder } from "@/lib/logger";
-import { forwardAppLogToSentry, isSentryLoggingEnabled, privacySafeLog } from "@/lib/observability/sentry-logging";
+import {
+  forwardAppLogToSentry,
+  isSentryLoggingEnabled,
+  privacySafeLog,
+  sendSentryTestLog,
+} from "@/lib/observability/sentry-logging";
 
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
@@ -109,6 +114,8 @@ try {
   });
   if (isSentryLoggingEnabled()) {
     registerSentryLogForwarder(forwardAppLogToSentry);
+    // Opt-in wizard verify sample only — never hardcoded DSN, never console capture.
+    sendSentryTestLog();
   }
 } catch {
   // Optional observability must never take down the clinical server.

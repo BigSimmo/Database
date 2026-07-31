@@ -41,6 +41,8 @@ export const SENTRY_LOG_MESSAGES = {
   BULK_DOCUMENT_EDIT_FAILED: "Bulk document edit failed for a document",
   APPLICATION_WARN: "Application warn",
   APPLICATION_ERROR: "Application error",
+  /** Matches the Sentry Logs wizard verify sample (static; no clinical content). */
+  SENTRY_TEST: "User triggered test log",
 } as const;
 
 const ALLOWED_MESSAGES = new Set<string>(Object.values(SENTRY_LOG_MESSAGES));
@@ -77,6 +79,7 @@ const SAFE_LOG_ATTRIBUTE_KEYS = new Set([
   "action",
   "rpc",
   "owner_scoped",
+  "log_source",
 ]);
 
 const MAX_MESSAGE_LENGTH = 120;
@@ -246,4 +249,19 @@ export function forwardAppLogToSentry(
   context?: Record<string, unknown>,
 ): void {
   emit(level, mapAppLogMessage(level, message), context);
+}
+
+/** True when an operator opted into one startup verify log (`SENTRY_SEND_TEST_LOG=true`). */
+export function isSentryTestLogEnabled(rawValue: string | undefined = process.env.SENTRY_SEND_TEST_LOG): boolean {
+  const normalized = rawValue?.trim().toLowerCase();
+  return normalized === "true" || normalized === "1";
+}
+
+/**
+ * Emit the Sentry Logs wizard verify sample once (startup / operator check).
+ * Gated by `SENTRY_SEND_TEST_LOG=true` so production restarts do not spam Explore → Logs.
+ */
+export function sendSentryTestLog(): void {
+  if (!isSentryTestLogEnabled()) return;
+  sentryLog.info(SENTRY_LOG_MESSAGES.SENTRY_TEST, { log_source: "sentry_test" });
 }
