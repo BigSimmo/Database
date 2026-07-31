@@ -914,7 +914,9 @@ function SearchResultsView({
               : "error"
             : loading || catalogLoading
               ? "loading"
-              : "ready"
+              : catalog.status === "refetching"
+                ? "refetching"
+                : "ready"
         }
         faultTitle={
           catalog.status === "unauthorized"
