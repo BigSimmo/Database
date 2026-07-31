@@ -30,6 +30,12 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // them would read as a third, real band competing with the two on offer.
   const isSearchBandDirectionsMockup = pathname === "/mockups/search-band-directions";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
+  // Draws its own composer in every frame, and the notice under study is the one
+  // the shared composer renders — showing both would put two different privacy
+  // lines on screen at once.
+  const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
+  const isWarningLineMockup = pathname === "/mockups/warning-line";
+  const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -67,7 +73,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
         !isSearchBandDirectionsMockup &&
-        !isTherapyNavigationMockup
+        !isTherapyNavigationMockup &&
+        !isWarningConsolidationMockup &&
+        !isWarningLineMockup &&
+        !isAnswerHomeProposalMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -75,7 +84,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchRefineAdaptiveMockup &&
         !isSearchBandDirectionsMockup &&
         !isPhoneInPageNavigationMockup &&
-        !isTherapyNavigationMockup
+        !isTherapyNavigationMockup &&
+        !isWarningConsolidationMockup &&
+        !isWarningLineMockup &&
+        !isAnswerHomeProposalMockup
       }
     >
       {children}
