@@ -269,14 +269,14 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     return 1;
   }
   const fixtureViolations = findFixtureSnapshotsInChunks(initialDashboardChunks);
-  // Drop fixture buffers before the full-tree gzip pass.
-  for (const chunk of initialDashboardChunks) chunk.buffer = Buffer.alloc(0);
   if (fixtureViolations.length > 0) {
     console.error(
       `[bundle-budget] FAIL — initial dashboard chunks contain fixture payloads: ${fixtureViolations.join(", ")}.`,
     );
     return 1;
   }
+  // Drop fixture buffers before the full-tree gzip pass so peak RSS stays low.
+  for (const chunk of initialDashboardChunks) chunk.buffer = Buffer.alloc(0);
   const current = measureChunkPaths(chunkPaths);
   const budget = loadBudget();
 
@@ -321,7 +321,15 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
 }
 
 function main() {
-  const code = runBundleBudgetCheck(process.argv.slice(2));
+  let code = 1;
+  try {
+    code = runBundleBudgetCheck(process.argv.slice(2));
+  } catch (error) {
+    // Unexpected throws must still hit exitProcess; otherwise a stray handle
+    // after a partial run can recreate the CI "printed nothing / hung" mode.
+    console.error("[bundle-budget] FAIL — unexpected error:", error);
+    code = 1;
+  }
   exitProcess(code);
 }
 
