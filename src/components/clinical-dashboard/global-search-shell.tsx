@@ -723,6 +723,8 @@ function GlobalStandaloneSearchShellBody({
         // shared display-mode contract without returning to a fixed root.
         "phone-viewport-shell sm:min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
+        // Sidebar collapse snaps by design (#1489) — see the matching note in
+        // ClinicalDashboard. Do not re-add the grid-track transition here.
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
