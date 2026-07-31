@@ -27,7 +27,8 @@ try {
       return privacySafeErrorEvent(event);
     },
     beforeSendTransaction(event) {
-      return privacySafeTransactionEvent(event);
+      // Local scrubber shape is structural; cast back to the SDK transaction type.
+      return privacySafeTransactionEvent(event) as typeof event;
     },
   });
 } catch {

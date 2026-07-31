@@ -85,7 +85,8 @@ try {
     },
     beforeSendTransaction(event) {
       if (isBotTrafficEvent(event)) return null;
-      return privacySafeTransactionEvent(event);
+      // Local scrubber shape is structural; cast back to the SDK transaction type.
+      return privacySafeTransactionEvent(event) as typeof event;
     },
   });
 } catch {

@@ -1,5 +1,4 @@
 import { createRequire } from "node:module";
-import type { SpanJSON, TransactionEvent } from "@sentry/core";
 import type { ErrorEvent } from "@sentry/nextjs";
 import type { Instrumentation } from "next";
 
@@ -32,11 +31,60 @@ const SAFE_SPAN_DATA_KEYS = [
 
 const DEFAULT_TRACES_SAMPLE_RATE = 0.1;
 
+/**
+ * Structural transaction/span shapes for privacy scrubbing.
+ * Kept local so knip does not require a direct `@sentry/core` dependency —
+ * `@sentry/nextjs` does not re-export `TransactionEvent` / `SpanJSON`.
+ */
+type ScrubbedSpan = {
+  span_id: string;
+  trace_id: string;
+  parent_span_id?: string;
+  op?: string;
+  origin?: string;
+  status?: string;
+  start_timestamp: number;
+  timestamp?: number;
+  exclusive_time?: number;
+  description?: string;
+  data?: Record<string, unknown>;
+};
+
+type ScrubbedTransactionEvent = {
+  type: "transaction";
+  event_id?: string;
+  timestamp?: number;
+  start_timestamp?: number;
+  platform?: string;
+  level?: ErrorEvent["level"];
+  release?: string;
+  environment?: string;
+  transaction?: string;
+  transaction_info?: { source: string };
+  measurements?: ErrorEvent["measurements"];
+  contexts?: {
+    trace?: {
+      trace_id?: string;
+      span_id?: string;
+      parent_span_id?: string;
+      op?: string;
+      status?: string;
+      origin?: string;
+      data?: Record<string, unknown>;
+    };
+  };
+  spans?: ScrubbedSpan[];
+  tags?: ErrorEvent["tags"];
+  request?: ErrorEvent["request"];
+  user?: ErrorEvent["user"];
+  breadcrumbs?: ErrorEvent["breadcrumbs"];
+};
+
 function privacySafeExceptionType(value: string | undefined) {
   return value && SAFE_EXCEPTION_TYPES.has(value) ? value : "Error";
 }
 
-function privacySafeTags(event: { tags?: ErrorEvent["tags"] | TransactionEvent["tags"] }) {
+function privacySafeTags(event: { tags?: ErrorEvent["tags"] | ScrubbedTransactionEvent["tags"] }) {
   return Object.fromEntries(
     SAFE_TAGS.flatMap((key) => (typeof event.tags?.[key] === "string" ? [[key, event.tags[key]]] : [])),
   );
@@ -86,7 +134,7 @@ function privacySafeSpanDescription(data: Record<string, unknown>, fallback: str
   return undefined;
 }
 
-function privacySafeSpan(span: NonNullable<TransactionEvent["spans"]>[number]): SpanJSON {
+function privacySafeSpan(span: ScrubbedSpan): ScrubbedSpan {
   const rawData = (span.data ?? {}) as Record<string, unknown>;
   const data = Object.fromEntries(
     SAFE_SPAN_DATA_KEYS.flatMap((key) => (rawData[key] === undefined ? [] : [[key, rawData[key]]])),
@@ -104,18 +152,18 @@ function privacySafeSpan(span: NonNullable<TransactionEvent["spans"]>[number]): 
     exclusive_time: span.exclusive_time,
     description: privacySafeSpanDescription(rawData, span.description),
     data: Object.keys(data).length ? data : {},
-  } as SpanJSON;
+  };
 }
 
 /** Keep timing + safe DB metadata; strip query filters, bodies, request/PII payloads. */
-export function privacySafeTransactionEvent(event: TransactionEvent): TransactionEvent {
+export function privacySafeTransactionEvent(event: ScrubbedTransactionEvent): ScrubbedTransactionEvent {
   const tags = privacySafeTags(event);
   const transaction =
     typeof event.transaction === "string" && !event.transaction.includes("?") && !event.transaction.includes("=")
       ? event.transaction
       : undefined;
 
-  const scrubbed: TransactionEvent = {
+  return {
     type: "transaction",
     event_id: event.event_id,
     timestamp: event.timestamp,
@@ -142,7 +190,6 @@ export function privacySafeTransactionEvent(event: TransactionEvent): Transactio
     spans: event.spans?.map(privacySafeSpan),
     tags: Object.keys(tags).length ? tags : undefined,
   };
-  return scrubbed;
 }
 
 /** Keep code locations while removing all free-form/request data before export. */
