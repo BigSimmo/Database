@@ -1,5 +1,12 @@
 # Clinical KB — build conventions
 
+> The system of record is `docs/design-system/` (SPEC · TOKENS · COMPONENTS · DECISIONS ·
+> GATES). This file is the designer-facing build idiom; where it disagrees with that set,
+> treat the disagreement as a defect here and follow the set. Known nuance: the
+> `--shadow-*` role aliases below are **legacy-compat only** — new code uses the `--e0`…
+> `--e4` tiers directly; the aliases are scheduled for retirement
+> (`docs/design-system/TOKENS.md` §6).
+
 ## Setup
 
 No provider is required — every component renders standalone. Styling comes

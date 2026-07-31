@@ -1,5 +1,11 @@
 # Clinical KB Design System — the front door
 
+> **Superseded as spec (31 July 2026).** The system of record is now
+> [`docs/design-system/`](./design-system/README.md) — SPEC, TOKENS, COMPONENTS, DECISIONS,
+> GATES. Where this file or anything it links disagrees with that set, **the set wins**.
+> This file remains useful only as a description of the live v1 layer during the transition
+> (SPEC §4.11); do not extend it.
+
 This is the single entry point for how UI is designed and built in this app. It states the
 contract; the deep documents hold the rationale. Precedence when documents disagree:
 

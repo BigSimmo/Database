@@ -105,7 +105,7 @@ export function Checkbox({ label, description, indeterminate, disabled, classNam
           {indeterminate ? (
             <span className="h-[2px] w-2.5 rounded-full bg-current" />
           ) : (
-            <Check className="size-icon-xs opacity-0 peer-checked:opacity-100" strokeWidth={3} />
+            <Check aria-hidden="true" className="size-icon-xs opacity-0 peer-checked:opacity-100" strokeWidth={3} />
           )}
         </span>
       </span>

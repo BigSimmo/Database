@@ -44,7 +44,7 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
           className={cn(
             "h-full rounded-full bg-[color:var(--command)]",
             determinate
-              ? "transition-[width] duration-[var(--duration-base,180ms)] motion-reduce:transition-none"
+              ? "transition-[width] duration-[var(--duration-base)] motion-reduce:transition-none"
               : "w-1/3 animate-[shimmer_1.4s_ease-in-out_infinite] motion-reduce:w-full motion-reduce:animate-none",
           )}
           style={determinate ? { width: `${clamped}%` } : undefined}
@@ -107,12 +107,12 @@ export function StageList({
               <span
                 aria-hidden
                 className={cn(
-                  "absolute left-[calc(var(--gutter-col,1.25rem)/2)] top-4 h-[calc(100%-0.5rem)] w-px -translate-x-1/2",
+                  "absolute left-[calc(var(--gutter-col)/2)] top-4 h-[calc(100%-0.5rem)] w-px -translate-x-1/2",
                   stage.state === "done" ? "bg-[color:var(--success)]" : "bg-[color:var(--border)]",
                 )}
               />
             ) : null}
-            <span className="relative z-[1] grid w-[var(--gutter-col,1.25rem)] shrink-0 place-items-center pt-0.5">
+            <span className="relative z-5 grid w-[var(--gutter-col)] shrink-0 place-items-center pt-0.5">
               {stage.state === "done" ? (
                 <Check aria-hidden="true" className="size-icon-sm text-[color:var(--success)]" strokeWidth={3} />
               ) : stage.state === "active" ? (

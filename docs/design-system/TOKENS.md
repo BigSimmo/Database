@@ -6,9 +6,9 @@ row. A value restated here is a defect in this document.
 
 - **Date:** 31 July 2026 · companions: [SPEC.md](SPEC.md) · [DECISIONS.md](DECISIONS.md) ·
   [GATES.md](GATES.md)
-- **Canonical file:** `src/app/ckb-v2-tokens.css` at commit `59e4c3dfc` (branch
-  `claude/clinical-kb-design-system-333a69`) — the **single reconciled copy**, also written
-  to design project `08d6f126…` root. The design side conforms to it.
+- **Canonical file:** `src/app/ckb-v2-tokens.css` on `main` (merged via PR #1538) — the
+  **single reconciled copy**, also written to design project `08d6f126…` root. The design
+  side conforms to it. SHAs are pinned only in DECISIONS' resolution log.
 - **History:** the design side's divergent 31 July copy proved unrecoverable (the design
   project was last updated 2026-07-13; that copy was never written to it), so the
   divergences below were resolved by reconciling the repo file and authoring the missing
@@ -74,15 +74,13 @@ Light block roles **[verified]**: `--background` · `--surface` · `--surface-ch
 `--shadow-well` (recessed well, per §1) · `--glow-primary` · `--glow-soft` ·
 `--overlay-backdrop`.
 
-Dark block overrides a subset **[verified]** and **deliberately falls through to the live
-dark layer for the rest** — the v2 dark shell is _not_ self-contained:
-
-| Fall-through role (not redeclared in v2 dark)         | Consequence                                                                                                                                                                                                                                           |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--text`, `--text-heading`                            | Dark body/heading ink comes from `live` `.dark`. Acceptable during opt-in; must be revisited at `:root` promotion (C3).                                                                                                                               |
-| `--disabled`                                          | Same. **Confirmed acceptable (`59e4c3dfc` review):** the live dark value on the v2 dark surface computes ≈3.4:1, stronger than the v2 light disabled tier (≈2.5:1).                                                                                   |
-| `--glow-primary`, `--glow-soft`, `--overlay-backdrop` | Same fall-through.                                                                                                                                                                                                                                    |
-| `--clinical-chat-document`                            | **Was a real omission, fixed in `59e4c3dfc`:** now declared in the v2 dark block so it resolves against the v2 dark inset (custom properties inherit computed values, so the live `.dark` `var()` reference could not re-resolve inside the subtree). |
+Since the cascade port (PR #1538), the dark block **re-declares every colour role the light
+block declares** — required because the light `.ckb-v2` block matches inside dark subtrees,
+so any light-declared role left undeclared in dark resolves to its light value (the dark-ink
+bug, DECISIONS §Resolution log 6). Standing rule: **a colour role added to the light block is
+added to the dark block in the same commit.** Ink is contract-enforced (dark `--text` /
+`--text-heading` ≥4.5:1 on the dark surface); the remaining roles are review-guarded until
+the full pair-matrix gate lands (GATES §2, gate 1).
 
 ## 4 · Identity and category tokens
 
@@ -118,7 +116,22 @@ The v2 layer _references_ or _depends on_ these; their values stay in `live` / `
 | `--quantity-unit-scale` (design side)                                                                                              | Never lands; superseded per §1.                                                                                                                                      | Next design sync removes it.                                                                                                           |
 | Legacy type steps (`text-2xs`/`3xs`, `sm-minus`, `base-minus`, `2xl-minus`, `lg-minus`, `3xl-minus`, `2xl-compact`, `3xl/4xl/5xl`) | Retired **last of all** — ≈663 call sites; `--text-md` arrives additively first. ⚠️ `Quantity` currently consumes `text-base-minus` — fix in the retirement tranche. | Contract ratchet extension, planned.                                                                                                   |
 
-## 7 · Naming rules going forward
+## 7 · Usage rules — allowed and forbidden, per group
+
+| Group                                                                         | Allowed                                       | Forbidden                                                                                   |
+| ----------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Ink (`--text*`, `--decoration-soft`, `--disabled`)                            | Per the SPEC §4.3 role table                  | `--decoration-soft`/`--text-soft` on any text node; darkening the decoration tier to "pass" |
+| Clinical state (`--danger*`, `--warning`, `--success`)                        | Source state and sanctioned urgency only      | Decoration, numerals, charts, identity, category colour                                     |
+| Category (`--tone-*`)                                                         | Within-surface category chips/pills           | Mode identity; new hues; delete-and-alias                                                   |
+| Identity (`--kind-*`)                                                         | Surface-kind identity per SPEC §3             | Varying by clinical state                                                                   |
+| Elevation (`--e0…--e4`, `--ring-hairline`, `--shadow-inset`, `--shadow-well`) | One edge owner; ladder per SPEC §4.7          | 1px spread terms; child heavier than parent; v2 redeclaring the bevel                       |
+| Stacking (`--z-*`)                                                            | Via `OverlayRoot`/named rungs only            | Any raw `z-` value; new rungs without an `--eN` partner                                     |
+| Motion (`--duration-*`, `--ease-*`)                                           | All transitions/animations                    | Hardcoded durations; animating layout properties                                            |
+| Density (`--spacing-tap`, `--tap-min`, rows, cells)                           | Utilities from `@theme`; `--tap-min` as alias | Setting the pair independently; reducing any 48px target                                    |
+| Space/type/radius                                                             | Semantic tokens in markup                     | Raw scale values or literals in components; `--measure` on non-prose                        |
+| Quantity/spine/status-mark                                                    | Their named components only                   | Reuse as generic decoration                                                                 |
+
+## 8 · Naming rules going forward
 
 - No new token without a call site and a usage rule (SPEC §12).
 - Roles are named for their job, never their appearance or a place ("well", "bevel",

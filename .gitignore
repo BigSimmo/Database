@@ -46,6 +46,7 @@
 !/.agents/skills/health/
 !/.agents/skills/incident/
 !/.agents/skills/ingest/
+!/.agents/skills/ledger/
 !/.agents/skills/live-design-sweep/
 !/.agents/skills/migrate/
 !/.agents/skills/operations/

@@ -28,21 +28,19 @@ export function AnswerCard({ children, header, footer, className }: AnswerCardPr
     <article
       data-testid="answer-card"
       className={cn(
-        "overflow-hidden rounded-[var(--radius-xl,1rem)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2,var(--shadow-soft))]",
+        "overflow-hidden rounded-[var(--radius-xl)] border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--e2,var(--shadow-soft))]",
         className,
       )}
     >
       {header ? (
-        <div className="border-b border-[color:var(--border)] p-[var(--pad-panel,1.5rem)] pb-[var(--gap-stack,1rem)]">
-          {header}
-        </div>
+        <div className="border-b border-[color:var(--border)] p-[var(--pad-panel)] pb-[var(--gap-stack)]">{header}</div>
       ) : null}
       <div
         className={cn(
-          "p-[var(--pad-panel,1.5rem)]",
+          "p-[var(--pad-panel)]",
           // Prose measure is a hard ceiling: an answer that runs the full width of a
           // desktop viewport is unreadable regardless of type size.
-          "max-w-[var(--measure,68ch)] text-[length:var(--text-md,1.0625rem)] leading-prose text-[color:var(--text)]",
+          "max-w-[var(--measure)] text-[length:var(--text-md)] leading-prose text-[color:var(--text)]",
         )}
       >
         {children}
@@ -93,12 +91,12 @@ export function DoseLine({ rows, caption, className }: DoseLineProps) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-[var(--radius-lg,0.75rem)] border border-[color:var(--border)] bg-[color:var(--surface)]",
+        "overflow-hidden rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)]",
         className,
       )}
     >
       {caption ? (
-        <p className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-[var(--pad-card,1.25rem)] py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+        <p className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-[var(--pad-card)] py-2 text-xs font-semibold text-[color:var(--text-muted)]">
           {caption}
         </p>
       ) : null}
@@ -112,11 +110,9 @@ export function DoseLine({ rows, caption, className }: DoseLineProps) {
             // width; the left padding compensates for it explicitly rather than
             // letting the rule eat the card inset.
             className={cn(
-              "flex items-baseline justify-between gap-4 py-3 pr-[var(--pad-card,1.25rem)]",
-              "pl-[calc(var(--pad-card,1.25rem)_+_var(--rule-w,3px))]",
-              row.overdue
-                ? "shadow-[var(--rule-warning,inset_3px_0_0_var(--warning))]"
-                : "shadow-[var(--rule-accent,inset_3px_0_0_var(--clinical-accent))]",
+              "flex items-baseline justify-between gap-4 py-3 pr-[var(--pad-card)]",
+              "pl-[calc(var(--pad-card)_+_var(--rule-w))]",
+              row.overdue ? "shadow-[var(--rule-warning)]" : "shadow-[var(--rule-accent)]",
             )}
           >
             <span className="min-w-0">
@@ -126,11 +122,11 @@ export function DoseLine({ rows, caption, className }: DoseLineProps) {
               ) : null}
             </span>
             <span className="shrink-0 whitespace-nowrap text-right">
-              <span className="font-mono text-sm tabular-nums text-[color:var(--text-heading)] [font-weight:var(--font-weight-value,650)]">
+              <span className="font-mono text-sm tabular-nums text-[color:var(--text-heading)] [font-weight:var(--font-weight-value)]">
                 {row.value}
               </span>
               {row.unit ? (
-                <span className="ml-1 text-[0.8125rem] normal-case text-[color:var(--text-muted)] [font-weight:var(--font-weight-label,500)]">
+                <span className="ml-1 text-sm-minus normal-case text-[color:var(--text-muted)] [font-weight:var(--font-weight-label)]">
                   {row.unit}
                 </span>
               ) : null}
@@ -173,7 +169,7 @@ export function AnswerFooter({ publisher, version, reviewDate, generatedAt, clas
       data-testid="answer-footer"
       className={cn(
         "flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[color:var(--border)] bg-[color:var(--surface-wash)]",
-        "px-[var(--pad-panel,1.5rem)] py-[var(--gap-inline,0.75rem)] text-xs tabular-nums text-[color:var(--text-muted)]",
+        "px-[var(--pad-panel)] py-[var(--gap-inline)] text-xs tabular-nums text-[color:var(--text-muted)]",
         className,
       )}
     >

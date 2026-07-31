@@ -345,7 +345,7 @@ function UnverifiedExtractionNotice({ showingFallback }: { showingFallback: bool
       role="status"
       className={cn(
         "mb-2 flex items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
-        "px-3 py-2 text-xs text-[color:var(--warning-text)] shadow-[var(--rule-warning,inset_3px_0_0_var(--warning))]",
+        "px-3 py-2 text-xs text-[color:var(--warning-text)] shadow-[var(--rule-warning)]",
       )}
     >
       <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />

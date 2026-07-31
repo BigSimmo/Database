@@ -75,7 +75,7 @@ export function Disclosure({
           <ChevronRight
             aria-hidden="true"
             className={cn(
-              "size-icon-sm shrink-0 text-[color:var(--text-muted)] transition-transform duration-[var(--duration-fast,120ms)]",
+              "size-icon-sm shrink-0 text-[color:var(--text-muted)] transition-transform duration-[var(--duration-fast)]",
               "motion-reduce:transition-none",
               open && "rotate-90",
             )}

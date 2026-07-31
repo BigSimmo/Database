@@ -337,7 +337,9 @@
     --shadow-well: none;
     --glow-primary: none;
     --glow-soft: none;
-    --overlay-backdrop: Canvas;
+    /* Transparent, not Canvas: forced-colours users rely on borders for layer
+       separation, and an opaque backdrop would hide the context behind a modal. */
+    --overlay-backdrop: transparent;
     --rule-accent: inset var(--rule-w) 0 0 LinkText;
     --rule-warning: inset var(--rule-w) 0 0 CanvasText;
     --spine-current: LinkText;

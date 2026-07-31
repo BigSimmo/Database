@@ -3260,7 +3260,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
     await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse sources/i }).first();
+    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
     await expect(recentDocumentsButton).toBeVisible();
     await expect(browseLibraryButton).toBeVisible();
@@ -3304,17 +3304,33 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const documentWorkspace = page.getByTestId("document-search-workspace");
     const queryRibbon = documentWorkspace.getByTestId("search-query-ribbon");
     await expect(queryRibbon).toBeVisible();
-    const resultsControls = queryRibbon.getByTestId("document-results-controls");
-    await expect(resultsControls).toBeHidden();
+    // One filter surface, two slots: the ribbon's full-width row is suppressed
+    // below `sm` and the phone copy sits in the utility row beside Sort. Both
+    // are in the DOM, which is why they carry distinct test ids.
+    await expect(queryRibbon.getByTestId("document-filter-trigger-wide")).toBeHidden();
     await expect(queryRibbon.getByLabel("Sort results")).toBeVisible();
-    const mobileTypeFilter = queryRibbon.getByTestId("document-source-type-select");
-    await expect(mobileTypeFilter).toBeVisible();
-    await expect(mobileTypeFilter).toHaveAccessibleName("Filter by source type");
-    const ribbonSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
-    await expect(ribbonSourcesButton).toBeVisible();
-    await expectMinTouchTarget(ribbonSourcesButton);
+    const mobileFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-phone");
+    await expect(mobileFilterTrigger).toBeVisible();
+    await expect(mobileFilterTrigger).toHaveAccessibleName(/Filter/);
+    await expectMinTouchTarget(mobileFilterTrigger);
+    // The panel is what the trigger exists to reach — the state that was
+    // unreachable before, because its only mount was gated on a selection that
+    // nothing could make.
+    await expect(page.getByTestId("document-filter-panel")).toHaveCount(0);
+    await mobileFilterTrigger.click();
+    const filterPanel = page.getByTestId("document-filter-panel");
+    await expect(filterPanel).toBeVisible();
+    await expect(filterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    await filterPanel.getByTestId("document-filter-done").click();
+    await expect(filterPanel).toHaveCount(0);
+    await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
+    // Renamed from "Open source filters": it browses, it does not refine, and
+    // the old name is what made it read as a duplicate of Filter.
+    const ribbonLibraryButton = queryRibbon.getByRole("button", { name: "Open source library" });
+    await expect(ribbonLibraryButton).toBeVisible();
+    await expectMinTouchTarget(ribbonLibraryButton);
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
-    await expect(documentWorkspace.getByRole("button", { name: /Browse sources/i })).toHaveCount(0);
+    await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
     await expect(page.getByText(/Also in your library/i)).toHaveCount(0);
 
@@ -3402,12 +3418,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(moreActions).toBeFocused();
 
-    if ((await mobileTypeFilter.locator('option[value="tables"]').count()) > 0) {
-      await mobileTypeFilter.selectOption("tables");
-      await expect(mobileTypeFilter).toHaveValue("tables");
-      await expect(documentResults).toBeVisible();
-      await mobileTypeFilter.selectOption("all");
+    // Source type now lives inside the filter panel rather than in a native
+    // select in the ribbon, so reaching it goes through the trigger.
+    await mobileFilterTrigger.click();
+    const phoneFilterPanel = page.getByTestId("document-filter-panel");
+    const phoneTablesFilter = phoneFilterPanel.getByRole("radio", { name: /Tables/ });
+    if ((await phoneTablesFilter.count()) > 0) {
+      await phoneTablesFilter.click();
+      await expect(phoneTablesFilter).toHaveAttribute("aria-checked", "true");
+      await phoneFilterPanel.getByRole("radio", { name: /^All/ }).click();
     }
+    await phoneFilterPanel.getByTestId("document-filter-done").click();
+    await expect(phoneFilterPanel).toHaveCount(0);
+    await expect(documentResults).toBeVisible();
 
     // Sort is a segmented group of pressed buttons, not a select: the active order
     // is readable without opening anything.
@@ -3433,17 +3456,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await expectNoPageHorizontalOverflow(page);
-    await expect(resultsControls).toBeVisible();
-    const typeFilters = resultsControls.getByLabel("Filter by source type");
-    if ((await typeFilters.count()) > 0) {
-      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
-      await expect(tablesFilter).toBeVisible();
-      await expectMinTouchTarget(tablesFilter);
-    }
+    // The same panel, reached from the wide-viewport copy of the trigger.
+    const wideFilterTrigger = queryRibbon.getByTestId("document-filter-trigger-wide");
+    await expect(wideFilterTrigger).toBeVisible();
+    // No tap-target assertion here: from `sm` up the ribbon controls are
+    // deliberately `min-h-10` (40px) for fine pointers. The 44px floor is a
+    // phone contract and is asserted on the phone trigger at 390px above.
+    await expect(queryRibbon.getByTestId("document-filter-trigger-phone")).toBeHidden();
+    await wideFilterTrigger.click();
+    const wideFilterPanel = page.getByTestId("document-filter-panel");
+    await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    await wideFilterPanel.getByTestId("document-filter-done").click();
+    await expect(wideFilterPanel).toHaveCount(0);
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
-    const openSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
-    await openSourcesButton.click();
+    await ribbonLibraryButton.click();
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
     // Prefer Playwright's focus waiter over a raw activeElement poll — Sheet
@@ -3458,7 +3485,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
     await expect
-      .poll(async () => openSourcesButton.evaluate((el) => el === document.activeElement), {
+      .poll(async () => ribbonLibraryButton.evaluate((el) => el === document.activeElement), {
         timeout: 15_000,
       })
       .toBe(true);
@@ -3493,7 +3520,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await switchToDocumentSearchMode(page);
     await page
-      .getByRole("button", { name: /Browse sources/i })
+      .getByRole("button", { name: /Browse library/i })
       .first()
       .click();
     await expect.poll(() => requestCounts.documents).toBe(1);
