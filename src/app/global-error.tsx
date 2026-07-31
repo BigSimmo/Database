@@ -21,6 +21,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
+    // captureException is scrubbed by sentryPrivacyHooks.beforeSend (client init)
+    // before any DSN transmission — do not send a parallel unsanitized payload.
     Sentry.captureException(error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error]);

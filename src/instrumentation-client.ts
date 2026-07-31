@@ -11,6 +11,7 @@
 // has no CSP, so it keeps the faster JIT path — this is client-only by design.
 import { config } from "zod";
 import * as Sentry from "@sentry/nextjs";
+import { sentryPrivacyHooks } from "@/lib/sentry-scrubber";
 
 config({ jitless: true });
 
@@ -20,9 +21,12 @@ config({ jitless: true });
 // deliberately not enabled by this baseline setup. Events tunnel through the
 // app's own /monitoring route (see next.config.ts) rather than calling
 // *.sentry.io directly, so CSP connect-src does not need to widen beyond 'self'.
+// Fail-closed beforeSend / beforeSendTransaction / beforeBreadcrumb live in
+// sentryPrivacyHooks so clinical query text never leaves once a DSN is set.
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
+  ...sentryPrivacyHooks,
 });
 
 // Hook into App Router navigation transitions.

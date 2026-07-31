@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { sentryPrivacyHooks } from "@/lib/sentry-scrubber";
 
 // Node.js server runtime init, loaded from src/instrumentation.ts's register()
 // when NEXT_RUNTIME === "nodejs". Inert (no client created, nothing sent) until
@@ -13,8 +14,10 @@ import * as Sentry from "@sentry/nextjs";
 // also left off — server stack frames in this app's RAG/ingestion code can
 // hold clinical query text in local variables, and that must not leave this
 // process. enableLogs (Sentry Logs) is a separate signal, deferred until a
-// signed-off use case exists.
+// signed-off use case exists. Shared beforeSend hooks fail closed on scrub
+// errors so a mis-shaped payload never transmits raw clinical text.
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
+  ...sentryPrivacyHooks,
 });
