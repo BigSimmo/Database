@@ -1401,7 +1401,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Forms" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toHaveCount(1);
     const formsHomeSearch = visibleByTestId(page, "forms-home").getByTestId("global-search-input");
     await expect(formsHomeSearch).toBeVisible();
     const formsSearchBox = await formsHomeSearch.boundingBox();
