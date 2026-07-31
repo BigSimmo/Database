@@ -22,10 +22,21 @@ import { describe, expect, it } from "vitest";
 const stylesheet = readFileSync(new URL("../src/app/ckb-v2-tokens.css", import.meta.url), "utf8");
 
 function block(selector: string) {
-  const start = stylesheet.indexOf(`\n${selector} {`);
+  // After the cascade port there are two top-level `.ckb-v2` blocks (structural
+  // and light shell) and the dark block opens with a grouped selector. Collect
+  // every top-level block whose selector line starts with the given selector.
+  const opener = `\n${selector} {`;
+  const grouped = `\n${selector},`;
+  let start = stylesheet.indexOf(opener);
+  if (start === -1) start = stylesheet.indexOf(grouped);
   expect(start, `${selector} block is missing from ckb-v2-tokens.css`).toBeGreaterThan(-1);
-  const end = stylesheet.indexOf("\n}", start);
-  return stylesheet.slice(start, end);
+  let combined = "";
+  while (start > -1) {
+    const end = stylesheet.indexOf("\n}", start);
+    combined += stylesheet.slice(start, end);
+    start = stylesheet.indexOf(opener, end);
+  }
+  return combined;
 }
 
 function declarations(source: string) {
@@ -37,8 +48,8 @@ function declarations(source: string) {
 }
 
 const structural = declarations(block(".ckb-v2"));
-const lightShell = declarations(block(".ckb-v2:not(.dark)"));
-const darkShell = declarations(block(".ckb-v2.dark"));
+const lightShell = structural; // structural + light now share the .ckb-v2 selector
+const darkShell = declarations(block(".dark .ckb-v2"));
 
 function hexOf(tokens: Map<string, string>, name: string) {
   const value = tokens.get(name);

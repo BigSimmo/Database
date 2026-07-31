@@ -174,7 +174,7 @@ type AsyncButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"
 /** Shared busy-state contract for async actions: one label, spinner, disabled state, and announcement hook. */
 export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, ...props }: AsyncButtonProps) {
   return (
-    <button {...props} disabled={busy || disabled} aria-busy={busy || undefined}>
+    <button type="button" {...props} disabled={busy || disabled} aria-busy={busy || undefined}>
       {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : idleIcon}
       <span>{busy ? busyLabel : children}</span>
     </button>
