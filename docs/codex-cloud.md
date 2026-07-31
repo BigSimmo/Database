@@ -99,16 +99,21 @@ Cloud tasks must publish PRs. Repository discovery proves read access only.
 
 For an explicitly authorised GitHub task, treat the authenticated GitHub connector/MCP
 tools as the default remote control plane. Use the connector for repository and PR reads,
-issue and PR comments, inline-review-thread replies/resolution, Actions logs/retries, and
-approved branch, file, or PR mutations. Do not infer that GitHub is unavailable because
-`gh`, shell GitHub credentials, or direct shell access are absent.
+issue and PR comments, inline-review-thread replies/resolution, Actions
+run/job/log/artifact inspection and retries, and approved branch, file, or PR mutations.
+Do not infer that GitHub is unavailable because `gh`, shell GitHub credentials, or
+direct shell access are absent. The intended connection is `BigSimmo` with administrator
+access to this repository. Use shell `git` or `gh` only for a genuine connector gap and
+only when the task permits it.
 
 GitHub connector permission is separate from credentials inside the agent shell. Do
 not add a personal access token to Cloud secrets or environment variables to make
 `git push` or `gh` work. If a Cloud task cannot publish a branch, reconnect the
-repository in Codex settings and run a controlled branch/PR write test. If the connector
-does not expose a required repository/organisation setting, report the limit rather than
-attempting a credential or secret workaround.
+repository in Codex settings and run a controlled branch/PR write test. Confirm the
+exact repository and PR/thread/job before a write, and verify the connector result
+before treating the write as successful. If the connector does not expose a required
+repository/organisation setting, report the limit rather than attempting a credential or
+secret workaround.
 
 Setup restores a missing `origin` to the credential-free URL
 `https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
