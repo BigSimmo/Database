@@ -355,6 +355,22 @@ are blocking acceptance criteria for the eight new components** — not aspirati
 **Fixed-width tracks are the recurring layout bug** — never a fixed track beside an `auto`
 cluster that cannot yield. Wrapping flex with a real basis, or `minmax(16ch, 1fr)`.
 
+**The five named layout states** — every responsive component describes itself in these
+terms, never in raw breakpoints:
+
+| State     | Meaning                                                              | Typical trigger                 |
+| --------- | -------------------------------------------------------------------- | ------------------------------- |
+| `compact` | One column, dense rows, phone dock chrome; actions collapse to menus | narrow viewport (bedside phone) |
+| `stacked` | One column, full-width blocks, actions wrap below titles             | narrow container, any viewport  |
+| `rail`    | Content plus one narrow supporting rail (nav, filters)               | medium viewport                 |
+| `split`   | Two working panes (list + detail, document + answer)                 | wide container                  |
+| `wide`    | Split plus persistent supporting chrome                              | desktop ward PC                 |
+
+Rules: a component declares which states it supports and the _container or viewport
+condition_ for each transition · titles and data columns publish their minimum viable
+widths · overflow behaviour is declared per state, never left to default clipping ·
+`compact` is exercised at 320 CSS px and 400% zoom as the blocking acceptance from §1.
+
 ---
 
 ## 5 · Icons
@@ -595,3 +611,86 @@ GATES.md or is explicitly labelled unenforced there.
 
 **Why the gates exist:** three defects in the last cycle were caught by review rather than
 CI, two of them by the second reader. Review does not scale past two careful readers.
+
+**Main is gated; an unverified merge is a defect.** The `369c01f86` sentry chain reached
+`main` without CI and left the tip unable to parse — repaired forward, but the rule it
+proves is structural: nothing lands on `main` outside a PR with the required checks green,
+including "chore" and tooling merges. A bot- or agent-authored fix claim is unverified
+until the actual ref content is inspected.
+
+---
+
+## 13 · Migration and adoption playbook
+
+The staged plan the rules above assume. **No PR mixes correctness, values, architecture
+and adoption.** Status keys as in the header; "done" entries cite their commit.
+
+### Phase 1 — correctness
+
+| PR                             | Contents                                                                                                                                                                                                                                      | Status                       |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| PR 0 · Truth correction        | Retractions, gate labelling, accurate packaging contract — zero code change                                                                                                                                                                   | **done** — this document set |
+| PR 1 · Theme cascade           | Port `.ckb-v2` / `.dark .ckb-v2, .ckb-v2.dark`; update the contract test's selector filter and block names in the same commit; computed-style tests, ancestor **and** same-node                                                               | open                         |
+| PR 2 · Forced colours          | v2 HCM block over the three selectors (§4.2); computed assertions: filled command, filled danger, status marks, disabled, focus, flattened elevation                                                                                          | open                         |
+| PR 3 · Contrast and text roles | `--danger-solid-contrast` on danger · eyebrows and placeholders off the decoration tier · `--text-placeholder` role · finish the disabled encoding across the 10 remaining `disabled:opacity` sites · extend the contrast gate to live tokens | open                         |
+| PR 4 · Interaction contracts   | Discriminated unions for `Citation`, `Chip`, `ToggleSwitch`; `RadioGroup` controlled-or-uncontrolled; `AsyncButton` `type="button"` or retirement                                                                                             | open                         |
+
+### Phase 2 — values, split three ways
+
+| PR                                | Contents                                                                                              | Status                                                                                                                                                                                        |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR 5a · Token values, no geometry | Colour, elevation, ink roles                                                                          | **partially done** — `59e4c3dfc` landed the `--shadow-well` rename, the spine and status-mark families, and the dark `--clinical-chat-document` fix; the remaining colour/ink deltas are open |
+| PR 5b · Tap 44→48 in `@theme`     | The 407-site geometry change; contract-test pin update; visual QA pass; `--tap-min` becomes the alias | open                                                                                                                                                                                          |
+| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                         | open                                                                                                                                                                                          |
+
+### Phase 3 — safety structure
+
+| PR                                   | Contents                                                                                                                                                                                                                                                                                       | Status                               |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| PR 6 · Answer safety                 | `VerificationNotice` (system wording, plain-language print variant) · `AnswerState` required on `AnswerCard` · `DoseLine` overdue text + mark + open action, composed through `Quantity` · `MissingValue` · `DateDisplay` in `AnswerFooter` · clipboard caveat via `clipboardProvenanceLine()` | open — specs in COMPONENTS §1–§3, §8 |
+| PR 7 · Form foundation               | `FormField` family; merged `describedBy`; hint **and** error in the DOM; required/optional/autocomplete; refs                                                                                                                                                                                  | open — COMPONENTS §4                 |
+| PR 8 · Announcements and route focus | `RouteAnnouncer` + `LiveAnnouncer`; focus to `<h1>`; settle-then-announce; fix the visible live region                                                                                                                                                                                         | open — COMPONENTS §5                 |
+
+### Phase 4 — architecture, then adoption
+
+| PR                             | Contents                                                                                                                                                                                                                                 | Status               |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open                 |
+| PR 10 · Overlays               | One `OverlayRoot`; mandatory `Sheet` name; portal by default; `Tooltip` composes child handlers; `Toast` splits tone/priority/persistence, pauses on hover and focus                                                                     | open — COMPONENTS §7 |
+| PR 11 · Print and documents    | Print as a tokenised theme; `[data-print-hide]`; print primitives; `DocumentFrame`                                                                                                                                                       | open — COMPONENTS §6 |
+| PR 12 · Design-sync integrity  | Declarations generated from real types; manifest parity in `verify:cheap`; direct tests for every registered component; preview state matrices; `tailwind-merge` or slot props; split `ui-primitives.tsx`                                | open                 |
+| PR 13 · Register, then adopt   | Register only after Phases 1–3 are green. Adopt one surface at a time behind `.ckb-v2`, visual diff each: isolated form → page header and actions → source-provenance block → **answer surface last**. Type-scale retirement last of all | open                 |
+
+**Adoption invariants.** Every step reversible and diffable per surface · no adoption
+before the cascade port (dark evidence is void until then) · the most-read text ships
+outside any mass codemod · a surface adopts whole, never half a component.
+
+---
+
+## 14 · Authoring rules — definition of done
+
+A new or reworked component is **built** only when all of these hold, and **registered**
+only when the starred items are proven, not asserted:
+
+1. **Contract typed to reality.** Accessible name required where operable; modes as
+   discriminated unions so an inert-enabled or unnamed control is unrepresentable;
+   callbacks keep their event signatures.
+2. **Tokens only.** No raw colour, size, radius, duration, z, or line-height literal; every
+   token consumed has a usage rule in TOKENS.md.
+3. **States complete.** default · hover · active · focus-visible · disabled (encoded via
+   `controlBase`, never opacity) · busy · invalid · long-content · `compact`/320px ·
+   dark ★ · forced colours ★ · reduced motion · print (or an explicit "print n/a" with
+   the reason).
+4. **Keyboard and screen reader declared** — focus order, activation keys, announced name
+   and role, live-region policy (via `LiveAnnouncer` only).
+5. **Direct behavioural test** ★ exists before registration; preview state matrix ★
+   exists before adoption.
+6. **Documentation row** in COMPONENTS §0 with honest proof columns, plus a contract block
+   (COMPONENTS §9) naming its rules and open defects.
+7. **Boundaries justified.** `"use client"` only with a hook or browser API; refs
+   forwarded on focusable primitives; `className` accepted; `data-slot` over `testId`.
+8. **No new dependency, portal, or z value** — overlays ride `OverlayRoot`; stacking uses
+   the named rungs.
+
+Failing any starred item, the component stays `experimental` and unregistered — "built"
+is not a status this system recognises without its proof columns.

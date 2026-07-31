@@ -96,6 +96,17 @@ as design tokens · export/preview parity.
 | Truncate a page title, dialog title, drug name or review warning     | —                                                                                               | **manual**                                                                      |
 | Restate a token value in prose                                       | —                                                                                               | **manual** (eleven divergences came from this; TOKENS.md is the only inventory) |
 
+## 3a · Rules added by the perfection pass (31 July, second half)
+
+| Rule                                                                               | Gate                                                     | Status                                                         |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------- |
+| Authoring definition of done (SPEC §14) — starred proofs before registration       | Gate 12 extension + review checklist                     | **manual → planned** (PR 12)                                   |
+| Named layout states, declared transitions, minimum widths (SPEC §4.13)             | 320px/compact acceptance in the visual matrix            | planned (blocking for the eight new components)                |
+| Main is gated; unverified direct merges are a defect (SPEC §12)                    | Branch protection + required checks                      | **manual/infra** — proven necessary by `369c01f86`             |
+| Per-group token usage rules (TOKENS §7)                                            | Colour-boundary + z + motion lints                       | planned (PR 9) — decoration-on-text tier partially gated today |
+| Per-component contracts (COMPONENTS §9) bind at review; defects map to closing PRs | Review checklist; contract tests land with each named PR | manual until each PR                                           |
+| `ui-primitives.tsx` changes require the focused DOM tests                          | `tests/ui-primitives.dom.test.tsx` + `icon-button`       | implemented (run discipline manual)                            |
+
 ## 4 · Recorded verification evidence
 
 Recorded at export (31 July 2026), **not re-run for this document set**:

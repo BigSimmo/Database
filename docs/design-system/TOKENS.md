@@ -118,7 +118,22 @@ The v2 layer _references_ or _depends on_ these; their values stay in `live` / `
 | `--quantity-unit-scale` (design side)                                                                                              | Never lands; superseded per §1.                                                                                                                                      | Next design sync removes it.                                                                                                           |
 | Legacy type steps (`text-2xs`/`3xs`, `sm-minus`, `base-minus`, `2xl-minus`, `lg-minus`, `3xl-minus`, `2xl-compact`, `3xl/4xl/5xl`) | Retired **last of all** — ≈663 call sites; `--text-md` arrives additively first. ⚠️ `Quantity` currently consumes `text-base-minus` — fix in the retirement tranche. | Contract ratchet extension, planned.                                                                                                   |
 
-## 7 · Naming rules going forward
+## 7 · Usage rules — allowed and forbidden, per group
+
+| Group                                                                         | Allowed                                       | Forbidden                                                                                   |
+| ----------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Ink (`--text*`, `--decoration-soft`, `--disabled`)                            | Per the SPEC §4.3 role table                  | `--decoration-soft`/`--text-soft` on any text node; darkening the decoration tier to "pass" |
+| Clinical state (`--danger*`, `--warning`, `--success`)                        | Source state and sanctioned urgency only      | Decoration, numerals, charts, identity, category colour                                     |
+| Category (`--tone-*`)                                                         | Within-surface category chips/pills           | Mode identity; new hues; delete-and-alias                                                   |
+| Identity (`--kind-*`)                                                         | Surface-kind identity per SPEC §3             | Varying by clinical state                                                                   |
+| Elevation (`--e0…--e4`, `--ring-hairline`, `--shadow-inset`, `--shadow-well`) | One edge owner; ladder per SPEC §4.7          | 1px spread terms; child heavier than parent; v2 redeclaring the bevel                       |
+| Stacking (`--z-*`)                                                            | Via `OverlayRoot`/named rungs only            | Any raw `z-` value; new rungs without an `--eN` partner                                     |
+| Motion (`--duration-*`, `--ease-*`)                                           | All transitions/animations                    | Hardcoded durations; animating layout properties                                            |
+| Density (`--spacing-tap`, `--tap-min`, rows, cells)                           | Utilities from `@theme`; `--tap-min` as alias | Setting the pair independently; reducing any 48px target                                    |
+| Space/type/radius                                                             | Semantic tokens in markup                     | Raw scale values or literals in components; `--measure` on non-prose                        |
+| Quantity/spine/status-mark                                                    | Their named components only                   | Reuse as generic decoration                                                                 |
+
+## 8 · Naming rules going forward
 
 - No new token without a call site and a usage rule (SPEC §12).
 - Roles are named for their job, never their appearance or a place ("well", "bevel",

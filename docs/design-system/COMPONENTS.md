@@ -544,3 +544,301 @@ phrase).
 **Do:** compose inside `AnswerFooter`, `RetrievalStateBanner`, provenance rows, print
 headers. **Don't:** format a date anywhere else in product code; don't localise the machine
 layer.
+
+---
+
+## 9 · Existing-component contracts
+
+The binding contract per existing component: what it is for, its modes and states, its
+keyboard/screen-reader behaviour, the token roles it may touch, and its rules. Anything not
+stated here falls back to the universal rules (SPEC §6) and the authoring definition of
+done (SPEC §14). **Open defects** name their closing PR from the playbook (SPEC §13);
+until that PR lands the defect stands and is not re-litigated per review.
+
+### 9.1 `Button`
+
+**Purpose.** The one action primitive. `AsyncButton` and hand-rolled `<button>`s converge
+here. **Variants.** `primary` (filled `--command` — one per surface), `secondary`,
+`ghost`, `quiet`, `danger` (filled `--danger-solid`, paired `--danger-solid-contrast`).
+**States.** Full DoD set; `busy` integrated (spinner + `busyLabel`, control stays in the
+tab order, never removes its accessible name); disabled via `controlBase` encoding.
+**Keyboard & SR.** Native button; `type="button"` default; icons `aria-hidden`.
+**Tokens.** command triplet + contrast · danger pair · `--radius-md` · tap utilities ·
+`--focus` outline only. **Rules.** Verb-first specific labels, never "OK"/bare "Confirm" ·
+hover/active from semantic tokens, never `brightness-*` filters · one filled command per
+surface. **Open defects → PR.** danger contrast token, brightness hover, stale 44px
+comment, missing ref, needless client boundary → PR 3, PR 4.
+
+### 9.2 `IconButton`
+
+**Purpose.** Icon-only action with a mandatory `label`. **States/Keyboard.** As Button;
+the label is the accessible name; the glyph is `aria-hidden`. **Rules.** Visible face may
+be compact; the hit target meets the tap floor via padding or pseudo-element. **Open
+defects → PR.** `disabled:opacity` (one of the ten) → PR 3; ref forwarding → PR 4.
+
+### 9.3 `AsyncButton` — deprecated
+
+**Disposition.** Retire or alias to `Button` (PR 4). Until then its one live defect
+stands: no `type="button"`, so it can submit a surrounding form. Do not build new surfaces
+on it.
+
+### 9.4 `ToggleSwitch`
+
+**Purpose.** Binary setting; also a read-only status form. **Modes (union, PR 4).**
+`interactive` (label + checked + onCheckedChange required) · `status` (label + checked;
+`role="img"`-style read-only, still named). **Rules.** Compact 40×24 face is fine; the
+_target_ meets the tap floor via a transparent hit area · knob motion is `transform` with
+the physical curve · reduced motion snaps. **Open defects → PR.** unnameable, `left`/
+`right` animation, opacity disabled → PR 4, PR 9.
+
+### 9.5 `Chip`
+
+**Purpose.** Compact label for tones, filters, categories. Static chips are text, not
+targets (tap-exempt under the inline exception). **Modes (union, PR 4).** `static` (no
+removal props representable) · `removable` (`onRemove` + `removeLabel` both required).
+**Rules.** Remove control keeps a small visible glyph inside an overlapping hit target
+that does not inflate the chip · truncated labels need a full-value path · category tones
+come from the frozen `--tone-*` set only (SPEC §3). **Open defects → PR.** 20px remove
+target, optional `removeLabel`, generic fallback name → PR 4.
+
+### 9.6 `TextField` / `SearchField` / `Select`
+
+**Disposition.** All three fold onto the shared `FormField` shell (§4) in PR 7 — the
+duplicated field-shell logic is the root defect. **Interim rules.** Placeholder is never
+the label and never the decoration tier · search clear is a real named button ·
+`SearchField` submits through the page's one composer contract
+(`docs/search-chrome-behaviour.md`). **Open defects → PR.** hint dropped on error,
+`describedBy` overwritten, no external id/refs, no required/optional/autocomplete
+system → PR 7.
+
+### 9.7 `Checkbox` / `RadioGroup`
+
+**Purpose.** Native inputs, kept native — real `fieldset`/`legend` for groups. **Rules.**
+Option ids derive from sanitised stable keys, never raw values · group-level hint/error
+arrive via `FormField` · mixed checkbox state announced. **Open defects → PR.**
+`RadioGroup` controlled-with-no-change-path (union or `defaultValue` mode) → PR 4; raw
+dimensions, box-vs-root `className`, missing group states → PR 7.
+
+### 9.8 `Citation` / `CitationList`
+
+**Purpose.** The product-defining source reference. **Modes (union, PR 4).** `static` ·
+`internal` (`href: Route`) · `source` (`onOpenSource(sourceId, locator)` required) — an
+enabled-inert citation is unrepresentable. **Data.** Structured `CitationData` with a
+stable `id` (never index keys); status via `StatusMark` with the label adjacent. **Rules.**
+A static citation is text with visible content, not an `aria-label` on a bare span · list
+identity survives reorder · deep source destinations (page, table, image) go through the
+`SourceLink` pattern when it lands. **Open defects → PR.** boolean `interactive`, optional
+handler, index keys, `ReactNode[]` items → PR 4.
+
+### 9.9 `Quantity`
+
+**Purpose.** The safety typography for numbers-with-units (SPEC §2.3). **Rules.** Numeral
+mono, tabular (`--nums`), value weight; unit sans, label weight, one type step down,
+`normal-case` pinned — a transform on a unit changes the dose · ranges use an unspaced en
+dash · never a bare decimal without a leading zero · unit spacing from the quantity pair
+tokens. **Open defects → PR.** consumes the retiring `text-base-minus` step → fixed in
+the type-retirement tranche (PR 13-adjacent), tracked so it cannot ship into adoption.
+
+### 9.10 `DoseLine`
+
+**Purpose.** Ledger row for dose data. **Contract.** Composes `Quantity` — never
+reimplements its typography; takes a structured dose model (value/range, frequency,
+route, maximum, source), never a preformatted string; dose column right-aligned so
+numerals stack. **Overdue behaviour (Q1).** Amber per-row rule **plus** visible text
+("Source review overdue") **plus** a non-colour mark, and the row's open-source-at-page
+action — caution and affordance, never a gate. **Open defects → PR.** all of the above →
+PR 6.
+
+### 9.11 `StatusMark`
+
+**Purpose.** Shape as the second status channel — only where status _is_ the content, not
+dense tables. **Contract.** Geometry from `--status-mark-size`/`--status-mark-stroke`
+(landed `59e4c3dfc`); status type is a small design-system enum, not the application
+model; the adjacent text label stays the primary channel. **Rules.** Never the sole
+carrier of status · forced-colour survival is **asserted, not proven** until PR 2's
+computed tests. **Open defects → PR.** inline styles, app-type coupling → PR 12; HCM
+proof → PR 2.
+
+### 9.12 `SourceStatusBadge` / `SourceDesignationBadge` / `SourceProvenance`
+
+**Purpose.** The trust layout (SPEC §2.2): status, authority, and provenance as permanent
+content. **Contract.** Vocabulary is exactly the SPEC §7 table — one phrase per state;
+off-vocabulary degrades to the neutral triad, logs once, never throws (gated). The three
+axes are independent; a badge never infers one from another. Metadata is typed
+(`SourceMetadataInput`), never `unknown`. **Rules.** Clinical colour only for source
+state · authority icons per the SPEC §5 vocabulary (`Landmark` official, `ShieldCheck`
+trusted — never for validation status).
+
+### 9.13 `AnswerCard`
+
+**Purpose.** The answer surface. **Contract (PR 6).** `state: AnswerState` and
+`verification: VerificationNoticeProps` are **required**; body/query echo/source
+summary/actions are structured props, not free `ReactNode` slots; the system owns the
+wording. Never `bg-transparent`; prose at `--text-md`/`--leading-prose`/`--measure`.
+**Open defects → PR.** unrestricted slots, no required safety props → PR 6.
+
+### 9.14 `AnswerFooter`
+
+**Purpose.** Always-visible provenance: publisher · version · review date · generated
+timestamp. **Contract.** Machine values only (ISO in), rendered through `DateDisplay`;
+absent fields render `MissingValue`, never silently drop. **Open defects → PR.** accepts
+preformatted strings → PR 6.
+
+### 9.15 `InlineNotice`
+
+**Purpose.** In-flow contextual notice — distinct from `Toast` (transient outcome) and
+the `Banner` pattern (page-level persistent). **Rules.** Tone follows the severity
+vocabularies (SPEC §11): clinical hazard, source currency, and system failure never share
+a treatment · icon per the SPEC §5 table · not a live region.
+
+### 9.16 `PageHeader` / `Breadcrumb`
+
+**Purpose.** One `<h1>` per page, owned here. **Rules.** The title wraps — page titles
+never truncate; title column `minmax(0, 1fr)`, actions wrap below at the component's
+minimum width (the `ResponsiveActionGroup` pattern) · eyebrow uses `--tracking-eyebrow`
+at a text-passing tier, never the decoration tier · description is a string or a
+block-safe slot, never arbitrary nodes inside `<p>` · the current breadcrumb keeps a
+full-name path. **Open defects → PR.** truncating `<h1>`, `shrink-0` starvation,
+low-contrast eyebrow → PR 3 + the layout fix riding PR 7's tranche.
+
+### 9.17 `Tabs`
+
+**Purpose.** View switching with real tab semantics. **Contract.** `aria-controls` only
+for panels that exist in the DOM; an invalid or disabled selected value falls back to the
+first enabled tab so the tab order is never empty; manual activation available for
+expensive panels. **Rules.** Sort/filter choices are not tabs — they are
+`SegmentedControl` (§9.18). **Open defects → PR.** phantom `aria-controls`, empty tab
+order → contract-test tranche of PR 4; the split → its own tranche.
+
+### 9.18 `SegmentedControl` — specified, not built
+
+Small mutually exclusive choice (sort, density) as pressed buttons or a radiogroup —
+**never** `role="tablist"`. Splits out of `Tabs`; until it exists, do not ship a new
+"segmented" use of `Tabs`.
+
+### 9.19 `Pagination`
+
+**Contract.** `page`/`pageCount` clamped and validated; page change announces through
+`LiveAnnouncer` and defines its focus policy; `compact` form is previous · "Page X of Y" ·
+next, used whenever the container cannot fit the numbered window (320px blocking).
+**Open defects → PR.** unclamped props, 320px overflow, opacity disabled, no
+focus/announce policy → PR 3, PR 8.
+
+### 9.20 Links — `TextLink` / `ExternalTextLink` / `DownloadLink` / `LinkAction`
+
+**Rules.** Internal navigation is Next `Link` — never a raw anchor (repo rule) · external
+links carry the `ExternalLink` icon and an explicit new-tab policy, not an accidental
+universal · `DownloadLink`'s `download` semantics are not overridable by spread; `tone`
+is destructured, never leaked to the DOM · `LinkAction`'s arrow animates with `transform`,
+never `gap`. **Open defects → PR.** tone leak, spread override, gap animation, raw
+underline offset → PR 9.
+
+### 9.21 `Tooltip`
+
+**Purpose.** Supplementary hint — never the sole carrier of meaning (truncation policy,
+SPEC §11). **Contract (PR 10).** Composes the child's handlers and merges
+`aria-describedby` (never overwrites); portalled via `OverlayRoot` at the popover rung;
+collision-aware; open/rest delay; dismiss on Escape. **Open defects → PR.** handler
+overwrite, no portal/collision/delay, hardcoded z → PR 10.
+
+### 9.22 `Toast` (`ToastRegion` + `ToastProvider`/`useToast`)
+
+**Purpose.** Transient outcome announcements. **Contract (PR 10).** Four independent
+axes: `tone` (appearance) · `priority` (polite/assertive) · `persistence` (timed —
+pauses on hover **and** focus — or explicit) · optional labelled `action`. One
+application-level viewport at the toast rung (above modal, deliberately); queue cap and
+dedupe; warning and danger never share an icon (SPEC §5). **Open defects → PR.** z below
+its own token, coupled urgency, no pause, duplicate-mount risk, no portal/cap → PR 10.
+
+### 9.23 `Sheet`
+
+**Purpose.** The modal layer. Focus trap, restoration, and nested-sheet topmost handling
+are mature — preserve them through the `OverlayRoot` migration. **Contract (PR 10).** An
+accessible name is mandatory (visible `title`, `labelledBy`, or `aria-label` — an unnamed
+dialog cannot mount); portal defaults **true**; z and duration from the named tokens;
+titles wrap, header actions never starve them; close button on the `controlBase`
+encoding. **Open defects → PR.** optional name, portal default, hardcoded z/duration,
+truncating title → PR 10.
+
+### 9.24 `ConfirmDialog`
+
+**Contract.** `confirmLabel` required and object-specific ("Delete 3 documents", never
+"Confirm") · `description` is a block-safe slot · destructive confirmations may require
+the typed confirm phrase; its label is a `string`. **Open defects → PR.** default
+"Confirm", `ReactNode` in `<p>`, declaration drift → PR 10, PR 12.
+
+### 9.25 `Disclosure` / `DisclosureGroup`
+
+**Contract.** Heading level is a prop — never a hardcoded `<h3>` · collapsed content is
+**not** find-in-page reachable via plain `hidden` (retracted claim); evaluate
+`hidden="until-found"` where discoverability matters · print-relevant disclosures expand
+under the print theme (PR 11) · the group supports controlled and default-open ids.
+**Open defects → PR.** hardcoded heading, no print behaviour, truncation → PR 11.
+
+### 9.26 `Progress`
+
+**Contract.** Determinate progress is `transform: scaleX()` with `transform-origin:
+left` — never `width` · indeterminate uses tokened duration; reduced motion shows a
+static state · the track/fill pair follows the edge rule. **Open defects → PR.** width
+animation, inline width, hardcoded timing → PR 9.
+
+### 9.27 `StageList`
+
+**Purpose.** Multi-stage ingestion/processing progress. **Contract.** The visual list is
+**not** a live region; stage transitions announce concisely through `LiveAnnouncer`
+("Embedding failed, step 4 of 5") · "step 0 of N" is unrepresentable · failed states have
+a spoken word, not just a colour · a spinner is never a terminal state. **Open defects →
+PR.** whole-list live region, step-0, silent failure → PR 8.
+
+### 9.28 `EmptyState`
+
+**Contract.** `live` defaults **off** — a static empty page is not a status region;
+callers opt in only for dynamically-introduced emptiness · offers a real next action ·
+neutral treatment (the offline/no-answer state rides this component, SPEC §10). **Open
+defects → PR.** polite-by-default → PR 8.
+
+### 9.29 `LoadingPanel` / `Skeleton`
+
+**Rules.** Skeletons keep stable geometry (no layout shift on arrival) and are for
+unknown-shape loads; staged work with real progress uses `StageList` · reduced motion
+replaces shimmer with a static state · a spinner is never a terminal state — every load
+resolves to content, an empty state, or an error state.
+
+### 9.30 `AccessibleTable`
+
+**Purpose.** The clinical table. Stacked-card `compact` strategy, tested numeric
+alignment, expander `aria-controls`, and the unverified-extraction treatment are its
+strengths — keep them. **Contract.** A semantic `<caption>` is required (visually styled,
+not a `<div>` + `aria-label`); dense headers are sentence case; missing cells render
+`MissingValue`, never a bare dash; column widths follow content roles, not imposed
+equal-width inline styles; the expand control composes `Button` and the outline rule.
+**Open defects → PR.** div caption, optional caption, uppercase headers, bare dash,
+inline widths, hand-rolled expander → PR 6 (`MissingValue`), PR 12 (the rest).
+
+### 9.31 `PanelHeading`
+
+**Rules.** Carries the heading-inset convention (SPEC §4.6): first child of a panel, no
+top margin, the panel's padding provides the space · `description` is the unified slot
+(the `EmptyState.body` alias is deprecated).
+
+### 9.32 `SafeBoldText`
+
+**Purpose.** Sanitised emphasis for model-produced text — the only path by which
+generated text may carry markup. **Rules.** No raw HTML ever; anything outside the
+sanitiser's tiny grammar renders as plain text.
+
+### 9.33 `ui-primitives.tsx` recipes
+
+**Contract.** `controlBase` owns the disabled encoding — the ten remaining
+`disabled:opacity` uses migrate in PR 3 · the module splits in PR 12
+(`styles/recipes.ts`, actions, feedback, forms, clinical-source, source-metadata
+contract) so generic primitives stop importing clinical application modules · recipes
+never restate a token value. The 2026-07-31 icon regression (lucide imports replaced
+with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
+this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
+tests to run.
+
+### 9.34 `OverlayProvider` — superseded
+
+`main`-tier, zero imports. Deleted when `OverlayRoot` (§7) lands in PR 10. Do not adopt
+it in the interim.
