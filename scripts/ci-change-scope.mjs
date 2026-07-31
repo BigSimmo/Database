@@ -550,6 +550,18 @@ function selfTest() {
     },
   );
 
+  assertScope("workflow-only-keeps-coverage", [".github/workflows/ci.yml"], {
+    coverage_changed: true,
+    workflow_changed: true,
+  });
+  assertScope("composite-action-only-keeps-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
+    coverage_changed: true,
+    workflow_changed: true,
+  });
+  assertScope("runtime-config-keeps-coverage", ["lighthouse-budget.json"], {
+    coverage_changed: true,
+  });
+
   assertScope("unstaged-status", parseStatusPorcelain(" M scripts/ci-change-scope.mjs\0"), {
     source_changed: true,
     workflow_changed: true,

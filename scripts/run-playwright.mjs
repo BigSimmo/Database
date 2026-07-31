@@ -50,7 +50,16 @@ const mockupProjectRequested =
 // Fail loud on missing browser binaries before the heavy lock or production build.
 // Otherwise launch failures surface as "N failed" product tests and are easy to misread
 // when a caller pipes output without `pipefail` (outstanding-issues #120).
-assertPlaywrightBrowsersReady(playwrightArgs);
+const browserPreflight = assertPlaywrightBrowsersReady(playwrightArgs);
+const preinstalledChromium = browserPreflight.checked.find(
+  (entry) => entry.source === "preinstalled container Chromium (PLAYWRIGHT_BROWSERS_PATH)",
+);
+if (preinstalledChromium && !process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = preinstalledChromium.path;
+  console.error(
+    `[playwright] Managed Chromium is unavailable; using the preinstalled container browser at ${preinstalledChromium.path}.`,
+  );
+}
 
 const runId = `${process.pid}-${Date.now()}`;
 const relativeRunRoot = `.next-playwright/${runId}`;
