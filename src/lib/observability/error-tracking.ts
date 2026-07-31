@@ -1,3 +1,5 @@
+import { createRequire } from "node:module";
+import type { SpanJSON, TransactionEvent } from "@sentry/core";
 import type { ErrorEvent } from "@sentry/nextjs";
 import type { Instrumentation } from "next";
 
@@ -14,8 +16,133 @@ const SAFE_EXCEPTION_TYPES = new Set([
   "URIError",
 ]);
 
+/** Span attributes safe to export for DB performance dashboards. */
+const SAFE_SPAN_DATA_KEYS = [
+  "db.table",
+  "db.schema",
+  "db.system",
+  "db.operation",
+  "db.sdk",
+  "http.status_code",
+  "sentry.op",
+  "sentry.origin",
+  "sentry.source",
+  "sentry.sample_rate",
+] as const;
+
+const DEFAULT_TRACES_SAMPLE_RATE = 0.1;
+
 function privacySafeExceptionType(value: string | undefined) {
   return value && SAFE_EXCEPTION_TYPES.has(value) ? value : "Error";
+}
+
+function privacySafeTags(event: { tags?: ErrorEvent["tags"] | TransactionEvent["tags"] }) {
+  return Object.fromEntries(
+    SAFE_TAGS.flatMap((key) => (typeof event.tags?.[key] === "string" ? [[key, event.tags[key]]] : [])),
+  );
+}
+
+/**
+ * Resolve performance sampling. Defaults to 10% when unset. Operators can set
+ * `SENTRY_TRACES_SAMPLE_RATE=0` to disable tracing without removing the DSN.
+ */
+export function resolveTracesSampleRate(rawValue: string | undefined = process.env.SENTRY_TRACES_SAMPLE_RATE): number {
+  if (rawValue === undefined || rawValue.trim() === "") {
+    return DEFAULT_TRACES_SAMPLE_RATE;
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1) {
+    return DEFAULT_TRACES_SAMPLE_RATE;
+  }
+  return parsed;
+}
+
+function privacySafeSpanDescription(data: Record<string, unknown>, fallback: string | undefined): string | undefined {
+  const operation = typeof data["db.operation"] === "string" ? data["db.operation"] : undefined;
+  const table = typeof data["db.table"] === "string" ? data["db.table"] : undefined;
+
+  if (operation?.startsWith("auth.")) {
+    return typeof fallback === "string" && /^auth\b/i.test(fallback) ? fallback : `auth ${operation.slice(5)}`;
+  }
+  if (operation && table) {
+    return `${operation} from(${table})`;
+  }
+  if (table) {
+    return `from(${table})`;
+  }
+
+  // Keep parameterized framework/route span names; drop free-form or query-bearing text.
+  if (
+    typeof fallback === "string" &&
+    !fallback.includes("?") &&
+    !fallback.includes("=") &&
+    (/^\//.test(fallback) ||
+      /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\//i.test(fallback) ||
+      /^(middleware|start|resolve page component|Executing api route)/i.test(fallback))
+  ) {
+    return fallback;
+  }
+
+  return undefined;
+}
+
+function privacySafeSpan(span: NonNullable<TransactionEvent["spans"]>[number]): SpanJSON {
+  const rawData = (span.data ?? {}) as Record<string, unknown>;
+  const data = Object.fromEntries(
+    SAFE_SPAN_DATA_KEYS.flatMap((key) => (rawData[key] === undefined ? [] : [[key, rawData[key]]])),
+  );
+
+  return {
+    span_id: span.span_id,
+    trace_id: span.trace_id,
+    parent_span_id: span.parent_span_id,
+    op: span.op,
+    origin: span.origin,
+    status: span.status,
+    start_timestamp: span.start_timestamp,
+    timestamp: span.timestamp,
+    exclusive_time: span.exclusive_time,
+    description: privacySafeSpanDescription(rawData, span.description),
+    data: Object.keys(data).length ? data : {},
+  } as SpanJSON;
+}
+
+/** Keep timing + safe DB metadata; strip query filters, bodies, request/PII payloads. */
+export function privacySafeTransactionEvent(event: TransactionEvent): TransactionEvent {
+  const tags = privacySafeTags(event);
+  const transaction =
+    typeof event.transaction === "string" && !event.transaction.includes("?") && !event.transaction.includes("=")
+      ? event.transaction
+      : undefined;
+
+  const scrubbed: TransactionEvent = {
+    type: "transaction",
+    event_id: event.event_id,
+    timestamp: event.timestamp,
+    start_timestamp: event.start_timestamp,
+    platform: event.platform,
+    level: event.level,
+    release: event.release,
+    environment: event.environment,
+    transaction,
+    transaction_info: event.transaction_info,
+    measurements: event.measurements,
+    contexts: event.contexts?.trace
+      ? {
+          trace: {
+            trace_id: event.contexts.trace.trace_id,
+            span_id: event.contexts.trace.span_id,
+            parent_span_id: event.contexts.trace.parent_span_id,
+            op: event.contexts.trace.op,
+            status: event.contexts.trace.status,
+            origin: event.contexts.trace.origin,
+          },
+        }
+      : undefined,
+    spans: event.spans?.map(privacySafeSpan),
+    tags: Object.keys(tags).length ? tags : undefined,
+  };
+  return scrubbed;
 }
 
 /** Keep code locations while removing all free-form/request data before export. */
@@ -40,9 +167,7 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
       : undefined,
   }));
 
-  const tags = Object.fromEntries(
-    SAFE_TAGS.flatMap((key) => (typeof event.tags?.[key] === "string" ? [[key, event.tags[key]]] : [])),
-  );
+  const tags = privacySafeTags(event);
   const exceptionType = exceptions?.[0]?.type || "Error";
   const routePath = tags.route_path;
   const topFrame = exceptions?.[0]?.stacktrace?.frames?.at(-1);
@@ -62,6 +187,25 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
       : undefined,
     tags: Object.keys(tags).length ? tags : undefined,
   };
+}
+
+/**
+ * Instrument a Supabase JS client for DB spans without shipping filter values
+ * or mutation bodies (`sendOperationData: false`). Safe to call for every
+ * client — the SDK marks the constructor prototype once.
+ */
+export function instrumentSupabaseClientForTracing(supabaseClient: unknown): void {
+  if (!process.env.SENTRY_DSN?.trim()) {
+    return;
+  }
+
+  try {
+    const require = createRequire(import.meta.url);
+    const Sentry = require("@sentry/nextjs") as typeof import("@sentry/nextjs");
+    Sentry.instrumentSupabaseClient(supabaseClient, { sendOperationData: false });
+  } catch {
+    // Optional observability must never take down Supabase access.
+  }
 }
 
 /**

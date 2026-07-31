@@ -1,6 +1,10 @@
 import * as Sentry from "@sentry/nextjs";
 
-import { privacySafeErrorEvent } from "@/lib/observability/error-tracking";
+import {
+  privacySafeErrorEvent,
+  privacySafeTransactionEvent,
+  resolveTracesSampleRate,
+} from "@/lib/observability/error-tracking";
 
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
@@ -12,12 +16,18 @@ try {
     ...(sentryDsn ? { dsn: sentryDsn } : {}),
     release: sentryRelease,
     environment: sentryEnvironment,
-    tracesSampleRate: 0,
+    tracesSampleRate: resolveTracesSampleRate(),
     sendDefaultPii: false,
+    dataCollection: {
+      databaseQueryData: false,
+    },
     enableLogs: false,
     maxBreadcrumbs: 0,
     beforeSend(event) {
       return privacySafeErrorEvent(event);
+    },
+    beforeSendTransaction(event) {
+      return privacySafeTransactionEvent(event);
     },
   });
 } catch {
