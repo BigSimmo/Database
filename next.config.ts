@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
 
@@ -127,4 +128,19 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withOptionalBundleAnalyzer(nextConfig);
+// SENTRY_ORG/SENTRY_PROJECT/SENTRY_AUTH_TOKEN are unset until a project exists
+// (see docs/outstanding-issues.md #053 for the pending DPA/subprocessor review);
+// without an authToken the plugin skips source map upload rather than failing
+// the build. tunnelRoute proxies events through this app's own origin instead
+// of *.sentry.io, matching the strict `connect-src 'self'` CSP in
+// src/lib/security-headers.ts.
+export default withOptionalBundleAnalyzer(
+  withSentryConfig(nextConfig, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    widenClientFileUpload: true,
+    tunnelRoute: "/monitoring",
+    silent: !process.env.CI,
+  }),
+);

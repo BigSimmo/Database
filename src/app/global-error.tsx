@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { redactLogValue } from "@/lib/privacy";
 
@@ -20,6 +21,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
+    Sentry.captureException(error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error]);
 

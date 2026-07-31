@@ -1,9 +1,21 @@
+import * as Sentry from "@sentry/nextjs";
+
 // Next.js calls register() once when a server instance starts, before it serves
 // any requests. We use it to fail fast: a clinical production server must be fully
 // and correctly configured rather than silently degrading — or, worse, serving
 // unauthenticated demo content — on the first request. See production-readiness
 // plan items 0.1 and 0.3.
 export async function register() {
+  // Sentry needs to initialize on every runtime and in every environment (dev
+  // included), unlike the production-only boot guard below, so this runs before
+  // that guard's early returns.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+  }
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./sentry.edge.config");
+  }
+
   // Only the Node.js server runtime in production needs this gate. Development
   // keeps its local/demo fallbacks, and the Edge runtime doesn't use the Node-only
   // server configuration these checks validate.
@@ -53,3 +65,7 @@ export async function register() {
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
 }
+
+// Automatically captures unhandled server-side request errors (route handlers,
+// server actions) into whichever runtime's Sentry client was initialized above.
+export const onRequestError = Sentry.captureRequestError;

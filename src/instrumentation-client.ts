@@ -10,5 +10,20 @@
 // (validation stays correct, just interpreted rather than compiled). The server
 // has no CSP, so it keeps the faster JIT path — this is client-only by design.
 import { config } from "zod";
+import * as Sentry from "@sentry/nextjs";
 
 config({ jitless: true });
+
+// Inert until NEXT_PUBLIC_SENTRY_DSN is configured — see src/sentry.server.config.ts
+// for the dataCollection/privacy rationale (omitted here for the same reason:
+// sendDefaultPii stays false). Session Replay and Logs are separate signals,
+// deliberately not enabled by this baseline setup. Events tunnel through the
+// app's own /monitoring route (see next.config.ts) rather than calling
+// *.sentry.io directly, so CSP connect-src does not need to widen beyond 'self'.
+Sentry.init({
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+  tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
+});
+
+// Hook into App Router navigation transitions.
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
