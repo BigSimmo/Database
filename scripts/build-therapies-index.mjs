@@ -173,6 +173,41 @@ function syncTarget(target, records) {
   console.log(`Wrote ${records.length} therapy records to ${target}`);
 }
 
+/**
+ * Full catalogue on disk is compact single-line JSON (no pretty indent, no
+ * trailing newline) — that is the historical `therapies.json` shape (~2.5 MB
+ * one line). Pretty-printing it turns a modality scrub into a ~36k-line PR
+ * churn (alias + hashed twin). Projections stay pretty via `syncTarget`.
+ */
+function syncFullCatalogue(target, records) {
+  const expected = escapeFalseOpenAiKeySignatures(JSON.stringify(records));
+  if (checkOnly) {
+    let actual = "";
+    try {
+      actual = readFileSync(target, "utf8");
+    } catch {
+      throw new Error(`Missing generated therapy catalogue: ${target}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(actual);
+    } catch {
+      throw new Error(`Generated therapy catalogue is invalid JSON: ${target}`);
+    }
+    if (JSON.stringify(parsed) !== JSON.stringify(records)) {
+      throw new Error(`Generated therapy catalogue is stale: ${target}`);
+    }
+    if (actual.includes("\n") || actual !== expected) {
+      throw new Error(
+        `Full therapy catalogue must stay compact single-line JSON (no pretty-print). Re-run \`node scripts/build-therapies-index.mjs\`.`,
+      );
+    }
+    return;
+  }
+  writeFileSync(target, expected);
+  console.log(`Wrote ${records.length} therapy records to ${target} (compact)`);
+}
+
 syncTarget(serverTarget, projected);
 if (!checkOnly) {
   const browserHomeTarget = join(publicData, "therapies-home.json");
@@ -190,8 +225,9 @@ if (!checkOnly) {
   // can still fetch the URL embedded in its JavaScript bundle after assets swap.
   // Write the curated full catalogue (not a raw source copy): detail/recommend
   // fetch this payload, and tag-echo modalities must not survive on that path.
+  // Keep the payload compact — see syncFullCatalogue.
   const legacyFullTarget = join(publicData, "therapies.json");
-  syncTarget(legacyFullTarget, curatedFull);
+  syncFullCatalogue(legacyFullTarget, curatedFull);
   const fullFilename = hashedAsset(legacyFullTarget, "therapies");
   const indexFilename = hashedAsset(browserTarget, "therapies-index");
   const homeFilename = hashedAsset(browserHomeTarget, "therapies-home");
@@ -272,6 +308,13 @@ if (!checkOnly) {
     const legacyContents = readFileSync(join(publicData, legacyFilename));
     if (!legacyContents.equals(contents)) {
       throw new Error(`Therapy compatibility alias is stale: ${legacyFilename}`);
+    }
+    if (kind === "full") {
+      const text = contents.toString("utf8");
+      const expected = escapeFalseOpenAiKeySignatures(JSON.stringify(records));
+      if (text.includes("\n") || text !== expected) {
+        throw new Error(`Full therapy catalogue must stay compact single-line JSON (no pretty-print): ${filename}`);
+      }
     }
   }
 }

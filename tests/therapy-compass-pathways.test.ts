@@ -247,6 +247,16 @@ describe("Therapy Compass catalogue clinical labelling", () => {
       }
     }
   });
+
+  it("keeps the full catalogue compact so a field scrub cannot mint a 36k-line PR", () => {
+    // Historical `therapies.json` is one minified line (~2.5 MB). Pretty-printing
+    // it when scrubbing modality produced ~18k-line alias + hashed twin diffs.
+    // Projections may stay pretty; the full payload must not.
+    const fullPath = new URL(`../public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`, import.meta.url);
+    const text = readFileSync(fullPath, "utf8");
+    expect(text.includes("\n"), "full catalogue must be single-line JSON").toBe(false);
+    expect(text.startsWith("["), "full catalogue must be a JSON array").toBe(true);
+  });
 });
 
 describe("Therapy Compass pathway clinical integrity", () => {
