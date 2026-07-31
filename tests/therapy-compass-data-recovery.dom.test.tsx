@@ -74,9 +74,12 @@ describe("Therapy Compass required data recovery", () => {
 
   it("shows an honest load error, retries all required files, and recovers", async () => {
     let failTherapies = true;
+    // The loader tries the content-addressed URL, then the unversioned alias
+    // (a pre-deploy bundle can name a hash that no longer exists). Both must
+    // fail before the tool is allowed to claim the catalogue could not load.
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`)) {
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`) || path.endsWith("/therapies-home.json")) {
         return failTherapies ? response(null, false, 503) : response([therapy]);
       }
       throw new Error(`Unexpected fetch: ${path}`);
@@ -102,7 +105,13 @@ describe("Therapy Compass required data recovery", () => {
     expect(await screen.findByRole("heading", { name: "Therapy" })).toBeInTheDocument();
     expect(screen.getByText(/1 source-grounded therapy record\./)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // Hashed + alias on the failing load, hashed only once it recovers.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining(`/${THERAPY_CATALOGUE_ASSETS.home}`),
+      expect.stringContaining("/therapies-home.json"),
+      expect.stringContaining(`/${THERAPY_CATALOGUE_ASSETS.home}`),
+    ]);
   });
 
   it("keeps Retry busy until the replacement catalogue request settles", async () => {
