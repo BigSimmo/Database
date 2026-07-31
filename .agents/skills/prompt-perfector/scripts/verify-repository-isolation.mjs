@@ -23,12 +23,13 @@ function normalizePath(value) {
 }
 
 function parseArguments(argv) {
-  const options = { allowDirty: false, selfTest: false };
+  const options = { allowDirty: false, cloud: false, selfTest: false };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === "--allow-dirty") options.allowDirty = true;
+    else if (argument === "--cloud") options.cloud = true;
     else if (argument === "--self-test") options.selfTest = true;
-    else if (["--expected-repo", "--expected-branch", "--expected-head"].includes(argument)) {
+    else if (["--expected-repo", "--expected-branch", "--expected-head", "--expected-status-hash"].includes(argument)) {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) throw new Error(`Missing value for ${argument}`);
       options[argument.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
@@ -64,19 +65,25 @@ export function evaluateRepositoryState(state, options = {}) {
   const currentIndex = state.worktrees.findIndex(
     (worktree) => normalizePath(String(worktree.worktree)) === currentPath,
   );
+  const cloudEnvironment = options.cloudEnvironment ?? false;
 
   if (!path.isAbsolute(state.root)) reasons.push("repository_path_not_absolute");
   if (!state.branch) reasons.push("detached_head");
   else if (protectedBranch(state.branch)) reasons.push("protected_branch");
   if (currentIndex < 0) reasons.push("unregistered_worktree");
-  else if (currentIndex === 0) reasons.push("primary_worktree");
+  else if (currentIndex === 0 && !options.cloud) reasons.push("primary_worktree");
+  else if (currentIndex === 0 && options.cloud && state.worktrees.length !== 1)
+    reasons.push("cloud_primary_requires_single_worktree");
+  if (options.cloud && !cloudEnvironment) reasons.push("cloud_environment_required");
   if (state.operations.length) reasons.push("git_operation_in_progress");
   if (options.expectedRepo && normalizePath(options.expectedRepo) !== currentPath) reasons.push("repository_drift");
   if (options.expectedBranch && options.expectedBranch !== state.branch) reasons.push("branch_drift");
   if (options.expectedHead && options.expectedHead !== state.head) reasons.push("head_drift");
   if (state.status && !options.allowDirty) reasons.push("dirty_worktree");
   if (options.allowDirty && missingExpectedState) reasons.push("dirty_override_requires_expected_state");
-  else if (missingExpectedState) reasons.push("expected_state_required");
+  if (options.allowDirty && !options.expectedStatusHash) reasons.push("dirty_override_requires_status_hash");
+  if (options.expectedStatusHash && options.expectedStatusHash !== state.statusHash) reasons.push("status_drift");
+  if (!options.allowDirty && missingExpectedState) reasons.push("expected_state_required");
 
   return { safe: reasons.length === 0, reason: reasons[0] ?? "", reasons };
 }
@@ -94,6 +101,36 @@ function git(cwd, args, { trim = true } = {}) {
   }
 }
 
+function gitBuffer(cwd, args) {
+  try {
+    return execFileSync("git", args, {
+      cwd,
+      encoding: null,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    throw new Error(`git ${args.join(" ")} failed: ${error.status ?? "unknown"}`);
+  }
+}
+
+export function repositoryStatusHash({ status, stagedDiff, unstagedDiff, untrackedFiles = [] }) {
+  const hash = crypto.createHash("sha256");
+  const append = (label, value) => {
+    const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value ?? "");
+    hash.update(`${label}\0${buffer.length}\0`);
+    hash.update(buffer);
+  };
+
+  append("status", status);
+  append("staged", stagedDiff);
+  append("unstaged", unstagedDiff);
+  for (const file of [...untrackedFiles].sort((left, right) => left.path.localeCompare(right.path))) {
+    append("untracked-path", file.path);
+    append("untracked-content", file.content);
+  }
+  return hash.digest("hex");
+}
+
 function inspectRepository(cwd) {
   const revisionState = git(cwd, ["rev-parse", "--show-toplevel", "--absolute-git-dir", "HEAD"]).split(/\r?\n/);
   if (revisionState.length !== 3) throw new Error("git rev-parse returned incomplete repository state");
@@ -102,46 +139,104 @@ function inspectRepository(cwd) {
   const currentWorktree = worktrees.find(
     (worktree) => normalizePath(String(worktree.worktree)) === normalizePath(root),
   );
-  const rawStatus = git(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], {
-    trim: false,
-  });
+  const rawStatus = git(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], { trim: false });
+  const untrackedPaths = git(cwd, ["ls-files", "--others", "--exclude-standard", "-z"], { trim: false })
+    .split("\0")
+    .filter(Boolean);
+  const snapshot = {
+    status: rawStatus,
+    stagedDiff: gitBuffer(cwd, ["diff", "--cached", "--binary", "--full-index", "--no-ext-diff"]),
+    unstagedDiff: gitBuffer(cwd, ["diff", "--binary", "--full-index", "--no-ext-diff"]),
+    untrackedFiles: untrackedPaths.map((filePath) => ({
+      path: filePath,
+      content: fs.readFileSync(path.join(root, filePath)),
+    })),
+  };
   return {
     root,
     branch: typeof currentWorktree?.branch === "string" ? currentWorktree.branch.replace(/^refs\/heads\//, "") : "",
     head,
     operations: operationMarkers.filter((marker) => fs.existsSync(path.join(gitDirectory, marker))),
     status: rawStatus,
-    statusHash: crypto.createHash("sha256").update(rawStatus).digest("hex"),
+    statusHash: repositoryStatusHash(snapshot),
     worktrees,
   };
 }
 
 function runSelfTest() {
   const head = "a".repeat(40);
+  const cleanHash = repositoryStatusHash({ status: "", stagedDiff: "", unstagedDiff: "" });
+  const dirtyStatus = " M file";
+  const dirtyHash = repositoryStatusHash({ status: dirtyStatus, stagedDiff: "", unstagedDiff: "first" });
+  const changedContentHash = repositoryStatusHash({
+    status: dirtyStatus,
+    stagedDiff: "",
+    unstagedDiff: "second",
+  });
+  if (dirtyHash === changedContentHash) {
+    throw new Error("dirty snapshot hashing did not detect a content-only change");
+  }
   const base = {
     root: "/repo/task",
     branch: "codex/task",
     head,
     operations: [],
     status: "",
+    statusHash: cleanHash,
     worktrees: [{ worktree: "/repo" }, { worktree: "/repo/task" }],
   };
   const expected = { expectedRepo: base.root, expectedBranch: base.branch, expectedHead: head };
+  const cloudBase = { ...base, root: "/workspace/repo", worktrees: [{ worktree: "/workspace/repo" }] };
+  const cloudExpected = {
+    expectedRepo: cloudBase.root,
+    expectedBranch: cloudBase.branch,
+    expectedHead: head,
+    cloud: true,
+    cloudEnvironment: true,
+  };
   const cases = [
     ["safe secondary worktree", base, expected, true, ""],
+    ["safe Cloud primary", cloudBase, cloudExpected, true, ""],
+    [
+      "Cloud flag without environment",
+      cloudBase,
+      { ...cloudExpected, cloudEnvironment: false },
+      false,
+      "cloud_environment_required",
+    ],
+    [
+      "Cloud primary with sibling worktree",
+      { ...cloudBase, worktrees: [{ worktree: cloudBase.root }, { worktree: "/workspace/other" }] },
+      cloudExpected,
+      false,
+      "cloud_primary_requires_single_worktree",
+    ],
     ["missing expected state", base, {}, false, "expected_state_required"],
     ["primary worktree", { ...base, root: "/repo" }, expected, false, "primary_worktree"],
     ["detached head", { ...base, branch: "" }, expected, false, "detached_head"],
     ["protected branch", { ...base, branch: "main" }, expected, false, "protected_branch"],
     ["active operation", { ...base, operations: ["MERGE_HEAD"] }, expected, false, "git_operation_in_progress"],
-    ["dirty default", { ...base, status: " M file" }, expected, false, "dirty_worktree"],
-    ["dirty explicit continuation", { ...base, status: " M file" }, { ...expected, allowDirty: true }, true],
+    ["dirty default", { ...base, status: dirtyStatus, statusHash: dirtyHash }, expected, false, "dirty_worktree"],
     [
-      "dirty override without expected state",
-      { ...base, status: " M file" },
-      { allowDirty: true },
+      "dirty continuation",
+      { ...base, status: dirtyStatus, statusHash: dirtyHash },
+      { ...expected, allowDirty: true, expectedStatusHash: dirtyHash },
+      true,
+      "",
+    ],
+    [
+      "dirty continuation missing status hash",
+      { ...base, status: dirtyStatus, statusHash: dirtyHash },
+      { ...expected, allowDirty: true },
       false,
-      "dirty_override_requires_expected_state",
+      "dirty_override_requires_status_hash",
+    ],
+    [
+      "dirty status drift",
+      { ...base, status: dirtyStatus, statusHash: dirtyHash },
+      { ...expected, allowDirty: true, expectedStatusHash: "b".repeat(64) },
+      false,
+      "status_drift",
     ],
     ["state drift", base, { ...expected, expectedBranch: "codex/other" }, false, "branch_drift"],
   ];
@@ -154,9 +249,10 @@ function runSelfTest() {
   console.log(`prompt-perfector isolation self-test passed: ${cases.length}/${cases.length}`);
 }
 
-function emit(result, state) {
+function emit(result, state, options = {}) {
   console.log(`SAFE_TO_EDIT=${result.safe}`);
   console.log(`PRECHECK_RESULT=${result.safe ? "SAFE" : "BLOCKED"}`);
+  console.log(`SAFE_MODE=${options.cloud ? "CLOUD" : "WORKTREE"}`);
   if (!result.safe) console.log(`BLOCK_REASON=${result.reason}`);
   if (state) {
     console.log(`SAFE_REPO=${state.root}`);
@@ -171,9 +267,10 @@ function main() {
     const options = parseArguments(process.argv.slice(2));
     if (options.selfTest) runSelfTest();
     else {
+      options.cloudEnvironment = process.env.CODEX_CLOUD === "1";
       const state = inspectRepository(process.cwd());
       const result = evaluateRepositoryState(state, options);
-      emit(result, state);
+      emit(result, state, options);
       if (!result.safe) process.exitCode = 1;
     }
   } catch (error) {

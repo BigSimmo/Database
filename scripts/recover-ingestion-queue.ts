@@ -8,6 +8,7 @@ type RecoveryDocument = {
   status?: string | null;
   page_count?: number | null;
   chunk_count?: number | null;
+  owner_id?: string | null;
 };
 
 type RawJobRow = {
@@ -109,23 +110,37 @@ async function main() {
   assertSupabaseHealthy(await probeSupabaseHealth(supabase), "Ingestion queue recovery");
   console.log("  Supabase is healthy.\n");
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("ingestion_jobs")
-    .select("id,document_id,status,locked_at,documents(status,page_count,chunk_count)")
+    .select("id,document_id,status,locked_at,documents!inner(status,page_count,chunk_count,owner_id)")
     .in("status", [...INGESTION_RECOVERY_JOB_STATUSES])
     .order("created_at", { ascending: true });
 
+  if (args.ownerId) {
+    query = query.eq("documents.owner_id", args.ownerId);
+  }
+
+  const { data, error } = await query;
   if (error) throw supabaseStageError("load open ingestion jobs", error);
 
   const jobs = (data ?? []).map((job: RawJobRow) => ({
     ...job,
     documents: Array.isArray(job.documents) ? (job.documents[0] as RecoveryDocument | undefined) : job.documents,
   })) as IngestionRecoveryJob[];
+  const ownerIdByDocumentId = new Map(jobs.map((job) => [job.document_id, job.documents?.owner_id ?? null] as const));
   const plan = buildIngestionRecoveryPlan({ jobs, staleAfterMinutes });
   const actions = plan.actions.slice(0, limit);
-  const resetDocumentIds = Array.from(
-    new Set(actions.filter((action) => action.action === "retry").map((action) => action.documentId)),
+  const resetDocuments = Array.from(
+    new Map(
+      actions
+        .filter((action) => action.action === "retry")
+        .map((action) => [
+          action.documentId,
+          { documentId: action.documentId, ownerId: ownerIdByDocumentId.get(action.documentId) ?? null },
+        ]),
+    ).values(),
   );
+  const resetDocumentIds = resetDocuments.map((document) => document.documentId);
   const supersedeCount = actions.filter((action) => action.action === "supersede").length;
   const retryCount = actions.filter((action) => action.action === "retry").length;
   const remainingCount = Math.max(0, plan.actions.length - actions.length);
@@ -185,13 +200,17 @@ async function main() {
   if (actions.length > 0) {
     console.log("\nApplying job recovery...");
 
-    for (const documentId of resetDocumentIds) {
+    for (const { documentId, ownerId } of resetDocuments) {
       const { error: resetError } = await supabase.rpc("reset_document_index", { p_document_id: documentId });
       if (resetError) throw supabaseStageError("reset document index", resetError);
-      const { error: documentError } = await supabase
+
+      let updateQuery = supabase
         .from("documents")
         .update({ status: "queued", error_message: null, page_count: 0, chunk_count: 0, image_count: 0 })
         .eq("id", documentId);
+      updateQuery = ownerId ? updateQuery.eq("owner_id", ownerId) : updateQuery.is("owner_id", null);
+
+      const { error: documentError } = await updateQuery;
       if (documentError) throw supabaseStageError("reset document status", documentError);
     }
 

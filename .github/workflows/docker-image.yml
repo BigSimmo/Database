@@ -54,7 +54,9 @@ jobs:
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
-            NEXT_PUBLIC_MAX_UPLOAD_MB=
+            # Exercise a matched lowered limit, not only the 150 MB defaults.
+            MAX_UPLOAD_MB=50
+            NEXT_PUBLIC_MAX_UPLOAD_MB=50
             ALLOW_LOW_RAM_BUILD=1
 
   worker-image:

@@ -26,13 +26,7 @@ import {
   lightweightPerceptualHash,
   imagePlacementDedupeKey,
 } from "../src/lib/image-filtering";
-import {
-  isPartialIndexWriteConflict,
-  isRetryableIngestionError,
-  nextRetryAt,
-  shouldPersistJobProgress,
-  terminalBatchStatus,
-} from "../src/lib/ingestion";
+import { shouldPersistJobProgress, terminalBatchStatus } from "../src/lib/ingestion";
 import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
@@ -47,6 +41,7 @@ import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prerequisites";
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
 import { buildTableFactRows } from "./table-facts";
+import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
 
 type JobDocument = {
   id: string;
@@ -157,12 +152,14 @@ async function updateJobProgress(jobId: string, patch: { stage: string; progress
   progressUpdateState.set(jobId, { updatedAt: now, progress: patch.progress, stage: patch.stage });
 }
 
-async function updateDocument(documentId: string, patch: TablesUpdate<"documents">) {
+async function updateDocument(documentId: string, ownerId: string | null, patch: TablesUpdate<"documents">) {
   const { metadata, ...remainingPatch } = patch as TablesUpdate<"documents">;
   const updatePayload = remainingPatch;
   const hasUpdatePayload = Object.keys(updatePayload).length > 0;
   if (hasUpdatePayload) {
-    const { error } = await supabase.from("documents").update(updatePayload).eq("id", documentId);
+    let query = supabase.from("documents").update(updatePayload).eq("id", documentId);
+    query = ownerId ? query.eq("owner_id", ownerId) : query.is("owner_id", null);
+    const { error } = await query;
     if (error) throw supabaseStageError("update document", error);
   }
 
@@ -180,13 +177,12 @@ async function updateDocument(documentId: string, patch: TablesUpdate<"documents
     // Expand/contract fallback before the R5 migration is applied: best-effort
     // shallow merge against the current row (still races under reclaim, same as
     // the pre-R5 path). Prefer the RPC once live has the migration.
-    const { data: current, error: readError } = await supabase
-      .from("documents")
-      .select("metadata")
-      .eq("id", documentId)
-      .maybeSingle();
+    let readQuery = supabase.from("documents").select("metadata").eq("id", documentId);
+    readQuery = ownerId ? readQuery.eq("owner_id", ownerId) : readQuery.is("owner_id", null);
+    const { data: current, error: readError } = await readQuery.maybeSingle();
     if (readError) throw supabaseStageError("read document metadata for merge fallback", readError);
-    const { error: fallbackError } = await supabase
+
+    let updateQuery = supabase
       .from("documents")
       .update({
         metadata: sanitizeJsonbRecord({
@@ -195,6 +191,9 @@ async function updateDocument(documentId: string, patch: TablesUpdate<"documents
         }),
       })
       .eq("id", documentId);
+    updateQuery = ownerId ? updateQuery.eq("owner_id", ownerId) : updateQuery.is("owner_id", null);
+
+    const { error: fallbackError } = await updateQuery;
     if (fallbackError) throw supabaseStageError("fallback document metadata merge", fallbackError);
   }
 }
@@ -213,6 +212,7 @@ async function markSupersededSiblingJobs(job: JobRow) {
     })
     .eq("document_id", job.document_id)
     .neq("id", job.id)
+    .is("locked_by", null)
     .in("status", ["pending", "processing", "failed"]);
   if (error) throw supabaseStageError("mark superseded ingestion jobs", error);
 }
@@ -354,7 +354,10 @@ async function failOrRetryJob(args: {
   }
   if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
 
-  await updateDocument(args.job.document_id, { status: args.documentStatus, error_message: args.errorMessage });
+  await updateDocument(args.job.document_id, args.job.documents.owner_id, {
+    status: args.documentStatus,
+    error_message: args.errorMessage,
+  });
   await updateJob(args.job.id, {
     status: args.retry ? "pending" : "failed",
     stage: args.stage,
@@ -1650,9 +1653,9 @@ async function processJob(job: JobRow) {
     progress: 5,
   });
   if (atomicReindex) {
-    await updateDocument(job.document_id, { error_message: null });
+    await updateDocument(job.document_id, job.documents.owner_id, { error_message: null });
   } else {
-    await updateDocument(job.document_id, { status: "processing", error_message: null });
+    await updateDocument(job.document_id, job.documents.owner_id, { status: "processing", error_message: null });
   }
   await updateBatch(job.batch_id);
   let extracted: ExtractedDocument | null = null;
@@ -1809,24 +1812,13 @@ async function processJob(job: JobRow) {
       await updateJob(job.id, { stage: "core index complete; enrichment deferred", progress: 98 });
     }
 
-    const optionalRepairRequired = optionalIndexWriteIssues.length > 0;
-    const optionalRepairMessage = "Optional index artifact writes failed; queued for indexing-v3-agent repair.";
-    if (optionalRepairRequired && enrichmentStatus === "completed") {
-      enrichmentStatus = "pending";
-      enrichmentErrorMessage = optionalRepairMessage;
-    }
-
-    const agentRepairRequired = enrichmentStatus !== "completed" || optionalRepairRequired;
-    const agentRepairReason = optionalRepairRequired
-      ? "optional_index_write_issues"
-      : enrichmentStatus === "failed"
-        ? "inline_enrichment_failed"
-        : "enrichment_deferred";
-    const agentRepairMessage =
-      enrichmentErrorMessage ??
-      (optionalRepairRequired
-        ? optionalRepairMessage
-        : "Core index complete; enrichment queued for indexing-v3-agent.");
+    const repair = enrichmentRepairDecision({
+      enrichmentStatus,
+      enrichmentErrorMessage,
+      optionalIssueCount: optionalIndexWriteIssues.length,
+    });
+    enrichmentStatus = repair.enrichmentStatus;
+    enrichmentErrorMessage = repair.enrichmentErrorMessage;
     const finalMetadata = {
       ...committedCoreMetadata,
       indexed_at: indexedAt,
@@ -1845,11 +1837,11 @@ async function processJob(job: JobRow) {
       index_quality_issues: finalQuality.issues,
       index_quality_metrics: finalQuality.metrics,
       optional_index_write_issues: optionalIndexWriteIssues,
-      ...(agentRepairRequired
+      ...(repair.repairRequired
         ? {
             indexing_v3_agent_status: "pending",
-            indexing_v3_agent_last_error: agentRepairMessage,
-            indexing_v3_agent_repair_reason: agentRepairReason,
+            indexing_v3_agent_last_error: repair.repairMessage,
+            indexing_v3_agent_repair_reason: repair.repairReason,
             indexing_v3_agent_updated_at: new Date().toISOString(),
           }
         : {
@@ -1864,7 +1856,7 @@ async function processJob(job: JobRow) {
       ...metrics,
     };
 
-    await updateDocument(job.document_id, {
+    await updateDocument(job.document_id, job.documents.owner_id, {
       metadata: finalMetadata,
     });
 
@@ -1877,7 +1869,7 @@ async function processJob(job: JobRow) {
         const strictCompletionRepairReason = strictCompletion.missing.includes("strict_completion_rpc_failed")
           ? "strict_completion_rpc_failed"
           : "strict_completion_gate_blocked";
-        await updateDocument(job.document_id, {
+        await updateDocument(job.document_id, job.documents.owner_id, {
           metadata: {
             ...finalMetadata,
             enrichment_status: "pending",
@@ -1896,36 +1888,13 @@ async function processJob(job: JobRow) {
     await refreshRagTableStats();
   } catch (error) {
     console.error("Ingestion job failed", safeErrorLogDetails(error));
-    const message = error instanceof Error ? error.message : String(error);
-    const partialConflict = isPartialIndexWriteConflict(error);
-    const shouldRetry = isRetryableIngestionError(error) && job.attempt_count < job.max_attempts;
-
-    if (partialConflict) {
-      await failOrRetryJob({
-        job,
-        retry: false,
-        documentStatus: atomicReindex ? "indexed" : "failed",
-        stage: "needs recovery after partial index write",
-        errorMessage: `${message}. Run npm run recover:ingestion -- --apply before retrying this document.`,
-      });
-    } else if (shouldRetry) {
-      await failOrRetryJob({
-        job,
-        retry: true,
-        documentStatus: atomicReindex ? "indexed" : "queued",
-        stage: `retry scheduled after attempt ${job.attempt_count}/${job.max_attempts}`,
-        errorMessage: message,
-        nextRunAt: nextRetryAt(job.attempt_count),
-      });
-    } else {
-      await failOrRetryJob({
-        job,
-        retry: false,
-        documentStatus: atomicReindex ? "indexed" : "failed",
-        stage: "failed",
-        errorMessage: message,
-      });
-    }
+    const decision = ingestionFailureDecision({
+      error,
+      attemptCount: job.attempt_count,
+      maxAttempts: job.max_attempts,
+      atomicReindex,
+    });
+    await failOrRetryJob({ job, ...decision });
   } finally {
     await cleanupExtractedTemporaryPaths(extracted);
     // The progress-throttle entry is only needed while this job is processing;

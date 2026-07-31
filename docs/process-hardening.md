@@ -150,6 +150,26 @@ API rather than estimated:
   shard whenever the slow specs land together. `--shard` can only balance by count; balancing
   by duration would require splitting the slow spec files themselves. Prefer a measured run
   over the arithmetic when judging any further shard change.
+- **Which spec drags shard 1, measured 2026-07-30** by running `--shard=1/3` locally and
+  summing per-test durations from the list reporter (121 passed, 6.9 min):
+
+  | Spec                               | Time   | Tests | Per test  |
+  | ---------------------------------- | ------ | ----- | --------- |
+  | `ui-phone-scroll.spec.ts`          | 267.0s | 56    | **4.77s** |
+  | `ui-chrome-scroll.spec.ts`         | 56.3s  | 17    | 3.31s     |
+  | `ui-accessibility.spec.ts`         | 28.1s  | 15    | 1.87s     |
+  | `ui-formulation.spec.ts`           | 18.2s  | 7     | 2.60s     |
+  | `ui-overlap.spec.ts`               | 15.3s  | 14    | 1.09s     |
+  | `answer-progress-ui-smoke.spec.ts` | 12.2s  | 2     | 6.10s     |
+  | `ui-mode-nav-density.spec.ts`      | 6.8s   | 7     | 0.97s     |
+  | `ui-hydration.spec.ts`             | 5.2s   | 3     | 1.73s     |
+
+  **`ui-phone-scroll.spec.ts` is 65% of the shard** — 267s of 409s — at the worst per-test rate
+  of any large spec in it. It is also the file behind both `#127` and `#141`. Splitting it is
+  the only lever that rebalances the shards, because `--shard` cannot divide a single file.
+  Re-measure with
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium node scripts/run-playwright.mjs --project=chromium --grep-invert "@quarantine|@mockup" --shard=1/3`
+  before acting — local absolute times differ from CI, but the per-spec ranking holds.
 
 ## Phase 1 - Active now
 
@@ -270,9 +290,26 @@ Three gates added for the "mature repo" verification pass. Full usage is in
 
 ## Route sitemap guard (2026-07-03)
 
-- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run sitemap:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
+- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run docs:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
 - `npm run verify:cheap` now includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety.
 - Keep `docs/site-map.md` as the human-readable route map for now. If it becomes too large for review, split into a concise `docs/site-map.md` summary plus a generated `docs/site-map.generated.md` inventory, and update `scripts/generate-site-map.ts` / `tests/site-map.test.ts` in the same change.
+
+## Automatic documentation synchronization (2026-07-30)
+
+- `npm run docs:update` regenerates `docs/site-map.md` and refreshes the exact `scripts/` file and
+  `package.json` command counts in `docs/scripts-index.md`.
+- `.githooks/pre-commit` runs the affected part of that update for staged route/catalog/mockup or
+  script/package changes, and runs `docs:check-index` for staged app/lib/schema changes. Ordinary
+  component-only commits avoid the sitemap generator. If generated or module-map documentation is
+  still unstaged, the hook stops so the author can review and stage the diff. It never auto-stages
+  or commits files. It also refuses mixed staged/unstaged generator inputs so the generated docs
+  cannot accidentally describe work outside the commit. Use `SKIP_DOCS_SYNC_HOOK=1` only as an
+  explicit one-commit bypass.
+- `docs:check-inventory` is blocking in `verify:cheap` and CI, alongside `sitemap:check` and
+  `docs:check-index`, so bypassing the local hook cannot merge stale generated facts.
+- Semantic descriptions in `docs/codebase-index.md` and curated script grouping still require human
+  judgment. The hook detects top-level module/route/schema gaps but does not invent architecture
+  descriptions or ledger evidence.
 
 ## Retrieval RPC drift & indexing hygiene (2026-07-01)
 
@@ -523,8 +560,9 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
   each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
   PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
-  CI `format:check` gap; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness (`SKIP_DRIFT_GUARD=1`).
-  `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
+  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness
+  (`SKIP_DRIFT_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
   installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
   Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
 - **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory

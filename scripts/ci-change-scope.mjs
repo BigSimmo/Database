@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 const zeroSha = /^0{40}$/;
 
@@ -22,6 +22,7 @@ const outputs = [
   "source_changed",
   "coverage_changed",
   "ui_changed",
+  "advisory_ui_changed",
   "db_changed",
   "container_changed",
   "rag_eval_changed",
@@ -62,6 +63,45 @@ function pathMatches(filePath, patterns) {
 function isUiChangedPath(filePath) {
   if (filePath === "src/app/api" || filePath.startsWith("src/app/api/")) return false;
   return pathMatches(filePath, uiPatterns);
+}
+
+/**
+ * The advisory UI lane covers `@quarantine` plus `@mockup` journeys. With an
+ * empty flake ledger and no `@quarantine` tag in the suite, it runs five mockup
+ * tests — measured at ~3m14 on every UI pull request (#137).
+ *
+ * So it runs when there is something for it to cover: a mockup surface changed,
+ * or the flake ledger is non-empty. Reading the ledger rather than hard-coding
+ * "no quarantines exist" makes the gate self-correcting — the moment a test is
+ * quarantined, the lane comes back on every UI PR without anyone remembering to
+ * re-enable it.
+ */
+const mockupPatterns = [
+  "src/app/mockups",
+  "tests/ui-mockups.spec.ts",
+  // Component filenames are both singular and plural (`task-directory-mockup.tsx`
+  // next to `split-pane-refined-mockups.tsx`), and several live in `*-mockups/`
+  // directories. Matching the directory as well as the filename keeps a mockup
+  // component edited on its own — without its `src/app/mockups` route wrapper —
+  // from losing the only lane that runs its `@mockup` journey.
+  /^src\/components\/[^/]+-mockups?\//,
+  /^src\/components\/.*-mockups?\.tsx$/,
+  // Three of the advisory specs carry `@mockup` without "mockup" in the
+  // filename, so a name-based rule alone misses them. `assertMockupSpecParity`
+  // below holds this list to `mockupSpecPattern` in playwright.config.ts.
+  /^tests\/.*mockup.*\.spec\.ts$/,
+  /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
+];
+
+function quarantineLedgerHasEntries(readLedger) {
+  try {
+    const parsed = JSON.parse(readLedger());
+    return Array.isArray(parsed?.flakes) && parsed.flakes.length > 0;
+  } catch {
+    // Fail OPEN: an unreadable or malformed ledger must not silently drop the
+    // advisory lane. `npm run flake:ledger` is what validates its shape.
+    return true;
+  }
 }
 
 const docPatterns = [
@@ -160,7 +200,7 @@ const containerPatterns = [
   "railway.worker.json",
   "tests/stubs/server-only.ts",
   /^worker\/.+/,
-  /^scripts\/(check-node-engine|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -177,7 +217,7 @@ const buildPatterns = [
   "package.json",
   "package-lock.json",
   "scripts/check-bundle-budget.mjs",
-  /^scripts\/(check-node-engine|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
 ];
 
 const staticConfigPatterns = [
@@ -194,14 +234,23 @@ const staticConfigPatterns = [
 // Script-only `package.json` edits do not trip blocking audit (no lock churn).
 const lockfilePatterns = ["package-lock.json", ".npmrc"];
 
-function classify(files) {
+// The ledger read is injected so `classify` stays pure and the self-test can
+// drive both the empty and non-empty cases without touching the real file.
+const readFlakeLedger = () => readFileSync("tests/flake-ledger.json", "utf8");
+
+function classify(files, { readLedger = readFlakeLedger } = {}) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
   // Preserve the pre-consolidation unit gate for every non-documentation
   // change. Narrower signals still scope build/UI/database work, but must not
-  // leave runtime, worker, or configuration changes without unit coverage.
+  // leave runtime, worker, workflow, or configuration changes without unit
+  // coverage. A workflow-only edit can change test setup or the
+  // coverage gate itself, so its ~4 minute proof is deliberate rather than an
+  // accidental over-trigger (#139).
   const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
+  const advisoryUiChanged =
+    normalized.some((file) => pathMatches(file, mockupPatterns)) || quarantineLedgerHasEntries(readLedger);
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
   const containerChanged = normalized.some((file) => pathMatches(file, containerPatterns));
   const ragEvalChanged = normalized.some((file) => pathMatches(file, ragEvalPatterns));
@@ -221,6 +270,7 @@ function classify(files) {
     source_changed: sourceChanged,
     coverage_changed: coverageChanged,
     ui_changed: uiChanged,
+    advisory_ui_changed: advisoryUiChanged,
     db_changed: dbChanged,
     container_changed: containerChanged,
     rag_eval_changed: ragEvalChanged,
@@ -382,8 +432,10 @@ function writeOutputs(result) {
   appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);
 }
 
-function assertScope(name, files, expected) {
-  const result = classify(files);
+const emptyLedger = () => '{"flakes":[]}';
+
+function assertScope(name, files, expected, options = { readLedger: emptyLedger }) {
+  const result = classify(files, options);
   for (const [key, value] of Object.entries(expected)) {
     if (result[key] !== value) {
       throw new Error(`${name}: expected ${key}=${value}, received ${result[key]} for ${files.join(", ")}`);
@@ -391,7 +443,117 @@ function assertScope(name, files, expected) {
   }
 }
 
+/**
+ * `mockupPatterns` decides whether the advisory lane starts; `mockupSpecPattern`
+ * in playwright.config.ts decides which specs that lane then contains. They are
+ * two hand-maintained lists of the same set, so they drift — and the drift is
+ * silent, because a mockup spec added to the config but missed here still shows
+ * a green PR: the production projects `grepInvert` its `@mockup` tag and the
+ * advisory lane never starts. The journey simply stops being run anywhere.
+ *
+ * Fails CLOSED on a lost anchor: a renamed constant is reported rather than
+ * quietly turning this into a guard that checks nothing.
+ */
+function assertMockupSpecParity() {
+  const source = readFileSync("playwright.config.ts", "utf8");
+  const alternation = source.match(/const mockupSpecPattern\s*=\s*\/\.\*ui-\(([^)]+)\)\\\.spec\\\.ts\//);
+  if (!alternation) {
+    throw new Error(
+      "mockup-spec-parity: could not read the `mockupSpecPattern` alternation from playwright.config.ts. " +
+        "If that constant moved or changed shape, update this guard — do not delete it.",
+    );
+  }
+
+  const specs = alternation[1]
+    .split("|")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => `tests/ui-${name}.spec.ts`);
+  if (specs.length === 0) throw new Error("mockup-spec-parity: the `mockupSpecPattern` alternation is empty.");
+
+  for (const spec of specs) {
+    if (!pathMatches(spec, mockupPatterns)) {
+      throw new Error(
+        `mockup-spec-parity: playwright.config.ts runs ${spec} in the advisory project, but mockupPatterns ` +
+          "does not match it, so editing that spec would leave advisory_ui_changed=false and the journey unrun.",
+      );
+    }
+  }
+  console.log(`Mockup spec parity: ${specs.length} advisory specs all match mockupPatterns.`);
+}
+
 function selfTest() {
+  // #137: the advisory lane runs only when it has something to cover. All four
+  // directions matter — a lane that silently never runs is the failure mode.
+  assertScope("advisory-off-when-nothing-to-cover", ["src/components/clinical-dashboard/dashboard-nav.tsx"], {
+    ui_changed: true,
+    advisory_ui_changed: false,
+  });
+  assertScope("advisory-on-for-mockup-source", ["src/app/mockups/page.tsx"], { advisory_ui_changed: true });
+  assertScope("advisory-on-for-mockup-component", ["src/components/search-mockups.tsx"], {
+    advisory_ui_changed: true,
+  });
+  // A mockup component edited without its `src/app/mockups` route wrapper. The
+  // filename is singular, and `ui-tools-task-directory.spec.ts` is its only
+  // browser coverage — excluded from every production project by its `@mockup`
+  // tag, so a missed match here means the journey runs nowhere.
+  assertScope(
+    "advisory-on-for-singular-mockup-component",
+    ["src/components/tools-page-mockups/task-directory-mockup.tsx"],
+    {
+      ui_changed: true,
+      advisory_ui_changed: true,
+    },
+  );
+  assertScope(
+    "advisory-on-for-mockup-component-directory",
+    ["src/components/calculator-mockups/guided-flow-mockup.tsx"],
+    {
+      advisory_ui_changed: true,
+    },
+  );
+  // Advisory specs whose filenames carry no "mockup" at all.
+  assertScope("advisory-on-for-untagged-mockup-spec-names", ["tests/ui-tools-collapse.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  assertScope("advisory-on-for-tools-task-directory-spec", ["tests/ui-tools-task-directory.spec.ts"], {
+    advisory_ui_changed: true,
+  });
+  // The directory rule must not swallow ordinary component paths.
+  assertScope("advisory-off-for-non-mockup-component-directory", ["src/components/clinical-dashboard/mode-nav.tsx"], {
+    ui_changed: true,
+    advisory_ui_changed: false,
+  });
+  assertScope(
+    "advisory-on-when-a-test-is-quarantined",
+    ["src/components/clinical-dashboard/dashboard-nav.tsx"],
+    { advisory_ui_changed: true },
+    { readLedger: () => '{"flakes":[{"id":"F-1"}]}' },
+  );
+  // Fail OPEN: an unreadable ledger must not quietly drop the lane.
+  assertScope(
+    "advisory-on-when-the-ledger-cannot-be-read",
+    ["src/components/clinical-dashboard/dashboard-nav.tsx"],
+    { advisory_ui_changed: true },
+    {
+      readLedger: () => {
+        throw new Error("ENOENT");
+      },
+    },
+  );
+
+  assertScope("workflow-only-keeps-coverage", [".github/workflows/ci.yml"], {
+    coverage_changed: true,
+    workflow_changed: true,
+  });
+  assertScope("composite-action-only-keeps-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
+    coverage_changed: true,
+    workflow_changed: true,
+  });
+  assertScope("runtime-config-keeps-coverage", ["lighthouse-budget.json"], {
+    coverage_changed: true,
+  });
+
   assertScope("unstaged-status", parseStatusPorcelain(" M scripts/ci-change-scope.mjs\0"), {
     source_changed: true,
     workflow_changed: true,
@@ -535,6 +697,7 @@ function selfTest() {
   );
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
+    coverage_changed: true,
     docs_only: false,
     build_changed: false,
   });
@@ -547,6 +710,9 @@ function selfTest() {
   assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
     workflow_changed: true,
     source_changed: false,
+    // Skill Markdown is documentation-like: static policy checks still run,
+    // but unit coverage has no executable product surface to measure.
+    coverage_changed: false,
     docs_only: false,
     build_changed: false,
   });
@@ -589,6 +755,12 @@ function selfTest() {
     source_changed: true,
     build_changed: true,
   });
+  assertScope("upload-limit-parity-input", ["scripts/check-upload-limit-parity.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
   assertScope(
     "container",
     [
@@ -602,6 +774,7 @@ function selfTest() {
       "scripts/build-worker.mjs",
       "scripts/run-heavy.mjs",
       "scripts/check-client-bundle-secrets.mjs",
+      "scripts/check-upload-limit-parity.mjs",
       "scripts/install-git-hooks.mjs",
       "tests/stubs/server-only.ts",
       "tsconfig.json",
@@ -639,6 +812,7 @@ function selfTest() {
 
 const args = process.argv.slice(2);
 if (args.includes("--self-test")) {
+  assertMockupSpecParity();
   selfTest();
   process.exit(0);
 }

@@ -38,7 +38,7 @@ describe("foldSavedFavouritesStatus", () => {
     expect(folded.status).not.toBe("ready");
   });
 
-  it("keeps ready when unaffected items already exist beside a registry fault", () => {
+  it("reports a partial count when unaffected items already exist beside a registry fault", () => {
     expect(
       foldSavedFavouritesStatus({
         isAuthenticated: true,
@@ -47,7 +47,7 @@ describe("foldSavedFavouritesStatus", () => {
         registryStatus: "error",
         itemCount: 2,
       }).status,
-    ).toBe("ready");
+    ).toBe("partial");
   });
 
   it("surfaces registry unauthorized when the account layer is settled and empty", () => {

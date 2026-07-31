@@ -12,8 +12,8 @@ const favouritesHook = vi.hoisted(() => ({
     set?: string;
     keywords: string;
   }>,
-  status: "ready" as "ready" | "loading" | "error" | "unauthorized",
-  registryStatus: "ready" as "ready" | "loading" | "error" | "unauthorized",
+  status: "ready" as "ready" | "loading" | "partial" | "error" | "unauthorized",
+  registryStatus: "ready" as "ready" | "loading" | "partial" | "error" | "unauthorized",
   refetch: () => undefined,
 }));
 
@@ -74,5 +74,28 @@ describe("FavouritesHub unavailable controls", () => {
     );
     expect(within(hub).getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(within(hub).queryByText("All · 0")).not.toBeInTheDocument();
+  });
+
+  it("labels counts as partial when some saved sources fail", () => {
+    favouritesHook.items = [
+      {
+        id: "service:loaded",
+        type: "service",
+        title: "Loaded service",
+        set: "Saved services",
+        keywords: "loaded service",
+      },
+    ];
+    favouritesHook.status = "partial";
+
+    render(<FavouritesHub query="not-loaded" onClearQuery={() => undefined} demoMode={false} />);
+
+    const hub = screen.getByTestId("favourites-hub");
+    expect(within(hub).getByRole("status")).toHaveTextContent(
+      "Some saved sources are unavailable. Counts include the favourites that loaded successfully.",
+    );
+    expect(within(hub).getByText("Items").parentElement?.parentElement).toHaveTextContent("1");
+    expect(within(hub).getByText("No loaded favourites match")).toBeInTheDocument();
+    expect(within(hub).getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 # Clinical KB — Codebase Index
 
-Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run sitemap:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
+Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run docs:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
 **Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
@@ -42,7 +42,10 @@ Smaller top-level directories that are easy to miss:
 | `plugins/`      | `plugins/clinical-kb/` Codex plugin manifest and workflow skill                                                                                                                                                                                                                                           |
 | `.agents/`      | Single-word skill catalogue (`npm run skills`, validated by `npm run check:skills`)                                                                                                                                                                                                                       |
 | `.claude/`      | Claude Code agents, skills, hooks, settings — plus the `.claude/worktrees/` working copies                                                                                                                                                                                                                |
+| `.cursor/`      | Cursor project rules and local-agent configuration                                                                                                                                                                                                                                                        |
+| `.design-sync/` | Generated design-system package metadata, validation notes, and project-sync artifacts                                                                                                                                                                                                                    |
 | `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (format, auto-merge race, drift staleness)                                                                                                                                                                                           |
+| `.vscode/`      | Shared VS Code workspace recommendations and settings                                                                                                                                                                                                                                                     |
 
 **Do not commit:** `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
@@ -115,16 +118,18 @@ The `rag.ts` orchestrator and its `rag-*` cluster live in **`src/lib/rag/`** (th
 domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below remain flat in
 `src/lib/`.
 
-| Module                                                                                                                  | Role                                              |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                 |
-| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface        |
-| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy |
-| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants             |
-| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection               |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                      |
-| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                            |
-| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                  |
+| Module                                                                                                                  | Role                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                                                            |
+| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface                                                   |
+| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy                                            |
+| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`                                                                         | Evidence-sufficiency predicates and the fast-path evidence coverage gate                     |
+| `rag-hydration.ts`                                                                                                      | Per-request hydration: document ranking metadata, cached index quality, page visual evidence |
+| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants                                                        |
+| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection                                                          |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                                                                 |
+| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                                                                       |
+| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                                                             |
 
 ### Ingestion and indexing
 
@@ -245,7 +250,7 @@ Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGE
 | Document intelligence | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts`                                                     |
 | Governance            | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts`                                                   |
 | RAG eval              | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts`                                                           |
-| Maintenance           | `cleanup-storage.ts`, `generate-site-map.ts`, `seed-registry-records.ts`                                                               |
+| Maintenance           | `cleanup-storage.ts`, `generate-site-map.ts`, `optimize-public-images.mjs`, `update-docs-inventory.mjs`, `seed-registry-records.ts`    |
 
 Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
