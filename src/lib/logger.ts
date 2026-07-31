@@ -38,15 +38,23 @@ export function redactLogContext(context: Record<string, unknown>): Record<strin
 
 const LEVEL_RANK: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
+// This module is server-oriented, but bundlers that reach it from a shared module
+// (or a standalone bundle such as the design-system export) inline it into browser
+// code, where a bare `process.env` read throws ReferenceError and unmounts the
+// React tree. Read the environment defensively instead of assuming Node.
+function env(): Record<string, string | undefined> {
+  return typeof process !== "undefined" && process.env ? process.env : {};
+}
+
 function activeLevel(): LogLevel {
-  const configured = process.env.LOG_LEVEL?.toLowerCase();
+  const configured = env().LOG_LEVEL?.toLowerCase();
   if (configured && configured in LEVEL_RANK) return configured as LogLevel;
-  return process.env.NODE_ENV === "production" ? "info" : "debug";
+  return env().NODE_ENV === "production" ? "info" : "debug";
 }
 
 function emit(level: LogLevel, message: string, context?: Record<string, unknown>) {
   // Keep tests quiet; they assert on responses, not log output.
-  if (process.env.NODE_ENV === "test") return;
+  if (env().NODE_ENV === "test") return;
   if (LEVEL_RANK[level] < LEVEL_RANK[activeLevel()]) return;
   const line = JSON.stringify({
     level,

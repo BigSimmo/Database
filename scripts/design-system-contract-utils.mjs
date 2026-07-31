@@ -6,7 +6,11 @@ export const LEGACY_TAP_CLASS = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKE
 const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`);
 
 export const RAW_COLOR_EXEMPTIONS = [
-  { category: "global theme tokens", pattern: /^src\/app\/globals\.css$/, scope: "whole-file" },
+  // Both files are the theme-token layer itself — the one place raw colour values
+  // are *defined* rather than consumed. `ckb-v2-tokens.css` is the opt-in `.ckb-v2`
+  // layer, split out of globals.css only for readability; it declares no rules
+  // beyond custom properties.
+  { category: "global theme tokens", pattern: /^src\/app\/(?:globals|ckb-v2-tokens)\.css$/, scope: "whole-file" },
   {
     category: "brand artwork",
     pattern:
