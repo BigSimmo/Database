@@ -111,7 +111,7 @@ export function DoseLine({ rows, caption, className }: DoseLineProps) {
             // letting the rule eat the card inset.
             className={cn(
               "flex items-baseline justify-between gap-4 py-3 pr-[var(--pad-card)]",
-              "pl-[calc(var(--pad-card)_+_var(--rule-w)]",
+              "pl-[calc(var(--pad-card)_+_var(--rule-w))]",
               row.overdue ? "shadow-[var(--rule-warning)]" : "shadow-[var(--rule-accent)]",
             )}
           >
