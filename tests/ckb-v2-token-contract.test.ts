@@ -27,16 +27,16 @@ function block(selector: string) {
   // every top-level block whose selector line starts with the given selector.
   const opener = `\n${selector} {`;
   const grouped = `\n${selector},`;
+  const found: string[] = [];
   let start = stylesheet.indexOf(opener);
   if (start === -1) start = stylesheet.indexOf(grouped);
-  expect(start, `${selector} block is missing from ckb-v2-tokens.css`).toBeGreaterThan(-1);
-  let combined = "";
   while (start > -1) {
     const end = stylesheet.indexOf("\n}", start);
-    combined += stylesheet.slice(start, end);
+    found.push(stylesheet.slice(start, end));
     start = stylesheet.indexOf(opener, end);
   }
-  return combined;
+  expect(found.length, `${selector} block is missing from ckb-v2-tokens.css`).toBeGreaterThan(0);
+  return found;
 }
 
 function declarations(source: string) {
@@ -47,9 +47,13 @@ function declarations(source: string) {
   return map;
 }
 
-const structural = declarations(block(".ckb-v2"));
-const lightShell = structural; // structural + light now share the .ckb-v2 selector
-const darkShell = declarations(block(".dark .ckb-v2"));
+const ckbBlocks = block(".ckb-v2");
+expect(ckbBlocks.length, "expected distinct structural and light .ckb-v2 blocks").toBe(2);
+const structural = declarations(ckbBlocks[0]);
+// Parsed separately so a light-only token accidentally declared structural (or
+// vice versa) fails here instead of passing through a merged map.
+const lightShell = declarations(ckbBlocks[1]);
+const darkShell = declarations(block(".dark .ckb-v2").join("\n"));
 
 function hexOf(tokens: Map<string, string>, name: string) {
   const value = tokens.get(name);
