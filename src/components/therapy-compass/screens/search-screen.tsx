@@ -21,7 +21,9 @@ export function SearchScreen() {
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
   const availabilityFilterCount = Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
-  const activeFilterCount = b.search.tags.length + availabilityFilterCount;
+  // Match the sheet: a non-empty query is an active narrowing control on phone,
+  // where Clear only lives inside the filter sheet (wide keeps a ribbon Clear).
+  const activeFilterCount = b.search.tags.length + availabilityFilterCount + (q.trim() ? 1 : 0);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -88,6 +90,7 @@ export function SearchScreen() {
         open={filterOpen}
         panelId={filterPanelId}
         onClose={() => setFilterOpen(false)}
+        query={q}
         topics={QUICK_TAGS}
         activeTopics={b.search.tags}
         onToggleTopic={b.toggleTag}

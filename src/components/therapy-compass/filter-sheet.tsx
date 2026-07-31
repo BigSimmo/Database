@@ -24,6 +24,7 @@ export function TherapyFilterSheet({
   open,
   panelId,
   onClose,
+  query,
   topics,
   activeTopics,
   onToggleTopic,
@@ -37,6 +38,8 @@ export function TherapyFilterSheet({
   open: boolean;
   panelId: string;
   onClose: () => void;
+  /** Live search query — counts toward Clear all, matching wide-viewport Clear. */
+  query: string;
   topics: readonly string[];
   activeTopics: readonly string[];
   onToggleTopic: (topic: string) => void;
@@ -47,7 +50,10 @@ export function TherapyFilterSheet({
   onClear: () => void;
   resultCount: number;
 }) {
-  const activeCount = activeTopics.length + Number(reviewedOnly) + Number(briefOnly);
+  // Include the query so a query-only phone session still gets Clear all.
+  // Wide viewports always show Clear in the ribbon; the sheet is the phone's
+  // equivalent, and onClear already resets query via clearSearch.
+  const activeCount = activeTopics.length + Number(reviewedOnly) + Number(briefOnly) + (query.trim() ? 1 : 0);
 
   return (
     <Sheet
