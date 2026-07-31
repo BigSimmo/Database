@@ -945,7 +945,7 @@ function GlobalStandaloneSearchShellBody({
               Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
               is skipped for them to avoid a duplicate row on their workflow routes.
               Rendered in normal flow (sticky={false}) so it never contends with
-              the universal collapsing header / pinned search chrome.
+              the universal collapsing header or page-flow search chrome.
             */}
             {searchMode !== "specifiers" && searchMode !== "formulation" ? (
               <PageSecondaryNavigation

@@ -1509,12 +1509,13 @@ export function MasterSearchHeader({
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
-    // Search sits outside the collapsing top-bar row. Sticky hosts already pin an
-    // outer [top bar | search] stack, so the composer must stay in normal flow
-    // inside that stack — a second sticky + top offset would overlay page
-    // controls once the top bar collapses. Collapse-everywhere hosts have no
-    // outer stack, so their composer keeps its own sticky and drops the top-bar
-    // clearance while the bar is hidden.
+    // Search sits outside the collapsing top-bar row. Sticky hosts pin an outer
+    // top-bar stack; result composers portal into page flow at sm+, so this
+    // relative fallback only covers the brief pre-portal default placement (a
+    // second sticky + top offset would overlay page controls). Collapse-
+    // everywhere hosts have no outer stack, so their non-portaled composer
+    // keeps its own sticky and drops the top-bar clearance while the bar is
+    // hidden.
     const stickySearchOwnedByOuterStack = sticksAbovePhones;
     const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
     const stickySearchTopClass = stickySearchClearsTopBar
@@ -1567,9 +1568,10 @@ export function MasterSearchHeader({
                         ? "phone-footer-layer document-mobile-search-edge universal-top-search-edge z-40 w-full sm:fixed"
                         : cn(
                             "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                            // Sticky-stack hosts already pin [top bar | search]. Never
-                            // leave a `fixed`/`sticky` composer in that stack — it
-                            // overlays page controls (Services decision rail).
+                            // Sticky-stack hosts pin the top bar; result search
+                            // portals out at sm+. Never leave a fixed/sticky
+                            // default composer in that stack — it overlays page
+                            // controls (Services decision rail).
                             stickySearchOwnedByOuterStack
                               ? "relative"
                               : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
@@ -2185,8 +2187,8 @@ export function MasterSearchHeader({
           // release it so the scroll surface reaches the physical viewport
           // edge instead of leaving an opaque status-bar band. Match the
           // header row's timing to avoid a one-frame gap during hide/reveal.
-          // sm+ keeps its pinned inset because the sticky [bar | search] stack
-          // is a separate wide-layout contract.
+          // sm+ keeps its pinned inset because sticky top-bar chrome is a
+          // separate wide-layout contract from page-flow search.
           //
           // Paint the header's own surface, not the page background. While the
           // spacer is visible it is the top of the header, so `--background`

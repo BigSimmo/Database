@@ -264,12 +264,8 @@ for (const { name: sizeName, viewport } of breakpoints) {
         scrolledDown.hiddenBottomComposers,
         "no composer flips data-scroll-hidden above the phone breakpoint",
       ).toBe(0);
-      if (sizeName === "tablet") {
-        expect(scrolledDown.searchVisible, "tablet page search scrolls away with page content").toBe(false);
-      } else {
-        expect(atTop.searchInsideDesktopPageSlot).toBe(true);
-        expect(scrolledDown.searchVisible, "desktop composer follows page flow off-screen").toBe(false);
-      }
+      expect(atTop.searchInsideDesktopPageSlot, "tablet and desktop search start in the page slot").toBe(true);
+      expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
     });
   }
 }
