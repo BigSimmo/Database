@@ -168,11 +168,11 @@ Babysit / Run PR ledger policy: do not push a tip whose sole delta is a babysit 
 - For non-trivial source/config/test changes, prefer `npm run verify:cheap` as the first broad gate and `npm run verify:pr-local` before PR handoff when the change is ready. The PR-local gate runs the full unit suite once, then conditionally adds the production build/client-bundle scan and RAG fixture/manifest validation. Browser, dependency-audit, Docker/Supabase replay, and provider-backed checks remain separate gates. Use `npm run verify:pr-local -- --dry-run --files <comma-separated paths>` to inspect selection without running commands. The broader `--extended` plan is dry-run only unless explicit approval is reflected by `ALLOW_EXTENDED_PR_LOCAL=true`.
 - Let the repository run coordinator control cross-worktree verification. It permits at most two focused Vitest/read-only typecheck leases from different worktrees; full Vitest, coverage, lint, build, Playwright, and live-provider tests remain exclusive. Do not install while a repository test, build, lint, typecheck, or server command is active. Avoid aggressive short-interval polling, and do not repeat an unchanged full gate after it passes.
 - For UI, frontend, browser, routing, styling, reduced-motion, or forced-colors changes, run `npm run ensure` before browser work and use `npm run verify:ui` as the Chromium UI gate. For phone-chrome changes, run `npm run verify:phone-chrome` first: it checks installed-lock parity, selects the affected browser/PWA owners and exact journeys, and adds `verify:ui` last only when shared chrome foundations make the broad gate necessary. Inspect uncertain scope with `-- --dry-run`.
-- **Run `npm run format` and commit the result before every push.** `format:check` is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop reports green while `Static PR checks` and `ci/circleci: verify` both fail on `prettier --check .`. Three CI failures on 2026-07-30 came from exactly this. Two traps beyond simply running it:
+- **Run `npm run format` and commit the result before every push.** `format:check` is in neither `npm run test`, `npm run typecheck`, nor `npm run lint`, so the ordinary loop reports green while `Static PR checks` fails on `prettier --check .`. Three CI failures on 2026-07-30 came from exactly this (two of them on `ci/circleci: verify`, since removed from the repo by PR #1412). Two traps beyond simply running it:
   - **Formatting without committing does nothing for the push.** A push sends commits, not your working tree, so formatting after committing leaves the unformatted blob on the branch. Amend or add a follow-up commit.
   - **A per-file check is not the repository-wide check.** `prettier --check <file>` on the source file you edited passes while a doc or ledger edit in the same push fails; that was the missed file twice out of three.
 
-  `.githooks/pre-push` carries the guard, and since 2026-07-30 it checks the pushed commit where CI checks it: `guard-push.mjs` puts the pushed SHA in a temporary `git worktree` with `node_modules` linked in and runs Prettier there, so neither the working tree's contents nor its prettier config can vouch for the commit, and a dynamic `prettier.config.*` still loads. A push that changes prettier policy (`.prettierrc*`, `.prettierignore`, `.editorconfig`, or a `package.json` carrying a `prettier` field) escalates to a whole-tree `prettier --check .`, because a policy change alters the verdict for files the push never touched. But `core.hooksPath` is set by this checkout's `npm install`, so an agent pushing from its own environment bypasses the hook entirely and only CI catches the break — which is why the rule above is still a rule.
+  `.githooks/pre-push` carries the guard, and since 2026-07-30 it checks the pushed commit where CI checks it: `guard-push.mjs` puts the pushed SHA in a temporary `git worktree` with an exact-lock `node_modules` linked in and runs Prettier there, so neither the working tree's contents nor its prettier config can vouch for the commit, and a dynamic `prettier.config.*` still loads. An isolated worktree without local dependencies may reuse Prettier only from a registered worktree with a byte-identical lockfile and matching installed Prettier version; if none exists, the guard blocks with the explicit `npm ci --include=dev` remediation instead of skipping formatting. A push that changes prettier policy (`.prettierrc*`, `.prettierignore`, `.editorconfig`, or a `package.json` carrying a `prettier` field) escalates to a whole-tree `prettier --check .`, because a policy change alters the verdict for files the push never touched. But `core.hooksPath` is set by this checkout's `npm install`, so an agent pushing from its own environment bypasses the hook entirely and only CI catches the break — which is why the rule above is still a rule.
 
 - For release or handoff confidence, use `npm run verify:release`; this includes the full Playwright project set.
 - For clinical ingestion, answer generation, source governance, privacy, production-readiness, or environment changes, run the smallest relevant domain check plus `npm run check:production-readiness`.
@@ -201,8 +201,10 @@ action must perform one; a page that ships must be reachable.
   (`src/lib/app-modes.ts`, `src/lib/tools-catalog.ts`, `src/lib/universal-search.ts`), not
   hardcoded strings scattered across components.
 - **New-route checklist.** Add the page → link it from real nav (sidebar / launcher / mode home /
-  search) → `npm run sitemap:update` → document it in `docs/codebase-index.md` → add a
+  search) → `npm run docs:update` → document it in `docs/codebase-index.md` → add a
   reachability/coverage assertion. A production page route with no inbound link is an orphan.
+  The committed pre-commit hook runs this synchronization for relevant staged changes and stops
+  when generated docs need review/staging; it never stages files automatically.
 - **Gates.** `eslint-rules/require-button-wiring.mjs` (in `npm run lint`) fails on an un-wired
   `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
   route has no inbound nav link unless it is consciously added to that test's documented
@@ -478,6 +480,12 @@ Durable mitigations in this repo:
   `do not merge` title.
 - Prefer fewer long-lived open PRs; land or close queue items rather than
   repeatedly re-merging `main` by hand.
+- Before mutating an open PR with `update-branch` or `git merge origin/main`,
+  check whether its current head has required CI in flight. If the branch is
+  merely behind and the merge tree is clean, let that run settle and sync once,
+  late, after review/fix work is assembled. Preempt an in-flight run only when
+  the branch is genuinely blocking-conflicted or the user explicitly asks for
+  an immediate sync; do not disable `cancel-in-progress`.
 - `docs/branch-review-ledger.md` stays append-only with the `ledger` merge driver
   (union + exact-row dedupe); do not rewrite existing rows during syncs. If a
   sync still surfaces exact twins, run `npm run ledger:dedupe` only.
@@ -632,8 +640,11 @@ named PR). Future process only.
 ### Speed CI without skipping quality
 
 - Assemble every commit for a head before the first push, or wait for the current PR CI run
-  to settle before pushing again. `cancel-in-progress: true` cancels Production UI mid-flight
-  on every superseding push (~40% of recent PR CI runs were cancellations).
+  to settle before pushing again. Apply the same settle-first rule to branch syncs: for a
+  behind-but-clean PR with required CI in flight, wait, then perform at most one late
+  `update-branch` / `git merge origin/main` after review and fix work is assembled.
+  `cancel-in-progress: true` should remain enabled, but every superseding push or sync cancels
+  Production UI mid-flight (~40% of recent PR CI runs were cancellations).
 - Before push: `npm run format` **and commit the result**, then
   `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in
   `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed
@@ -789,7 +800,7 @@ When explicitly asked to fix or resolve review findings:
 - After fixing a P0 or P1 finding, reply with the fix summary and resolve the review conversation when supported by GitHub permissions/tooling.
 - After fixing an approved P2 or lower finding, reply with the fix summary and resolve the review conversation when supported.
 - After deciding not to fix a P2 or lower finding, reply with the reason, note whether it is deferred or not actionable, and resolve the review conversation when supported.
-- For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`. The workflow uses this trusted marker to close that exact thread.
+- For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`. On the next line, use `<!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->` for a code fix or `<!-- codex-thread-result:no-change -->` for a no-code disposition. The workflow closes the thread only when exactly one result is declared and a reported fixed commit is the pull request head.
 - Do not use the marker when human input or new authorization is required; explain the blocker and leave that thread open.
 - Do not leave a review conversation open after it has been fixed or fully dispositioned. If direct resolution is unavailable, the marker reply is the required fallback and the workflow performs the closure.
 
@@ -807,7 +818,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 - Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
 - Post the `@codex` resolve request with a real (non-bot) user identity — a fine-grained PAT held in the `CODEX_TRIGGER_TOKEN` secret. The Codex connector ignores commands authored by `github-actions[bot]`, so a bot-authored request is silently dropped. The token needs `pull-requests: write` (issue-comment) access and no more.
 - The workflow must treat unmarked review-thread replies as inert. A trusted Codex reply beginning with `<!-- codex-thread-disposition:resolved -->` may only resolve the exact containing thread, and a non-reply Codex review comment must never be turned into a new repair request.
-- The workflow must ask Codex to resolve only existing actionable Codex review findings for the triggering pull request and current head using these repository instructions; the resolve task must not perform a new review or create new findings.
+- The workflow must ask Codex to resolve only existing actionable Codex review findings for the triggering pull request and current head using these repository instructions; the resolve task must not perform a new review or create new findings. It must name the exact repository and PR head branch, require fixes to be published there through the authenticated GitHub connector, forbid detached `work` branches and stacked pull requests, and treat a local-only commit as a visible failure.
 - The workflow may request one automatic repair pass per pull request lifetime. Later heads require an explicit human request.
 - Only trust a pull-request deduplication marker when it was posted by the trigger-token account (the same identity that posts the request), resolved at runtime rather than hard-coded.
 - Permission failures while reading or creating pull-request comments must fail the workflow visibly, not return a successful soft-skip.
@@ -818,7 +829,7 @@ Automatic Codex review is review-only by default. This repository includes `.git
 
 ### Primary PR command
 
-`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. After fixing or dispositioning a thread, reply in that thread with <!-- codex-thread-disposition:resolved --> as the first line, followed by a concise summary; that marker authorizes the workflow to close that exact thread. If human input or new authorization is required, do not use the marker and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
+`@codex resolve actionable Codex review findings for this pull request and current head using the repository instructions. This is the pull request's single automatic repair pass: do not perform a fresh review, create new standalone findings, or request another review. Work only the existing unresolved Codex threads on the current head. The workflow will provide the only allowed repository, pull-request head branch, and starting commit. Publish every approved fix to that exact head branch through the authenticated GitHub connector; never use a detached or synthetic work branch and never create a stacked pull request. Verify the pull-request head contains the pushed commit before reporting success. Always fix P0 and P1 findings. For P2 and lower findings, fix only clear, scoped, low-risk issues; otherwise disposition them with a concise reason. For a fixed thread, reply with <!-- codex-thread-disposition:resolved --> followed by <!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->. For a no-code disposition, use <!-- codex-thread-disposition:resolved --> followed by <!-- codex-thread-result:no-change -->. A local-only commit is not a fix. If publication or verification fails, use neither result marker, do not claim success, and leave the thread open with the blocker. Finish only after every actionable thread is fixed or dispositioned and closed, or explicitly left open for a human decision. Do not update the branch from main, address unrelated reviews, broaden scope, or create more than one scoped fix commit. Do not use external APIs, paid services, credentials, dependency changes, or broad refactors unless explicitly authorized. Add targeted tests where behavior changes and run the narrowest relevant validation.`
 
 ## Codex Cloud environment
 
@@ -828,22 +839,54 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 - Setup: `bash scripts/setup-codex-cloud.sh`.
 - Maintenance: `bash scripts/maintain-codex-cloud.sh`.
-- Default to demo/offline mode with agent internet disabled and no provider credentials.
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
+  Use `connected` only when the user explicitly authorizes the required provider access.
+- Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
+  read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
+  clean disposable checkout on a task-specific non-protected branch.
 - Cloud mirrors the tracked repository toolchain, not Windows files, `.env.local`,
   desktop plugins, browser sessions, OAuth sessions, user-global skills, or uncommitted
   work. Keep required workflows in tracked instructions, scripts, tests, and repo-local
   skills.
-- Run `npm run check:codex-cloud`, `npm run check:runtime`, and
-  `npm run check:installed-lock-parity` before trusting a new or reset environment.
+- Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
+  policy, or provider credentials. Treat those as product/account settings and verify them
+  separately without printing secret values.
+- In a Cloud agent shell, `npm run check:codex-cloud` validates the tracked contract and
+  effective access-profile modes. Use `npm run check:codex-cloud -- --runtime` for the
+  complete installed toolchain and browser executables. Also run
+  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
+  or reset environment. A skipped browser install is not full browser readiness. Output is
+  limited to approved mode values, presence booleans, repository identity, and MCP
+  server/command/environment-variable names; never print credential values.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
   agent phase; do not copy them into files to bypass that boundary.
 - Provider-backed checks, hosted CI mutations, deployment, production data access, and
   Git publishing still require the explicit authorization defined above.
+- The ordinary offline Cloud profile intentionally cannot perform authenticated production or
+  live-provider checks. `check:production-readiness` reports this as a provider capability gap.
+- Authenticated live tests run through the manual
+  `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
+  dispatch confirmation, and the `Database / production` environment, never by exposing
+  credentials to the Codex Cloud agent shell.
+- Railway reads require both the pinned CLI and a dedicated `RAILWAY_API_TOKEN`. Never substitute
+  `RAILWAY_TOKEN`. GitHub CLI authentication, the credential-free `origin` URL, and shell Git
+  authentication are separate capabilities; never add a PAT or token-bearing credential helper.
 - The Codex GitHub connection used to clone a repository is separate from agent-shell
   `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
-- For GitHub-related work, use the connected GitHub connector first whenever it supports the task: pull-request, issue, comment, and review-thread reads; review-thread replies and resolution; GitHub Actions run, job, log, and artifact inspection; and supported GitHub API mutations. Do not treat a missing `gh` CLI as a blocker for connector-supported work, and never add a PAT as a workaround. The intended connection is `BigSimmo` with administrator access to this repository; verify the exact target and connector result before any write. Use shell `git` or `gh` only for a genuine connector gap and only when the task permits it.
+- For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
+  tools as the default remote control plane. Use them for repository, PR, issue, review
+  thread, and Actions work, including inline-thread replies/resolution, Actions
+  run/job/log/artifact inspection, and approved branch, file, or PR mutations. Missing
+  `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
+  capability and must not prompt a PAT workaround. The intended connection is `BigSimmo`
+  with administrator access to this repository. Use shell `git` or `gh` only for a
+  genuine connector gap and only when the task permits it.
+- Confirm the exact repository and PR/thread/job before a write, and verify the
+  connector result before treating the write as successful. If the connector lacks a
+  needed GitHub setting or organisation control, report that limit rather than attempting a
+  credential, secret, or shell-based bypass.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
   physical iPhone Safari/PWA acceptance.
 
@@ -857,3 +900,10 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
 - What still won't run in this VM even with secrets: `npm run worker` also needs the Python OCR stack (`worker/python/requirements.txt`) and heavy parsing deps; Supabase edge functions need Deno v2.x + deployment. `verify:release` additionally runs governance/eval gates. Treat missing-secret failures of `check:supabase-project`/`verify:release` in demo mode as expected, not regressions.
 - Dev server: `npm run dev` selects a stable per-project localhost port (e.g. `4461`), binds `0.0.0.0`, and prints the exact URL. Never assume port 3000/3001/3002. `npm run ensure` starts/verifies it in the background.
 - Verification without secrets: `npm run lint`, `npm run typecheck`, and `npm run test` (vitest) all pass offline. `npm run verify:cheap` also runs runtime, GitHub Actions pin, CI-scope, and sitemap checks. `npm run verify:pr-local` adds format, conditional build/client-bundle scanning, and RAG fixture/manifest validation without repeating unit tests; browser, Docker/Supabase, audit, and provider checks remain separate. See `docs/testing.md` for lock, live-test, Playwright, and flake-ledger rules.
+- For GitHub-related work authorised in this session, prefer the connected GitHub
+  connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
+  support (including run/job/log/artifact inspection and review-thread replies/resolution).
+  A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
+  workaround. The intended connection is `BigSimmo` with administrator access to this
+  repository. Verify the exact target and connector result before any write. Use shell
+  `git` or `gh` only for a genuine connector gap and only when the task permits it.

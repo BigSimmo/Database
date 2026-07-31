@@ -1,9 +1,14 @@
 # Scripts index
 
-Curated map of `scripts/` (~135 files) and the `package.json` script surface (~166 entries),
+Curated map of `scripts/` (195 files) and the `package.json` script surface (209 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
-referenced in docs resolves to a real script.
+referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
+Every top-level `.mjs`/`.ts`/`.cjs` script is named below; the remaining files are fixtures, SQL,
+subfolder helpers, and small shared helpers grouped rather than itemised.
+
+> The two counts in the sentence above are generated facts, not prose. Keep them in the exact
+> `(N files)` / `(N entries)` shape — tooling rewrites that sentence by regex.
 
 Legend: **[live]** routine tooling · **[infra]** runner/guard plumbing · **[one-shot]** completed
 migration/batch helper that is a candidate for an `archive/` subfolder under `scripts/` once its
@@ -11,30 +16,44 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 
 ## Runner & guard infrastructure [infra]
 
-| Script                                                                                     | Role                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `run-heavy.mjs`                                                                            | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely                                            |
-| `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                 | Typed/test/e2e/eval entrypoint wrappers                                                                                                               |
-| `dev-free-port.mjs`, `ensure-local-server.mjs`                                             | Project-stable localhost port selection + background server ensure                                                                                    |
-| `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs` | Install/preflight guards                                                                                                                              |
-| `ci-change-scope.mjs`, `ci-triage.mjs`, `pr-policy.mjs`, `pr-mergeability.mjs`             | CI change classification + PR policy + conflict signal (self-tested via `check:ci-scope`/`check:ci-triage`/`check:pr-policy`/`check:pr-mergeability`) |
-| `check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`                       | Outstanding-issues ID/marker/no-driver guard + PR mergeability workflow contract                                                                      |
-| `check-installed-lock-parity.mjs`, `phone-chrome-plan.mjs`, `verify-phone-chrome.mjs`      | Lock-trust preflight plus change-scoped phone contracts, ownership journeys, and smart full-UI escalation                                             |
-| `final-merge-audit.mjs`                                                                    | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof                                                 |
-| `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                        | Shared helpers                                                                                                                                        |
+| Script                                                                                                                    | Role                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `run-heavy.mjs`                                                                                                           | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely                                            |
+| `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                                                | Typed/test/e2e/eval entrypoint wrappers                                                                                                               |
+| `dev-free-port.mjs`, `ensure-local-server.mjs`                                                                            | Project-stable localhost port selection + background server ensure                                                                                    |
+| `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs`                                | Install/preflight guards                                                                                                                              |
+| `setup-codex-cloud.sh`, `maintain-codex-cloud.sh`, `check-codex-cloud-setup.mjs`, `ensure-codex-cloud-git-remote.mjs`     | Reproducible Codex Cloud toolchain/profile setup, sanitized acceptance, and safe credential-free `origin` repair                                      |
+| `ci-change-scope.mjs`, `ci-triage.mjs`, `pr-policy.mjs`, `pr-mergeability.mjs`                                            | CI change classification + PR policy + conflict signal (self-tested via `check:ci-scope`/`check:ci-triage`/`check:pr-policy`/`check:pr-mergeability`) |
+| `check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`                                                      | Outstanding-issues ID/marker/no-driver guard + PR mergeability workflow contract                                                                      |
+| `check-installed-lock-parity.mjs`, `phone-chrome-plan.mjs`, `verify-phone-chrome.mjs`, `playwright-browser-preflight.mjs` | Lock-trust preflight, change-scoped phone contracts, and Playwright browser-binary preflight before build                                             |
+| `final-merge-audit.mjs`                                                                                                   | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof                                                 |
+| `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                                                       | Shared helpers                                                                                                                                        |
+| `test-focused.mjs`, `test-run-selection.mjs`, `test-cache-path.mjs`, `test-environment.mjs`                               | Backs `npm run test:focused` — change-scoped selection, cache pathing, env setup; fails closed for deleted files and test infrastructure              |
+| `primary-checkout-lease.mjs`, `test-run-lock.mjs`, `clean-worktree.mjs`                                                   | Cross-worktree lease arbitration for the primary checkout, plus worktree cleanup                                                                      |
+| `resolve-tsx-cli.mjs`, `register-server-only.mjs`, `enable-server-only-stub.mjs`                                          | tsx CLI resolution and `server-only` import shims                                                                                                     |
+| `check-format-changed.mjs`, `check-base-freshness.mjs`, `check-local-presence.mjs`                                        | Push-time helpers behind `guard-push.mjs`: changed-file formatting, stale-base and local-presence checks                                              |
+| `yaml-contract.mjs`, `sensitive-text.mjs`, `design-system-contract-utils.mjs`                                             | Shared parsing/redaction/contract helpers used by the gates                                                                                           |
 
 ## Verification gates [live]
 
 `verify:cheap` → `verify:pr-local` → `verify:ui` → `verify:release`. Building blocks:
 `check-runtime.ts`, `check-github-action-pins.mjs`, `check-gate-manifest.mjs`,
 `check-outstanding-issues.mjs`, `check-pr-mergeability-workflow.mjs`,
-`check-maintainability-budgets.mjs`, `check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
+`check-maintainability-budgets.mjs`, `check-upload-limit-parity.mjs`,
+`check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
 `check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
 `check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
 `check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
 `verify-release-offline.mjs`, `check-codex-cloud-setup.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
 `verify:cheap:internal` chain also runs in CI's `static-pr` job, so the two lists can't drift.
 
+Also in the gate set: `check-assets.mjs`, `check-branch-review-ledger.mjs`,
+`check-hosted-migration-role.mjs` (`check:migration-role` — pins the immutable applied migration and
+the `postgres` role), `check-edge-functions.mjs`, `check-env-parity.mjs`, `check-ci-env.mjs`,
+`run-gitleaks-pinned.mjs`, `rag-offline-contract.mjs` + `test-rag-offline.mjs` (offline RAG
+contract), `check-lighthouse-budget.mjs` + `run-lighthouse-budget.mjs`, and the workflow-contract
+guards `check-pr-policy-workflow.mjs` and `check-codex-autofix-workflow.mjs`.
+`audit-formatting-fixtures.ts` checks the formatting fixtures themselves.
 `setup-codex-cloud.sh` and `maintain-codex-cloud.sh` reproduce the provider-free Cloud
 runtime documented in `docs/codex-cloud.md`; `npm run check:codex-cloud` verifies that
 the runtime pins, install commands, offline defaults, and documentation stay aligned.
@@ -61,8 +80,12 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `eval-rag.ts`, `eval-rag-offline.mjs`, `eval-retrieval.ts`, `eval-quality.ts`,
 `eval-answer-quality.ts`, `eval-search.ts`, `eval-search-api.ts`, `eval-assertions.ts`,
 `compare-retrieval-eval.ts`, `retrieval-health.ts`, `profile-retrieval-rpcs.ts`,
-`warm-retrieval-cache.ts`, `tune-search-weights.ts`, `check-rag-fixtures.mjs`. Golden fixtures:
+`warm-retrieval-cache.ts`, `tune-search-weights.ts`, `check-rag-fixtures.mjs`, `eval-trend.mjs`
+(trend across runs), `eval-utils.ts` (shared harness helpers). Golden fixtures:
 `scripts/fixtures/rag-retrieval-golden.json`, `scripts/fixtures/assertion-golden.json`.
+
+Editing anything in this section is a protected-surface change — read `docs/rag-behaviour/` and flag
+the task before you start.
 
 ## Registry / catalogue content [live]
 
@@ -75,13 +98,38 @@ For executable phone-chrome changes, use `verify:phone-chrome` before the broad 
 `build-worker.mjs`, `build-analyze.mjs`, `build-therapies-index.mjs`,
 `build-cross-mode-differentials-index.mjs`, `build-ranking-snapshot.ts`,
 `generate-site-map.ts`, `generate-brand-assets.ts`, `generate-sample-documents.ts`,
-`check-sample-extraction.ts`.
+`check-sample-extraction.ts`, `optimize-public-images.mjs`.
 
 ## Maintenance & ops [live]
 
 `cleanup-storage.ts`, `purge-query-logs.ts`, `audit-tables.ts`, `supabase-recovery-status.ts`,
 `promote-query-misses.ts`, `flake-ledger.mjs`, `sweep-branch-ledger.mjs`, `dependency-report.mjs`,
-`set-site-administrator.ts`.
+`set-site-administrator.ts`, `ops-digest.mjs`, `build-clinical-review-queue.ts`,
+`verify-locality-metadata.ts`, `update-docs-inventory.mjs`.
+
+### Review ledger, branches and skills [live]
+
+- `branch-review-ledger.mjs` — the **only** way to read or write `docs/branch-review-ledger.md`
+  (`ledger:lookup` / `ledger:append` / `ledger:dedupe` / `ledger:rotate`). Never hand-write a row.
+- `merge-branch-review-ledger.mjs` — the `merge=ledger` union driver from `.gitattributes`;
+  `check-branch-review-ledger.mjs` fails if that protection is lost.
+- `sync-open-pr-branches.mjs` (`sync:pr-branches`) — anti-churn sync for stale open PR heads;
+  refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
+- `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
+  reconciliation entry point and its evidence bundle; see `docs/reconciliation-playbook.md`.
+- `list-database-skills.mjs` (`skills` / `check:skills`), `sync-skills.mjs`, `skill-create.mjs` —
+  the `.agents/skills/` catalogue.
+
+### Live/staging verification [live]
+
+`soak-test.ts`, `test-cross-tenant-staging.ts` (the executable owner-boundary proof behind
+`docs/staging-tenancy-release-evidence.md`), `deployment-boot-smoke.mjs`, `run-live-tests.mjs`.
+These reach live providers — they need explicit confirmation before running.
+
+### Browser and performance capture [infra]
+
+`playwright-base-url.ts`, `classify-playwright-failures.mjs`, `capture-chrome-parity.ts`,
+`summarise-web-vitals.mjs`.
 
 ## One-shot / dated — archive candidates [one-shot]
 
@@ -96,7 +144,8 @@ out of the `tests/**` run.
 **Remaining candidates** (still in `scripts/`, retire once each is confirmed retired):
 `check-retrieval-owner-migration.ts`, `backfill-source-metadata.ts`, `backfill-text-normalization.ts`,
 `backfill-visual-intelligence.ts`, `backfill-document-tags.ts`, `backfill-enrichment.ts`,
-`derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`, `measure-wrapped-dose-prevalence.ts`.
+`derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`, `measure-wrapped-dose-prevalence.ts`,
+`decompose-indexing-v3.mjs`, `repro-coalesce-poison-race.mjs` (a one-off race reproducer).
 
 ## Workflow planners [infra]
 

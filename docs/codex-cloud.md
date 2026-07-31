@@ -1,127 +1,238 @@
 # Codex Cloud environment
 
-This is the copy/paste setup for provider-free work on `BigSimmo/Database` in an
-OpenAI-managed Codex Cloud container. It mirrors the repository's Node, npm, Deno,
-Python/OCR, and Playwright toolchain without copying local credentials or connecting to
-live OpenAI, Supabase, Railway, or GitHub APIs from the agent shell.
+This repository supports reproducible Codex Cloud work with Node 24, npm 11, locked
+development dependencies, Deno 2, Python/OCR tooling, and the Chromium, Firefox, and
+WebKit Playwright browser matrix. The repository setup can prepare and validate the
+container. It cannot grant GitHub installation permissions, workspace RBAC, agent-network
+policy, or provider-account permissions; those are configured in Codex and each provider.
+
+## Issues this setup resolves
+
+- Codex Cloud had no tracked setup or maintenance command on `main`.
+- Two incompatible Cloud checkers existed only in dirty worktrees.
+- The prompt-perfector bootstrap parsed the Windows task-start output incorrectly and
+  rejected Cloud's legitimate single primary checkout.
+- Tool repair covered Node dependencies but not Deno, OCR, Python, or browsers.
+- Provider-variable clearing was incomplete and the Cursor Cloud guidance was easy to
+  mistake for Codex Cloud guidance.
+- GitHub connector access, shell Git credentials, network access, and provider credentials
+  were treated as one permission even though they are separate controls.
+- The Codex Cloud CLI can emit a root `error.log` containing account/session metadata; the
+  repository now ignores that exact diagnostic path.
 
 ## Create the environment
 
-Open [Codex environment settings](https://chatgpt.com/codex/settings/environments),
-create an environment for `BigSimmo/Database`, and use these values:
+In Codex environment settings, create an environment for `BigSimmo/Database` using the
+official [Cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environment)
+contract:
 
 | Setting               | Value                                  |
 | --------------------- | -------------------------------------- |
-| Environment name      | `BigSimmo/Database`                    |
 | Repository            | `BigSimmo/Database`                    |
-| Base image            | Default `universal` image              |
+| Base image            | Default universal image                |
 | Node version          | `24`                                   |
-| Setup script          | `bash scripts/setup-codex-cloud.sh`    |
-| Maintenance script    | `bash scripts/maintain-codex-cloud.sh` |
-| Agent internet access | Off                                    |
-| Environment variables | Use the provider-free values below     |
-| Secrets               | None                                   |
+| Setup command         | `bash scripts/setup-codex-cloud.sh`    |
+| Maintenance command   | `bash scripts/maintain-codex-cloud.sh` |
+| Environment variables | Use the complete profile below         |
 
-Add these non-secret environment variables so every agent shell starts with the same
-provider-free defaults even when shell startup files are not sourced:
+Enable agent internet access only when a task needs it. Prefer a domain allowlist and the
+minimum HTTP methods for the task. Package installation happens during setup; ordinary
+structure-only work, including the RAG decomposition prompt below, should remain offline.
+
+The setup command fails if the complete toolchain cannot be installed. It pins Railway CLI
+`5.30.1` and Codex CLI `0.146.0`, both stable npm releases as reviewed on 2026-07-30. Railway's
+[official CLI guide](https://docs.railway.com/cli) supports global npm installation on Node 16+
+(this repository uses Node 24). OpenAI's
+[official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) supports Linux installation;
+the npm package is used here so maintenance can verify an exact version without running an
+unversioned installer. Set
+`CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` only for an explicitly source-only environment; that
+environment is not full browser-ready.
+
+## Access profiles
+
+### Offline (default)
+
+Use this for refactors, static checks, mocked tests, and all work that expressly forbids
+providers:
 
 ```text
 CODEX_CLOUD=1
+CODEX_CLOUD_ACCESS_PROFILE=offline
 RAG_PROVIDER_MODE=offline
 NEXT_PUBLIC_DEMO_MODE=true
 PLAYWRIGHT_OFFLINE_MODE=true
 ```
 
-The setup script installs the exact npm version pinned by `packageManager`, restores
-`package-lock.json` with development dependencies, installs Deno 2.x, prepares the
-Python OCR environment, and installs the Chromium, Firefox, and WebKit Playwright
-browsers. Codex caches this container; the maintenance script repairs runtime or
-lockfile drift when a cached environment resumes on a newer commit.
+The generated shell profile removes known OpenAI, Supabase, Railway, GitHub/GitLab,
+database, CI-trigger, and test-user credential variables. This prevents an unrelated Cloud
+task from silently becoming provider-backed.
 
-Set `CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` only if a source-only environment is required.
-Leaving it unset produces the closest reproducible match to the local verification
-toolchain.
+Set all five offline values in the environment UI. The setup also writes the generated
+profile to `.bashrc`, `.profile`, and `.bash_profile`. Covering `.bash_profile` is required:
+Bash stops login-profile discovery at the first matching file, so an existing `.bash_profile`
+can otherwise prevent `.profile` from running. Offline mode values are forced after inherited
+platform values so stale `auto`/`false` settings cannot outrank the repository contract.
 
-## Security boundary
+### Connected (explicit opt-in)
 
-Codex Cloud secrets exist only during setup and are removed before the agent phase.
-Ordinary environment variables remain visible to the agent. Do not work around that
-boundary by adding OpenAI, Supabase, Railway, GitHub, database, or user credentials as
-ordinary environment variables or by writing them into repository files.
+Use `CODEX_CLOUD_ACCESS_PROFILE=connected` only in a separate environment whose tasks are
+expected to call named providers. Configure the smallest domain/method allowlist and the
+least-privileged credentials for those tasks. Never commit credentials or print their
+values. The setup script does not call providers and does not prove provider authorization.
 
-The generated agent-shell profile explicitly selects:
+Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
+properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
+or Railway secrets into the agent phase. Do not persist them in profiles, repository files,
+`.env*`, caches, logs, or ordinary variables as a workaround. A `connected` profile models
+explicit authorization and relaxes the offline-mode assertions, but it does not create
+credentials. Authenticated Supabase/E2E tests use the protected manual workflow documented
+below. Run other provider checks locally/operator-side or through a separately approved,
+least-privilege provider mechanism.
 
-```text
-RAG_PROVIDER_MODE=offline
-NEXT_PUBLIC_DEMO_MODE=true
-PLAYWRIGHT_OFFLINE_MODE=true
-```
+## GitHub access
 
-It also unsets known provider credentials. Provider-backed checks, deployments,
-production data operations, hosted CI mutations, and live API tests remain local or
-operator-controlled workflows requiring explicit authorization.
+The GitHub connector is the supported repository/PR path. Follow the official
+[Codex GitHub setup](https://help.openai.com/en/articles/11390924), authorize the
+`BigSimmo/Database` repository, and ensure the installation grants the user write access if
+Cloud tasks must publish PRs. Repository discovery proves read access only.
 
-## What matches local
-
-The environment mirrors the repository development toolchain: Node, npm, locked
-dependencies, Deno, Python/OCR, and the Playwright browser matrix. It also checks out
-tracked repository instructions, scripts, tests, and skills.
-
-It does not inherit Windows files, `.env.local`, desktop browser sessions, user-global
-Codex configuration, desktop plugins, OAuth sessions, local services, or uncommitted
-work. Put durable project behavior in tracked `AGENTS.md` files, repository scripts,
-tests, and repo-local skills rather than relying on machine-global configuration.
-
-## GitHub integration
-
-Selecting `BigSimmo/Database` proves that the Codex GitHub connection can discover and
-clone the repository. Codex can also show task diffs and offer pull-request workflows
-through its GitHub integration when that installation has write permission.
+For an explicitly authorised GitHub task, treat the authenticated GitHub connector/MCP
+tools as the default remote control plane. Use the connector for repository and PR reads,
+issue and PR comments, inline-review-thread replies/resolution, Actions
+run/job/log/artifact inspection and retries, and approved branch, file, or PR mutations.
+Do not infer that GitHub is unavailable because `gh`, shell GitHub credentials, or
+direct shell access are absent. The intended connection is `BigSimmo` with administrator
+access to this repository. Use shell `git` or `gh` only for a genuine connector gap and
+only when the task permits it.
 
 GitHub connector permission is separate from credentials inside the agent shell. Do
 not add a personal access token to Cloud secrets or environment variables to make
 `git push` or `gh` work. If a Cloud task cannot publish a branch, reconnect the
-repository in Codex settings and run a controlled branch/PR write test.
+repository in Codex settings and run a controlled branch/PR write test. Confirm the
+exact repository and PR/thread/job before a write, and verify the connector result
+before treating the write as successful. If the connector does not expose a required
+repository/organisation setting, report the limit rather than attempting a credential or
+secret workaround.
 
-## First Cloud task
+Setup restores a missing `origin` to the credential-free URL
+`https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
+instead of overwriting a wrong or credential-bearing remote. When GitHub CLI authentication is
+already available, setup asks `gh auth setup-git` to install its token-free helper command. It
+never embeds a token or invents a PAT. `git ls-remote` and a dry-run push remain separate
+acceptance checks; if the connector does not expose shell Git authentication, report that
+platform capability gap.
 
-Start a Cloud task against the default branch with:
+Suggested GitHub acceptance task:
 
 ```text
-Read AGENTS.md and docs/codex-cloud.md. Confirm the repository identity and report
-node --version, npm --version, deno --version, python --version, tesseract --version,
-and npx playwright --version. Run npm run check:codex-cloud, npm run check:runtime,
-and npm run check:installed-lock-parity. Do not call APIs, providers, hosted CI, or
-production-like services. Do not commit or push.
+Read AGENTS.md and docs/codex-cloud.md. Create a task-specific branch, add one harmless
+documentation-only line, and offer a draft pull request through the Codex GitHub workflow.
+Do not merge. Report whether repository clone, branch publication, and draft PR creation
+each succeeded. Remove the draft branch/PR only after I approve cleanup.
 ```
 
-Expected runtime majors are Node 24, npm 11, and Deno 2. The final three checks must
-exit successfully. The Cloud check validates the Python/OCR tools, offline environment
-defaults, and all three browser executables when run inside Cloud, unless the explicit
-source-only browser opt-out is set. Treat a missing required tool as an environment setup
-failure and reset the environment cache after fixing the setup script.
+## Setup and maintenance
 
-## Verification after code changes
+Setup:
 
-Use the same repository gates as local work:
+```bash
+bash scripts/setup-codex-cloud.sh
+```
 
-1. Run the smallest focused test for the changed files.
-2. Run `npm run verify:cheap` for non-trivial source, configuration, or test changes.
-3. Use `npm run verify:pr-local -- --dry-run --files <comma-separated-paths>` to inspect
-   the handoff plan before running broader local gates.
-4. Use `npm run verify:release:offline` only when full offline release confidence is
-   required. It includes the browser matrix and production build and may be expensive.
+Maintenance:
 
-Never describe Chromium as physical iPhone Safari/PWA evidence. Physical-device,
-desktop-app, local-secret, and provider-backed acceptance remains outside Codex Cloud.
+```bash
+bash scripts/maintain-codex-cloud.sh
+```
 
-## Troubleshooting
+The maintenance command reasserts the safe `origin`, runs static/effective environment
+acceptance, then runtime acceptance. Any runtime, dependency, CLI, Deno, Python/OCR, or browser
+drift reruns the full setup instead of repairing only `node_modules`. All profile insertions,
+CLI installs, and remote repair are idempotent.
 
-- Wrong Node version: select Node 24 under **Set package versions**, then reset the
-  environment cache.
-- Wrong npm version: rerun setup; it installs the exact `packageManager` version.
-- Stale dependencies: rerun the maintenance script or reset the environment cache.
-- Browser missing: confirm `CODEX_CLOUD_SKIP_BROWSER_INSTALL` is absent and reset the
-  cache.
-- Git push cannot authenticate: reconnect the repository in Codex settings. Do not add
-  a personal access token to Cloud environment variables or secrets.
+## Acceptance
+
+Run this in a fresh Cloud task before relying on the environment:
+
+```text
+Read all applicable AGENTS.md files and docs/codex-cloud.md. State whether this is the
+offline or connected profile. Report tool versions without printing environment values.
+Run npm run check:codex-cloud, npm run check:runtime,
+npm run check:installed-lock-parity, and npm run check:codex-cloud -- --runtime. Do not
+call a provider unless this task explicitly names and authorizes that provider. Report the
+decisive line from every command and any unrun check.
+```
+
+Expected decisive lines include:
+
+```text
+[Codex Cloud Check] PASS: static and environment Cloud contracts match.
+[Codex Cloud Check] PASS: static, environment, and runtime Cloud contracts match.
+```
+
+The effective-environment check runs automatically when `CODEX_CLOUD=1`, including without
+`--runtime`, so a newly started agent shell cannot pass with stale modes. Its report prints only
+approved mode values and presence booleans. The runtime check additionally verifies Node/npm
+policy and installed-lock parity, pinned Railway/Codex CLIs, Deno 2, Python 3 and worker imports,
+Tesseract, browser executables, local `main`/`origin/main`, the `BigSimmo/Database` origin
+identity, offline credential absence when applicable, and obsolete npm proxy variable names
+without reading or printing their values. MCP inspection emits server names, commands, and
+environment variable names only.
+
+`npm run check:production-readiness` remains useful in the offline profile for local safeguards.
+Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
+not make the provider-free cache unhealthy. `ALLOW_PROVIDER_TESTS=true` expresses authorization,
+not credential availability; live tests still fail closed with a sanitized capability-gap message
+in the offline profile.
+
+## Provider acceptance
+
+Provider access is verified separately because a generic bootstrap must not make paid or
+production-like calls. For a connected environment, name each provider, use a read-only or
+minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
+report cost or mutation risk before any write. Railway `whoami` and `status --json` require both
+the CLI and the dedicated `RAILWAY_API_TOKEN`; never use project-scoped `RAILWAY_TOKEN` as a
+fallback. Reduce Railway JSON to authenticated/project/workspace identity before output. OpenAI
+generation, Supabase live data, Railway changes, hosted CI reruns, ingestion, deployment, and
+release workflows remain separate explicit actions.
+
+## Authenticated live testing
+
+Do not expose provider credentials to the Codex Cloud agent. Cloud secrets are removed
+before the agent phase, and copying them into ordinary environment variables or files
+would bypass that security boundary.
+
+Use the manual **Authenticated live tests** GitHub Actions workflow instead. It runs the
+repository's explicit `npm run test:live` suite from protected `main`, requires the
+`run-authenticated-live-tests` dispatch confirmation, records the run against the
+`Database / production` environment, checks the expected Supabase project, and receives
+only the GitHub secrets required by the current authenticated Supabase test. It is not
+triggered by pushes, pull requests, or schedules.
+
+The suite is not read-only. Dispatching it explicitly authorizes the bounded mutations made
+by the E2E user: production sign-in/sign-out, authenticated test requests, and rate-limit
+row inserts or updates. It does not authorize unrelated production changes.
+
+To run it after a Codex Cloud change:
+
+1. Merge the reviewed change to `main` through the normal protected workflow.
+2. Open **Actions → Authenticated live tests → Run workflow**.
+3. Select `main` and choose `run-authenticated-live-tests` after reviewing the disclosed mutations.
+4. Review the `Database / production` environment deployment and test log.
+
+The current GitHub plan does not support required environment reviewers for this private
+repository, so the workflow's manual dispatch and explicit confirmation are the approval
+gate. Add required reviewers to the environment if the repository plan later supports
+them.
+
+Adding a future provider to `*.live.test.ts` does not automatically grant its credentials.
+Expand the workflow's secret list deliberately and preserve the project/target guard.
+
+## RAG X3 prompt
+
+The corrected structure-only extraction prompt is tracked at
+[`prompts/rag-coverage-gate-extraction.md`](prompts/rag-coverage-gate-extraction.md). It
+uses the offline profile, keeps private coverage preparation/telemetry helpers in `rag.ts`,
+and moves only the independently bounded evaluator. This avoids the import back-edge in the
+older proposed three-function extraction.
