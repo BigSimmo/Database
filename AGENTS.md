@@ -851,19 +851,27 @@ Use `docs/codex-cloud.md` as the environment contract:
 - Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
   policy, or provider credentials. Treat those as product/account settings and verify them
   separately without printing secret values.
-- Run `npm run check:codex-cloud` for the tracked contract and
-  `npm run check:codex-cloud -- --runtime` for the installed toolchain. Also run
+- In a Cloud agent shell, `npm run check:codex-cloud` validates the tracked contract and
+  effective access-profile modes. Use `npm run check:codex-cloud -- --runtime` for the
+  complete installed toolchain and browser executables. Also run
   `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
-  or reset environment. A skipped browser install is not full browser readiness.
+  or reset environment. A skipped browser install is not full browser readiness. Output is
+  limited to approved mode values, presence booleans, repository identity, and MCP
+  server/command/environment-variable names; never print credential values.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
   agent phase; do not copy them into files to bypass that boundary.
 - Provider-backed checks, hosted CI mutations, deployment, production data access, and
   Git publishing still require the explicit authorization defined above.
+- The ordinary offline Cloud profile intentionally cannot perform authenticated production or
+  live-provider checks. `check:production-readiness` reports this as a provider capability gap.
 - Authenticated live tests run through the manual
   `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
   dispatch confirmation, and the `Database / production` environment, never by exposing
   credentials to the Codex Cloud agent shell.
+- Railway reads require both the pinned CLI and a dedicated `RAILWAY_API_TOKEN`. Never substitute
+  `RAILWAY_TOKEN`. GitHub CLI authentication, the credential-free `origin` URL, and shell Git
+  authentication are separate capabilities; never add a PAT or token-bearing credential helper.
 - The Codex GitHub connection used to clone a repository is separate from agent-shell
   `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
   controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
