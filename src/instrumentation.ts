@@ -68,6 +68,11 @@ export async function register() {
   // Runtime DSN consistency only. Sourcemap upload credentials are build-time
   // and are gated in next.config.ts — not re-checked here.
   requireSentryEnv();
+
+  // Warm rag_aliases so the first post-boot search skips the cold-cache DB RTT.
+  // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.
+  const { warmEnabledRagAliasCache } = await import("@/lib/rag/rag-retrieval-variants");
+  void warmEnabledRagAliasCache();
 }
 
 export { captureRequestError as onRequestError };
