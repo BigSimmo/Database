@@ -145,6 +145,14 @@ const uiPatterns = [
   "tests/answer-progress-ui-smoke.spec.ts",
   /^tests\/ui-.*\.spec\.ts$/,
   /^tests\/playwright-.*\.ts$/,
+  // Shared Playwright fixtures. Three of the four files here back `ui-*.spec.ts`
+  // journeys — `zero-touch.ts` alone backs six, including ui-smoke — and editing
+  // one reported ui_changed=false, so `Production UI` skipped and the change
+  // reached no browser. Matched at directory level rather than by filename: a
+  // hand-list is what failed, and the only current non-UI file
+  // (supabase-round-trip-counter.ts) costs one extra UI run when it changes,
+  // against a miss that is silent.
+  /^tests\/helpers\/.*\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
   /^scripts\/(run-playwright|playwright-base-url)\.(?:mjs|ts)$/,
   // Committed visual baselines. Without this a commit that changes only a golden
@@ -583,6 +591,13 @@ function selfTest() {
     build_changed: true,
   });
   assertScope("test-runner", ["scripts/run-vitest.mjs", "scripts/run-playwright.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+  });
+  // Shared Playwright fixtures back required browser journeys; a miss here means
+  // the change reaches no browser at all, silently, on a green pull request.
+  assertScope("playwright-shared-fixtures", ["tests/helpers/phone-scroll.ts", "tests/helpers/zero-touch.ts"], {
     source_changed: true,
     coverage_changed: true,
     ui_changed: true,

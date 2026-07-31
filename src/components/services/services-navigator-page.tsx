@@ -559,14 +559,12 @@ export function ServicesNavigatorPage() {
   const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   // Demo mode is served by the registry API as status "ready" with fixture
   // records, so unauthorized/error must not silently fall back to fixtures —
   // the home and detail pages surface the same conditions as notices.
   const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
-  const searchableRecords = useMemo(
-    () => (registry.status === "ready" ? registry.records : []),
-    [registry.records, registry.status],
-  );
+  const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
   const matches = useMemo(() => {
     // Cleared live query should restore the full catalogue immediately, even if
     // deferredQuery still holds the previous term for a frame.
@@ -642,7 +640,9 @@ export function ServicesNavigatorPage() {
                   : "error"
                 : registryLoading
                   ? "loading"
-                  : "ready"
+                  : registry.status === "refetching"
+                    ? "refetching"
+                    : "ready"
             }
             faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load services"}
             faultBody={

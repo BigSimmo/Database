@@ -38,7 +38,12 @@ export function remoteRepositoryIdentity(remoteUrl) {
 }
 
 export function inspectOriginRemote(root) {
-  const result = run("git", ["remote", "get-url", "origin"], root);
+  // Read the configured URL, not `git remote get-url`. The latter applies
+  // global `url.*.insteadOf` rewrites, so a credential-free origin becomes a
+  // credential-bearing URL in environments (Cursor Cloud, some CI helpers)
+  // that inject token insteadOf rules. This helper decides whether *origin
+  // itself* embeds credentials; rewritten fetch URLs are a separate path.
+  const result = run("git", ["config", "--get", "remote.origin.url"], root);
   if (result.status !== 0) {
     return {
       configured: false,
