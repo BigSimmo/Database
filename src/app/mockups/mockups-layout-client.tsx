@@ -26,6 +26,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Renders the results header inside its own device frames; the shared composer
   // would read as a second, real search bar over the study.
   const isSearchRefineAdaptiveMockup = pathname === "/mockups/search-refine-adaptive";
+  // Draws its own result bands inside device frames; the shared chrome above
+  // them would read as a third, real band competing with the two on offer.
+  const isSearchBandDirectionsMockup = pathname === "/mockups/search-band-directions";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
@@ -63,12 +66,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
+        !isSearchBandDirectionsMockup &&
         !isTherapyNavigationMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
         !isSearchHeadingMockup &&
         !isSearchRefineAdaptiveMockup &&
+        !isSearchBandDirectionsMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup
       }
