@@ -137,6 +137,46 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("preserves chrome state across a viewport-height change that looks like upward scroll", () => {
+    // Safari toolbar / CI setViewportSize can shrink the viewport and emit a
+    // scroll-looking delta. That must not reveal hidden chrome (#146); the next
+    // genuine user gesture still can.
+    expect(
+      computeScrollHideUpdate({
+        offset: 480,
+        lastOffset: 500,
+        maxOffset: 900,
+        previousMaxOffset: 836,
+        viewportHeightChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 480,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    expect(
+      computeScrollHideUpdate({
+        offset: 500,
+        lastOffset: 480,
+        maxOffset: 900,
+        viewportHeightChanged: true,
+        currentlyHidden: false,
+        direction: "up",
+        directionTravel: 20,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 500,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("holds the chrome hidden across a multi-frame collapse clamp at the bottom", () => {
     // As the collapsing header hands its height back to the scroll container,
     // maxOffset shrinks frame by frame and the browser clamps scrollTop to it,

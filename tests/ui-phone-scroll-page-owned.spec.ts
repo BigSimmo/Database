@@ -721,19 +721,18 @@ test("Services results keep a continuous browser viewport after shared chrome re
   // anchor stable without switching back to a fixed or nested canvas.
   await page.setViewportSize({ width: phoneViewport.width, height: phoneViewport.height - 64 });
   // Wait for chrome *and* the result anchor to settle rather than sleeping
-  // (#146). The resize transiently re-shows the shared header, and while it is
-  // up the results anchor sits exactly `collapseHeight + safe-area-top` lower —
-  // 72 + 59 = the 131 px jump that failed this assertion on multiple heads,
-  // with `documentScrollTop` unchanged, so the content moved and the scroll
-  // position never did. Polling only `header.bottom <= 1` is a false settle:
-  // the bar can clear the top edge a frame before `data-scroll-hidden` and the
-  // content anchor finish recovering (reproduced on PR #1521 tip `061468e4`,
-  // Production UI shard 1). Require the hidden attributes plus the pre-resize
-  // anchor so the poll names the real condition or times out on it.
+  // (#146). Viewport resize used to look like upward scroll intent and reveal
+  // the shared header; while revealed the results anchor sat exactly
+  // `collapseHeight + safe-area-top` lower (72 + 59 = 131 px) with
+  // `documentScrollTop` unchanged. `useHideOnScroll` now treats viewport-height
+  // changes as geometry feedback and preserves hide state, so chrome should
+  // stay hidden. Still poll both conditions: a residual reveal leaves the
+  // anchor shifted, and polling only `header.bottom <= 1` can false-settle a
+  // frame before `data-scroll-hidden` recovers (PR #1521 tip `061468e4`).
   await expect
     .poll(
-      () =>
-        page.evaluate((expectedAnchorTop) => {
+      async () => {
+        const state = await page.evaluate((expectedAnchorTop) => {
           const header = document.querySelector("header#search");
           const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
           const dock = document.querySelector(".answer-footer-search-dock");
@@ -745,14 +744,27 @@ test("Services results keep a continuous browser viewport after shared chrome re
             collapse?.getAttribute("data-scroll-hidden") === "true" &&
             dock?.getAttribute("data-scroll-hidden") === "true";
           const anchorStable = Number.isFinite(anchorTop) && Math.abs(anchorTop - expectedAnchorTop) < 0.5;
-          return chromeHidden && anchorStable;
-        }, hidden.anchorTop),
+          return {
+            ok: chromeHidden && anchorStable,
+            chromeHidden,
+            headerBottom,
+            collapseHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+            dockHidden: dock?.getAttribute("data-scroll-hidden") === "true",
+            scrollSignal: collapse?.getAttribute("data-scroll-signal") ?? "missing",
+            anchorTop,
+            expectedAnchorTop,
+          };
+        }, hidden.anchorTop);
+        return state.ok
+          ? "settled"
+          : `chromeHidden=${state.chromeHidden} headerBottom=${state.headerBottom} collapse=${state.collapseHidden} dock=${state.dockHidden} signal=${state.scrollSignal} anchor=${state.anchorTop} expected=${state.expectedAnchorTop}`;
+      },
       {
         timeout: 10_000,
         message: "shared chrome and Services result anchor did not re-settle after the viewport shrink",
       },
     )
-    .toBe(true);
+    .toBe("settled");
   const afterViewportResize = await page.evaluate(() => {
     const main = document.getElementById("main-content");
     const resultList = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
