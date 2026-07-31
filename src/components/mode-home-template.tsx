@@ -179,8 +179,16 @@ export function ModeHomeVerificationFooter({
 }) {
   return (
     <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
-      <span className="font-medium text-[color:var(--text-heading)]">{label}</span>
-      <span aria-hidden="true">·</span>
+      {/* The separator is bound to the label as one non-breaking flex item.
+          As three independent items it could wrap alone: measured at 390px,
+          five of the nine footers wrapped and every one stranded the dot on
+          the line above the clause it joins. */}
+      <span className="whitespace-nowrap font-medium text-[color:var(--text-heading)]">
+        {label}{" "}
+        <span className="font-normal text-[color:var(--text-muted)]" aria-hidden="true">
+          ·
+        </span>
+      </span>
       <span>{body}</span>
       {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
         <span className="sr-only">
