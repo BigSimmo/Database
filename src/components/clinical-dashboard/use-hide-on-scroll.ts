@@ -81,10 +81,14 @@ export function computeScrollHideUpdate(params: {
   collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
   /**
-   * True when the layout/visual viewport height changed since the previous
-   * report (Safari toolbar show/hide, orientation, Playwright `setViewportSize`).
-   * Resize can emit scroll-looking deltas and maxOffset jumps that are geometry
-   * feedback, not user hide/reveal intent — preserve chrome state and rebase.
+   * True when the visual viewport height changed since the previous report
+   * (Safari toolbar show/hide, on-screen keyboard, orientation, Playwright
+   * `setViewportSize`). Resize can emit scroll-looking deltas and maxOffset
+   * jumps that are geometry feedback, not user hide/reveal intent — preserve
+   * chrome state and rebase. Measured from `visualViewport.height`, not
+   * `window.innerHeight`: a Safari toolbar collapse moves the visual viewport
+   * while the layout viewport can stay put, which is the exact case this guard
+   * is named for.
    */
   viewportHeightChanged?: boolean;
   currentlyHidden: boolean;
@@ -117,15 +121,19 @@ export function computeScrollHideUpdate(params: {
   if (sourceChanged) {
     return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
   }
+  // The top reveal band is an absolute layout contract, so it outranks the
+  // resize guard below: a viewport change does not stop the reader being at the
+  // top of the range, and holding `hidden` here would strand the chrome
+  // off-screen at offset 0 until the next scroll.
+  if (offset <= topRevealOffset) {
+    return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
   // Viewport resize is not scroll intent. Without this guard, a toolbar shrink
   // (or CI `setViewportSize`) can look like a deliberate upward scroll, reveal
   // chrome, and leave it stuck until the next down-scroll — the Services
   // result-anchor flake under Production UI load (#146).
   if (viewportHeightChanged) {
     return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
-  }
-  if (offset <= topRevealOffset) {
-    return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
   // When hidden chrome releases layout, the scroll range shrinks and a previous
@@ -385,7 +393,13 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
             }
           : report;
       if (!active) return;
-      const viewportHeight = typeof window !== "undefined" ? window.innerHeight : undefined;
+      // `visualViewport.height` is the surface a Safari toolbar collapse and an
+      // on-screen keyboard actually move; `innerHeight` can stay put through
+      // both. Round so sub-pixel jitter during a toolbar animation does not
+      // register as a resize on every frame, and fall back for jsdom/older
+      // engines with no visualViewport.
+      const viewportHeight =
+        typeof window !== "undefined" ? Math.round(window.visualViewport?.height ?? window.innerHeight) : undefined;
       const viewportHeightChanged =
         viewportHeight !== undefined &&
         lastViewportHeightRef.current !== undefined &&

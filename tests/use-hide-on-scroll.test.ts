@@ -177,6 +177,30 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("still reveals at the top of the range when the viewport height changes", () => {
+    // The top reveal band is an absolute layout contract and outranks the resize
+    // guard. A resize that lands while the chrome is hidden and the scroller is
+    // clamped to the top (short page, keyboard dismiss, orientation flip) must
+    // not strand the chrome off-screen at offset 0 until the next scroll.
+    expect(
+      computeScrollHideUpdate({
+        offset: 0,
+        lastOffset: 240,
+        maxOffset: 120,
+        previousMaxOffset: 900,
+        viewportHeightChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 0,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("holds the chrome hidden across a multi-frame collapse clamp at the bottom", () => {
     // As the collapsing header hands its height back to the scroll container,
     // maxOffset shrinks frame by frame and the browser clamps scrollTop to it,
