@@ -94,7 +94,8 @@ The parser walks back over comma-continued selector lines, so a selector list sp
 **Pixel baselines (`tests/ui-visual-baseline.spec.ts`) — advisory.** Run by
 `playwright.visual.config.ts`, which also still runs the older attach-only
 `ui-visual-artifacts.spec.ts`. Three constraints are deliberate: never `fullPage` (under CI load
-Next.js leaves a hidden duplicate page root in the stream — ledger #093 — so a whole-page capture can
+Next.js can leave a hidden duplicate page root in the stream — ledger #093, mitigated for interactive
+tests via `visibleByTestId` in `tests/playwright-settlement.ts` — so a whole-page capture can still
 contain the layout twice; every target is clipped to a locator), demo mode only (the Playwright
 runner forces `NEXT_PUBLIC_DEMO_MODE` and offline providers, so content is stable between runs), and
 motion off with carets hidden.
