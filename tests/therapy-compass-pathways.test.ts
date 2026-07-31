@@ -203,6 +203,33 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
   ],
 };
 
+describe("Therapy Compass catalogue clinical labelling", () => {
+  it("never ships a modality that is merely an echo of the record's own tags", () => {
+    // The source catalogue derives `modality` from the tag list, which collapses
+    // 205 therapies onto CBT/ACT/DBT and mislabels treatments it cannot describe:
+    // ECT and rTMS as "ACT", Psychoanalysis and Psychodynamic Psychotherapy as
+    // "CBT", MBT and TFP as "DBT". That value renders as a curated chip on the
+    // detail and recommend screens and scores related-therapy selection, so an
+    // inferred label reads as clinical fact. The generator emits `null` unless
+    // the source curates a value that is not already a tag; consumers treat
+    // `null` as unknown and render nothing.
+    const echoes = therapiesIndexJson
+      .filter((therapy) => therapy.modality && (therapy.tags ?? []).includes(therapy.modality))
+      .map((therapy) => `${therapy.name} → ${therapy.modality}`);
+    expect(echoes, "modality must be curated, not inferred from tags").toEqual([]);
+  });
+
+  it("does not label somatic or psychodynamic treatments with a talking-therapy modality", () => {
+    // Pins the specific records the tag-derived value got wrong, so a future
+    // regeneration that reintroduces the inference fails by name.
+    for (const name of ["ECT", "rTMS", "Psychoanalysis", "Psychodynamic Psychotherapy"]) {
+      const record = therapiesIndexJson.find((therapy) => therapy.name === name);
+      if (!record) continue;
+      expect(record.modality, `${name} carries an inferred modality`).toBeNull();
+    }
+  });
+});
+
 describe("Therapy Compass pathway clinical integrity", () => {
   it("keeps legacy duplicate therapy slugs out of the canonical catalogue", () => {
     for (const slug of LEGACY_DUPLICATE_SLUGS) {
