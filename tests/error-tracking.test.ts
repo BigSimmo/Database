@@ -139,6 +139,83 @@ describe("privacySafeTransactionEvent", () => {
     expect(event.spans?.[0]?.data).not.toHaveProperty("db.url");
     expect(event.contexts?.trace?.data).toBeUndefined();
   });
+
+  it("keeps gen_ai agent-monitoring metadata and strips prompts, messages, outputs, and tool payloads", () => {
+    const event = privacySafeTransactionEvent({
+      type: "transaction",
+      event_id: "txn-2",
+      transaction: "/api/answer",
+      contexts: { trace: { trace_id: "trace-1", span_id: "span-root", op: "http.server" } },
+      spans: [
+        {
+          span_id: "span-ai",
+          trace_id: "trace-1",
+          op: "gen_ai.chat",
+          origin: "auto.ai.openai",
+          // Free-form SDK span names are never trusted; the description is
+          // rebuilt from allowlisted attributes only.
+          description: "chat gpt-5.2 for Jane Doe",
+          start_timestamp: 1,
+          timestamp: 2.5,
+          data: {
+            "gen_ai.system": "openai",
+            "gen_ai.operation.name": "chat",
+            "gen_ai.request.model": "gpt-5.2",
+            "gen_ai.response.model": "gpt-5.2",
+            "gen_ai.response.id": "resp_abc",
+            "gen_ai.conversation.id": "3e4f6a52-interaction-uuid",
+            "gen_ai.request.stream": false,
+            "gen_ai.usage.input_tokens": 1200,
+            "gen_ai.usage.output_tokens": 300,
+            "gen_ai.usage.total_tokens": 1500,
+            "gen_ai.request.messages": '[{"role":"user","content":"Jane Doe MRN 123456 lithium level"}]',
+            "gen_ai.input.messages": '[{"role":"user","content":"Jane Doe suicidal ideation"}]',
+            "gen_ai.output.messages": '[{"role":"assistant","content":"clinical output about Jane"}]',
+            "gen_ai.response.text": "clinical output about Jane Doe",
+            "gen_ai.system_instructions": "clinical synthesis prompt",
+            "gen_ai.prompt": "Jane Doe MRN 123456",
+            "gen_ai.embeddings.input": "Jane Doe query text",
+            "gen_ai.request.available_tools": '[{"name":"tool","description":"..."}]',
+            "gen_ai.response.tool_calls": '[{"name":"tool","arguments":"Jane"}]',
+            "gen_ai.tool.input": "Jane Doe",
+            "gen_ai.tool.output": "clinical output",
+          },
+        },
+      ],
+    });
+
+    expect(JSON.stringify(event)).not.toMatch(/Jane|123456|suicidal|clinical output|synthesis prompt|query text/);
+    expect(event.spans?.[0]).toMatchObject({
+      op: "gen_ai.chat",
+      origin: "auto.ai.openai",
+      description: "chat gpt-5.2",
+      data: {
+        "gen_ai.system": "openai",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.model": "gpt-5.2",
+        "gen_ai.response.id": "resp_abc",
+        "gen_ai.conversation.id": "3e4f6a52-interaction-uuid",
+        "gen_ai.usage.input_tokens": 1200,
+        "gen_ai.usage.output_tokens": 300,
+        "gen_ai.usage.total_tokens": 1500,
+      },
+    });
+    for (const payloadKey of [
+      "gen_ai.request.messages",
+      "gen_ai.input.messages",
+      "gen_ai.output.messages",
+      "gen_ai.response.text",
+      "gen_ai.system_instructions",
+      "gen_ai.prompt",
+      "gen_ai.embeddings.input",
+      "gen_ai.request.available_tools",
+      "gen_ai.response.tool_calls",
+      "gen_ai.tool.input",
+      "gen_ai.tool.output",
+    ]) {
+      expect(event.spans?.[0]?.data).not.toHaveProperty(payloadKey);
+    }
+  });
 });
 
 describe("isSentryDbTracingEnabled", () => {

@@ -28,6 +28,40 @@ const SAFE_SPAN_DATA_KEYS = [
   "sentry.sample_rate",
 ] as const;
 
+/**
+ * gen_ai span attributes safe to export for AI agent monitoring: operation and
+ * model metadata, token usage, and the synthetic per-request conversation id.
+ * Prompt, message, tool, embedding-input, and response-text attributes are
+ * deliberately absent — clinical queries, source evidence, and generated
+ * answers never leave the server (docs/error-tracking.md).
+ */
+const SAFE_GEN_AI_SPAN_DATA_KEYS = [
+  "gen_ai.system",
+  "gen_ai.operation.name",
+  "gen_ai.agent.name",
+  "gen_ai.pipeline.name",
+  "gen_ai.conversation.id",
+  "gen_ai.request.model",
+  "gen_ai.request.stream",
+  "gen_ai.request.temperature",
+  "gen_ai.request.max_tokens",
+  "gen_ai.request.top_p",
+  "gen_ai.request.frequency_penalty",
+  "gen_ai.request.presence_penalty",
+  "gen_ai.request.encoding_format",
+  "gen_ai.request.dimensions",
+  "gen_ai.response.model",
+  "gen_ai.response.id",
+  "gen_ai.response.finish_reasons",
+  "gen_ai.response.stop_reason",
+  "gen_ai.response.streaming",
+  "gen_ai.usage.input_tokens",
+  "gen_ai.usage.output_tokens",
+  "gen_ai.usage.total_tokens",
+  "gen_ai.usage.input_tokens.cached",
+  "gen_ai.usage.input_tokens.cache_write",
+] as const;
+
 const DEFAULT_TRACES_SAMPLE_RATE = 0.1;
 
 /**
@@ -123,6 +157,19 @@ function privacySafeSpanDescription(data: Record<string, unknown>, fallback: str
     return `from(${table})`;
   }
 
+  // gen_ai (agent monitoring) spans: rebuild "<operation> <model>" from the
+  // allowlisted attributes; the SDK's own span name is treated as free-form text.
+  const genAiOperation = typeof data["gen_ai.operation.name"] === "string" ? data["gen_ai.operation.name"] : undefined;
+  if (genAiOperation) {
+    const genAiModel =
+      typeof data["gen_ai.request.model"] === "string"
+        ? data["gen_ai.request.model"]
+        : typeof data["gen_ai.response.model"] === "string"
+          ? data["gen_ai.response.model"]
+          : undefined;
+    return genAiModel ? `${genAiOperation} ${genAiModel}` : genAiOperation;
+  }
+
   // Keep parameterized framework/route span names; drop free-form or query-bearing text.
   if (
     typeof fallback === "string" &&
@@ -141,7 +188,9 @@ function privacySafeSpanDescription(data: Record<string, unknown>, fallback: str
 function privacySafeSpan(span: ScrubbedSpan): ScrubbedSpan {
   const rawData = (span.data ?? {}) as Record<string, unknown>;
   const data = Object.fromEntries(
-    SAFE_SPAN_DATA_KEYS.flatMap((key) => (rawData[key] === undefined ? [] : [[key, rawData[key]]])),
+    [...SAFE_SPAN_DATA_KEYS, ...SAFE_GEN_AI_SPAN_DATA_KEYS].flatMap((key) =>
+      rawData[key] === undefined ? [] : [[key, rawData[key]]],
+    ),
   );
 
   return {

@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import type { ZodType } from "zod";
 import { env, requireOpenAIEnv } from "@/lib/env";
+import { instrumentOpenAIClientForAgentMonitoring } from "@/lib/observability/agent-monitoring";
 import { assessClinicalImageUse } from "@/lib/image-filtering";
 import { PublicApiError } from "@/lib/http";
 import {
@@ -78,11 +79,15 @@ export function createOpenAIClient() {
     });
   }
 
-  openAIClient ??= new OpenAI({
-    apiKey: env.OPENAI_API_KEY,
-    timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
-    maxRetries: env.OPENAI_MAX_RETRIES,
-  });
+  // Metadata-only Sentry agent monitoring (model, latency, token usage — never
+  // inputs/outputs); inert unless the runtime initialized Sentry with tracing on.
+  openAIClient ??= instrumentOpenAIClientForAgentMonitoring(
+    new OpenAI({
+      apiKey: env.OPENAI_API_KEY,
+      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+      maxRetries: env.OPENAI_MAX_RETRIES,
+    }),
+  );
   return openAIClient;
 }
 

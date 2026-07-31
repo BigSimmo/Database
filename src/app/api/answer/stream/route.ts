@@ -11,6 +11,7 @@ import {
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import {
   answerDegradedModeSignal,
   buildGovernedAnswerClientResponse,
@@ -158,6 +159,9 @@ function streamAnswer(
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
+  // Group this request's LLM calls into one Sentry agent-monitoring
+  // conversation keyed by the synthetic interaction UUID — never by query text.
+  setAgentConversationId(interactionId);
 
   return new Response(
     new ReadableStream({
