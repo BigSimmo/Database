@@ -65,12 +65,12 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
   - `--med-accent`, `--med-accent-border` — also runtime-set, not defects.
     `medicationAccentStyle()` in
     `clinical-dashboard/medication-record-page.tsx:88-94` assigns both (plus
-    unread `--med-accent-soft`, tracked as `#156`), and that style object is
-    applied to the ancestor that contains every referenced class (`:393`). A
+    unread `--med-accent-soft`, which is not one of the seven missing tokens;
+    that dead-plumbing question is tracked separately as #157). Verified
+    2026-07-30 by computed style: all four consuming sites paint
+    `rgb(225,29,72)` on `/medications/acamprosate` in light and dark. A
     stylesheet-only missing-token scan cannot see React `style` assignments;
-    do not "fix" these. Verified 2026-07-30 by computed style: all four
-    consuming sites paint `rgb(225,29,72)` on `/medications/acamprosate` in
-    light and dark.
+    do not "fix" these.
   - `--clinical-accent-strong`
     (`clinical-dashboard/answer-status.tsx:252`) — **fixed in PR #1480** by
     mapping the role to `--primary-700` in both themes and `LinkText` in
@@ -78,19 +78,19 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     `tests/design-token-contract.test.ts`.
   - `--primary-hover`, `--success-hover` —
     `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
-    gate-exempt design scratch. Also undefined; **fixed in PR #1451**
-    (`--primary-strong`, and `hover:brightness-110` for success, which has no
-    darker step to hover to).
+    gate-exempt design scratch. **Fixed in PR #1451** by mapping to
+    `--primary-strong` and `hover:brightness-110`; the success family has no
+    darker step.
 - If a future sync sees a **different** var in the `[TOKENS_MISSING]` warn, that
   one is new — look at it before recording it.
 
 The triage rule this warn needs, since it fires on both: a custom property is
 correct-as-reported when it has a runtime setter or is always read through a
-`var(…, fallback)`. It is a real defect when it has **neither** — the whole
-declaration is then dropped at CSS parse time and the colour silently does not
-apply, which no static gate in this repo can see (`#094`). Check for a setter or
-a fallback before calling a new report noise, and for the absence of both before
-calling it a defect.
+`var(…, fallback)`. It is a real defect when it has neither — the declaration
+becomes invalid at computed-value time and the property resolves to its initial
+or inherited value, so the intended colour silently does not apply (`#094`).
+Check for a setter or fallback before calling a new report noise, and for the
+absence of both before calling it a defect.
 
 ## Re-sync risks
 

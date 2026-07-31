@@ -214,8 +214,7 @@ const variants: Record<
     accent: "#047857",
     pageClassName: "bg-[color:var(--surface-lux)] text-[color:var(--text-heading)]",
     // The success triad is text/bg/border only — there is no darker success step
-    // to hover to (unlike --primary-strong above), so shift brightness instead of
-    // inventing a token for a mockup.
+    // to hover to, so shift brightness instead of inventing a mockup-only token.
     commandClassName:
       "bg-[color:var(--success)] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:brightness-110",
     resumeTitle: "Run renal dose saved search",
