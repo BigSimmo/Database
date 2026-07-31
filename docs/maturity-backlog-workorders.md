@@ -109,6 +109,16 @@ structural change, not a single mixed PR.
   extracted hook's `useSyncExternalStore` wiring. The residual is a tightly-coupled orchestrator
   core; further safe extractions are smaller, incremental units. `rag.ts` remains the largest open
   target.
+- **Progress (X3 hydration unit, PR #1463):** extracted per-request hydration from `rag.ts` into
+  `src/lib/rag/rag-hydration.ts` — `DocumentRankingMetadataCache`,
+  `createDocumentRankingMetadataCache`, `attachDocumentRankingMetadata`, `withCachedIndexQuality`,
+  `attachIndexQualityMetadata`, `attachPageVisualEvidence`, moved byte-for-byte (rag.ts 4,780 →
+  4,543, budget ratcheted to 4,543). Cycle-free: the cluster referenced no `rag.ts`-local symbol,
+  so the module imports only stable siblings and `rag.ts` re-exports the two names
+  `tests/rag-query-concurrency.test.ts` imports. `prepareCoverageGateResults` still cannot move —
+  hydration covered only two of its five `rag.ts`-only dependencies; the rest
+  (`selectRankedRetrievalResults`, `applySecondStageRerankIfNeeded`, `measureSearchPhase`) are a
+  separate ranking/timing seam.
 - **Approach:** extract cohesive units behind the existing budgets; the components decompose
   into their `*/` sibling directories, and `rag.ts` is the natural seam now that X2 has landed.
 - **Risk:** HIGH (behavioural surface). One file per PR.

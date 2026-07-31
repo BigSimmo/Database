@@ -16,26 +16,40 @@ cd "$repo_root"
 
 expected_node_major="$(tr -cd '0-9' < .node-version)"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
-
+railway_cli_version="5.30.1"
+codex_cli_version="0.146.0"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
 [[ -n "$expected_npm_version" ]] || fail "Could not read the npm version from package.json."
 
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-current_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+install_npm_cli() {
+  local package_name="$1"
+  local expected_version="$2"
+  local command_name="$3"
+  local actual_version
+  actual_version="$("$command_name" --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  if [[ "$actual_version" != "$expected_version" ]]; then
+    log "Installing ${package_name}@${expected_version}."
+    npm install --global "${package_name}@${expected_version}"
+    hash -r
+    actual_version="$("$command_name" --version 2>/dev/null | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)"
+  fi
+  [[ "$actual_version" = "$expected_version" ]] || fail "${command_name} ${expected_version} is required; detected ${actual_version:-unavailable}."
+}
 
-if [[ "$current_node_major" != "$expected_node_major" ]]; then
-  [[ -s "$NVM_DIR/nvm.sh" ]] || fail "Node ${expected_node_major}.x is required. Select it under Set package versions in the Codex Cloud environment."
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+actual_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
+if [[ "$actual_node_major" != "$expected_node_major" ]]; then
+  [[ -s "$NVM_DIR/nvm.sh" ]] || fail "Node ${expected_node_major}.x is required. Select it in the Codex Cloud environment or provide nvm."
   # shellcheck source=/dev/null
   source "$NVM_DIR/nvm.sh"
-  log "Installing and selecting Node ${expected_node_major}.x with nvm."
+  log "Installing and selecting Node ${expected_node_major}.x."
   nvm install "$expected_node_major"
   nvm alias default "$expected_node_major"
   nvm use "$expected_node_major"
 fi
 
-current_npm_version="$(npm --version)"
-if [[ "$current_npm_version" != "$expected_npm_version" ]]; then
-  log "Installing repository npm version ${expected_npm_version}."
+if [[ "$(npm --version)" != "$expected_npm_version" ]]; then
+  log "Installing the repository npm version ${expected_npm_version}."
   npm install --global "npm@${expected_npm_version}"
   hash -r
 fi
@@ -49,75 +63,100 @@ if [ -s "\$NVM_DIR/nvm.sh" ]; then
   nvm use --silent ${expected_node_major} >/dev/null 2>&1 || true
 fi
 export PATH="\$HOME/.local/bin:\$HOME/.deno/bin:\$HOME/.cache/clinical-kb-codex/ocr-venv/bin:\$PATH"
+export CODEX_CLOUD_OCR_PYTHON="\$HOME/.cache/clinical-kb-codex/ocr-venv/bin/python"
 export CODEX_CLOUD=1
-export RAG_PROVIDER_MODE=offline
-export NEXT_PUBLIC_DEMO_MODE=true
-export PLAYWRIGHT_OFFLINE_MODE=true
-unset OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID
-unset SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL
-unset RAILWAY_API_TOKEN RAILWAY_TOKEN
-unset GH_TOKEN GITHUB_TOKEN
+export CODEX_CLOUD_ACCESS_PROFILE="\${CODEX_CLOUD_ACCESS_PROFILE:-offline}"
+export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
+export PLAYWRIGHT_OFFLINE_MODE="\${PLAYWRIGHT_OFFLINE_MODE:-true}"
+if [ "\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]; then
+  export RAG_PROVIDER_MODE="\${RAG_PROVIDER_MODE:-auto}"
+else
+  export CODEX_CLOUD_ACCESS_PROFILE=offline
+  export RAG_PROVIDER_MODE=offline
+  export NEXT_PUBLIC_DEMO_MODE=true
+  export PLAYWRIGHT_OFFLINE_MODE=true
+  unset OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID OPENAI_BASE_URL
+  unset NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY
+  unset SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
+  unset SUPABASE_PROJECT_REF SUPABASE_PROJECT_NAME SUPABASE_STAGING_PROJECT_REF SUPABASE_STAGING_PROJECT_NAME
+  unset SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL DATABASE_URL POSTGRES_PASSWORD
+  unset RAILWAY_API_TOKEN RAILWAY_TOKEN
+  unset GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN
+  unset HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
+  unset E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
+fi
 EOF
 
-bashrc="$HOME/.bashrc"
-touch "$bashrc"
 profile_source='[ -f "$HOME/.clinical-kb-codex-cloud.sh" ] && . "$HOME/.clinical-kb-codex-cloud.sh"'
-if ! grep -Fq '.clinical-kb-codex-cloud.sh' "$bashrc"; then
-  printf '\n# Clinical KB Codex Cloud runtime\n%s\n' "$profile_source" >> "$bashrc"
-fi
+for shell_profile in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile"; do
+  touch "$shell_profile"
+  if ! grep -Fq '.clinical-kb-codex-cloud.sh' "$shell_profile"; then
+    printf '\n# Clinical KB Codex Cloud runtime\n%s\n' "$profile_source" >> "$shell_profile"
+  fi
+done
 
-# Apply the provider-free profile to this setup shell too.
 # shellcheck source=/dev/null
 source "$runtime_profile"
 
 log "Installing locked Node dependencies."
 npm ci --include=dev
 
+install_npm_cli "@railway/cli" "$railway_cli_version" "railway"
+install_npm_cli "@openai/codex" "$codex_cli_version" "codex"
+
+node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
+
 if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -n '1s/^deno \([0-9]*\).*/\1/p')" != "2" ]]; then
-  log "Installing the latest Deno 2.x release through npm."
+  log "Installing Deno 2.x."
   npm install --global 'deno@2'
   hash -r
 fi
 
+python_bin="$(command -v python3 || command -v python || true)"
+system_packages=()
 if ! command -v tesseract >/dev/null 2>&1; then
-  if command -v apt-get >/dev/null 2>&1; then
-    log "Installing the OCR system package."
-    if [[ "$(id -u)" -eq 0 ]]; then
-      apt-get update
-      apt-get install -y --no-install-recommends tesseract-ocr python3-venv
-    elif command -v sudo >/dev/null 2>&1; then
-      sudo apt-get update
-      sudo apt-get install -y --no-install-recommends tesseract-ocr python3-venv
-    else
-      log "WARNING: no root or sudo access; Tesseract OCR remains unavailable."
-    fi
+  system_packages+=(tesseract-ocr)
+fi
+if [[ -z "$python_bin" ]]; then
+  system_packages+=(python3 python3-venv)
+elif ! "$python_bin" -c 'import venv' >/dev/null 2>&1; then
+  system_packages+=(python3-venv)
+fi
+
+if (( ${#system_packages[@]} > 0 )); then
+  command -v apt-get >/dev/null 2>&1 || fail "apt-get is unavailable; required system packages cannot be installed."
+  log "Installing required system packages: ${system_packages[*]}."
+  if [[ "$(id -u)" -eq 0 ]]; then
+    apt-get update
+    apt-get install -y --no-install-recommends "${system_packages[@]}"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends "${system_packages[@]}"
   else
-    log "WARNING: apt-get is unavailable; Tesseract OCR remains unavailable."
+    fail "System package installation requires root or sudo."
   fi
 fi
 
 python_bin="$(command -v python3 || command -v python || true)"
-if [[ -n "$python_bin" ]]; then
-  ocr_venv="$HOME/.cache/clinical-kb-codex/ocr-venv"
-  if [[ ! -x "$ocr_venv/bin/python" ]]; then
-    log "Creating the cached Python OCR environment."
-    "$python_bin" -m venv "$ocr_venv"
-  fi
-  log "Installing locked-compatible Python worker dependencies."
-  "$ocr_venv/bin/python" -m pip install --disable-pip-version-check -r worker/python/requirements.txt
-else
-  log "WARNING: Python is unavailable; worker OCR checks remain unavailable."
+[[ -n "$python_bin" ]] || fail "Python 3 is unavailable."
+ocr_venv="$HOME/.cache/clinical-kb-codex/ocr-venv"
+if [[ ! -x "$ocr_venv/bin/python" ]]; then
+  log "Creating the cached Python OCR environment."
+  "$python_bin" -m venv "$ocr_venv"
 fi
+log "Installing Python worker requirements."
+"$ocr_venv/bin/python" -m pip install --disable-pip-version-check -r worker/python/requirements.txt
+export CODEX_CLOUD_OCR_PYTHON="$ocr_venv/bin/python"
 
-if [[ "${CODEX_CLOUD_SKIP_BROWSER_INSTALL:-0}" != "1" ]]; then
-  log "Installing the Playwright browser matrix and Linux system dependencies."
-  npx playwright install --with-deps chromium firefox webkit
+if [[ "${CODEX_CLOUD_SKIP_BROWSER_INSTALL:-0}" = "1" ]]; then
+  log "Browser installation explicitly skipped; browser checks will be unavailable."
 else
-  log "Skipping Playwright browser installation because CODEX_CLOUD_SKIP_BROWSER_INSTALL=1."
+  log "Installing the Playwright Chromium, Firefox, and WebKit matrix."
+  ./node_modules/.bin/playwright install --with-deps chromium firefox webkit
 fi
 
 npm run check:runtime
 npm run check:installed-lock-parity
+npm run check:codex-cloud
 npm run check:codex-cloud -- --runtime
-
-log "Setup complete. Codex agent shells will default to demo/offline mode with provider credentials unset."
+log "Setup complete with ${CODEX_CLOUD_ACCESS_PROFILE} access profile."

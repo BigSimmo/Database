@@ -200,7 +200,7 @@ const containerPatterns = [
   "railway.worker.json",
   "tests/stubs/server-only.ts",
   /^worker\/.+/,
-  /^scripts\/(check-node-engine|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -217,7 +217,7 @@ const buildPatterns = [
   "package.json",
   "package-lock.json",
   "scripts/check-bundle-budget.mjs",
-  /^scripts\/(check-node-engine|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
 ];
 
 const staticConfigPatterns = [
@@ -243,7 +243,10 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
   // Preserve the pre-consolidation unit gate for every non-documentation
   // change. Narrower signals still scope build/UI/database work, but must not
-  // leave runtime, worker, or configuration changes without unit coverage.
+  // leave runtime, worker, workflow, or configuration changes without unit
+  // coverage. A workflow-only edit can change test setup or the
+  // coverage gate itself, so its ~4 minute proof is deliberate rather than an
+  // accidental over-trigger (#139).
   const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
   const advisoryUiChanged =
@@ -539,6 +542,18 @@ function selfTest() {
     },
   );
 
+  assertScope("workflow-only-keeps-coverage", [".github/workflows/ci.yml"], {
+    coverage_changed: true,
+    workflow_changed: true,
+  });
+  assertScope("composite-action-only-keeps-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
+    coverage_changed: true,
+    workflow_changed: true,
+  });
+  assertScope("runtime-config-keeps-coverage", ["lighthouse-budget.json"], {
+    coverage_changed: true,
+  });
+
   assertScope("unstaged-status", parseStatusPorcelain(" M scripts/ci-change-scope.mjs\0"), {
     source_changed: true,
     workflow_changed: true,
@@ -682,6 +697,7 @@ function selfTest() {
   );
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
+    coverage_changed: true,
     docs_only: false,
     build_changed: false,
   });
@@ -694,6 +710,9 @@ function selfTest() {
   assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
     workflow_changed: true,
     source_changed: false,
+    // Skill Markdown is documentation-like: static policy checks still run,
+    // but unit coverage has no executable product surface to measure.
+    coverage_changed: false,
     docs_only: false,
     build_changed: false,
   });
@@ -736,6 +755,12 @@ function selfTest() {
     source_changed: true,
     build_changed: true,
   });
+  assertScope("upload-limit-parity-input", ["scripts/check-upload-limit-parity.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
   assertScope(
     "container",
     [
@@ -749,6 +774,7 @@ function selfTest() {
       "scripts/build-worker.mjs",
       "scripts/run-heavy.mjs",
       "scripts/check-client-bundle-secrets.mjs",
+      "scripts/check-upload-limit-parity.mjs",
       "scripts/install-git-hooks.mjs",
       "tests/stubs/server-only.ts",
       "tsconfig.json",
