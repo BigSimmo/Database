@@ -139,7 +139,6 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={Route}
               label="Referral fit"
               body="Need, catchment, eligibility and route"
               verifiedCount={verifiedCount}
