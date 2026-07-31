@@ -17,13 +17,23 @@
  * exits 0 (so it never breaks a run that didn't build).
  *
  * Flags: --update (write current measurement as the baseline), --json.
+ *
+ * Exit hardening: CI has observed this check print success then never terminate
+ * (GHA then cancels the Build job at timeout-minutes, which "Re-run failed jobs"
+ * will not re-run). Measurement streams one file at a time, and every exit path
+ * goes through {@link exitProcess} (stdio drain + hard failsafe).
  */
 import { gzipSync } from "node:zlib";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+// `BUNDLE_BUDGET_ROOT` lets tests point at a disposable fixture tree without
+// mutating the repo checkout's `.next` (and without relying on `process.cwd()`,
+// which npm scripts do not always keep at the package root).
+const root = process.env.BUNDLE_BUDGET_ROOT
+  ? path.resolve(process.env.BUNDLE_BUDGET_ROOT)
+  : path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CHUNKS_DIR = path.join(root, ".next", "static", "chunks");
 const BUDGET_PATH = path.join(root, "bundle-budget.json");
 const APP_BUILD_MANIFEST_PATH = path.join(root, ".next", "app-build-manifest.json");
@@ -35,6 +45,9 @@ const ROOT_PAGE_CLIENT_REFERENCE_MANIFEST_PATH = path.join(
   "app",
   "page_client-reference-manifest.js",
 );
+
+/** Hard ceiling so a stuck stdio drain cannot burn the whole Build job timeout. */
+export const EXIT_FAILSAFE_MS = 1_000;
 
 const fixtureSnapshotMarkerGroups = [
   {
@@ -70,6 +83,26 @@ export function measureChunks(files) {
   }));
   const totalRawBytes = measured.reduce((sum, f) => sum + f.rawBytes, 0);
   const totalGzipBytes = measured.reduce((sum, f) => sum + f.gzipBytes, 0);
+  const largest = [...measured].sort((a, b) => b.gzipBytes - a.gzipBytes).slice(0, 5);
+  return { files: measured.length, totalRawBytes, totalGzipBytes, largest };
+}
+
+/**
+ * Stream-measure every JS chunk without retaining file buffers. Keeps peak RSS
+ * low and avoids leaving multi‑MiB ArrayBuffers alive across process exit on CI.
+ */
+export function measureChunkPaths(paths, readFile = readFileSync) {
+  const measured = [];
+  let totalRawBytes = 0;
+  let totalGzipBytes = 0;
+  for (const full of paths) {
+    const buffer = readFile(full);
+    const rawBytes = buffer.length;
+    const gzipBytes = gzipSync(buffer).length;
+    totalRawBytes += rawBytes;
+    totalGzipBytes += gzipBytes;
+    measured.push({ name: path.relative(CHUNKS_DIR, full), rawBytes, gzipBytes });
+  }
   const largest = [...measured].sort((a, b) => b.gzipBytes - a.gzipBytes).slice(0, 5);
   return { files: measured.length, totalRawBytes, totalGzipBytes, largest };
 }
@@ -150,21 +183,85 @@ function loadBudget() {
   }
 }
 
-function main() {
-  const asJson = process.argv.includes("--json");
-  const update = process.argv.includes("--update");
+/**
+ * Injectable stdio/timer/exit surface for {@link exitProcess}. Defaults match
+ * Node's process helpers; tests pass narrow mocks. Typed via JSDoc so Vitest
+ * mocks do not have to satisfy `WriteStream` / `never` inference from defaults
+ * (Static PR typecheck regression on PR #1489).
+ *
+ * @typedef {object} ExitProcessOptions
+ * @property {(code: number) => void} [exitImpl]
+ * @property {{ write: (chunk: string) => boolean; once?: (event: string, listener: () => void) => unknown }} [stdout]
+ * @property {typeof setTimeout} [setTimer]
+ * @property {number} [failsafeMs]
+ */
+
+/**
+ * Force the process to terminate even when stdio drain or a stray handle would
+ * otherwise keep the event loop alive (the PR #1489 Build cancellation mode).
+ * Exported for unit tests; `exitImpl` / `setTimer` are injectable.
+ *
+ * @param {number} code
+ * @param {ExitProcessOptions} [options]
+ */
+export function exitProcess(code, options = {}) {
+  const {
+    exitImpl = (value) => {
+      process.exit(value);
+    },
+    stdout = process.stdout,
+    setTimer = setTimeout,
+    failsafeMs = EXIT_FAILSAFE_MS,
+  } = options;
+  process.exitCode = code;
+  let exited = false;
+  const force = () => {
+    if (exited) return;
+    exited = true;
+    exitImpl(code);
+  };
+  const timer = setTimer(force, failsafeMs);
+  timer.unref?.();
+  try {
+    if (!stdout || typeof stdout.write !== "function") {
+      force();
+      return;
+    }
+    // Drain any pending stdout before exit; if the write buffer is already
+    // empty, `write` returns true and we can exit immediately.
+    if (stdout.write("")) {
+      force();
+      return;
+    }
+    stdout.once?.("drain", force);
+  } catch {
+    force();
+  }
+}
+
+function isMainModule() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return path.resolve(entry) === fileURLToPath(import.meta.url);
+  } catch {
+    return import.meta.url === pathToFileURL(entry).href;
+  }
+}
+
+/** Run the check. Returns the process exit code (does not exit by itself). */
+export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
+  const asJson = argv.includes("--json");
+  const update = argv.includes("--update");
 
   if (!existsSync(CHUNKS_DIR)) {
     console.log(
       `[bundle-budget] no build output at ${path.relative(root, CHUNKS_DIR)} — run \`npm run build\` first. Skipping.`,
     );
-    process.exit(0);
+    return 0;
   }
 
-  const files = walkJsFiles(CHUNKS_DIR).map((full) => ({
-    name: path.relative(CHUNKS_DIR, full),
-    buffer: readFileSync(full),
-  }));
+  const chunkPaths = walkJsFiles(CHUNKS_DIR);
   const manifestPath = existsSync(APP_BUILD_MANIFEST_PATH)
     ? APP_BUILD_MANIFEST_PATH
     : existsSync(BUILD_MANIFEST_PATH)
@@ -172,31 +269,38 @@ function main() {
       : null;
   if (!manifestPath) {
     console.error("[bundle-budget] FAIL — no build manifest is available; cannot verify initial dashboard chunks.");
-    process.exit(1);
+    return 1;
   }
   const appBuildManifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const pageClientReferenceManifest = loadRootPageClientReferenceManifest();
   const initialChunkNames = new Set(initialDashboardChunkNames(appBuildManifest, pageClientReferenceManifest));
-  const initialDashboardChunks = files.filter((file) => initialChunkNames.has(file.name.replace(/\\/g, "/")));
+  const initialDashboardChunks = chunkPaths
+    .filter((full) => initialChunkNames.has(path.relative(CHUNKS_DIR, full).replace(/\\/g, "/")))
+    .map((full) => ({
+      name: path.relative(CHUNKS_DIR, full),
+      buffer: readFileSync(full),
+    }));
   if (initialDashboardChunks.length === 0) {
     console.error("[bundle-budget] FAIL — no root dashboard JavaScript chunks were resolved from the build manifest.");
-    process.exit(1);
+    return 1;
   }
   const fixtureViolations = findFixtureSnapshotsInChunks(initialDashboardChunks);
   if (fixtureViolations.length > 0) {
     console.error(
       `[bundle-budget] FAIL — initial dashboard chunks contain fixture payloads: ${fixtureViolations.join(", ")}.`,
     );
-    process.exit(1);
+    return 1;
   }
-  const current = measureChunks(files);
+  // Drop fixture buffers before the full-tree gzip pass so peak RSS stays low.
+  for (const chunk of initialDashboardChunks) chunk.buffer = Buffer.alloc(0);
+  const current = measureChunkPaths(chunkPaths);
   const budget = loadBudget();
 
   if (update) {
     const next = { ...budget, totalGzipBytes: current.totalGzipBytes, updatedAt: new Date().toISOString() };
     writeFileSync(BUDGET_PATH, JSON.stringify(next, null, 2) + "\n");
     console.log(`[bundle-budget] baseline updated to ${kb(current.totalGzipBytes)} gzip (${current.files} chunks).`);
-    process.exit(0);
+    return 0;
   }
 
   const verdict = compareToBudget(current, budget);
@@ -219,7 +323,7 @@ function main() {
     console.error(
       `[bundle-budget] FAIL — ${verdict.reason}. Refresh intentionally with \`npm run check:bundle-budget -- --update\`.`,
     );
-    process.exit(1);
+    return 1;
   }
   if (verdict.status === "warn" && verdict.baseline == null) {
     console.log(
@@ -228,8 +332,21 @@ function main() {
   } else if (verdict.status === "warn") {
     console.warn(`[bundle-budget] WARN (not enforced) — ${verdict.reason}.`);
   }
-  process.exit(0);
+  console.log("[bundle-budget] done.");
+  return 0;
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (invokedDirectly) main();
+function main() {
+  let code = 1;
+  try {
+    code = runBundleBudgetCheck(process.argv.slice(2));
+  } catch (error) {
+    // Unexpected throws must still hit exitProcess; otherwise a stray handle
+    // after a partial run can recreate the CI "printed nothing / hung" mode.
+    console.error("[bundle-budget] FAIL — unexpected error:", error);
+    code = 1;
+  }
+  exitProcess(code);
+}
+
+if (isMainModule()) main();

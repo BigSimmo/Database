@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
 // real breakages caught in review when the mockup was promoted to a live mode.
@@ -13,6 +14,11 @@ const loaderSrc = readFileSync(
 );
 const bindingsSrc = readFileSync(new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url), "utf8");
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
+const legacyCatalogueAssets = {
+  full: "therapies.json",
+  index: "therapies-index.json",
+  home: "therapies-home.json",
+} as const;
 const therapyMetadataFiles = [
   "../src/app/(search-app)/therapy-compass/page.tsx",
   "../src/app/(search-app)/therapy-compass/search/page.tsx",
@@ -76,18 +82,48 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("ships the dataset at the non-mockups public path the loader points to", () => {
-    for (const file of ["therapies.json", "therapies-index.json", "pathways.json", "reference.json"]) {
+    for (const file of [...Object.values(THERAPY_CATALOGUE_ASSETS), "pathways.json", "reference.json"]) {
       expect(existsSync(new URL(file, dataDir))).toBe(true);
     }
   });
 
-  it("ships a compact browse index without narrowing the full-prose search corpus", () => {
-    const fullSize = readFileSync(new URL("therapies.json", dataDir)).byteLength;
-    const indexSize = readFileSync(new URL("therapies-index.json", dataDir)).byteLength;
+  it("keeps unversioned catalogue aliases for clients spanning a deployment", () => {
+    for (const kind of ["full", "index", "home"] as const) {
+      const current = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir));
+      const legacy = readFileSync(new URL(legacyCatalogueAssets[kind], dataDir));
+      expect(legacy.equals(current), legacyCatalogueAssets[kind]).toBe(true);
+    }
+  });
+
+  it("caches hashed catalogue assets immutably and forces alias revalidation", () => {
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+    expect(nextConfig).toContain(
+      'source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.[a-f0-9]{16}\\\\.json)"',
+    );
+    expect(nextConfig).toContain('value: "public, max-age=31536000, immutable"');
+    expect(nextConfig).toContain('source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.json)"');
+    expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
+  });
+
+  it("ships a compact browse home/index without narrowing the full-prose search corpus", () => {
+    const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
+    const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
+    const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
     expect(indexSize).toBeLessThan(fullSize * 0.1);
-    expect(loaderSrc).toContain('options.catalogue === "full" ? "therapies.json" : "therapies-index.json"');
-    expect(bindingsSrc).toContain('screen === "home" || screen === "pathways"');
-    expect(bindingsSrc).not.toContain('screen === "home" || screen === "search" || screen === "pathways"');
+    expect(homeSize).toBeLessThanOrEqual(indexSize);
+    expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[options.catalogue]");
+    expect(bindingsSrc).toContain('screen === "home" ? "home"');
+    expect(bindingsSrc).toContain('screen === "pathways" ? "index"');
+    expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
+  });
+
+  it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
+    // Regression for the old mid-word sk- → s\u006b- rewrite in the generator.
+    for (const kind of ["home", "index"] as const) {
+      const text = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir), "utf8");
+      expect(text, kind).toContain('"slug": "task-centred-practice"');
+      expect(text, kind).not.toContain("\\u006b");
+    }
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {

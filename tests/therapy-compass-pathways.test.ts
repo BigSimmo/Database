@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import therapiesIndexJson from "../src/data/therapies-index.json";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the clinical integrity of the Therapy Compass pathway data. The imported
 // mockup shipped pathways whose therapy steps were mismatched to the pathway's
@@ -17,7 +18,7 @@ type Pathway = { slug: string; clinicalProblem: string; steps: Step[] };
 
 const dataUrl = (name: string) => new URL(`../public/therapy-compass-data/${name}`, import.meta.url);
 
-const therapies = JSON.parse(readFileSync(dataUrl("therapies.json"), "utf8")) as Therapy[];
+const therapies = JSON.parse(readFileSync(dataUrl(THERAPY_CATALOGUE_ASSETS.full), "utf8")) as Therapy[];
 const pathways = JSON.parse(readFileSync(dataUrl("pathways.json"), "utf8")) as Pathway[];
 const bySlug = new Map(therapies.map((t) => [t.slug, t]));
 const canonicalBySlug = new Map(therapiesIndexJson.map((therapy) => [therapy.slug, therapy]));
