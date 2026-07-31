@@ -92,6 +92,12 @@ structural change, not a single mixed PR.
   `rag.ts`: it is pipeline orchestration that calls the metadata/visual hydration and
   second-stage rerank helpers, so moving it would need a runtime back-edge to `rag.ts`. The
   hydration cluster is the separate later extraction (`rag-hydration.ts`).
+- **Progress (#086, X3 second-stage extraction, PR #1472):** extracted the cohesive
+  second-stage reranking unit into `src/lib/rag/rag-second-stage.ts`: engagement policy,
+  score adjustment, document diversity, subject-match protection, and its retrieval-layer
+  telemetry moved together without changing the public `@/lib/rag/rag` export. `rag.ts`
+  remains the retrieval orchestrator and calls the extracted unit at the same pipeline
+  points (4,543 → 4,351; budget ratcheted to 4,351).
 - **Progress (`DocumentViewer.tsx`):** extracted the cohesive leaf modules into
   `src/components/document-viewer/` — shared row `types.ts`, `source-panels.tsx` (summary
   profile, high-yield summary, source images/tables, pinned evidence, indexed-text panel), the
