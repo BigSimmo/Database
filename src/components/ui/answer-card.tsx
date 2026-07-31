@@ -42,7 +42,7 @@ export function AnswerCard({ children, header, footer, className }: AnswerCardPr
           "p-[var(--pad-panel,1.5rem)]",
           // Prose measure is a hard ceiling: an answer that runs the full width of a
           // desktop viewport is unreadable regardless of type size.
-          "max-w-[var(--measure,68ch)] text-[length:var(--text-md,1.0625rem)] leading-[var(--leading-prose,1.65)] text-[color:var(--text)]",
+          "max-w-[var(--measure,68ch)] text-[length:var(--text-md,1.0625rem)] leading-prose text-[color:var(--text)]",
         )}
       >
         {children}

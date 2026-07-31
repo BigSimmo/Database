@@ -159,11 +159,15 @@ describe("ckb-v2 command colour (#1, #12)", () => {
 });
 
 describe("ckb-v2 structure", () => {
-  it("keeps --shadow-inset a true inset rather than a 1px ring (#40)", () => {
+  it("keeps --shadow-well a true inset and leaves the --shadow-inset bevel un-overridden (#40, C1)", () => {
     // The v1 value was `0 0 0 1px …`, which is a ring — that is why inputs looked
     // outlined twice, once by their border and once by their "inset".
-    expect(lightShell.get("--shadow-inset")).toMatch(/^inset /);
-    expect(darkShell.get("--shadow-inset")).toMatch(/^inset /);
+    expect(lightShell.get("--shadow-well")).toMatch(/^inset /);
+    expect(darkShell.get("--shadow-well")).toMatch(/^inset /);
+    // The DS bevel is owned by globals.css; a v2 redeclaration strips the bevel
+    // highlight from its ~40 consumers (the C1 defect).
+    expect(lightShell.get("--shadow-inset")).toBeUndefined();
+    expect(darkShell.get("--shadow-inset")).toBeUndefined();
   });
 
   it("keeps the elevation ladder shadow-only, with no border baked in", () => {

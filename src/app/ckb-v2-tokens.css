@@ -123,6 +123,21 @@
   --quantity-unit-tracking: 0.01em;
   --quantity-unit-gap: 0.15em;
 
+  /* Evidence spine - the answer's left evidence rule (docs/design-system/SPEC.md
+     §7, §10). C1 note: the design-side token file proved unrecoverable (design
+     project 08d6f126 was last updated 2026-07-13; the 31 July copy was never
+     written to it), so these family names are authored repo-side, derived from
+     existing roles rather than reconstructed from prose. */
+  --spine-w: var(--rule-w);
+  --spine-current: var(--clinical-accent);
+  --spine-stale: var(--warning);
+
+  /* Status mark - codifies StatusMark's previously-inline geometry. The
+     confidence-meter family is deliberately absent: no call site exists yet
+     (no new token without a call site). */
+  --status-mark-size: var(--gutter-dot);
+  --status-mark-stroke: 1.5px;
+
   /* Dashed edge - drop targets and "nothing here yet" boundaries. A distinct
      token so a dropzone stops borrowing --border-strong, which means emphasis. */
   --border-dashed: #c3cedd;
@@ -207,8 +222,11 @@
   --e2: 0 1px 2px rgb(13 40 71 / 4%), 0 8px 16px -8px rgb(13 40 71 / 9%);
   --e3: 0 2px 4px rgb(13 40 71 / 4%), 0 16px 28px -12px rgb(13 40 71 / 11%);
   --e4: 0 4px 8px rgb(13 40 71 / 5%), 0 32px 56px -20px rgb(13 40 71 / 15%);
-  /* A true inset, not a 1px ring - the ring is why inputs looked outlined twice (#40). */
-  --shadow-inset: inset 0 1px 2px rgb(13 40 71 / 4%);
+  /* Recessed wells (C1). A true inset, not a 1px ring - the ring is why inputs
+     looked outlined twice (#40). The DS bevel --shadow-inset is inherited from
+     globals.css and no longer overridden here: the override stripped the bevel
+     highlight from ~40 consuming surfaces. */
+  --shadow-well: inset 0 1px 2px rgb(13 40 71 / 4%);
   --glow-primary: 0 0 0 1px var(--clinical-accent), 0 8px 20px -6px rgb(29 111 184 / 22%);
   --glow-soft: 0 0 0 1px rgb(29 111 184 / 24%), 0 4px 12px -4px rgb(29 111 184 / 14%);
 
@@ -227,6 +245,11 @@
   --surface-lux: #262c32;
   --surface-highlight: rgb(255 255 255 / 6%);
   --clinical-chat-table-header: #1c2126;
+  /* Declared here so it resolves against the v2 dark inset. Without this, the
+     subtree inherits the live .dark layer's already-substituted value - custom
+     properties inherit computed values, so the live var(--surface-inset)
+     reference cannot re-resolve against the v2 ramp. */
+  --clinical-chat-document: var(--surface-inset);
 
   --border: #333a41;
   --border-strong: #47505a;
@@ -248,5 +271,5 @@
   --e2: inset 0 1px 0 rgb(255 255 255 / 5%), 0 8px 18px -8px rgb(0 0 0 / 48%);
   --e3: inset 0 1px 0 rgb(255 255 255 / 6%), 0 16px 30px -12px rgb(0 0 0 / 56%);
   --e4: inset 0 1px 0 rgb(255 255 255 / 7%), 0 32px 56px -20px rgb(0 0 0 / 64%);
-  --shadow-inset: inset 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-well: inset 0 1px 2px rgb(0 0 0 / 40%);
 }
