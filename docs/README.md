@@ -62,6 +62,7 @@ npm run docs:check-links
 ## Governance, safety, privacy
 
 - [clinical-governance.md](clinical-governance.md) — deployment and source governance checklist
+- [error-tracking.md](error-tracking.md) — privacy-safe, opt-in production exception tracking envelope
 - [governance-incident-runbooks.md](governance-incident-runbooks.md) — operator response checklists for clinical, source, privacy, provider, and answer-pipeline rollback incidents
 - [clinical-hazard-analysis.md](clinical-hazard-analysis.md) — clinical hazard register
 - [rag-injection-threat-model.md](rag-injection-threat-model.md) — prompt-injection threat model

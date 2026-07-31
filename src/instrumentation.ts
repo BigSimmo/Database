@@ -1,3 +1,5 @@
+import { captureRequestError, initializeErrorTracking } from "@/lib/observability/error-tracking";
+
 // Next.js calls register() once when a server instance starts, before it serves
 // any requests. We use it to fail fast: a clinical production server must be fully
 // and correctly configured rather than silently degrading — or, worse, serving
@@ -52,4 +54,9 @@ export async function register() {
   // A keyed HMAC secret must be present so clinical-query hashes written to the log
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
+
+  // Optional, server-only tracking. Missing DSN means no provider calls.
+  await initializeErrorTracking();
 }
+
+export { captureRequestError as onRequestError };

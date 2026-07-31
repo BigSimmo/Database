@@ -159,7 +159,7 @@ import {
   queryPrivacyMetadata,
   queryTextForStorage,
 } from "@/lib/query-privacy";
-import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import { normalizeOptionalSourceMetadata } from "@/lib/source-metadata";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import {
   SOURCE_BACKED_REVIEW_FALLBACK_REASON,
@@ -857,7 +857,7 @@ function sanitizeAnswerSections(
 function normalizeSearchResults(results: SearchResult[]) {
   return results.map((result) => ({
     ...result,
-    source_metadata: normalizeSourceMetadata(result.source_metadata),
+    source_metadata: normalizeOptionalSourceMetadata(result.source_metadata),
   }));
 }
 
@@ -4279,11 +4279,12 @@ export async function summarizeDocument(documentId: string, ownerId?: string, op
     } satisfies RagAnswer;
   }
 
+  const documentMetadata = (document as { metadata?: unknown }).metadata;
   const results = committedChunks.map((chunk) => ({
     ...chunk,
     title: document.title,
     file_name: document.file_name,
-    source_metadata: normalizeSourceMetadata((document as { metadata?: unknown }).metadata),
+    source_metadata: normalizeOptionalSourceMetadata(documentMetadata),
     similarity: 1,
     images: [],
   })) as SearchResult[];
