@@ -38,7 +38,11 @@ export function remoteRepositoryIdentity(remoteUrl) {
 }
 
 export function inspectOriginRemote(root) {
-  const result = run("git", ["remote", "get-url", "origin"], root);
+  // Read the configured remote URL, not `git remote get-url`. Global
+  // `url.*.insteadOf` rewrites (common in Cursor Cloud / agent sandboxes) inject
+  // credentials into get-url output even when remote.origin.url is clean; the
+  // safety check must judge what is stored on the remote, not the rewritten fetch URL.
+  const result = run("git", ["config", "--get", "remote.origin.url"], root);
   if (result.status !== 0) {
     return {
       configured: false,
