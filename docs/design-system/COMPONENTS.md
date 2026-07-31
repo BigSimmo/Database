@@ -20,7 +20,7 @@ but no component has dark proof until the cascade port lands — the branch copy
 `.ckb-v2:not(.dark)`). **HCM** = forced-colours proof. All proofs absent are marked `—`;
 an asserted-but-untested behaviour is _worse_ than `—` and is called out.
 
-### 0.1 Registered components (28 — published to the design project)
+### 0.1 Registered components (27 — published to the design project)
 
 | Component                              | Tier                   | Preview | Direct test                     | Dark | HCM | 320px | Print | Product imports | Stability                   |
 | -------------------------------------- | ---------------------- | ------- | ------------------------------- | ---- | --- | ----- | ----- | --------------- | --------------------------- |
@@ -133,19 +133,30 @@ render without it, with drifted wording, or with wording a lay reader cannot use
 must own the words; the call site may only choose the state it is in.
 
 ```ts
-type VerificationNoticeProps = {
-  /** Drives the approved wording variant. Never free text. */
-  state: "ready" | "stale_evidence" | "partial_retrieval" | "source_only";
-  /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
-  audience?: "clinician" | "plain";
-  /** Print rendering is self-contained: no wording may depend on the live link. */
-  medium?: "screen" | "print";
-  sourceCount?: number;
-  /** Print medium only; ISO. Rendered through DateDisplay. */
-  printedAt?: string;
-  printedBy?: string;
-  className?: string;
-};
+type VerificationNoticeProps =
+  | {
+      /** Drives the approved wording variant. Never free text. */
+      state: "ready" | "stale_evidence" | "partial_retrieval" | "source_only";
+      /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
+      audience?: "clinician" | "plain";
+      /** Screen variants may omit printed metadata. */
+      medium?: "screen";
+      sourceCount?: number;
+      className?: string;
+    }
+  | {
+      /** Drives the approved wording variant. Never free text. */
+      state: "ready" | "stale_evidence" | "partial_retrieval" | "source_only";
+      /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
+      audience?: "clinician" | "plain";
+      /** Print rendering is self-contained: no wording may depend on the live link. */
+      medium: "print";
+      sourceCount?: number;
+      /** Print medium requires printedAt/printedBy. ISO timestamp rendered through DateDisplay. */
+      printedAt: string;
+      printedBy: string;
+      className?: string;
+    };
 ```
 
 **Variants.** `screen`/`clinician` (default, rendered inside `AnswerCard`) ·
@@ -189,8 +200,19 @@ type OverdueSource = SourceRef & { reviewDueOn: string /* ISO */ };
 /** States an AnswerCard may render. */
 type AnswerState =
   | { kind: "ready"; sourceCount: number }
-  | { kind: "stale_evidence"; overdue: OverdueSource[]; sourceCount: number }
-  | { kind: "partial_retrieval"; retrieved: number; requested: number; missing: SourceRef[] }
+  | {
+      kind: "stale_evidence";
+      /** At least one overdue source; validated at RAG boundary before construction. */
+      overdue: [OverdueSource, ...OverdueSource[]];
+      sourceCount: number;
+    }
+  | {
+      kind: "partial_retrieval";
+      retrieved: number;
+      requested: number;
+      /** At least one missing source; validated at RAG boundary before construction. */
+      missing: [SourceRef, ...SourceRef[]];
+    }
   | { kind: "source_only"; reason: "generation_failed" | "quality_gate" };
 
 /** Deliberately NOT an AnswerState: no card may render it. */
@@ -240,8 +262,9 @@ document order; the open action's accessible name names the source and page.
 
 **Must refuse to render.** `RetrievalStateBanner` with `kind: "ready"` (type-level) · an
 `AnswerCard` without a state (type-level) · a partial state whose `missing` list is empty
-(throws in dev, logs and renders totality-safe copy in production — a gap with no named
-sources is a data defect, and inventing "0 sources" copy would mask it).
+or a stale state whose `overdue` list is empty (the non-empty tuple types prevent
+construction; runtime validation at the RAG boundary in `src/lib/rag/` rejects or routes
+invalid states with empty collections before reaching render code).
 
 **Do:** keep state derivation in the RAG layer; this component only renders what it is
 told. **Don't:** infer staleness in the component from dates — the review policy lives in
@@ -504,15 +527,24 @@ strings, relative dates float free of their absolutes, and print can carry a rel
 that is meaningless on paper.
 
 ```ts
+/** Validated ISO-8601 timestamp (brand type; preformatted display strings cannot satisfy). */
+type ISOTimestamp = string & { readonly __brand: "ISOTimestamp" };
+
 type DateDisplayProps = {
-  /** ISO only. Preformatted display strings are unrepresentable. */
-  value: string | null | undefined;
+  /** Validated ISO-8601 timestamp. Preformatted display strings are unrepresentable. */
+  value: ISOTimestamp;
   /** Review/expiry dates are always absolute; "event" may carry a relative companion. */
   kind: "review" | "generated" | "event";
   /** Screen only; renders beside the absolute, never instead of it. */
   relative?: boolean;
-  /** Rendered via MissingValue when value is absent. */
-  missingReason?: "not_recorded" | "not_applicable" | "unknown" | "extraction_failed";
+  className?: string;
+} | {
+  /** Absent value; missing reason required to prevent silent missing-date rendering. */
+  value: null | undefined;
+  kind: "review" | "generated" | "event";
+  relative?: boolean;
+  /** Required when value is absent. Rendered via MissingValue. */
+  missingReason: "not_recorded" | "not_applicable" | "unknown" | "extraction_failed";
   className?: string;
 };
 ```
@@ -537,9 +569,9 @@ date; relative companion is supplementary text, not the name.
 **Tokens.** Inherits its context's text role; tabular numerals via `--nums` where dates
 align in columns.
 
-**Must refuse to render.** A preformatted display string (type-level: ISO only) · relative
-without absolute · relative under print media · silent absence (missing always renders a
-phrase).
+**Must refuse to render.** A preformatted display string (type-level: ISOTimestamp brand
+prevents plain strings) · relative without absolute · relative under print media · silent
+absence (type-level: missing value requires missingReason, which always renders a phrase).
 
 **Do:** compose inside `AnswerFooter`, `RetrievalStateBanner`, provenance rows, print
 headers. **Don't:** format a date anywhere else in product code; don't localise the machine

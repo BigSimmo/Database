@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
+import { env } from "./src/lib/env";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const requestedDistDir = process.env.NEXT_DIST_DIR?.trim();
@@ -25,6 +26,14 @@ async function withOptionalBundleAnalyzer(config: NextConfig): Promise<NextConfi
   if (process.env.ANALYZE !== "true") return config;
   const { default: bundleAnalyzer } = await import("@next/bundle-analyzer");
   return bundleAnalyzer({ enabled: true })(config);
+}
+
+function shouldEnableSentrySourceMapUpload() {
+  return Boolean(env.SENTRY_AUTH_TOKEN && env.SENTRY_ORG && env.SENTRY_PROJECT);
+}
+
+function getSentryRelease() {
+  return env.SENTRY_RELEASE ?? env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
 }
 
 const nextConfig: NextConfig = {
@@ -70,7 +79,7 @@ const nextConfig: NextConfig = {
     // wildcard *.supabase.co.
     remotePatterns: (() => {
       const allowedHostnames = [expectedSupabaseProject.ref + ".supabase.co"];
-      const stagingRef = process.env.SUPABASE_STAGING_PROJECT_REF?.trim();
+      const stagingRef = env.SUPABASE_STAGING_PROJECT_REF?.trim();
       if (stagingRef) {
         allowedHostnames.push(stagingRef + ".supabase.co");
       }
@@ -143,16 +152,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-function shouldEnableSentrySourceMapUpload() {
-  return Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
-}
-
-function getSentryRelease() {
-  return (
-    process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"
-  );
-}
-
 export default async function loadNextConfig() {
   const baseConfig = await withOptionalBundleAnalyzer(nextConfig);
 
@@ -161,9 +160,9 @@ export default async function loadNextConfig() {
   }
 
   return withSentryConfig(baseConfig, {
-    org: process.env.SENTRY_ORG,
-    project: process.env.SENTRY_PROJECT,
-    authToken: process.env.SENTRY_AUTH_TOKEN,
+    org: env.SENTRY_ORG,
+    project: env.SENTRY_PROJECT,
+    authToken: env.SENTRY_AUTH_TOKEN,
     release: { name: getSentryRelease() },
     silent: process.env.NODE_ENV === "production",
     sourcemaps: {

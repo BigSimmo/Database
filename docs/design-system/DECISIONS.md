@@ -23,8 +23,8 @@ owner file, and what it replaces. Divergence outcomes: `--shadow-well` adopted a
 pin at `tests/ckb-v2-token-contract.test.ts:164-169` updated in the same commit);
 `--quantity-unit-tracking` + `--quantity-unit-gap` win over `--quantity-unit-scale`;
 `--spacing-tap` in `@theme` is the only tap knob and `--tap-min` becomes its alias; the
-evidence-spine / status-mark / confidence-meter **role families are accepted** but their
-names and values land only via the design side's actual file (see Blocked).
+evidence-spine / status-mark names were authored repo-side at commit `59e4c3dfc`, while
+`ConfidenceMeter` remains absent (see Resolution log for details).
 
 **Rejected.** Reconstructing the design-side names from prose descriptions. That is exactly
 the restate-values-in-prose failure that produced eleven divergences last cycle — a
