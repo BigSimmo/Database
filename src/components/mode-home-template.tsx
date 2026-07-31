@@ -178,10 +178,15 @@ export function ModeHomeVerificationFooter({
   totalCount?: number;
 }) {
   return (
-    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
-      <span className="font-medium text-[color:var(--text-heading)]">{label}</span>
-      <span aria-hidden="true">·</span>
-      <span>{body}</span>
+    // Sentence punctuation rather than a separator glyph. A free-standing "·"
+    // between two spans is stranded when the line wraps — measured at 390px, five
+    // of the nine remaining footers wrapped and every one of them split the dot
+    // from the body it was joining. A full stop binds to the preceding word, so
+    // it cannot start or end a line alone, and these are two statements rather
+    // than two items in a list. Centred text (not flex) so the wrapped second
+    // line balances instead of left-aligning under the first.
+    <p className="mx-auto max-w-[34rem] text-balance px-4 pt-0.5 text-center text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
+      <span className="font-medium text-[color:var(--text-heading)]">{label}.</span> <span>{body}</span>
       {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
         <span className="sr-only">
           {verifiedCount} of {totalCount} records are locally verified.
