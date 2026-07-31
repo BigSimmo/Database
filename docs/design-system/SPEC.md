@@ -1,11 +1,8 @@
 # Clinical KB design system — SPEC
 
-**The complete design system: roles, rules, rationale. Never hardcoded values.** Token values
-live exclusively in `src/app/ckb-v2-tokens.css` (branch copy) and `src/app/globals.css` (live
-layer) — a value restated in prose here is a defect in this document. Contrast ratios
-(e.g., 4.5:1, 3:1), dimensions sourced from actual CSS token files (e.g., 48px tap target,
-320px breakpoint), and acceptance thresholds (e.g., 400% zoom) are explicitly allowed when
-clearly labeled as measured evidence or acceptance criteria, not as token values to copy.
+**The complete design system: roles, rules, rationale. Never values.** Token values live in
+`src/app/ckb-v2-tokens.css` (branch copy) and `src/app/globals.css` (live layer) only — a value
+restated in prose here is a defect in this document.
 
 - **Date:** 31 July 2026
 - **Applies to:** branch `claude/clinical-kb-design-system-333a69` at `ef13a072a`
@@ -199,7 +196,7 @@ so the same token inverts between themes — the `--border-lux` failure. Gated:
 
 ### 4.4 Colour — dark
 
-Five surfaces monotonically lighter as they rise: `--surface-inset` → `--background` →
+Four surfaces monotonically lighter as they rise: `--surface-inset` → `--background` →
 `--surface` → `--surface-raised` → `--surface-lux`, with `--surface-subtle` aliased **up**
 (gated — contract test `:105-128`).
 
