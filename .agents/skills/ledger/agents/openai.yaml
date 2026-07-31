@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ledger"
+  short_description: "Capture outstanding session tasks into the issues ledger"
+  default_prompt: "Use $ledger to sweep this session and record outstanding actionable items in docs/outstanding-issues.md."
