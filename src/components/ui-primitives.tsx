@@ -10,6 +10,18 @@ import {
   validationStatusLabel,
 } from "@/lib/source-metadata";
 import { classifySourceAuthority } from "@/lib/source-authority-registry";
+import type { ClinicalSourceMetadata } from "@/lib/types";
+
+/**
+ * What the source badges accept. Previously `unknown`, which meant the `.d.ts`
+ * published to the design system promised a typed shape TypeScript refused to
+ * enforce — so `{ validation_status: … }` (the wrong key; the real one is
+ * `clinical_validation_status`) compiled cleanly and silently fell back, and an
+ * off-vocabulary value reached the normalizer at runtime instead of at build
+ * time. `Partial` because every field is genuinely optional on legacy rows;
+ * `null` because that is what a missing join returns.
+ */
+export type SourceMetadataInput = Partial<ClinicalSourceMetadata> | null;
 
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -31,15 +43,27 @@ export const sourceCard = `${panelSubtle} transition hover:border-[color:var(--b
 export const answerSurface = "rounded-lg bg-transparent";
 export const panel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--border-strong)]/20 dark:ring-[color:var(--border-strong)]/10";
-export const controlBase =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
+// Disabled is ENCODED, not faded. `opacity-50` dims the label and the fill
+// together, so a disabled primary stayed a large saturated block that still read
+// as available, and a disabled secondary's label dropped below 4.5:1. Instead:
+// flatten the fill to --surface-subtle, put the label on --disabled, drop the
+// shadow, and remove the press affordance. `!` is required because the variant
+// classes that follow this base would otherwise win on source order.
+export const controlDisabled =
+  "disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)]! disabled:text-[color:var(--disabled)]! disabled:shadow-none! disabled:active:translate-y-0 aria-disabled:cursor-not-allowed";
+export const controlBase = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
 export const primaryControl = `${controlBase} bg-[color:var(--command)] px-5 text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)]`;
 export const floatingControl =
   "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
 export const toolbarButton =
   "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
 export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]";
-export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
+// A field label is a text node, so it cannot use `--text-soft` (3.07:1) or the
+// uppercase eyebrow treatment: weight said "important" while colour said
+// "secondary", and the label was quieter than the value it described. Sentence
+// case, label weight, full-strength ink. `eyebrowText` stays for actual eyebrows
+// - section kickers above a heading, which are decoration beside a real title.
+export const fieldLabel = "mb-1.5 block text-sm font-medium leading-5 text-[color:var(--text)]";
 export const fieldControl =
   "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none disabled:opacity-75 read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
@@ -313,7 +337,13 @@ export function ToggleSwitch({
 
 type IconComponent = LucideIcon;
 
-export function SourceDesignationBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
+export function SourceDesignationBadge({
+  metadata,
+  className,
+}: {
+  metadata?: SourceMetadataInput;
+  className?: string;
+}) {
   const source = normalizeSourceMetadata(metadata);
   const classification = classifySourceAuthority(source);
   const toneClassName =
@@ -350,7 +380,7 @@ export function SourceStatusBadge({
   className,
   showTitle = true,
 }: {
-  metadata?: unknown;
+  metadata?: SourceMetadataInput;
   className?: string;
   showTitle?: boolean;
 }) {
@@ -383,7 +413,7 @@ export function SourceStatusBadge({
   );
 }
 
-export function SourceProvenance({ metadata }: { metadata?: unknown }) {
+export function SourceProvenance({ metadata }: { metadata?: SourceMetadataInput }) {
   const source = normalizeSourceMetadata(metadata);
   const reviewDate = formatClinicalDate(source.review_date);
   // Unknown review date / jurisdiction segments are dropped as filler; the
@@ -489,6 +519,7 @@ export function EmptyState({
   icon: Icon,
   title,
   body,
+  description,
   actions,
   live = "polite",
   tone = "neutral",
@@ -496,7 +527,16 @@ export function EmptyState({
 }: {
   icon?: IconComponent;
   title: string;
-  body: string;
+  /** Supporting copy. `PanelHeading` calls the same slot `description`. */
+  body?: string;
+  /**
+   * Deprecated alias for `body`, accepted because `PanelHeading` names this slot
+   * `description` and passing `description` here used to render nothing at all —
+   * silently, with no type error, because `body` was the only recognised name.
+   * Prefer `body`; this alias exists so the mistake is impossible rather than
+   * invisible, and will be removed once call sites converge.
+   */
+  description?: string;
   /** Optional controls stay within the shared state surface rather than becoming a second panel. */
   actions?: ReactNode;
   /** Announce a state transition only when the state is introduced dynamically. */
@@ -528,7 +568,7 @@ export function EmptyState({
         )}
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>
-          <p className={cn("mt-1 leading-6", textMuted)}>{body}</p>
+          {(body ?? description) ? <p className={cn("mt-1 leading-6", textMuted)}>{body ?? description}</p> : null}
           {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
         </div>
       </div>

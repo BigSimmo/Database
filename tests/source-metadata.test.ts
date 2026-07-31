@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { logger } from "../src/lib/logger";
 import {
   clipboardProvenanceLine,
   formatClinicalDate,
   normalizeSourceMetadata,
+  sourceMetadataDiagnostics,
   sourceProvenanceSummary,
   sourceStatusLabel,
   validationStatusLabel,
@@ -21,12 +21,15 @@ describe("source metadata helpers", () => {
     expect(sourceProvenanceSummary(metadata)).toContain("Review status unknown");
   });
 
-  it("traces unrecognized enum values via logger.warn while keeping the safe fallback, and stays silent for absent/blank inputs", () => {
-    // Issue 1: a present-but-unrecognized value (data-entry typo) is traced via
-    // logger.warn but must still coerce to the same safe fallback as before, so no
-    // downstream ranking/rendering behaviour changes. Absent/blank inputs are the
-    // legitimate default and must stay silent so the trace signal is not drowned.
-    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+  it("traces unrecognized enum values while keeping the safe fallback, and stays silent for absent/blank inputs", () => {
+    // Issue 1: a present-but-unrecognized value (data-entry typo) is traced but must
+    // still coerce to the same safe fallback as before, so no downstream
+    // ranking/rendering behaviour changes. Absent/blank inputs are the legitimate
+    // default and must stay silent so the trace signal is not drowned.
+    // The trace goes through a browser-safe seam rather than the server logger: this
+    // module renders client-side, and the logger's `process.env` read is a
+    // ReferenceError in a browser.
+    const warnSpy = vi.spyOn(sourceMetadataDiagnostics, "warn").mockImplementation(() => {});
     try {
       const metadata = normalizeSourceMetadata({
         document_status: "revieww_due",
@@ -41,18 +44,9 @@ describe("source metadata helpers", () => {
 
       // Each unrecognized non-empty value is traced once, with its field + value.
       expect(warnSpy).toHaveBeenCalledTimes(3);
-      expect(warnSpy).toHaveBeenCalledWith("source-metadata: unrecognized document_status", {
-        field: "document_status",
-        value: "revieww_due",
-      });
-      expect(warnSpy).toHaveBeenCalledWith("source-metadata: unrecognized clinical_validation_status", {
-        field: "clinical_validation_status",
-        value: "aproved",
-      });
-      expect(warnSpy).toHaveBeenCalledWith("source-metadata: unrecognized extraction_quality", {
-        field: "extraction_quality",
-        value: "gud",
-      });
+      expect(warnSpy).toHaveBeenCalledWith("document_status", "revieww_due");
+      expect(warnSpy).toHaveBeenCalledWith("clinical_validation_status", "aproved");
+      expect(warnSpy).toHaveBeenCalledWith("extraction_quality", "gud");
 
       // Absent (null / undefined) and blank/whitespace values are the legitimate
       // default and never warn.
