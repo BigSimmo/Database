@@ -324,29 +324,10 @@ export function requireSentryEnv() {
     throw new Error("Sentry DSN in .env contains a placeholder value. Set a real DSN URL.");
   }
 
-  const sentryOrg = env.SENTRY_ORG?.trim();
-  const sentryProject = env.SENTRY_PROJECT?.trim();
-  const sentryAuthToken = env.SENTRY_AUTH_TOKEN?.trim();
-  const hasSentryBuildVars = Boolean(sentryOrg || sentryProject || sentryAuthToken);
-
-  if (hasSentryBuildVars) {
-    const missing: string[] = [];
-    if (!sentryOrg) missing.push("SENTRY_ORG");
-    if (!sentryProject) missing.push("SENTRY_PROJECT");
-    if (!sentryAuthToken) missing.push("SENTRY_AUTH_TOKEN");
-
-    if (missing.length > 0) {
-      throw new Error(
-        `Partial Sentry sourcemap config in env: ${missing.join(", ")}. Set all of SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN, or unset all three.`,
-      );
-    }
-
-    if (isPlaceholderValue(sentryAuthToken) || isPlaceholderValue(sentryOrg) || isPlaceholderValue(sentryProject)) {
-      throw new Error(
-        "Sentry sourcemap environment values contain placeholder text. Set real SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN.",
-      );
-    }
-  }
+  // SENTRY_ORG / SENTRY_PROJECT / SENTRY_AUTH_TOKEN are build-time sourcemap upload
+  // credentials. next.config.ts already gates upload on the complete set; do not
+  // re-validate them at runtime or a partial build env leaked into the process
+  // will crash production startup.
 }
 
 // Clinical query text is redacted to a keyed HMAC pseudonym before it is logged

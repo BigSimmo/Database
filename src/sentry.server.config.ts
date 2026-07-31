@@ -1,10 +1,11 @@
 import * as Sentry from "@sentry/nextjs";
 
+import { privacySafeErrorEvent } from "@/lib/observability/error-tracking";
+
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
-const sentryDsn = process.env.SENTRY_DSN;
+const sentryDsn = process.env.SENTRY_DSN?.trim();
 const sentryRelease =
   process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
-const tracesSampleRate = Number(process.env.NODE_ENV === "production" ? 0.2 : 1.0);
 
 const ignoredServerErrors = [
   /404/,
@@ -19,13 +20,6 @@ const ignoredServerErrors = [
   "RateLimitedError",
 ];
 
-function coerceSampleRate(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
-}
-
 function isBotTrafficEvent(event: Sentry.Event): boolean {
   const userAgentHeader = event.request?.headers?.["user-agent"];
   const userAgent = Array.isArray(userAgentHeader) ? userAgentHeader[0] : (userAgentHeader as string | undefined);
@@ -35,17 +29,24 @@ function isBotTrafficEvent(event: Sentry.Event): boolean {
   );
 }
 
-Sentry.init({
-  ...(sentryDsn ? { dsn: sentryDsn } : {}),
-  release: sentryRelease,
-  environment: sentryEnvironment,
-  tracesSampleRate: coerceSampleRate(tracesSampleRate),
-  sendDefaultPii: false,
-  includeLocalVariables: true,
-  enableLogs: true,
-  ignoreErrors: ignoredServerErrors,
-  beforeSend(event) {
-    if (isBotTrafficEvent(event)) return null;
-    return event;
-  },
-});
+try {
+  Sentry.init({
+    ...(sentryDsn ? { dsn: sentryDsn } : {}),
+    release: sentryRelease,
+    environment: sentryEnvironment,
+    // Privacy posture: no traces, logs, breadcrumbs, locals, or PII (docs/error-tracking.md).
+    tracesSampleRate: 0,
+    sendDefaultPii: false,
+    includeLocalVariables: false,
+    enableLogs: false,
+    attachStacktrace: true,
+    maxBreadcrumbs: 0,
+    ignoreErrors: ignoredServerErrors,
+    beforeSend(event) {
+      if (isBotTrafficEvent(event)) return null;
+      return privacySafeErrorEvent(event);
+    },
+  });
+} catch {
+  // Optional observability must never take down the clinical server.
+}

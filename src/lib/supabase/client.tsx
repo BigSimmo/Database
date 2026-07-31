@@ -86,9 +86,9 @@ function syncSentryUser(session: Session | null) {
   }
 
   Sentry.logger?.info("auth.session_synced", { authenticated: true });
+  // Id only — never export email/PII to Sentry (logger redacts email; PIA treats it as PII).
   Sentry.setUser({
     id: session.user.id,
-    email: session.user.email ?? undefined,
   });
 }
 

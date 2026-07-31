@@ -49,4 +49,9 @@ describe("production error tracking privacy boundary", () => {
     expect(event.tags).toEqual({ route_path: "/api/answer" });
     expect(event.fingerprint).toEqual(["/api/answer", "Error", "src/app/api/answer/route.ts", "POST"]);
   });
+
+  it("initializeErrorTracking is a DSN/status probe and does not throw without Sentry", async () => {
+    const { initializeErrorTracking } = await import("@/lib/observability/error-tracking");
+    await expect(initializeErrorTracking()).resolves.toBeTypeOf("boolean");
+  });
 });

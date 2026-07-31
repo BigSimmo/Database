@@ -1,23 +1,25 @@
 import * as Sentry from "@sentry/nextjs";
 
+import { privacySafeErrorEvent } from "@/lib/observability/error-tracking";
+
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
-const sentryDsn = process.env.SENTRY_DSN;
+const sentryDsn = process.env.SENTRY_DSN?.trim();
 const sentryRelease =
   process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
-const tracesSampleRate = Number(process.env.NODE_ENV === "production" ? 0.2 : 1.0);
 
-function coerceSampleRate(value: number) {
-  if (!Number.isFinite(value)) return 0;
-  if (value < 0) return 0;
-  if (value > 1) return 1;
-  return value;
+try {
+  Sentry.init({
+    ...(sentryDsn ? { dsn: sentryDsn } : {}),
+    release: sentryRelease,
+    environment: sentryEnvironment,
+    tracesSampleRate: 0,
+    sendDefaultPii: false,
+    enableLogs: false,
+    maxBreadcrumbs: 0,
+    beforeSend(event) {
+      return privacySafeErrorEvent(event);
+    },
+  });
+} catch {
+  // Optional observability must never take down the clinical edge runtime.
 }
-
-Sentry.init({
-  ...(sentryDsn ? { dsn: sentryDsn } : {}),
-  release: sentryRelease,
-  environment: sentryEnvironment,
-  tracesSampleRate: coerceSampleRate(tracesSampleRate),
-  sendDefaultPii: false,
-  enableLogs: true,
-});

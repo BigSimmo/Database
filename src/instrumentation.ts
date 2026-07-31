@@ -1,4 +1,4 @@
-import { captureRequestError, initializeErrorTracking } from "@/lib/observability/error-tracking";
+import { captureRequestError } from "@/lib/observability/error-tracking";
 
 // Next.js calls register() once when a server instance starts, before it serves
 // any requests. We use it to fail fast: a clinical production server must be fully
@@ -6,6 +6,8 @@ import { captureRequestError, initializeErrorTracking } from "@/lib/observabilit
 // unauthenticated demo content — on the first request. See production-readiness
 // plan items 0.1 and 0.3.
 export async function register() {
+  // Single Sentry init path per runtime (sentry.*.config.ts). Do not also call
+  // initializeErrorTracking() — a second Sentry.init() races privacy/sampling options.
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("./sentry.server.config");
   }
@@ -63,10 +65,9 @@ export async function register() {
   // A keyed HMAC secret must be present so clinical-query hashes written to the log
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
+  // Runtime DSN consistency only. Sourcemap upload credentials are build-time
+  // and are gated in next.config.ts — not re-checked here.
   requireSentryEnv();
-
-  // Optional, server-only tracking. Missing DSN means no provider calls.
-  await initializeErrorTracking();
 }
 
 export { captureRequestError as onRequestError };
