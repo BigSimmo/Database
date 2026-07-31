@@ -28,5 +28,6 @@ RAG impact: no retrieval behaviour change — prompt presentation only adds cons
 
 ## Notes
 
-- Empty/`{}`/index-only governance metadata remains unrecorded in prompts; explicit stored `clinical_validation_status: "unverified"` from upload is preserved.
+- Empty/`{}`/index-only governance metadata remains unrecorded in prompts; partial sibling fields use neutral `unknown` rather than inventing adverse `unverified`; explicit stored `clinical_validation_status: "unverified"` from upload is preserved.
+- Optional Sentry init failures are swallowed so observability cannot block production boot.
 - Merge remains gated on approved live answer-quality verification or an explicit owner decision to accept the offline-only evidence.

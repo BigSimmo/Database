@@ -38,7 +38,10 @@ export function remoteRepositoryIdentity(remoteUrl) {
 }
 
 export function inspectOriginRemote(root) {
-  const result = run("git", ["remote", "get-url", "origin"], root);
+  // Read the configured URL, not `git remote get-url`, so ambient
+  // url.*.insteadOf rewrites (Cursor Cloud managed auth) cannot make a
+  // credential-free origin look credential-bearing.
+  const result = run("git", ["config", "--get", "remote.origin.url"], root);
   if (result.status !== 0) {
     return {
       configured: false,

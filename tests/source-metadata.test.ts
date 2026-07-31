@@ -34,6 +34,11 @@ describe("source metadata helpers", () => {
     expect(normalizeOptionalSourceMetadata({ clinical_validation_status: "unverified" })).toMatchObject({
       clinical_validation_status: "unverified",
     });
+    expect(normalizeOptionalSourceMetadata({ document_status: "current" })).toMatchObject({
+      document_status: "current",
+      clinical_validation_status: "unknown",
+      extraction_quality: "unknown",
+    });
   });
 
   it("traces unrecognized enum values via logger.warn while keeping the safe fallback, and stays silent for absent/blank inputs", () => {

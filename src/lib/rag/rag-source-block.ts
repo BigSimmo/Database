@@ -78,7 +78,7 @@ function richTableSourceContextEnabled(options?: RagSourceBlockOptions) {
 }
 
 const DOCUMENT_STATUS = new Set(["current", "review_due", "outdated", "unknown"]);
-const VALIDATION_STATUS = new Set(["unverified", "locally_reviewed", "approved"]);
+const VALIDATION_STATUS = new Set(["unverified", "locally_reviewed", "approved", "unknown"]);
 const EXTRACTION_QUALITY = new Set(["good", "partial", "poor", "unknown"]);
 
 function governanceValue(value: unknown, allowed: Set<string>, fallback: string) {
@@ -90,7 +90,8 @@ function sourceGovernanceLine(result: SearchResult) {
   if (!metadata) return "metadata not recorded (absence is not an adverse finding)";
   return [
     `document status: ${governanceValue(metadata.document_status, DOCUMENT_STATUS, "unknown")}`,
-    `clinical validation: ${governanceValue(metadata.clinical_validation_status, VALIDATION_STATUS, "unverified")}`,
+    // Neutral fallback: never invent adverse "unverified" for missing/malformed values.
+    `clinical validation: ${governanceValue(metadata.clinical_validation_status, VALIDATION_STATUS, "unknown")}`,
     `extraction quality: ${governanceValue(metadata.extraction_quality, EXTRACTION_QUALITY, "unknown")}`,
   ].join("; ");
 }
