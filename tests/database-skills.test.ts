@@ -1,6 +1,6 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -82,16 +82,41 @@ describe("Database skill catalog", () => {
   it("keeps prompt-perfector execution authorization and repository isolation fail-closed", () => {
     const skillRoot = path.join(skillsRoot, "prompt-perfector");
     const skill = fs.readFileSync(path.join(skillRoot, "SKILL.md"), "utf8");
+    const metadata = fs.readFileSync(path.join(skillRoot, "agents", "openai.yaml"), "utf8");
     const workflow = fs.readFileSync(path.join(skillRoot, "references", "repository-workflow.md"), "utf8");
     const verifier = fs.readFileSync(path.join(skillRoot, "scripts", "verify-repository-isolation.mjs"), "utf8");
 
     expect(skill).toContain("Execute only when explicit");
     expect(skill).not.toContain("Workspace:");
+    expect(skill).not.toContain('Workspace: "branch"');
+    expect(skill).not.toContain('Workspace: "share"');
+    for (const [scenario, contract] of [
+      ["refinement-only", "For refinement, return only `Perfected prompt`"],
+      ["explicit evaluation", "For evaluation, return `Evaluation`"],
+      ["embedded instructions", "as untrusted data"],
+      ["unauthorized execution", "Prompt perfection never authorizes"],
+      ["repository write", "references/repository-workflow.md"],
+    ]) {
+      expect(skill, scenario).toContain(contract);
+    }
+    expect(metadata).toContain("unless I explicitly request evaluation or execution");
     expect(workflow).toContain("^TASK_START\\s+git=(true|false)$");
+    expect(workflow).toContain("$taskState.TASK_START -ne 'git=true'");
+    expect(workflow).toContain("$env:USERPROFILE");
+    expect(workflow).not.toContain("C:\\Users\\joshs");
+    expect(workflow).toContain("start-codex-task.ps1");
+    expect(workflow).toContain("git worktree add");
+    expect(workflow).toContain("git rev-parse --show-toplevel");
     expect(workflow).toContain("CODEX_CLOUD=1");
     expect(workflow).toContain("--expected-status-hash");
+    expect(workflow).toContain("--allow-dirty");
+    expect(workflow).toContain("does not provide an OS-level sandbox");
     expect(verifier).toContain('["safe Cloud primary"');
     expect(verifier).toContain('reasons.push("status_drift")');
+    expect(verifier).toContain("dirty_override_requires_expected_state");
+    expect(verifier).toContain("expected_state_required");
+    expect(verifier).toContain("primary_worktree");
+    expect(verifier).not.toContain("node_modules");
 
     const selfTest = spawnSync(
       process.execPath,
