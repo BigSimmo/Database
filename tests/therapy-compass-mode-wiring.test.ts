@@ -1,9 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
 import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
-import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+import {
+  THERAPY_CATALOGUE_ASSETS,
+  THERAPY_CATALOGUE_ASSETS_PREVIOUS,
+} from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
 // real breakages caught in review when the mockup was promoted to a live mode.
@@ -95,6 +98,47 @@ describe("Therapy Compass production-mode wiring", () => {
     }
   });
 
+  it("commits no catalogue assets older than the one-deploy grace generation", () => {
+    // Every regeneration mints new hashed filenames. Without pruning, each data
+    // revision strands the previous full catalogue (~2.5 MB) plus both
+    // projections in `public/` permanently — in git history and in every Docker
+    // image. PR #1489 stranded two inside a single pull request and needed a
+    // hand-deletion commit. `check:therapy-data-index` enforces the same rule;
+    // this pins it for anyone who adds a hashed file without rerunning it.
+    // Typed as string: the manifests are `as const`, so an inferred Set would be
+    // keyed to today's exact filenames and reject any other name outright.
+    const manifested = new Set<string>([
+      ...Object.values(THERAPY_CATALOGUE_ASSETS),
+      ...Object.values(THERAPY_CATALOGUE_ASSETS_PREVIOUS),
+    ]);
+    const hashed = readdirSync(dataDir).filter((name) =>
+      /^therapies(?:-(?:home|index))?\.[a-f0-9]{16}\.json$/.test(name),
+    );
+    expect(hashed.length).toBeGreaterThan(0);
+    expect(hashed.filter((name) => !manifested.has(name))).toEqual([]);
+    // Growth is bounded at two generations per stem, not N.
+    expect(hashed.length).toBeLessThanOrEqual(6);
+  });
+
+  it("retains the previous generation on disk so pre-deploy bundles do not 404", () => {
+    // A session that started before the last deploy has the previous
+    // content-addressed URL compiled into its bundle. Pruning it the moment the
+    // catalogue regenerates reintroduces the deployment-straddling 404 the
+    // unversioned aliases exist to prevent, one level down.
+    for (const file of Object.values(THERAPY_CATALOGUE_ASSETS_PREVIOUS)) {
+      expect(existsSync(new URL(file, dataDir)), file).toBe(true);
+    }
+  });
+
+  it("falls back from a stale hashed catalogue URL to the unversioned alias", () => {
+    // Covers bundles older than the grace generation, and mid-rollout clients.
+    expect(loaderSrc).toContain("async function fetchCatalogue");
+    expect(loaderSrc).toContain("CATALOGUE_ALIASES[catalogue]");
+    for (const alias of Object.values(legacyCatalogueAssets)) {
+      expect(loaderSrc, alias).toContain(alias);
+    }
+  });
+
   it("caches hashed catalogue assets immutably and forces alias revalidation", () => {
     const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
     expect(nextConfig).toContain(
@@ -111,7 +155,11 @@ describe("Therapy Compass production-mode wiring", () => {
     const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
     expect(indexSize).toBeLessThan(fullSize * 0.1);
     expect(homeSize).toBeLessThanOrEqual(indexSize);
-    expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[options.catalogue]");
+    // The loader still selects by catalogue kind from the generated manifest —
+    // the lookup moved inside fetchCatalogue when the alias fallback landed, so
+    // pin both halves rather than the old single expression.
+    expect(loaderSrc).toContain("fetchCatalogue(options.catalogue)");
+    expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[catalogue]");
     expect(bindingsSrc).toContain('screen === "home" ? "home"');
     expect(bindingsSrc).toContain('screen === "pathways" ? "index"');
     expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
