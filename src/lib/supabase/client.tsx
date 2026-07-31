@@ -80,10 +80,12 @@ function createBrowserSupabaseClient() {
 
 function syncSentryUser(session: Session | null) {
   if (!session?.user) {
+    Sentry.logger?.info("auth.session_cleared");
     Sentry.setUser(null);
     return;
   }
 
+  Sentry.logger?.info("auth.session_synced", { authenticated: true });
   Sentry.setUser({
     id: session.user.id,
     email: session.user.email ?? undefined,
@@ -304,15 +306,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
+      Sentry.logger?.info("auth.sign_in_with_email_requested");
       const { error: signInError } = await active.auth.signInWithOtp({
         email,
         options: { emailRedirectTo: authCallbackRedirect() },
       });
       if (signInError) {
         setStatus("error");
+        Sentry.logger?.error("auth.sign_in_with_email_failed", { error_code: signInError?.code ?? "sign_in_error" });
         setError("Sign-in email could not be sent.");
         return;
       }
+      Sentry.logger?.info("auth.sign_in_with_email_succeeded");
       setStatus("signed_out");
       setNotice("Check your email for the sign-in link.");
     },
@@ -326,11 +331,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
+      Sentry.logger?.info("auth.sign_in_with_password_requested");
       const { error: signInError } = await active.auth.signInWithPassword({ email, password });
       if (signInError) {
         setStatus("error");
+        Sentry.logger?.error("auth.sign_in_with_password_failed", { error_code: signInError?.code ?? "sign_in_error" });
         setError(signInError.message);
+        return;
       }
+      Sentry.logger?.info("auth.sign_in_with_password_succeeded");
       // onAuthStateChange flips status to "authenticated" on success.
     },
     [requireClient],
@@ -369,14 +378,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
+      Sentry.logger?.info("auth.sign_in_with_oauth_requested", { provider });
       const { error: oauthError } = await active.auth.signInWithOAuth({
         provider,
         options: { redirectTo: authCallbackRedirect() },
       });
       if (oauthError) {
         setStatus("error");
+        Sentry.logger?.error("auth.sign_in_with_oauth_failed", { provider, error_code: oauthError?.code ?? "sign_in_error" });
         setError(oauthError.message);
+        return;
       }
+      Sentry.logger?.info("auth.sign_in_with_oauth_succeeded", { provider });
       // On success the browser is redirected to the provider.
     },
     [requireClient],
@@ -385,7 +398,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     if (!client) return;
     invalidateAuthRequests();
-    await client.auth.signOut();
+    Sentry.logger?.info("auth.sign_out_requested");
+    try {
+      await client.auth.signOut();
+    } catch (error) {
+      Sentry.logger?.error("auth.sign_out_failed", { provider: "browser", error: String(error instanceof Error ? error.message : `${error}`) });
+      Sentry.captureException(error);
+      setStatus("error");
+      setError("Sign out failed. Please try again.");
+      return;
+    }
+    Sentry.logger?.info("auth.sign_out_succeeded");
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
