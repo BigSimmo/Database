@@ -22,8 +22,9 @@ policy, or provider-account permissions; those are configured in Codex and each 
 
 ## Create the environment
 
-In Codex environment settings, create an environment for `BigSimmo/Database` with the
-controls described in the official [Codex changelog](https://help.openai.com/en/articles/11428266-codex-changelog):
+In Codex environment settings, create an environment for `BigSimmo/Database` using the
+official [Cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environment)
+contract:
 
 | Setting               | Value                                  |
 | --------------------- | -------------------------------------- |
@@ -38,7 +39,13 @@ Enable agent internet access only when a task needs it. Prefer a domain allowlis
 minimum HTTP methods for the task. Package installation happens during setup; ordinary
 structure-only work, including the RAG decomposition prompt below, should remain offline.
 
-The setup command fails if the complete toolchain cannot be installed. Set
+The setup command fails if the complete toolchain cannot be installed. It pins Railway CLI
+`5.30.1` and Codex CLI `0.146.0`, both stable npm releases as reviewed on 2026-07-30. Railway's
+[official CLI guide](https://docs.railway.com/cli) supports global npm installation on Node 16+
+(this repository uses Node 24). OpenAI's
+[official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) supports Linux installation;
+the npm package is used here so maintenance can verify an exact version without running an
+unversioned installer. Set
 `CODEX_CLOUD_SKIP_BROWSER_INSTALL=1` only for an explicitly source-only environment; that
 environment is not full browser-ready.
 
@@ -62,8 +69,10 @@ database, CI-trigger, and test-user credential variables. This prevents an unrel
 task from silently becoming provider-backed.
 
 Set all five offline values in the environment UI. The setup also writes the generated
-profile to `.bashrc` and `.profile`, but exported values from setup cannot by themselves
-guarantee the environment of every later agent process.
+profile to `.bashrc`, `.profile`, and `.bash_profile`. Covering `.bash_profile` is required:
+Bash stops login-profile discovery at the first matching file, so an existing `.bash_profile`
+can otherwise prevent `.profile` from running. Offline mode values are forced after inherited
+platform values so stale `auto`/`false` settings cannot outrank the repository contract.
 
 ### Connected (explicit opt-in)
 
@@ -72,12 +81,14 @@ expected to call named providers. Configure the smallest domain/method allowlist
 least-privileged credentials for those tasks. Never commit credentials or print their
 values. The setup script does not call providers and does not prove provider authorization.
 
-Codex Cloud secrets and ordinary environment variables have different exposure and
-lifecycle properties. Follow the current Codex environment UI for secret availability;
-do not assume a setup secret remains available to the agent phase. If a provider needs an
-agent-phase token, use a supported connector/OAuth mechanism where possible. Otherwise,
-create a deliberately connected environment and accept that an agent-visible runtime
-variable is sensitive.
+Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
+properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
+or Railway secrets into the agent phase. Do not persist them in profiles, repository files,
+`.env*`, caches, logs, or ordinary variables as a workaround. A `connected` profile models
+explicit authorization and relaxes the offline-mode assertions, but it does not create
+credentials. Authenticated Supabase/E2E tests use the protected manual workflow documented
+below. Run other provider checks locally/operator-side or through a separately approved,
+least-privilege provider mechanism.
 
 ## GitHub access
 
@@ -98,6 +109,14 @@ not add a personal access token to Cloud secrets or environment variables to mak
 repository in Codex settings and run a controlled branch/PR write test. If the connector
 does not expose a required repository/organisation setting, report the limit rather than
 attempting a credential or secret workaround.
+
+Setup restores a missing `origin` to the credential-free URL
+`https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
+instead of overwriting a wrong or credential-bearing remote. When GitHub CLI authentication is
+already available, setup asks `gh auth setup-git` to install its token-free helper command. It
+never embeds a token or invents a PAT. `git ls-remote` and a dry-run push remain separate
+acceptance checks; if the connector does not expose shell Git authentication, report that
+platform capability gap.
 
 Suggested GitHub acceptance task:
 
@@ -122,9 +141,10 @@ Maintenance:
 bash scripts/maintain-codex-cloud.sh
 ```
 
-The maintenance command runs static acceptance, then runtime acceptance. Any runtime,
-dependency, Deno, Python/OCR, or browser drift reruns the full setup instead of repairing
-only `node_modules`.
+The maintenance command reasserts the safe `origin`, runs static/effective environment
+acceptance, then runtime acceptance. Any runtime, dependency, CLI, Deno, Python/OCR, or browser
+drift reruns the full setup instead of repairing only `node_modules`. All profile insertions,
+CLI installs, and remote repair are idempotent.
 
 ## Acceptance
 
@@ -142,22 +162,35 @@ decisive line from every command and any unrun check.
 Expected decisive lines include:
 
 ```text
-[Codex Cloud Check] PASS: static Cloud contracts match.
-[Codex Cloud Check] PASS: static and runtime Cloud contracts match.
+[Codex Cloud Check] PASS: static and environment Cloud contracts match.
+[Codex Cloud Check] PASS: static, environment, and runtime Cloud contracts match.
 ```
 
-The runtime check verifies Node/npm policy and installed-lock parity, Deno 2, Python 3,
-Tesseract, browser executables, local `main`/`origin/main`, offline credential absence when
-applicable, and obsolete npm proxy variable names without reading or printing their values.
+The effective-environment check runs automatically when `CODEX_CLOUD=1`, including without
+`--runtime`, so a newly started agent shell cannot pass with stale modes. Its report prints only
+approved mode values and presence booleans. The runtime check additionally verifies Node/npm
+policy and installed-lock parity, pinned Railway/Codex CLIs, Deno 2, Python 3 and worker imports,
+Tesseract, browser executables, local `main`/`origin/main`, the `BigSimmo/Database` origin
+identity, offline credential absence when applicable, and obsolete npm proxy variable names
+without reading or printing their values. MCP inspection emits server names, commands, and
+environment variable names only.
+
+`npm run check:production-readiness` remains useful in the offline profile for local safeguards.
+Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
+not make the provider-free cache unhealthy. `ALLOW_PROVIDER_TESTS=true` expresses authorization,
+not credential availability; live tests still fail closed with a sanitized capability-gap message
+in the offline profile.
 
 ## Provider acceptance
 
 Provider access is verified separately because a generic bootstrap must not make paid or
 production-like calls. For a connected environment, name each provider, use a read-only or
 minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
-report cost or mutation risk before any write. OpenAI generation, Supabase live data,
-Railway changes, hosted CI reruns, ingestion, deployment, and release workflows remain
-separate explicit actions.
+report cost or mutation risk before any write. Railway `whoami` and `status --json` require both
+the CLI and the dedicated `RAILWAY_API_TOKEN`; never use project-scoped `RAILWAY_TOKEN` as a
+fallback. Reduce Railway JSON to authenticated/project/workspace identity before output. OpenAI
+generation, Supabase live data, Railway changes, hosted CI reruns, ingestion, deployment, and
+release workflows remain separate explicit actions.
 
 ## Authenticated live testing
 
