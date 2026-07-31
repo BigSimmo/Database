@@ -544,9 +544,15 @@ function MobileExactMatchHero({ match, code }: CodedFormMatch) {
   const details = formCatalogDetails(form);
   const risk = formRiskLevel(match);
   const purpose = editorialPurpose(form);
-  // statusChips is [risk, category, availability]; the catalogue owns the
-  // availability wording, so surface it rather than re-deriving a label here.
-  const availabilityLabel = (form.statusChips ?? [])[2]?.label?.trim();
+  // Derive availability label from the actual availability field rather than
+  // positional statusChips indexing to avoid fragility.
+  const availabilityLabel = details?.availability
+    ? details.availability === "downloadable"
+      ? "Official PDF"
+      : details.availability === "unavailable"
+        ? "Currently unavailable"
+        : "Contact OCP"
+    : undefined;
   return (
     <section
       aria-label="Exact form code match"
@@ -666,26 +672,30 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
     // bordered card is never nested inside another bordered surface.
     <section data-testid="form-search-mobile-results" aria-label="Form record matches" className="grid gap-3">
       {exactMatch ? <MobileExactMatchHero match={exactMatch.match} code={exactMatch.code} /> : null}
-      <div className="flex items-baseline justify-between gap-2 px-1">
-        <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-          {exactMatch ? `Also references ${exactMatch.code}` : "Best matches"}
-        </h2>
-        <span className="text-xs font-bold text-[color:var(--text-muted)]">
-          {remaining.length} {remaining.length === 1 ? "form" : "forms"}
-        </span>
-      </div>
-      {groups.map((group) => (
-        <section key={group.category} aria-label={group.category} className="grid gap-2">
-          <div className="flex items-center gap-2 px-1">
-            <h3 className={eyebrowText}>{group.category}</h3>
-            <span aria-hidden className="h-px flex-1 bg-[color:var(--border)]" />
-            <span className="text-2xs font-bold text-[color:var(--text-soft)]">{group.items.length}</span>
+      {remaining.length > 0 ? (
+        <>
+          <div className="flex items-baseline justify-between gap-2 px-1">
+            <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
+              {exactMatch ? `Also references ${exactMatch.code}` : "Best matches"}
+            </h2>
+            <span className="text-xs font-bold text-[color:var(--text-muted)]">
+              {remaining.length} {remaining.length === 1 ? "form" : "forms"}
+            </span>
           </div>
-          {group.items.map((item) => (
-            <MobileResultCard key={item.match.service.slug} match={item.match} code={item.code} />
+          {groups.map((group) => (
+            <section key={group.category} aria-label={group.category} className="grid gap-2">
+              <div className="flex items-center gap-2 px-1">
+                <h3 className={eyebrowText}>{group.category}</h3>
+                <span aria-hidden className="h-px flex-1 bg-[color:var(--border)]" />
+                <span className="text-2xs font-bold text-[color:var(--text-soft)]">{group.items.length}</span>
+              </div>
+              {group.items.map((item) => (
+                <MobileResultCard key={item.match.service.slug} match={item.match} code={item.code} />
+              ))}
+            </section>
           ))}
-        </section>
-      ))}
+        </>
+      ) : null}
       <Link
         href={appModeHomeHref("forms", { query, focus: true, run: true })}
         className={cn(
