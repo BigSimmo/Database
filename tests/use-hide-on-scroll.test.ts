@@ -179,6 +179,43 @@ describe("computeScrollHideUpdate", () => {
     expect(revealed.direction).toBe("up");
   });
 
+  it("holds chrome hidden across a mid-page viewport range change with a small upward reading (#146)", () => {
+    // Safari toolbar / Playwright setViewportSize shrinks the layout viewport,
+    // growing maxOffset. Under CI load that geometry change can arrive with a
+    // few pixels of upward scroll noise while the user is still deep in the
+    // page — not deliberate reveal intent.
+    expect(
+      computeScrollHideUpdate({
+        offset: 496,
+        lastOffset: 500,
+        maxOffset: 1200,
+        previousMaxOffset: 1100,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 496,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    // A deliberate upward gesture that already clears revealIntentDistance must
+    // still reveal even when the range changed in the same evaluation.
+    const revealed = computeScrollHideUpdate({
+      offset: 480,
+      lastOffset: 500,
+      maxOffset: 1200,
+      previousMaxOffset: 1100,
+      currentlyHidden: true,
+      direction: "down",
+      directionTravel: 200,
+    });
+    expect(revealed.hidden).toBe(false);
+    expect(revealed.direction).toBe("up");
+  });
+
   it("reveals when a genuine upward scroll is coalesced with a prior layout clamp", () => {
     // RAF debouncing coalesces a layout-clamp scroll event with any
     // immediately-following user scroll into a single RAF evaluation. The hook
