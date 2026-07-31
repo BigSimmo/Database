@@ -184,19 +184,35 @@ function loadBudget() {
 }
 
 /**
+ * Injectable stdio/timer/exit surface for {@link exitProcess}. Defaults match
+ * Node's process helpers; tests pass narrow mocks. Typed via JSDoc so Vitest
+ * mocks do not have to satisfy `WriteStream` / `never` inference from defaults
+ * (Static PR typecheck regression on PR #1489).
+ *
+ * @typedef {object} ExitProcessOptions
+ * @property {(code: number) => void} [exitImpl]
+ * @property {{ write: (chunk: string) => boolean; once?: (event: string, listener: () => void) => unknown }} [stdout]
+ * @property {typeof setTimeout} [setTimer]
+ * @property {number} [failsafeMs]
+ */
+
+/**
  * Force the process to terminate even when stdio drain or a stray handle would
  * otherwise keep the event loop alive (the PR #1489 Build cancellation mode).
  * Exported for unit tests; `exitImpl` / `setTimer` are injectable.
+ *
+ * @param {number} code
+ * @param {ExitProcessOptions} [options]
  */
-export function exitProcess(
-  code,
-  {
-    exitImpl = (value) => process.exit(value),
+export function exitProcess(code, options = {}) {
+  const {
+    exitImpl = (value) => {
+      process.exit(value);
+    },
     stdout = process.stdout,
     setTimer = setTimeout,
     failsafeMs = EXIT_FAILSAFE_MS,
-  } = {},
-) {
+  } = options;
   process.exitCode = code;
   let exited = false;
   const force = () => {

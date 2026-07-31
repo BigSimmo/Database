@@ -117,6 +117,15 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
   });
 
+  it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
+    // Regression for the old mid-word sk- → s\u006b- rewrite in the generator.
+    for (const kind of ["home", "index"] as const) {
+      const text = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir), "utf8");
+      expect(text, kind).toContain('"slug": "task-centred-practice"');
+      expect(text, kind).not.toContain("\\u006b");
+    }
+  });
+
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {
     // Otherwise /therapy-compass?q=…&run=1 renders ClinicalDashboard over TherapyCompassPage.
     expect(

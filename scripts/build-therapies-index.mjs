@@ -11,6 +11,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { escapeFalseOpenAiKeySignatures } from "./lib/escape-false-openai-key-signatures.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicData = join(root, "public", "therapy-compass-data");
@@ -86,9 +87,7 @@ const browserHomeProjected = therapies
   .sort((a, b) => a.name.localeCompare(b.name));
 
 function syncTarget(target, records) {
-  // Avoid a false OpenAI-key signature when ordinary words contain an embedded
-  // `sk-` sequence. JSON decoding restores the exact original string value.
-  const expected = `${JSON.stringify(records, null, 2).replace(/(?<=[A-Za-z0-9])sk-/g, "s\\u006b-")}\n`;
+  const expected = `${escapeFalseOpenAiKeySignatures(JSON.stringify(records, null, 2))}\n`;
   if (checkOnly) {
     let actual = "";
     try {
