@@ -857,9 +857,8 @@ function GlobalStandaloneSearchShellBody({
             heroComposerBreakpoint="all"
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the top bar to hand space back to content.
-            // Tablet: the document scrolls, so an outer sticky stack pins
-            // [top bar | search]. Desktop portals search into normal page flow,
-            // leaving this stack to own only the auto-hiding top bar.
+            // Tablet and desktop portal search into normal page flow. The outer
+            // sticky stack therefore owns only the auto-hiding top bar.
             hideOnScroll={{
               strategy: "collapse",
               // Phones always overlay. The collapse mechanism is a 1fr -> 0fr
@@ -934,7 +933,7 @@ function GlobalStandaloneSearchShellBody({
               <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
-                className="hidden lg:block lg:empty:hidden"
+                className="hidden sm:block sm:empty:hidden"
               />
             ) : null}
             {/*
@@ -946,7 +945,7 @@ function GlobalStandaloneSearchShellBody({
               Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
               is skipped for them to avoid a duplicate row on their workflow routes.
               Rendered in normal flow (sticky={false}) so it never contends with
-              the universal collapsing header / pinned search chrome.
+              the universal collapsing header or page-flow search chrome.
             */}
             {searchMode !== "specifiers" && searchMode !== "formulation" ? (
               <PageSecondaryNavigation
