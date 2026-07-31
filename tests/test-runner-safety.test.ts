@@ -680,6 +680,10 @@ describe("provider-safe test environment", () => {
     expect(ciWorkflow).toContain("name: playwright-next-build-cache-${{ github.run_id }}");
     expect(ciWorkflow).toContain("Publish isolated Next.js build cache");
     expect(ciWorkflow).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1");
+    // Dot-directory paths require include-hidden-files or upload-artifact v4.4+
+    // silently publishes nothing (same class of bug as eval-canary's `.local/`).
+    expect(ciWorkflow).toContain("include-hidden-files: true");
+    expect(ciWorkflow).toContain("compression-level: 0");
     expect(ciWorkflow).not.toMatch(/playwright-next-\$\{\{\s*runner\.os\s*\}\}/);
     expect(ciWorkflow.match(/path: \.next-playwright\/ci-production\/dist\/cache/g)).toHaveLength(2);
     expect(ciWorkflow.match(/PLAYWRIGHT_BUILD_ROOT_ID: ci-production/g)).toHaveLength(2);

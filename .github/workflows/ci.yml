@@ -471,9 +471,17 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-next-build-cache-${{ github.run_id }}
+          # Path lives under `.next-playwright/` (dot-directory). upload-artifact
+          # v4.4+ excludes hidden paths unless this is set — without it the
+          # publish is a silent no-op and every shard cold-builds.
           path: .next-playwright/ci-production/dist/cache
+          include-hidden-files: true
+          # Next's production webpack cache is already uncompressed; leave
+          # compression to the outer transport at level 0 so the critical path
+          # does not pay zlib-6 CPU on ~800 MB.
+          compression-level: 0
           retention-days: 1
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Classify exact failed test identities
         if: failure()
