@@ -1,4 +1,3 @@
-import { logger } from "@/lib/logger";
 import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
@@ -12,6 +11,21 @@ function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+// This module renders in the browser (the source badges are client components and
+// ship in the standalone design-system bundle), so it must not pull in the
+// server-oriented structured logger: that module reads `process.env`, which is a
+// ReferenceError in a browser and unmounts the whole React tree. `field`/`value`
+// here are enum diagnostics, never secrets or patient text, so the logger's
+// redaction pass is not needed and a plain structured warn is equivalent.
+// Exported as an object so tests can spy on the seam the way they previously spied
+// on `logger.warn`; the default implementation stays quiet under NODE_ENV=test.
+export const sourceMetadataDiagnostics = {
+  warn(field: string, value: string) {
+    if (typeof process !== "undefined" && process.env && process.env.NODE_ENV === "test") return;
+    console.warn(JSON.stringify({ level: "warn", message: `source-metadata: unrecognized ${field}`, field, value }));
+  },
+};
+
 function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
   if (typeof value === "string" && allowed.has(value)) return value as T;
   // A present-but-unrecognized string is a real data-entry defect (typo, renamed
@@ -21,7 +35,7 @@ function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<str
   // are the common case and would drown the signal. The returned value is unchanged,
   // so this is observability only: no ranking/retrieval behaviour changes.
   if (typeof value === "string" && value.trim()) {
-    logger.warn(`source-metadata: unrecognized ${field}`, { field, value });
+    sourceMetadataDiagnostics.warn(field, value);
   }
   return fallback;
 }
