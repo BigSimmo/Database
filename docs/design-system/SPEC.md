@@ -252,10 +252,9 @@ The ladder itself is gated against baked-in hairlines (**[verified:** contract t
 `:171-179`**]**); the per-surface co-occurrence rule and the spread-term check are **planned**
 (GATES §8).
 
-`--shadow-inset` **stays the DS bevel**; `--shadow-well` is the recessed-well role. The branch
-copy currently overrides `--shadow-inset` in both themes and lacks `--shadow-well` — the
-revert-and-add is C1's first action, and it must update the contract test's inset pin
-(`:164-169`) in the same commit. Alias cleanup: `--shadow-focus` is deleted (it encodes a
+`--shadow-inset` **stays the DS bevel**; `--shadow-well` is the recessed-well role. The
+former v2 `--shadow-inset` overrides became `--shadow-well` in `59e4c3dfc`, with the
+contract test's pin updated in the same commit (C1, done). Alias cleanup: `--shadow-focus` is deleted (it encodes a
 companion focus ring the conventions forbid), `--shadow-lift` retires into the ladder, the
 three dead springs go — **retire aliases inside the recipes first**, or "never use an alias"
 is unfollowable.

@@ -164,26 +164,81 @@ Assumptions proceed as stated and are flagged inline where used; each is cheap t
 
 ---
 
-## Unresolved — and what each is blocked on
+## Resolution log — second pass, same day
 
-1. **Byte-level completion of C1.** Blocked on the design side's actual `ckb-v2-tokens.css`
-   (and with it the names/values of the evidence-spine, status-mark and confidence-meter
-   families). No attachment contained it; TOKENS.md reconciles at role level and refuses to
-   reconstruct names from prose. **Unblock: export that one file for diffing.**
-2. **Design-sync manifest regeneration.** `_ds_manifest.json` is stale (236/341 tokens,
-   `themes: []`, deleted token still listed, `--tw-*` published). Regeneration needs
-   `resync.mjs`, which ships with the `/design-sync` skill and is installed in neither
-   environment. **Unblock: run a sync from an environment with the skill installed; the
-   manifest is generated-only.**
-3. **The react-shim load-order race.** The fix (lazy `window.React` read inside
-   `jsx()`/`jsxs()`/`jsxDEV()`) lives in the design-side bundle generator, outside both
-   repos; `ds-bundle-loader.js` is the documented interim workaround and is deleted when the
-   shim fix and the repo `process` fix (already shipped) are both live. **Unblock: named
-   owner with access to the bundle generator.**
-4. **Dark fall-through confirmations.** Two probable omissions in the v2 dark block —
-   `--clinical-chat-document` and the disabled-contrast contract for the inherited dark
-   `--disabled` (TOKENS §3) — need a yes/no from the next token pass. **Unblock: ordinary
-   review, no external dependency.**
-5. **Branch publication.** `ef13a072a` exists only locally; nothing here is on `origin`.
-   Pushing and PR-ing is an explicit user action under this repo's provider rules —
-   **unblock: say the word.**
+The five blocked items were actioned on 31 July 2026 with user authorisation ("smallest
+logical fix for each; if you can't find [the design-side file], create it"). Three closed,
+two reduced to a single named step.
+
+1. **C1 byte-level / the three family names — closed by creation.** Recovery was attempted
+   first: `DesignSync` reads of design project `08d6f126-3fd0-4764-aedf-0062a467280a` show
+   it was last updated **2026-07-13** and contains none of the 31 July design-side files —
+   that `ckb-v2-tokens.css` was never written to the project and is unrecoverable
+   **[verified: `list_projects`/`list_files`]**. As authorised, the repo file is now the
+   **canonical reconciled copy** (design-branch commit `59e4c3dfc`): `--shadow-well`
+   replaces the two `--shadow-inset` overrides (contract test updated in the same commit —
+   it now pins `--shadow-well` as a true inset and asserts `--shadow-inset` is not
+   redeclared), and the evidence-spine (`--spine-w` / `--spine-current` / `--spine-stale`)
+   and status-mark (`--status-mark-size` / `--status-mark-stroke`) families are authored
+   repo-side, derived from existing roles. Confidence-meter stays absent — no call site.
+   The design side now conforms to this file; there is nothing left to diff.
+2. **Manifest regeneration — reduced to one command.** The stale manifest belongs to the
+   same 13 July project state. The canonical `ckb-v2-tokens.css` has been written to the
+   design project (DesignSync `write_files`, 1 file), and the pane now compiles
+   `_ds_manifest.json` from the app's self-check. Remaining step: one full `/design-sync`
+   run from an environment with the skill installed, to republish components and clear
+   `_ds_needs_recompile`. The manifest itself stays generated-only.
+3. **React-shim race — paste-ready patch.** Still applied in the design-side bundle
+   generator (outside both repos); `ds-bundle-loader.js` stays the workaround until it
+   lands, then both are deleted. Replacement for `shim:react-shim` (adapt to the
+   generator's module format):
+
+   ```js
+   // shim:react-shim — read window.React lazily so bundle evaluation
+   // order cannot race React.
+   function getReact() {
+     var R = window.React;
+     if (!R) {
+       throw new Error(
+         "ckb-design-system: window.React is unavailable at render time - " +
+           "load React before rendering, or keep ds-bundle-loader.js",
+       );
+     }
+     return R;
+   }
+   function jsx(type, props, key) {
+     var rest = Object.assign({}, props);
+     var children = rest.children;
+     delete rest.children;
+     if (key !== undefined) rest.key = key;
+     return children === undefined
+       ? getReact().createElement(type, rest)
+       : Array.isArray(children)
+         ? getReact().createElement.apply(null, [type, rest].concat(children))
+         : getReact().createElement(type, rest, children);
+   }
+   module.exports = {
+     // React.Fragment IS Symbol.for("react.fragment") — no window read needed.
+     Fragment: Symbol.for("react.fragment"),
+     jsx: jsx,
+     jsxs: jsx,
+     jsxDEV: jsx,
+   };
+   ```
+
+4. **Dark fall-throughs — closed.** `--clinical-chat-document` was a real omission: the
+   live `.dark` declaration (`var(--surface-inset)`) is substituted at `<html>` before
+   inheritance, so it can never re-resolve against the v2 dark ramp — fixed in
+   `59e4c3dfc` by declaring it in the v2 dark block. `--disabled` fall-through is
+   **confirmed acceptable**: the live dark value on the v2 dark surface computes ≈3.4:1,
+   stronger than the v2 light disabled tier (≈2.5:1 on white)
+   **[verified: computed from the declared hexes]**. No change.
+5. **Publication — done.** The design branch (through `59e4c3dfc`) and the docs branch
+   are pushed to `origin`; the docs branch has an open PR. The design branch is pushed
+   **without** a PR: its PR needs the full clinical-governance preflight (it contains
+   source-rendering components), which is its own handoff, not a quick fix.
+
+Found while verifying, fixed in the same pass: `answer-card.tsx` used arbitrary
+`leading-[var(--leading-prose,1.65)]` — a restated token value that failed the
+design-token contract's no-arbitrary-leading rule on the branch tip. Now the named
+`leading-prose` step. Both token-contract test files: **47 passed (47)**.
