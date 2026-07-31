@@ -456,7 +456,35 @@ jobs:
         uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium @critical journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
         run: npm run test:e2e:critical
+
+      # Run-scoped only: publish the webpack filesystem cache for the dependent
+      # production shards in this workflow run. Do not use actions/cache — the
+      # ~804 MB warm cache was measured as a net CI loss against the shared
+      # 10 GB budget (would evict the Playwright browser cache). Artifacts expire
+      # after one day and never compete with that budget.
+      # continue-on-error: publish is an optimization. A miss must not fail the
+      # critical job after green @critical journeys — shards cold-build instead.
+      - name: Publish isolated Next.js build cache
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-next-build-cache-${{ github.run_id }}
+          # Path lives under `.next-playwright/` (dot-directory). upload-artifact
+          # v4.4+ excludes hidden paths unless this is set — without it the
+          # publish is a silent no-op and every shard cold-builds.
+          path: .next-playwright/ci-production/dist/cache
+          include-hidden-files: true
+          # Next's production webpack cache is already uncompressed; leave
+          # compression to the outer transport at level 0 so the critical path
+          # does not pay zlib-6 CPU on ~800 MB.
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Classify exact failed test identities
         if: failure()
@@ -537,7 +565,23 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      # ui-critical-fast publishes a run-scoped artifact (not actions/cache) so
+      # all three shards can reuse webpack state without competing for the
+      # shared 10 GB cache budget. Server processes and reports stay isolated.
+      # continue-on-error: a missing artifact must not fail the shard — cold build
+      # remains the correct fallback when critical skipped or published nothing.
+      - name: Restore isolated Next.js build cache
+        if: needs.ui-critical-fast.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-cache-${{ github.run_id }}
+          path: .next-playwright/ci-production/dist/cache
+
       - name: Chromium production journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
         run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/3
 
       - name: Classify exact failed test identities
