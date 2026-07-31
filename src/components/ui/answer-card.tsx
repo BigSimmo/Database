@@ -130,7 +130,7 @@ export function DoseLine({ rows, caption, className }: DoseLineProps) {
                 {row.value}
               </span>
               {row.unit ? (
-                <span className="ml-1 text-[0.8125rem] normal-case text-[color:var(--text-muted)] [font-weight:var(--font-weight-label,500)]">
+                <span className="ml-1 text-sm-minus normal-case text-[color:var(--text-muted)] [font-weight:var(--font-weight-label,500)]">
                   {row.unit}
                 </span>
               ) : null}
