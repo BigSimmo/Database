@@ -4,12 +4,56 @@
  * Clinical query text, secrets, emails, and request URLs must not leave this
  * process once a DSN is configured. Hooks fail closed: any scrubbing error, or
  * an event that cannot be made safe, drops the payload (return null).
+ *
+ * Event shapes are local (not imported from `@sentry/core`) so knip does not
+ * treat the transitive SDK package as an unlisted direct dependency. Hook
+ * exports are cast to `@sentry/nextjs` init option types at the boundary.
  */
-import type { Breadcrumb, ErrorEvent, Event, EventHint } from "@sentry/core";
+import type * as Sentry from "@sentry/nextjs";
 import { redactLogValue } from "@/lib/privacy";
 
-/** Transaction events are typed in @sentry/core but not always re-exported by nextjs. */
-type TransactionEvent = Event & { type: "transaction" };
+type SentryInitOptions = NonNullable<Parameters<(typeof Sentry)["init"]>[0]>;
+
+type Primitive = string | number | boolean | null | undefined;
+
+type SentryBreadcrumb = {
+  message?: string;
+  category?: string;
+  data?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+type SentryException = {
+  type?: string;
+  value?: string;
+  stacktrace?: {
+    frames?: Array<{
+      filename?: string;
+      abs_path?: string;
+      context_line?: string;
+      vars?: unknown;
+      [key: string]: unknown;
+    }>;
+  };
+};
+
+type SentryEvent = {
+  type?: "transaction" | "profile" | "replay_event" | "feedback" | undefined;
+  message?: string;
+  logentry?: { message?: string; params?: unknown[] };
+  transaction?: string;
+  exception?: { values?: SentryException[] };
+  breadcrumbs?: SentryBreadcrumb[];
+  request?: Record<string, unknown>;
+  contexts?: Record<string, unknown>;
+  tags?: Record<string, Primitive>;
+  extra?: Record<string, unknown>;
+  user?: { id?: string | number; email?: string; ip_address?: string; [key: string]: unknown };
+  [key: string]: unknown;
+};
+
+type SentryErrorEvent = SentryEvent & { type: undefined };
+type SentryTransactionEvent = SentryEvent & { type: "transaction" };
 
 const SENSITIVE_KEY =
   /authorization|cookie|token|secret|api[-_]?key|password|service[-_]?role|email|\bquery\b|prompt|\bcontent\b|\banswer\b|patient|\bmrn\b|headers|data|body|request/i;
@@ -40,9 +84,9 @@ function scrubUnknown(value: unknown, depth = 0): unknown {
   return scrubString(String(value));
 }
 
-function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
+function scrubBreadcrumb(breadcrumb: SentryBreadcrumb): SentryBreadcrumb | null {
   try {
-    const next: Breadcrumb = { ...breadcrumb };
+    const next: SentryBreadcrumb = { ...breadcrumb };
     if (typeof next.message === "string") next.message = scrubString(next.message);
     if (typeof next.category === "string") next.category = scrubString(next.category);
     if (next.data && typeof next.data === "object") {
@@ -54,9 +98,9 @@ function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
   }
 }
 
-function scrubRequest(event: Event): void {
+function scrubRequest(event: SentryEvent): void {
   if (!event.request || typeof event.request !== "object") return;
-  const request = { ...event.request } as Record<string, unknown>;
+  const request = { ...event.request };
   for (const key of ["url", "query_string", "fragment"] as const) {
     if (typeof request[key] === "string") request[key] = scrubString(request[key] as string);
   }
@@ -64,10 +108,10 @@ function scrubRequest(event: Event): void {
   if (request.cookies) request.cookies = "[redacted]";
   if (request.data !== undefined) request.data = "[redacted]";
   if (request.env) request.env = "[redacted]";
-  event.request = request as typeof event.request;
+  event.request = request;
 }
 
-function scrubExceptions(event: Event): void {
+function scrubExceptions(event: SentryEvent): void {
   const values = event.exception?.values;
   if (!Array.isArray(values)) return;
   for (const exception of values) {
@@ -80,13 +124,13 @@ function scrubExceptions(event: Event): void {
       if (!frame || typeof frame !== "object") continue;
       if (typeof frame.filename === "string") frame.filename = scrubString(frame.filename);
       if (typeof frame.abs_path === "string") frame.abs_path = scrubString(frame.abs_path);
-      if ("vars" in frame) delete (frame as { vars?: unknown }).vars;
+      if ("vars" in frame) delete frame.vars;
       if (typeof frame.context_line === "string") frame.context_line = scrubString(frame.context_line);
     }
   }
 }
 
-function scrubEventFields(event: Event): Event {
+function scrubEventFields(event: SentryEvent): SentryEvent {
   if (typeof event.message === "string") event.message = scrubString(event.message);
   if (event.logentry && typeof event.logentry === "object") {
     if (typeof event.logentry.message === "string") {
@@ -108,7 +152,7 @@ function scrubEventFields(event: Event): Event {
   }
 
   if (event.tags && typeof event.tags === "object") {
-    const tags: Record<string, string | number | boolean | null | undefined> = {};
+    const tags: Record<string, Primitive> = {};
     for (const [key, val] of Object.entries(event.tags)) {
       if (SENSITIVE_KEY.test(key)) {
         tags[key] = "[redacted]";
@@ -124,50 +168,53 @@ function scrubEventFields(event: Event): Event {
   }
 
   if (event.extra && typeof event.extra === "object") {
-    event.extra = scrubUnknown(event.extra) as typeof event.extra;
+    event.extra = scrubUnknown(event.extra) as Record<string, unknown>;
   }
   if (event.contexts && typeof event.contexts === "object") {
-    event.contexts = scrubUnknown(event.contexts) as typeof event.contexts;
+    event.contexts = scrubUnknown(event.contexts) as Record<string, unknown>;
   }
 
   if (Array.isArray(event.breadcrumbs)) {
     event.breadcrumbs = event.breadcrumbs
       .map((crumb) => scrubBreadcrumb(crumb))
-      .filter((crumb): crumb is Breadcrumb => crumb !== null);
+      .filter((crumb): crumb is SentryBreadcrumb => crumb !== null);
   }
 
   return event;
 }
 
 /** Drop or scrub error/message events before transmission. */
-export function sentryBeforeSend(event: ErrorEvent, hint?: EventHint): ErrorEvent | null {
+export function sentryBeforeSend(event: SentryErrorEvent, hint?: unknown): SentryErrorEvent | null {
   void hint;
   try {
-    return scrubEventFields(event) as ErrorEvent;
+    return scrubEventFields(event) as SentryErrorEvent;
   } catch {
     return null;
   }
 }
 
 /** Drop or scrub performance transactions before transmission. */
-export function sentryBeforeSendTransaction(event: TransactionEvent, hint?: EventHint): TransactionEvent | null {
+export function sentryBeforeSendTransaction(
+  event: SentryTransactionEvent,
+  hint?: unknown,
+): SentryTransactionEvent | null {
   void hint;
   try {
-    return scrubEventFields(event) as TransactionEvent;
+    return scrubEventFields(event) as SentryTransactionEvent;
   } catch {
     return null;
   }
 }
 
 /** Drop or scrub breadcrumbs before they attach to an event. */
-export function sentryBeforeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb | null {
+export function sentryBeforeBreadcrumb(breadcrumb: SentryBreadcrumb): SentryBreadcrumb | null {
   return scrubBreadcrumb(breadcrumb);
 }
 
 /** Shared init fragment for all three Next.js runtimes. */
 export const sentryPrivacyHooks = {
-  beforeSend: sentryBeforeSend,
-  beforeSendTransaction: sentryBeforeSendTransaction,
-  beforeBreadcrumb: sentryBeforeBreadcrumb,
+  beforeSend: sentryBeforeSend as SentryInitOptions["beforeSend"],
+  beforeSendTransaction: sentryBeforeSendTransaction as SentryInitOptions["beforeSendTransaction"],
+  beforeBreadcrumb: sentryBeforeBreadcrumb as SentryInitOptions["beforeBreadcrumb"],
   sendDefaultPii: false as const,
 };

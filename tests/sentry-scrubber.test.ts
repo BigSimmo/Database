@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Breadcrumb, ErrorEvent, Event } from "@sentry/core";
 import {
   sentryBeforeBreadcrumb,
   sentryBeforeSend,
@@ -7,7 +6,9 @@ import {
   sentryPrivacyHooks,
 } from "../src/lib/sentry-scrubber";
 
-type TransactionEvent = Event & { type: "transaction" };
+type ErrorEvent = { type: undefined; [key: string]: unknown };
+type TransactionEvent = { type: "transaction"; [key: string]: unknown };
+type Breadcrumb = { message?: string; data?: Record<string, unknown>; [key: string]: unknown };
 
 describe("sentryPrivacyHooks", { concurrent: false }, () => {
   it("exports the three fail-closed hooks plus sendDefaultPii:false", () => {
@@ -49,7 +50,7 @@ describe("sentryPrivacyHooks", { concurrent: false }, () => {
       ],
     } as ErrorEvent;
 
-    const scrubbed = sentryBeforeSend(event);
+    const scrubbed = sentryBeforeSend(event as never);
     expect(scrubbed).not.toBeNull();
     const serialized = JSON.stringify(scrubbed);
     expect(serialized).not.toContain("suicidal");
@@ -59,14 +60,15 @@ describe("sentryPrivacyHooks", { concurrent: false }, () => {
     expect(serialized).not.toContain("Bearer secret");
     expect(serialized).not.toContain("do not leak");
     expect(scrubbed!.message).toContain("[url]");
-    expect(scrubbed!.exception?.values?.[0]?.value).toContain("[secret]");
-    expect(scrubbed!.request?.headers).toBe("[redacted]");
+    expect((scrubbed!.exception as { values: Array<{ value: string }> }).values[0].value).toContain("[secret]");
+    expect((scrubbed!.request as { headers: string }).headers).toBe("[redacted]");
     expect(scrubbed!.user).toEqual({ id: "user-1" });
-    expect(scrubbed!.tags?.query).toBe("[redacted]");
-    expect(scrubbed!.extra?.answer).toBe("[redacted]");
-    expect(scrubbed!.extra?.safe).toBe("ok");
+    expect((scrubbed!.tags as { query: string }).query).toBe("[redacted]");
+    expect((scrubbed!.extra as { answer: string; safe: string }).answer).toBe("[redacted]");
+    expect((scrubbed!.extra as { answer: string; safe: string }).safe).toBe("ok");
     expect(
-      (scrubbed!.exception?.values?.[0]?.stacktrace?.frames?.[0] as { vars?: unknown } | undefined)?.vars,
+      (scrubbed!.exception as { values: Array<{ stacktrace: { frames: Array<{ vars?: unknown }> } }> }).values[0]
+        .stacktrace.frames[0].vars,
     ).toBeUndefined();
   });
 
@@ -77,7 +79,7 @@ describe("sentryPrivacyHooks", { concurrent: false }, () => {
       request: { url: "https://psychiatry.tools/answer?q=clozapine%20ANC" },
     } as TransactionEvent;
 
-    const scrubbed = sentryBeforeSendTransaction(event);
+    const scrubbed = sentryBeforeSendTransaction(event as never);
     expect(scrubbed).not.toBeNull();
     expect(JSON.stringify(scrubbed)).not.toContain("clozapine");
     expect(scrubbed!.transaction).toContain("[query]");
@@ -103,7 +105,7 @@ describe("sentryPrivacyHooks", { concurrent: false }, () => {
         /* ignore */
       },
     } as ErrorEvent;
-    expect(sentryBeforeSend(event)).toBeNull();
+    expect(sentryBeforeSend(event as never)).toBeNull();
   });
 
   it("fails closed when breadcrumb scrubbing throws", () => {
@@ -128,7 +130,7 @@ describe("sentryPrivacyHooks", { concurrent: false }, () => {
         /* ignore */
       },
     } as TransactionEvent;
-    expect(sentryBeforeSendTransaction(event)).toBeNull();
+    expect(sentryBeforeSendTransaction(event as never)).toBeNull();
   });
 
   it("is wired into all three Sentry.init call sites", async () => {
