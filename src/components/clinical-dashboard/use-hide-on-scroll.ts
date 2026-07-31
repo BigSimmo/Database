@@ -163,6 +163,22 @@ export function computeScrollHideUpdate(params: {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
+  // Viewport/layout range changes (Safari toolbar collapse, Playwright
+  // `setViewportSize`, overlay-reserve remeasure) can emit a one-shot upward
+  // scroll reading while the user is still mid-page. Treat that as geometry
+  // feedback, not reveal intent, when the offset remains past the hide band and
+  // the upward delta has not yet reached deliberate reveal travel (#146).
+  if (
+    currentlyHidden &&
+    maxOffset !== undefined &&
+    previousMaxOffset !== undefined &&
+    maxOffset !== previousMaxOffset &&
+    offset > hideActivationOffset + hideIntentDistance &&
+    lastOffset - offset < revealIntentDistance
+  ) {
+    return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+
   const delta = offset - lastOffset;
   if (Math.abs(delta) < minimumDelta) {
     return { hidden: currentlyHidden, lastOffset, direction, directionTravel };
@@ -460,6 +476,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const reset = useCallback(() => {
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    lastMaxOffsetRef.current = undefined;
     lastViewportHeightRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
@@ -545,6 +562,10 @@ export function useDocumentScrollHideReporter(
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
+    // Re-sample on layout/visual viewport changes so maxOffset and
+    // viewportHeightChanged update through both #146 guards (range-change hold
+    // + viewport-height rebase) instead of waiting for a user scroll that may
+    // never come after a toolbar-style shrink.
     window.addEventListener("resize", onViewportResize, { passive: true });
     window.visualViewport?.addEventListener("resize", onViewportResize);
     window.addEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, {
@@ -684,6 +705,9 @@ export function useHideOnScroll({
       attach();
     }
 
+    // Same resize re-sample as useDocumentScrollHideReporter (#146): feed both
+    // the range-change hold and the viewport-height rebase without doubling
+    // listeners inside attach().
     window.addEventListener("resize", onViewportResize, { passive: true });
     window.visualViewport?.addEventListener("resize", onViewportResize);
 

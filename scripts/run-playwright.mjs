@@ -61,7 +61,22 @@ if (preinstalledChromium && !process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
   );
 }
 
-const runId = `${process.pid}-${Date.now()}`;
+const requestedRunId = process.env.PLAYWRIGHT_BUILD_ROOT_ID?.trim();
+if (requestedRunId && !/^[a-z0-9-]+$/i.test(requestedRunId)) {
+  console.error("PLAYWRIGHT_BUILD_ROOT_ID must contain only letters, numbers, and hyphens.");
+  process.exit(1);
+}
+const keepBuildRootValue = process.env.PLAYWRIGHT_KEEP_BUILD_ROOT?.trim();
+if (keepBuildRootValue && keepBuildRootValue !== "true") {
+  console.error('PLAYWRIGHT_KEEP_BUILD_ROOT must be unset or exactly "true".');
+  process.exit(1);
+}
+const keepBuildRoot = keepBuildRootValue === "true";
+if (keepBuildRoot && !requestedRunId) {
+  console.error("PLAYWRIGHT_KEEP_BUILD_ROOT requires PLAYWRIGHT_BUILD_ROOT_ID.");
+  process.exit(1);
+}
+const runId = requestedRunId || `${process.pid}-${Date.now()}`;
 const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
 const relativeDistDir = `${relativeRunRoot}/dist`;
@@ -202,11 +217,15 @@ function cleanup() {
   cleaned = true;
   try {
     stopOwnedProcessTree(server);
-    rmSync(absoluteRunRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
-    try {
-      rmdirSync(path.dirname(absoluteRunRoot));
-    } catch (error) {
-      if (error?.code !== "ENOENT" && error?.code !== "ENOTEMPTY") throw error;
+    if (!keepBuildRoot) {
+      rmSync(absoluteRunRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+      try {
+        rmdirSync(path.dirname(absoluteRunRoot));
+      } catch (error) {
+        if (error?.code !== "ENOENT" && error?.code !== "ENOTEMPTY") throw error;
+      }
+    } else {
+      console.log(`Keeping Playwright build root for cache reuse (${relativeRunRoot})`);
     }
   } catch (error) {
     console.error(`Playwright cleanup warning: ${error instanceof Error ? error.message : String(error)}`);
