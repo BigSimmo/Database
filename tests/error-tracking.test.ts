@@ -141,15 +141,47 @@ describe("privacySafeTransactionEvent", () => {
   });
 });
 
+describe("isSentryDbTracingEnabled", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("requires a DSN and a positive sample rate", async () => {
+    vi.stubEnv("SENTRY_DSN", "");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0.1");
+    const disabled = await import("@/lib/observability/error-tracking");
+    expect(disabled.isSentryDbTracingEnabled()).toBe(false);
+
+    vi.resetModules();
+    vi.stubEnv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0");
+    const rateZero = await import("@/lib/observability/error-tracking");
+    expect(rateZero.isSentryDbTracingEnabled()).toBe(false);
+
+    vi.resetModules();
+    vi.stubEnv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0.1");
+    const enabled = await import("@/lib/observability/error-tracking");
+    expect(enabled.isSentryDbTracingEnabled()).toBe(true);
+  });
+});
+
 describe("instrumentSupabaseClientForTracing", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
   });
 
-  it("is a no-op when SENTRY_DSN is unset", async () => {
+  it("is a no-op when SENTRY_DSN is unset or tracing sample rate is 0", async () => {
     vi.stubEnv("SENTRY_DSN", "");
-    const { instrumentSupabaseClientForTracing } = await import("@/lib/observability/error-tracking");
+    const { instrumentSupabaseClientForTracing } = await import("@/lib/observability/supabase-tracing");
     expect(() => instrumentSupabaseClientForTracing({})).not.toThrow();
+
+    vi.resetModules();
+    vi.stubEnv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0");
+    const gated = await import("@/lib/observability/supabase-tracing");
+    expect(() => gated.instrumentSupabaseClientForTracing({})).not.toThrow();
   });
 });

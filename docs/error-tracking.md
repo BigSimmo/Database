@@ -12,7 +12,7 @@ The static route pattern (for example `/api/documents/[id]`) is safe operational
 
 ### Performance traces (DB query visibility)
 
-Server/edge tracing is enabled at a low default sample rate (`tracesSampleRate` defaults to `0.1`; override with `SENTRY_TRACES_SAMPLE_RATE`, or set `0` to disable). The Supabase JS integration instruments PostgREST operations so Sentry's Queries dashboard can show slowest tables/operations.
+Server/edge tracing is enabled at a low default sample rate (`tracesSampleRate` defaults to `0.1`; override with `SENTRY_TRACES_SAMPLE_RATE`, or set `0` to disable). The Supabase JS integration (Node server only — `src/lib/observability/supabase-tracing.ts`) instruments PostgREST operations so Sentry's Queries dashboard can show slowest tables/operations. Integration and admin-client instrumentation stay inert unless `SENTRY_DSN` is set and the resolved sample rate is greater than zero.
 
 Privacy constraints for traces:
 

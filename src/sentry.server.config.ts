@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 
 import {
+  isSentryDbTracingEnabled,
   privacySafeErrorEvent,
   privacySafeTransactionEvent,
   resolveTracesSampleRate,
@@ -9,6 +10,7 @@ import {
 
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
+const tracesSampleRate = resolveTracesSampleRate();
 const sentryRelease =
   process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
 
@@ -36,6 +38,11 @@ function isBotTrafficEvent(event: Sentry.Event): boolean {
 
 /** Bootstrap client used only to attach constructor-level Supabase DB instrumentation. */
 function supabaseTracingIntegrations() {
+  // Inert unless DSN is set and tracing sample rate is > 0 (docs/error-tracking.md).
+  if (!isSentryDbTracingEnabled()) {
+    return [];
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!url || !key) {
@@ -68,7 +75,7 @@ try {
     environment: sentryEnvironment,
     // Performance tracing for DB query dashboards. Override with SENTRY_TRACES_SAMPLE_RATE
     // (0 disables). Query filters/bodies stay redacted — see docs/error-tracking.md.
-    tracesSampleRate: resolveTracesSampleRate(),
+    tracesSampleRate,
     sendDefaultPii: false,
     dataCollection: {
       databaseQueryData: false,

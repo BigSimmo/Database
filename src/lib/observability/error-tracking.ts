@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import type { ErrorEvent } from "@sentry/nextjs";
 import type { Instrumentation } from "next";
 
@@ -103,6 +102,11 @@ export function resolveTracesSampleRate(rawValue: string | undefined = process.e
     return DEFAULT_TRACES_SAMPLE_RATE;
   }
   return parsed;
+}
+
+/** True when a DSN is configured and the resolved traces sample rate is > 0. */
+export function isSentryDbTracingEnabled(): boolean {
+  return Boolean(process.env.SENTRY_DSN?.trim()) && resolveTracesSampleRate() > 0;
 }
 
 function privacySafeSpanDescription(data: Record<string, unknown>, fallback: string | undefined): string | undefined {
@@ -234,25 +238,6 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
       : undefined,
     tags: Object.keys(tags).length ? tags : undefined,
   };
-}
-
-/**
- * Instrument a Supabase JS client for DB spans without shipping filter values
- * or mutation bodies (`sendOperationData: false`). Safe to call for every
- * client — the SDK marks the constructor prototype once.
- */
-export function instrumentSupabaseClientForTracing(supabaseClient: unknown): void {
-  if (!process.env.SENTRY_DSN?.trim()) {
-    return;
-  }
-
-  try {
-    const require = createRequire(import.meta.url);
-    const Sentry = require("@sentry/nextjs") as typeof import("@sentry/nextjs");
-    Sentry.instrumentSupabaseClient(supabaseClient, { sendOperationData: false });
-  } catch {
-    // Optional observability must never take down Supabase access.
-  }
 }
 
 /**
