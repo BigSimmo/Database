@@ -413,8 +413,15 @@ jobs:
           NEXT_BUILD_CPUS: "4"
         run: npm run build
 
+      # Step timeout (not job timeout): a stuck exit must fail this step quickly
+      # as `failure` so "Re-run failed jobs" actually re-runs Build. Job-level
+      # cancellation after timeout-minutes left Build as `cancelled`, which the
+      # failed-only rerun path skips — the PR #1489 loop. Invoke `node` directly
+      # so an npm lifecycle wrapper cannot keep the step alive after the check
+      # has printed success.
       - name: Bundle budget (enforced — fails on >tolerancePct gzip growth vs baseline)
-        run: npm run check:bundle-budget
+        timeout-minutes: 3
+        run: node scripts/check-bundle-budget.mjs
 
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')

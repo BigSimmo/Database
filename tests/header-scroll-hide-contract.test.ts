@@ -64,9 +64,13 @@ describe("shared header hide/reveal wiring", () => {
     );
     // #146: viewport/toolbar range changes must re-sample maxOffset without
     // waiting for a user scroll that may never arrive after chrome re-shows.
-    expect(hookSource).toContain('window.addEventListener("resize", onScroll, { passive: true })');
+    // Layout + visualViewport resize both feed evaluate(); product code then
+    // holds hide via the range-change guard and viewportHeightChanged rebase.
+    expect(hookSource).toContain('window.addEventListener("resize", onViewportResize, { passive: true })');
+    expect(hookSource).toContain('window.visualViewport?.addEventListener("resize", onViewportResize)');
     expect(hookSource).toContain("maxOffset !== previousMaxOffset");
     expect(hookSource).toContain("lastOffset - offset < revealIntentDistance");
+    expect(hookSource).toContain("viewportHeightChanged");
   });
 
   it("feeds DocumentViewer footer chrome from both possible phone scroll owners", () => {
