@@ -2,6 +2,7 @@
 
 import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
@@ -75,6 +76,18 @@ function createBrowserSupabaseClient() {
   // read the session. PKCE code flow returns via /auth/callback.
   browserSupabaseClient = createBrowserClient(url, publishableKey);
   return browserSupabaseClient;
+}
+
+function syncSentryUser(session: Session | null) {
+  if (!session?.user) {
+    Sentry.setUser(null);
+    return;
+  }
+
+  Sentry.setUser({
+    id: session.user.id,
+    email: session.user.email ?? undefined,
+  });
 }
 
 export function authorizationHeadersForAccessToken(accessToken: string | null | undefined): Record<string, string> {
@@ -202,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setStatus("error");
           setNotice(null);
           setError("Session could not be verified. Check your connection and retry.");
+          syncSentryUser(null);
           return;
         }
         const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
@@ -213,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session: sessionResult.data.session,
           verificationUnavailable,
         });
+        syncSentryUser(resolved.session);
         publishedUserIdRef.current = resolved.session?.user?.id ?? null;
         setSession(resolved.session);
         setStatus(resolved.status);
@@ -228,11 +243,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setNotice(null);
           }
         }
-      } catch {
-        if (!active) return;
-        setStatus("error");
-        setError("Session could not be loaded.");
-      }
+    } catch {
+      if (!active) return;
+      setStatus("error");
+      setError("Session could not be loaded.");
+      syncSentryUser(null);
+    }
     };
 
     void initializeSession();
@@ -258,6 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearSignedUrlCache();
       }
       publishedUserIdRef.current = nextUserId;
+      syncSentryUser(nextSession);
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
       if (nextSession) {
@@ -372,6 +389,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    syncSentryUser(null);
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
@@ -384,6 +402,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearPersistedAnswerThread();
     clearRecentQueries();
     clearSignedUrlCache();
+    syncSentryUser(null);
     publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");
