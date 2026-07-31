@@ -61,13 +61,14 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     `bg-[color:var(--x)]` in `docs/redesign/03-decision-log.md` prose, and
     emitted a class for it. An artifact of documenting a class name; nothing
     renders it.
-  - `--med-accent`, `--med-accent-border`, `--med-accent-soft` — also
-    runtime-set, not defects. `medicationAccentStyle()` in
-    `clinical-dashboard/medication-record-page.tsx:88-94` assigns all three, and
-    that style object is applied to the ancestor that contains every
-    referenced class (`:393`). A stylesheet-only missing-token scan cannot
-    see React `style` assignments; do not "fix" these. `--med-accent-soft` is
-    set but unread; that dead-plumbing question is tracked separately as #154.
+  - `--med-accent`, `--med-accent-border` — also runtime-set, not defects.
+    `medicationAccentStyle()` in
+    `clinical-dashboard/medication-record-page.tsx:88-94` assigns both (plus
+    unread `--med-accent-soft`, which is not one of the seven missing tokens;
+    that dead-plumbing question is tracked separately as #157), and that style
+    object is applied to the ancestor that contains every referenced class
+    (`:393`). A stylesheet-only missing-token scan cannot see React `style`
+    assignments; do not "fix" these.
   - `--clinical-accent-strong`
     (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
     to `--primary-700` in both themes and `LinkText` in forced-colors,
