@@ -169,12 +169,17 @@ describe("Codex Cloud environment contract", () => {
 });
 
 describe("Codex Cloud origin repair", () => {
+  // Assert the configured URL (`git config --get`), not `git remote get-url`.
+  // Environments with global `url.*.insteadOf` token rewrites (Cursor Cloud)
+  // expand get-url to a credential-bearing form even when origin itself is clean.
+  const configuredOriginUrl = (directory: string) =>
+    git(directory, "config", "--get", "remote.origin.url").stdout.trim();
+
   it("adds the credential-free origin once, then preserves it", () => {
     const directory = temporaryGitRepository();
     expect(ensureOriginRemote(directory).action).toBe("added");
     expect(ensureOriginRemote(directory).action).toBe("preserved");
-    // Assert the configured URL; `git remote get-url` may apply ambient insteadOf rewrites.
-    expect(git(directory, "config", "--get", "remote.origin.url").stdout.trim()).toBe(CODEX_CLOUD_ORIGIN_URL);
+    expect(configuredOriginUrl(directory)).toBe(CODEX_CLOUD_ORIGIN_URL);
     expect(inspectOriginRemote(directory)).toEqual({
       configured: true,
       repositoryMatch: true,
@@ -186,14 +191,12 @@ describe("Codex Cloud origin repair", () => {
     const wrong = temporaryGitRepository();
     expect(git(wrong, "remote", "add", "origin", "https://github.com/example/other.git").status).toBe(0);
     expect(() => ensureOriginRemote(wrong)).toThrow(/refusing to overwrite/);
-    expect(git(wrong, "config", "--get", "remote.origin.url").stdout.trim()).toBe(
-      "https://github.com/example/other.git",
-    );
+    expect(configuredOriginUrl(wrong)).toBe("https://github.com/example/other.git");
 
     const credentialed = temporaryGitRepository();
     const unsafe = "https://token-value@github.com/BigSimmo/Database.git";
     expect(git(credentialed, "remote", "add", "origin", unsafe).status).toBe(0);
     expect(() => ensureOriginRemote(credentialed)).toThrow(/embedded credentials/);
-    expect(git(credentialed, "config", "--get", "remote.origin.url").stdout.trim()).toBe(unsafe);
+    expect(configuredOriginUrl(credentialed)).toBe(unsafe);
   });
 });

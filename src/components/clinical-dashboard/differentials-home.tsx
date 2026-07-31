@@ -914,7 +914,9 @@ function SearchResultsView({
               : "error"
             : loading || catalogLoading
               ? "loading"
-              : "ready"
+              : catalog.status === "refetching"
+                ? "refetching"
+                : "ready"
         }
         faultTitle={
           catalog.status === "unauthorized"
@@ -1364,7 +1366,7 @@ export function DifferentialsHome({
                 onClick: () => handleSuggestedSearch(item.query),
               }))
         }
-        footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Decision support" body="Review before use" />}
+        footer={<ModeHomeVerificationFooter label="Decision support" body="Review before use" />}
       />
     </div>
   );

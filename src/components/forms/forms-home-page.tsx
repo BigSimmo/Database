@@ -85,7 +85,7 @@ export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: st
   const taskCards = buildTaskCards(defaultFormSlug);
   const registry = useRegistryRecords("form");
   const verifiedCount = countVerifiedRegistryRecords(registry);
-  const registryReady = registry.status === "ready";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
   const registryNotice =
     registry.status === "loading" ? (
@@ -136,7 +136,6 @@ export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: st
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
               label="Source catalogue reviewed"
               body="Official-source MHA 2014 forms · verify before use"
               verifiedCount={verifiedCount}
