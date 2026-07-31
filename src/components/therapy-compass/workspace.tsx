@@ -1,6 +1,5 @@
 "use client";
 
-import { ShieldCheck } from "lucide-react";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -13,11 +12,7 @@ import { TherapyCompassNav, TherapyModeNav } from "./nav";
 function TherapyCompassFooter() {
   return (
     <div className="tc-no-print tc-workspace-001">
-      <ModeHomeVerificationFooter
-        icon={ShieldCheck}
-        label="Decision support"
-        body="Source-grounded — review status before clinical use"
-      />
+      <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
     </div>
   );
 }
