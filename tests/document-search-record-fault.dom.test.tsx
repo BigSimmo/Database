@@ -185,7 +185,7 @@ describe("document search state matrix", () => {
 
     expect(screen.getByTestId("document-search-empty-state")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Recent documents/i }));
-    await user.click(screen.getByRole("button", { name: /Browse sources/i }));
+    await user.click(screen.getByRole("button", { name: /Browse library/i }));
     await user.click(screen.getByRole("button", { name: /Open a source PDF/i }));
     expect(onOpenRecentDocuments).toHaveBeenCalledTimes(1);
     expect(onOpenLibrary).toHaveBeenCalledTimes(1);
