@@ -609,7 +609,7 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
   allow real recovery.
 - **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
-  as main-side or needs-investigation. Inert until repo var `CI_TRIAGE_ENABLED=true` (now set). UI jobs use
+  as main-side or needs-investigation. Enabled by default; set repo var `CI_TRIAGE_ENABLED=false` to disable. UI jobs use
   their uploaded JUnit classification and trace; job names alone never produce a known-flake verdict.
   The workflow reads only trusted default-branch job metadata and never runs PR code.
 - **PR metadata policy** (`.github/workflows/pr-policy.yml`, `scripts/pr-policy.mjs`): ready PRs to `main`

@@ -569,7 +569,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const [sortValue, setSortValue] = useResultSort();
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
-  const registryReady = registry.status === "ready";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   const [refineOpen, setRefineOpen] = useState(false);
   const refinePanelId = useId();
   const deferredQuery = useDeferredValue(query);
@@ -606,9 +606,11 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               ? "unauthorized"
               : registry.status === "ready"
                 ? "ready"
-                : registry.status === "loading"
-                  ? "loading"
-                  : "error"
+                : registry.status === "refetching"
+                  ? "refetching"
+                  : registry.status === "loading"
+                    ? "loading"
+                    : "error"
           }
           faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load forms"}
           faultBody={
