@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
+import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 
 describe("buildServerTimingHeader", () => {
   it("joins entries with durations rounded to whole milliseconds", () => {
@@ -59,5 +59,31 @@ describe("answerServerTimingEntries", () => {
 
   it("emits only the route total when timings are missing", () => {
     expect(buildServerTimingHeader(answerServerTimingEntries(undefined, 42))).toBe("total;dur=42");
+  });
+});
+
+describe("preambleServerTimingEntries", () => {
+  it("reports the auth, rate-limit and scope stages in request order", () => {
+    expect(buildServerTimingHeader(preambleServerTimingEntries({ authMs: 40, rateLimitMs: 90, scopeMs: 310 }))).toBe(
+      "auth;dur=40, ratelimit;dur=90, scope;dur=310",
+    );
+  });
+
+  it("omits stages that did not run — a streaming route can only report the pre-header stages", () => {
+    // /api/answer/stream resolves scope inside the stream, after headers flush.
+    expect(buildServerTimingHeader(preambleServerTimingEntries({ authMs: 40, rateLimitMs: 90 }))).toBe(
+      "auth;dur=40, ratelimit;dur=90",
+    );
+    expect(buildServerTimingHeader(preambleServerTimingEntries({}))).toBeNull();
+  });
+
+  it("composes ahead of the answer entries without colliding on a metric name", () => {
+    const preamble = preambleServerTimingEntries({ authMs: 5, rateLimitMs: 6, scopeMs: 7 });
+    const answer = answerServerTimingEntries({ search_latency_ms: 8 }, 30);
+    const names = [...preamble, ...answer].map((entry) => entry.name);
+    expect(new Set(names).size).toBe(names.length);
+    expect(buildServerTimingHeader([...preamble, ...answer])).toBe(
+      "auth;dur=5, ratelimit;dur=6, scope;dur=7, search;dur=8, total;dur=30",
+    );
   });
 });

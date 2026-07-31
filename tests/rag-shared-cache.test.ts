@@ -53,7 +53,7 @@ describe("shared RAG search cache", () => {
       }),
     }));
 
-    const { getSharedCachedSearch } = await import("../src/lib/rag-cache");
+    const { getSharedCachedSearch } = await import("../src/lib/rag/rag-cache");
     const result = await getSharedCachedSearch({
       query: "lithium monitoring",
       ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",

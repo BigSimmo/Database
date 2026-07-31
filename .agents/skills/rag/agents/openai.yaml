@@ -1,0 +1,4 @@
+interface:
+  display_name: "RAG"
+  short_description: "Validate Database RAG behavior offline first"
+  default_prompt: "Use $rag to reproduce and verify this retrieval or answer change offline before any live evaluation."

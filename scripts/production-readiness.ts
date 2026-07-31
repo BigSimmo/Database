@@ -11,6 +11,19 @@ loadEnvConfig(process.cwd());
 
 const isCiMode = process.argv.includes("--ci");
 
+export function isProviderFreeCodexCloud(environment: Record<string, string | undefined> = process.env) {
+  return (
+    environment.CODEX_CLOUD === "1" &&
+    (environment.CODEX_CLOUD_ACCESS_PROFILE ?? "offline") === "offline" &&
+    environment.RAG_PROVIDER_MODE === "offline" &&
+    environment.NEXT_PUBLIC_DEMO_MODE === "true" &&
+    environment.PLAYWRIGHT_OFFLINE_MODE === "true"
+  );
+}
+
+const providerFreeCodexCloud = isProviderFreeCodexCloud();
+let providerCapabilityGap = false;
+
 type Result = {
   failures: string[];
   warnings: string[];
@@ -27,6 +40,11 @@ function recordIssue(message: string, options: { downgradeToWarningInCi?: boolea
     return;
   }
   result.failures.push(message);
+}
+
+function recordProviderGap(message: string) {
+  providerCapabilityGap = true;
+  result.warnings.push(`Provider capability gap: ${message}`);
 }
 
 const result: Result = {
@@ -214,7 +232,13 @@ async function main() {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (isMissingEnvError(message)) {
-        recordIssue(`Missing server env config: ${message}`, { downgradeToWarningInCi: true });
+        if (providerFreeCodexCloud) {
+          recordProviderGap(
+            `Supabase server credentials are intentionally unavailable in the offline Cloud agent profile (${message}).`,
+          );
+        } else {
+          recordIssue(`Missing server env config: ${message}`, { downgradeToWarningInCi: true });
+        }
       } else {
         result.failures.push(`Missing server env config: ${message}`);
       }
@@ -242,10 +266,14 @@ async function main() {
 
     if (envModule.env.OPENAI_API_KEY && !envModule.env.OPENAI_SAFETY_IDENTIFIER_SECRET) {
       result.warnings.push(
-        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set; authenticated Responses requests omit the privacy-preserving safety identifier.",
+        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set; authenticated Responses requests omit the privacy-preserving safety identifier. For local/dev, run npm run check:local-presence -- --fill.",
       );
     } else if (envModule.env.OPENAI_SAFETY_IDENTIFIER_SECRET) {
       result.passes.push("OpenAI safety identifiers use a deployment-secret HMAC; raw owner IDs are not sent.");
+    } else if (!isCiMode) {
+      result.warnings.push(
+        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set (optional until OpenAI is enabled). Local fill: npm run check:local-presence -- --fill.",
+      );
     }
 
     // Exercise the real boot guard so this check tracks its behaviour instead of
@@ -262,7 +290,19 @@ async function main() {
       const productionLike = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
       if (productionLike) {
         result.failures.push(`Query-hash secret issue: ${message}`);
+      } else if (!isCiMode) {
+        result.warnings.push(
+          `RAG_QUERY_HASH_SECRET is not set for local/dev (${message}). Fill a distinct local value with npm run check:local-presence -- --fill.`,
+        );
       }
+    }
+
+    if (envModule.env.HEALTH_DEEP_PROBE_SECRET) {
+      result.passes.push("HEALTH_DEEP_PROBE_SECRET is set for authorized deep health probes.");
+    } else if (!isCiMode) {
+      result.warnings.push(
+        "HEALTH_DEEP_PROBE_SECRET is not set; /api/health?deep=1 stays shallow. Local fill: npm run check:local-presence -- --fill.",
+      );
     }
 
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {
@@ -287,6 +327,10 @@ async function main() {
       result.warnings.push(...supabaseCheck.warnings);
     }
     result.passes.push("Supabase URL is correct.");
+  } else if (supabaseCheck.status === "missing" && providerFreeCodexCloud) {
+    recordProviderGap(
+      "Supabase project connectivity is unavailable because NEXT_PUBLIC_SUPABASE_URL and agent-phase credentials are intentionally absent. Run this provider check locally/operator-side or in an explicitly provisioned connected Cloud profile.",
+    );
   } else if (supabaseCheck.status === "missing" && isCiMode) {
     result.warnings.push("NEXT_PUBLIC_SUPABASE_URL is not set in this environment (CI).");
   } else {
@@ -313,6 +357,10 @@ async function main() {
     console.log(`FAIL (${result.failures.length}):`);
     for (const item of result.failures) console.log(`  - ${item}`);
     process.exitCode = 1;
+  } else if (providerFreeCodexCloud && providerCapabilityGap) {
+    console.log(
+      "CLOUD PROVIDER-FREE READY: local production safeguards passed; authenticated provider readiness is capability-blocked by the offline agent profile.",
+    );
   } else {
     console.log("READY: no blocking production-readiness failures.");
   }

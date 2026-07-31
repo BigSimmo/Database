@@ -1,0 +1,4 @@
+interface:
+  display_name: "Recovery"
+  short_description: "Plan safe Database recovery and rollback"
+  default_prompt: "Use $recovery to build a safe Database restore, rollback, reconciliation, and verification runbook."

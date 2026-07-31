@@ -1,0 +1,4 @@
+interface:
+  display_name: "Privacy"
+  short_description: "Review Database sensitive-data handling"
+  default_prompt: "Use $privacy to trace sensitive Database data through collection, storage, logs, export, retention, and deletion."

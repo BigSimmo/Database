@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, BookOpenCheck, GitCompareArrows, Search } from "lucide-react";
+import { BookOpenCheck, GitCompareArrows, Search } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { InformationPageBreadcrumbs } from "@/components/information-page-shell";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 
 export function DsmPageHeader({
@@ -26,26 +27,20 @@ export function DsmPageHeader({
       <div className={cn(pageContainer, "px-4 py-4 sm:px-6 sm:py-5 lg:px-8")}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 max-w-4xl">
-            <Link
-              href="/dsm"
-              className="mb-3 inline-flex min-h-tap items-center gap-2 rounded-lg text-xs font-bold text-[color:var(--clinical-accent)] transition hover:text-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              DSM-5 Diagnosis home
-            </Link>
-            <p className="text-2xs font-extrabold uppercase tracking-[0.09em] text-[color:var(--clinical-accent)]">
+            <InformationPageBreadcrumbs home={{ label: "DSM-5 Diagnosis home", href: "/dsm" }} className="mb-3" />
+            <p className="text-2xs font-extrabold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">
               {eyebrow}
             </p>
             <div className="mt-1.5 flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
+              <span className="mt-0.5 hidden h-tap w-tap shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
                 <BookOpenCheck className="h-5 w-5" aria-hidden />
               </span>
               <div className="min-w-0">
-                <h1 className="text-balance text-2xl font-extrabold leading-tight text-[color:var(--text-heading)] sm:text-3xl">
+                <h1 className="text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
                   {title}
                 </h1>
                 {description ? (
-                  <p className="mt-1.5 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                  <p className="mt-1.5 max-w-3xl text-pretty text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                     {description}
                   </p>
                 ) : null}

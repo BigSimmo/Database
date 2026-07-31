@@ -1,7 +1,6 @@
 import { normalizeSearchText } from "@/lib/catalog-search";
 import { analyzeClinicalQuery } from "@/lib/clinical-search";
 import { demoSearch } from "@/lib/demo-data";
-import { fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   differentialPresentations,
@@ -15,7 +14,7 @@ import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
-import { searchChunksWithTelemetry } from "@/lib/rag";
+import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
@@ -127,7 +126,12 @@ type ResolvedSearchArgs = RunUniversalSearchArgs & {
 };
 
 const registryDomainTimeoutMs = 2500;
-const documentsDomainTimeoutMs = 6000;
+// Typeahead documents are lexical-only previews. Keep federated requests well below the full
+// retrieval budget so an empty/slow documents domain cannot dominate Promise.all wall time.
+// A caller that explicitly requests only documents is doing focused search and can use the
+// prior full budget without delaying any sibling domains.
+const documentsFederatedDomainTimeoutMs = 750;
+const documentsFocusedDomainTimeoutMs = 6000;
 const ownerCatalogueLimit = 500;
 
 // Owner typeahead needs the complete rankable catalogue, but not governance timestamps, IDs,
@@ -359,7 +363,10 @@ async function searchDsmDomain(args: ResolvedSearchArgs): Promise<UniversalSearc
 }
 
 async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return rankToolRecords(args.baseQuery, args.limitPerDomain, args.expansions).map((match) => ({
+  return rankToolRecords(args.baseQuery, args.limitPerDomain, args.expansions, {
+    authenticated: Boolean(args.ownerId),
+    demoMode: args.demo,
+  }).map((match) => ({
     id: match.tool.id,
     kind: "tools",
     title: match.tool.title,
@@ -423,10 +430,10 @@ function searchResultDocumentHref(result: SearchResult) {
       ? (result.source_metadata as Record<string, unknown>)
       : {};
   const registryHref = registryCorpusDetailHref({
-    kind: metadata.registry_record_kind,
-    slug: metadata.registry_record_slug,
-    subkind: metadata.registry_record_subkind,
-    recordId: metadata.registry_record_id,
+    kind: metadata.registry_record_kind as string | undefined,
+    slug: metadata.registry_record_slug as string | undefined,
+    subkind: metadata.registry_record_subkind as string | undefined,
+    recordId: metadata.registry_record_id as string | undefined,
   });
   if (registryHref) return registryHref;
   return `/documents/${result.document_id}`;
@@ -456,16 +463,6 @@ function documentItemsFromChunks(results: SearchResult[], limit: number): Univer
     .slice(0, limit);
 }
 
-function documentHrefMapFromChunks(results: SearchResult[]) {
-  const hrefByDocument = new Map<string, string>();
-  for (const result of results) {
-    if (!hrefByDocument.has(result.document_id)) {
-      hrefByDocument.set(result.document_id, searchResultDocumentHref(result));
-    }
-  }
-  return hrefByDocument;
-}
-
 async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   // Original query on purpose: the live retrieval path runs its own analyzeClinicalQuery.
   if (args.demo || !args.supabase) {
@@ -485,27 +482,8 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     lexicalOnly: true,
     signal: args.signal,
   });
-  const hrefByDocument = documentHrefMapFromChunks(results);
-  const related = await fetchRelatedDocuments({
-    supabase: args.supabase,
-    ownerId: args.ownerId,
-    query: args.query,
-    results,
-    limit: args.limitPerDomain,
-    includeVisualCounts: false,
-    signal: args.signal,
-  });
-  if (related.length > 0) {
-    return related.map((document) => ({
-      id: document.document_id,
-      kind: "documents" as const,
-      title: document.title,
-      subtitle: document.summary ?? undefined,
-      href: hrefByDocument.get(document.document_id) ?? `/documents/${document.document_id}`,
-      score: document.score,
-      meta: document.match_reason,
-    }));
-  }
+  // Typeahead needs the already-ranked preview, not a second sequential metadata
+  // query. Full document search still performs its richer enrichment downstream.
   return documentItemsFromChunks(results, args.limitPerDomain);
 }
 
@@ -513,7 +491,7 @@ const domainAdapters: Record<
   UniversalSearchDomain,
   { run: (args: ResolvedSearchArgs) => Promise<UniversalSearchItem[]>; timeoutMs: number }
 > = {
-  documents: { run: searchDocumentsDomain, timeoutMs: documentsDomainTimeoutMs },
+  documents: { run: searchDocumentsDomain, timeoutMs: documentsFederatedDomainTimeoutMs },
   medications: { run: searchMedicationsDomain, timeoutMs: registryDomainTimeoutMs },
   services: { run: searchServicesDomain, timeoutMs: registryDomainTimeoutMs },
   forms: { run: searchFormsDomain, timeoutMs: registryDomainTimeoutMs },
@@ -660,11 +638,13 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
     requested.map(async (domain): Promise<UniversalSearchGroup> => {
       const domainStartedAt = Date.now();
       const adapter = domainAdapters[domain];
+      const timeoutMs =
+        domain === "documents" && requested.length === 1 ? documentsFocusedDomainTimeoutMs : adapter.timeoutMs;
       let group: UniversalSearchGroup;
       try {
         const items = await withTimeout(
           (signal) => adapter.run({ ...resolved, signal }),
-          adapter.timeoutMs,
+          timeoutMs,
           domain,
           args.signal,
         );
@@ -733,6 +713,6 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "therapies":
       return `/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
-      return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;
+      return `/tools?q=${encodeURIComponent(query)}&run=1`;
   }
 }

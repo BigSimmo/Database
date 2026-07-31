@@ -224,6 +224,213 @@ describe("retrieval source selection", () => {
     expect(selection.results[1].match_explanation?.reasons).not.toContain("retrieval_signal:clinical_subject");
   });
 
+  it("keeps the medication subject required for monitoring-range table retrieval", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What lithium level range is used for maintenance monitoring?",
+      queryClass: "table_threshold",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "unrelated-bgl-threshold",
+          document_id: "bgl-doc",
+          title: "Blood Glucose Level",
+          file_name: "blood-glucose-level.pdf",
+          section_heading: "Escalation threshold",
+          content: "Escalate when the blood glucose level is greater than 15 mmol/L.",
+          hybrid_score: 0.96,
+        }),
+        source({
+          id: "lithium-maintenance-range",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy",
+          file_name: "CG.MHSP.Lithium.pdf",
+          section_heading: "Maintenance monitoring",
+          content: "The lithium maintenance range is 0.6 to 0.8 mmol/L.",
+          hybrid_score: 0.58,
+        }),
+      ],
+    });
+
+    expect(selection.intent.requiredTermSignals).toContain("clinical_subject");
+    expect(selection.results.map((result) => result.id)).toEqual([
+      "lithium-maintenance-range",
+      "unrelated-bgl-threshold",
+    ]);
+  });
+
+  it("does not let a separate foreign-medication row erase a correct subject signal", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What lithium level range is used for maintenance monitoring?",
+      queryClass: "table_threshold",
+      topK: 1,
+      maxResultsPerDocument: 1,
+      results: [
+        source({
+          id: "mixed-lithium-range",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy",
+          content: "Lithium maintenance range is 0.6 to 0.8 mmol/L. Valproate therapeutic range is 50 to 100 mg/L.",
+          hybrid_score: 0.58,
+        }),
+        source({
+          id: "unrelated-bgl-threshold",
+          document_id: "bgl-doc",
+          title: "Blood Glucose Level",
+          content: "Escalate when the blood glucose level is greater than 15 mmol/L.",
+          hybrid_score: 0.7,
+        }),
+      ],
+    });
+
+    expect(selection.results.map((result) => result.id)).toEqual(["mixed-lithium-range"]);
+    expect(selection.results[0]?.match_explanation?.reasons).toContain("retrieval_signal:clinical_subject");
+  });
+
+  it("does not let a generic medication sentence promote an otherwise foreign-only result", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What lithium level range is used for maintenance monitoring?",
+      queryClass: "table_threshold",
+      topK: 1,
+      maxResultsPerDocument: 1,
+      results: [
+        source({
+          id: "generic-lithium-foreign-range",
+          document_id: "foreign-doc",
+          title: "Lithium Therapy",
+          content: "Lithium guidance. Valproate therapeutic range is 50 to 100 mg/L.",
+          hybrid_score: 0.7,
+        }),
+        source({
+          id: "lithium-maintenance-range",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy",
+          content: "Lithium maintenance range is 0.6 to 0.8 mmol/L.",
+          hybrid_score: 0.58,
+        }),
+      ],
+    });
+
+    expect(selection.results.map((result) => result.id)).toEqual(["lithium-maintenance-range"]);
+  });
+
+  it("keeps a medication subject bound to its immediately following monitoring sentence", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What monitoring is required for lithium therapy?",
+      queryClass: "medication_dose_risk",
+      topK: 1,
+      maxResultsPerDocument: 1,
+      results: [
+        source({
+          id: "unrelated-monitoring",
+          document_id: "unrelated-doc",
+          title: "Cardiac Monitoring",
+          content: "Continuous cardiac observations are required.",
+          hybrid_score: 0.7,
+        }),
+        source({
+          id: "lithium-split-monitoring",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy",
+          content: "Lithium therapy is ongoing. Monitor renal and thyroid function every six months.",
+          hybrid_score: 0.58,
+        }),
+      ],
+    });
+
+    expect(selection.results.map((result) => result.id)).toEqual(["lithium-split-monitoring"]);
+  });
+
+  it("keeps a split FBC discontinuation action bound to clozapine", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What FBC threshold should discontinue clozapine?",
+      queryClass: "table_threshold",
+      topK: 1,
+      maxResultsPerDocument: 1,
+      results: [
+        source({
+          id: "unrelated-monitoring",
+          document_id: "unrelated-doc",
+          title: "Cardiac Monitoring",
+          content: "Continuous cardiac observations are required.",
+          hybrid_score: 0.7,
+        }),
+        source({
+          id: "clozapine-split-fbc-action",
+          document_id: "clozapine-doc",
+          title: "Clozapine Monitoring",
+          content: "Red FBC results require action. Clozapine should be discontinued.",
+          hybrid_score: 0.58,
+        }),
+      ],
+    });
+
+    expect(selection.results.map((result) => result.id)).toEqual(["clozapine-split-fbc-action"]);
+  });
+
+  it("recognizes co-located WBC and ANC rows as direct FBC evidence", () => {
+    const summary = summarizeRetrievalSelection({
+      query: "What FBC threshold should withhold clozapine?",
+      queryClass: "table_threshold",
+      results: [
+        source({
+          id: "clozapine-wbc-anc-red-row",
+          document_id: "clozapine-doc",
+          title: "Clozapine Prescribing",
+          content: "Red range: WBC below 3.0 x 10^9/L and ANC below 1.5 x 10^9/L. Stop clozapine immediately.",
+        }),
+      ],
+    });
+
+    expect(summary.candidates[0].matchedSignals).toEqual(expect.arrayContaining(["clozapine", "fbc"]));
+  });
+
+  it("does not use a generic lithium sentence to promote an unrecognized foreign medication regimen", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What monitoring is required for lithium therapy?",
+      queryClass: "medication_dose_risk",
+      topK: 1,
+      maxResultsPerDocument: 1,
+      results: [
+        source({
+          id: "foreign-methotrexate-monitoring",
+          document_id: "foreign-doc",
+          title: "Lithium Therapy",
+          content: "Lithium therapy is ongoing. Check methotrexate renal tests every six months.",
+          hybrid_score: 0.7,
+        }),
+        source({
+          id: "lithium-split-monitoring",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy",
+          content: "Lithium therapy is ongoing. Monitor renal and thyroid function every six months.",
+          hybrid_score: 0.58,
+        }),
+      ],
+    });
+
+    expect(selection.results.map((result) => result.id)).toEqual(["lithium-split-monitoring"]);
+  });
+
+  it.each([["What is the therapeutic range for lithium?"], ["What QTc threshold should stop haloperidol?"]])(
+    "requires the named medication subject for explicit threshold lookup: %s",
+    (query) => {
+      const intent = buildRetrievalIntent(query, "table_threshold");
+
+      expect(intent.requiredTermSignals).toContain("clinical_subject");
+    },
+  );
+
+  it.each([
+    ["What is the target concentration for lithium?"],
+    ["What is the therapeutic concentration for lithium?"],
+    ["What is the trough concentration for lithium?"],
+  ])("requires the named medication subject for concentration lookup: %s", (query) => {
+    const intent = buildRetrievalIntent(query, "medication_dose_risk");
+
+    expect(intent.requiredTermSignals).toContain("clinical_subject");
+  });
+
   it("promotes flowchart next-step evidence for red-zone pathway questions", () => {
     const selection = selectRetrievalEvidence({
       query: "In the clinical flowchart, what is the next step after red-zone risk?",
@@ -659,11 +866,14 @@ describe("retrieval source selection", () => {
 });
 
 describe("saturated-score tie-breaking", () => {
-  function saturatedExplanation(preClampFinalScore: number): NonNullable<SearchResult["score_explanation"]> {
+  function saturatedExplanation(
+    preClampFinalScore: number,
+    lexicalCoverageScore = 0.5,
+  ): NonNullable<SearchResult["score_explanation"]> {
     return {
       vectorScore: 0.9,
       textRank: 0.3,
-      lexicalCoverageScore: 0.5,
+      lexicalCoverageScore,
       metadataMatchScore: 0.2,
       sectionTitleMatchBoost: 0.1,
       freshnessRecencyBoost: 0,
@@ -682,30 +892,51 @@ describe("saturated-score tie-breaking", () => {
     };
   }
 
-  it("keeps the eval-validated stable order for saturated selection scores", () => {
-    const higherPreClamp = source({
+  it("breaks saturated-score ties by query-term coverage, then chunk id", () => {
+    // Amended from #901's chunk-id-only pin (never live-eval-validated — the only golden eval on
+    // the #901 state failed 4/36): among candidates whose clamped score, lexical signal score, and
+    // clamped rerank confidence all tie exactly, the clinical rank's QUERY-TERM COVERAGE decides
+    // before the chunk-id fallback. Coverage — not the boost-laden rankScore — is deliberate:
+    // the 2026-07-20 live golden run (eval-canary #50) proved a rankScore tie-break lets generic
+    // clinicalSignalBoost stacking outvote the chunk that contains the queried terms
+    // (alcohol-ciwa-threshold regressed to FAIL). Note the chunk-b fixture carries the LOWER
+    // rankScore: boost magnitude must not win a saturated tie, coverage must.
+    const higherCoverage = source({
       id: "chunk-b",
       hybrid_score: 1,
       similarity: 0.9,
-      score_explanation: saturatedExplanation(1.8),
+      score_explanation: saturatedExplanation(1.2, 0.9),
     });
-    const lowerPreClamp = source({
+    const lowerCoverage = source({
       id: "chunk-a",
       hybrid_score: 1,
       similarity: 0.9,
-      score_explanation: saturatedExplanation(1.2),
+      score_explanation: saturatedExplanation(1.8, 0.5),
     });
 
     const selection = selectRetrievalEvidence({
       query: "clinical guidance",
       queryClass: "broad_summary",
-      results: [lowerPreClamp, higherPreClamp],
+      results: [lowerCoverage, higherCoverage],
       topK: 2,
       maxResultsPerDocument: 2,
     });
 
-    expect(selection.results.map((item) => item.id)).toEqual(["chunk-a", "chunk-b"]);
+    expect(selection.results.map((item) => item.id)).toEqual(["chunk-b", "chunk-a"]);
     // The prior recall fix remains: selection never lowers the raw hybrid score.
     expect(selection.results.map((item) => item.hybrid_score)).toEqual([1, 1]);
+
+    // Identical coverage still falls back to the stable chunk-id order, regardless of rankScore.
+    const tiedSelection = selectRetrievalEvidence({
+      query: "clinical guidance",
+      queryClass: "broad_summary",
+      results: [
+        source({ id: "chunk-d", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.6) }),
+        source({ id: "chunk-c", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.4) }),
+      ],
+      topK: 2,
+      maxResultsPerDocument: 2,
+    });
+    expect(tiedSelection.results.map((item) => item.id)).toEqual(["chunk-c", "chunk-d"]);
   });
 });

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy"
+  short_description: "Review Database deployment and rollback readiness"
+  default_prompt: "Use $deploy to verify Database deployment configuration, environment parity, boot behavior, and rollback readiness."

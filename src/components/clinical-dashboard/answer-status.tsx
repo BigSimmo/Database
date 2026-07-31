@@ -1,19 +1,7 @@
 "use client";
 
-import {
-  Check,
-  Circle,
-  Clipboard,
-  ClipboardCheck,
-  History,
-  Loader2,
-  MessageSquareText,
-  Search,
-  ShieldCheck,
-  Square,
-  Upload,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
+import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, MessageSquareText, Square } from "lucide-react";
 
 import {
   answerProgressDisplayMessage,
@@ -21,9 +9,10 @@ import {
   answerProgressSteps,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
 
@@ -59,14 +48,10 @@ export function CopyButton({
 }
 
 export function AnswerEmptyState({
-  onSearchDocuments,
-  onUploadDocument,
   desktopComposerSlotId,
   recentQueries = [],
   onSelectRecent,
 }: {
-  onSearchDocuments: () => void;
-  onUploadDocument: () => void;
   desktopComposerSlotId?: string;
   recentQueries?: string[];
   onSelectRecent?: (query: string) => void;
@@ -104,59 +89,54 @@ export function AnswerEmptyState({
               icon={History}
             />
           )}
-          {/* Quick actions are secondary to the composer above, so they read as
-              light text links (not pills) with a hairline divider — this also
-              breaks the visual repetition of stacked equal-weight chip rows. */}
-          <div className="answer-quick-actions" role="group" aria-label={answerEmptyState.quickActionsLabel}>
-            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onSearchDocuments}>
-              <Search className="answer-quick-action-icon" aria-hidden="true" />
-              {answerEmptyState.starters.searchDocuments.title}
-            </button>
-            <span className="answer-quick-action-divider" aria-hidden="true" />
-            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onUploadDocument}>
-              <Upload className="answer-quick-action-icon" aria-hidden="true" />
-              {answerEmptyState.starters.uploadDocument.title}
-            </button>
-          </div>
           {/* No privacy link here: the composer's PrivacyInputNotice is the
               single site-wide notice, so the hero footer must not repeat it. */}
           {/* Pre-query copy must describe what the search does, not assert that
               every indexed source is verified/current (PT-06): validation status
               varies per document and is surfaced on the results themselves. */}
-          <ModeHomeVerificationFooter
-            icon={ShieldCheck}
-            label="Searches indexed clinical sources"
-            body="Clinical Guide library"
-          />
         </div>
       }
     />
   );
 }
 
-export function AnswerSkeleton() {
+function skeletonBar(className: string, staggerIndex: number) {
   return (
-    <div className="space-y-4" aria-label={answerLoading.ariaLabel}>
+    <div
+      className={cn("animate-skeleton-shimmer stagger-item rounded bg-[color:var(--surface-inset)]", className)}
+      style={{ "--stagger-index": staggerIndex } as CSSProperties}
+    />
+  );
+}
+
+export function AnswerSkeleton() {
+  // role=status (matching LoadingPanel) so the initial answer-pending window —
+  // after submit but before the first progress event — is announced. Without it
+  // the aria-label sits on a plain div and screen readers stay silent until the
+  // progress stepper (its own role=status) mounts.
+  return (
+    <div className="space-y-4" role="status" aria-label={answerLoading.ariaLabel}>
       <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
-        <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
-        <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
-        <div className="h-4 w-8/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+        {skeletonBar("h-4 w-10/12", 0)}
+        {skeletonBar("h-4 w-full", 1)}
+        {skeletonBar("h-4 w-8/12", 2)}
         <div className={cn(sourceCard, "mt-4 flex min-h-[60px] items-center justify-between gap-3 p-3")}>
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="h-3 w-24 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
-            <div className="h-4 w-48 max-w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+            {skeletonBar("h-3 w-24", 3)}
+            {skeletonBar("h-4 w-48 max-w-full", 4)}
           </div>
-          <div className="h-11 w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+          {skeletonBar("h-tap w-20 rounded-lg", 5)}
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="h-11 w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
-        <div className="h-11 w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        {skeletonBar("h-tap w-48 rounded-lg", 6)}
+        {skeletonBar("h-tap w-40 rounded-lg", 7)}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
-        <div className="hidden h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)] sm:block" />
+        {skeletonBar("h-28 rounded-lg", 8)}
+        {skeletonBar("hidden h-28 rounded-lg sm:block", 9)}
       </div>
+      <span className="sr-only">{answerLoading.ariaLabel}</span>
     </div>
   );
 }
@@ -177,16 +157,13 @@ export function AnswerProgressStepper({
   active: boolean;
   onStop: () => void;
 }) {
-  const [now, setNow] = useState(() => Date.now());
   const latest = events.at(-1) ?? null;
   const finished = latest?.stage === "complete";
+  const now = useClientTime({
+    fallback: startedAt ?? 0,
+    updateInterval: active && !finished && startedAt ? 1_000 : undefined,
+  });
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
-
-  useEffect(() => {
-    if (!active || finished || !startedAt) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(interval);
-  }, [active, finished, startedAt]);
 
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
   const elapsedMs = finished && latest?.elapsedMs !== undefined ? latest.elapsedMs : clientElapsedMs;
@@ -200,6 +177,7 @@ export function AnswerProgressStepper({
       data-testid="answer-progress-stepper"
       data-progress-state={finished ? "complete" : "active"}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
+      aria-live="polite"
       className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-[color:var(--text-heading)]"
     >
       <div className="flex min-h-8 items-center gap-2">
@@ -213,7 +191,7 @@ export function AnswerProgressStepper({
             aria-hidden
           />
         )}
-        <p className="min-w-0 flex-1 text-sm font-semibold" role="status" aria-live="polite">
+        <p className="min-w-0 flex-1 text-sm font-semibold">
           {finished
             ? `Answer ready in ${elapsedLabel(elapsedMs)}`
             : latest
@@ -233,7 +211,7 @@ export function AnswerProgressStepper({
             type="button"
             onClick={onStop}
             data-testid="stop-answer"
-            className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition motion-reduce:transition-none hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Square className="h-3 w-3 shrink-0 fill-current" aria-hidden />
             Stop

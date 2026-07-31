@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, useDeferredValue, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useTherapyData } from "./data/use-therapy-data";
@@ -49,7 +49,7 @@ export type TcBindings = {
   // ---- data -----------------------------------------------------------
   loading: boolean;
   error: string | null;
-  retryData: () => void;
+  retryData: () => void | Promise<void>;
   therapies: Therapy[];
   unreviewedTherapies: Therapy[];
   reviewCount: number;
@@ -203,9 +203,12 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { screen, slug: routeSlug } = resolveRoute(pathname);
-  const usesCatalogueIndex = screen === "home" || screen === "search" || screen === "pathways";
+  // Search needs the complete prose corpus to preserve its existing weighted
+  // matches (#1471). Home uses the smallest landing projection; pathways use
+  // the thin browse index — keeping the 2.5 MB full dataset off those paints.
+  const catalogue = screen === "home" ? "home" : screen === "pathways" ? "index" : "full";
   const { data, loading, error, retry } = useTherapyData({
-    catalogue: usesCatalogueIndex ? "index" : "full",
+    catalogue,
     includePathways: screen === "pathways",
     includeReference: false,
   });
@@ -269,7 +272,21 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
 
-  const searchResults = useMemo(() => searchTherapies(therapies, search), [therapies, search]);
+  const deferredSearch = useDeferredValue(search);
+  const searchResults = useMemo(() => {
+    const liveQuery = search.query.trim();
+    const deferredQuery = deferredSearch.query.trim();
+    // Cleared live query should browse with live filters immediately (avoid stale
+    // deferred tags/flags from the previous term).
+    if (!liveQuery) {
+      return searchTherapies(therapies, search);
+    }
+    // First keystrokes: deferred text may still be empty — never dump the full library.
+    if (!deferredQuery) return [];
+    // Defer only the text cost; apply live filter chips/flags immediately so toggles
+    // match aria-pressed state without waiting for useDeferredValue.
+    return searchTherapies(therapies, { ...search, query: deferredSearch.query });
+  }, [therapies, deferredSearch.query, search]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],

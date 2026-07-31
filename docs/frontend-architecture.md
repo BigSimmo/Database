@@ -19,4 +19,6 @@
 - Pages and layouts remain Server Components unless they require browser state or event handlers.
 - Route handlers enforce public/private document scope; client filters are never authorization controls.
 - Pre-stream API failures use the public JSON error envelope. SSE error events are reserved for failures after a successful stream begins.
-- Production routes must not import fixture/mockup modules.
+- Production routes must not import fixture/mockup modules. Enforced in CI by the
+  `no-restricted-imports` rule in `eslint.config.mjs` (mockup imports are fenced to
+  `src/app/mockups/**` and the `*-mockups` sources).

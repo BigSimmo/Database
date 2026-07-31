@@ -20,7 +20,7 @@ import {
   subtleStatusPill,
   textMuted,
 } from "@/components/ui-primitives";
-import { sourceResultHref } from "@/components/clinical-dashboard/source-actions";
+import { sourceResultHref, logSourceOpen } from "@/components/clinical-dashboard/source-actions";
 import {
   cleanDisplayTitle,
   comparableAnswerText,
@@ -88,29 +88,33 @@ export function ScopeAndGovernanceNotice({
     scope?.matchedDocumentCount === 0;
   if (!showScope && groupedWarnings.length === 0) return null;
   return (
-    <div className="space-y-1.5 rounded-md border border-[color:var(--warning)]/20 border-l-2 border-l-[color:var(--warning)] bg-[color:var(--warning-soft)]/30 px-2.5 py-2 text-xs text-[color:var(--text)]">
+    <div className="space-y-1.5 rounded-lg border border-[color:var(--warning)]/15 border-l-2 border-l-[color:var(--warning)]/75 bg-[color:var(--warning-soft)]/20 px-3 py-2.5 text-xs text-[color:var(--text-muted)]">
       {showScope && scope ? (
-        <p className="font-semibold leading-5">
+        <p className="font-medium leading-5 text-[color:var(--text)]">
           Scope: {scope.summary}
           {scope.queryMode && scope.queryMode !== "auto" ? ` · ${scope.queryMode.replaceAll("_", " ")}` : ""}
         </p>
       ) : null}
       {scope?.warnings?.length ? (
-        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-1 text-2xs font-medium leading-4 text-[color:var(--warning)]">
           {scope.warnings.slice(0, 3).map((warning) => (
             <li key={warning}>{warning}</li>
           ))}
         </ul>
       ) : null}
       {groupedWarnings.length ? (
-        <ul className="grid gap-0.5 text-2xs font-medium text-[color:var(--warning)]">
+        <ul className="grid gap-1 text-2xs font-normal leading-4 text-[color:var(--text-muted)]">
           {groupedWarnings.map((warning) => (
             <li key={warning.code}>
               {warning.message}
               {warning.titles.length ? (
-                <details className="mt-0.5 font-normal text-[color:var(--text-muted)]">
-                  <summary className="cursor-pointer">Sources affected</summary>
-                  <span className="mt-0.5 block">{warning.titles.slice(0, 5).join(", ")}</span>
+                <details className="mt-0.5 text-[color:var(--text-soft)]">
+                  <summary className="cursor-pointer font-medium hover:text-[color:var(--text-muted)]">
+                    Sources affected
+                  </summary>
+                  <span className="mt-1 block leading-4 text-[color:var(--text-muted)]">
+                    {warning.titles.slice(0, 5).join(", ")}
+                  </span>
                 </details>
               ) : null}
             </li>
@@ -280,9 +284,12 @@ export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSource
 
 type CapsulePreviewSource = {
   id: string;
+  documentId: string;
   title: string;
+  fileName?: string;
   pageNumber: number | null;
   metadata: ReturnType<typeof normalizeSourceMetadata>;
+  sourceMetadata?: SearchResult["source_metadata"];
   score: number;
   href: string;
   snippet?: string;
@@ -342,9 +349,12 @@ function capsulePreviewSources(
   sourceLinks.slice(0, 5).forEach((source) => {
     pushRow({
       id: source.chunk_id,
+      documentId: source.document_id,
       title: source.title || source.file_name || "Source",
+      fileName: source.file_name,
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.sourceMetadata),
+      sourceMetadata: source.sourceMetadata,
       score: source.score ?? 0,
       href: source.href,
       snippet: source.snippet,
@@ -355,9 +365,12 @@ function capsulePreviewSources(
   if (bestSource) {
     pushRow({
       id: bestSource.chunk_id,
+      documentId: bestSource.document_id,
       title: bestSource.title || bestSource.file_name || "Source",
+      fileName: bestSource.file_name,
       pageNumber: bestSource.page_number,
       metadata: normalizeSourceMetadata(bestSource.source_metadata),
+      sourceMetadata: bestSource.source_metadata,
       score: bestSource.score,
       href: bestSource.viewer_href,
       sourceStrength: bestSource.source_strength,
@@ -367,9 +380,12 @@ function capsulePreviewSources(
   sources.slice(0, 5).forEach((source) => {
     pushRow({
       id: source.id,
+      documentId: source.document_id,
       title: source.title || source.file_name || "Source",
+      fileName: source.file_name,
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.source_metadata),
+      sourceMetadata: source.source_metadata,
       score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
       href: sourceResultHref(source),
       sourceStrength: source.source_strength,
@@ -380,12 +396,14 @@ function capsulePreviewSources(
 }
 
 function SourcePreviewContent({
+  query,
   previewSources,
   quoteText,
   copiedQuote,
   onCopyQuote,
   showHeader = true,
 }: {
+  query?: string;
   previewSources: CapsulePreviewSource[];
   quoteText?: string | null;
   copiedQuote: boolean;
@@ -447,6 +465,7 @@ function SourcePreviewContent({
               <span className="min-w-0">
                 <Link
                   href={source.href}
+                  onClick={() => query && logSourceOpen(query, source)}
                   data-testid="source-capsule-preview-row"
                   className="flex min-h-12 items-center rounded-md text-sm font-semibold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label={`Open source ${cleanDisplayTitle(source.title)}, page ${source.pageNumber ?? "not available"}`}
@@ -471,6 +490,7 @@ function SourcePreviewContent({
               </span>
               <Link
                 href={source.href}
+                onClick={() => query && logSourceOpen(query, source)}
                 className={cn(
                   index === 0
                     ? "inline-flex min-h-12 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2.5 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]"
@@ -495,6 +515,7 @@ function SourcePreviewContent({
         {primaryPreviewSource ? (
           <Link
             href={primaryPreviewSource.href}
+            onClick={() => query && logSourceOpen(query, primaryPreviewSource)}
             className={chatMicroAction}
             aria-label={`Open source page for ${primaryPreviewSource.title}`}
           >
@@ -509,7 +530,7 @@ function SourcePreviewContent({
           </button>
         ) : null}
       </div>
-      <div className="mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
+      <div className="mt-3 flex min-h-tap flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
         <span
           className={cn(
             "inline-flex min-h-8 items-center gap-1.5",
@@ -528,6 +549,7 @@ function SourcePreviewContent({
         {primaryPreviewSource ? (
           <Link
             href={primaryPreviewSource.href}
+            onClick={() => query && logSourceOpen(query, primaryPreviewSource)}
             className="inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             Evidence details
@@ -543,6 +565,7 @@ function SourcePreviewContent({
  * Displays a sanitized clinical answer with source status, source previews, and copy actions.
  *
  * @param text - The raw answer text to display.
+ * @param query - The user's query context for logging.
  * @param preformatted - Whether to preserve the supplied formatting during display processing.
  * @param sourceCount - The number of direct sources associated with the answer.
  * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
@@ -555,6 +578,7 @@ function SourcePreviewContent({
  */
 export function NaturalLanguageAnswer({
   text,
+  query,
   preformatted = false,
   sourceCount,
   sourceOnly,
@@ -567,6 +591,7 @@ export function NaturalLanguageAnswer({
   // Raw answer text (server bold intact); this component owns display
   // sanitization so <SafeBoldText> can render the high-yield emphasis.
   text: string;
+  query?: string;
   preformatted?: boolean;
   sourceCount: number;
   sourceOnly: boolean;
@@ -702,6 +727,7 @@ export function NaturalLanguageAnswer({
             anchorRef={sourceCapsuleRef}
           >
             <SourcePreviewContent
+              query={query}
               previewSources={previewSources}
               quoteText={quoteText}
               copiedQuote={copiedSourceQuote}
@@ -726,6 +752,7 @@ export function NaturalLanguageAnswer({
         >
           <div data-testid="source-capsule-preview">
             <SourcePreviewContent
+              query={query}
               previewSources={previewSources}
               quoteText={quoteText}
               copiedQuote={copiedSourceQuote}

@@ -34,6 +34,8 @@ export type AppModeSearchKind =
   | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
+export type AppModeResultsSurface = "results-band" | "answer";
+
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
   placeholder: string;
@@ -45,6 +47,11 @@ export type AppModeSearchConfig = {
   readyTitle: string;
   progressLabel: string;
   resultKind: AppModeResultKind;
+  /** Does this mode present a result LIST (which must wear the shared results
+      band) or a synthesised answer? Required and non-optional on purpose: a new
+      mode cannot compile until its author states which surface it is, and the
+      band-adoption contract test reads this to know what it must find. */
+  resultsSurface: AppModeResultsSurface;
   resultHeading: string;
   statusLabel: string;
   nextStep: string;
@@ -78,6 +85,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching indexed documents.",
       resultKind: "answer",
       resultHeading: "Answer",
+      resultsSurface: "answer",
       statusLabel: "Answer",
       nextStep: "Ask a question first",
       badgeLabel: "?",
@@ -99,6 +107,7 @@ export const appModeDefinitions = [
       progressLabel: "Finding matching documents.",
       resultKind: "documents",
       resultHeading: "Document matches",
+      resultsSurface: "results-band",
       statusLabel: "Docs",
       nextStep: "Open a source document or evidence passage",
       badgeLabel: null,
@@ -121,6 +130,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching service records.",
       resultKind: "services",
       resultHeading: "Service matches",
+      resultsSurface: "results-band",
       statusLabel: "Services",
       nextStep: "Review matching service records",
       badgeLabel: null,
@@ -145,6 +155,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching form records.",
       resultKind: "forms",
       resultHeading: "Form matches",
+      resultsSurface: "results-band",
       statusLabel: "Forms",
       nextStep: "Review matching form records",
       badgeLabel: null,
@@ -167,6 +178,7 @@ export const appModeDefinitions = [
       progressLabel: "Filtering favourites.",
       resultKind: "favourites",
       resultHeading: "Favourites",
+      resultsSurface: "results-band",
       statusLabel: "Favourites",
       nextStep: "Open a saved item",
       badgeLabel: null,
@@ -189,6 +201,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching differential source records.",
       resultKind: "differentials",
       resultHeading: "Differentials",
+      resultsSurface: "results-band",
       statusLabel: "Diffs",
       nextStep: "Search or compare differentials",
       badgeLabel: null,
@@ -212,6 +225,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching the local DSM diagnosis catalogue.",
       resultKind: "dsm",
       resultHeading: "DSM diagnoses",
+      resultsSurface: "results-band",
       statusLabel: "DSM",
       nextStep: "Open a diagnosis or compare criteria",
       badgeLabel: null,
@@ -234,6 +248,7 @@ export const appModeDefinitions = [
       progressLabel: "Matching presentation features to specifiers.",
       resultKind: "specifiers",
       resultHeading: "Specifier matches",
+      resultsSurface: "results-band",
       statusLabel: "Specifiers",
       nextStep: "Check fit and refine the diagnostic wording",
       badgeLabel: null,
@@ -256,6 +271,7 @@ export const appModeDefinitions = [
       progressLabel: "Matching clinical clues to formulation mechanisms.",
       resultKind: "formulation",
       resultHeading: "Mechanism matches",
+      resultsSurface: "results-band",
       statusLabel: "Formulation",
       nextStep: "Check fit, alternatives, and treatment leverage",
       badgeLabel: null,
@@ -281,6 +297,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching medication guidance.",
       resultKind: "documents",
       resultHeading: "Medication matches",
+      resultsSurface: "results-band",
       statusLabel: "Meds",
       nextStep: "Review medication guidance",
       badgeLabel: null,
@@ -291,7 +308,9 @@ export const appModeDefinitions = [
     id: "tools",
     label: "Tools",
     description: "Clinical tools and applications",
-    href: "/?mode=tools",
+    // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a
+    // dashboard-mode alias for bookmarks and deep links.
+    href: "/tools",
     search: {
       kind: "tools",
       placeholder: "Search tools...",
@@ -304,6 +323,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching tools.",
       resultKind: "tools",
       resultHeading: "Tools",
+      resultsSurface: "results-band",
       statusLabel: "Tools",
       nextStep: "Launch a tool",
       badgeLabel: null,
@@ -332,6 +352,7 @@ export const appModeDefinitions = [
       progressLabel: "Loading the therapy library.",
       resultKind: "tools",
       resultHeading: "Therapies",
+      resultsSurface: "results-band",
       statusLabel: "Therapy",
       nextStep: "Open a therapy record",
       badgeLabel: null,
@@ -357,6 +378,7 @@ export const appModeDefinitions = [
       progressLabel: "Searching patient factsheets.",
       resultKind: "tools",
       resultHeading: "Factsheets",
+      resultsSurface: "results-band",
       statusLabel: "Factsheets",
       nextStep: "Open a factsheet to read, save, or print",
       badgeLabel: null,
@@ -396,6 +418,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "formulation",
   "therapy-compass",
   "factsheets",
+  "tools",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
@@ -473,4 +496,30 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "formulation" ||
     kind === "tools"
   );
+}
+
+/**
+ * Favourites are account-scoped. Show the mode in nav (mode menu + sidebar library)
+ * only when the user is authenticated, or when local/demo mode is active so CI and
+ * prototype flows keep working without a real session.
+ */
+export function canAccessFavouritesMode(options: { authenticated: boolean; demoMode: boolean }): boolean {
+  return options.demoMode || options.authenticated;
+}
+
+export function visibleAppModeDefinitionsForSession(
+  options: { authenticated: boolean; demoMode: boolean },
+  environment = process.env.NODE_ENV,
+) {
+  const favouritesAllowed = canAccessFavouritesMode(options);
+  return visibleAppModeDefinitions(environment).filter((mode) => mode.id !== "favourites" || favouritesAllowed);
+}
+
+/** Omit Favourites from composer cross-mode chips for signed-out non-demo sessions. */
+export function filterCrossModesForSession(
+  crossModes: readonly AppModeId[],
+  options: { authenticated: boolean; demoMode: boolean },
+): AppModeId[] {
+  if (canAccessFavouritesMode(options)) return [...crossModes];
+  return crossModes.filter((mode) => mode !== "favourites");
 }

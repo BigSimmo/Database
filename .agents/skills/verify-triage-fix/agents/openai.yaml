@@ -1,4 +1,6 @@
 interface:
-  display_name: "Verify Triage Fix"
-  short_description: "Diagnose and fix verification failures"
-  default_prompt: "Use $verify-triage-fix to diagnose the current local verification failure, fix the smallest confirmed cause, and rerun focused checks."
+  display_name: "Fix Alias"
+  short_description: "Compatibility alias for Database failure triage"
+  default_prompt: "Use $verify-triage-fix only as a compatibility alias for $fix."
+policy:
+  allow_implicit_invocation: false

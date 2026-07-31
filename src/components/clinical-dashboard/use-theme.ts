@@ -6,13 +6,15 @@ import {
   APP_THEME_COLORS,
   DEFAULT_THEME,
   nextTheme,
+  readThemeCookie,
   readThemePreference,
   resolveThemePreference,
+  THEME_COOKIE_NAME,
+  THEME_STORAGE_KEY,
   type ResolvedTheme,
   type ThemePreference,
 } from "@/lib/theme";
 
-const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
 
 // In-memory fallback when localStorage is unavailable (Safari private mode,
@@ -21,15 +23,37 @@ const themeChangeEvent = "clinical-kb-theme-change";
 // Mirrors the fallback pattern in use-sidebar-collapsed.ts / use-app-preferences.ts.
 let inMemoryPreference: ThemePreference | null = null;
 
+function readThemeCookieValue(): string | null {
+  try {
+    return readThemeCookie(document.cookie);
+  } catch {
+    return null;
+  }
+}
+
+function writeThemeCookie(next: ThemePreference) {
+  try {
+    if (next === "system") {
+      document.cookie = `${THEME_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+      return;
+    }
+    document.cookie = `${THEME_COOKIE_NAME}=${next}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {
+    // Cookie write blocked — localStorage / in-memory still drive the session.
+  }
+}
+
 function readStoredThemeValue(): string | null {
   if (inMemoryPreference !== null) {
     return inMemoryPreference === "system" ? null : inMemoryPreference;
   }
   try {
-    return window.localStorage.getItem(themeStorageKey);
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === "light" || stored === "dark") return stored;
   } catch {
-    return null;
+    // fall through to cookie
   }
+  return readThemeCookieValue();
 }
 
 function getThemeSnapshot(): ResolvedTheme {
@@ -58,8 +82,19 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
 }
 
 function applyResolvedTheme(theme: ResolvedTheme) {
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  syncThemeColorMetadata(theme);
+  const isCurrentlyDark = document.documentElement.classList.contains("dark");
+  const willBeDark = theme === "dark";
+
+  if (isCurrentlyDark !== willBeDark) {
+    document.documentElement.classList.add("theme-transitioning");
+    document.documentElement.classList.toggle("dark", willBeDark);
+    syncThemeColorMetadata(theme);
+    window.setTimeout(() => {
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 200);
+  } else {
+    syncThemeColorMetadata(theme);
+  }
 }
 
 function subscribeTheme(onStoreChange: () => void) {
@@ -90,14 +125,15 @@ export function useTheme() {
     try {
       // Clearing the stored pin lets the OS preference (and its live media
       // query) drive the theme again, matching the pre-hydration script.
-      if (next === "system") window.localStorage.removeItem(themeStorageKey);
-      else window.localStorage.setItem(themeStorageKey, next);
+      if (next === "system") window.localStorage.removeItem(THEME_STORAGE_KEY);
+      else window.localStorage.setItem(THEME_STORAGE_KEY, next);
       inMemoryPreference = null;
     } catch {
       // Storage blocked: keep the choice in memory so the theme still applies
       // (and reads back correctly) for the rest of this session.
       inMemoryPreference = next;
     }
+    writeThemeCookie(next);
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     applyResolvedTheme(resolveThemePreference(next === "system" ? null : next, prefersDark));
     window.dispatchEvent(new Event(themeChangeEvent));

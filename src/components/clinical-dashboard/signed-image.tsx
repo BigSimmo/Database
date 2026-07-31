@@ -1,11 +1,10 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
+import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
-import { CircleAlert, Loader2, Maximize2 } from "lucide-react";
+import { CircleAlert, Maximize2 } from "lucide-react";
 
-import { cn } from "@/components/ui-primitives";
+import { cn, Skeleton } from "@/components/ui-primitives";
 import { getCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
@@ -32,6 +31,7 @@ export const SignedImage = memo(function SignedImage({
   rootMargin = "640px 0px",
   zoomable = false,
   caption,
+  aspectRatio,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -49,12 +49,15 @@ export const SignedImage = memo(function SignedImage({
   zoomable?: boolean;
   /** Lightbox title; falls back to `alt`. */
   caption?: string;
+  /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
+  aspectRatio?: number | null;
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const [retryDisabled, setRetryDisabled] = useState(false);
   const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
 
   // Defer the request until the frame is near the viewport. A cached URL seeds
@@ -82,9 +85,12 @@ export const SignedImage = memo(function SignedImage({
   }, [rootMargin, shouldLoad]);
 
   function retryImage() {
+    if (retryDisabled) return;
+    setRetryDisabled(true);
     setLoaded(false);
     setShouldLoad(true);
     retry();
+    setTimeout(() => setRetryDisabled(false), 2000);
   }
 
   function handleImageError() {
@@ -96,6 +102,8 @@ export const SignedImage = memo(function SignedImage({
     return (
       <div
         ref={frameRef}
+        role="status"
+        aria-live="polite"
         className={cn(
           className,
           "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
@@ -107,9 +115,10 @@ export const SignedImage = memo(function SignedImage({
           <button
             type="button"
             onClick={retryImage}
-            className="mt-3 inline-flex min-h-tap items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+            disabled={retryDisabled}
+            className="mt-3 inline-flex min-h-tap items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)] disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {retryLabel}
+            {retryDisabled ? "Retrying..." : retryLabel}
           </button>
         </div>
       </div>
@@ -123,21 +132,35 @@ export const SignedImage = memo(function SignedImage({
   return (
     <div
       ref={frameRef}
+      style={
+        typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0
+          ? { aspectRatio: String(Math.min(Math.max(aspectRatio, 0.35), 8)) }
+          : undefined
+      }
       className={cn(
         className,
-        "group/signed-image relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+        "group/signed-image relative w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+        !(typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0) && "aspect-[4/3]",
       )}
     >
       {url ? (
-        <img
+        // Keep next/image for fill/layout/sizes, but mark private signed previews
+        // `unoptimized` so bearer URLs never enter the unauthenticated
+        // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
+        // signed token). Authorization stays on `/api/.../signed-url` issuance.
+        // Do not append Storage transform query params here: createSignedUrl()
+        // returns object/sign URLs, and client-side width/height/resize mutation
+        // is a silent no-op (or can invalidate the token) without render/image.
+        <Image
           src={url}
           alt={alt}
-          loading="lazy"
-          decoding="async"
+          fill
+          sizes="(max-width: 768px) 92vw, 320px"
+          unoptimized
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(
-            "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+            "rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
@@ -149,7 +172,7 @@ export const SignedImage = memo(function SignedImage({
             type="button"
             onClick={() => setLightboxOpen(true)}
             aria-label={`Expand image: ${caption?.trim() || alt}`}
-            className="absolute inset-0 z-[1] flex cursor-zoom-in items-start justify-end p-2 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+            className="absolute inset-0 z-10 flex cursor-zoom-in items-start justify-end p-2 focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
           >
             <span
               aria-hidden="true"
@@ -169,14 +192,11 @@ export const SignedImage = memo(function SignedImage({
         </>
       ) : null}
       {!url || !loaded ? (
-        <div className="absolute inset-0 grid place-items-center gap-1 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+        <div className="absolute inset-0 flex items-center justify-center text-center text-xs font-semibold text-[color:var(--text-muted)]">
           {shouldLoad ? (
-            <>
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              Loading image
-            </>
+            <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
           ) : (
-            "Image preview will load when visible"
+            <div className="grid place-items-center gap-1">Image preview will load when visible</div>
           )}
         </div>
       ) : null}

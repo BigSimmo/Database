@@ -1,10 +1,10 @@
 import { z, type ZodType } from "zod";
 import { env } from "@/lib/env";
 import { generateParsedTextResult } from "@/lib/openai";
-import { hasUsableOpenAIKey, isSourceOnlyMode } from "@/lib/rag-provider";
-import type { SearchTelemetry } from "@/lib/rag-contracts";
+import { hasUsableOpenAIKey, isSourceOnlyMode } from "@/lib/rag/rag-provider";
+import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { fenceSourceEvidence } from "@/lib/source-text-sanitizer";
-import type { SearchResult } from "@/lib/types";
+import type { SearchResult, SearchScoreExplanation } from "@/lib/types";
 
 const maxSemanticCandidates = 8;
 const ambiguityScoreGap = 0.04;
@@ -65,15 +65,19 @@ function candidateEvidence(result: SearchResult): string {
   ].join("\n");
 }
 
+function clampedSimilarity(similarity: number | null | undefined): number {
+  const val = similarity ?? 0;
+  return Number.isFinite(val) ? Math.max(0, Math.min(1, val)) : 0;
+}
+
 function deterministicScore(result: SearchResult): number {
-  return (
+  const score =
     result.score_explanation?.rankScore ??
     result.score_explanation?.preClampFinalScore ??
     result.score_explanation?.finalScore ??
     result.hybrid_score ??
-    result.similarity ??
-    0
-  );
+    clampedSimilarity(result.similarity);
+  return Number.isFinite(score) ? score : 0;
 }
 
 function lexicalScore(result: SearchResult): number {
@@ -106,7 +110,7 @@ function ambiguityBand(results: SearchResult[]): { results: SearchResult[]; elig
   if (supported.length < 2) return { results: [], eligibility: "insufficient_candidates" };
 
   const fusedTop = topBy(supported, deterministicScore);
-  const vectorTop = topBy(supported, (result) => result.similarity ?? 0);
+  const vectorTop = topBy(supported, (result) => clampedSimilarity(result.similarity));
   const lexicalTop = topBy(supported, lexicalScore);
   if (!fusedTop) return { results: [], eligibility: "insufficient_candidates" };
 
@@ -290,17 +294,38 @@ export async function semanticRerankIfAmbiguous(args: {
     );
     const scoredBand = aliases.map((candidate) => {
       const semanticRerankScore = relevanceByAlias.get(candidate.alias) ?? 0;
+      const existing = candidate.result.score_explanation;
+      const scoreExplanation: SearchScoreExplanation = existing
+        ? { ...existing, semanticRerankScore }
+        : {
+            vectorScore: clampedSimilarity(candidate.result.similarity),
+            textRank: candidate.result.text_rank ?? 0,
+            lexicalCoverageScore: candidate.result.lexical_score ?? 0,
+            metadataMatchScore: 0,
+            sectionTitleMatchBoost: 0,
+            freshnessRecencyBoost: 0,
+            weightedHybridScore: candidate.result.hybrid_score ?? clampedSimilarity(candidate.result.similarity),
+            rrfScore: candidate.result.rrf_score ?? null,
+            rrfBoost: 0,
+            memoryBoost: 0,
+            titleBoost: 0,
+            metadataBoost: 0,
+            clinicalSignalBoost: 0,
+            penalty: 0,
+            rankScore: deterministicScore(candidate.result),
+            finalScore: Math.min(
+              1,
+              Math.max(0, candidate.result.hybrid_score ?? clampedSimilarity(candidate.result.similarity)),
+            ),
+            semanticRerankScore,
+            strategy: candidate.result.rrf_score == null ? "weighted_hybrid" : "weighted_hybrid_rrf_blend",
+          };
       return {
         ...candidate,
-        result: candidate.result.score_explanation
-          ? {
-              ...candidate.result,
-              score_explanation: {
-                ...candidate.result.score_explanation,
-                semanticRerankScore,
-              },
-            }
-          : candidate.result,
+        result: {
+          ...candidate.result,
+          score_explanation: scoreExplanation,
+        },
       };
     });
     const sortedBand = scoredBand.sort(

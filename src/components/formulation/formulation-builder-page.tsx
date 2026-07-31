@@ -15,7 +15,7 @@ import {
   Target,
   Waypoints,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 
 import {
   FormulationBreadcrumbs,
@@ -206,6 +206,7 @@ export function FormulationBuilderPage({
   const [activeStep, setActiveStep] = useState<BuilderStepId>("select");
   const [selectedIds, setSelectedIds] = useState(() => normalizeMechanismSelection(initialMechanisms));
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [domain, setDomain] = useState("all");
   const [templateId, setTemplateId] = useState(validInitialTemplate);
   const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
@@ -220,10 +221,15 @@ export function FormulationBuilderPage({
         .filter((mechanism): mechanism is FormulationMechanism => Boolean(mechanism)),
     [selectedIds],
   );
-  const visibleMechanisms = useMemo(
-    () => searchFormulationMechanisms(query, { domain }).map((result) => result.mechanism),
-    [domain, query],
-  );
+  const visibleMechanisms = useMemo(() => {
+    // Cleared live query should restore the full browse catalogue immediately.
+    if (!query.trim()) {
+      return searchFormulationMechanisms("", { domain }).map((result) => result.mechanism);
+    }
+    // Empty deferred while live query has text would score every mechanism.
+    if (!deferredQuery.trim()) return [];
+    return searchFormulationMechanisms(deferredQuery, { domain }).map((result) => result.mechanism);
+  }, [domain, deferredQuery, query]);
   const activeSections = formulationSectionsForTemplate(templateId);
   const generatedDraft = formulationDraftFor({
     mechanisms: selectedMechanisms,
@@ -672,7 +678,7 @@ export function FormulationBuilderPage({
               type="button"
               onClick={() => move(-1)}
               disabled={activeIndex === 0}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:opacity-40"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Previous
@@ -682,7 +688,7 @@ export function FormulationBuilderPage({
                 type="button"
                 onClick={() => move(1)}
                 disabled={activeStep === "select" && selectedMechanisms.length === 0}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-transparent bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--text-muted)] disabled:shadow-none"
               >
                 {activeStep === "select"
                   ? "Continue to framework"

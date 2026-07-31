@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FACTSHEET_DEMO_NOTICE,
   factsheetCategories,
   factsheets,
   factsheetSlugs,
@@ -18,6 +19,13 @@ describe("factsheet library", () => {
   it("only resolves the explicitly supplied factsheet slugs", () => {
     expect(findFactsheet(factsheets[0]!.slug)).toEqual(factsheets[0]!);
     expect(findFactsheet("unknown-factsheet")).toBeUndefined();
+  });
+
+  it("exposes a demo/governance notice for on-screen and printed take-aways", () => {
+    // The exported handout must never read as approved local patient information.
+    expect(FACTSHEET_DEMO_NOTICE).toMatch(/demonstration/i);
+    expect(FACTSHEET_DEMO_NOTICE).toMatch(/not clinician-approved/i);
+    expect(FACTSHEET_DEMO_NOTICE).toMatch(/before any clinical use/i);
   });
 
   it("has unique slugs and complete governance metadata on every sheet", () => {

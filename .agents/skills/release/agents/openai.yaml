@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release"
+  short_description: "Assemble Database release-readiness evidence"
+  default_prompt: "Use $release to assess Database release readiness with local proof, rollback notes, and explicit approval gates."

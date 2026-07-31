@@ -24,16 +24,14 @@ describe("worker visual capture hardening", () => {
     );
   });
 
-  it("leaves optional artifact write failures claimable by the Supabase v3 repair agent", () => {
-    expect(workerSource).toContain("const optionalRepairRequired = optionalIndexWriteIssues.length > 0");
+  it("keeps view-only retained images out of retrieval index inputs", () => {
     expect(workerSource).toContain(
-      'const agentRepairRequired = enrichmentStatus !== "completed" || optionalRepairRequired',
+      "const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable",
     );
-    expect(workerSource).toContain('enrichmentStatus = "pending"');
-    expect(workerSource).toContain('indexing_v3_agent_status: "pending"');
-    expect(workerSource).toContain('"optional_index_write_issues"');
-    expect(workerSource).toContain("indexing_v3_agent_repair_reason: agentRepairReason");
-    expect(workerSource).toContain('indexing_v3_agent_status: "completed"');
+    expect(workerSource).toContain("if (data.searchable !== false) {");
+    expect(workerSource).toContain("insertedImages.push({");
+    // The prior broadening pulled document-view-only rows into chunk/index/embedding inputs.
+    expect(workerSource).not.toContain("if (data.searchable !== false || retainForDocumentView)");
   });
 
   it("fails closed when the lease-fenced commit RPC is unavailable and keeps image uploads generation-scoped", () => {

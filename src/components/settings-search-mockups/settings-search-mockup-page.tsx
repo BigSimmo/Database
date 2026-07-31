@@ -437,7 +437,7 @@ function DesktopModal({ concept }: { concept: Concept }) {
         <div className="min-w-0 overflow-hidden px-6 py-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+              <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 {concept.eyebrow}
               </p>
               <h2 className="mt-1 text-2xl font-semibold text-[color:var(--text-heading)]">
@@ -647,13 +647,13 @@ function BoardShell({ children, concept }: { children: ReactNode; concept: Conce
       <main
         className={cn(
           appBackdrop,
-          "fixed inset-0 z-[2147483647] overflow-auto px-4 py-7 text-[color:var(--text-heading)] sm:px-8",
+          "fixed inset-0 z-[100] overflow-auto px-4 py-7 text-[color:var(--text-heading)] sm:px-8",
         )}
       >
         <div className="mx-auto max-w-[1320px]">
           <div className="mb-5 flex items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+              <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 {concept.eyebrow}
               </p>
               <h1 className="mt-1 text-2xl font-semibold">{concept.title}</h1>

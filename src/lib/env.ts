@@ -1,7 +1,9 @@
 import "server-only";
 
 import { z } from "zod";
+import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
+import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
@@ -16,6 +18,23 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
+  // Inbound webhook receivers. Each shared secret gates a machine-to-machine
+  // endpoint under /api/webhooks/* and fails closed when unset (the route 503s
+  // rather than trusting an unauthenticated caller). See docs/webhooks.md.
+  // Railway deploy webhook -> chat forwarder. Railway only lets you configure a
+  // target URL (no custom headers), so this secret travels as `?token=` in the
+  // configured URL and is compared constant-time. Min 16 chars.
+  RAILWAY_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Supabase Database Webhook -> ingestion enqueue. Supabase webhooks DO allow
+  // custom headers, so this secret is sent as `Authorization: Bearer` (or the
+  // `x-webhook-secret` header) and compared constant-time. Min 16 chars.
+  SUPABASE_INGESTION_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Optional outbound chat destinations shared by every /api/webhooks/* forwarder
+  // and the CI-failure GitHub workflow. Set either, both, or neither; a receiver
+  // with no destination configured accepts the event and reports it undelivered.
+  SLACK_WEBHOOK_URL: z.string().url().optional(),
+  DISCORD_WEBHOOK_URL: z.string().url().optional(),
+  WORKER_FAILURE_WEBHOOK_URL: z.string().url().optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
@@ -67,6 +86,7 @@ const envSchema = z.object({
   // batches of this size. 256 keeps total tokens well under the ceiling even for the
   // largest (narrative-profile) chunks while staying far below the 2048 input cap.
   OPENAI_EMBEDDING_BATCH_SIZE: z.coerce.number().int().positive().max(2048).default(256),
+  OPENAI_EMBEDDING_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(5),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.6-terra"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
@@ -171,7 +191,9 @@ const envSchema = z.object({
   RAG_QUERY_HASH_SECRET: z.string().min(16).optional(),
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
-  MAX_UPLOAD_MB: z.coerce.number().int().positive().max(150).default(150),
+  // Capped at the ceiling the browser pre-checks against, so a configured limit
+  // can only ever be lower than what the client rejects up front.
+  MAX_UPLOAD_MB: z.coerce.number().int().positive().max(MAX_UPLOAD_MB_CEILING).default(MAX_UPLOAD_MB_CEILING),
   MAX_CONCURRENT_UPLOADS: z.coerce.number().int().positive().default(1),
   MAX_IN_FLIGHT_UPLOAD_MB: z.coerce.number().int().positive().default(151),
   MAX_IMPORT_JOBS_PER_RUN: z.coerce.number().int().positive().default(5),
@@ -207,8 +229,9 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  PYTHON_BIN: z.string().default("python"),
+  PYTHON_BIN: z.string().default(resolvePythonBin()),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
+  DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(600),
 });
 
 const parsedEnv = envSchema.parse(process.env);

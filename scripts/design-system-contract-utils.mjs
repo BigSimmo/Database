@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
 
@@ -23,6 +23,17 @@ export const RAW_COLOR_EXEMPTIONS = [
     category: "error fallbacks",
     pattern: /^src\/(?:app\/global-error|components\/route-error-boundary)\.tsx$/,
     scope: "whole-file",
+  },
+  {
+    // Pre-paint / meta theme-color values: consumed as raw colours by the inline
+    // pre-hydration theme script and the browser theme-color meta tag, before any
+    // CSS (and therefore any token) is available, so they cannot be tokenised.
+    // Scoped to the APP_THEME_COLORS declaration rather than the whole file: only
+    // those two literals are un-tokenisable, so any other raw colour added to
+    // theme.ts later must stay visible to the ratcheting contract.
+    category: "pre-paint theme color",
+    pattern: /^src\/lib\/theme\.ts$/,
+    scope: "app-theme-colors",
   },
   {
     category: "printable Therapy paper",
@@ -108,8 +119,33 @@ function maskRanges(source, ranges) {
 }
 
 function balancedBlockRange(source, marker) {
-  const start = source.indexOf(marker);
-  if (start < 0) return null;
+  // Find a valid occurrence of the marker, skipping false matches that are:
+  // 1. Followed by an identifier-continuation character (to avoid suffixed declarations)
+  // 2. Inside a line comment, block comment, or string literal
+  let candidateStart = 0;
+  while (true) {
+    candidateStart = source.indexOf(marker, candidateStart);
+    if (candidateStart < 0) return null;
+
+    // Check if the character after the marker is an identifier-continuation character
+    const charAfterMarker = source[candidateStart + marker.length];
+    const isIdentifierContinuation = charAfterMarker && /[A-Za-z0-9_$]/.test(charAfterMarker);
+    if (isIdentifierContinuation) {
+      candidateStart += 1;
+      continue;
+    }
+
+    // Check if this occurrence is inside a comment or string
+    if (isInsideCommentOrString(source, candidateStart)) {
+      candidateStart += 1;
+      continue;
+    }
+
+    // Valid match found
+    break;
+  }
+
+  const start = candidateStart;
   const openingBrace = source.indexOf("{", start);
   if (openingBrace < 0) return null;
 
@@ -149,6 +185,60 @@ function balancedBlockRange(source, marker) {
   return null;
 }
 
+function isInsideCommentOrString(source, position) {
+  // Scan from the beginning to determine if position is inside a comment or string
+  let inLineComment = false;
+  let inBlockComment = false;
+  let inString = null;
+  let escaped = false;
+
+  for (let index = 0; index < position; index += 1) {
+    const character = source[index];
+
+    if (inLineComment) {
+      if (character === "\n") inLineComment = false;
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (character === "*" && source[index + 1] === "/") {
+        inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (character === "/" && source[index + 1] === "/") {
+      inLineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (character === "/" && source[index + 1] === "*") {
+      inBlockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (character === '"' || character === "'" || character === "`") {
+      inString = character;
+    }
+  }
+
+  return inLineComment || inBlockComment || inString !== null;
+}
+
 function namedFunctionRange(relativePath, source, functionName) {
   const parsed = ts.createSourceFile(relativePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const declaration = parsed.statements.find(
@@ -169,6 +259,17 @@ export function rawColorContractSource(relativePath, source, reportFailure = () 
       return source;
     }
     return maskRanges(source, ranges);
+  }
+
+  if (exemption.scope === "app-theme-colors") {
+    // Anchored on the declaration keyword, not a bare identifier, so a later
+    // *reference* to APP_THEME_COLORS can never be mistaken for the boundary.
+    const range = balancedBlockRange(source, "export const APP_THEME_COLORS");
+    if (!range) {
+      reportFailure("pre-paint theme-color boundary is missing");
+      return source;
+    }
+    return maskRanges(source, [range]);
   }
 
   if (exemption.scope === "factsheet-print-sheet") {

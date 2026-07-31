@@ -8,6 +8,34 @@ updates:
       time: "09:00"
       timezone: "Australia/Perth"
     open-pull-requests-limit: 5
+    # Batch low-risk updates so a solo maintainer reviews a couple of grouped PRs
+    # instead of up to ~5/week each triggering full CI. Majors stay individual —
+    # each major deserves its own review (per the AGENTS.md dependency protocol).
+    groups:
+      npm-production:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+      npm-development:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+    # Hold the TypeScript major (7.x is the native Go port): typescript-eslint /
+    # eslint-config-next do not support the native port yet — their peer range
+    # caps typescript at <6.1.0, so a major bump breaks the type-aware lint gate.
+    # The repo keeps a separate @typescript/typescript6 for the compiler API.
+    # Remove this once the lint toolchain ships native-port support.
+    # Context: merged #1014 / closed #990.
+    #
+    # Hold the ESLint major (10.x): eslint-config-next@16.2.10 bundles an
+    # eslint-plugin-react that still calls the removed context.getFilename() API,
+    # so ESLint 10 crashes `npm run lint` outright ("TypeError: ... getFilename is
+    # not a function"). Same shape as the TypeScript hold — the lint toolchain is
+    # not yet ESLint-10-ready. Remove once eslint-config-next supports ESLint 10.
+    # Context: closed #1022.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -17,3 +45,9 @@ updates:
       time: "09:00"
       timezone: "Australia/Perth"
     open-pull-requests-limit: 5
+    # One batched PR for all action SHA bumps keeps pinned versions uniform across
+    # workflows/composites (mitigates the action-version-skew finding) and keeps
+    # check:github-actions green in a single review.
+    groups:
+      github-actions:
+        patterns: ["*"]

@@ -1,0 +1,4 @@
+interface:
+  display_name: "API"
+  short_description: "Review Database API contracts and failure paths"
+  default_prompt: "Use $api to verify this Database route contract, validation, auth, errors, retries, and compatibility."

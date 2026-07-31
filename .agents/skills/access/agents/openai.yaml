@@ -1,0 +1,4 @@
+interface:
+  display_name: "Access"
+  short_description: "Verify Database auth and tenancy boundaries"
+  default_prompt: "Use $access to verify authentication, authorization, ownership, grants, RLS, and cross-tenant denial behavior."

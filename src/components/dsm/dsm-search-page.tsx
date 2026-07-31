@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, codeText, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
@@ -160,7 +161,7 @@ function CategoryFilterDropdown({
         )}
       >
         <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
           Category
         </span>
         <span className="min-w-0 flex-1 truncate text-left font-extrabold text-[color:var(--text-heading)]">
@@ -251,18 +252,12 @@ export function DsmSearchPage({
     });
   }
 
-  const description = query
-    ? `${results.length} ${results.length === 1 ? "match" : "matches"} for “${query}”${
-        activeCategory ? ` in ${activeCategory.label}` : ""
-      }.`
-    : `${results.length} of ${totalCount} diagnoses${activeCategory ? ` in ${activeCategory.label}` : ""}.`;
-
   return (
     <div data-testid="dsm-search-page" className="min-h-full bg-[color:var(--background)]">
       <DsmPageHeader
         eyebrow="Diagnosis catalogue"
-        title={query ? `Search results for “${query}”` : "Search diagnoses"}
-        description={description}
+        title="Diagnosis search"
+        description="Find diagnostic records by name, ICD code, symptom phrase, or category."
         actions={
           canCompare ? (
             <Link
@@ -278,27 +273,35 @@ export function DsmSearchPage({
       />
 
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
-        <section aria-label="Filter by category" className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <CategoryFilterDropdown
-            query={query}
-            categories={categories}
-            activeCategory={activeCategory}
-            totalCount={totalCount}
-            selected={selected}
-          />
-          {activeCategory ? (
-            <Link
-              href={categoryHref(query, undefined, selected)}
-              className={cn(
-                "inline-flex min-h-tap items-center gap-1 rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
-                searchFocusRing,
-              )}
-            >
-              <X className="h-3.5 w-3.5" aria-hidden />
-              Clear filter
-            </Link>
-          ) : null}
-        </section>
+        <SearchResultsHeaderBand
+          modeId="dsm"
+          query={query}
+          matchCount={results.length}
+          filterLabel="Filter diagnoses by category"
+          filterControls={
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <CategoryFilterDropdown
+                query={query}
+                categories={categories}
+                activeCategory={activeCategory}
+                totalCount={totalCount}
+                selected={selected}
+              />
+              {activeCategory ? (
+                <Link
+                  href={categoryHref(query, undefined, selected)}
+                  className={cn(
+                    "inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+                    searchFocusRing,
+                  )}
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                  Clear category
+                </Link>
+              ) : null}
+            </div>
+          }
+        />
 
         {results.length ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
@@ -314,7 +317,7 @@ export function DsmSearchPage({
                   {results.length} {results.length === 1 ? "result" : "results"}
                 </span>
               </div>
-              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)] lg:grid">
+              <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)] lg:grid">
                 <span>Select</span>
                 <span>Diagnosis</span>
                 <span>Category</span>

@@ -18,12 +18,7 @@ function storePreferences(overrides: Record<string, unknown>) {
 
 function renderEmptyState() {
   return render(
-    <AnswerEmptyState
-      onSearchDocuments={() => {}}
-      onUploadDocument={() => {}}
-      recentQueries={["clozapine monitoring", "lithium levels"]}
-      onSelectRecent={vi.fn()}
-    />,
+    <AnswerEmptyState recentQueries={["clozapine monitoring", "lithium levels"]} onSelectRecent={vi.fn()} />,
   );
 }
 

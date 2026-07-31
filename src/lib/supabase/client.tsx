@@ -4,8 +4,9 @@ import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
-import { clearRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { clearRecentQueries } from "@/lib/recent-query-storage";
+import { clearSignedUrlCache } from "@/lib/signed-url-cache";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";
@@ -128,6 +129,20 @@ export function isDefinitiveAuthValidationError(error: unknown) {
   );
 }
 
+/** Recognize both Supabase's wrapped retryable error and browser-native fetch failures. */
+export function isRetryableInitialAuthVerificationError(error: unknown) {
+  if (isAuthRetryableFetchError(error)) return true;
+  const candidate = error as { name?: unknown; message?: unknown } | null;
+  const isTypeError = error instanceof TypeError || candidate?.name === "TypeError";
+  const message = typeof candidate?.message === "string" ? candidate.message : "";
+  return isTypeError && /failed to fetch|fetch failed|network request failed|networkerror|load failed/i.test(message);
+}
+
+/** Transient fetch failures preserve a stored session; other indeterminate failures surface an error. */
+export function shouldFailInitialAuthVerification(error: unknown) {
+  return Boolean(error) && !isDefinitiveAuthValidationError(error) && !isRetryableInitialAuthVerificationError(error);
+}
+
 function authCallbackRedirect() {
   if (typeof window === "undefined") return undefined;
   return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
@@ -153,6 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<string | null>(null);
   const authRequestsRef = useRef(createAuthRequestLifecycle());
   const authFingerprintRef = useRef<string | null>(null);
+  // Tracks the user id last published into context so onAuthStateChange can
+  // clear identity-bound caches *before* setSession on account switch.
+  const publishedUserIdRef = useRef<string | null>(null);
   const [authEpoch, setAuthEpoch] = useState(0);
 
   const invalidateAuthRequests = useCallback(() => {
@@ -179,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // as authenticated (or send a bad bearer token) on load.
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
-        if (userResult.error && !isDefinitiveAuthValidationError(userResult.error)) {
+        if (shouldFailInitialAuthVerification(userResult.error)) {
           setSession(null);
           setStatus("error");
           setNotice(null);
@@ -189,12 +207,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
         // A retryable fetch error means the auth server was unreachable, not that
         // the token was rejected — don't drop a valid stored session for that.
-        const verificationUnavailable = isAuthRetryableFetchError(userResult.error);
+        const verificationUnavailable = isRetryableInitialAuthVerificationError(userResult.error);
         const resolved = resolveInitialAuthState({
           verifiedUserId,
           session: sessionResult.data.session,
           verificationUnavailable,
         });
+        publishedUserIdRef.current = resolved.session?.user?.id ?? null;
         setSession(resolved.session);
         setStatus(resolved.status);
         if (resolved.status === "authenticated") {
@@ -203,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           clearPersistedAnswerThread();
           clearRecentQueries();
+          clearSignedUrlCache();
           if (callbackError) {
             setError(decodeURIComponent(callbackError));
             setNotice(null);
@@ -227,14 +247,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // transitions and are trusted. Supabase warns against awaiting other auth calls
       // inside this callback, so validation stays in initializeSession, not here.
       if (event === "INITIAL_SESSION") return;
+      const nextUserId = nextSession?.user?.id ?? null;
+      // Clear identity-bound caches before publishing the new session. Child
+      // effects run before the parent fingerprint effect; without this, an
+      // account-switch SIGNED_IN can let mounted signed-image hooks re-paint
+      // the previous user's still-cached URL via requestAnimationFrame.
+      if (publishedUserIdRef.current !== nextUserId) {
+        clearPersistedAnswerThread();
+        clearRecentQueries();
+        clearSignedUrlCache();
+      }
+      publishedUserIdRef.current = nextUserId;
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
       if (nextSession) {
         setError(null);
         setNotice(null);
-      } else {
-        clearPersistedAnswerThread();
-        clearRecentQueries();
       }
     });
 
@@ -343,6 +371,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await client.auth.signOut();
     clearPersistedAnswerThread();
     clearRecentQueries();
+    clearSignedUrlCache();
+    publishedUserIdRef.current = null;
     setSession(null);
     setStatus("signed_out");
     setError(null);
@@ -353,6 +383,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     invalidateAuthRequests();
     clearPersistedAnswerThread();
     clearRecentQueries();
+    clearSignedUrlCache();
+    publishedUserIdRef.current = null;
     setSession(null);
     setStatus("expired");
     setNotice(null);
@@ -373,6 +405,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authFingerprintRef.current === fingerprint) return;
     authFingerprintRef.current = fingerprint;
     invalidateAuthRequests();
+    // Account switch / sign-in / sign-out: drop bearer signed-image URLs bound to
+    // the previous identity so they cannot paint from the module LRU cache.
+    clearSignedUrlCache();
   }, [invalidateAuthRequests, session?.user.id, status]);
 
   const value = useMemo<AuthContextValue>(

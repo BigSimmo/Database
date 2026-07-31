@@ -1,0 +1,4 @@
+interface:
+  display_name: "Export"
+  short_description: "Create a safe review archive of the Database repo"
+  default_prompt: "Use $export to create a verified review-safe Database archive with sensitive and generated files excluded."

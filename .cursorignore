@@ -1,10 +1,14 @@
-﻿# Cursor semantic index exclusions — keep search focused on source, not artifacts.
-# Mirrors .gitignore noise; Cursor still indexes tracked source under src/, worker/, scripts/, supabase/.
+﻿# Cursor exclusions — hides from semantic index AND AI features (@Files, Chat, Agent).
+# Prefer .cursorindexingignore for large tracked blobs that should stay @Files-reachable.
+# Cursor also auto-excludes .gitignore entries; this file covers defense-in-depth + tracked noise.
 
+# Build / deps / test artifacts
 node_modules/
 .next/
+.next-playwright/
 out/
 build/
+dist/
 coverage/
 output/
 test-results/
@@ -12,12 +16,23 @@ playwright-report/
 playwright-cli/
 .playwright-cli/
 playwright/.auth/
+vendor/
+venv/
+.venv/
 
-# Local env and secrets
+# Local env and secrets (keep .env.example readable for setup)
 .env*
+!.env.example
+*.pem
+**/secrets/
+**/credentials/
 
 # Generated / machine-local
 *.tsbuildinfo
+*.min.js
+*.min.css
+*.bundle.js
+*.map
 sample-documents/
 tmp/
 .tmp-visual/
@@ -27,6 +42,15 @@ scratch/
 .qa-smoke/
 .impeccable/
 supabase/.temp/
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules/
+.worktrees/
+worktrees/
+.local/
+.vercel/
 
 # Logs and PIDs
 *.log

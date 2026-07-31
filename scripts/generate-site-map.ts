@@ -43,6 +43,11 @@ const productRouteHandlerPaths = new Set(["/applications", "/differentials/prese
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
   "/differentials/presentations": "/differentials/presentations/[workflow-slug]",
+  // The source page redirects a valid id to the canonical `/documents/[id]` viewer
+  // (page.tsx line 20) and only falls back to `/documents/search` for an invalid id
+  // (line 14). Pin the canonical target here so the generated map does not report the
+  // invalid-id fallback that its first-`redirect()` regex would otherwise capture.
+  "/documents/source": "/documents/[id]",
   "/medications": "/?mode=prescribing",
 };
 
@@ -68,6 +73,7 @@ const routeDescriptions: Record<string, string> = {
   "/medications": "Medication index redirect.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Privacy and data-processing governance draft.",
+  "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
@@ -80,7 +86,7 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
-  "/therapy-compass": "Therapy Compass home (source-grounded therapy decision support).",
+  "/therapy-compass": "Therapy home (source-grounded therapy decision support).",
   "/therapy-compass/search": "Therapy library search surface.",
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/compare": "Side-by-side therapy comparison.",
@@ -116,7 +122,7 @@ const apiDescriptions: Record<string, string> = {
   "/api/ingestion/jobs": "Ingestion job collection.",
   "/api/ingestion/jobs/[id]/retry": "Retry ingestion job.",
   "/api/ingestion/quality": "Ingestion quality reporting.",
-  "/api/jobs": "Job state.",
+  "/api/jobs": "Administrator/ops job listing (not a client product API; see docs/api-jobs-ops-surface.md).",
   "/api/local-project-id": "Local project identity guard.",
   "/api/registry/records": "Registry record collection.",
   "/api/registry/records/[slug]": "Registry record detail.",
@@ -124,20 +130,28 @@ const apiDescriptions: Record<string, string> = {
   "/api/search/interaction": "Search interaction telemetry.",
   "/api/setup-status": "Setup status.",
   "/api/upload": "Upload endpoint.",
+  "/api/webhooks/railway": "Railway deploy webhook -> chat forwarder.",
+  "/api/webhooks/supabase/document-change": "Supabase document-change webhook -> ingestion enqueue.",
 };
 
 const routeOwnershipRows = [
   ["Root dashboard and query modes", "src/app/page.tsx, src/lib/app-modes.ts"],
   ["Global shell layouts", "src/app/*/layout.tsx, src/components/clinical-dashboard/global-search-shell.tsx"],
-  ["Services", "src/app/services, src/lib/services.ts, src/app/api/registry/records"],
-  ["Forms", "src/app/forms, src/lib/forms.ts, src/app/api/registry/records"],
-  ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-command-library-page.tsx"],
-  ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
-  ["DSM-5 Diagnosis", "src/app/dsm, src/components/dsm, src/lib/dsm.ts"],
-  ["Specifiers", "src/app/specifiers, src/components/specifiers, src/lib/specifiers.ts"],
-  ["Formulation", "src/app/formulation, src/components/formulation, src/lib/formulation.ts"],
-  ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
-  ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
+  ["Services", "src/app/(search-app)/services, src/lib/services.ts, src/app/api/registry/records"],
+  ["Forms", "src/app/(search-app)/forms, src/lib/forms.ts, src/app/api/registry/records"],
+  [
+    "Favourites",
+    "src/app/(search-app)/favourites, src/components/clinical-dashboard/favourites-command-library-page.tsx",
+  ],
+  ["Differentials", "src/app/(search-app)/differentials, src/lib/differentials.ts"],
+  ["DSM-5 Diagnosis", "src/app/(search-app)/dsm, src/components/dsm, src/lib/dsm.ts"],
+  ["Specifiers", "src/app/(search-app)/specifiers, src/components/specifiers, src/lib/specifiers.ts"],
+  ["Formulation", "src/app/(search-app)/formulation, src/components/formulation, src/lib/formulation.ts"],
+  [
+    "Medications",
+    "src/app/(search-app)/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
+  ],
+  ["Documents", "src/app/(search-app)/documents, src/lib/document-flow-routes.ts"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
   ["Mockups", "src/app/mockups"],
 ] as const;
@@ -266,12 +280,14 @@ function renderModeRoutes() {
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
   };
 
-  return appModeDefinitions.map((mode) =>
-    bullet(
+  return appModeDefinitions.map((mode) => {
+    const modeName = mode.label.toLowerCase().endsWith(" mode") ? mode.label : `${mode.label} mode`;
+
+    return bullet(
       ("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id),
-      `${mode.label} mode. Search kind: \`${mode.search.kind}\`. Query example: \`${examples[mode.id]}\`.`,
-    ),
-  );
+      `${modeName}. Search kind: \`${mode.search.kind}\`. Query example: \`${examples[mode.id]}\`.`,
+    );
+  });
 }
 
 type ModePageIndexRow = {
@@ -356,7 +372,7 @@ function renderModePageIndex() {
       mode: "Tools",
       home: appModeHomeHref("tools"),
       search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
-      detail: "Tool launcher and detail panels inside dashboard tools mode (`/?mode=tools`).",
+      detail: "Canonical Tools launcher at `/tools` (PT-11). `/?mode=tools` remains a dashboard-mode alias.",
     },
   ]);
 }
@@ -410,7 +426,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
   const lines = [
     "# Clinical KB Site Map",
     "",
-    "This file is generated by `npm run sitemap:update`. Run `npm run sitemap:check` to verify it is current.",
+    "This file is generated by `npm run docs:update` (or `npm run sitemap:update` directly). Run `npm run sitemap:check` to verify it is current.",
     "",
     ...section(
       "Main product routes",

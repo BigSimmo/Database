@@ -16,12 +16,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
-import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
-import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
 import {
@@ -48,6 +44,108 @@ import { CalculatorSheet } from "./popup-sheet-mockup";
 type DomainFilter = CalculatorDomain | "all";
 type SessionAnswers = Record<string, AnswerMap>;
 type Density = "comfortable" | "compact";
+
+function MockupSuggestionChips({
+  suggestions,
+  onPick,
+  label,
+  className,
+  testId,
+}: {
+  suggestions: string[];
+  onPick: (value: string) => void;
+  label: string;
+  layout: "scroll";
+  className?: string;
+  testId?: string;
+}) {
+  return (
+    <div aria-label={label} data-testid={testId} className={cn("flex gap-2 overflow-x-auto pb-1", className)}>
+      {suggestions.map((suggestion) => (
+        <button
+          key={suggestion}
+          type="button"
+          onClick={() => onPick(suggestion)}
+          className={cn(
+            "min-h-9 shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+            focusRing,
+          )}
+        >
+          {suggestion}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MockupPrivacyInputNotice({ className }: { className?: string }) {
+  return (
+    <p className={cn("flex items-center gap-1.5 text-2xs font-medium text-[color:var(--text-soft)]", className)}>
+      <Info className="size-icon-xs" aria-hidden="true" />
+      Mockup only. Nothing entered here is stored or sent.
+    </p>
+  );
+}
+
+function MockupSearchResultsLayout({
+  testId,
+  resultsLabel,
+  header,
+  summary,
+  sidebar,
+  sidebarMobile,
+  children,
+}: {
+  testId: string;
+  resultsLabel: string;
+  header: ReactNode;
+  summary: ReactNode;
+  sidebar: ReactNode;
+  sidebarMobile: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <main data-testid={testId} className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-40 pt-5 sm:px-6 lg:px-8">
+      <header
+        aria-label={`${resultsLabel} search`}
+        className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+      >
+        {header}
+      </header>
+      {summary}
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <section aria-label={`${resultsLabel} results`} className="min-w-0">
+          {children}
+        </section>
+        <aside aria-label={`${resultsLabel} options`} className="hidden content-start gap-4 xl:grid">
+          {sidebar}
+        </aside>
+      </div>
+      {sidebarMobile}
+    </main>
+  );
+}
+
+function useMockupHideOnScroll() {
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    const scrollOwner = document.querySelector<HTMLElement>("#main-content");
+    if (!scrollOwner) return;
+
+    let previousTop = scrollOwner.scrollTop;
+    const onScroll = () => {
+      const nextTop = scrollOwner.scrollTop;
+      setHidden(nextTop > previousTop && nextTop > 48);
+      previousTop = nextTop;
+    };
+
+    scrollOwner.addEventListener("scroll", onScroll, { passive: true });
+    return () => scrollOwner.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return hidden;
+}
 
 /** Match context: name / indication hit, or the first matching item text. */
 function matchContext(calc: CalculatorFixture, query: string): string | null {
@@ -156,7 +254,7 @@ function CalculatorComposer({
       </form>
 
       {variant === "full" ? (
-        <AnswerSuggestionChips
+        <MockupSuggestionChips
           suggestions={promptExamples}
           onPick={onQuery}
           label="Prompts"
@@ -166,7 +264,7 @@ function CalculatorComposer({
         />
       ) : null}
 
-      <PrivacyInputNotice className="justify-center" />
+      <MockupPrivacyInputNotice className="justify-center" />
     </div>
   );
 }
@@ -509,11 +607,7 @@ export function CalculatorsSearchPageMockup() {
   // searchPageShell <main> has no vertical overflow, so it never scrolls. Point
   // the hook at #main-content so the dock reacts to the same scroll events. The
   // hook polls the ref until the shell element resolves.
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    scrollContainerRef.current = document.querySelector<HTMLElement>("#main-content");
-  }, []);
-  const footerHidden = useHideOnScroll({ containerRef: scrollContainerRef });
+  const footerHidden = useMockupHideOnScroll();
   // Keep the phone dock visible while focused so scroll-hide cannot slide a
   // focused input off-screen or mark it aria-hidden while still tabbable.
   const [dockFocused, setDockFocused] = useState(false);
@@ -532,7 +626,7 @@ export function CalculatorsSearchPageMockup() {
 
   return (
     <>
-      <SearchResultsLayout
+      <MockupSearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculators"
         header={
@@ -643,7 +737,7 @@ export function CalculatorsSearchPageMockup() {
             </button>
           </div>
         )}
-      </SearchResultsLayout>
+      </MockupSearchResultsLayout>
 
       {/* Phones: composer docks at the bottom, matching the site-wide composer
           placement, and slides away on scroll-down in lockstep with the header.

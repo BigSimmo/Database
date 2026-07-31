@@ -4,7 +4,7 @@ import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
-import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
@@ -61,7 +61,13 @@ function parseManualLabel(input: z.infer<typeof manualLabelSchema>) {
     source: "generated",
   });
   if (!normalized) {
-    throw new PublicApiError("Enter a short, specific clinical tag. Generic document-control tags are not allowed.");
+    throw new PublicApiError(
+      "Enter a short, specific clinical tag. Generic document-control tags are not allowed.",
+      400,
+      {
+        code: "invalid_clinical_tag_taxonomy",
+      },
+    );
   }
   return normalized;
 }

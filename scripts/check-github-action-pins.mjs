@@ -7,6 +7,8 @@ import { yamlBlock } from "./yaml-contract.mjs";
 const workflowDir = path.join(process.cwd(), ".github", "workflows");
 
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
+const workflowBranchMutationPattern =
+  /\bgithub\s*\.\s*rest\s*\.\s*pulls\s*\.\s*updateBranch\b|\/pulls\/[^\s"']+\/update-branch\b|\bgh\s+pr\s+update-branch\b|\bsync:pr-branches(?::apply|\s+--\s+--apply)\b|\bsync-open-pr-branches\.mjs\s+--apply\b/;
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
 const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -45,7 +47,14 @@ function collectPinFailures(root) {
   const failures = [];
   for (const filePath of discoverGitHubActionFiles(root)) {
     const fileName = path.relative(root, filePath).replaceAll("\\", "/");
-    const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
+    const source = readFileSync(filePath, "utf8");
+    const lines = source.split(/\r?\n/);
+
+    if (workflowBranchMutationPattern.test(source)) {
+      failures.push(
+        `${fileName}: workflow-authored PR branch updates are prohibited because bot-authored heads leave required checks awaiting approval. Use npm run sync:pr-branches:apply with explicit human/operator auth.`,
+      );
+    }
 
     lines.forEach((line, index) => {
       if (runsOnLatestPattern.test(line)) {
@@ -70,6 +79,16 @@ function selfTest() {
     mkdirSync(actionDir, { recursive: true });
     writeFileSync(path.join(workflowDir, "ok.yml"), "name: ok\n", "utf8");
     writeFileSync(
+      path.join(workflowDir, "unsafe-sync.yml"),
+      "name: unsafe\njobs:\n  sync:\n    steps:\n      - run: github.rest.pulls.updateBranch({})\n",
+      "utf8",
+    );
+    writeFileSync(
+      path.join(workflowDir, "unsafe-helper-sync.yml"),
+      "name: unsafe helper\njobs:\n  sync:\n    steps:\n      - run: npm run sync:pr-branches:apply\n",
+      "utf8",
+    );
+    writeFileSync(
       path.join(actionDir, "action.yml"),
       "name: fixture\nruns:\n  using: composite\n  steps:\n    - uses: actions/cache@v6\n",
       "utf8",
@@ -82,6 +101,12 @@ function selfTest() {
       )
     ) {
       throw new Error("self-test failed: composite action uses entries were not scanned");
+    }
+    if (!failures.some((failure) => failure.includes("unsafe-sync.yml") && failure.includes("branch updates"))) {
+      throw new Error("self-test failed: workflow-authored PR branch mutation was not rejected");
+    }
+    if (!failures.some((failure) => failure.includes("unsafe-helper-sync.yml") && failure.includes("branch updates"))) {
+      throw new Error("self-test failed: workflow invocation of the operator apply helper was not rejected");
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -99,10 +124,16 @@ failures.push(...collectPinFailures(process.cwd()));
 
 const ciWorkflowPath = path.join(workflowDir, "ci.yml");
 const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
+const ciPullRequestTrigger = yamlBlock(ciWorkflow, "pull_request:", 2);
 const migrationJob = yamlBlock(ciWorkflow, "db-reset-verify:", 2);
 const setupSupabaseStep = yamlBlock(migrationJob, "- name: Setup Supabase CLI", 6);
 const restoreSupabaseStep = yamlBlock(migrationJob, "- name: Restore Supabase Docker image cache", 6);
 const saveSupabaseStep = yamlBlock(migrationJob, "- name: Save Supabase Docker images", 6);
+if (!/^    types: \[opened, synchronize, reopened, ready_for_review\]$/m.test(ciPullRequestTrigger)) {
+  failures.push(
+    "ci.yml: pull_request events must retain opened/synchronize/reopened and include ready_for_review so undrafting starts required CI.",
+  );
+}
 if (!new RegExp(`^  SUPABASE_CLI_VERSION: ${expectedSupabaseCliVersionPattern}$`, "m").test(ciWorkflow)) {
   failures.push(`ci.yml: global SUPABASE_CLI_VERSION must remain pinned to ${expectedSupabaseCliVersion}.`);
 }
@@ -137,6 +168,76 @@ if (!/^        continue-on-error:\s*true\s*$/m.test(semgrepScanStep)) {
 }
 if (!/^          src worker scripts supabase\/functions\s*$/m.test(semgrepScanStep)) {
   failures.push("sast.yml: the Semgrep scan command must target src, worker, scripts, and supabase/functions.");
+}
+
+// Maturity X4: the untrusted-document parsing surface has a BLOCKING Semgrep
+// gate — the inverse policy of the advisory repo-wide job above. yamlBlock
+// returns "" when the job is missing, so every assertion below fails closed.
+const semgrepGateJob = yamlBlock(sastWorkflow, "semgrep-ingestion-gate:", 2);
+const semgrepGateStep = yamlBlock(semgrepGateJob, "- name: Semgrep scan (blocking)", 6);
+if (!semgrepGateJob) {
+  failures.push("sast.yml: the semgrep-ingestion-gate job must exist (maturity X4).");
+}
+if (/^\s*continue-on-error\s*:/m.test(semgrepGateJob)) {
+  failures.push("sast.yml: the Semgrep ingestion gate must block — no continue-on-error anywhere in the job.");
+}
+for (const target of [
+  "worker",
+  "src/lib/ingestion*.ts",
+  "src/lib/extractors",
+  "src/app/api/ingestion",
+  "src/app/api/upload",
+]) {
+  if (!semgrepGateStep.includes(target)) {
+    failures.push(`sast.yml: the ingestion gate must keep scanning ${target}.`);
+  }
+}
+if (!semgrepGateStep.includes("--config p/python")) {
+  failures.push("sast.yml: the ingestion gate must include p/python for the worker OCR stack.");
+}
+if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJob)) {
+  failures.push("sast.yml: the blocking ingestion gate container must be digest-pinned (semgrep/semgrep@sha256:...).");
+}
+
+// One SHA per action across every workflow AND composite action. Dependabot bumps
+// one file at a time, so a laggard can sit on an old major indefinitely; because
+// the per-line validation above only covers workflows, a composite skew (e.g.
+// setup-node v5 vs v7) was previously invisible. Assert each action name resolves
+// to a single SHA everywhere it is used.
+const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
+const shasByAction = new Map();
+for (const filePath of discoverGitHubActionFiles(process.cwd())) {
+  const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
+  // Workflow lines are already run through validateActionReference in the first
+  // pass; composite files are not, so validate them here. Without this, a
+  // non-SHA composite reference (e.g. vendor/action@v1) matches neither the
+  // 40-hex actionPinPattern below nor the first pass, so it would slip through
+  // unpinned. Local `./` refs are correctly ignored by validateActionReference.
+  const isComposite = fileName.startsWith(".github/actions/");
+  readFileSync(filePath, "utf8")
+    .split(/\r?\n/)
+    .forEach((line, index) => {
+      if (isComposite) {
+        const actionFailure = validateActionReference(line);
+        if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
+      }
+      const match = actionPinPattern.exec(line);
+      if (!match) return;
+      const [, name, sha, version] = match;
+      if (!shasByAction.has(name)) shasByAction.set(name, new Map());
+      const bySha = shasByAction.get(name);
+      if (!bySha.has(sha)) bySha.set(sha, { version: version ?? "(no version)", locations: [] });
+      bySha.get(sha).locations.push(`${fileName}:${index + 1}`);
+    });
+}
+for (const [name, bySha] of shasByAction) {
+  if (bySha.size <= 1) continue;
+  const detail = [...bySha.values()]
+    .map(({ version, locations }) => `${version} (${locations.join(", ")})`)
+    .join(" vs ");
+  failures.push(
+    `${name} is pinned to ${bySha.size} different SHAs across workflows/composites — standardize on one: ${detail}`,
+  );
 }
 
 if (failures.length > 0) {

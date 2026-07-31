@@ -16,23 +16,7 @@ export const answerEmptyState = {
   heading: "How can I help?",
   subheading: "Ask a clinical question or search your documents.",
   starterActionsLabel: "Starter actions",
-  quickActionsLabel: "Quick actions",
   recentLabel: "Recent searches",
-  starters: {
-    ask: {
-      title: "Ask a question",
-      description: "Start a source-backed clinical answer.",
-      samplePrompt: "What monitoring and escalation issues should I consider across these documents?",
-    },
-    searchDocuments: {
-      title: "Search documents",
-      description: "Browse matching files and source sections.",
-    },
-    uploadDocument: {
-      title: "Upload document",
-      description: "Add a guideline, PDF, or local source.",
-    },
-  },
 } as const;
 
 // Recovery copy for the answer flow — actions and calm no-results guidance shown

@@ -5,13 +5,18 @@ on:
     branches: [main, "release/**"]
   pull_request:
     branches: [main, "release/**"]
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
   schedule:
     - cron: "0 18 * * 0"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Deliberate one-off runs (workflow_dispatch, weekly schedule) get a per-run group so a
+  # push to the same ref cannot cancel them mid-flight — release-browser-matrix takes up to
+  # 70 minutes and was repeatedly killed by main churn. Push/PR runs keep the shared ref
+  # group with cancel-in-progress so superseded heads still stop early.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.run_id || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -27,28 +32,31 @@ jobs:
     name: Change scope
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # Only outputs a job actually reads are exported. `source_changed`,
+    # `workflow_changed` and `changed_files` were exported here and consumed by
+    # nothing, which reads as live wiring and invites a job to be gated on a
+    # value no one maintains. The script still computes all three — `docs_only`
+    # derives from the first two — they are simply not job outputs (#139).
     outputs:
       docs_only: ${{ steps.scope.outputs.docs_only }}
-      source_changed: ${{ steps.scope.outputs.source_changed }}
       coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
       ui_changed: ${{ steps.scope.outputs.ui_changed }}
+      advisory_ui_changed: ${{ steps.scope.outputs.advisory_ui_changed }}
       db_changed: ${{ steps.scope.outputs.db_changed }}
       container_changed: ${{ steps.scope.outputs.container_changed }}
       rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
-      workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
       codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
-      changed_files: ${{ steps.scope.outputs.changed_files }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".nvmrc"
 
@@ -59,16 +67,124 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
         run: node scripts/ci-change-scope.mjs
 
+  sync-pr-policy-body:
+    name: Sync PR policy body
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Checkout trusted policy metadata
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted-policy
+          persist-credentials: false
+
+      - name: Apply PR_POLICY_BODY.md to pull request description
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require("node:fs");
+            if (!fs.existsSync("PR_POLICY_BODY.md")) {
+              core.info("No PR_POLICY_BODY.md template on this head; skipping PR body sync.");
+              return;
+            }
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
+            const { collectSatisfiedGovernanceItems, requiredClinicalGovernanceItems, section } = await import(moduleUrl);
+            const pr = context.payload.pull_request;
+            const existingBody = pr.body || "";
+            const existingCheckedItems = new Set();
+            const govSection = section(existingBody, "Clinical Governance Preflight");
+            if (govSection) {
+              for (const item of collectSatisfiedGovernanceItems(govSection)) existingCheckedItems.add(item);
+            }
+            const governance = requiredClinicalGovernanceItems
+              .map((item) => {
+                const checked = existingCheckedItems.has(item) ? "x" : " ";
+                return `- [${checked}] ${item}`;
+              })
+              .join("\n");
+            const template = fs.readFileSync("PR_POLICY_BODY.md", "utf8").trim();
+            const body = template.replace("<!-- GOVERNANCE_PREFLIGHT -->", governance);
+            if ((pr.body || "").trim() === body) {
+              core.info("PR description already matches PR_POLICY_BODY.md");
+              return;
+            }
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              body,
+            });
+            core.info("Updated PR description from PR_POLICY_BODY.md");
+
   static-pr:
     name: Static PR checks
     needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # Read-only Actions access for the eval-canary liveness probe below.
+      actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      # GitHub cron fires are best-effort, and the canary's own failure-issue step only reacts
+      # to runs that HAPPEN and fail — since #923 moved the canary cadence from daily to
+      # weekly (Sunday 18:00 UTC), a silently dropped fire would go unnoticed for a week or
+      # more. PR traffic runs many times a day, so a warn-only staleness probe here surfaces a
+      # dropped weekly canary within hours instead of weeks. Never fails the job — API hiccups
+      # and empty histories degrade to a warning at most.
+      - name: Eval-canary liveness (warn if stale)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: "eval-canary.yml",
+                status: "completed",
+                per_page: 1,
+              });
+              const latest = data.workflow_runs?.[0];
+              // updated_at ~= completion time for a completed run (the REST payload carries no
+              // completed_at); run_started_at is the fallback for older/partial payloads.
+              const finishedAt = Date.parse(latest?.updated_at ?? latest?.run_started_at ?? "");
+              if (!latest) {
+                core.warning("Eval-canary liveness: no completed canary runs found.");
+              } else if (!Number.isFinite(finishedAt)) {
+                core.info("Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.");
+              } else {
+                const ageDays = (Date.now() - finishedAt) / 86_400_000;
+                if (ageDays > 8) {
+                  core.warning(
+                    `Eval-canary liveness: last completed canary run was ${ageDays.toFixed(1)} days ago (${latest.html_url}). ` +
+                      "The weekly Sunday 18:00 UTC schedule may have been dropped by GitHub - dispatch one manually " +
+                      "(provider-backed; needs explicit approval).",
+                  );
+                } else {
+                  core.info(`Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
+                }
+              }
+            } catch (error) {
+              core.warning(`Eval-canary liveness check skipped: ${error.message}`);
+            }
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
@@ -76,17 +192,57 @@ jobs:
       - name: Runtime alignment
         run: npm run check:runtime
 
+      - name: Installed dependency parity
+        run: npm run check:installed-lock-parity
+
+      - name: Upload-limit parity
+        run: npm run check:upload-limit-parity
+
       - name: GitHub Actions pin check
         run: npm run check:github-actions
 
       - name: CI scope self-test
         run: npm run check:ci-scope
 
+      - name: Pinned Gitleaks range self-test
+        run: npm run check:gitleaks-pinned
+
       - name: CI triage self-test
         run: npm run check:ci-triage
 
       - name: PR policy self-test
         run: npm run check:pr-policy
+
+      - name: Gate-manifest self-test
+        run: npm run check:gate-manifest
+
+      - name: Branch review ledger integrity
+        run: npm run check:branch-review-ledger
+
+      - name: Outstanding-issues ledger integrity
+        env:
+          OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: npm run check:outstanding-issues
+
+      - name: PR mergeability workflow contract
+        run: npm run check:pr-mergeability
+
+      - name: Codebase index coverage
+        run: npm run docs:check-index
+
+      - name: Documentation inventory drift
+        run: npm run docs:check-inventory
+
+      - name: Check docs scripts
+        run: npm run docs:check-scripts
+      - name: Check docs links
+        run: npm run docs:check-links
+
+      - name: Dependency and duplicate-export hygiene
+        run: npm run check:knip
+
+      - name: Maintainability hotspot budgets
+        run: npm run check:maintainability-budgets
 
       - name: Format check
         run: npm run format:check
@@ -102,6 +258,31 @@ jobs:
 
       - name: Brand asset check
         run: npm run brand:check
+
+      - name: Asset linting
+        run: npm run check:assets
+
+      # More generated-output drift detectors that were local-only in
+      # verify:cheap — same rationale as the design-system guards above. Without
+      # them a stale site map, therapy index, or design-system contract merged
+      # green because no workflow ran them. The gate-manifest self-test now fails
+      # CI if this list drifts from verify:cheap again.
+      - name: Site map drift
+        run: npm run sitemap:check
+
+      - name: Therapy data index drift
+        run: npm run check:therapy-data-index
+
+      - name: Cross-mode differentials index drift
+        run: npm run check:cross-mode-index
+
+      - name: Design-system contract
+        run: npm run check:design-system-contract
+
+      # Prevent hosted SQL/tooling from assuming a platform-reserved role while
+      # byte-pinning the single immutable historical migration exception.
+      - name: Hosted migration-role guard
+        run: npm run check:migration-role
 
       # Fails if a SECURITY DEFINER public function is left executable by
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
@@ -127,7 +308,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -168,8 +349,15 @@ jobs:
         if: needs.changes.outputs.codex_autofix_changed == 'true'
         run: npm run check:codex-autofix-workflow
 
+      # Fixtures for ordinary non-docs PRs; full offline contracts (includes
+      # fixtures) when retrieval/answer surfaces change.
       - name: Offline RAG fixture and manifest validation
+        if: needs.changes.outputs.rag_eval_changed != 'true'
         run: npm run check:rag:fixtures
+
+      - name: Offline RAG production contracts
+        if: needs.changes.outputs.rag_eval_changed == 'true'
+        run: npm run eval:rag:offline
 
   coverage:
     name: Unit coverage
@@ -181,7 +369,7 @@ jobs:
       FAST_CHECK_SEED: ${{ github.event_name == 'schedule' && github.run_id || '424242' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -202,7 +390,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -225,8 +413,15 @@ jobs:
           NEXT_BUILD_CPUS: "4"
         run: npm run build
 
-      - name: Bundle budget (warn-only until a baseline is enforced)
-        run: npm run check:bundle-budget
+      # Step timeout (not job timeout): a stuck exit must fail this step quickly
+      # as `failure` so "Re-run failed jobs" actually re-runs Build. Job-level
+      # cancellation after timeout-minutes left Build as `cancelled`, which the
+      # failed-only rerun path skips — the PR #1489 loop. Invoke `node` directly
+      # so an npm lifecycle wrapper cannot keep the step alive after the check
+      # has printed success.
+      - name: Bundle budget (enforced — fails on >tolerancePct gzip growth vs baseline)
+        timeout-minutes: 3
+        run: node scripts/check-bundle-budget.mjs
 
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
@@ -236,23 +431,165 @@ jobs:
           RAG_QUERY_HASH_SECRET: ${{ secrets.RAG_QUERY_HASH_SECRET }}
         run: npm run check:deployment-readiness
 
-  ui-critical:
-    name: Production UI
+  container-images:
+    name: Container images
     needs: changes
-    if: needs.changes.outputs.ui_changed == 'true'
+    if: needs.changes.outputs.container_changed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/docker-image.yml
+
+  # Fail-fast @critical Chromium smoke on PRs/merge_group before the full
+  # production suite. Skipped on main/schedule — those run the full job only.
+  # Keeps merge safety: pr-required still demands the full Production UI job.
+  #
+  # Deliberately NOT sharded: it is already the small subset, and sharding it
+  # would spend runners without shortening the critical path.
+  ui-critical-fast:
+    name: Production UI critical
+    needs: changes
+    if: >
+      needs.changes.outputs.ui_changed == 'true' &&
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Chromium @critical journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
+        run: npm run test:e2e:critical
+
+      # Run-scoped only: publish the webpack filesystem cache for the dependent
+      # production shards in this workflow run. Do not use actions/cache — the
+      # ~804 MB warm cache was measured as a net CI loss against the shared
+      # 10 GB budget (would evict the Playwright browser cache). Artifacts expire
+      # after one day and never compete with that budget.
+      # continue-on-error: publish is an optimization. A miss must not fail the
+      # critical job after green @critical journeys — shards cold-build instead.
+      - name: Publish isolated Next.js build cache
+        if: success()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-next-build-cache-${{ github.run_id }}
+          # Path lives under `.next-playwright/` (dot-directory). upload-artifact
+          # v4.4+ excludes hidden paths unless this is set — without it the
+          # publish is a silent no-op and every shard cold-builds.
+          path: .next-playwright/ci-production/dist/cache
+          include-hidden-files: true
+          # Next's production webpack cache is already uncompressed; leave
+          # compression to the outer transport at level 0 so the critical path
+          # does not pay zlib-6 CPU on ~800 MB.
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Classify exact failed test identities
+        if: failure()
+        run: node scripts/classify-playwright-failures.mjs
+
+      - name: Upload critical UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-ui-critical-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
+  # Sharded across runners, NOT across workers. Playwright stays `workers: 1` /
+  # `fullyParallel: false` / `retries: 0` inside each shard, so determinism is
+  # unchanged and per-runner load goes DOWN rather than up — which matters because
+  # the duplicate-page-root strict-mode failures (#093) are load-dependent.
+  #
+  # Measured 2026-07-30 (before `ui-critical-fast` landed): this job ran 15m26 of
+  # an 18m36 run — 83% of wall clock — while every other job finished by minute 4.
+  # Playwright itself reported `339 passed (13.5m)`; the balance is the isolated
+  # production build.
+  #
+  # Branch protection requires only the `pr-required` aggregate, and `needs` on a
+  # matrix job yields the roll-up of all shards, so the aggregate below needs no
+  # change and the per-shard job names are free to differ.
+  ui-critical:
+    name: Production UI
+    needs: [changes, ui-critical-fast]
+    # Run when UI scope applies and the fail-fast job succeeded or was skipped
+    # (skipped on main/schedule/dispatch where critical-first is not used).
+    if: >
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.ui_changed == 'true' &&
+      (needs.ui-critical-fast.result == 'success' || needs.ui-critical-fast.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      # One shard's failure must not cancel the others: a cancelled sibling would
+      # report as `cancelled` and re-create exactly the ambiguity #095 removed.
+      fail-fast: false
+      matrix:
+        # THREE, and the count is measured rather than chosen. `fullyParallel: false`
+        # makes a spec file the indivisible unit, so shard sizes are lumpy and more
+        # shards is not monotonically faster. Re-measured 2026-07-30 against this
+        # merged tree — 342 non-quarantine/non-mockup chromium tests
+        # (`--list --shard=i/N`):
+        #   N=3 -> 121/111/110   largest 121 (35%)
+        #   N=4 -> 121/106/98/17 largest 121 (35%)  — same bound, one more runner
+        # Earlier on a 340-test tree, N=5 -> 121/106/0/96/17 and N=8 gave two empty
+        # shards. N=4 buys nothing over N=3 because one 121-test spec group bounds
+        # both, and any N with an empty shard would go RED: `test:e2e:pr`
+        # deliberately omits `--pass-with-no-tests` (only the advisory lane has it).
+        # Re-measure before changing this number, and keep every shard non-empty:
+        #   npm run ensure
+        #   PLAYWRIGHT_BASE_URL=<printed> npx playwright test --project=chromium \
+        #     --grep-invert "@quarantine|@mockup" --shard=i/N --list
+        #
+        # MEASURED on the first real sharded run (CI 30530618838, 2026-07-30):
+        #   shard 1 -> 121 tests, 9m36
+        #   shard 2 -> 111 tests, 6m54
+        #   shard 3 -> 110 tests, 6m20
+        # Per-test cost is NOT uniform — 111 tests took 6m54 while 121 took 9m36 —
+        # so counting tests UNDERSTATES the largest shard. A count-balanced split is
+        # the best `--shard` can do; balancing by duration would mean splitting the
+        # slow spec files themselves. Predicting from test count alone was wrong by
+        # ~40% here, so trust a measured run over the arithmetic.
+        shard: [1, 2, 3]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      # ui-critical-fast publishes a run-scoped artifact (not actions/cache) so
+      # all three shards can reuse webpack state without competing for the
+      # shared 10 GB cache budget. Server processes and reports stay isolated.
+      # continue-on-error: a missing artifact must not fail the shard — cold build
+      # remains the correct fallback when critical skipped or published nothing.
+      - name: Restore isolated Next.js build cache
+        if: needs.ui-critical-fast.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-cache-${{ github.run_id }}
+          path: .next-playwright/ci-production/dist/cache
+
       - name: Chromium production journeys
-        run: npm run test:e2e:pr
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-production
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
+        run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/3
 
       - name: Classify exact failed test identities
         if: failure()
@@ -262,7 +599,9 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: production-ui-diagnostics-${{ github.run_id }}
+          # Shard-scoped: upload-artifact v7 runs with `overwrite: false`, so a
+          # shared name would make the second failing shard fail on upload.
+          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/
@@ -273,13 +612,22 @@ jobs:
   ui-advisory:
     name: Advisory UI
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    # Also requires something for this lane to actually cover (#137). It runs
+    # `@quarantine` + `@mockup`; with an empty flake ledger and no `@quarantine`
+    # tag in the suite it was spending ~3m14 on every UI PR to run five mockup
+    # tests. `advisory_ui_changed` is true when a mockup surface changed or the
+    # flake ledger is non-empty, so quarantining a test brings the lane straight
+    # back without anyone remembering to re-enable it.
+    if: >
+      github.event_name == 'pull_request' &&
+      needs.changes.outputs.ui_changed == 'true' &&
+      needs.changes.outputs.advisory_ui_changed == 'true'
     continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -303,6 +651,84 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  # Pixel baselines (tests/ui-visual-baseline.spec.ts). Advisory on purpose, and NOT
+  # part of `pr-required`:
+  #   - Baselines are platform-specific, so the FIRST run on a platform with no
+  #     committed baseline fails with "snapshot doesn't exist" by design. Adopt the
+  #     images from this job's artifact — never from a developer machine, or font
+  #     hinting alone makes every later run red.
+  #   - Pixel comparison needs a soak before it can block a merge; this repo has
+  #     already paid for a sub-pixel rounding flake (the min-h-11 -> min-h-12 change).
+  # Promote to a required check by adding it to `pr-required` once the baselines have
+  # held across a few runs, and drop `continue-on-error` at the same time.
+  visual-baseline:
+    name: Visual baselines (advisory)
+    needs: changes
+    if: needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Chromium visual baselines
+        run: npm run test:e2e:visual
+
+      # The actual/diff/expected PNGs live here. On a first run these are the images
+      # to commit as the baseline; on a later run they are the evidence of what moved.
+      - name: Upload visual diffs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-baseline-${{ github.run_id }}
+          path: |
+            test-results/
+            tests/__screenshots__/
+          if-no-files-found: ignore
+
+  # Pre-merge performance budget against a LOCAL production build, graded relative to
+  # the committed baseline in lighthouse-budget.json. Advisory until that baseline
+  # exists and `enforce` is flipped to true — see the notes in that file.
+  #
+  # Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed
+  # origin for ledger #017 and by then cannot stop a regression from merging. Uses no
+  # secrets and no providers: the server runs in demo mode with inert loopback
+  # Supabase values, exactly like the Playwright runner.
+  lighthouse-budget:
+    name: Lighthouse budget (advisory)
+    needs: changes
+    if: needs.changes.outputs.ui_changed == 'true' || needs.changes.outputs.build_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Lighthouse drives the Chrome that ships in the ubuntu-24.04 runner image, so
+      # no browser install is needed here (matching live-web-vitals.yml).
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Measure routes and grade against the baseline
+        run: npm run verify:lighthouse -- --keep --dir lighthouse
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: lighthouse-budget-${{ github.run_id }}
+          path: lighthouse/
+          if-no-files-found: ignore
+
   db-reset-verify:
     name: Migration replay
     needs: changes
@@ -311,7 +737,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -372,7 +798,11 @@ jobs:
 
   pr-required:
     name: PR required
-    needs: [changes, static-pr, safety, coverage, build, ui-critical, db-reset-verify]
+    needs:
+      [changes, static-pr, safety, coverage, build, container-images, ui-critical-fast, ui-critical, db-reset-verify]
+    # #095: keep `if: always()` — a skipped required check counts as PASSING
+    # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
+    # Cancelled vs failure is distinguished in the script below (PR #1409).
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -384,32 +814,73 @@ jobs:
           UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
+          CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
+          EVENT_NAME: ${{ github.event_name }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           STATIC_RESULT: ${{ needs.static-pr.result }}
           SAFETY_RESULT: ${{ needs.safety.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          CONTAINER_RESULT: ${{ needs.container-images.result }}
+          UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
           set -euo pipefail
 
-          require_success() {
+          # A cancelled job proves nothing, so it must never report success — relaxing that is
+          # exactly what #095's stop rule forbids, and `if: always()` above is deliberate: a
+          # skipped required check counts as PASSING on GitHub, so skipping this aggregate on
+          # cancellation would make a manually-cancelled run mergeable with nothing verified.
+          #
+          # But a cancelled result is not a real failure either, and reporting it as an
+          # indistinguishable red has a measured cost: `cancel-in-progress` supersedes an
+          # in-flight run on every push, and one 2026-07-30 session spent four separate
+          # investigations on `::error::changes result was cancelled` before recognising it —
+          # while a docs-only PR merged straight through a red it had learned to ignore.
+          # So the result stays red and the reason stops being ambiguous.
+          #
+          # This reads each job's own `cancelled` result rather than the workflow-level
+          # cancelled status function. An earlier revision passed that function through an env
+          # value, which is INVALID: GitHub allows the status-check functions (success, failure,
+          # cancelled, always) only in `if:` conditions, so the whole workflow file failed to
+          # parse — the run was named `.github/workflows/ci.yml` instead of `CI` and created zero
+          # jobs. Valid YAML, invalid Actions schema, so prettier and every local gate passed it;
+          # `tests/ci-cache-safety.test.ts` now guards the rule directly. Note the interpolation
+          # syntax is deliberately not written out even here, because expressions are evaluated
+          # inside `run:` blocks too — a comment naming it would reproduce the same parse failure.
+          # The per-result check loses nothing: a superseded run cancels the upstream jobs, so
+          # they are all reported below.
+          #
+          # Both lists are collected before anything is reported, and GENUINE FAILURES WIN. A run
+          # can be cancelled AND broken at once — e.g. `safety` cancelled while `build` had already
+          # failed — and exiting on the first non-success would announce "not a real failure" while
+          # hiding the break. That is worse than the ambiguity this change set out to remove, so a
+          # cancellation is only ever the headline when nothing actually failed. Reported by Codex
+          # on PR #1409.
+          failures=()
+          cancellations=()
+
+          record() {
             local name="$1"
             local result="$2"
-            if [ "$result" != "success" ]; then
-              echo "::error::$name result was $result"
-              exit 1
+            local skipped_ok="$3"
+            if [ "$result" = "success" ]; then return 0; fi
+            if [ "$skipped_ok" = "true" ] && [ "$result" = "skipped" ]; then return 0; fi
+            if [ "$result" = "cancelled" ]; then
+              cancellations+=("$name")
+            else
+              failures+=("$name result was $result")
             fi
+            return 0
+          }
+
+          require_success() {
+            record "$1" "$2" false
           }
 
           require_skipped_or_success() {
-            local name="$1"
-            local result="$2"
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "::error::$name result was $result"
-              exit 1
-            fi
+            record "$1" "$2" true
           }
 
           require_success "changes" "$CHANGES_RESULT"
@@ -433,9 +904,21 @@ jobs:
             require_skipped_or_success "build" "$BUILD_RESULT"
           fi
 
+          if [ "$CONTAINER_CHANGED" = "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
+            require_success "container-images" "$CONTAINER_RESULT"
+          else
+            require_skipped_or_success "container-images" "$CONTAINER_RESULT"
+          fi
+
           if [ "$UI_CHANGED" = "true" ]; then
+            if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
+              require_success "production-ui-critical" "$UI_FAST_RESULT"
+            else
+              require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
+            fi
             require_success "production-ui" "$UI_RESULT"
           else
+            require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
             require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
 
@@ -445,17 +928,52 @@ jobs:
             require_skipped_or_success "db-reset-verify" "$DB_RESULT"
           fi
 
+          # A real break is always the headline. Every failure is listed, not just the first, and a
+          # concurrent cancellation is demoted to context so it cannot read as an excuse.
+          if [ ${#failures[@]} -gt 0 ]; then
+            for entry in "${failures[@]}"; do
+              echo "::error::$entry"
+            done
+            if [ ${#cancellations[@]} -gt 0 ]; then
+              echo "::warning::also cancelled: ${cancellations[*]} — the failures above are real" \
+                "and must be fixed regardless."
+            fi
+            exit 1
+          fi
+
+          # Cancelled with nothing failing. Stays RED, because a cancelled job verified nothing,
+          # but the cause is stated as the two possibilities rather than asserted as supersession:
+          # a hand-cancelled run on the current head has no newer run to look at.
+          if [ ${#cancellations[@]} -gt 0 ]; then
+            echo "::error::CANCELLED with no failing job: ${cancellations[*]}. Nothing here" \
+              "describes the diff, so this is not a broken change — but a cancelled job verified" \
+              "nothing, so it cannot go green either. Usually a newer push superseded this run" \
+              "(cancel-in-progress); look for a newer 'PR required' run on the PR's current head" \
+              "SHA. If there is none, this run was cancelled by hand and must be re-run rather" \
+              "than merged past."
+            exit 1
+          fi
+
           echo "Required in-scope PR checks passed."
 
+  # Firefox/WebKit matrix must not wait on pr-required: a blocking weekly
+  # dependency audit (full-run sentinel sets lockfile_changed) previously
+  # skipped the matrix entirely while Chromium UI was already green (#023).
   release-browser-matrix:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-    needs: [pr-required]
+    if: >
+      always() &&
+      (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) &&
+      needs.changes.result == 'success' &&
+      needs.static-pr.result == 'success' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.ui-critical.result == 'success' || needs.ui-critical.result == 'skipped')
+    needs: [changes, static-pr, build, ui-critical]
     runs-on: ubuntu-24.04
     timeout-minutes: 70
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -481,6 +999,10 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # Prefix fallback so a lockfile bump does not force a cold download of all
+          # four browsers; `playwright install` below still fetches any missing version.
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Playwright browsers
         run: |

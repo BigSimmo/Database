@@ -2,6 +2,7 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 import { type LucideIcon, ArrowRight } from "lucide-react";
 
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export type ModeHomeAction = {
@@ -76,13 +77,13 @@ export function ModeHomeHero({
       className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
-      <span className="mode-home-icon grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
+      <span className="mode-home-icon grid h-tap w-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
         <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
       </span>
       <div className="grid gap-1 sm:gap-1.5">
         <Heading
           id={`${testId ?? "mode-home"}-title`}
-          className="text-balance text-hero font-extrabold leading-[1.05] tracking-normal text-[color:var(--text-heading)]"
+          className="text-balance text-hero font-extrabold leading-display tracking-normal text-[color:var(--text-heading)]"
         >
           {title}
         </Heading>
@@ -95,25 +96,60 @@ export function ModeHomeHero({
 }
 
 /**
- * Standalone-route wrapper that mirrors the dashboard's vertically centred
- * mode homes: full-height, centred content. The shell reserves composer
- * clearance via --mobile-composer-reserve on #main-content.
+ * Vertical alignment for standalone mode-home shells.
+ *
+ * Introduced as always-`justify-center` flex in 39d14a51 (edge-to-edge mobile
+ * shell). That works for short empty homes, but centering a child taller than
+ * the phone scrollport clips the top — unreachable at scrollTop 0.
+ *
+ * Prefer this prop over className `justify-*` overrides: `cn()` concatenates
+ * and does not resolve Tailwind conflicts, so dual justify utilities are
+ * non-deterministic. Alignment classes are applied last and any stray
+ * `justify-*` tokens in `className` are stripped.
+ */
+export type ModeHomeMainAlign = "center" | "start" | "startOnPhone";
+
+const MODE_HOME_MAIN_ALIGN_CLASS: Record<ModeHomeMainAlign, string> = {
+  // Short empty homes — centre in the visible canvas.
+  center: "justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
+  // Tall results / content — keep the top reachable on every breakpoint.
+  start: "justify-start pt-3 sm:pt-4",
+  // Content-rich homes that still fit after sm — top-align on phone only.
+  startOnPhone: "justify-start pt-3 sm:justify-center sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
+};
+
+/** Strip bare and prefixed justify utilities (`sm:justify-center`, `max-sm:justify-start`, …). */
+function withoutJustifyUtilities(className?: string) {
+  if (!className) return undefined;
+  const cleaned = className
+    .replace(/(?:^|\s)(?:[\w-]+:)*justify-(?:normal|start|end|center|between|around|evenly|stretch)(?=\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || undefined;
+}
+
+/**
+ * Standalone-route wrapper that mirrors the dashboard mode homes. The shell
+ * reserves composer clearance via --mobile-composer-reserve on #main-content.
  */
 export function ModeHomeMain({
   testId,
   children,
   className,
+  contentAlign = "center",
 }: {
   testId?: string;
   children: ReactNode;
   className?: string;
+  contentAlign?: ModeHomeMainAlign;
 }) {
   return (
     <main
       data-testid={testId}
       className={cn(
-        "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
-        className,
+        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        withoutJustifyUtilities(className),
+        MODE_HOME_MAIN_ALIGN_CLASS[contentAlign],
       )}
     >
       {children}
@@ -121,26 +157,38 @@ export function ModeHomeMain({
   );
 }
 
+// One quiet line of text. Deliberately no icon and no accent colour: a shield
+// (and especially a ShieldCheck) reads as "verified", which several of these
+// footers must not assert — validation status varies per document and is
+// surfaced on the results themselves. Hierarchy comes from weight alone, so the
+// label half (capability) carries the emphasis rather than the body half (caveat).
+//
+// Modes whose footer said only what the mode does, with no caveat, no longer
+// render this at all; the remaining call sites are the ones whose `body` is a
+// genuine review-before-use instruction.
 export function ModeHomeVerificationFooter({
-  icon: Icon,
   label,
   body,
   verifiedCount,
   totalCount,
 }: {
-  icon: LucideIcon;
   label: string;
   body: string;
   verifiedCount?: number;
   totalCount?: number;
 }) {
   return (
-    <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:pt-1 sm:text-sm">
-      <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-        {label}
+    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
+      {/* The separator is bound to the label as one non-breaking flex item.
+          As three independent items it could wrap alone: measured at 390px,
+          five of the nine footers wrapped and every one stranded the dot on
+          the line above the clause it joins. */}
+      <span className="whitespace-nowrap font-medium text-[color:var(--text-heading)]">
+        {label}{" "}
+        <span className="font-normal text-[color:var(--text-muted)]" aria-hidden="true">
+          ·
+        </span>
       </span>
-      <span aria-hidden="true">•</span>
       <span>{body}</span>
       {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
         <span className="sr-only">
@@ -157,13 +205,18 @@ export function ModeHomeStatusNotice({
   body,
   actionHref,
   actionLabel,
+  onAction,
 }: {
   icon: LucideIcon;
   title: string;
   body: string;
   actionHref?: string;
   actionLabel?: string;
+  /** Renders the action as a button (e.g. Retry) instead of a navigation link. */
+  onAction?: () => void;
 }) {
+  const actionClass =
+    "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9";
   return (
     <div className="mx-auto grid max-w-xl gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center">
       <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
@@ -173,11 +226,12 @@ export function ModeHomeStatusNotice({
         <span className="text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
         <span className="text-sm leading-5 text-[color:var(--text-muted)]">{body}</span>
       </span>
-      {actionHref && actionLabel ? (
-        <Link
-          href={actionHref}
-          className="inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] lg:min-h-9"
-        >
+      {onAction && actionLabel ? (
+        <button type="button" onClick={onAction} className={actionClass}>
+          {actionLabel}
+        </button>
+      ) : actionHref && actionLabel ? (
+        <Link href={actionHref} className={actionClass}>
           {actionLabel}
         </Link>
       ) : null}
@@ -211,7 +265,7 @@ export function ModeHomeTemplate({
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
       {desktopComposerSlotId ? (
-        <div
+        <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
           className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
         />
@@ -220,20 +274,20 @@ export function ModeHomeTemplate({
       {actions?.length ? (
         <section
           aria-label={actionsLabel}
-          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] sm:gap-3 sm:overflow-visible sm:rounded-xl sm:border sm:shadow-[var(--shadow-card)] lg:rounded-none lg:border-0 lg:bg-transparent lg:shadow-none"
+          className="grid w-full max-w-none overflow-hidden rounded-none border-y border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-card)] sm:max-w-none sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))] sm:gap-3 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none"
         >
           {actions.map((action, index) => {
             const ActionIcon = action.icon;
             const content = (
               <>
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11 sm:rounded-xl">
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-tap sm:w-tap sm:rounded-xl">
                   <ActionIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-balance text-base-minus font-bold leading-5 text-[color:var(--text-heading)] [overflow-wrap:anywhere]">
                     {action.title}
                   </span>
-                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-[1.3]">
+                  <span className="mt-1 block text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm-minus sm:leading-tight">
                     {action.description}
                   </span>
                 </span>
@@ -244,8 +298,11 @@ export function ModeHomeTemplate({
               </>
             );
             const actionClassName = cn(
-              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.75rem] sm:grid-cols-[2.75rem_minmax(0,1fr)_1rem] sm:gap-3 sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3.5 sm:shadow-[var(--shadow-card)] lg:min-h-[4.75rem] lg:px-5",
-              index > 0 && "border-t border-[color:var(--border)] sm:border-t-[color:var(--border)]",
+              "mode-home-action group grid min-h-[4.4rem] w-full grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] items-center gap-3 bg-[color:var(--surface)] px-4 py-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:relative focus-visible:z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 sm:min-h-[4.4rem] sm:grid-cols-[2.5rem_minmax(0,1fr)_1.25rem] sm:rounded-lg sm:border sm:border-[color:var(--border)] sm:px-4 sm:py-3 sm:shadow-[var(--shadow-card)] lg:min-h-[4.75rem] lg:grid-cols-[2.75rem_minmax(0,1fr)_1rem] lg:gap-3 lg:px-5 lg:py-3.5",
+              // Phone stack separator only — the action grid becomes multi-column
+              // at `sm`, where each action also becomes its own bordered card,
+              // so do not keep a top edge that would double the card border.
+              index > 0 && "max-sm:border-t max-sm:border-[color:var(--border)]",
             );
 
             if (action.href) {

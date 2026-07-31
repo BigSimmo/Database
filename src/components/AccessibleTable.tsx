@@ -98,8 +98,8 @@ function AccessibleTableMarkup({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
-        expanded && "max-h-[calc(100dvh-8.5rem)] rounded-none border-0 sm:rounded-lg sm:border",
+        "@container overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+        expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
       {caption && !(hidePreviewCaption && !expanded) ? (
@@ -112,7 +112,7 @@ function AccessibleTableMarkup({
           {caption}
         </div>
       ) : null}
-      <div className="overflow-x-auto">
+      <div className={cn("overflow-x-auto", expanded && "flex-1 min-h-0")}>
         <table
           aria-label={caption ?? undefined}
           className={cn(
@@ -216,7 +216,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             renderDensePreview
                               ? "sr-only"
-                              : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                              : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                             textMuted,
                           )}
                         >
@@ -250,7 +250,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           renderDensePreview
                             ? "sr-only"
-                            : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                            : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                           textMuted,
                         )}
                       >
@@ -458,9 +458,9 @@ export function AccessibleTable({
         portal
         testId="table-fullscreen-dialog"
         contentClassName="sm:max-w-none"
-        bodyClassName="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-3"
+        bodyClassName="py-3 pb-[max(1rem,env(safe-area-inset-bottom))] modal-landscape-container sm:p-3"
       >
-        <div>
+        <div className="flex flex-col h-full">
           {lowConfidence ? (
             <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
               {showFallback

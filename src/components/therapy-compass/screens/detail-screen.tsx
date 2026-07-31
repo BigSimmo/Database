@@ -12,6 +12,7 @@ import {
   ChecklistIcon,
   ChevronRightIcon,
   ClockIcon,
+  CompassIcon,
   CrosshairIcon,
   DatabaseIcon,
   FileTextIcon,
@@ -19,7 +20,6 @@ import {
   PersonIcon,
   ScaleIcon,
   ShieldIcon,
-  TargetIcon,
 } from "../icons";
 import { Eyebrow, LoadingState, StatusBadge, TagRow } from "../ui";
 
@@ -152,7 +152,7 @@ export function DetailScreen() {
           <div className={`${card} tc-detail-rail-card`}>
             <div className="tc-screens-detail-screen-018">At a glance</div>
             <div className="tc-screens-detail-screen-019">
-              <GlanceRow icon={TargetIcon} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
+              <GlanceRow icon={CompassIcon} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
               <GlanceRow
                 icon={ClockIcon}
                 title="Time & setting"

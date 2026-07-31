@@ -10,6 +10,11 @@ import JSZip from "jszip";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
 import {
+  assertDeclaredDocxMediaBudget,
+  assertDeclaredDocxTextBudget,
+  DocxExtractionBudgetTracker,
+} from "@/lib/extractors/docx-extraction-budget";
+import {
   assertExtractedPdfBudget,
   isPdfExtractionResourceError,
   PDF_EXTRACTION_BUDGET,
@@ -17,6 +22,8 @@ import {
   PdfExtractionResourceError,
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
+import { XlsxExtractionBudgetTracker } from "@/lib/extractors/xlsx-extraction-budget";
+import { resolvePythonBin } from "@/lib/python-bin";
 
 const extractedPageSchema = z.object({
   pageNumber: z.number().int().positive(),
@@ -55,27 +62,76 @@ export function parseExtractedDocumentPayload(raw: string): ExtractedDocument {
   return extractedDocumentSchema.parse(JSON.parse(raw));
 }
 
+export function isUsableFallbackPdfImage(image: {
+  data?: Uint8Array | null;
+  width?: number | null;
+  height?: number | null;
+}) {
+  return (
+    Boolean(image.data?.byteLength) &&
+    typeof image.width === "number" &&
+    Number.isInteger(image.width) &&
+    image.width > 0 &&
+    typeof image.height === "number" &&
+    Number.isInteger(image.height) &&
+    image.height > 0
+  );
+}
+
+class PdfExtractorProcessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PdfExtractorProcessError";
+  }
+}
+
+function isRecoverableFallbackPdfImageError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /^Image object .+(?:: (?:data field is empty or invalid|data buffer is empty)| not found)/.test(error.message);
+}
+
 export async function terminateProcessTree(child: ChildProcess) {
-  if (!child.pid || child.exitCode !== null) return;
+  const pid = child.pid;
+  if (!pid) return;
+
   if (process.platform === "win32") {
     await new Promise<void>((resolve) => {
-      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+      const killer = spawn("taskkill", ["/pid", String(pid), "/t", "/f"], {
         stdio: "ignore",
         windowsHide: true,
       });
       killer.once("error", () => {
-        child.kill("SIGKILL");
+        if (child.exitCode === null) child.kill("SIGKILL");
         resolve();
       });
       killer.once("close", () => resolve());
     });
     return;
   }
+
+  // Always attempt a process-group kill first. Skipping when `exitCode` is set
+  // left detached grandchildren alive after the leader had already exited.
   try {
-    process.kill(-child.pid, "SIGKILL");
+    process.kill(-pid, "SIGKILL");
   } catch {
-    child.kill("SIGKILL");
+    if (child.exitCode === null) {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
   }
+
+  if (child.exitCode !== null) return;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 1_000);
+    timer.unref();
+    child.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 export async function runPythonPdfExtractor(
@@ -90,16 +146,12 @@ export async function runPythonPdfExtractor(
   await writeFile(budgetPath, JSON.stringify(limits), "utf8");
 
   return new Promise<ExtractedDocument>((resolve, reject) => {
-    const child = spawn(
-      process.env.PYTHON_BIN || "python",
-      [scriptPath, filePath, outputDir, outputJsonPath, budgetPath],
-      {
-        cwd: process.cwd(),
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: process.platform !== "win32",
-        windowsHide: true,
-      },
-    );
+    const child = spawn(resolvePythonBin(), [scriptPath, filePath, outputDir, outputJsonPath, budgetPath], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
+      windowsHide: true,
+    });
 
     let stdout = "";
     let stderr = "";
@@ -134,7 +186,7 @@ export async function runPythonPdfExtractor(
       if (stderr.length < 1024 * 1024) stderr += chunk.toString();
     });
     child.once("error", (error) => finish(() => reject(error)));
-    child.on("close", async (code) => {
+    child.on("close", async (code, signal) => {
       await terminationPromise;
       if (deadlineExceeded) {
         finish(() =>
@@ -154,6 +206,14 @@ export async function runPythonPdfExtractor(
               "PDF_EXTRACTION_BUDGET_EXCEEDED",
               `extractor stdout exceeded ${limits.maxResultBytes} bytes`,
             ),
+          ),
+        );
+        return;
+      }
+      if (signal || code === 137) {
+        finish(() =>
+          reject(
+            new PdfExtractorProcessError(stderr || `PDF extractor exited with code ${code} (${signal || "SIGKILL"})`),
           ),
         );
         return;
@@ -200,6 +260,46 @@ function extractJsonFromStdout(stdout: string) {
   return stdout.slice(start, end + 1);
 }
 
+function directPdfDictionaryInteger(dictionary: string, key: "Width" | "Height") {
+  const match = dictionary.match(new RegExp(`/${key}\\s+(\\d+)(?:\\s+(\\d+)\\s+R)?\\b`));
+  if (!match || match[2] !== undefined) return null;
+  return Number(match[1]);
+}
+
+/**
+ * pdf.js 5 can silently remove an image that exceeds maxImageSize instead of
+ * surfacing its worker error. Check ordinary direct image dictionaries too so
+ * the ingestion contract still receives a classified resource-budget failure.
+ * The parser ceiling remains the fail-safe for compressed or indirect objects.
+ */
+function assertDeclaredPdfImageDimensions(buffer: Buffer, limits: PdfExtractionBudget) {
+  const subtypeMarker = Buffer.from("/Subtype", "latin1");
+  const dictionaryStartMarker = Buffer.from("<<", "latin1");
+  const dictionaryEndMarker = Buffer.from(">>", "latin1");
+  const maxDictionaryBytes = 64 * 1024;
+  let offset = 0;
+  const budget = new PdfExtractionBudgetTracker(limits);
+
+  while (offset < buffer.length) {
+    const subtypeOffset = buffer.indexOf(subtypeMarker, offset);
+    if (subtypeOffset === -1) return;
+    offset = subtypeOffset + subtypeMarker.length;
+    const candidateStart = Math.max(0, subtypeOffset - maxDictionaryBytes);
+    const relativeDictionaryStart = buffer.subarray(candidateStart, subtypeOffset).lastIndexOf(dictionaryStartMarker);
+    if (relativeDictionaryStart === -1) continue;
+    const dictionaryStart = candidateStart + relativeDictionaryStart;
+    const candidateEnd = Math.min(buffer.length, dictionaryStart + maxDictionaryBytes + dictionaryEndMarker.length);
+    const relativeDictionaryEnd = buffer.subarray(offset, candidateEnd).indexOf(dictionaryEndMarker);
+    if (relativeDictionaryEnd === -1) continue;
+    const dictionaryEnd = offset + relativeDictionaryEnd;
+    const dictionary = buffer.subarray(dictionaryStart, dictionaryEnd + dictionaryEndMarker.length).toString("latin1");
+    if (!/\/Subtype\s*\/Image\b/.test(dictionary)) continue;
+    const width = directPdfDictionaryInteger(dictionary, "Width");
+    const height = directPdfDictionaryInteger(dictionary, "Height");
+    if (width !== null && height !== null) budget.assertRenderDimensions(width, height);
+  }
+}
+
 export async function extractPdf(
   buffer: Buffer,
   options: { limits?: PdfExtractionBudget; scriptPathOverride?: string } = {},
@@ -215,16 +315,28 @@ export async function extractPdf(
     const extracted = await runPythonPdfExtractor(pdfPath, imageDir, limits, options.scriptPathOverride);
     return { ...extracted, temporaryPaths: [tempRoot] };
   } catch (error) {
-    if (isPdfExtractionResourceError(error)) {
+    if (isPdfExtractionResourceError(error) || error instanceof PdfExtractorProcessError) {
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }
     // Fallback for developer machines without PyMuPDF/pytesseract. It still
     // indexes text PDFs, but scanned PDFs and image extraction need the Python
     // helper dependencies listed in worker/python/requirements.txt.
-    const parser = new PDFParse({ data: buffer });
+    const textParser = new PDFParse({
+      data: buffer,
+      maxImageSize: limits.maxRenderPixels,
+    });
+    const imageParser = new PDFParse({
+      data: buffer,
+      maxImageSize: limits.maxRenderPixels,
+      // pdf.js only raises its pre-decode maxImageSize rejection when parse
+      // errors are not ignored. Scope this to image extraction so unrelated
+      // recoverable PDF errors do not block text fallback extraction.
+      stopAtErrors: true,
+    });
     try {
-      const parsed = await parser.getText();
+      assertDeclaredPdfImageDimensions(buffer, limits);
+      const parsed = await textParser.getText();
       const budget = new PdfExtractionBudgetTracker(limits);
       const rawPages: ExtractedPage[] =
         parsed.pages.length > 0
@@ -237,17 +349,29 @@ export async function extractPdf(
       for (const page of rawPages) budget.addPage(page.text);
 
       const images: ExtractedDocument["images"] = [];
+      const imageCountByPage = new Map<number, number>();
+      const malformedImagePages = new Set<number>();
       // Extract one page at a time so aggregate limits can stop subsequent decoding, and
       // request only binary data to avoid holding a duplicate base64 representation.
       for (const rawPage of rawPages) {
-        const imageResult = await parser.getImage({
-          partial: [rawPage.pageNumber],
-          imageBuffer: true,
-          imageDataUrl: false,
-          imageThreshold: 20,
-        });
+        let imageResult: Awaited<ReturnType<PDFParse["getImage"]>>;
+        try {
+          imageResult = await imageParser.getImage({
+            partial: [rawPage.pageNumber],
+            imageBuffer: true,
+            imageDataUrl: false,
+            imageThreshold: 20,
+          });
+        } catch (imageError) {
+          if (!isRecoverableFallbackPdfImageError(imageError)) throw imageError;
+          imageCountByPage.set(rawPage.pageNumber, (imageCountByPage.get(rawPage.pageNumber) ?? 0) + 1);
+          malformedImagePages.add(rawPage.pageNumber);
+          continue;
+        }
         for (const page of imageResult.pages) {
+          imageCountByPage.set(page.pageNumber, (imageCountByPage.get(page.pageNumber) ?? 0) + page.images.length);
           for (const [index, image] of page.images.entries()) {
+            if (!isUsableFallbackPdfImage(image)) continue;
             budget.assertRenderDimensions(image.width, image.height);
             budget.assertArtifact(image.data.byteLength);
             const mimeType = "image/png";
@@ -269,7 +393,8 @@ export async function extractPdf(
           }
         }
       }
-      await parser.destroy();
+      await textParser.destroy();
+      await imageParser.destroy();
 
       // IDX-H3: the JS fallback cannot OCR. A scanned / image-only page yields little or no
       // embedded text, so without flagging it the document would index as near-empty yet still
@@ -277,12 +402,6 @@ export async function extractPdf(
       // below-threshold text as needsOcr so index_quality surfaces it (and the worker refuses
       // to mark an image-only PDF as fully indexed).
       const JS_FALLBACK_MIN_TEXT_CHARS = 40;
-      const imageCountByPage = new Map<number, number>();
-      for (const image of images) {
-        if (image.pageNumber === null) continue;
-        imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
-      }
-
       const pages: ExtractedPage[] = rawPages.map((page) => {
         const textLength = page.text.trim().length;
         const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
@@ -291,6 +410,11 @@ export async function extractPdf(
       });
 
       const warnings = ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."];
+      if (malformedImagePages.size > 0) {
+        warnings.push(
+          `malformed_fallback_images: skipped unusable image data on ${malformedImagePages.size} page(s); review or OCR sparse pages.`,
+        );
+      }
       const ocrNeededPages = pages.filter((page) => page.needsOcr).length;
       if (ocrNeededPages > 0) {
         warnings.push(`needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`);
@@ -300,25 +424,44 @@ export async function extractPdf(
       budget.assertResult(JSON.stringify(result));
       return result;
     } catch (fallbackError) {
-      await parser.destroy().catch(() => undefined);
+      await textParser.destroy().catch(() => undefined);
+      await imageParser.destroy().catch(() => undefined);
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+      if (fallbackError instanceof Error && fallbackError.message.includes("Image exceeded maximum allowed size")) {
+        throw new PdfExtractionResourceError(
+          "PDF_EXTRACTION_BUDGET_EXCEEDED",
+          `embedded image exceeds ${limits.maxRenderPixels} pixels`,
+        );
+      }
       throw fallbackError;
     }
   }
 }
 
 async function extractDocx(buffer: Buffer) {
-  const raw = await mammoth.extractRawText({ buffer });
+  const budget = new DocxExtractionBudgetTracker();
   const zip = await JSZip.loadAsync(buffer);
+  const wordXml = Object.keys(zip.files)
+    .filter((name) => name.startsWith("word/") && name.endsWith(".xml"))
+    .map((name) => zip.files[name])
+    .filter((entry) => !entry.dir);
+  assertDeclaredDocxTextBudget(wordXml);
+  const media = Object.keys(zip.files)
+    .filter((name) => name.startsWith("word/media/"))
+    .map((name) => [name, zip.files[name]] as const)
+    .filter((entry) => !entry[1].dir);
+  assertDeclaredDocxMediaBudget(media.map((entry) => entry[1]));
+
+  const raw = await mammoth.extractRawText({ buffer });
+  budget.assertText(raw.value || "");
+
   const tempRoot = await mkdtemp(path.join(tmpdir(), "clinical-kb-docx-"));
   const images: ExtractedDocument["images"] = [];
 
   try {
-    const media = Object.keys(zip.files).filter((name) => name.startsWith("word/media/"));
-    for (const [index, name] of media.entries()) {
-      const file = zip.files[name];
-      if (file.dir) continue;
+    for (const [index, [name, file]] of media.entries()) {
       const bytes = await file.async("nodebuffer");
+      budget.addArtifact(bytes.byteLength);
       const ext = path.extname(name).toLowerCase() || ".png";
       // Map the actual media extension to its real MIME type. Previously every
       // non-jpg/webp extension (including .emf/.wmf/.tiff/.bmp/.gif vector and
@@ -366,18 +509,34 @@ async function extractDocx(buffer: Buffer) {
 async function extractXlsx(buffer: Buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-  const pages = workbook.worksheets.map((sheet, index) => {
-    const rows: string[] = [];
+  const budget = new XlsxExtractionBudgetTracker();
+  budget.assertSheetCount(workbook.worksheets.length);
+  const pages: ExtractedPage[] = [];
+
+  for (const [index, sheet] of workbook.worksheets.entries()) {
+    const heading = `Sheet: ${sheet.name}`;
+    const textParts = [heading, "\n"];
+    budget.addText(heading);
+    budget.addText("\n");
+    let rowIndex = 0;
     sheet.eachRow({ includeEmpty: false }, (row) => {
+      budget.addRow(row.cellCount);
       const values = Array.isArray(row.values) ? row.values.slice(1) : [];
-      rows.push(values.map((value) => String(value ?? "")).join(","));
+      const rowText = values.map((value) => String(value ?? "")).join(",");
+      if (rowIndex > 0) {
+        budget.addText("\n");
+        textParts.push("\n");
+      }
+      budget.addText(rowText);
+      textParts.push(rowText);
+      rowIndex += 1;
     });
-    return {
+    pages.push({
       pageNumber: index + 1,
-      text: `Sheet: ${sheet.name}\n${rows.join("\n")}`,
+      text: textParts.join(""),
       ocrUsed: false,
-    };
-  });
+    });
+  }
 
   return { pages, images: [] } satisfies ExtractedDocument;
 }

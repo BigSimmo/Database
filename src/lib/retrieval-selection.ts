@@ -1,5 +1,6 @@
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
 import {
+  hasMedicationMonitoringSubjectEvidence,
   medicationDoseEvidenceQueryIntent,
   medicationDoseQueryContext,
   medicationDoseQuerySubjectTokens,
@@ -231,22 +232,21 @@ function signalMatchesText(signal: string, text: string) {
     case "anc":
       return /\b(?:anc|neutrophil|neutrophils)\b/.test(text);
     case "fbc":
-      return /\b(?:fbc|full blood count|blood count)\b/.test(text);
+      return (
+        /\b(?:fbc|full blood count|blood count)\b/.test(text) ||
+        (/\b(?:wbc|wcc|white blood cells?)\b/.test(text) && /\b(?:anc|neutrophils?)\b/.test(text))
+      );
     default:
       return text.includes(signal);
   }
 }
 
-function medicationClinicalSubjectMatches(query: string, result: SearchResult, normalizedEvidenceText: string) {
+function medicationClinicalSubjectMatches(query: string, result: SearchResult) {
   const doseIntent = medicationDoseEvidenceQueryIntent(query);
   if (doseIntent.asksAmount || doseIntent.asksRoute || doseIntent.asksFrequency) {
     return medicationDoseQueryContext(query, result).matched;
   }
-  const subjectTokens = medicationMonitoringQuerySubjectTokens(query);
-  if (!subjectTokens.length) return true;
-  const evidenceTokens = new Set(normalizedEvidenceText.split(" "));
-  const hitCount = subjectTokens.filter((token) => evidenceTokens.has(token)).length;
-  return hitCount >= Math.min(2, subjectTokens.length);
+  return hasMedicationMonitoringSubjectEvidence(query, result);
 }
 
 function matchedSignalsForResult(args: {
@@ -280,7 +280,7 @@ function matchedSignalsForResult(args: {
   if (args.intent.needsDoseRouteFrequency && hasRoute(text)) signals.push("route");
   if (
     args.intent.requiredTermSignals.includes("clinical_subject") &&
-    medicationClinicalSubjectMatches(args.query, args.result, text)
+    medicationClinicalSubjectMatches(args.query, args.result)
   ) {
     signals.push("clinical_subject");
   }
@@ -372,7 +372,10 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     medicationEvidenceIntent.asksAmount || medicationEvidenceIntent.asksRoute || medicationEvidenceIntent.asksFrequency;
   const asksDoseAmount = medicationEvidenceIntent.asksAmount;
   const asksMedicationMonitoring =
-    queryClass === "medication_dose_risk" && /\b(?:monitor\w*|baseline|blood|level)\b/.test(normalizedQuery);
+    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+    /\b(?:monitor\w*|baseline|blood|level|threshold|cut[\s-]?off|range|anc|fbc|neutrophils?|qtc|therapeutic|target|trough|concentration)\b/.test(
+      normalizedQuery,
+    );
   const clinicalSubjectTokens = asksMedicationMonitoring
     ? medicationMonitoringQuerySubjectTokens(query)
     : medicationDoseQuerySubjectTokens(query);
@@ -420,7 +423,7 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     if (medicationEvidenceIntent.asksRoute) requiredTermSignals.push("route");
   }
   if (
-    queryClass === "medication_dose_risk" &&
+    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
     (asksDoseRoute || asksMedicationMonitoring) &&
     clinicalSubjectTokens.length > 0
   ) {
@@ -490,6 +493,16 @@ export function buildRetrievalCandidates(
       // rank already used rankScore; reusing the unbounded value here would compound boosts across
       // passes and reintroduce the measured recall regression guarded below.
       rerankScore: result.score_explanation?.finalScore ?? result.hybrid_score,
+      // Carried ONLY as the last tie-break before chunk id: on the embedding-free fast path,
+      // imputed primaries make clamped score/lexical/rerank ties routine, and a chunk-id tie-break
+      // is arbitrary — the second stage's position-based adjustment then launders that arbitrary
+      // winner into the released order. The key is the clinical rank's QUERY-TERM COVERAGE, not
+      // the boost-laden rankScore: the 2026-07-20 live golden run (eval-canary #50) showed that
+      // breaking saturated ties by rankScore lets generic clinicalSignalBoost stacking outvote the
+      // chunk that actually contains the queried terms (alcohol-ciwa-threshold regressed to FAIL),
+      // which is the same failure mode the clamped-score contract below exists to prevent.
+      // Never added to score.
+      contentCoverageScore: result.score_explanation?.lexicalCoverageScore,
       matchedSignals: [],
       sourceHref: documentCitationHref(citationFromResult(result)),
     };
@@ -602,6 +615,13 @@ export function selectRetrievalEvidence(args: {
     if ((right.lexicalScore ?? 0) !== (left.lexicalScore ?? 0))
       return (right.lexicalScore ?? 0) - (left.lexicalScore ?? 0);
     if ((right.rerankScore ?? 0) !== (left.rerankScore ?? 0)) return (right.rerankScore ?? 0) - (left.rerankScore ?? 0);
+    // Exact tie on every clamped key (routine on the embedding-free fast path, where imputed
+    // primaries are byte-identical and confidences saturate at 1.0): prefer the candidate whose
+    // content actually covers the query's terms over an arbitrary chunk-id ordering. This never
+    // raises any score — it only orders otherwise-indistinguishable candidates, so the measured
+    // clamped-score contract holds, and generic boost stacking cannot outvote query relevance.
+    if ((right.contentCoverageScore ?? 0) !== (left.contentCoverageScore ?? 0))
+      return (right.contentCoverageScore ?? 0) - (left.contentCoverageScore ?? 0);
     return left.chunkId.localeCompare(right.chunkId);
   });
   const selectedCandidates: RetrievalCandidate[] = [];

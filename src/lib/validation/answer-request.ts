@@ -19,18 +19,17 @@ export const answerRequestSchema = z
         message: "Document summary mode requires a document id.",
       });
     }
-    if (value.summaryMode && value.documentId && value.documentIds?.some((id) => id !== value.documentId)) {
+    if (
+      value.summaryMode &&
+      value.documentId &&
+      value.documentIds &&
+      value.documentIds.length > 0 &&
+      (value.documentIds.length !== 1 || value.documentIds[0] !== value.documentId)
+    ) {
       context.addIssue({
         code: "custom",
         path: ["documentIds"],
         message: "Document summary mode only supports the selected document id.",
-      });
-    }
-    if (value.summaryMode && value.documentIds && value.documentIds.length > 1) {
-      context.addIssue({
-        code: "custom",
-        path: ["documentIds"],
-        message: "Document summary mode only supports one document id.",
       });
     }
   });

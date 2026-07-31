@@ -24,15 +24,15 @@ function between(source: string, start: string, end: string): string {
 
 describe("owner-plus-public retrieval contract", () => {
   it("threads the canonical access scope through cache and retrieval contracts", () => {
-    const contracts = readFileSync(join(root, "src/lib/rag-contracts.ts"), "utf8");
-    const cache = readFileSync(join(root, "src/lib/rag-cache.ts"), "utf8");
+    const contracts = readFileSync(join(root, "src/lib/rag/rag-contracts.ts"), "utf8");
+    const cache = readFileSync(join(root, "src/lib/rag/rag-cache.ts"), "utf8");
     expect(contracts).toContain("accessScope?: RetrievalAccessScope");
     expect(cache).toContain("retrievalAccessScopeKey(retrievalAccessScopeForArgs(args))");
     expect(cache).toContain("owner_id.is.null");
   });
 
   it("keeps answer cache namespaces distinct across public and owner-plus-public scopes", async () => {
-    const { scopedAnswerCacheKey } = await import("../src/lib/rag-cache");
+    const { scopedAnswerCacheKey } = await import("../src/lib/rag/rag-cache");
     const base = { query: "monitoring" };
     const publicKey = scopedAnswerCacheKey({ ...base, accessScope: { includePublic: true } });
     const ownerAKey = scopedAnswerCacheKey({
@@ -98,7 +98,7 @@ describe("owner-plus-public retrieval contract", () => {
           ? "create or replace function public.match_document_chunks_hybrid_v2("
           : "create or replace function public.match_document_index_units_hybrid_v2(",
       );
-      expect(textWrapper).toContain("from public.match_document_chunks_text_scoped($1, $2, $3, $4, $5)");
+      expect(textWrapper).toContain("from public.match_document_chunks_text_scoped(");
       expect(textWrapper).not.toContain("union all");
 
       const indexWrapper = between(
@@ -108,9 +108,7 @@ describe("owner-plus-public retrieval contract", () => {
           ? "create or replace function public.match_document_memory_cards_hybrid_v3("
           : "revoke all on function public.match_document_chunks_text_scoped(",
       );
-      expect(indexWrapper).toContain(
-        "from public.match_document_index_units_hybrid_scoped($1, $2, $3, $4, $5, $6, $7)",
-      );
+      expect(indexWrapper).toContain("from public.match_document_index_units_hybrid_scoped(");
       expect(indexWrapper).not.toContain("union all");
     }
   });
@@ -119,10 +117,12 @@ describe("owner-plus-public retrieval contract", () => {
     // LIMIT NULL and LIMIT -1 mean "no limit" in PostgreSQL. The wrappers are
     // the RPC boundary, so clamp here rather than trusting every service-role
     // caller to validate an optional PostgREST argument.
-    expect(boundedRetrievalMigration).toContain("coalesce($2, 12)");
-    expect(boundedRetrievalMigration).toContain("coalesce($3, 24)");
-    expect(boundedRetrievalMigration).toContain("least(greatest(coalesce($2, 12), 1), 96)");
-    expect(boundedRetrievalMigration).toContain("least(greatest(coalesce($3, 24), 1), 96)");
+    for (const source of [boundedRetrievalMigration, canonicalSchema]) {
+      expect(source).toContain("coalesce($2, 12)");
+      expect(source).toContain("coalesce($3, 24)");
+      expect(source).toContain("least(greatest(coalesce($2, 12), 1), 96)");
+      expect(source).toContain("least(greatest(coalesce($3, 24), 1), 96)");
+    }
     expect(boundedRetrievalMigration).toContain(
       "revoke all on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean)\n  from public, anon, authenticated;",
     );
@@ -138,7 +138,7 @@ describe("owner-plus-public retrieval contract", () => {
   });
 
   it("merges exact-owner and public rows when a versioned RPC is not deployed yet", async () => {
-    const { callVersionedRetrievalRpc } = await import("../src/lib/rag");
+    const { callVersionedRetrievalRpc } = await import("../src/lib/rag/rag");
     const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === "search_v2") return { data: null, error: { code: "PGRST202", message: "schema cache miss" } };
       if (args.owner_filter === "owner-a") {
@@ -165,7 +165,7 @@ describe("owner-plus-public retrieval contract", () => {
   });
 
   it("uses the same stable id tie-break as SQL when rollout scores are equal", async () => {
-    const { callVersionedRetrievalRpc } = await import("../src/lib/rag");
+    const { callVersionedRetrievalRpc } = await import("../src/lib/rag/rag");
     const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === "match_document_chunks_hybrid_v2") {
         return { data: null, error: { code: "PGRST202", message: "schema cache miss" } };

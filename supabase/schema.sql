@@ -1,4 +1,4 @@
--- Medical RAG Knowledge Base schema.
+﻿-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -671,34 +671,6 @@ create table if not exists public.storage_cleanup_jobs (
     on delete set null
 );
 
--- Public clinical content remains available through the server's public-read
--- routes. These tables contain only account-owned data and are never readable
--- by anonymous callers.
-create table if not exists public.user_favourites (
-  user_id uuid not null references auth.users(id) on delete cascade,
-  content_type text not null,
-  content_key text not null,
-  created_at timestamptz not null default now(),
-  primary key (user_id, content_type, content_key),
-  constraint user_favourites_content_type_check
-    check (content_type in ('service', 'form', 'differential')),
-  constraint user_favourites_content_key_check
-    check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180)
-);
-
-create table if not exists public.user_preferences (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  preferences jsonb not null default '{}'::jsonb,
-  updated_at timestamptz not null default now(),
-  constraint user_preferences_object_check check (jsonb_typeof(preferences) = 'object'),
-  constraint user_preferences_size_check check (pg_column_size(preferences) <= 16384)
-);
-
-revoke all on table public.user_favourites from public, anon, authenticated;
-revoke all on table public.user_preferences from public, anon, authenticated;
-grant select, insert, update, delete on table public.user_favourites to service_role;
-grant select, insert, update, delete on table public.user_preferences to service_role;
-
 create unique index if not exists documents_owner_content_hash_unique_idx
   on public.documents(owner_id, content_hash)
   where content_hash is not null;
@@ -1281,7 +1253,7 @@ begin
     and d.metadata ? 'indexing_v3_agent_status'
     and coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
           not in ('completed', 'needs_enrichment_artifacts')
-  on conflict (document_id) do nothing;
+  on conflict do nothing;
 
   return query
   with eligible_jobs as (
@@ -1300,7 +1272,7 @@ begin
         or j.locked_at < now() - make_interval(mins => p_stale_after_minutes))
     order by coalesce(j.next_run_at, j.updated_at), j.id
     limit greatest(p_claim_limit, 1)
-    for update of j skip locked
+    for update of j, d skip locked
   ),
   claimed_jobs as (
     update public.indexing_v3_agent_jobs j
@@ -3498,108 +3470,19 @@ $function$;
 revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
 
-CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text, min_sim real DEFAULT 0.45)
- RETURNS text
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'extensions', 'pg_temp'
- SET pg_trgm.similarity_threshold = 0.3
-AS $function$
-declare
-  tokens text[];
-  tok text;
-  best text;
-  best_sim real;
-  vocab text[];
-  corrected text[] := array[]::text[];
-  changed boolean := false;
+-- Prefer app.ingestion_worker_base_url (GUC) with the hardcoded project URL as
+-- fallback, matching invoke_indexing_v3_agent. Guarded ALTER DATABASE SET so
+-- hosted Supabase (42501) still replays cleanly.
+do $$
 begin
-  if min_sim is null or min_sim < 0.3 or min_sim > 1 then
-    raise exception 'min_sim must be between 0.3 and 1.0' using errcode = '22023';
-  end if;
+  execute format('alter database %I set app.ingestion_worker_base_url = %L',
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
+exception
+  when insufficient_privilege then
+    raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
+end
+$$;
 
-  if input_query is null or length(trim(input_query)) = 0 then
-    return input_query;
-  end if;
-
-  -- Build the known-term vocabulary once per call. Every source is scoped to the
-  -- public (null-owner) corpus: this function is SECURITY DEFINER and bypasses RLS, and
-  -- both rag_aliases and documents carry owner-scoped private rows (deep-memory persists
-  -- owner-scoped aliases/canonicals), so an unscoped read would leak private-document
-  -- terms across tenants. Mirrors migration 20260717120000_corrector_public_titles_only.
-  select array_agg(distinct term) into vocab
-  from (
-    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
-    union
-    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
-    union
-    select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
-    where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40
-  ) t;
-
-  tokens := regexp_split_to_array(lower(input_query), '\s+');
-  foreach tok in array tokens loop
-    if length(tok) < 4 then
-      corrected := corrected || tok;
-      continue;
-    end if;
-    best := null;
-    best_sim := 0;
-    select candidate.term, similarity(candidate.term, tok)
-      into best, best_sim
-    from (
-      (
-        select lower(alias) as term
-        from public.rag_aliases
-        where enabled
-          and length(alias) between 4 and 40
-          and lower(alias) % tok
-        order by similarity(lower(alias), tok) desc, lower(alias)
-        limit 32
-      )
-      union all
-      (
-        select lower(canonical) as term
-        from public.rag_aliases
-        where enabled
-          and length(canonical) between 4 and 40
-          and lower(canonical) % tok
-        order by similarity(lower(canonical), tok) desc, lower(canonical)
-        limit 32
-      )
-      union all
-      (
-        select word as term
-        from public.document_title_words
-        where length(word) between 4 and 40
-          and word % tok
-        order by similarity(word, tok) desc, word
-        limit 32
-      )
-    ) candidate
-    order by similarity(candidate.term, tok) desc, candidate.term
-    limit 1;
-    if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
-      corrected := corrected || best;
-      changed := true;
-    else
-      corrected := corrected || tok;
-    end if;
-  end loop;
-
-  if not changed then
-    return input_query;
-  end if;
-  return array_to_string(corrected, ' ');
-end;
-$function$;
-
-revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;
-grant execute on function public.correct_clinical_query_terms(text, real) to service_role;
-
--- NOTE: unlike invoke_indexing_v3_agent (URL moved to a GUC by 20260702160000),
--- the live definition still hardcodes the project URL. Codified as-is; migrate
--- to the GUC pattern in a follow-up if this RPC stays.
 CREATE OR REPLACE FUNCTION public.invoke_ingestion_worker(p_limit integer DEFAULT 25)
  RETURNS bigint
  LANGUAGE plpgsql
@@ -3610,6 +3493,7 @@ declare
   v_request_id bigint;
   v_jwt text;
   v_limit integer := greatest(1, least(coalesce("p_limit", 25), 200));
+  v_base_url text;
 begin
   select "decrypted_secret" into v_jwt
   from "vault"."decrypted_secrets"
@@ -3620,8 +3504,13 @@ begin
     raise exception 'Missing Vault secret: cron_ingestion_jwt';
   end if;
 
+  v_base_url := coalesce(
+    nullif(current_setting('app.ingestion_worker_base_url', true), ''),
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
+  );
+
   select "net"."http_post"(
-    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/ingestion-worker?limit=' || v_limit::text,
+    url := v_base_url || '/functions/v1/ingestion-worker?limit=' || v_limit::text,
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || v_jwt
@@ -4959,6 +4848,86 @@ exception
 end
 $$;
 
+create or replace function public.notify_document_change_ingestion_webhook()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions, vault, pg_temp
+as $$
+declare
+  v_secret   text;
+  v_base_url text;
+begin
+  -- Fire only when the JSON boolean changes to true. Strings such as "true"
+  -- are deliberately not actionable and malformed values never raise.
+  if new.metadata->'reindex_requested' = 'true'::jsonb
+     and new.metadata->'reindex_requested' is distinct from old.metadata->'reindex_requested'
+  then
+    -- Actionable.
+  else
+    return new;
+  end if;
+
+  -- Missing environment configuration must leave the document write intact.
+  select decrypted_secret
+    into v_secret
+  from vault.decrypted_secrets
+  where name = 'ingestion_webhook_secret'
+  limit 1;
+
+  if nullif(v_secret, '') is null then
+    return new;
+  end if;
+
+  -- Required per environment. There is intentionally no production fallback:
+  -- a local or staging replay must never post document metadata to production.
+  v_base_url := nullif(current_setting('app.ingestion_webhook_base_url', true), '');
+  if v_base_url is null then
+    return new;
+  end if;
+
+  perform net.http_post(
+    url := rtrim(v_base_url, '/') || '/api/webhooks/supabase/document-change',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_secret
+    ),
+    -- Send only the receiver's allowlisted fields. In particular, do not send
+    -- file names, storage paths, content hashes, or the complete old/new rows.
+    body := jsonb_build_object(
+      'type', tg_op,
+      'table', tg_table_name,
+      'schema', tg_table_schema,
+      'record', jsonb_build_object(
+        'id', new.id,
+        'owner_id', new.owner_id,
+        'status', new.status,
+        'metadata', jsonb_build_object(
+          'reindex_requested', new.metadata -> 'reindex_requested'
+        )
+      )
+    ),
+    timeout_milliseconds := 5000
+  );
+
+  return new;
+exception
+  when others then
+    -- Webhook configuration or delivery failure must never abort the write.
+    raise warning 'notify_document_change_ingestion_webhook failed: %', sqlerrm;
+    return new;
+end;
+$$;
+
+revoke execute on function public.notify_document_change_ingestion_webhook()
+  from public, anon, authenticated;
+
+drop trigger if exists documents_ingestion_webhook on public.documents;
+create trigger documents_ingestion_webhook
+  after update of metadata on public.documents
+  for each row execute function public.notify_document_change_ingestion_webhook();
+
+
 create or replace function public.invoke_indexing_v3_agent(p_limit integer default 1)
 returns bigint
 language plpgsql
@@ -5087,6 +5056,12 @@ create index if not exists rag_aliases_canonical_trgm_idx
 alter table public.document_title_words enable row level security;
 revoke all on table public.document_title_words from public, anon, authenticated;
 grant select, insert, update, delete on table public.document_title_words to service_role;
+
+-- Backend-only RLS policy: browser roles retain neither table privileges nor a
+-- matching policy, while service-role trigger and corrector access is explicit.
+drop policy if exists "document title words service role all" on public.document_title_words;
+create policy "document title words service role all" on public.document_title_words
+  for all to service_role using (true) with check (true);
 
 create or replace function public.sync_document_title_words()
 returns trigger
@@ -5295,9 +5270,7 @@ grant select, insert, update, delete on table
   public.api_rate_limit_subjects,
   public.audit_logs,
   public.storage_cleanup_jobs,
-  public.rag_retrieval_logs,
-  public.user_favourites,
-  public.user_preferences
+  public.rag_retrieval_logs
 to service_role;
 
 revoke all on public.audit_logs from anon, authenticated;
@@ -5343,8 +5316,6 @@ alter table public.api_rate_limit_subjects enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.storage_cleanup_jobs enable row level security;
 alter table public.rag_retrieval_logs enable row level security;
-alter table public.user_favourites enable row level security;
-alter table public.user_preferences enable row level security;
 
 create policy "import batches owner read" on public.import_batches
   for select to authenticated using (owner_id = (select auth.uid()));
@@ -5459,30 +5430,6 @@ create policy "storage cleanup owner read" on public.storage_cleanup_jobs
 for select to authenticated
 using ((select auth.uid()) = owner_id);
 
-create policy "users read own favourites" on public.user_favourites
-  for select to authenticated
-  using ((select auth.uid()) = user_id);
-create policy "users insert own favourites" on public.user_favourites
-  for insert to authenticated
-  with check ((select auth.uid()) = user_id);
-create policy "users delete own favourites" on public.user_favourites
-  for delete to authenticated
-  using ((select auth.uid()) = user_id);
-
-create policy "users read own preferences" on public.user_preferences
-  for select to authenticated
-  using ((select auth.uid()) = user_id);
-create policy "users insert own preferences" on public.user_preferences
-  for insert to authenticated
-  with check ((select auth.uid()) = user_id);
-create policy "users update own preferences" on public.user_preferences
-  for update to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
-create policy "users delete own preferences" on public.user_preferences
-  for delete to authenticated
-  using ((select auth.uid()) = user_id);
-
 create policy "document storage owner read" on storage.objects
   for select to authenticated
   using (bucket_id = 'clinical-documents' and (storage.foldername(name))[1] = (select auth.uid())::text);
@@ -5490,11 +5437,6 @@ create policy "document storage owner read" on storage.objects
 create policy "image storage owner read" on storage.objects
   for select to authenticated
   using (bucket_id = 'clinical-images' and (storage.foldername(name))[1] = (select auth.uid())::text);
-
--- Uploads are accepted only by the server route after it validates the
--- administrator claim. Remove direct Data/Storage API write capability from
--- both public roles as a second enforcement layer.
-revoke insert, update, delete on table storage.objects from anon, authenticated;
 
 drop trigger if exists document_index_units_updated_at on public.document_index_units;
 create trigger document_index_units_updated_at
@@ -5876,6 +5818,78 @@ revoke execute on function public.request_indexing_v3_enrichment(uuid, uuid) fro
 grant execute on function public.request_indexing_v3_enrichment(uuid, uuid) to service_role;
 
 
+-- Atomically create an uploaded document row and its initial ingestion job.
+-- The upload route has already stored the object and validated owner/file metadata;
+-- this RPC closes the process-crash window between `documents.insert` and
+-- `ingestion_jobs.insert` by doing both database writes in one transaction.
+create or replace function public.create_uploaded_document_with_ingestion_job(
+  p_document jsonb,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  insert into public.documents (
+    id,
+    owner_id,
+    title,
+    description,
+    file_name,
+    file_type,
+    file_size,
+    storage_path,
+    content_hash,
+    status,
+    metadata
+  ) values (
+    (p_document->>'id')::uuid,
+    (p_document->>'owner_id')::uuid,
+    p_document->>'title',
+    nullif(p_document->>'description', ''),
+    p_document->>'file_name',
+    p_document->>'file_type',
+    coalesce((p_document->>'file_size')::bigint, 0),
+    p_document->>'storage_path',
+    nullif(p_document->>'content_hash', ''),
+    'queued',
+    coalesce(p_document->'metadata', '{}'::jsonb)
+  )
+  returning * into v_document;
+
+  insert into public.ingestion_jobs (
+    document_id,
+    batch_id,
+    status,
+    stage,
+    progress,
+    max_attempts
+  ) values (
+    v_document.id,
+    null,
+    'pending',
+    'queued',
+    0,
+    p_max_attempts
+  )
+  returning * into v_job;
+
+  return jsonb_build_object(
+    'document', to_jsonb(v_document),
+    'job', to_jsonb(v_job)
+  );
+end;
+$$;
+
+revoke execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) from public, anon, authenticated;
+grant execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) to service_role;
+
+
 create table if not exists public.rag_visual_eval_cases (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid references auth.users(id) on delete set null,
@@ -6101,7 +6115,7 @@ create table if not exists public.source_review_events (
   id uuid primary key default gen_random_uuid(),
   document_id uuid not null,
   reviewer_id uuid not null,
-  decision text not null check (decision in ('locally_reviewed', 'approved', 'rejected', 'decommissioned', 'superseded')),
+  decision text not null check (decision in ('locally_reviewed', 'approved', 'third_party_reference_attested', 'rejected', 'decommissioned', 'superseded')),
   reason text not null check (char_length(reason) between 3 and 2000),
   evidence_references text[] not null default '{}',
   prior_document_status text not null,
@@ -6110,6 +6124,8 @@ create table if not exists public.source_review_events (
   new_validation_status text not null,
   review_date date,
   replacement_document_id uuid,
+  policy_version text,
+  reviewer_qualification text,
   created_at timestamptz not null default now()
 );
 
@@ -6192,6 +6208,153 @@ $$;
 revoke all on function public.record_source_review(uuid, uuid, text, text, text[], date, uuid) from public, anon, authenticated;
 grant execute on function public.record_source_review(uuid, uuid, text, text, text[], date, uuid) to service_role;
 
+create or replace function public.record_source_review_v2(
+  p_document_id uuid,
+  p_reviewer_id uuid,
+  p_decision text,
+  p_reason text,
+  p_evidence_references text[] default '{}',
+  p_review_date date default null,
+  p_replacement_document_id uuid default null,
+  p_policy_version text default null,
+  p_reviewer_qualification text default null
+)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_document public.documents%rowtype;
+  v_metadata jsonb;
+  v_prior_status text;
+  v_prior_validation text;
+  v_new_status text;
+  v_new_validation text;
+  v_event public.source_review_events%rowtype;
+begin
+  if p_decision not in ('locally_reviewed', 'approved', 'third_party_reference_attested', 'rejected', 'decommissioned', 'superseded') then raise exception 'invalid source review decision'; end if;
+  if char_length(trim(coalesce(p_reason, ''))) < 3 then raise exception 'source review reason is required'; end if;
+  if p_decision in ('locally_reviewed', 'approved') and coalesce(cardinality(p_evidence_references), 0) = 0 then raise exception 'evidence references are required for source promotion'; end if;
+  if p_decision = 'superseded' and p_replacement_document_id is null then raise exception 'replacement document is required for supersession'; end if;
+  select * into v_document from public.documents
+  where id = p_document_id and (owner_id = p_reviewer_id or owner_id is null)
+  for update;
+  if not found then raise exception 'document not found'; end if;
+  if p_replacement_document_id is not null and (
+    p_replacement_document_id = p_document_id
+    or not exists (
+      select 1 from public.documents replacement
+      where replacement.id = p_replacement_document_id
+        and (
+          (v_document.owner_id is null and replacement.owner_id is null)
+          or (v_document.owner_id = p_reviewer_id and (replacement.owner_id = p_reviewer_id or replacement.owner_id is null))
+        )
+    )
+  ) then raise exception 'replacement document not found'; end if;
+  if v_document.owner_id is null and p_decision in ('locally_reviewed', 'approved') then
+    if p_review_date is null or p_review_date > (now() at time zone 'Australia/Perth')::date then raise exception 'public source promotion review date is invalid'; end if;
+    if char_length(trim(coalesce(p_reviewer_qualification, ''))) = 0 then raise exception 'public source promotion reviewer qualification is required'; end if;
+  end if;
+  v_metadata := coalesce(v_document.metadata, '{}'::jsonb);
+  v_prior_status := coalesce(v_metadata->>'document_status', 'unknown');
+  v_prior_validation := coalesce(v_metadata->>'clinical_validation_status', 'unverified');
+
+  if p_decision = 'third_party_reference_attested' then
+    if v_document.status <> 'indexed' then raise exception 'BMJ third-party attestation requires an indexed document'; end if;
+    if upper(trim(coalesce(v_metadata->>'publisher_code', ''))) <> 'BMJ'
+      or btrim(
+        regexp_replace(
+          replace(lower(coalesce(v_metadata->>'publisher', '')), '&', ' and '),
+          '[^a-z0-9/]+',
+          ' ',
+          'g'
+        )
+      ) not in ('bmj best practice', 'bmj publishing group')
+      or btrim(
+        regexp_replace(
+          replace(lower(coalesce(v_metadata->>'jurisdiction', '')), '&', ' and '),
+          '[^a-z0-9/]+',
+          ' ',
+          'g'
+        )
+      ) not in ('international', 'global', 'united kingdom', 'uk')
+    then raise exception 'BMJ third-party attestation requires compatible BMJ authority metadata'; end if;
+    if v_prior_validation <> 'unverified' then raise exception 'BMJ third-party attestation preserves unverified validation status'; end if;
+    if coalesce(cardinality(p_evidence_references), 0) = 0 or exists (
+      select 1 from unnest(coalesce(p_evidence_references, '{}'::text[])) as evidence(reference)
+      where char_length(trim(coalesce(evidence.reference, ''))) = 0
+    ) then raise exception 'BMJ third-party attestation evidence references are required'; end if;
+    if p_review_date is null or p_review_date > (now() at time zone 'Australia/Perth')::date then raise exception 'BMJ third-party attestation review date is invalid'; end if;
+    if p_policy_version is distinct from 'bmj-third-party-reference-attestation-v1' then raise exception 'BMJ third-party attestation policy version is invalid'; end if;
+    if char_length(trim(coalesce(p_reviewer_qualification, ''))) = 0 then raise exception 'BMJ third-party attestation reviewer qualification is required'; end if;
+
+    v_new_status := v_prior_status;
+    v_new_validation := 'unverified';
+    v_metadata := v_metadata || jsonb_build_object(
+      'clinical_validation_status', 'unverified',
+      'clinical_validation_evidence', jsonb_build_object(
+        'status', 'unverified',
+        'basis', 'third_party_reference_attested',
+        'evidence_type', 'structured_bmj_third_party_attestation',
+        'publisher_code', 'BMJ',
+        'policy_version', p_policy_version,
+        'reviewer_qualification', trim(p_reviewer_qualification),
+        'evidence_references', to_jsonb(p_evidence_references),
+        'review_date', to_jsonb(p_review_date),
+        'attested_at', now(),
+        'attested_by', p_reviewer_id
+      ),
+      'governance_disposition', 'third_party_reference_attested',
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  elsif p_decision in ('rejected', 'decommissioned', 'superseded') then
+    v_new_status := 'outdated';
+    v_new_validation := case when p_decision = 'rejected' then 'unverified' else v_prior_validation end;
+    v_metadata := v_metadata || jsonb_build_object(
+      'document_status', v_new_status,
+      'clinical_validation_status', v_new_validation,
+      'review_date', to_jsonb(p_review_date),
+      'provenance_basis', coalesce(v_metadata->>'provenance_basis', 'unknown'),
+      'governance_disposition', p_decision,
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  else
+    v_new_status := case when p_review_date is not null and p_review_date < (now() at time zone 'Australia/Perth')::date then 'review_due' else 'current' end;
+    v_new_validation := p_decision;
+    v_metadata := v_metadata || jsonb_build_object(
+      'document_status', v_new_status,
+      'clinical_validation_status', v_new_validation,
+      'review_date', to_jsonb(p_review_date),
+      'provenance_basis', 'reviewer_verified',
+      'governance_disposition', p_decision,
+      'governance_updated_at', now(),
+      'governance_updated_by', p_reviewer_id
+    );
+  end if;
+
+  insert into public.source_review_events (
+    document_id, reviewer_id, decision, reason, evidence_references, prior_document_status,
+    new_document_status, prior_validation_status, new_validation_status, review_date,
+    replacement_document_id, policy_version, reviewer_qualification
+  ) values (
+    p_document_id, p_reviewer_id, p_decision, trim(p_reason), coalesce(p_evidence_references, '{}'),
+    v_prior_status, v_new_status, v_prior_validation, v_new_validation, p_review_date,
+    p_replacement_document_id,
+    case when p_decision = 'third_party_reference_attested' then p_policy_version else null end,
+    case
+      when p_decision = 'third_party_reference_attested'
+        or (v_document.owner_id is null and p_decision in ('locally_reviewed', 'approved'))
+      then trim(p_reviewer_qualification)
+      else null
+    end
+  ) returning * into v_event;
+  update public.documents set metadata = v_metadata, updated_at = now() where id = p_document_id;
+  return to_jsonb(v_event);
+end;
+$$;
+
+revoke all on function public.record_source_review_v2(uuid, uuid, text, text, text[], date, uuid, text, text) from public, anon, authenticated;
+grant execute on function public.record_source_review_v2(uuid, uuid, text, text, text[], date, uuid, text, text) to service_role;
+
 create table if not exists public.rag_answer_feedback (
   id uuid primary key default gen_random_uuid(),
   interaction_id uuid not null unique,
@@ -6261,6 +6424,7 @@ create index if not exists document_summaries_owner_id_idx on public.document_su
 create index if not exists document_table_facts_document_generation_idx on public.document_table_facts (document_id, index_generation_id) where index_generation_id is not null;
 create index if not exists document_table_facts_title_row_param_trgm_idx on public.document_table_facts using gin (lower(coalesce(table_title, '') || ' ' || coalesce(row_label, '') || ' ' || coalesce(clinical_parameter, '')) extensions.gin_trgm_ops);
 create index if not exists documents_indexed_updated_at_idx on public.documents (updated_at, id) where status = 'indexed';
+create index if not exists documents_owner_updated_at_indexed_idx on public.documents (owner_id, updated_at desc) where status = 'indexed';
 create index if not exists image_caption_cache_owner_id_idx on public.image_caption_cache (owner_id);
 create index if not exists import_batches_owner_id_idx on public.import_batches (owner_id);
 create index if not exists ingestion_job_stages_job_idx on public.ingestion_job_stages (job_id, started_at desc);
@@ -6480,23 +6644,25 @@ drop function if exists public.match_document_table_facts_text(text, integer, uu
 
 CREATE OR REPLACE FUNCTION public.match_document_table_facts_text(query_text text, match_count integer DEFAULT 16, document_filters uuid[] DEFAULT NULL::uuid[], owner_filter uuid DEFAULT NULL::uuid)
  RETURNS TABLE(id uuid, document_id uuid, source_chunk_id uuid, source_image_id uuid, page_number integer, table_title text, row_label text, clinical_parameter text, threshold_value text, action text, text_rank double precision, match_reason text)
- LANGUAGE sql
+ LANGUAGE plpgsql
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
  SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
+begin
+  return query execute $body$
   with query as (
     select
-      websearch_to_tsquery('english', coalesce(query_text, '')) as tsq,
-      lower(trim(regexp_replace(coalesce(query_text, ''), '\\s+', ' ', 'g'))) as normalized,
-      string_to_array(lower(trim(regexp_replace(coalesce(query_text, ''), '\\s+', ' ', 'g'))), ' ')::text[] as tokens
+      websearch_to_tsquery('english', coalesce($1, '')) as tsq,
+      lower(trim(regexp_replace(coalesce($1, ''), '\s+', ' ', 'g'))) as normalized,
+      string_to_array(lower(trim(regexp_replace(coalesce($1, ''), '\s+', ' ', 'g'))), ' ')::text[] as tokens
   ),
   doc_scope as (
     select d.id, d.metadata
     from public.documents d
     where d.status = 'indexed'
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
-      and (document_filters is null or d.id = any(document_filters))
+      and public.retrieval_owner_matches($4, d.owner_id)
+      and ($3 is null or d.id = any($3))
   ),
   fts_matches as (
     select
@@ -6521,7 +6687,7 @@ AS $function$
     join doc_scope ds on ds.id = f.document_id
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
     order by ts_rank_cd(f.search_tsv, q.tsq) desc
-    limit greatest(match_count * 5, 64)
+    limit greatest($2 * 5, 64)
   ),
   term_matches as (
     select
@@ -6543,7 +6709,7 @@ AS $function$
      and f.normalized_terms && q.tokens
     join doc_scope ds on ds.id = f.document_id
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
-    limit greatest(match_count * 4, 48)
+    limit greatest($2 * 4, 48)
   ),
   trgm_matches as (
     select
@@ -6566,7 +6732,7 @@ AS $function$
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
       and similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), q.normalized) >= 0.18
     order by similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), q.normalized) desc
-    limit greatest(match_count * 4, 48)
+    limit greatest($2 * 4, 48)
   ),
   combined as (
     select * from fts_matches
@@ -6608,7 +6774,10 @@ AS $function$
   from deduped d
   where d.text_rank > 0
   order by d.text_rank desc, d.page_number asc nulls last
-  limit match_count;
+  limit $2
+  $body$
+  using query_text, match_count, document_filters, owner_filter;
+end;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.match_documents_for_query(query_text text, match_count integer DEFAULT 12, owner_filter uuid DEFAULT NULL::uuid)
@@ -7235,6 +7404,33 @@ revoke execute on function public.match_document_table_facts_text(text, integer,
   from public, anon, authenticated;
 grant execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid) to service_role;
 
+-- Base match RPCs: keep EXECUTE lockdown explicit in the canonical snapshot so
+-- fresh replay does not depend solely on roles.sql / default-privilege churn.
+revoke execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  to service_role;
+
+revoke execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_documents_for_query(text, integer, uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_documents_for_query(text, integer, uuid)
+  to service_role;
+
 revoke execute on function public.repair_enrichment_quality_batch(integer)
   from public, anon, authenticated;
 grant execute on function public.repair_enrichment_quality_batch(integer) to service_role;
@@ -7599,7 +7795,13 @@ stable
 set search_path = public, extensions, pg_temp
 as $$
   select *
-  from public.match_document_chunks_text_scoped($1, $2, $3, $4, $5);
+  from public.match_document_chunks_text_scoped(
+    $1,
+    least(greatest(coalesce($2, 12), 1), 96),
+    $3,
+    $4,
+    $5
+  );
 $$;
 
 create or replace function public.match_document_chunks_hybrid_v2(
@@ -7776,7 +7978,15 @@ stable
 set search_path = public, extensions, pg_temp
 as $$
   select *
-  from public.match_document_index_units_hybrid_scoped($1, $2, $3, $4, $5, $6, $7);
+  from public.match_document_index_units_hybrid_scoped(
+    $1,
+    $2,
+    least(greatest(coalesce($3, 24), 1), 96),
+    $4,
+    $5,
+    $6,
+    $7
+  );
 $$;
 
 create or replace function public.match_document_memory_cards_hybrid_v3(
@@ -7856,7 +8066,10 @@ create table if not exists public.document_publication_approvals (
   reason text not null check (char_length(trim(reason)) between 3 and 2000),
   evidence_references text[] not null check (cardinality(evidence_references) > 0),
   manifest_digest text not null check (manifest_digest ~ '^[0-9a-f]{64}$'),
+  reviewed_state_digest text,
   approved_at timestamptz not null default now(),
+  constraint document_publication_approvals_reviewed_state_digest_format
+    check (reviewed_state_digest is null or reviewed_state_digest ~ '^[0-9a-f]{64}$'),
   unique (document_id, expected_prior_owner_id, manifest_digest)
 );
 
@@ -7888,6 +8101,67 @@ create trigger document_publication_approvals_immutable
 before update or delete on public.document_publication_approvals
 for each row execute function public.prevent_document_publication_approval_mutation();
 
+create or replace function public.document_publication_state_digest(
+  p_document_id uuid,
+  p_expected_owner_id uuid
+)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select encode(
+    extensions.digest(
+      convert_to(
+        jsonb_build_object(
+          'document', to_jsonb(d) - array['owner_id', 'created_at', 'updated_at', 'search_tsv', 'title_search_tsv'],
+          'pages', coalesce((select jsonb_agg(to_jsonb(p) - array['created_at', 'updated_at'] order by p.page_number, p.id) from public.document_pages p where p.document_id = d.id), '[]'::jsonb),
+          'images', coalesce((select jsonb_agg(to_jsonb(i) - array['created_at', 'updated_at'] order by i.page_number nulls last, i.id) from public.document_images i where i.document_id = d.id and (nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(i.metadata, d.metadata))), '[]'::jsonb),
+          'labels', coalesce((select jsonb_agg(to_jsonb(l) - array['owner_id', 'created_at', 'updated_at'] order by l.id) from public.document_labels l where l.document_id = d.id), '[]'::jsonb),
+          'summaries', coalesce((select jsonb_agg(to_jsonb(s) - array['owner_id', 'created_at', 'updated_at'] order by s.id) from public.document_summaries s where s.document_id = d.id), '[]'::jsonb),
+          'sections', coalesce((select jsonb_agg(to_jsonb(s) - array['owner_id', 'created_at', 'updated_at'] order by s.section_index, s.id) from public.document_sections s where s.document_id = d.id and public.is_committed_artifact_generation(s.metadata, d.metadata)), '[]'::jsonb),
+          'memory_cards', coalesce((select jsonb_agg(to_jsonb(m) - array['owner_id', 'embedding', 'search_tsv', 'created_at', 'updated_at'] order by m.id) from public.document_memory_cards m where m.document_id = d.id and (nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(m.metadata, d.metadata))), '[]'::jsonb),
+          'chunks', coalesce((select jsonb_agg(to_jsonb(c) - array['embedding', 'search_tsv', 'created_at'] order by c.chunk_index, c.id) from public.document_chunks c where c.document_id = d.id and (public.is_committed_document_generation(c.index_generation_id, d.index_generation_id) or nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(c.metadata, d.metadata))), '[]'::jsonb),
+          'table_facts', coalesce((select jsonb_agg(to_jsonb(f) - array['owner_id', 'search_tsv', 'created_at'] order by f.id) from public.document_table_facts f where f.document_id = d.id and (nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(f.metadata, d.metadata))), '[]'::jsonb),
+          'embedding_fields', coalesce((select jsonb_agg(to_jsonb(f) - array['owner_id', 'embedding', 'search_tsv', 'created_at'] order by f.id) from public.document_embedding_fields f where f.document_id = d.id and public.is_committed_artifact_generation(f.metadata, d.metadata)), '[]'::jsonb),
+          'index_quality', coalesce((select to_jsonb(q) - array['owner_id', 'updated_at'] from public.document_index_quality q where q.document_id = d.id), '{}'::jsonb),
+          'index_units', coalesce((select jsonb_agg(to_jsonb(u) - array['owner_id', 'embedding', 'search_tsv', 'created_at', 'updated_at'] order by u.id) from public.document_index_units u where u.document_id = d.id and public.is_committed_artifact_generation(u.metadata, d.metadata)), '[]'::jsonb)
+        )::text,
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  )
+  from public.documents d
+  where d.id = p_document_id
+    and d.owner_id = p_expected_owner_id;
+$$;
+
+revoke all on function public.document_publication_state_digest(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.document_publication_state_digest(uuid, uuid) to service_role;
+
+create or replace function public.require_document_publication_approval_state_digest()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.reviewed_state_digest is null then
+    raise exception 'publication approval requires a reviewed content/state digest';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.require_document_publication_approval_state_digest() from public, anon, authenticated;
+
+drop trigger if exists document_publication_approvals_require_state_digest on public.document_publication_approvals;
+create trigger document_publication_approvals_require_state_digest
+before insert on public.document_publication_approvals
+for each row execute function public.require_document_publication_approval_state_digest();
+
 create or replace function public.guard_document_publication_transition()
 returns trigger
 language plpgsql
@@ -7896,6 +8170,8 @@ as $$
 declare
   v_approval_id uuid;
   v_manifest_digest text;
+  v_reviewed_state_digest text;
+  v_current_state_digest text;
 begin
   if tg_op = 'INSERT' then
     if new.owner_id is null then
@@ -7911,8 +8187,11 @@ begin
       raise exception 'public document transition has an invalid publication approval id';
     end;
     v_manifest_digest := lower(coalesce(new.metadata->>'publication_manifest_digest', ''));
+    v_reviewed_state_digest := lower(coalesce(new.metadata->>'publication_reviewed_state_digest', ''));
 
-    if v_approval_id is null or v_manifest_digest !~ '^[0-9a-f]{64}$' then
+    if v_approval_id is null
+      or v_manifest_digest !~ '^[0-9a-f]{64}$'
+      or v_reviewed_state_digest !~ '^[0-9a-f]{64}$' then
       raise exception 'public document transition requires publication approval evidence';
     end if;
 
@@ -7924,8 +8203,45 @@ begin
         and approval.expected_prior_owner_id = old.owner_id
         and approval.decision = 'approved'
         and approval.manifest_digest = v_manifest_digest
+        and approval.reviewed_state_digest = v_reviewed_state_digest
     ) then
-      raise exception 'public document transition approval does not match the document, prior owner, decision, and manifest';
+      raise exception 'public document transition approval does not match the reviewed document state';
+    end if;
+
+    perform 1 from public.document_pages where document_id = old.id for update;
+    perform 1 from public.document_images where document_id = old.id for update;
+    perform 1 from public.document_labels where document_id = old.id for update;
+    perform 1 from public.document_summaries where document_id = old.id for update;
+    perform 1 from public.document_sections where document_id = old.id for update;
+    perform 1 from public.document_memory_cards where document_id = old.id for update;
+    perform 1 from public.document_chunks where document_id = old.id for update;
+    perform 1 from public.document_table_facts where document_id = old.id for update;
+    perform 1 from public.document_embedding_fields where document_id = old.id for update;
+    perform 1 from public.document_index_quality where document_id = old.id for update;
+    perform 1 from public.document_index_units where document_id = old.id for update;
+
+    begin
+      perform 1 from public.ingestion_jobs where document_id = old.id for update nowait;
+      perform 1 from public.indexing_v3_agent_jobs where document_id = old.id for update nowait;
+    exception when lock_not_available then
+      raise exception 'public document transition has active ingestion work';
+    end;
+    if exists (
+      select 1 from public.ingestion_jobs
+      where document_id = old.id and status in ('pending', 'processing')
+    ) or exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = old.id
+        and status not in ('completed', 'needs_enrichment_artifacts')
+        and enrichment_status in ('pending', 'failed', 'processing')
+        and attempt_count < max_attempts
+    ) then
+      raise exception 'public document transition has active ingestion work';
+    end if;
+
+    v_current_state_digest := public.document_publication_state_digest(old.id, old.owner_id);
+    if v_current_state_digest is distinct from v_reviewed_state_digest then
+      raise exception 'public document transition content changed after review';
     end if;
   end if;
   return new;
@@ -7954,6 +8270,8 @@ declare
   v_document public.documents%rowtype;
   v_document_id uuid;
   v_expected_owner_id uuid;
+  v_expected_state_digest text;
+  v_current_state_digest text;
   v_approval_id uuid;
   v_manifest_digest text := lower(trim(coalesce(p_manifest_digest, '')));
   v_count integer;
@@ -7987,10 +8305,17 @@ begin
     exception when invalid_text_representation then
       raise exception 'publication manifest contains an invalid document or owner id';
     end;
+    v_expected_state_digest := lower(coalesce(v_entry->>'expected_state_digest', ''));
     if v_document_id is null or v_expected_owner_id is null then
       raise exception 'publication manifest requires document_id and expected_owner_id';
     end if;
+    if v_expected_state_digest !~ '^[0-9a-f]{64}$' then
+      raise exception 'publication manifest requires expected_state_digest';
+    end if;
 
+    -- The parent lock serializes document/generation changes and conflicts with
+    -- FK key-share locks taken by new child rows. Existing artifact rows are
+    -- locked below before the canonical state digest is recomputed.
     select * into v_document
     from public.documents
     where id = v_document_id
@@ -8005,12 +8330,44 @@ begin
       raise exception 'publication document % is not indexed', v_document_id;
     end if;
 
+    perform 1 from public.document_pages where document_id = v_document_id for update;
+    perform 1 from public.document_images where document_id = v_document_id for update;
+    perform 1 from public.document_labels where document_id = v_document_id for update;
+    perform 1 from public.document_summaries where document_id = v_document_id for update;
+    perform 1 from public.document_sections where document_id = v_document_id for update;
+    perform 1 from public.document_memory_cards where document_id = v_document_id for update;
+    perform 1 from public.document_chunks where document_id = v_document_id for update;
+    perform 1 from public.document_table_facts where document_id = v_document_id for update;
+    perform 1 from public.document_embedding_fields where document_id = v_document_id for update;
+    perform 1 from public.document_index_quality where document_id = v_document_id for update;
+    perform 1 from public.document_index_units where document_id = v_document_id for update;
+
+    begin
+      perform 1 from public.ingestion_jobs where document_id = v_document_id for update nowait;
+      perform 1 from public.indexing_v3_agent_jobs where document_id = v_document_id for update nowait;
+    exception when lock_not_available then
+      raise exception 'publication document % has active ingestion work', v_document_id;
+    end;
+    if exists (
+      select 1 from public.ingestion_jobs
+      where document_id = v_document_id and status in ('pending', 'processing')
+    ) or exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = v_document_id
+        and status not in ('completed', 'needs_enrichment_artifacts')
+        and enrichment_status in ('pending', 'failed', 'processing')
+        and attempt_count < max_attempts
+    ) then
+      raise exception 'publication document % has active ingestion work', v_document_id;
+    end if;
+
     select approval.id into v_approval_id
     from public.document_publication_approvals approval
     where approval.document_id = v_document_id
       and approval.expected_prior_owner_id = v_expected_owner_id
       and approval.decision = 'approved'
       and approval.manifest_digest = v_manifest_digest
+      and approval.reviewed_state_digest = v_expected_state_digest
     order by approval.approved_at desc, approval.id desc
     limit 1;
     if v_approval_id is null then
@@ -8030,6 +8387,11 @@ begin
       raise exception 'publication document % has mismatched artifact ownership', v_document_id;
     end if;
 
+    v_current_state_digest := public.document_publication_state_digest(v_document_id, v_expected_owner_id);
+    if v_current_state_digest is distinct from v_expected_state_digest then
+      raise exception 'publication document % changed after review', v_document_id;
+    end if;
+
     update public.document_labels set owner_id = null, updated_at = now() where document_id = v_document_id;
     update public.document_summaries set owner_id = null, updated_at = now() where document_id = v_document_id;
     update public.document_sections set owner_id = null, updated_at = now() where document_id = v_document_id;
@@ -8045,6 +8407,7 @@ begin
           'public_corpus', true,
           'publication_approval_id', v_approval_id,
           'publication_manifest_digest', v_manifest_digest,
+          'publication_reviewed_state_digest', v_expected_state_digest,
           'published_at', now()
         ),
         updated_at = now()
@@ -8054,6 +8417,7 @@ begin
       'document_id', v_document_id,
       'previous_owner_id', v_expected_owner_id,
       'approval_id', v_approval_id,
+      'reviewed_state_digest', v_expected_state_digest,
       'outcome', 'published'
     ));
   end loop;
@@ -8278,6 +8642,99 @@ revoke all on function public.retry_ingestion_job_if_idle(uuid, uuid, timestampt
   from public, anon, authenticated;
 grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
   to service_role;
+
+create or replace function public.request_ingestion_reindex_if_agent_idle(
+  p_document_id uuid,
+  p_owner_id uuid,
+  p_stale_before timestamptz,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  if p_document_id is null or p_owner_id is null or p_stale_before is null
+     or p_max_attempts is null or p_max_attempts < 1 then
+    raise exception 'Reindex identifiers, stale cutoff, and max attempts are required.' using errcode = '22023';
+  end if;
+
+  select d.*
+    into v_document
+  from public.documents d
+  where d.id = p_document_id
+    and d.owner_id = p_owner_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+
+  if exists (
+    select 1
+    from public.indexing_v3_agent_jobs a
+    where a.document_id = p_document_id
+      and a.status = 'processing'
+      and (
+        coalesce(a.locked_at, a.updated_at) is null
+        or coalesce(a.locked_at, a.updated_at) > p_stale_before
+      )
+  ) then
+    return jsonb_build_object('outcome', 'agent_enrichment_active');
+  end if;
+
+  if exists (
+    select 1
+    from public.ingestion_jobs i
+    where i.document_id = p_document_id
+      and i.status in ('pending', 'processing')
+  ) then
+    return jsonb_build_object('outcome', 'ingestion_active');
+  end if;
+
+  begin
+    update public.documents
+    set status = case when v_document.status = 'indexed' then status else 'queued' end,
+        error_message = null,
+        page_count = case when v_document.status = 'indexed' then page_count else 0 end,
+        chunk_count = case when v_document.status = 'indexed' then chunk_count else 0 end,
+        image_count = case when v_document.status = 'indexed' then image_count else 0 end,
+        updated_at = now()
+    where id = p_document_id
+      and owner_id = p_owner_id;
+
+    insert into public.ingestion_jobs (
+      document_id,
+      batch_id,
+      status,
+      stage,
+      progress,
+      max_attempts
+    ) values (
+      p_document_id,
+      v_document.import_batch_id,
+      'pending',
+      'queued',
+      0,
+      p_max_attempts
+    )
+    returning * into v_job;
+  exception when unique_violation then
+    return jsonb_build_object('outcome', 'ingestion_active');
+  end;
+
+  return jsonb_build_object('outcome', 'queued', 'job', to_jsonb(v_job));
+end;
+$$;
+
+revoke all on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer)
+  from public, anon, authenticated;
+grant execute on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer)
+  to service_role;
 -- Catalog-level, fail-closed verification for future objects created by
 -- postgres. A missing pg_default_acl row must be interpreted through
 -- acldefault(), including PostgreSQL's built-in PUBLIC EXECUTE on functions.
@@ -8438,6 +8895,55 @@ begin
 end;
 $$;
 
+-- Account-owned application data. Public content remains anonymous-readable
+-- through server routes; favourites and preferences require an authenticated
+-- owner at both the API and RLS layers.
+create table if not exists public.user_favourites (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  content_type text not null,
+  content_key text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, content_type, content_key),
+  constraint user_favourites_content_type_check
+    check (content_type in ('service', 'form', 'differential')),
+  constraint user_favourites_content_key_check
+    check (content_key = btrim(content_key) and char_length(content_key) between 1 and 180)
+);
+
+create table if not exists public.user_preferences (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  preferences jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now(),
+  constraint user_preferences_object_check check (jsonb_typeof(preferences) = 'object'),
+  constraint user_preferences_size_check check (pg_column_size(preferences) <= 16384)
+);
+
+alter table public.user_favourites enable row level security;
+alter table public.user_preferences enable row level security;
+
+revoke all on table public.user_favourites from public, anon, authenticated;
+revoke all on table public.user_preferences from public, anon, authenticated;
+grant select, insert, update, delete on table public.user_favourites to service_role;
+grant select, insert, update, delete on table public.user_preferences to service_role;
+
+create policy "users read own favourites" on public.user_favourites
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users insert own favourites" on public.user_favourites
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "users delete own favourites" on public.user_favourites
+  for delete to authenticated using ((select auth.uid()) = user_id);
+create policy "users read own preferences" on public.user_preferences
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users insert own preferences" on public.user_preferences
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "users update own preferences" on public.user_preferences
+  for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+create policy "users delete own preferences" on public.user_preferences
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
+revoke insert, update, delete on table storage.objects from anon, authenticated;
 drop trigger if exists clinical_registry_records_delete_cleanup on public.clinical_registry_records;
 create trigger clinical_registry_records_delete_cleanup
   after delete on public.clinical_registry_records
@@ -8778,3 +9284,13 @@ begin
   end if;
 end;
 $$;
+
+-- Explicit function revokes (ISSUE-05)
+revoke execute on function public.detect_legacy_ivfflat_indexes() from public, anon, authenticated;
+revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;
+grant execute on function public.detect_legacy_ivfflat_indexes() to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+grant execute on function public.set_document_embedding_field_content_hash() to service_role;

@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import therapiesIndexJson from "../src/data/therapies-index.json";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+
 // Guards the clinical integrity of the Therapy Compass pathway data. The imported
 // mockup shipped pathways whose therapy steps were mismatched to the pathway's
 // clinical problem (e.g. Crisis/risk -> "ERP for tics", Grief/loss -> eating-disorder
@@ -15,9 +18,18 @@ type Pathway = { slug: string; clinicalProblem: string; steps: Step[] };
 
 const dataUrl = (name: string) => new URL(`../public/therapy-compass-data/${name}`, import.meta.url);
 
-const therapies = JSON.parse(readFileSync(dataUrl("therapies.json"), "utf8")) as Therapy[];
+const therapies = JSON.parse(readFileSync(dataUrl(THERAPY_CATALOGUE_ASSETS.full), "utf8")) as Therapy[];
 const pathways = JSON.parse(readFileSync(dataUrl("pathways.json"), "utf8")) as Pathway[];
 const bySlug = new Map(therapies.map((t) => [t.slug, t]));
+const canonicalBySlug = new Map(therapiesIndexJson.map((therapy) => [therapy.slug, therapy]));
+const LEGACY_DUPLICATE_SLUGS = [
+  "behavioural-activation",
+  "emdr",
+  "interpersonal-therapy",
+  "mindfulness-based-cognitive-therapy",
+  "problem-solving-therapy",
+  "prolonged-exposure-therapy",
+];
 
 // Independent clinical allowlist: for each pathway clinical problem, the set of
 // catalogue therapies that genuinely treat it. This is the source of truth the
@@ -92,7 +104,6 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
   Mood: [
     "cognitive-behavioural-therapy-cbt",
     "behavioural-activation-ba",
-    "behavioural-activation",
     "interpersonal-psychotherapy-ipt",
     "problem-solving-therapy-pst",
     "mindfulness-based-cognitive-therapy-mbct",
@@ -181,11 +192,9 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
   Trauma: [
     "trauma-focused-cognitive-behavioural-therapy-tf-cbt",
     "eye-movement-desensitisation-and-reprocessing-emdr",
-    "emdr",
     "cognitive-processing-therapy-cpt",
     "cognitive-therapy-for-ptsd-ct-ptsd",
     "prolonged-exposure-pe",
-    "prolonged-exposure-therapy",
     "narrative-exposure-therapy-net",
     "written-exposure-therapy",
     "phase-oriented-trauma-therapy",
@@ -195,6 +204,15 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
 };
 
 describe("Therapy Compass pathway clinical integrity", () => {
+  it("keeps legacy duplicate therapy slugs out of the canonical catalogue", () => {
+    for (const slug of LEGACY_DUPLICATE_SLUGS) {
+      expect(canonicalBySlug.has(slug), `legacy duplicate therapy ${slug} was restored in therapies-index.json`).toBe(
+        false,
+      );
+      expect(bySlug.has(slug), `legacy duplicate therapy ${slug} was restored in therapies.json`).toBe(false);
+    }
+  });
+
   it("covers every pathway clinical problem with an allowlist", () => {
     for (const p of pathways) {
       expect(DOMAIN_APPROPRIATE[p.clinicalProblem], `no allowlist for ${p.clinicalProblem}`).toBeTruthy();

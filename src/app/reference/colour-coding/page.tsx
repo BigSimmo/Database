@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
+import { NavigationBackButton } from "@/components/navigation-back-button";
+import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cn,
   eyebrowText,
@@ -41,18 +43,21 @@ export default function ColourCodingReferencePage() {
     >
       <div className={cn(searchPageShell)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
-          <header className="space-y-2">
-            <p className={eyebrowText}>Reference</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-              Colour coding reference
-            </h1>
-            <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">
-              Badges flag important content so clinical screens are faster to scan. The system uses six tones only —
-              meaning drives the colour, never the other way round. Danger and warning also carry an icon so they stay
-              distinguishable without colour. Governance lives in{" "}
-              <span className="font-mono text-xs">docs/clinical-badge-system-guide.md</span>; this page is generated
-              from <span className="font-mono text-xs">src/lib/semantic-flags.ts</span>.
-            </p>
+          <header className="space-y-3">
+            <NavigationBackButton fallbackHref={appModeHomeHref("tools")} />
+            <div className="space-y-2">
+              <p className={eyebrowText}>Reference</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
+                Colour coding reference
+              </h1>
+              <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">
+                Badges flag important content so clinical screens are faster to scan. The system uses six tones only —
+                meaning drives the colour, never the other way round. Danger and warning also carry an icon so they stay
+                distinguishable without colour. Governance lives in{" "}
+                <span className="font-mono text-xs">docs/clinical-badge-system-guide.md</span>; this page is generated
+                from <span className="font-mono text-xs">src/lib/semantic-flags.ts</span>.
+              </p>
+            </div>
           </header>
 
           <section className={cn(raisedCard, "p-4 sm:p-5")}>

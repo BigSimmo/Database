@@ -1,0 +1,4 @@
+interface:
+  display_name: "Data"
+  short_description: "Validate Database imports and data integrity"
+  default_prompt: "Use $data to verify this Database import, seed, transformation, or reconciliation workflow safely."

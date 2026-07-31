@@ -7,7 +7,7 @@ import {
   sourceTextForClinicalProsePreservingBreaks,
   stripClassificationBanner,
 } from "@/lib/source-text-sanitizer";
-import { polishClinicalAnswerProse } from "@/lib/rag-answer-text";
+import { polishClinicalAnswerProse } from "@/lib/rag/rag-answer-text";
 import type { SearchResult } from "@/lib/types";
 
 const displayJsonArtifactPattern =

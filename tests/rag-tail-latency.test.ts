@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SearchTelemetry } from "../src/lib/rag-contracts";
+import type { SearchTelemetry } from "../src/lib/rag/rag-contracts";
 import type { RagAnswer } from "../src/lib/types";
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -125,7 +125,7 @@ async function loadCache(harness: CacheHarness) {
     buildClinicalTextSearchQuery: (query: string) => query.trim(),
   }));
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: harness.createAdminClient }));
-  return import("../src/lib/rag-cache");
+  return import("../src/lib/rag/rag-cache");
 }
 
 afterEach(() => {
@@ -277,8 +277,8 @@ async function loadSearchWithCacheOutcome(
     return bootstrap?.aliases.promise ?? Promise.resolve([]);
   });
 
-  vi.doMock("@/lib/rag-cache", async () => {
-    const actual = await vi.importActual<typeof import("../src/lib/rag-cache")>("@/lib/rag-cache");
+  vi.doMock("@/lib/rag/rag-cache", async () => {
+    const actual = await vi.importActual<typeof import("../src/lib/rag/rag-cache")>("@/lib/rag/rag-cache");
     return {
       ...actual,
       cacheIndexingVersion: vi.fn(() => {
@@ -291,9 +291,10 @@ async function loadSearchWithCacheOutcome(
       setCachedSearch: vi.fn(async () => undefined),
     };
   });
-  vi.doMock("@/lib/rag-retrieval-variants", async () => {
-    const actual =
-      await vi.importActual<typeof import("../src/lib/rag-retrieval-variants")>("@/lib/rag-retrieval-variants");
+  vi.doMock("@/lib/rag/rag-retrieval-variants", async () => {
+    const actual = await vi.importActual<typeof import("../src/lib/rag/rag-retrieval-variants")>(
+      "@/lib/rag/rag-retrieval-variants",
+    );
     return {
       ...actual,
       fetchEnabledRagAliases,
@@ -305,7 +306,7 @@ async function loadSearchWithCacheOutcome(
       return bootstrap?.classification.promise ?? Promise.resolve({ verdict: "out_of_corpus" });
     }),
   }));
-  vi.doMock("@/lib/rag-provider", () => ({
+  vi.doMock("@/lib/rag/rag-provider", () => ({
     isSourceOnlyMode: () => true,
     allowsAutoDegrade: () => true,
     sourceOnlyReason: () => "source_only",
@@ -322,7 +323,7 @@ async function loadSearchWithCacheOutcome(
   vi.stubEnv("RAG_SEARCH_CACHE_SIZE", "200");
   vi.stubEnv("OPENAI_API_KEY", "");
 
-  const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+  const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
   return {
     searchChunksWithTelemetry,
     get started() {
@@ -513,10 +514,10 @@ describe("answer-to-search cache request context", () => {
     vi.doUnmock("@/lib/env");
     vi.doUnmock("@/lib/deep-memory");
     vi.doUnmock("@/lib/clinical-search");
-    vi.doUnmock("@/lib/rag-cache");
-    vi.doUnmock("@/lib/rag-retrieval-variants");
+    vi.doUnmock("@/lib/rag/rag-cache");
+    vi.doUnmock("@/lib/rag/rag-retrieval-variants");
     vi.doUnmock("@/lib/corpus-grounding");
-    vi.doUnmock("@/lib/rag-provider");
+    vi.doUnmock("@/lib/rag/rag-provider");
     vi.stubEnv("RAG_PROVIDER_MODE", "offline");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "60000");
     vi.stubEnv("RAG_SEARCH_CACHE_SIZE", "200");
@@ -527,8 +528,8 @@ describe("answer-to-search cache request context", () => {
     const harness = createOrchestrationHarness();
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: harness.createAdminClient }));
 
-    const rag = await import("../src/lib/rag");
-    const cache = await import("../src/lib/rag-cache");
+    const rag = await import("../src/lib/rag/rag");
+    const cache = await import("../src/lib/rag/rag-cache");
     const args = { query: "coffee machine policy", ownerId, logQuery: false };
 
     // Prime stale process-local answer and search entries. The orchestration request below

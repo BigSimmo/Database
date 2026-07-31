@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import {
+  isAlwaysStandaloneShellPath,
+  isDashboardModeHref,
+  isStandaloneModeHomePath,
+  shouldRenderClinicalDashboard,
+  shouldRenderDashboardSearch,
+} from "@/lib/search-route-ownership";
 
 describe("shared-search route ownership", () => {
   it("keeps submitted searches in route-owned mode workflows", () => {
@@ -41,5 +49,128 @@ describe("shared-search route ownership", () => {
         pathname: "/mockups/document-search/search",
       }),
     ).toBe(false);
+  });
+
+  it("classifies standalone mode homes from pathname alone", () => {
+    for (const pathname of [
+      "/services",
+      "/forms",
+      "/favourites",
+      "/differentials",
+      "/dsm",
+      "/specifiers",
+      "/formulation",
+      "/factsheets",
+      "/therapy-compass",
+      "/tools",
+    ]) {
+      expect(isStandaloneModeHomePath(pathname)).toBe(true);
+    }
+    expect(isStandaloneModeHomePath("/")).toBe(false);
+    expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
+    expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
+  });
+
+  it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {
+    expect(isAlwaysStandaloneShellPath("/forms")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/favourites")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/medications/acamprosate")).toBe(true);
+    // `/` and documents/tools may still need searchParams for the dashboard gate.
+    expect(isAlwaysStandaloneShellPath("/")).toBe(false);
+    expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);
+    expect(isAlwaysStandaloneShellPath("/tools")).toBe(false);
+  });
+
+  it("classifies dashboard mode hrefs without parsing the destination page", () => {
+    expect(isDashboardModeHref("/")).toBe(true);
+    expect(isDashboardModeHref("/?mode=answer")).toBe(true);
+    expect(isDashboardModeHref("/?mode=documents&focus=1")).toBe(true);
+    expect(isDashboardModeHref("/documents/search")).toBe(true);
+    expect(isDashboardModeHref("/documents/search?q=lithium&run=1")).toBe(true);
+    expect(isDashboardModeHref("/services")).toBe(false);
+    expect(isDashboardModeHref("/differentials?q=mania&run=1")).toBe(false);
+    expect(isDashboardModeHref("/documents/searching")).toBe(false);
+  });
+
+  it("keeps shell mode-home detection pathname-gated (no searchMode∧pathname AND)", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
+    expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
+    // changeMode must not optimistic-set searchMode before navigation.
+    expect(shellSource).toMatch(/function changeMode\(mode: AppModeId\) \{[\s\S]*?navigateToMode\(mode\);\n  \}/);
+    expect(shellSource).not.toMatch(
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?navigateToMode\(mode\);/,
+    );
+  });
+
+  it("seeds always-standalone submitted params before the bridge hydrates", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain("function readInitialBrowserSubmittedSearchParamString()");
+    expect(shellSource).toContain("window.location.search.slice(1)");
+    expect(shellSource).toContain('params.get("run") === "1" && query ? search : ""');
+    expect(shellSource).toMatch(
+      /useSyncExternalStore\(\s*subscribeNoop,\s*readInitialBrowserSubmittedSearchParamString,\s*\(\) => "",\s*\)/,
+    );
+    expect(shellSource).toContain("searchParamString || browserSearchParamString");
+  });
+
+  it("resets shared phone scroll chrome when the pathname changes", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    const hideSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/use-hide-on-scroll.ts"),
+      "utf8",
+    );
+    expect(hideSource).toContain("const reset = useCallback");
+    expect(hideSource).toMatch(/return \{ hidden: active && hidden, reportScroll, reset \}/);
+    // Hide state resets via the reporter resetKey; scroll offset resets explicitly.
+    expect(shellSource).toContain("useScrollHideReporter(false, true, pathname)");
+    expect(shellSource).toMatch(/main\.scrollTop = 0[\s\S]*\}, \[pathname\]\)/);
+  });
+
+  it("keeps the default composer until the hero portal host attaches", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    expect(headerSource).not.toContain("desktopComposerPortalFallback");
+    expect(headerSource).not.toContain("composerPortalRequested && !desktopComposerPortalFallback");
+    expect(headerSource).toMatch(
+      /desktopComposerPortalActive && desktopComposerPortalHost\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
+    );
+  });
+
+  it("waits for page-owned composer slots to hydrate before portal adoption", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    const slotSource = readFileSync(resolve(process.cwd(), "src/components/desktop-composer-portal-slot.tsx"), "utf8");
+    const composerLibSource = readFileSync(resolve(process.cwd(), "src/lib/mode-home-composer.ts"), "utf8");
+    expect(composerLibSource).toContain('desktopComposerSlotReadyAttr = "data-composer-slot-ready"');
+    expect(slotSource).toContain("desktopComposerSlotReadyAttr");
+    expect(slotSource).toContain("useEffect");
+    expect(headerSource).toContain("isDesktopComposerSlotReady(slot)");
+    expect(headerSource).toContain("attributeFilter: [desktopComposerSlotReadyAttr]");
+  });
+
+  it("leaves the dashboard shell without eager chrome thrash", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    expect(dashboardSource).toContain("isDashboardModeHref");
+    expect(dashboardSource).toMatch(
+      /function selectSearchMode\(mode: AppModeId\) \{[\s\S]*?if \(!isDashboardModeHref\(href\)\) \{[\s\S]*?router\.push\(href\);\n      return;/,
+    );
+    expect(dashboardSource).toMatch(
+      /function crossModeSearch\(mode: AppModeId, crossQuery: string\) \{[\s\S]*?if \(!isDashboardModeHref\(href\)\) \{[\s\S]*?router\.push\(href\);\n      return;/,
+    );
   });
 });

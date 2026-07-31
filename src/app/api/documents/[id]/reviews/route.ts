@@ -8,8 +8,14 @@ import {
   hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
 } from "@/lib/ingestion-mutation-safety";
-import { invalidateRagCachesForOwner } from "@/lib/rag";
-import { isValidReviewDate, sourceReviewDecisionSchema } from "@/lib/source-review";
+import { withOwnerReadScope } from "@/lib/public-api-access";
+import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
+import {
+  BMJ_THIRD_PARTY_ATTESTATION_POLICY_VERSION,
+  bmjThirdPartyAttestationRejectionReasons,
+  isValidReviewDate,
+  sourceReviewDecisionSchema,
+} from "@/lib/source-review";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -31,6 +37,8 @@ const bodySchema = z
       .optional()
       .default(null),
     replacementDocumentId: z.string().uuid().nullable().optional().default(null),
+    policyVersion: z.string().trim().max(120).nullable().optional().default(null),
+    reviewerQualification: z.string().trim().max(500).nullable().optional().default(null),
   })
   .strict()
   .superRefine((value, context) => {
@@ -44,7 +52,42 @@ const bodySchema = z
     if (value.decision === "superseded" && !value.replacementDocumentId) {
       context.addIssue({ code: "custom", path: ["replacementDocumentId"], message: "A replacement is required." });
     }
+    if (value.decision === "third_party_reference_attested") {
+      if (!value.evidenceReferences.length) {
+        context.addIssue({
+          code: "custom",
+          path: ["evidenceReferences"],
+          message: "Attestation evidence is required.",
+        });
+      }
+      if (!value.reviewDate) {
+        context.addIssue({ code: "custom", path: ["reviewDate"], message: "An attestation review date is required." });
+      }
+      if (value.policyVersion !== BMJ_THIRD_PARTY_ATTESTATION_POLICY_VERSION) {
+        context.addIssue({
+          code: "custom",
+          path: ["policyVersion"],
+          message: "The current BMJ third-party attestation policy version is required.",
+        });
+      }
+      if (!value.reviewerQualification?.trim()) {
+        context.addIssue({
+          code: "custom",
+          path: ["reviewerQualification"],
+          message: "Reviewer qualification is required.",
+        });
+      }
+    }
   });
+
+function isSourceReviewV2Unavailable(error: { code?: string | null; message: string }) {
+  const message = error.message.toLowerCase();
+  return (
+    error.code === "PGRST202" ||
+    (message.includes("record_source_review_v2") &&
+      (message.includes("schema cache") || message.includes("could not find") || message.includes("does not exist")))
+  );
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -59,24 +102,63 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "source_review" });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many source review requests. Retry shortly.", rateLimit);
 
-    const promotesSource = body.decision === "approved" || body.decision === "locally_reviewed";
-    if (promotesSource) {
-      const { data: document, error: documentError } = await supabase
-        .from("documents")
-        .select("id,status")
-        .eq("id", id)
-        .eq("owner_id", user.id)
-        .maybeSingle();
-      if (documentError) throw new Error(documentError.message);
-      if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
-      if (document.status !== "indexed") {
-        return NextResponse.json({ error: "Source promotion requires completed document indexing." }, { status: 409 });
-      }
+    const { data: document, error: documentError } = await withOwnerReadScope(
+      supabase.from("documents").select("id,status,owner_id,metadata").eq("id", id),
+      user.id,
+    ).maybeSingle();
+    if (documentError) throw new Error(documentError.message);
+    if (!document || (document.owner_id !== null && document.owner_id !== user.id)) {
+      return NextResponse.json({ error: "Document not found." }, { status: 404 });
+    }
 
+    const promotesSource = body.decision === "approved" || body.decision === "locally_reviewed";
+    const attestsThirdPartyReference = body.decision === "third_party_reference_attested";
+    if (promotesSource && document.owner_id === null && (!body.reviewDate || !body.reviewerQualification?.trim())) {
+      return NextResponse.json(
+        {
+          error: "Public-corpus source promotion requires a review date and reviewer qualification.",
+          code: "public_source_review_incomplete",
+        },
+        { status: 400 },
+      );
+    }
+    if ((promotesSource || attestsThirdPartyReference) && document.status !== "indexed") {
+      return NextResponse.json(
+        {
+          error: attestsThirdPartyReference
+            ? "Third-party reference attestation requires completed document indexing."
+            : "Source promotion requires completed document indexing.",
+        },
+        { status: 409 },
+      );
+    }
+
+    if (attestsThirdPartyReference) {
+      const rejectionReasons = bmjThirdPartyAttestationRejectionReasons({
+        documentStatus: document.status,
+        metadata: document.metadata,
+        evidenceReferences: body.evidenceReferences,
+        reviewDate: body.reviewDate,
+        policyVersion: body.policyVersion,
+        reviewerQualification: body.reviewerQualification,
+      });
+      if (rejectionReasons.length) {
+        return NextResponse.json(
+          {
+            error:
+              "Third-party reference attestation requires an indexed, unverified BMJ source with compatible publisher and jurisdiction metadata.",
+            code: "bmj_attestation_ineligible",
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    if (promotesSource || attestsThirdPartyReference) {
       const safety = await checkIngestionMutationSafety({
         supabase,
         documentIds: [id],
-        action: "Source promotion",
+        action: attestsThirdPartyReference ? "Third-party source attestation" : "Source promotion",
         checkActiveJobs: true,
         staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
       });
@@ -88,11 +170,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
       });
       if (enrichmentActive) {
-        return NextResponse.json({ error: "Source promotion is paused while enrichment is active." }, { status: 409 });
+        return NextResponse.json(
+          {
+            error: attestsThirdPartyReference
+              ? "Third-party source attestation is paused while enrichment is active."
+              : "Source promotion is paused while enrichment is active.",
+          },
+          { status: 409 },
+        );
       }
     }
 
-    const { data, error } = await supabase.rpc("record_source_review", {
+    const legacyReviewParams = {
       p_document_id: id,
       p_reviewer_id: user.id,
       p_decision: body.decision,
@@ -100,15 +189,35 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       p_evidence_references: body.evidenceReferences,
       p_review_date: body.reviewDate,
       p_replacement_document_id: body.replacementDocumentId,
-    });
+    };
+    const requiresV2 = document.owner_id === null || attestsThirdPartyReference;
+    const { data, error } = requiresV2
+      ? await supabase.rpc("record_source_review_v2", {
+          ...legacyReviewParams,
+          p_policy_version: body.policyVersion,
+          p_reviewer_qualification: body.reviewerQualification,
+        })
+      : await supabase.rpc("record_source_review", legacyReviewParams);
     if (error) {
-      if (/document not found/i.test(error.message)) {
+      if (requiresV2 && isSourceReviewV2Unavailable(error)) {
+        return NextResponse.json(
+          {
+            error: "Public source review is unavailable until the reviewed governance migration is applied.",
+            code: "source_review_v2_unavailable",
+          },
+          { status: 503 },
+        );
+      }
+      if (/^document not found\.?$/i.test(error.message.trim())) {
         return NextResponse.json({ error: "Document not found." }, { status: 404 });
       }
       throw new PublicApiError("Source review could not be recorded.", 400, { code: "source_review_rejected" });
     }
 
-    invalidateRagCachesForOwner(user.id);
+    // Public documents participate in every owner's retrieval view, so a
+    // public-corpus governance change must clear all local and shared scopes.
+    if (document.owner_id === null) invalidateRagCachesForOwner();
+    else invalidateRagCachesForOwner(user.id);
     return NextResponse.json({ review: data }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

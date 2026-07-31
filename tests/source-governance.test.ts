@@ -187,7 +187,7 @@ describe("source governance warnings", () => {
     expect(hasDangerSourceGovernanceWarning(warnings)).toBe(false);
   });
 
-  it("keeps review-due notes hidden while surfacing the unvalidated-source caveat", () => {
+  it("surfaces review-due and unvalidated-source caveats to the frontend", () => {
     const warnings = sourceGovernanceWarnings({
       results: [
         result({
@@ -221,9 +221,13 @@ describe("source governance warnings", () => {
       expect.arrayContaining(["review_due_source", "unverified_source"]),
     );
     // With the whole indexed corpus promoted public regardless of validation
-    // status, "not locally validated" must stay visible; review-due remains a
-    // routine metadata note.
-    expect(frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code)).toEqual(["unverified_source"]);
+    // status, "not locally validated" must stay visible. A source past its review
+    // date is likewise a material currency caveat, so its badge is surfaced too
+    // (Issue 2) — kept consistent with the render-policy copy text.
+    expect(frontendSourceGovernanceWarnings(warnings).map((warning) => warning.code)).toEqual([
+      "review_due_source",
+      "unverified_source",
+    ]);
   });
 
   it("surfaces only clinically material warnings to the frontend", () => {
@@ -246,7 +250,6 @@ describe("source governance warnings", () => {
     expect(visibleCodes).toEqual(
       expect.arrayContaining(["weak_evidence", "outdated_source", "poor_extraction", "unverified_source"]),
     );
-    expect(visibleCodes).not.toContain("review_due_source");
     expect(visibleCodes).not.toContain("non_local_source");
   });
 

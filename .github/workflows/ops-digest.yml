@@ -2,7 +2,8 @@
 # hit-rate, answer spend, degraded/truncation rates) into a one-screen summary
 # and keeps it in a rolling GitHub issue, commenting only when something is off.
 #
-# The repo variable and matching deployment/GitHub secret are provisioned.
+# The repo variable and matching deployment/GitHub secret must both be
+# provisioned. The preflight below fails closed when either name is absent.
 # Keep workflow_dispatch for operator verification and the daily schedule for
 # the normal morning digest.
 name: Ops Digest
@@ -30,7 +31,7 @@ jobs:
       HEALTH_DEEP_PROBE_SECRET: ${{ secrets.HEALTH_DEEP_PROBE_SECRET }}
     steps:
       - name: Checkout
-        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -45,7 +46,7 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".nvmrc"
 

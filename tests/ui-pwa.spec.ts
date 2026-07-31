@@ -118,6 +118,10 @@ function isAllowedPublicCachePath(pathname: string) {
   );
 }
 
+// The suite-wide Playwright config blocks service workers (they hijack navigations
+// in production builds); this spec is the one place the worker itself is under test.
+test.use({ serviceWorkers: "allow" });
+
 test.describe("Clinical KB PWA", () => {
   test.describe.configure({ timeout: 120_000 });
 

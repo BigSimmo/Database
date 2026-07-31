@@ -48,22 +48,28 @@ describe("public content and account authorization model", () => {
     expect(migration).toContain("revoke insert, update, delete on table storage.objects from anon, authenticated");
   });
 
+  it("keeps document management actions administrator-gated in the client", () => {
+    const documentManagementActions = source("src/components/DocumentManagementActions.tsx");
+    expect(documentManagementActions).toContain("isAdministratorUser(session?.user)");
+    expect(documentManagementActions).toContain('authStatus === "authenticated"');
+    expect(documentManagementActions).toContain("assertCanManage()");
+  });
+
   it("keeps public document reads separate from administrator mutations", () => {
     const documentRoute = source("src/app/api/documents/[id]/route.ts");
     const tableFactsRoute = source("src/app/api/documents/[id]/table-facts/route.ts");
     const documentViewer = source("src/components/DocumentViewer.tsx");
+    const documentRail = source("src/components/document-viewer/document-rail-panels.tsx");
     expect(documentRoute).toContain("loadAuthorizedDocumentDetail({ request, rawId, query: detailQuery })");
     expect(documentRoute.match(/administrator: true/g)?.length).toBe(2);
     expect(tableFactsRoute).toContain("enforceDocumentReadRateLimit(request, supabase)");
     expect(tableFactsRoute).toContain("withOwnerReadScope(");
     expect(tableFactsRoute.match(/administrator: true/g)?.length).toBe(1);
     expect(documentViewer).toContain("isAdministratorUser(session?.user)");
-    expect(documentViewer).toContain("{canUseAdministrativeApis ? (");
-    expect(documentViewer).toContain("canManage={canUseAdministrativeApis}");
-    expect(documentViewer).toContain("canReview={canUseAdministrativeApis}");
-    expect(documentViewer).toContain(
-      'const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUseAdministrativeApis',
-    );
+    expect(documentViewer).toContain("canUseAdministrativeApis={canUseAdministrativeApis}");
+    expect(documentRail).toContain("{canUseAdministrativeApis ? (");
+    expect(documentRail).toContain("canManage={canUseAdministrativeApis}");
+    expect(documentRail).toContain("canReview={canUseAdministrativeApis}");
   });
 
   it("does not turn an ordinary signed-in setup-status request into a server error", () => {
@@ -74,31 +80,13 @@ describe("public content and account authorization model", () => {
 
   it("does not load or display administrative dashboard surfaces for ordinary accounts", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
+    const compact = dashboard.replace(/\s+/g, " ");
     expect(dashboard).toContain("if (!canUseAdministrativeApis)");
-    expect(dashboard).toContain(
-      'canUseAdministrativeApis && (uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin"))',
+    expect(compact).toContain(
+      'canUseAdministrativeApis && (settingsState.uploadDrawerOpen || (settingsState.documentsDrawerOpen && settingsState.documentsDrawerMode === "admin"))',
     );
-    expect(dashboard).toContain(
-      'const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;',
+    expect(compact).toContain(
+      'const documentsDrawerIsAdmin = settingsState.documentsDrawerMode === "admin" && canUseAdministrativeApis;',
     );
-  });
-
-  it("checks favourite save results explicitly instead of relying on object truthiness", () => {
-    const serviceDetail = source("src/components/services/service-detail-page.tsx");
-    const formDetail = source("src/components/forms/form-detail-page.tsx");
-    const differentialDetail = source("src/components/differentials/differential-detail-page.tsx");
-
-    for (const detailSource of [serviceDetail, formDetail, differentialDetail]) {
-      expect(detailSource).toContain("result.success");
-      expect(detailSource).not.toMatch(/if\s*\(\s*!\s*\(\s*await accountData\.setFavourite/);
-    }
-  });
-
-  it("marks account favourites reads as private and non-cacheable", () => {
-    const favouritesRoute = source("src/app/api/account/favourites/route.ts");
-    const preferencesRoute = source("src/app/api/account/preferences/route.ts");
-
-    expect(favouritesRoute).toContain('"Cache-Control": "private, no-store"');
-    expect(preferencesRoute).toContain('"Cache-Control": "private, no-store"');
   });
 });

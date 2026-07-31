@@ -1,22 +1,52 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
+import localFont from "next/font/local";
+import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { AccountDataProvider } from "@/components/account-data-provider";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
-import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
+import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/lib/theme";
+import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import "./globals.css";
 
-const geistSans = Geist({
+/**
+ * Origin of the Supabase project, or null when the public env is absent (demo mode).
+ *
+ * AuthProvider calls auth.getUser() on mount, so the very first thing the app does
+ * after hydration is a cross-origin request to this host — and every auth-gated
+ * client fetch queues behind it. Warming DNS/TLS while the document and JS are
+ * still downloading takes that handshake off the critical path.
+ */
+function supabaseOrigin() {
+  // Read process.env directly rather than the `@/lib/env` contract: that module is
+  // `server-only`, and the root layout sits at the head of the client module graph
+  // (tests/client-secret-surface.test.ts guards that boundary). NEXT_PUBLIC_* values
+  // are build-time inlined, so no server contract is needed to read one.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return null;
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+const geistSans = localFont({
+  src: "../../node_modules/next/dist/next-devtools/server/font/geist-latin.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "../../node_modules/next/dist/next-devtools/server/font/geist-mono-latin.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
+  // The mono face is only used deep in the UI (tabular figures, `kbd`, code) and
+  // never in initial/LCP text, so don't preload it on every route — it competes
+  // for the critical-path connection. It still loads on-demand via `swap` when
+  // first painted. The sans face keeps the default preload.
+  preload: false,
 });
 
 const baseMetadata: Metadata = {
@@ -53,6 +83,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
   colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: APP_THEME_COLORS.light },
@@ -71,13 +102,30 @@ export default async function RootLayout({
   // silent runtime failure: theme flash returns). Reading headers() opts the app
   // into dynamic rendering — inherent to nonce-based CSP.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const cookieStore = await cookies();
+  const clinicalTheme = cookieStore.get(THEME_COOKIE_NAME)?.value;
+  const isDark = clinicalTheme === "dark";
+  const themeClass = isDark ? "dark" : "";
+  const authOrigin = supabaseOrigin();
+
   return (
     <html
       lang="en-AU"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${themeClass}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {/* Rendered in the tree rather than inside a hand-written <head>, which
+            would compete with the framework's own head management. React hoists
+            hoistable <link> tags into <head> for us. crossOrigin is required for
+            the preconnect to be reused by the CORS fetches @supabase/supabase-js
+            makes — without it the browser opens a second connection. */}
+        {authOrigin ? (
+          <>
+            <link rel="preconnect" href={authOrigin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={authOrigin} />
+          </>
+        ) : null}
         {/* Applies the resolved theme before first paint on every route (standalone
             pages don't mount useTheme, and hydration-time toggling flashes light).
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,
@@ -95,7 +143,6 @@ export default async function RootLayout({
         />
         <a
           href="#main-content"
-          suppressHydrationWarning
           className="sr-only focus:not-sr-only focus:fixed focus:left-[max(0.75rem,env(safe-area-inset-left))] focus:top-[max(0.75rem,env(safe-area-inset-top))] focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-lux)] focus:bg-[color:var(--surface-raised)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-elevated)]"
         >
           Skip to main content
@@ -103,7 +150,9 @@ export default async function RootLayout({
         <WebVitalsReporter />
         <PwaLifecycle />
         <AuthProvider>
-          <AccountDataProvider>{children}</AccountDataProvider>
+          <AccountDataProvider>
+            <MobileKeyboardProvider>{children}</MobileKeyboardProvider>
+          </AccountDataProvider>
         </AuthProvider>
       </body>
     </html>

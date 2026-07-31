@@ -8,21 +8,19 @@ import {
   type UIEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { ClinicalDashboard } from "@/components/ClinicalDashboard";
-import {
-  clearLegacyRecentQueries,
-  demoRecentQueryOwnerId,
-  loadRecentQueries,
-} from "@/components/clinical-dashboard/recent-query-storage";
+import dynamic from "next/dynamic";
+
+import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -30,12 +28,33 @@ import {
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
-import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { PageSecondaryNavigation } from "@/components/page-secondary-navigation";
+import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
+import {
+  isCollapseMotionPhoneRoute,
+  isPageOwnedComposerRoute,
+  resolveMobileComposerReserve,
+  resolveShellVisibleMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
+import { usePhoneOverlayChromeReserve } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
+import {
+  readChromeCollapseMetrics,
+  useDocumentScrollHideReporter,
+  useReserveTransitionMarker,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
+import {
+  loadSettingsDialog,
+  prefetchAccountDialog,
+  SidebarAccountSetupDialog,
+  SidebarSettingsDialog,
+} from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { cn } from "@/components/ui-primitives";
 import {
   appModeHomeHref,
@@ -44,11 +63,29 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+
+// Namespaced mode homes share this client shell but never render the dashboard
+// body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
+const ClinicalDashboard = dynamic(
+  () => import("@/components/ClinicalDashboard").then((mod) => ({ default: mod.ClinicalDashboard })),
+  { ssr: true, loading: () => <ModeHomeRouteLoading /> },
+);
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { isInformationPage } from "@/lib/information-pages";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
+import {
+  desktopPageComposerSlotId,
+  differentialsMobileCompareAddonSlotId,
+  modeHomeDesktopComposerSlotId,
+} from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
-import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import {
+  isAlwaysStandaloneShellPath,
+  isStandaloneModeHomePath,
+  shouldRenderClinicalDashboard,
+  shouldRenderDashboardSearch,
+} from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
@@ -64,7 +101,6 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 ];
 // Re-apply focus shortly after the first frame to survive initial hydration remounts.
 const focusHydrationRetryDelayMs = 300;
-
 type GlobalSearchShellProps = {
   children: ReactNode;
   initialMode?: AppModeId;
@@ -78,38 +114,54 @@ type GlobalSearchShellProps = {
   chromeVisible?: boolean;
   /** Hide the shared mobile header when a route owns its phone navigation. */
   mobileChromeVisible?: boolean;
+  /** Optional custom fallback for the Suspense boundary. Defaults to ModeHomeRouteLoading on the home route. */
+  fallback?: ReactNode;
 };
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
+  const pathname = usePathname() ?? "/";
+
+  // Pathname-only gate: never wrap always-standalone routes in the outer
+  // useSearchParams Suspense. That nested the route segment (loading.tsx + page)
+  // inside an incomplete streaming `S:` boundary and left a persistent hidden
+  // duplicate page-root data-testid under CI load.
+  if (isAlwaysStandaloneShellPath(pathname)) {
+    return (
+      <PatientProfileProvider>
+        <GlobalStandaloneSearchShellClient {...props} />
+      </PatientProfileProvider>
+    );
+  }
+
   return (
     <Suspense
       fallback={
-        // A neutral placeholder — do NOT render props.children here. The client
-        // body below also renders {children} inside `#main-content`, and echoing
-        // them in the fallback duplicated the page subtree (two `#main-content`
-        // and two `data-testid` on medication/forms/services pages) whenever the
-        // fallback and resolved content briefly coexisted. A route-agnostic mode-home
-        // skeleton (the same one `loading.tsx` shows during navigation) reserves the
-        // layout so the first frame reads as "loading" instead of a blank background.
-        <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-          <ModeHomeRouteLoading />
-        </div>
+        props.fallback ?? (
+          // A neutral placeholder — do NOT render props.children here. The client
+          // body below also renders {children} inside `#main-content`, and echoing
+          // them in the fallback duplicated the page subtree (two `#main-content`
+          // and two `data-testid` on medication/forms/services pages) whenever the
+          // fallback and resolved content briefly coexisted. A route-agnostic mode-home
+          // skeleton (the same one `loading.tsx` shows during navigation) reserves the
+          // layout so the first frame reads as "loading" instead of a blank background.
+          <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+            <ModeHomeRouteLoading />
+          </div>
+        )
       }
     >
-      <GlobalSearchShellClient {...props} />
+      <PatientProfileProvider>
+        <GlobalSearchShellDashboardGate {...props} />
+      </PatientProfileProvider>
     </Suspense>
   );
 }
 
-function GlobalSearchShellClient(props: GlobalSearchShellProps) {
-  const pathname = usePathname();
+function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
+  const pathname = usePathname() ?? "/";
   const router = useRouter();
   const searchParams = useSearchParams();
   const landingPreferenceAppliedRef = useRef(false);
-  // Default-landing preference: on a bare "/" load (no explicit mode, query, or
-  // run flag) replace the URL with the saved landing mode exactly once; the
-  // dashboard's existing URL-sync effect then switches into it. Deep links and
-  // explicit mode choices always win over the preference.
   useEffect(() => {
     if (landingPreferenceAppliedRef.current) return;
     landingPreferenceAppliedRef.current = true;
@@ -143,26 +195,118 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     pathname,
   });
 
-  // Wrap both render paths so the patient-considerations profile is shared
-  // between the prescribing workspace (ClinicalDashboard) and the medication
-  // detail pages (standalone shell), backed by sessionStorage across navigation.
-  return (
-    <PatientProfileProvider>
-      {rendersClinicalDashboard ? (
+  // PatientProfileProvider already wraps this gate in GlobalSearchShell.
+  // SettingsStateProvider keeps dashboard settings/drawer state extracted for the
+  // ClinicalDashboard tree only.
+  if (rendersClinicalDashboard) {
+    return (
+      <SettingsStateProvider>
         <ClinicalDashboard
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
           autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
         />
-      ) : (
-        <GlobalStandaloneSearchShellClient {...props} />
-      )}
-    </PatientProfileProvider>
+      </SettingsStateProvider>
+    );
+  }
+
+  return <GlobalStandaloneSearchShellClient {...props} />;
+}
+
+function subscribeNoop() {
+  return () => undefined;
+}
+
+/**
+ * Isolates `useSearchParams()` so the standalone shell body (and route children)
+ * are not descendants of that Suspense boundary. Client-only via
+ * useSyncExternalStore so SSR never calls `useSearchParams` on always-standalone
+ * routes (avoids an outer incomplete `S:` boundary wrapping the page segment).
+ */
+function ShellSearchParamsBridge({ onParamString }: { onParamString: (value: string) => void }) {
+  const ready = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  if (!ready) return null;
+  return <ShellSearchParamsBridgeInner onParamString={onParamString} />;
+}
+
+function ShellSearchParamsBridgeInner({ onParamString }: { onParamString: (value: string) => void }) {
+  const searchParams = useSearchParams();
+  const paramString = searchParams.toString();
+  useLayoutEffect(() => {
+    onParamString(paramString);
+  }, [onParamString, paramString]);
+  return null;
+}
+
+function readInitialBrowserSubmittedSearchParamString(): string {
+  if (typeof window === "undefined") return "";
+  const search = window.location.search.startsWith("?") ? window.location.search.slice(1) : window.location.search;
+  const params = new URLSearchParams(search);
+  const query = (params.get("q") ?? params.get("query") ?? "").trim();
+  return params.get("run") === "1" && query ? search : "";
+}
+
+export function infoPageBackHref(pathname: string): string | null {
+  if (pathname.startsWith("/services/")) return appModeHomeHref("services");
+  if (pathname.startsWith("/forms/")) return appModeHomeHref("forms");
+  if (pathname.startsWith("/medications/")) return appModeHomeHref("prescribing");
+  if (pathname.startsWith("/differentials/")) return appModeHomeHref("differentials");
+  if (pathname.startsWith("/dsm/")) return appModeHomeHref("dsm");
+  if (pathname.startsWith("/specifiers/")) return appModeHomeHref("specifiers");
+  if (pathname.startsWith("/formulation/")) return appModeHomeHref("formulation");
+  if (pathname.startsWith("/therapy-compass/")) return appModeHomeHref("therapy-compass");
+  if (pathname.startsWith("/factsheets/")) return appModeHomeHref("factsheets");
+  if (pathname.startsWith("/documents/")) return documentsSearchHref();
+  return null;
+}
+
+/** Stable in-app back target for non-info mobile back (e.g. submitted differential search). */
+export function mobileBackHref(pathname: string, searchMode: string, hasQuery: boolean): string | null {
+  const infoHref = infoPageBackHref(pathname);
+  if (infoHref) return infoHref;
+  if (pathname === "/differentials" && searchMode === "differentials" && hasQuery) {
+    return appModeHomeHref("differentials", { focus: true });
+  }
+  return null;
+}
+
+function isToolDetailWithFooterSearch(pathname: string): boolean {
+  return (
+    (pathname.startsWith("/services/") && pathname !== "/services") ||
+    (pathname.startsWith("/forms/") && pathname !== "/forms") ||
+    (pathname.startsWith("/medications/") && pathname !== "/medications")
   );
 }
 
-function GlobalStandaloneSearchShellClient({
+function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
+  // Empty until the bridge resolves — matches SSR/hydration, then syncs. Keeps
+  // `{children}` outside the useSearchParams Suspense (no nested S: page clone).
+  const [searchParamString, setSearchParamString] = useState("");
+  // Hard loads of always-standalone submitted routes need the browser query
+  // before the Suspense-delayed bridge hydrates, otherwise the shell briefly
+  // paints the mode-home hero before snapping to the submitted bottom dock.
+  const browserSearchParamString = useSyncExternalStore(
+    subscribeNoop,
+    readInitialBrowserSubmittedSearchParamString,
+    () => "",
+  );
+  const effectiveSearchParamString = searchParamString || browserSearchParamString;
+  return (
+    <>
+      <Suspense fallback={null}>
+        <ShellSearchParamsBridge onParamString={setSearchParamString} />
+      </Suspense>
+      <GlobalStandaloneSearchShellBody {...props} searchParamString={effectiveSearchParamString} />
+    </>
+  );
+}
+
+function GlobalStandaloneSearchShellBody({
   children,
   initialMode = "answer",
   availableModeIds,
@@ -171,18 +315,48 @@ function GlobalStandaloneSearchShellClient({
   hideDesktopSidebar = false,
   chromeVisible = true,
   mobileChromeVisible = true,
-}: GlobalSearchShellProps) {
+  searchParamString,
+}: GlobalSearchShellProps & { searchParamString: string }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = usePathname() ?? "/";
+  const searchParams = useMemo(() => new URLSearchParams(searchParamString), [searchParamString]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
-  const phoneScrollHide = useScrollHideReporter();
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  // The header hides at every breakpoint; only the phone bottom dock stays
+  // phone-gated (MasterSearchHeader keeps that behind its own phone layout
+  // check). Browser phones and sm+ use document scrolling; standalone phones
+  // keep #main-content as the bounded app scroller, so both sources feed one
+  // reporter.
+  // resetKey=pathname clears carried-over hide state across shared mode homes.
+  const chromeScrollHide = useScrollHideReporter(false, true, pathname);
+  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  const [bottomComposerHiddenPathname, setBottomComposerHiddenPathname] = useState(pathname);
+  // Render-time reset (not an effect): pathname-only mode homes share one scroller,
+  // so a carried-over hidden dock pad would open the next mode mid-collapse.
+  if (pathname !== bottomComposerHiddenPathname) {
+    setBottomComposerHiddenPathname(pathname);
+    setBottomComposerHidden(false);
+  }
+  const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, pathname);
+  const chromeTransitioning = useReserveTransitionMarker(chromeScrollHide.hidden, pathname);
+  const activeScrollOwner = useActiveScrollOwner(mainElement, pathname);
+  useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainElement, inputRef);
+  // Phones overlay the header, so content owns a constant top clearance beneath
+  // it. Published as a measured height because the collapse row grows with
+  // portaled page navigation, and read as a fixed reserve so hide/reveal moves
+  // no layout.
+  usePhoneOverlayChromeReserve();
   useEffect(() => {
-    reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
-  }, [phoneScrollHide.reportScroll]);
+    reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
+  }, [chromeScrollHide.reportScroll]);
+  // Mode homes share one shell scroller. Reset scroll when the route changes so
+  // /services → /dsm does not open mid-page with a stuck offset.
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (main instanceof HTMLElement) main.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }, [pathname]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -197,7 +371,6 @@ function GlobalStandaloneSearchShellClient({
   const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const requestedMode = searchParams.get("mode");
-  const searchParamString = searchParams.toString();
   // Mode resolved from the URL (?mode=), falling back to this shell's default when
   // the param is missing, unknown, or not offered here. Seeds the initial mode and
   // re-syncs it after a navigation.
@@ -208,10 +381,12 @@ function GlobalStandaloneSearchShellClient({
       ? requestedMode
       : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
-  // The search string we last synced into local state, so the effect below only
-  // reacts to genuine navigations. Seeded with the current string so the initial
-  // mount is a no-op — the state above is already derived from the URL.
-  const lastSyncedSearchParamsRef = useRef(searchParamString);
+  // Previous URL snapshot for during-render sync (React "adjusting state when a
+  // prop changes"). Pathname must be tracked separately: with the shared
+  // `(search-app)` layout, /services → /dsm keeps an empty query string, and a
+  // params-only gate would leave searchMode stuck on the previous mode.
+  const [syncedSearchParamString, setSyncedSearchParamString] = useState(searchParamString);
+  const [syncedPathname, setSyncedPathname] = useState(pathname);
   const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(
     () => readSearchNavigationContext(searchParams).queryMode,
@@ -223,14 +398,13 @@ function GlobalStandaloneSearchShellClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const removeCommandScope = useCallback(
     (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-    [],
+    [setCommandScopes],
   );
-  const clearCommandScopes = useCallback(() => setCommandScopes([]), []);
+  const clearCommandScopes = useCallback(() => setCommandScopes([]), [setCommandScopes]);
   const searchCommandContextValue = useMemo(
     () => ({
       query,
@@ -241,7 +415,6 @@ function GlobalStandaloneSearchShellClient({
     }),
     [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
   );
-  const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
@@ -258,67 +431,70 @@ function GlobalStandaloneSearchShellClient({
     mode: resolvedSearchMode,
     pathname,
   });
-  const isStandaloneModeHome =
-    !hasSubmittedModeSearch &&
-    !rendersDashboardSearch &&
-    ((searchMode === "services" && pathname === "/services") ||
-      (searchMode === "forms" && pathname === "/forms") ||
-      (searchMode === "favourites" && pathname === "/favourites") ||
-      (searchMode === "differentials" && pathname === "/differentials") ||
-      (searchMode === "dsm" && pathname === "/dsm") ||
-      (searchMode === "specifiers" && pathname === "/specifiers") ||
-      (searchMode === "formulation" && pathname === "/formulation") ||
-      (searchMode === "factsheets" && pathname === "/factsheets") ||
-      (searchMode === "therapy-compass" && pathname === "/therapy-compass") ||
-      (searchMode === "tools" && pathname === "/tools"));
+  // Pathname-only: do not require searchMode === route. changeMode used to set
+  // searchMode before router.push landed, which made isStandaloneModeHome false
+  // for one frame (dock reserve + 200ms padding transition = choppy resize).
+  const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
-  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const isInfoPage = isInformationPage(pathname);
+  const shouldShowSearchComposer =
+    searchComposerVisible &&
+    !isDifferentialPresentationWorkflow &&
+    (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
-  // Standalone mode homes portal the composer into the hero (in-flow at every
-  // width), so phones need no bottom-dock clearance there.
-  const visibleMobileComposerReserve = !shouldShowSearchComposer
-    ? "2rem"
-    : isStandaloneModeHome
-      ? "2rem"
-      : searchMode === "answer"
-        ? "calc(9rem + env(safe-area-inset-bottom))"
-        : differentialsCompareAddonActive
-          ? "calc(8.75rem + env(safe-area-inset-bottom))"
-          : useCompactBottomSearch
-            ? "calc(5.5rem + env(safe-area-inset-bottom))"
-            : "calc(9rem + env(safe-area-inset-bottom))";
+  // Standalone mode homes keep the in-flow hero pill at every width (no phone
+  // dock reserve). Document viewer routes own their own floating composer, so
+  // the shell keeps only a small pad and lets DocumentViewer manage clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
   // keep the full reserve so content does not slide under a still-visible dock.
-  // When the dock does hide, keep only a small safe-area breathing room so
-  // content — not the background — fills the revealed edge-to-edge viewport.
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  // Safari's bottom safe-area inset includes its translucent browser toolbar.
+  // Reusing that inset after the app composer hides recreates a toolbar-sized
+  // blank band, so the hidden state intentionally keeps no artificial content
+  // pad. Interactive composer chrome still receives the full inset above.
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveShellVisibleMobileComposerReserve({
+      shouldShowSearchComposer,
+      pageOwnedComposerRoute: isPageOwnedComposerRoute(pathname),
+      isStandaloneModeHome,
+      searchMode,
+      differentialsCompareAddonActive,
+    }),
+  );
 
-  useEffect(() => {
-    // Re-derive the mode and query from the URL, but only when the search string
-    // actually changes (a real navigation). Reacting on every render — as the old
-    // requestAnimationFrame sync effectively did — let a deferred frame land after
-    // a programmatic/user fill and wipe the controlled input; on slow CI WebKit
-    // that raced the forms-detail composer to empty (input focused-but-empty,
-    // submit stuck disabled). Typing never changes the URL, so a URL-gated sync
-    // cannot clobber in-progress input, and the initial mount is skipped entirely
-    // because the state above is already seeded from the URL.
-    if (lastSyncedSearchParamsRef.current === searchParamString) return;
-    lastSyncedSearchParamsRef.current = searchParamString;
+  // Re-derive mode/query from the URL when the search string or pathname changes
+  // (a real navigation). Do this during render — not in an effect — so the shared
+  // `(search-app)` shell does not paint one frame with a stale searchMode after
+  // pathname-only moves like /services → /dsm. React discards this render and
+  // immediately re-renders with the updated state (see "adjusting state when a
+  // prop changes"). Typing never changes the URL, so a URL-gated sync cannot
+  // clobber in-progress input; the initial mount is a no-op because synced*
+  // state is seeded from the current URL.
+  if (searchParamString !== syncedSearchParamString || pathname !== syncedPathname) {
+    setSyncedSearchParamString(searchParamString);
+    setSyncedPathname(pathname);
     setSearchMode(resolvedSearchMode);
     setQuery(currentUrlHasQuery ? requestedQuery : "");
     const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
     setQueryMode(nextSearchContext.queryMode);
     setScopeFilters(nextSearchContext.scopeFilters);
-  }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
+  }
 
   useEffect(() => {
+    // Submitted result views must not keep the dock focused. Composer focus
+    // pins both chrome edges (keyboard safety), which is what left Forms /
+    // services search stuck with a visible header + bottom white rail while
+    // scrolling results. Match ClinicalDashboard: focus only the empty/home
+    // composer, and blur once a run=1 result view is showing.
+    if (hasSubmittedModeSearch) {
+      if (document.activeElement === inputRef.current) inputRef.current?.blur();
+      return undefined;
+    }
     if (!requestedFocus) return undefined;
     const focusInput = () => {
       // The focus=1 hydration retry (rAF + 300ms) can land after a user/test opens
@@ -327,6 +503,10 @@ function GlobalStandaloneSearchShellClient({
       // Guard both: open menu DOM (activeElement is often <body> mid-transition) and
       // any intentional focus already moved off the composer.
       if (document.getElementById("app-mode-menu")) return;
+      // Do not reclaim composer focus while a modal Sheet is open (Sources /
+      // Guide / filters). The focus=1 hydration retry otherwise races sheet
+      // autofocus and can leave the Find field unfocused in UI smoke.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const active = document.activeElement;
       if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
         return;
@@ -339,7 +519,7 @@ function GlobalStandaloneSearchShellClient({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [pathname, requestedFocus, searchParamString]);
+  }, [pathname, requestedFocus, searchParamString, hasSubmittedModeSearch]);
 
   // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
   // the legacy unscoped localStorage value could resurface another account's
@@ -349,6 +529,8 @@ function GlobalStandaloneSearchShellClient({
     authUnavailableFallback: !auth.isConfigured,
     localNoAuthMode: isLocalNoAuthMode(),
   });
+  const { favouritesAccessible, accountSetupOpen, accountSetupIntent, openAccountSetup, closeAccountSetup } =
+    useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const recentQueriesOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
 
   useEffect(() => {
@@ -367,8 +549,8 @@ function GlobalStandaloneSearchShellClient({
   }, [recentQueriesOwnerId]);
 
   function prefetchApplications() {
-    router.prefetch("/?mode=tools");
-    router.prefetch("/favourites");
+    router.prefetch("/tools");
+    if (favouritesAccessible) router.prefetch("/favourites");
     router.prefetch("/differentials");
     router.prefetch("/dsm");
     router.prefetch("/specifiers");
@@ -378,14 +560,14 @@ function GlobalStandaloneSearchShellClient({
 
   function openGuide() {
     setSettingsOpen(false);
-    setAccountSetupOpen(false);
+    closeAccountSetup();
     setMobileMenuOpen(false);
     setGuideOpen(true);
   }
 
   function openSettings() {
     setGuideOpen(false);
-    setAccountSetupOpen(false);
+    closeAccountSetup();
     setMobileMenuOpen(false);
     setSettingsOpen(true);
   }
@@ -394,13 +576,27 @@ function GlobalStandaloneSearchShellClient({
     setGuideOpen(false);
     setMobileMenuOpen(false);
     if (sidebarIdentity.signedIn) {
-      setAccountSetupOpen(false);
+      closeAccountSetup();
       setSettingsOpen(true);
       return;
     }
     setSettingsOpen(false);
-    setAccountSetupOpen(true);
+    openAccountSetup("default");
   }
+
+  const {
+    settingsInitialFocus,
+    openGuideFromSettings,
+    closeGuideWithRestore,
+    openSettingsWithDefaultFocus,
+    openAccountProfileWithDefaultFocus,
+  } = useSettingsGuideFlow({
+    openGuide,
+    closeGuide: () => setGuideOpen(false),
+    openSettings,
+    openAccountProfile,
+    setSettingsOpen,
+  });
 
   function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
     const nextOptions = { queryMode, scopeFilters, ...options };
@@ -416,45 +612,62 @@ function GlobalStandaloneSearchShellClient({
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
-      focus: true,
+      // Running a search must not carry focus into the result dock — that pin
+      // disables hide-on-scroll for both chrome edges.
+      focus: !trimmedQuery,
     });
   }
 
   function changeMode(mode: AppModeId) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      setGuideOpen(false);
+      setSettingsOpen(false);
+      setMobileMenuOpen(false);
+      openAccountSetup("favourites");
+      return;
+    }
     setQuery("");
     setCommandScopes([]);
-    setSearchMode(mode);
     setMobileMenuOpen(false);
+    // Let the URL sync (render-time) own searchMode. Optimistic setSearchMode
+    // before pathname updates was the namespaced mode-switch reserve flip.
     navigateToMode(mode);
   }
 
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-    setSearchMode("answer");
     setQueryMode("auto");
     setScopeFilters({});
+    // URL sync sets searchMode after navigation; avoid eager chrome thrash.
     router.push(appModeHomeHref("answer", { focus: true }));
   }
 
   function pickRecentQuery(recentQuery: string) {
     setMobileMenuOpen(false);
-    navigateToMode(searchMode, { query: recentQuery, focus: true, run: true });
+    navigateToMode(searchMode, { query: recentQuery, focus: false, run: true });
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      setGuideOpen(false);
+      setSettingsOpen(false);
+      setMobileMenuOpen(false);
+      openAccountSetup("favourites");
+      return;
+    }
     setQuery(crossQuery);
     setCommandScopes([]);
-    setSearchMode(mode);
     setMobileMenuOpen(false);
-    navigateToMode(mode, { query: crossQuery, focus: true, run: true });
+    navigateToMode(mode, { query: crossQuery, focus: false, run: true });
   }
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
-    phoneScrollHide.reportScroll({
+    chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+      ...readChromeCollapseMetrics(target),
       source: target,
     });
   }
@@ -474,9 +687,12 @@ function GlobalStandaloneSearchShellClient({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
-      reportPhoneScrollHideRef.current({
+      reportChromeScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+        // Collapsing chrome releases layout into nested scrollers too (their
+        // flex height cap grows with the shell), so the same budget applies.
+        ...readChromeCollapseMetrics(main),
         source: target,
       });
     };
@@ -502,15 +718,11 @@ function GlobalStandaloneSearchShellClient({
   return (
     <div
       className={cn(
-        // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
-        // re-resolves dvh lazily when its toolbar collapses/expands (especially
-        // with body scrolling disabled like here), leaving a dead band between
-        // the clipped shell and the toolbar. Fixed insets track the live
-        // viewport through the whole transition, so content stays edge to edge.
-        "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        // Browser phones stay in normal flow so Safari sees document scrolling
+        // and can minimize its own chrome. Standalone mode is bounded by the
+        // shared display-mode contract without returning to a fixed root.
+        "phone-viewport-shell sm:min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
-        shouldShowDesktopSidebar &&
-          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
@@ -531,22 +743,31 @@ function GlobalStandaloneSearchShellClient({
               recentQueries={recentQueries}
               identity={sidebarIdentity}
               activeMode={searchMode}
+              showAccountLibrary={favouritesAccessible}
               onCollapsedChange={setSidebarCollapsed}
               onNewChat={startNewAnswerChat}
               onPickRecent={pickRecentQuery}
-              onOpenGuide={openGuide}
-              onOpenSettings={openSettings}
-              onOpenAccount={openAccountProfile}
-              theme={theme}
-              onToggleTheme={toggleTheme}
+              onOpenSettings={openSettingsWithDefaultFocus}
+              onOpenAccount={openAccountProfileWithDefaultFocus}
+              onPrefetchSettings={loadSettingsDialog}
+              onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
             />
           </div>
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
-        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
+      <PhoneFooterLayerFrame
+        className="phone-viewport-frame flex min-w-0 flex-col sm:min-h-dvh"
+        scrollHidden={chromeScrollHide.hidden}
+      >
+        {/*
+          `contents` at every visible breakpoint: the chrome wrapper pins itself
+          to the viewport top, and a plain block here would be a header-height
+          containing block that leaves that sticky rule no travel (the header
+          then reports revealed while remaining above the viewport).
+        */}
+        <div className={mobileChromeVisible ? "contents" : "hidden lg:contents"}>
           <MasterSearchHeader
             demoMode={clientDemoMode}
             documents={[]}
@@ -560,6 +781,13 @@ function GlobalStandaloneSearchShellClient({
             realDataReady
             onQueryChange={setQuery}
             onSearchModeChange={changeMode}
+            canAccessFavourites={favouritesAccessible}
+            onRequestAccountSetup={() => {
+              setGuideOpen(false);
+              setSettingsOpen(false);
+              setMobileMenuOpen(false);
+              openAccountSetup("favourites");
+            }}
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
@@ -576,11 +804,25 @@ function GlobalStandaloneSearchShellClient({
             onNewChat={startNewAnswerChat}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
             mobileLeadingAction={
-              pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
+              isInfoPage
+                ? "back"
+                : pathname === "/differentials" && searchMode === "differentials" && requestedQuery
+                  ? "back"
+                  : "menu"
             }
             onMobileBack={() => {
-              setQuery("");
-              navigateToMode(searchMode, { focus: true });
+              const fallbackHref = mobileBackHref(pathname, searchMode, Boolean(requestedQuery));
+              if (fallbackHref) {
+                if (!isInfoPage) setQuery("");
+                router.push(fallbackHref);
+                return;
+              }
+              if (!isInfoPage) {
+                setQuery("");
+                navigateToMode(searchMode, { focus: true });
+                return;
+              }
+              router.back();
             }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
@@ -591,21 +833,44 @@ function GlobalStandaloneSearchShellClient({
             onCrossModeSearch={crossModeSearch}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
-            // Submitted searches that stay in the shell (services results) are
-            // result views: compact the phone bottom composer so results keep
-            // maximum screen space. Mode homes keep the chip-row layout.
-            mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
+            // Every phone dock is the compact single-row pill so content keeps
+            // maximum screen space (mode homes and result views alike).
+            mobileBottomSearchVariant="compact"
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
-            // collapses the header/composer to hand space back to content.
-            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+            desktopPageComposerSlotId={
+              shouldShowSearchComposer && !isStandaloneModeHome ? desktopPageComposerSlotId : undefined
+            }
+            // Standalone mode homes keep the in-flow hero pill at every width,
+            // phones included — the composer sits in the middle of the hero and
+            // scrolls with the content, matching the answer home rather than
+            // docking to the bottom edge.
+            heroComposerBreakpoint="all"
+            // Phones: #main-content owns vertical scroll, so hide-on-scroll
+            // collapses the top bar to hand space back to content.
+            // Tablet and desktop portal search into normal page flow. The outer
+            // sticky stack therefore owns only the auto-hiding top bar.
+            hideOnScroll={{
+              strategy: "collapse",
+              // Phones always overlay. The collapse mechanism is a 1fr -> 0fr
+              // grid on the header row plus a height transition on
+              // `chrome-safe-area-top`, so every hide handed layout back to the
+              // scroller and content slid up under the animation — three
+              // animated heights per gesture, which reads as choppy. Overlay
+              // translates the whole stack instead and charges zero released
+              // top geometry (`readChromeCollapseMetrics`), so content geometry
+              // never changes. `--phone-overlay-chrome-h` reserves the constant
+              // clearance beneath it.
+              phoneMotion: isCollapseMotionPhoneRoute(pathname) ? "collapse" : "overlay",
+              wide: "sticky",
+              scrollHidden: chromeScrollHide.hidden,
+            }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
-            queryInputAutoFocus={searchParams.get("focus") === "1"}
+            queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
           />
         </div>
 
@@ -614,40 +879,96 @@ function GlobalStandaloneSearchShellClient({
           ref={mainRefCallback}
           tabIndex={-1}
           onScroll={handleMainScroll}
+          data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+          data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
+          data-chrome-transitioning={chromeTransitioning ? "true" : undefined}
+          data-phone-scroll-owner={activeScrollOwner}
+          data-phone-footer-owner={
+            isStandaloneModeHome
+              ? "hero"
+              : isPageOwnedComposerRoute(pathname)
+                ? "page"
+                : shouldShowSearchComposer
+                  ? "shell"
+                  : "none"
+          }
+          data-phone-composer-reserve={mobileComposerReserve}
+          data-phone-chrome-transition={reserveTransitioning || chromeTransitioning ? "active" : "idle"}
           className={cn(
-            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
-            // auto, which turns #main-content into the sticky scrollport while the
-            // window does the actual scrolling — silently disabling every
-            // position:sticky descendant (e.g. the document viewer rail).
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            // Browser phones use overflow-x: clip so CSS cannot silently turn
+            // overflow-y: visible into an element scroller. Standalone mode
+            // overrides this semantic surface to the bounded app scrollport.
+            // sm+ keeps document ownership for sticky page descendants.
+            "phone-scroll-surface min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex-1 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
+            // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
+            // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
-              ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
+              ? "sm:pb-8"
               : searchMode === "answer"
-                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
                 : useCompactBottomSearch
-                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]",
+                  ? "sm:pb-8"
+                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))] lg:pb-8",
           )}
         >
-          <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
-            <ClientHydrationBoundary
-              fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
-            >
-              <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
-            </ClientHydrationBoundary>
+          {/*
+            Phone dock clearance lives on this inner pad (not #main-content):
+            padding on the scrollport itself is omitted from scrollHeight in some
+            flex/overflow combinations. The inner block box includes padding in
+            its height, so end-of-page content clears the visible dock.
+          */}
+          <div
+            data-testid="mobile-composer-reserve-pad"
+            className={cn(
+              "max-sm:pb-[var(--mobile-composer-reserve)]",
+              !isCollapseMotionPhoneRoute(pathname) && "max-sm:pt-[var(--phone-overlay-chrome-h)]",
+            )}
+          >
+            {shouldShowSearchComposer && !isStandaloneModeHome ? (
+              <DesktopComposerPortalSlot
+                id={desktopPageComposerSlotId}
+                data-testid="desktop-page-search-composer-slot"
+                className="hidden sm:block sm:empty:hidden"
+              />
+            ) : null}
+            {/*
+              Shared, task-oriented mode/section navigation. It self-suppresses on
+              clean mode homes, locally-owned detail routes (medications,
+              factsheets, differentials diagnoses), and Therapy Compass, and only
+              renders an "On this page" bar where a record exposes the shared
+              section ids. Specifiers and Formulation keep their existing local
+              Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
+              is skipped for them to avoid a duplicate row on their workflow routes.
+              Rendered in normal flow (sticky={false}) so it never contends with
+              the universal collapsing header or page-flow search chrome.
+            */}
+            {searchMode !== "specifiers" && searchMode !== "formulation" ? (
+              <PageSecondaryNavigation
+                modeId={searchMode}
+                pathname={pathname}
+                hasSubmittedSearch={hasSubmittedModeSearch}
+                searchParamString={searchParamString}
+                onSearch={() => inputRef.current?.focus({ preventScroll: true })}
+                sticky={false}
+              />
+            ) : null}
+            {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
+                blanked every standalone mode until JS mounted (hard-load LCP hit). */}
+            <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
           </div>
         </div>
-      </div>
+      </PhoneFooterLayerFrame>
 
-      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <SettingsDialog
+      <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
+      <SidebarSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
         onSignOut={auth.signOut}
-        onOpenGuide={openGuide}
+        onOpenGuide={openGuideFromSettings}
+        initialFocus={settingsInitialFocus}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
+      <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
@@ -656,14 +977,14 @@ function GlobalStandaloneSearchShellClient({
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}
+        showAccountLibrary={favouritesAccessible}
         onOpenChange={setMobileMenuOpen}
         onNewChat={startNewAnswerChat}
         onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
+        onOpenSettings={openSettingsWithDefaultFocus}
+        onOpenAccount={openAccountProfileWithDefaultFocus}
+        onPrefetchSettings={loadSettingsDialog}
+        onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
       />
     </div>

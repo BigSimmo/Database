@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import Link from "next/link";
 import { UploadCloud, Loader2, RefreshCw, Sparkles, ShieldCheck, ExternalLink } from "lucide-react";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui-primitives";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
+import { exceedsClientUploadSize, getClientMaxUploadMb, uploadSizeLimitMessage } from "@/lib/upload-limits";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
@@ -299,6 +300,7 @@ export function UploadPanel({
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileHintId = useId();
 
   const displayStatus = status !== undefined ? status : localStatus;
   const changeStatus = setStatus || setLocalStatus;
@@ -333,6 +335,22 @@ export function UploadPanel({
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       try {
+        // Pre-check the size before spending the transfer. Prefer
+        // NEXT_PUBLIC_MAX_UPLOAD_MB (clamped to the ceiling) so a lowered
+        // operator limit matches the UI; the server still enforces
+        // env.MAX_UPLOAD_MB as the authority. The rest of the batch still
+        // uploads, matching the server's per-file outcome semantics.
+        const clientMaxUploadMb = getClientMaxUploadMb();
+        if (exceedsClientUploadSize(file.size)) {
+          outcomes.push({
+            kind: "failed",
+            fileName: file.name,
+            status: 413,
+            code: "payload_too_large",
+            message: uploadSizeLimitMessage(clientMaxUploadMb),
+          });
+          continue;
+        }
         changeStatus(
           files.length === 1 ? `Uploading ${file.name}...` : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
         );
@@ -390,7 +408,7 @@ export function UploadPanel({
 
   return (
     <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
-      <PrivacyInputNotice className="mb-2" />
+      <PrivacyInputNotice className="mb-2" returnMode="documents" />
       <label className="block text-xs font-semibold text-[color:var(--text)]">
         Guideline PDF files
         <input
@@ -400,10 +418,14 @@ export function UploadPanel({
           accept=".pdf,application/pdf"
           multiple
           disabled={demoMode || !canUpload || uploading}
+          aria-describedby={fileHintId}
           onChange={() => changeStatus(null)}
-          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] file:disabled:opacity-50"
+          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50"
         />
       </label>
+      <p id={fileHintId} className={cn(textMuted, "mt-2 text-xs")}>
+        PDF only, up to {getClientMaxUploadMb()} MB per file.
+      </p>
       <div className="mt-3">
         <button
           type="submit"
@@ -429,8 +451,8 @@ export function UploadPanel({
             className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
           >
             <div
-              className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-200 ease-out motion-reduce:transition-none"
-              style={{ width: `${uploadPercent}%` }}
+              className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-200 ease-out motion-reduce:transition-none"
+              style={{ transform: `scaleX(${uploadPercent / 100})` }}
             />
           </div>
         </div>
@@ -793,29 +815,33 @@ export function LibraryHealthStrip({
     {
       target: "documents" as const,
       label: "Documents",
-      value: loading ? "Loading" : `${indexedDocuments} indexed`,
+      value: loading ? "" : `${indexedDocuments} indexed`,
       tone: loading ? toneNeutral : indexedDocuments ? toneSuccess : toneWarning,
       actionLabel: "Show indexed document files",
     },
     {
       target: "setup" as const,
       label: "Setup",
-      value: `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
-      tone: readyChecks === (checks.length || fallbackSetupChecks.length) ? toneSuccess : toneWarning,
+      value: loading ? "" : `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
+      tone: loading
+        ? toneNeutral
+        : readyChecks === (checks.length || fallbackSetupChecks.length)
+          ? toneSuccess
+          : toneWarning,
       actionLabel: "Show setup checks",
     },
     {
       target: "indexing" as const,
       label: "Indexing",
-      value: activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
-      tone: activeJobs + activeBatches ? toneInfo : toneNeutral,
+      value: loading ? "" : activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
+      tone: loading ? toneNeutral : activeJobs + activeBatches ? toneInfo : toneNeutral,
       actionLabel: "Show indexing progress",
     },
     {
       target: "failures" as const,
       label: "Failures",
-      value: failedWork ? `${failedWork} needs review` : "None",
-      tone: failedWork ? toneDanger : toneNeutral,
+      value: loading ? "" : failedWork ? `${failedWork} needs review` : "None",
+      tone: loading ? toneNeutral : failedWork ? toneDanger : toneNeutral,
       actionLabel: "Show failed indexing work",
     },
   ];
@@ -825,9 +851,10 @@ export function LibraryHealthStrip({
       data-testid="library-health-strip"
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
       aria-label="Library health"
+      style={{ containIntrinsicSize: "auto 76px", contentVisibility: "auto" }}
     >
       <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Library health</p>
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Library health</p>
         <span className={cn("text-2xs font-semibold", textMuted)}>Read-only status</span>
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
@@ -841,9 +868,18 @@ export function LibraryHealthStrip({
               item.tone,
             )}
             aria-label={item.actionLabel}
+            aria-busy={loading || undefined}
+            style={{ containIntrinsicSize: "auto 48px", contentVisibility: "auto" }}
           >
             <p className="text-2xs font-bold uppercase tracking-[0.06em]">{item.label}</p>
-            <p className="mt-1 text-xs font-semibold">{item.value}</p>
+            {loading ? (
+              <div
+                className="mt-1 h-4 w-16 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]"
+                data-testid="library-health-skeleton"
+              />
+            ) : (
+              <p className="mt-1 text-xs font-semibold">{item.value}</p>
+            )}
           </button>
         ))}
       </div>

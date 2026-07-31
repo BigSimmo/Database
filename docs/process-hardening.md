@@ -2,10 +2,40 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Multi-worktree reconciliation hardening (2026-07-23)
+
+The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
+[`docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md`](archive/cloud-chat-reconciliation-postmortem-2026-07-23.md).
+The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-playbook.md).
+
+- `node scripts/reconciliation-preflight.mjs` is an explicit, report-only inventory for broad reconciliation and
+  cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
+  detached worktrees, ahead/behind counts, and operation markers. Add `--include-processes` only
+  when ownership could block cleanup; that path emits metadata/counts and never raw command lines.
+- `node scripts/reconciliation-evidence-pack.mjs --output <path>` writes one deterministic secret-safe
+  local evidence pack (atomic) covering dispositions, markers, archive refs, bundle verification,
+  hashes, worktree counts, and local/base tree equality without fetching or deleting.
+- `node scripts/primary-checkout-lease.mjs --check` is the cooperative primary-write gate: refuse a
+  second primary writer while another live owner or dirty/operation state exists; keep read-only
+  work and independent feature worktrees unblocked.
+- `workflow:lifecycle -- --phase reconcile` selects the preflight and evidence pack locally and lists remote fetch as
+  a separate approval-required action. `start`/`cleanup` select the primary-checkout lease check.
+- Candidate filtering is cheap-first: owner/open-PR/review-ledger/ancestry before patch comparison;
+  `merge-tree` remains a last resort. This avoids repeating the slow all-ref sweep that dominated the
+  historical reconciliation.
+- Heavy verification uses resource-aware admission: two focused Vitest/read-only typecheck leases may overlap across different worktrees, while full suites, coverage, lint, builds, and browser runs remain exclusive. Inspect coordinator/process/artifact state before retrying, never rerun an unchanged pass, and record interrupted aggregate suites as incomplete.
+- `scripts/test-run-lock.mjs` redacts credential-bearing command text before it reaches coordinator metadata
+  or a contention error. `scripts/run-eval-safe.mjs` uses command lines only inside its workspace
+  filter and serializes PID/parent/start metadata only.
+
 ## Repository cleanup follow-ups (2026-07-19)
 
-- **High-priority local process ownership:** `scripts/run-eval-safe.mjs` still scans for and terminates residual repository processes through `cleanupResidualEvaluationProcesses()`. A superseded RAG safety worktree contained a narrower child-owned `terminateOwnedProcessTree(child.pid)` approach plus a regression test proving unrelated Vitest, Playwright, and Next processes remain untouched. Do not cherry-pick that stale worktree wholesale; isolate this process-ownership fix on current `main`, then verify it statically without starting a provider-backed evaluation. Modifying or exercising the eval workflow remains approval-gated.
-- **Provider-gated RAG safety ideas:** the same stale worktree contained conservative answer-quality thresholds, an evaluation cost-cap preflight, production-safety validation, deep-health assessment, and citation/vector proof tests. Its 754-line retrieval migration and route changes conflict with the later public-title privacy and migration chain and must not be replayed. If explicitly approved, rescope only the still-relevant preflight utilities and tests against current `main`; keep live OpenAI/Supabase validation separate.
+- **ModeHomeMain vertical alignment (fixed in #938):** commit `39d14a51` made standalone mode homes a `flex-1 justify-center` shell. That centres short empty homes correctly, but when differentials (and any tall results view) reused the same wrapper, the top of the content was clipped above the phone scrollport — white gap under the header, Best Answer unreachable, first visible list card looking like rank “2”. Prefer `ModeHomeMain`’s `contentAlign` prop (`center` | `start` | `startOnPhone`); never pass `justify-*` via `className` (`cn()` does not merge Tailwind). Guards: `tests/mode-home-main-align.test.ts` plus the narrow-viewport Best Answer fold assertion in `tests/ui-tools.spec.ts`.
+- **Local process ownership (resolved):** `scripts/run-eval-safe.mjs` now terminates only the spawned
+  child and its descendant tree through `terminateOwnedProcessTree(child.pid)`; focused tests prove
+  unrelated Vitest, Playwright, and Next processes are not targeted. Repository discovery remains
+  Node-filtered. Process command lines are no longer serialized out of the Windows inventory.
+- **Provider-gated RAG safety ideas (closed obsolete — outstanding-issues #004):** the same stale worktree contained conservative answer-quality thresholds, an evaluation cost-cap preflight, production-safety validation, deep-health assessment, and citation/vector proof tests. Its 754-line retrieval migration and route changes conflicted with the later public-title privacy and migration chain and must not be replayed. This item is now resolved: the rescue source is unrecoverable (pruned across all reachable refs), the answer-quality thresholds and deep-health assessment already shipped on current `main` (#585/#587), and the only genuinely-missing piece — the evaluation cost-cap preflight — was dropped rather than re-filed. No rescope action remains.
 - **Semantic reranking rollout debt:** PR #901 keeps `RAG_SEMANTIC_RERANK_ENABLED=false`. Do not enable it until the provider-backed 36/36 retrieval-quality gate and an ambiguity-focused canary are explicitly approved and recorded.
 
 ## Staging tenancy evidence
@@ -15,13 +45,172 @@ gates. Run the standalone manual/nightly workflow and attach a recent green evid
 artifact before release; see
 [`docs/staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
 
+## Open PR branch sync (operator-only)
+
+- **Problem:** landing one PR advances `main` and leaves the rest of a large open
+  queue behind. GitHub then marks many heads `CONFLICTING`/`DIRTY` even when the
+  merge tree is clean, which stalls squash auto-merge and creates endless manual
+  re-sync churn.
+- **Mitigation:** automatic `GITHUB_TOKEN` branch mutation was retired after repeated
+  `github-actions[bot]` heads left CI, SAST, and secret-scan runs awaiting approval. Use the local
+  helper deliberately: `npm run sync:pr-branches` is report-only and
+  `npm run sync:pr-branches:apply` verifies and uses the current human/operator `gh` identity,
+  refusing missing or bot identities. Opt out with
+  `hold`, `do-not-merge`, or `skip-branch-sync`.
+- **Guardrail:** `npm run check:github-actions` rejects workflow-authored GitHub
+  `update-branch` calls. Do not weaken required checks or widen approval for untrusted actors to
+  remove queue friction; change this policy only with a separately reviewed authentication model.
+- **Operator rule:** prefer clearing the open queue (merge or close) over keeping
+  dozens of long-lived feature branches that all touch shared docs like the
+  branch-review ledger.
+
+## PR bundling reduces per-task CI churn (2026-07-30)
+
+- **Problem, measured:** PR #1406 sampled the last 500 CI workflow runs (~3 days of PR
+  traffic, 437 PR-triggered): 213 succeeded, 45 failed, 176 (~40%) cancelled — mostly
+  superseded by a newer push before Production UI finished, burning roughly 12
+  Production-UI-hours on runs that never completed. Every task minting its own
+  `claude/<task-slug>` branch and PR means a single ledger-append line pays the same
+  required-CI bill as a large change.
+- **Rule:** see AGENTS.md "PR bundling (reduce one-task-one-PR churn)" — bundle
+  same-scope, independently low-risk, separately-revertible-commit work into one PR
+  instead of minting a branch per task. Queued `docs/branch-review-ledger.md` /
+  `docs/outstanding-issues.md` append-only tasks are the best candidate.
+- **Does not change:** required-check scoping, per-commit verification rigor, or the
+  deliberate "1 PR per work order" convention for tracked staged rollouts (maturity
+  backlog, `#086`) or anything crossing a clinical-risk/RAG-ranking-surface path.
+
+## Anti-conflict and silent-CI signal (2026-07-30)
+
+- **Operating procedure:** AGENTS.md "Anti-conflict and CI-speed operating procedure".
+  Future-process only — do not mutate unrelated active PRs unless explicitly asked.
+- **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
+  (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
+  both-tables, stale `issues:next-id`, malformed rows). PR #1416 added `merge=union` in
+  `.gitattributes`; it is now **removed** and the runtime attribute check inverted to require
+  no driver at all. Union could not allocate unique IDs either, and it concatenated
+  conflicting hunks instead of failing — two marker bumps became two `next-id` lines (`#133`),
+  and on 2026-07-30 it duplicated the whole open-items table on four merges (PR #1430).
+  Default 3-way merge conflicts loudly instead; the structural gate remains required.
+- **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
+  `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
+  `.github/workflows/pr-mergeability.yml` checks trusted `pull_request_target` events and
+  uses a protected-base `push` sweep to publish a fresh `PR mergeability` check on each
+  unchanged open-PR head. Only that sweep receives job-scoped `checks: write`; neither path
+  checks out PR code or updates branches. Behind-but-clean heads remain an operator
+  `sync:pr-branches` concern. Contract: `npm run check:pr-mergeability`.
+- **Confirmed in the field the same day (PR #1427):** that PR pushed, opened, and was marked
+  ready for review while producing **zero** `pull_request` runs — no `CI`, no `Gitleaks`, no
+  `Semgrep` — with only `pull_request_target` (`PR policy`) firing. `git merge-tree` showed
+  real conflicts against a base 35 commits ahead. The new `PR mergeability` check caught it
+  and named the cause. Read a missing check list as a conflict signal, never as a pass.
+
+## CI shape and cost, measured per job (2026-07-30)
+
+The PR #1406 sample above counts runs. This is where the time inside one goes — job-level
+timings from two full UI-scope PR runs (`30520443076`, `30519912667`), read from the Actions
+API rather than estimated:
+
+| Job               | Duration        | On the critical path?    |
+| ----------------- | --------------- | ------------------------ |
+| Change scope      | 13 s            | yes                      |
+| Static PR checks  | 3m03            | no                       |
+| Safety and config | 47 s            | no                       |
+| Unit coverage     | 3m57            | no                       |
+| Advisory UI       | 3m14            | no                       |
+| **Production UI** | **15m26–16m31** | **yes — 83–89% of wall** |
+| PR required       | 5 s             | yes                      |
+| **Whole run**     | **16.8–18.6 m** |                          |
+
+- **Every other job finishes by minute 4 and then waits ~12 minutes for Production UI.**
+  Inside it, Playwright reported `339 passed (13.5m)`; the remaining ~2 min is the isolated
+  production build (see outstanding-issues `#136`). Docs-only PRs run 3–5.5 min.
+- Because the 42% cancellation rate is dominated by pushes that supersede a run mid-Production-UI,
+  almost all of the wasted runner time is this one job. Shortening it cuts churn cost directly.
+- **`ui-critical` is therefore sharded across runners** (`ci.yml`), not parallelised within one:
+  `workers: 1` / `fullyParallel: false` / `retries: 0` are unchanged inside each shard, so
+  determinism is identical and per-runner load falls — which matters because `#093`'s duplicate
+  page root is load-dependent.
+- **The shard count is measured, not chosen.** With `fullyParallel: false` a spec file is
+  indivisible, so shard sizes are lumpy. Against the 342 required chromium tests on the
+  post-merge tree, N=3 gives 121/111/110 and N=4 gives 121/106/98/17 — the same 121-test
+  bound for an extra runner. On the 340-test tree just before, N=5 and N=8 produced **empty**
+  shards, which would go red because `test:e2e:pr` deliberately omits `--pass-with-no-tests`.
+  Re-measure with
+  `npx playwright test --project=chromium --grep-invert "@quarantine|@mockup" --shard=i/N --list`
+  (needs a running server via `npm run ensure` and `PLAYWRIGHT_BASE_URL`) before changing N,
+  and keep every shard non-empty.
+- **These timings predate `ui-critical-fast`.** The `@critical` fail-fast job (15 tests) now
+  runs before the full suite, so the UI critical path is that job plus the slowest shard.
+- **Measured on the first real sharded run** (CI `30530618838`, 2026-07-30, all green):
+  `ui-critical-fast` 3m14, then shards of 9m36 / 6m54 / 6m20; whole run **13m39** against a
+  16.8–18.6 min unsharded baseline. **The prediction from test counts was wrong by ~40%:**
+  6.8 min was expected for the largest shard, 9m36 happened. Per-test cost is not uniform —
+  111 tests took 6m54 while 121 took 9m36 — so a count-balanced split understates the slowest
+  shard whenever the slow specs land together. `--shard` can only balance by count; balancing
+  by duration would require splitting the slow spec files themselves. Prefer a measured run
+  over the arithmetic when judging any further shard change.
+- **Which spec drags shard 1, measured 2026-07-30** by running `--shard=1/3` locally and
+  summing per-test durations from the list reporter (121 passed, 6.9 min):
+
+  | Spec                               | Time   | Tests | Per test  |
+  | ---------------------------------- | ------ | ----- | --------- |
+  | `ui-phone-scroll.spec.ts`          | 267.0s | 56    | **4.77s** |
+  | `ui-chrome-scroll.spec.ts`         | 56.3s  | 17    | 3.31s     |
+  | `ui-accessibility.spec.ts`         | 28.1s  | 15    | 1.87s     |
+  | `ui-formulation.spec.ts`           | 18.2s  | 7     | 2.60s     |
+  | `ui-overlap.spec.ts`               | 15.3s  | 14    | 1.09s     |
+  | `answer-progress-ui-smoke.spec.ts` | 12.2s  | 2     | 6.10s     |
+  | `ui-mode-nav-density.spec.ts`      | 6.8s   | 7     | 0.97s     |
+  | `ui-hydration.spec.ts`             | 5.2s   | 3     | 1.73s     |
+
+  **`ui-phone-scroll.spec.ts` is 65% of the shard** — 267s of 409s — at the worst per-test rate
+  of any large spec in it. It is also the file behind both `#127` and `#146`. Re-measure with
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium node scripts/run-playwright.mjs --project=chromium --grep-invert "@quarantine|@mockup" --shard=1/3`
+  before acting — local absolute times differ from CI, but the per-spec ranking holds.
+
+- **"Splitting the slow spec rebalances the shards" is REFUTED, measured 2026-07-30.** That
+  claim appeared in this document and in PR #1453; it is wrong, and the correction matters more
+  than the original guess. `ui-phone-scroll.spec.ts` was split into three files (21 / 19 / 16
+  tests) and the shard distribution did not move at all:
+
+  |               | Before                | After                 |
+  | ------------- | --------------------- | --------------------- |
+  | Project total | 342 tests, 18 files   | 342 tests, 20 files   |
+  | Shard 1       | 121 (56 phone-scroll) | 121 (56 phone-scroll) |
+  | Shard 2       | 111 (0)               | 111 (0)               |
+  | Shard 3       | 110 (0)               | 110 (0)               |
+
+  **Why:** `--shard` does not distribute files, it walks them in collection order (alphabetical)
+  and cuts at test-count boundaries. Sibling files named `ui-phone-scroll*` sort adjacently, so
+  all three land in the same shard. The shards were already count-balanced; the imbalance is
+  duration, and splitting a file cannot fix a metric the scheduler does not use:
+
+  ```text
+  shard 1  121 tests / 10 files — phone-scroll(56), chrome-scroll(17), accessibility(15), overlap(14), …
+  shard 2  111 tests /  4 files — ui-smoke(92), route-coverage(12), specifiers(5), pwa(2)
+  shard 3  110 tests /  6 files — ui-tools(87), universal-search(16), stress(3), …
+  ```
+
+  Shard 1 is slow because it holds ten _slow-per-test_ files while shards 2 and 3 are dominated
+  by one fast-per-test file each. **The only lever that would actually rebalance is assigning
+  explicit spec groups per shard in `ci.yml` instead of `--shard=i/N`.** That is not obviously
+  worth it: perfect balance is ~7m37 against a measured 9m36 largest shard, so ~2 min of a
+  13m39 critical path, bought with a hand-maintained file list in the **required** UI job whose
+  miss mode is a spec silently running nowhere. Do not build it without deciding that trade
+  first, and not without a guard asserting every collected spec appears in exactly one group.
+
+  **Stop:** do not "fix" this by renaming spec files so they sort into different shards. It
+  works, and it encodes undocumented scheduler behaviour into filenames where the next reader
+  cannot see it.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
 - `npm run verify:pr-local` is the closest local mirror of the normal PR gate: runtime, format, lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation when changed-file scope requires it. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
-- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/action/scope/format/lint/typecheck checks, and `pr-required` is the single always-reporting required aggregate. One full unit run with coverage, build, one required production Chromium invocation, migration replay, safety/config, Codex workflow validation, and RAG fixture validation run only when their file scopes apply. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
+- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/action/scope/format/lint/typecheck checks, and `pr-required` is the single always-reporting required aggregate. One full unit run with coverage, build, both Docker image builds, one required production Chromium invocation, migration replay, safety/config, Codex workflow validation, and RAG fixture validation run only when their file scopes apply. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. A gated `release-browser-matrix` job runs the full Playwright browser set on `main`, `release/*`, manual dispatch, and the weekly schedule.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -73,6 +262,47 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 - Add explicit review ownership for clinical source governance, outdated-source handling, incident review, and decommission decisions.
 - Record production-readiness outcomes in release notes whenever clinical workflow, source governance, privacy, or deployment assumptions change.
 
+## Visual regression, style contracts and the pre-merge performance budget (2026-07-30)
+
+Three gates added for the "mature repo" verification pass. Full usage is in
+[`docs/testing.md`](testing.md); this records the reasoning and the remaining debt.
+
+- **Problem addressed.** Nothing verified rendered appearance. `playwright.visual.config.ts` and
+  `npm run test:e2e:visual` existed but pointed at `ui-visual-artifacts.spec.ts`, which only
+  `testInfo.attach()`es four screenshots for a human to eyeball — there was no `toHaveScreenshot`
+  call and no baseline directory anywhere in the repo. Separately, ledger #094 showed a style
+  contract passing while the style was inert, and Lighthouse only ran against the deployed origin,
+  after a merge had already auto-deployed.
+- **Style contracts are required and deterministic.** `tests/ui-style-contract.spec.ts` joins
+  `test:e2e:pr` through `productionSpecPattern`, so it blocks like any other production journey. It
+  is Chromium-only by design (computed-style serialisation is engine-specific) and self-skips on the
+  other engines in the release matrix. `tests/style-contract-registry.test.ts` closes the inventory
+  so the next unlayered class cannot be added unnoticed.
+- **Verified it bites, not just that it passes.** The contract was re-run against a production build
+  with `.search-band` deliberately moved back into `@layer components`; it failed on
+  `borderTopWidth` as intended, and passed once reverted. A gate that has never been observed to
+  fail is not yet evidence of anything.
+- **Pixel baselines are advisory on purpose.** `visual-baseline` in CI is `continue-on-error` and
+  outside `pr-required`. Two reasons: no baselines are committed yet (the first run's artifact is
+  what supplies them), and this repo has already paid for a sub-pixel rounding flake — the
+  `min-h-11` → `min-h-12` tap-target change. Promote by adding the job to `pr-required` and dropping
+  `continue-on-error` in the same edit, once baselines have held across a few runs.
+- **Baselines must come from CI, not a laptop.** Paths are platform-scoped
+  (`tests/__screenshots__/{platform}/`). Font hinting and antialiasing differ between a developer
+  machine and the `ubuntu-24.04` runner, so a locally-generated baseline would make every CI run red.
+- **The performance budget is relative, not absolute.** `lighthouse-budget.json` holds a committed
+  per-route baseline and a per-metric tolerance, following `check:bundle-budget`. Absolute
+  web-vitals thresholds are meaningless against localhost with no network latency. `enforce` starts
+  `false` with no baseline; incomplete evidence fails regardless of `enforce`.
+- **Verification debt remaining.** (1) No pixel baselines are committed, so `visual-baseline` reports
+  rather than gates until an operator adopts them from the CI artifact. (2) No Lighthouse baseline is
+  recorded, so the budget warns rather than grades until `--update` runs against a known-good build.
+  (3) 37 of the 38 unlayered visual classes carry exemptions rather than effect contracts — the debt
+  is enumerated in `STYLE_CONTRACT_EXEMPTIONS`, and ledger #094 stays open until the load-bearing
+  ones have contracts. (4) `scripts/run-lighthouse-budget.mjs` duplicates roughly 50 lines of the
+  isolated-server boot in `scripts/run-playwright.mjs`; extracting a shared module was deliberately
+  deferred rather than destabilise the required UI gate in the same change.
+
 ## Text formatting and copy conventions
 
 - **Document-derived text must never be rendered raw.** Any value pulled from an ingested document — answer prose, exact quotes, source snippets, document titles, image captions, extracted table text — must be routed through a `source-text-sanitizer` (`src/lib/source-text-sanitizer.ts`) or `display-text` (`src/components/clinical-dashboard/display-text.ts`) helper before it reaches JSX. Verbatim quotes use `sourceTextForVerbatimQuote`; titles use `cleanDisplayTitle`; snippets/captions use `sourceTextForCompactDisplay`.
@@ -93,9 +323,26 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 
 ## Route sitemap guard (2026-07-03)
 
-- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run sitemap:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
+- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run docs:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
 - `npm run verify:cheap` now includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety.
 - Keep `docs/site-map.md` as the human-readable route map for now. If it becomes too large for review, split into a concise `docs/site-map.md` summary plus a generated `docs/site-map.generated.md` inventory, and update `scripts/generate-site-map.ts` / `tests/site-map.test.ts` in the same change.
+
+## Automatic documentation synchronization (2026-07-30)
+
+- `npm run docs:update` regenerates `docs/site-map.md` and refreshes the exact `scripts/` file and
+  `package.json` command counts in `docs/scripts-index.md`.
+- `.githooks/pre-commit` runs the affected part of that update for staged route/catalog/mockup or
+  script/package changes, and runs `docs:check-index` for staged app/lib/schema changes. Ordinary
+  component-only commits avoid the sitemap generator. If generated or module-map documentation is
+  still unstaged, the hook stops so the author can review and stage the diff. It never auto-stages
+  or commits files. It also refuses mixed staged/unstaged generator inputs so the generated docs
+  cannot accidentally describe work outside the commit. Use `SKIP_DOCS_SYNC_HOOK=1` only as an
+  explicit one-commit bypass.
+- `docs:check-inventory` is blocking in `verify:cheap` and CI, alongside `sitemap:check` and
+  `docs:check-index`, so bypassing the local hook cannot merge stale generated facts.
+- Semantic descriptions in `docs/codebase-index.md` and curated script grouping still require human
+  judgment. The hook detects top-level module/route/schema gaps but does not invent architecture
+  descriptions or ledger evidence.
 
 ## Retrieval RPC drift & indexing hygiene (2026-07-01)
 
@@ -144,12 +391,13 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 
 ## PR merge gate: risk-scoped CI + required aggregate (2026-07-10)
 
-- CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical`, and `db-reset-verify`, then enforces only the jobs whose scopes apply.
-- `static-pr` is the deterministic baseline for every PR: runtime, action pin check, CI scope self-test, format, lint, and typecheck. Coverage is the one required full unit run. Build, safety/config (the `safety` job includes RAG fixture validation), production UI, and migration replay are independent jobs so reruns stay focused. Coverage includes source, tests, package/test-runner configuration, while process-only documentation does not trigger builds.
-- `db-reset-verify` is path-scoped to Supabase migrations/schema/config and database-access code. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
-- `ui-critical` retains its job ID for branch-protection compatibility but runs one required production Chromium invocation covering all non-quarantined critical and regression journeys (`test:e2e:pr`). `ui-advisory` runs quarantined and mockup journeys together when UI scope applies. A JUnit failure is considered a known flake only when its exact spec/title matches the validated ledger. The full browser matrix remains main/release/manual/scheduled.
+- CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical-fast`, `ui-critical`, and `db-reset-verify`, then enforces only the jobs whose scopes apply. The aggregate keeps `if: always()` and labels concurrency `cancelled` distinctly from real failures (#095 / PR #1409); it stays red because a skipped required check would count as passing.
+- `static-pr` is the deterministic baseline for every PR: runtime, action pin check, CI scope self-test, format, lint, and typecheck. Coverage is the one required full unit run. Build, safety/config (fixtures always; `eval:rag:offline` when `rag_eval_changed`), production UI, and migration replay are independent jobs so reruns stay focused. Coverage includes source, tests, package/test-runner configuration, while process-only documentation does not trigger builds.
+- `db-reset-verify` is path-scoped to Supabase migrations/schema/`src/lib/supabase` and drift tooling — not every API route. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
+- `ui-critical` retains its job ID for branch-protection compatibility and still runs the full required production Chromium suite (`test:e2e:pr`). On pull requests / merge_group, `ui-critical-fast` runs `@critical` first for fail-fast signal. `src/app/api/**` does not set `ui_changed`. `ui-advisory` runs quarantined and mockup journeys together when UI scope applies. A JUnit failure is considered a known flake only when its exact spec/title matches the validated ledger. The full browser matrix remains main/release/manual/scheduled and depends on static/build/UI success — not on `pr-required` — so a blocking scheduled dependency audit cannot skip Firefox/WebKit (#023 structural half).
+- Secret Scan pins Gitleaks to the workflow event base/head SHAs and the checked-out commit (`scripts/run-gitleaks-pinned.mjs`) so a concurrent push cannot invalidate the range (#097).
 - The 2026-07-13 cold-server and historical ledger candidates are tracked through the reproduction policy in `docs/testing.md`: run each three times on the same SHA, fix fail/pass races, treat deterministic failures as regressions, and remove entries that do not reproduce. On `0c56f27a3`, the historical composer/tap/answer-fallback entries and three cold-route candidates did not reproduce in three runs; the narrow differential viewport reproduced once in three cold runs, was fixed with route-specific readiness before its single submit, then passed three of three. The ledger is intentionally empty.
-- Branch protection for `main` should require `CI / PR required` and `Secret Scan / Gitleaks`. Keep `SAST / Semgrep` required only if the repository owner accepts its external-rule/network dependency as part of the normal merge gate. Do not require path-filtered or scheduled/manual contexts such as `CI / Unit coverage`, `CI / Critical UI smoke`, `CI / Migration replay`, `Docker image build / app-image`, `Docker image build / worker-image`, `CI / release-browser-matrix`, `Eval Canary`, or `Live drift check`; they can be skipped on ordinary PRs and would leave branches stuck at "Expected - Waiting for status to be reported."
+- Branch protection for `main` should require `CI / PR required` and `Secret Scan / Gitleaks`. Keep `SAST / Semgrep` required only if the repository owner accepts its external-rule/network dependency as part of the normal merge gate. Container-affecting PRs are enforced through `CI / PR required`; do not separately require `Docker image build / app-image` or `Docker image build / worker-image`. Also do not require other path-filtered or scheduled/manual contexts such as `CI / Unit coverage`, `CI / Critical UI smoke`, `CI / Migration replay`, `CI / release-browser-matrix`, `Eval Canary`, or `Live drift check`; they can be skipped on ordinary PRs and would leave branches stuck at "Expected - Waiting for status to be reported."
 
 ## CSS cascade layering (2026-07-02)
 
@@ -178,6 +426,12 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 - `GlobalMockupSearchShell` (aka `GlobalSearchShell`, used by the `forms`/`services`/`favourites`/`medications` layouts) wrapped `GlobalMockupSearchShellClient` in a `<Suspense>` whose **fallback also rendered `props.children` inside `#main-content`** — the same subtree the client body renders. Because `useSearchParams()` forces that boundary to the fallback on the server, the page subtree was emitted twice and both copies could persist, producing duplicate `id="main-content"` and duplicate `data-testid` on every shell page. It surfaced as `ui-smoke.spec.ts:1103` failing with a strict-mode violation (two `data-testid="acamprosate-medication-page"` `<main>` elements on `/medications/acamprosate`).
 - Fix: the Suspense fallback renders a **neutral placeholder only** — never `props.children`. Rule: do not render the resolved content inside its own Suspense fallback; the fallback is a loading state, not a second copy of the page.
 
+## useSearchParams Suspense must not wrap route children (2026-07-26)
+
+- Removing `ClientHydrationBoundary` around standalone shell `{children}` restored mode-home RSC paint, but left route segments nested inside the shell’s `useSearchParams()` Suspense. Next streamed the page root into a hidden completion template (`<div hidden id="S:N">`) while the live shell also mounted the same `data-testid` root. Playwright’s strict `getByTestId` counts hidden nodes, so Production UI failed on `/forms`, `/favourites`, and differentials presentations under CI load even though the a11y tree showed one `main`.
+- Portal ready-gating fixed React #418 (hydration) but not this duplicate-root class.
+- Fix: `isAlwaysStandaloneShellPath` skips the outer searchParams Suspense for namespaced routes; standalone chrome reads params via a mount-gated `ShellSearchParamsBridge` sibling so `{children}` stay outside that boundary. Keep mode-home RSC paint; do not restore full-shell `ClientHydrationBoundary`.
+
 ## Clinical registry tables applied live (2026-07-03)
 
 - **Migration `20260703020000_clinical_registry_records.sql` (applied live 2026-07-03 with explicit user approval)** created `public.clinical_registry_records` (owner-scoped structured Services/Forms records — 30 cols, JSONB render payloads, conservative `source_status`/`validation_status` governance columns) and the `public.clinical_registry_record_sources` join table (record ↔ verifying corpus document, FK cascade). Both are service-role-only RLS (enabled + revoked from anon/authenticated + a single `for all to service_role` policy); ownership is enforced in the API layer, matching the documents model. Verified post-apply: both tables present with correct columns, RLS enabled, 0 rows; `get_advisors(security)` returns no lints. `supabase/schema.sql` mirrors the migration and `tests/supabase-schema.test.ts` asserts the shape.
@@ -187,7 +441,7 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 ## Nondeterministic "unsupported" retrieval — finding #11 needs Phase 2 (2026-07-03)
 
 - **Symptom (rag-hybrid-findings finding #11):** valid clinical topics phrased as bare low-confidence queries ("bipolar disorder", "anorexia management") intermittently return 0 results (`unsupported_short_circuit`) instead of an answer.
-- **Root cause (confirmed live):** the soft-tail branch of `shouldShortCircuitUnsupportedSearch` (`src/lib/rag.ts`) fires on `analysis.queryClass === "unsupported_or_general"`, and that class is set by `analyzeQueryWithClassifierFallback`, which calls a **generative LLM classifier** (6s timeout, `reasoningEffort:"low"`, uncached) for low-confidence queries. That call is nondeterministic: it reclassifies "bipolar disorder" to a supported class on some runs (→ answered) and declines/times-out on others (→ short-circuited to 0). Reproduced with a same-process ×N probe.
+- **Root cause (confirmed live):** the soft-tail branch of `shouldShortCircuitUnsupportedSearch` (`src/lib/rag/rag.ts`) fires on `analysis.queryClass === "unsupported_or_general"`, and that class is set by `analyzeQueryWithClassifierFallback`, which calls a **generative LLM classifier** (6s timeout, `reasoningEffort:"low"`, uncached) for low-confidence queries. That call is nondeterministic: it reclassifies "bipolar disorder" to a supported class on some runs (→ answered) and declines/times-out on others (→ short-circuited to 0). Reproduced with a same-process ×N probe.
 - **Why a clean Phase-1 fix does NOT exist:** the deterministic analyzer carries **no signal** distinguishing in-corpus topics from out-of-corpus (bipolar, anorexia, gout, DKA all produce identical `unsupported_or_general`, confidence ≈ 0.40, `canonicalTerms` = query tokens). Only the corpus can tell them apart. Removing the soft-tail short-circuit fixes the valid topics but **regresses `unsupported_correct_rate` 1.0 → 0.79** on `eval:quality --rag-only`: a lexical distinctive-term relevance gate in `chooseAnswerRoute` either over-refuses legitimate semantic/vector matches (whose exact term is not in the retrieved text — e.g. the `rag-routing.test.ts` "admission" fixtures) or under-refuses invented terms ("florbizone syndrome") that score strongly on generic scaffolding words ("syndrome"/"management"). The corpus is broad (gout 13 / crohn 49 / appendicitis 30 / angioplasty 32 / bipolar 719 chunks), so almost no common medical term is truly absent — grounded low-confidence answers, not fabrication, are the realistic worst case for real terms; only genuinely invented terms should refuse.
 - **Decision (2026-07-03):** the risky change (soft-tail removal + relevance gate + invented-term eval controls) was **reverted**; only a safe, independent hardening was kept — `fetchEnabledRagAliases` no longer caches `[]` on a transient `rag_aliases` read error (which would suppress alias expansion for the whole TTL). Finding #11 is **re-scoped into RAG optimisation Phase 2** ("fit retrieval to content"), where it should be fixed with corpus-grounded relevance — IDF/corpus-frequency weighting of query terms and/or the semantic relevance model, plus the data-driven query-understanding vocabulary (RC6) so the deterministic classifier recognises in-corpus topics up front. Any gate must keep `eval:quality --rag-only` `unsupported_correct_rate` at 1.0 (add invented-term controls like "florbizone syndrome management" / "quxbyria disorder treatment" once it can pass them) while letting valid bare topics answer. A cheaper interim option worth measuring first: **classifier-verdict memoization** to at least make the current behaviour deterministic per query.
 - **RESOLVED (2026-07-07, `claude/retrieval-correctness`):** the Phase-2 corpus-grounded fix shipped. `corpus_topic_term_stats` (migration `20260707100000`, applied live) reports per-term title-topic membership (with a measured 5% genericity ceiling — "management"/"guideline" headline ~18–20% of titles and are scaffolding; real topics ≤3%) and chunk-level presence, scoped with the exact retrieval `owner_filter`. `src/lib/corpus-grounding.ts` + the `analyzeQueryWithClassifierFallback` hook classify only the soft-tail branch (pattern-guarded refusals and higher-confidence classes untouched): in-corpus bare topics deterministically reclassify to `broad_summary` and answer; corpus-absent queries skip the LLM and refuse deterministically (trigram correction still runs); inconclusive keeps memoized-LLM behaviour; DB errors fail open. Verified live: "bipolar disorder" / "anorexia management" answer 4/4 runs with the right document at rank 1 (new golden cases `bare-topic-bipolar` / `bare-topic-anorexia`); "florbizone syndrome management" / "quxbyria disorder treatment" refuse 4/4 runs (new `ragEvalCases` controls); golden eval 36/36.
@@ -326,7 +580,7 @@ hybrid:10}`, all 10 forced-embedding vector cases passed (`force_embedding_failu
 ## 2026-07-13 audit remediation batch (branch claude/audit-remediation-2026-07-13)
 
 - **Lexical retrieval rewrite (audit finding 1):** `20260713100000_index_friendly_lexical_retrieval.sql` splits `match_document_chunks_text`'s OR-across-relations candidate search into two GIN-index probes unioned by chunk id (same contract, same scores; the `_v2` wrapper inherits the speedup). Parity + plan + timing harness: `scripts/sql/lexical-rpc-parity-check.sql` (scratch databases only; run it against the drift-manifest container kept with `--keep`). Re-run it whenever either lexical body changes.
-- **Hosted migration-role default privileges (audit finding 7):** `supabase/roles.sql` establishes and verifies secure `postgres` defaults before fresh local migration replay. `20260719055541_assert_postgres_default_privileges.sql` evaluates effective defaults from `pg_default_acl` plus `acldefault`, so a missing catalog row cannot hide PostgreSQL's built-in `PUBLIC EXECUTE` on functions. `20260719055555_reassert_postgres_default_privileges.sql` repeats the fail-closed postcondition, and `20260719055609_repair_postgres_default_privileges.sql` is the forward-only hosted repair immediately before `20260719055623_enforce_public_title_word_scope.sql`. These filenames match the hosted migration history exactly. All active revokes and assertions target objects created by `postgres` in `public`; service-role grants remain least-privilege. Older applied migration history is immutable. After an authorized hosted apply, run the read-only provider check with `npm run check:default-acl -- --confirm-provider-read`. This command contacts the live Supabase project and therefore requires explicit provider approval.
+- **Hosted migration-role default privileges (audit finding 7):** `supabase/roles.sql` establishes and verifies secure `postgres` defaults before fresh local migration replay. `20260717161000_assert_postgres_default_privileges.sql` evaluates effective defaults from `pg_default_acl` plus `acldefault`, so a missing catalog row cannot hide PostgreSQL's built-in `PUBLIC EXECUTE` on functions. `20260717173000_reassert_postgres_default_privileges.sql` repeats the fail-closed postcondition, and `20260719053532_repair_postgres_default_privileges.sql` is the forward-only hosted repair immediately before the final title-word scope migration. All active revokes and assertions target objects created by `postgres` in `public`; service-role grants remain least-privilege. Older applied migration history is immutable and byte-pinned by `npm run check:migration-role`; the same guard rejects the reserved role in every other hosted SQL/tooling surface. Bare Docker recovery discovers the storage-schema owner dynamically, keeping that local bootstrap concern out of hosted SQL. After an authorized hosted apply, run the read-only provider check with `npm run check:default-acl -- --confirm-provider-read`. This command contacts the live Supabase project and therefore requires explicit provider approval.
 - **Legacy rag query text scrub (audit finding 5):** `20260713103000_scrub_legacy_rag_query_text.sql` performs four redaction/deletion operations for pre-HMAC plaintext query text: (1) scrubs `rag_queries.query` rows not matching `redacted-query:%`, replacing them with salted `redacted-query:legacy:` placeholders; (2) scrubs both `rag_query_misses.query` and `rag_query_misses.normalized_query` not matching `redacted-query:%`; (3) scrubs both `rag_retrieval_logs.query` and `rag_retrieval_logs.normalized_query` not matching `redacted-query:%` (nullable); (4) deletes `rag_response_cache` rows where `normalized_query` does not match `redacted-cache:%` (cache entries, not re-keyed). **Operator verification after live apply:** for each affected table/operation, count rows not matching the expected redacted pattern (expect 0 unless `RAG_PERSIST_RAW_QUERY_TEXT` is deliberately enabled): `select count(*) from rag_queries where query not like 'redacted-query:%';` (expect 0), `select count(*) from rag_query_misses where query not like 'redacted-query:%' or normalized_query not like 'redacted-query:%';` (expect 0), `select count(*) from rag_retrieval_logs where query not like 'redacted-query:%' or (normalized_query is not null and normalized_query not like 'redacted-query:%');` (expect 0), `select count(*) from rag_response_cache where normalized_query not like 'redacted-cache:%';` (expect 0). The migration includes a post-apply assertion block that enforces these exact checks and fails the migration if any unscrubbed/undeleted rows remain.
 - Remaining operator items from the 2026-07-13 audit (confirmation-required, not automated): apply this batch's migrations live, re-run Supabase advisors, trigger the Eval Canary and require two consecutive green scheduled runs, repair the invalid `storage.idx_objects_bucket_id_name_lower` index via dashboard/support, and dedupe response-cache purge cron jobs if `cron.job` shows duplicates.
 
@@ -339,8 +593,9 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
   each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
   PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
-  CI `format:check` gap; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness (`SKIP_DRIFT_GUARD=1`).
-  `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
+  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness
+  (`SKIP_DRIFT_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
   installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
   Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
 - **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory
@@ -354,15 +609,15 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
   allow real recovery.
 - **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
-  as main-side or needs-investigation. Inert until repo var `CI_TRIAGE_ENABLED=true` (now set). UI jobs use
+  as main-side or needs-investigation. Enabled by default; set repo var `CI_TRIAGE_ENABLED=false` to disable. UI jobs use
   their uploaded JUnit classification and trace; job names alone never produce a known-flake verdict.
   The workflow reads only trusted default-branch job metadata and never runs PR code.
 - **PR metadata policy** (`.github/workflows/pr-policy.yml`, `scripts/pr-policy.mjs`): ready PRs to `main`
   must use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
   evidence for clinical or operationally sensitive paths. UI changes require `verify:ui` evidence (or an
   explicit reason it could not run), while clinical-risk changes must fully disposition the governance
-  checklist. The `pull_request_target` job checks out the exact base SHA, has read-only permissions, and
-  never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
+  checklist. The `pull_request_target` job checks out the trusted `github.workflow_sha` revision, has
+  read-only permissions, and never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
   same stable `PR policy` check name.
 - **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
   with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary

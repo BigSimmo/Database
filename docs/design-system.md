@@ -4,7 +4,7 @@ This is the single entry point for how UI is designed and built in this app. It 
 contract; the deep documents hold the rationale. Precedence when documents disagree:
 
 1. **This file** — the working contract for day-to-day UI changes.
-2. [`docs/redesign/permanent-colour-direction.md`](./redesign/permanent-colour-direction.md) — the authoritative colour specification ("Clinical White / Aegean Graphite"). Colour disputes end here.
+2. [`docs/redesign/permanent-colour-direction.md`](./redesign/permanent-colour-direction.md) — the authoritative colour specification ("Clinical White / Sky Graphite"). Colour disputes end here.
 3. [`docs/redesign/02-design-direction.md`](./redesign/02-design-direction.md) — token rationale: type scale, spacing, radii, elevation, motion.
 4. [`docs/redesign/09-ui-primitives-recipes.md`](./redesign/09-ui-primitives-recipes.md) — the recipe catalogue for `src/components/ui-primitives.tsx`.
 
@@ -12,22 +12,31 @@ Design direction is **settled**. Work on the UI is convergence — closing the g
 contract and the code — not reinvention. If a change genuinely needs a new direction, update
 `permanent-colour-direction.md` first, then the code.
 
+Comparison surfaces also follow [`comparison-behaviour.md`](comparison-behaviour.md). That contract
+standardises selection and interaction states while leaving clinical fields and meaning with each
+mode.
+
 ## 1. Non-negotiables
 
 - **Tokens only.** Every colour comes from a CSS custom property defined in
   `src/app/globals.css` (`:root` + `.dark`). No raw Tailwind palette classes (`red-50`,
   `slate-200`, `bg-white`) and no hex values in components. **If you typed a hex or a Tailwind
   colour name in a component, you broke dark mode** — those values have no `.dark` override.
-  Sanctioned raw-colour exceptions are explicit and narrow: brand artwork, diagnostic-only
-  visualizations, generated OpenGraph artwork, emergency error fallbacks, the scoped
-  fixed-white Therapy patient sheet, and the scoped factsheet print sheet. `scripts/check-design-system-contract.mjs` owns the
-  path allowlist; adding a category requires documenting why semantic app tokens are wrong.
+  Sanctioned raw-colour exceptions are explicit and narrow: the token definitions in
+  `globals.css` itself, brand artwork, diagnostic-only visualizations, generated OpenGraph
+  artwork, emergency error fallbacks, the two pre-paint theme-colour values in
+  `src/lib/theme.ts` (read by the pre-hydration script before any CSS exists), the scoped
+  fixed-white Therapy patient sheet, and the scoped factsheet print sheet.
+  `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` owns the path allowlist
+  and each entry's `scope`. Prefer a bounded scope over `whole-file` so unrelated colours in
+  the same file stay counted, and make a missing boundary fail closed; adding a category
+  requires documenting why semantic app tokens are wrong.
 - **Semantic vs categorical vs brand.** Three token families, never interchangeable:
   - Semantic triads (`--info/-soft/-border`, `--success-*`, `--warning-*`, `--danger-*`) mean
     something happened or matters clinically. Green is success-only; red is safety/danger-only.
   - Categorical triads (`--type-document/table/search/source/service/form` + `-soft`/`-border`)
     give _identity_ to kinds of things (chips, icon tiles). They carry no status meaning.
-  - Brand: `--clinical-accent*` (Aegean) for clinical/evidence identity and primary-action
+  - Brand: `--clinical-accent*` (Clinical Sky) for clinical/evidence identity and primary-action
     accents; `--command*` (graphite) for the primary CTA family.
 - **Dark mode is class-based and mandatory.** The `.dark` block re-tunes every token; a
   pre-paint script in `src/app/layout.tsx` applies the stored theme. Nothing else is required
@@ -35,7 +44,10 @@ contract and the code — not reinvention. If a change genuinely needs a new dir
 - **Forced-colors and reduced-motion are first-class.** `globals.css` remaps all tokens under
   `@media (forced-colors: active)` and zeroes motion under `prefers-reduced-motion: reduce`.
   Never inline a style that defeats these. Every bespoke `transition`/`animate` needs
-  `motion-reduce:` handling or one of the pre-wired `--animate-*` tokens.
+  `motion-reduce:` handling or one of the pre-wired `--animate-*` tokens. Scripted
+  `scrollTo`/`scrollIntoView` must resolve `behavior` through `resolveScrollBehavior()`
+  (`src/lib/scroll-behavior.ts`) — a hard-coded `behavior: "smooth"` overrides the
+  reduced-motion CSS and ignores the preference.
 
 ### Legacy-hex migration table
 
@@ -50,7 +62,7 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 | `#f8fbfd`, `#f8fcfc`, `#fbfdff` (page washes) | `var(--surface-wash)` / `var(--surface-subtle)`                   |
 | `bg-white`                                    | `bg-[color:var(--surface)]` (or `--surface-lux` for raised cards) |
 | `slate-200` / `slate-500` / `slate-600`       | `var(--border)` / `var(--text-soft)` / `var(--text-muted)`        |
-| ad-hoc `rgba(...)` shadows                    | `var(--shadow-tight/soft/hover/elevated/inset)` or `--glow-*`     |
+| ad-hoc `rgba(...)` shadows                    | an elevation tier `var(--e1…--e4)` or a role alias / `--glow-*`   |
 
 ## 2. Type & icon scale
 
@@ -59,10 +71,24 @@ When you meet a pre-token hardcode (mockups being promoted, old branches), map i
 Named steps live in the `@theme` block of `globals.css` and are **size-only** (no baked
 line-height/tracking — set `leading-*`/`tracking-*` at the call site):
 
-`text-4xs` 8px · `text-3xs` 10px · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
+`text-3xs` 10px (floor) · `text-2xs` 11px · (`text-xs` 12 / `text-sm` 14 / `text-base`
 16 from Tailwind) · `text-sm-minus` 13px · `text-base-minus` 15px · (`text-lg` 18 / `text-xl`
 20 / `text-2xl` 24 from Tailwind) · `text-lg-minus` 17px · `text-2xl-minus` 22px.
 
+- **10px is the floor.** An 8px `text-4xs` step existed and is retired — indefensible at any
+  density in a clinical product. Do not reintroduce a sub-10px step.
+- **Leading** uses Tailwind's own steps plus two named additions for the cases they cannot
+  express: `leading-display` (1.05) for large display headings and `leading-prose` (1.6) for
+  the `max-w-[68ch]` body measure. Arbitrary `leading-[…]` is at zero in production and
+  `tests/design-token-contract.test.ts` keeps it there. **Never redefine `--leading-tight` /
+  `-snug` / `-normal` / `-relaxed`** — those are Tailwind theme names, and shadowing one
+  silently retunes every existing `leading-tight` / `leading-snug` call site. The same test
+  fails if they reappear in `:root` or `@theme`.
+- **Intermediate font weights are deliberate, not drift.** Geist is a variable face, so
+  `520` / `540` / `560` / `580` / `640` / `650` / `680` interpolate rather than snapping, and
+  the band/panel treatments in `globals.css` and Therapy Compass use them on purpose. Do
+  **not** "normalise" them onto 600/700 — that was attempted on 2026-07-28 and reverted. Weight
+  is an expressive axis here; only flag a weight that is genuinely arbitrary and unexplained.
 - Arbitrary `text-[Npx]` is **banned**; `npm run check:type-scale` counts offenders.
   **Ratchet:** the count must never rise (baseline recorded in
   `docs/process-hardening.md`). When it reaches 0, wire `check:type-scale --strict` into
@@ -87,9 +113,10 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
   sizes non-icons), so migrating the long tail onto `size-icon-*` is opportunistic, not enforced.
 - **Responsive** icons add a breakpoint variant — `size-icon-md sm:size-icon-lg`. Reserve it for
   a few roles (nav, composer, hero, panel headings); most icons stay one fixed size.
-- **Not** for container tiles (`iconTile` h-9, empty-state tile h-10) or non-icon boxes (the
-  `ToggleSwitch` knob, status dots) — those keep the integer spacing scale. Icon glyph size is
-  independent of the 44px tap target (§3), which stays on `--spacing-tap`.
+- **Not** for container tiles (`iconTilePremium` / panel-heading tile h-9, empty-state tile h-10)
+  or non-icon boxes (the `ToggleSwitch` knob, status dots) — those keep the integer spacing
+  scale. Icon glyph size is independent of the 44px tap target (§3), which stays on
+  `--spacing-tap`.
 
 ## 3. Spacing & tap targets
 
@@ -101,12 +128,23 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 
 ## 4. Radius & shadows
 
-- Radii come from `@theme`: `rounded-md` chips/pills · `rounded-lg` controls/cards/panels ·
-  `rounded-xl`+ sheets/dialogs. Never pass a radius token through an arbitrary value
-  (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the same token.
-- Shadows/elevation: `--shadow-tight/soft/card/hover/elevated/lux/inset` and `--glow-primary/
-soft`, all re-tuned per theme and removed under forced-colors. No literal `box-shadow` values
-  in components.
+- Radii come from `@theme` and run on the 4px grid — `xs` 4 · `sm` 6 · `md` 8 · `lg` 12 ·
+  `xl` 16 · `2xl` 20 (px). `sm` is the one deliberate half-step, for chips and pills that read
+  as too heavy at 8. Roles are unchanged: `rounded-md` chips/pills · `rounded-lg`
+  controls/cards/panels · `rounded-xl`+ sheets/dialogs. Never pass a radius token through an
+  arbitrary value (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the
+  same token.
+- **Elevation is a numbered ladder: `--e0` … `--e4`.** One monotonic sequence that sorts by
+  name, hue-tinted rather than flat grey, with negative spread so a shadow pulls inward
+  instead of bleeding. `--e0` flush · `--e1` resting hairline · `--e2` cards/popovers ·
+  `--e3` hover/lifted chrome · `--e4` modals/sheets/drawers. Dark lifts with a top highlight
+  rather than more black.
+- The role names are **aliases onto tiers**, not independent values: `--shadow-tight` → `--e1`;
+  `--shadow-card` / `--shadow-soft` → `--e2`; `--shadow-hover` → `--e3`; `--shadow-elevated` /
+  `--shadow-lux` → `--e4`. `--shadow-inset`, `--shadow-rail-active`, `--shadow-focus` and
+  `--glow-primary/soft` stay bespoke. All are removed under forced-colors, ladder included.
+- No literal `box-shadow` values in components — reach for a tier
+  (`shadow-[var(--e2)]`, `hover:shadow-[var(--e3)]`) or a role alias.
 
 ## 5. Z-index ladder
 
@@ -127,12 +165,20 @@ rung — never a new number.
   safe-area padding, and dark-mode surfaces. Do not hand-roll `role="dialog"` overlays —
   the applications-launcher DetailDialog migration is the template for converting one.
 - Empty and loading states use `EmptyState` / `LoadingPanel`, not bespoke markup.
+- **Icon-only buttons use `IconButton`** (`ui-primitives.tsx`): its `label` prop is required and
+  renders `aria-label` + an `aria-hidden` glyph + a 44px tap target, so an unlabeled icon button
+  cannot be written by accident. Pass a recipe (`toolbarButton`, …) via `className` for chrome.
 - Composer-chrome caveat: the `answer-footer-search-*` / `desktop-home-search-*` classes are
   intentionally **unlayered** and beat Tailwind utilities on the same element — check the class
   body before adding a utility there (see "CSS cascade layering" in
   `docs/process-hardening.md`).
 
 ## 7. Accessibility requirements
+
+**Target: WCAG 2.2 AA.** The rules below are the concrete, enforced floor for meeting it; partial
+automated coverage is provided by `tests/ui-accessibility.spec.ts` (reduced-motion, forced-colors,
+focus, labels, selected axe-core checks) for the areas it covers, rather than enforcing the full
+WCAG 2.2 AA standard, with manual checks for the rest.
 
 - Every interactive element has a visible focus state: the global `:focus-visible` rule is the
   floor; use the `focusRing` recipe on custom controls.

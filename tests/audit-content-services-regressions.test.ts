@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { generateMetadata as generateFormMetadata } from "@/app/forms/[slug]/page";
-import { generateMetadata as generateServiceMetadata } from "@/app/services/[slug]/page";
+import { generateMetadata as generateFormMetadata } from "@/app/(search-app)/forms/[slug]/page";
+import { generateMetadata as generateServiceMetadata } from "@/app/(search-app)/services/[slug]/page";
 import { sourceToneClass } from "@/components/forms/form-detail-page";
 import { toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 import { formRecords, getFormRecord, type FormRecord } from "@/lib/forms";
@@ -123,7 +123,7 @@ describe("content and services audit regressions", () => {
     expect(formDetailSource).not.toMatch(/\b\d+\s+pages?\b|\bReview due\b/i);
     expect(formDetailSource).not.toContain("01 May 2026");
     expect(formDetailSource).not.toMatch(/5\(2\)|Admission order|Treatment order/);
-    expect(formDetailSource).toContain("Full pathway unavailable");
+    expect(formDetailSource).toContain("Open official source / pathway");
     expect(normalizedFormDetailSource).toContain(
       'label: "Source currency", value: displayText(form.source?.reviewed, "Review locally")',
     );
@@ -140,6 +140,8 @@ describe("content and services audit regressions", () => {
     expect(formsSearchSource).toContain("Content match in record details");
     expect(formsSearchSource).not.toContain("Content match in related pathway");
     expect(formsSearchSource).toContain("View all forms");
+    expect(formsSearchSource).toContain('appModeHomeHref("forms", { query, focus: true, run: true })');
+    expect(formsSearchSource).not.toContain('href="/forms"');
     expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
     expect(formsHomeSource).not.toMatch(
       /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,

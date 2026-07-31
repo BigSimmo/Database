@@ -3,35 +3,35 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   ExternalLink,
   FileText,
-  Loader2,
   Search,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useDeferredValue } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
-import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
+import { useRegistryRecords } from "@/lib/use-registry-records";
 import {
   cn,
   codeText,
+  eyebrowText,
   pageContainer,
+  panelSubtle,
   searchFocusRing,
   searchPageCanvas,
   searchResultsSection,
   ToggleSwitch,
 } from "@/components/ui-primitives";
 import {
-  ResultSortControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
@@ -88,6 +88,106 @@ function compactMatchReason(match: FormSearchMatch, query: string) {
   }
   if (match.reasons.includes("record fields")) return "Content match in record details";
   return "Content match in the forms catalogue";
+}
+
+type FormRiskLevel = "high" | "medium" | "low";
+
+const formRiskLevels: readonly FormRiskLevel[] = ["high", "medium", "low"];
+
+// Risk is the only badge a phone result card carries, so it must never out-rank
+// itself: high is solid danger, medium is a bordered wash, low stays neutral.
+const riskBadgeToneClass: Record<FormRiskLevel, string> = {
+  high: "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]",
+  medium: "border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
+  low: "border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+};
+
+/**
+ * Prefer the catalogue's typed `riskLevel`. Records that reach the registry
+ * without a catalogue payload still carry the level as their first status chip
+ * (`"high risk"`), so fall back to that rather than dropping the safety signal.
+ */
+function formRiskLevel(match: FormSearchMatch): FormRiskLevel | null {
+  const level = formCatalogDetails(match.service)?.riskLevel;
+  if (level && formRiskLevels.includes(level)) return level;
+  for (const chip of match.service.statusChips ?? []) {
+    const label = chip.label?.trim().toLowerCase() ?? "";
+    const matched = formRiskLevels.find((candidate) => label === `${candidate} risk`);
+    if (matched) return matched;
+  }
+  return null;
+}
+
+// The catalogue generates a `purpose` for every form, but most are boilerplate
+// that only restates the title ("Official form source: Transfer Order. Review
+// the source snippets and approved form before use."). Rendering one of those
+// under every card is the same non-information as the old "Content match in
+// record details" line, just longer — so only show a purpose that says
+// something the title does not. See fallbackDetails() in form-catalog.ts.
+const generatedPurposePatterns = [
+  /^official form source:/i,
+  /^the official register lists this form/i,
+  /^use the current approved form .+ to record /i,
+];
+
+function editorialPurpose(record: FormSearchMatch["service"]): string {
+  const purpose = record.subtitle?.trim() ?? "";
+  if (!purpose) return "";
+  return generatedPurposePatterns.some((pattern) => pattern.test(purpose)) ? "" : purpose;
+}
+
+const uncategorisedFormsLabel = "Other forms";
+
+type CodedFormMatch = { match: FormSearchMatch; code: string };
+type FormResultGroup = { category: string; items: CodedFormMatch[] };
+
+/**
+ * Group phone results under their statutory category so the category is stated
+ * once per group instead of repeated as a chip on every card.
+ *
+ * Items arrive already sorted (relevance or A–Z), and groups are emitted in
+ * order of first appearance — so the active sort still decides which group leads
+ * and the top-ranked form stays in the top group.
+ */
+function groupMatchesByCategory(items: CodedFormMatch[]): FormResultGroup[] {
+  const groups: FormResultGroup[] = [];
+  const byCategory = new Map<string, FormResultGroup>();
+  for (const item of items) {
+    const category = formCatalogDetails(item.match.service)?.category?.trim() || uncategorisedFormsLabel;
+    let group = byCategory.get(category);
+    if (!group) {
+      group = { category, items: [] };
+      byCategory.set(category, group);
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
+}
+
+/**
+ * "1A", "form 1a", "1A attachment" — a clinician who types a form code is naming
+ * one specific form, not running a text search. Normalise the same way
+ * form-catalog's own normalizeCode does (lowercase, collapse whitespace) and
+ * additionally drop a leading "form " so the typed prefix still resolves.
+ */
+function normalizeFormCodeQuery(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/^form /, "");
+}
+
+function findExactFormCodeMatch(items: CodedFormMatch[], query: string): CodedFormMatch | null {
+  const normalizedQuery = normalizeFormCodeQuery(query);
+  if (!normalizedQuery) return null;
+  return (
+    items.find((item) => {
+      const code = formCatalogDetails(item.match.service)?.form;
+      return code ? normalizeFormCodeQuery(code) === normalizedQuery : false;
+    }) ?? null
+  );
 }
 
 function ResultTabs({ formsCount }: { formsCount: number }) {
@@ -314,7 +414,7 @@ function ResultsTable({
       </div>
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
         <Link
-          href="/forms"
+          href={appModeHomeHref("forms", { query, focus: true, run: true })}
           className={cn(
             "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
             searchFocusRing,
@@ -432,70 +532,174 @@ function VerifiedFooter() {
   );
 }
 
-function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
+const metaChipClass = "rounded-md px-2 py-1 text-3xs font-extrabold uppercase leading-none";
+
+/**
+ * When the query IS a form code there is one answer, not N ranked candidates.
+ * Lead with that form, its purpose and its open action; everything else drops
+ * to "Also references <code>" below.
+ */
+function MobileExactMatchHero({ match, code }: CodedFormMatch) {
+  const form = match.service;
+  const details = formCatalogDetails(form);
+  const risk = formRiskLevel(match);
+  const purpose = editorialPurpose(form);
+  // Derive availability label from the actual availability field rather than
+  // positional statusChips indexing to avoid fragility.
+  const availabilityLabel = details?.availability
+    ? details.availability === "downloadable"
+      ? "Official PDF"
+      : details.availability === "unavailable"
+        ? "Currently unavailable"
+        : "Contact OCP"
+    : undefined;
   return (
-    <section data-testid="form-search-mobile-results" className={cn(searchResultsSection, "p-3")}>
-      <div className="flex items-baseline justify-between gap-2 px-1">
-        <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Best matches</h2>
-        <span className="text-xs font-bold text-[color:var(--text-muted)]">
-          {matches.length} {matches.length === 1 ? "form" : "forms"}
-        </span>
-      </div>
-      <div className="mt-2 grid gap-2">
-        {matches.map((match, index) => {
-          const form = match.service;
-          return (
-            <article
-              key={form.slug}
-              data-testid={`form-search-mobile-result-${form.slug}`}
-              className="grid grid-cols-[48px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-tight)]"
-            >
-              <FormCodeBadge code={resultCode(match, index)} variant="sm" />
-              <div className="min-w-0">
-                <div className="flex min-w-0 items-start justify-between gap-2">
-                  <h3 className="min-w-0 text-sm-minus font-extrabold leading-snug text-[color:var(--text-heading)]">
-                    {form.title}
-                  </h3>
-                  <Link
-                    href={`/forms/${form.slug}`}
-                    aria-label={`Open ${form.title}`}
-                    className={cn(
-                      "relative inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2.5 text-2xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)]",
-                      searchFocusRing,
-                    )}
-                  >
-                    Open
-                    <ExternalLink className="h-3 w-3" aria-hidden />
-                  </Link>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {(form.statusChips ?? []).slice(0, 2).map((chip, chipIndex) => {
-                    const chipLabel = chip.label?.trim() || "Form";
-                    return (
-                      <span
-                        key={`${chipLabel}-${chipIndex}`}
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-2xs font-extrabold uppercase leading-none",
-                          tagToneClass(chipLabel),
-                        )}
-                      >
-                        {chipLabel}
-                      </span>
-                    );
-                  })}
-                </div>
-                <p className="mt-1 text-xs font-medium leading-snug text-[color:var(--text-muted)]">
-                  {compactMatchReason(match, query)}
-                </p>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-      <Link
-        href="/forms"
+    <section
+      aria-label="Exact form code match"
+      data-testid="form-search-mobile-exact-match"
+      className="overflow-hidden rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)] forced-colors:border"
+    >
+      <p
         className={cn(
-          "mx-auto mt-2 flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          "flex items-center gap-1.5 border-b border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2",
+          "text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]",
+        )}
+      >
+        <Check className="h-3.5 w-3.5" aria-hidden />
+        Exact form code match
+      </p>
+      <div className="flex gap-3 p-3">
+        <FormCodeBadge code={code} variant="sm" />
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base-minus font-extrabold leading-snug text-[color:var(--text-heading)]">{form.title}</h3>
+          {purpose ? (
+            <p className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{purpose}</p>
+          ) : null}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {risk ? (
+              <span className={cn(metaChipClass, riskBadgeToneClass[risk])}>
+                {risk}
+                <span className="sr-only"> risk</span>
+              </span>
+            ) : null}
+            {details?.category ? (
+              <span className={cn(metaChipClass, "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]")}>
+                {details.category}
+              </span>
+            ) : null}
+            {availabilityLabel ? (
+              <span className={cn(metaChipClass, "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]")}>
+                {availabilityLabel}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <div className="px-3 pb-3">
+        <Link
+          href={`/forms/${form.slug}`}
+          className={cn(
+            "flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4",
+            "text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition",
+            "hover:bg-[color:var(--clinical-accent-hover)] forced-colors:border",
+            searchFocusRing,
+          )}
+        >
+          Open Form {code}
+          <ExternalLink className="h-4 w-4" aria-hidden />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function MobileResultCard({ match, code }: CodedFormMatch) {
+  const form = match.service;
+  const risk = formRiskLevel(match);
+  // `subtitle` is the catalogue's `purpose` — what the form is actually for.
+  // It replaces the old "Content match in record details" line, which said the
+  // same thing on every card. Boilerplate purposes are dropped entirely rather
+  // than swapped for different filler.
+  const purpose = editorialPurpose(form);
+  return (
+    <Link
+      href={`/forms/${form.slug}`}
+      data-testid={`form-search-mobile-result-${form.slug}`}
+      className={cn(
+        // The whole card is the target, so no per-card Open button.
+        "flex items-center gap-3 p-3 transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)]",
+        panelSubtle,
+        searchFocusRing,
+      )}
+    >
+      <FormCodeBadge code={code} variant="sm" />
+      <span className="min-w-0 flex-1">
+        <h4 className="text-sm-minus font-extrabold leading-snug text-[color:var(--text-heading)]">{form.title}</h4>
+        {/* No `block` on the clamp below: it would override the
+            `display: -webkit-box` that line-clamp needs, and the purpose would
+            then render at full length. */}
+        {purpose ? (
+          <span className="mt-0.5 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            {purpose}
+          </span>
+        ) : null}
+      </span>
+      {risk ? (
+        <span
+          className={cn(
+            "shrink-0 rounded-md px-2 py-1 text-3xs font-extrabold uppercase leading-none",
+            riskBadgeToneClass[risk],
+          )}
+        >
+          {risk}
+          {/* Visually the level alone is enough beside the risk colour; assistive
+              tech still gets the full "high risk" phrasing. */}
+          <span className="sr-only"> risk</span>
+        </span>
+      ) : null}
+      <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+    </Link>
+  );
+}
+
+function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: string }) {
+  const coded = matches.map((match, index) => ({ match, code: resultCode(match, index) }));
+  const exactMatch = findExactFormCodeMatch(coded, query);
+  const remaining = exactMatch ? coded.filter((item) => item !== exactMatch) : coded;
+  const groups = groupMatchesByCategory(remaining);
+  return (
+    // Cards sit directly on the page canvas: no enclosing results panel, so a
+    // bordered card is never nested inside another bordered surface.
+    <section data-testid="form-search-mobile-results" aria-label="Form record matches" className="grid gap-3">
+      {exactMatch ? <MobileExactMatchHero match={exactMatch.match} code={exactMatch.code} /> : null}
+      {remaining.length > 0 ? (
+        <>
+          <div className="flex items-baseline justify-between gap-2 px-1">
+            <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
+              {exactMatch ? `Also references ${exactMatch.code}` : "Best matches"}
+            </h2>
+            <span className="text-xs font-bold text-[color:var(--text-muted)]">
+              {remaining.length} {remaining.length === 1 ? "form" : "forms"}
+            </span>
+          </div>
+          {groups.map((group) => (
+            <section key={group.category} aria-label={group.category} className="grid gap-2">
+              <div className="flex items-center gap-2 px-1">
+                <h3 className={eyebrowText}>{group.category}</h3>
+                <span aria-hidden className="h-px flex-1 bg-[color:var(--border)]" />
+                <span className="text-2xs font-bold text-[color:var(--text-soft)]">{group.items.length}</span>
+              </div>
+              {group.items.map((item) => (
+                <MobileResultCard key={item.match.service.slug} match={item.match} code={item.code} />
+              ))}
+            </section>
+          ))}
+        </>
+      ) : null}
+      <Link
+        href={appModeHomeHref("forms", { query, focus: true, run: true })}
+        className={cn(
+          "mx-auto flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,
         )}
       >
@@ -562,54 +766,9 @@ function MobilePathway() {
   );
 }
 
-function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
-  if (status === "ready") return null;
-  const notice =
-    status === "loading"
-      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry...", action: null }
-      : status === "unauthorized"
-        ? {
-            icon: Shield,
-            spin: false,
-            tone: "warning",
-            text: "Your session expired. Sign in again to search your private forms registry.",
-            action: { href: "/", label: "Open account setup" },
-          }
-        : {
-            icon: ShieldAlert,
-            spin: false,
-            tone: "danger",
-            text: "Couldn't load the forms registry. Try again shortly.",
-            action: null,
-          };
-  const Icon = notice.icon;
-  const toneClass =
-    notice.tone === "danger"
-      ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/50 text-[color:var(--danger)]"
-      : notice.tone === "warning"
-        ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/50 text-[color:var(--warning)]"
-        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)]";
-  return (
-    <div
-      data-testid="forms-registry-status-notice"
-      className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold ${toneClass}`}
-    >
-      <Icon className={`h-4 w-4 shrink-0 ${notice.spin ? "animate-spin" : ""}`} aria-hidden />
-      <span className="min-w-0 flex-1">{notice.text}</span>
-      {notice.action ? (
-        <Link
-          href={notice.action.href}
-          className="inline-flex min-h-tap items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
-        >
-          {notice.action.label}
-        </Link>
-      ) : null}
-    </div>
-  );
-}
-
 export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
-  return <FormsSearchResultsPageContent key={props.query} {...props} />;
+  // No key={query} remount: query is a pure prop (favourites already documents this).
+  return <FormsSearchResultsPageContent {...props} />;
 }
 
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
@@ -617,13 +776,18 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const [sortValue, setSortValue] = useResultSort();
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
-  const registryReady = registry.status === "ready";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   const [refineOpen, setRefineOpen] = useState(false);
   const refinePanelId = useId();
-  const matches = useMemo(
-    () => (registryReady ? rankFormRecords(registry.records, query) : []),
-    [registryReady, registry.records, query],
-  );
+  const deferredQuery = useDeferredValue(query);
+  const matches = useMemo(() => {
+    if (!registryReady) return [];
+    // Cleared query: no form matches (page usually remounts, but keep lag-safe).
+    if (!query.trim()) return [];
+    // Deferred empty while live has text: wait — do not rank as empty-query "all forms".
+    if (!deferredQuery.trim()) return [];
+    return rankFormRecords(registry.records, deferredQuery);
+  }, [registryReady, registry.records, deferredQuery, query]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
@@ -637,19 +801,58 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   return (
     <div className={cn("overflow-x-hidden", searchPageCanvas)}>
       <main className={cn(pageContainer, "grid gap-3 px-4 pt-3 sm:px-6 lg:gap-5 lg:px-8 lg:pb-8 lg:pt-6")}>
-        <RegistryStatusNotice status={registry.status} />
+        {/* The band is mounted in every registry state, not only when ready. It
+            previously unmounted on failure, which left the page with no header at
+            all and pushed the whole burden of reporting onto a separate notice. */}
+        <SearchResultsHeaderBand
+          modeId="forms"
+          query={query}
+          matchCount={displayedMatches.length}
+          status={
+            registry.status === "unauthorized"
+              ? "unauthorized"
+              : registry.status === "ready"
+                ? "ready"
+                : registry.status === "refetching"
+                  ? "refetching"
+                  : registry.status === "loading"
+                    ? "loading"
+                    : "error"
+          }
+          faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load forms"}
+          faultBody={
+            registry.status === "unauthorized"
+              ? "Your session expired. Sign in again to search your private forms registry."
+              : "Couldn’t load the forms registry. Try again shortly."
+          }
+          onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+          faultAction={
+            registry.status === "unauthorized" ? (
+              <Link
+                href="/"
+                className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+              >
+                Open account setup
+              </Link>
+            ) : undefined
+          }
+          sortValue={sortValue}
+          onSortChange={setSortValue}
+          filterLabel="Filter form results"
+          filterControls={
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="min-w-0 flex-1 overflow-x-auto">
+                <ResultTabs formsCount={displayedMatches.length} />
+              </div>
+              {supportsPathwayClaims ? (
+                <RefineBar open={refineOpen} onToggle={() => setRefineOpen((open) => !open)} panelId={refinePanelId} />
+              ) : null}
+            </div>
+          }
+        />
         {registryReady ? (
           <>
-            <div className="hidden md:block">
-              <SearchResultsHeaderBand
-                modeId="forms"
-                query={query}
-                matchCount={displayedMatches.length}
-                sortValue={sortValue}
-                onSortChange={setSortValue}
-              />
-            </div>
-            {query.trim() && displayedMatches.length === 0 ? (
+            {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
                 query={query}
@@ -660,21 +863,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               />
             ) : (
               <>
-                <div className="flex min-w-0 items-end gap-3 border-b border-[color:var(--border)]">
-                  <div className="min-w-0 flex-1 overflow-x-auto">
-                    <ResultTabs formsCount={displayedMatches.length} />
-                  </div>
-                  <div className="flex items-center gap-2 pb-1.5">
-                    <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
-                    {supportsPathwayClaims ? (
-                      <RefineBar
-                        open={refineOpen}
-                        onToggle={() => setRefineOpen((open) => !open)}
-                        panelId={refinePanelId}
-                      />
-                    ) : null}
-                  </div>
-                </div>
                 {supportsPathwayClaims ? <RefinePanel open={refineOpen} panelId={refinePanelId} /> : null}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />

@@ -1,29 +1,22 @@
-function SkeletonBlock({ className }: { className?: string }) {
-  return (
-    <span
-      className={`block animate-skeleton-shimmer rounded-md bg-[color:var(--surface-subtle)]${className ? ` ${className}` : ""}`}
-      aria-hidden
-    />
-  );
-}
+import { Skeleton } from "@/components/ui-primitives";
 
 export function ModeHomePageSkeleton() {
   return (
     <div
-      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6"
+      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6 animate-fade-in motion-reduce:animate-none"
       role="status"
       aria-label="Loading"
     >
-      <SkeletonBlock className="h-11 w-11 rounded-2xl sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+      <Skeleton className="h-tap w-tap rounded-2xl sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
       <div className="grid w-full justify-items-center gap-2">
-        <SkeletonBlock className="h-7 w-2/3 max-w-sm sm:h-9 lg:h-10" />
-        <SkeletonBlock className="h-5 w-1/2 max-w-xs" />
+        <Skeleton className="h-7 w-2/3 max-w-sm sm:h-9 lg:h-10" />
+        <Skeleton className="h-5 w-1/2 max-w-xs" />
       </div>
-      <SkeletonBlock className="mt-2 h-14 w-full max-w-xl rounded-full" />
+      <Skeleton className="mt-2 h-14 w-full max-w-xl rounded-full" />
       <div className="mt-4 grid w-full max-w-xl gap-3">
-        <SkeletonBlock className="h-16 w-full rounded-lg" />
-        <SkeletonBlock className="h-16 w-full rounded-lg" />
-        <SkeletonBlock className="h-16 w-full rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-lg" animationDelay="50ms" />
+        <Skeleton className="h-16 w-full rounded-lg" animationDelay="100ms" />
+        <Skeleton className="h-16 w-full rounded-lg" animationDelay="150ms" />
       </div>
       <span className="sr-only">Loading</span>
     </div>
@@ -32,7 +25,9 @@ export function ModeHomePageSkeleton() {
 
 export function ModeHomeRouteLoading() {
   return (
-    <div className="grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] sm:min-h-[calc(100dvh-4rem)]">
+    // Match ModeHomeMain startOnPhone: top-align on phones, centre from sm up.
+    // A phone-centred skeleton jumped when content-rich homes mounted top-aligned.
+    <div className="grid min-h-[calc(100dvh-var(--shell-header-h))] items-start justify-items-center bg-[color:var(--background)] pt-3 sm:items-center sm:pt-0">
       <ModeHomePageSkeleton />
     </div>
   );
@@ -41,16 +36,16 @@ export function ModeHomeRouteLoading() {
 export function DocumentSearchPageSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-[104rem] space-y-4 px-3 py-4 sm:px-5"
+      className="mx-auto w-full max-w-[104rem] space-y-4 px-3 py-4 sm:px-5 animate-fade-in motion-reduce:animate-none"
       role="status"
       aria-label="Loading documents"
     >
-      <SkeletonBlock className="h-8 w-48" />
-      <SkeletonBlock className="h-12 w-full max-w-2xl rounded-xl" />
+      <Skeleton className="h-8 w-48" />
+      <Skeleton className="h-12 w-full max-w-2xl rounded-xl" />
       <div className="grid gap-3">
-        <SkeletonBlock className="h-20 w-full rounded-lg" />
-        <SkeletonBlock className="h-20 w-full rounded-lg" />
-        <SkeletonBlock className="h-20 w-full rounded-lg" />
+        <Skeleton className="h-20 w-full rounded-lg" animationDelay="50ms" />
+        <Skeleton className="h-20 w-full rounded-lg" animationDelay="100ms" />
+        <Skeleton className="h-20 w-full rounded-lg" animationDelay="150ms" />
       </div>
       <span className="sr-only">Loading documents</span>
     </div>
@@ -59,9 +54,13 @@ export function DocumentSearchPageSkeleton() {
 
 export function DocumentViewerPageSkeleton() {
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col gap-4 px-4 py-4" role="status" aria-label="Loading document">
-      <SkeletonBlock className="h-10 w-full max-w-lg" />
-      <SkeletonBlock className="min-h-0 flex-1 rounded-lg" />
+    <div
+      className="flex h-[calc(100dvh-var(--shell-header-h))] flex-col gap-4 px-4 py-4 animate-fade-in motion-reduce:animate-none"
+      role="status"
+      aria-label="Loading document"
+    >
+      <Skeleton className="h-10 w-full max-w-lg" />
+      <Skeleton className="min-h-0 flex-1 rounded-lg" />
       <span className="sr-only">Loading document</span>
     </div>
   );

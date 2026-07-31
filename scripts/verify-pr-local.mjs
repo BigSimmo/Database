@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
-import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const isWindows = process.platform === "win32";
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test"];
+// Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
+const baseScripts = ["check:runtime", "check:installed-lock-parity", "format:changed", "lint", "typecheck", "test"];
 
 function parseArgs(args) {
   const options = { dryRun: false, extended: false, files: undefined };
@@ -48,11 +45,11 @@ function parseArgs(args) {
   return options;
 }
 
-function runNpmScript(script, environment) {
+function runNpmScript(script) {
   console.log(`\n> npm run ${script}`);
   const result = isWindows
-    ? spawnSync("cmd.exe", ["/d", "/s", "/c", `npm run ${script}`], { env: environment, stdio: "inherit" })
-    : spawnSync("npm", ["run", script], { env: environment, stdio: "inherit" });
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", `npm run ${script}`], { stdio: "inherit" })
+    : spawnSync("npm", ["run", script], { stdio: "inherit" });
   return childProcessExitCode(result);
 }
 
@@ -70,8 +67,10 @@ function readScope(files) {
 function selectedScripts(scope, extended) {
   const scripts = [...baseScripts];
   if (scope.build_changed) scripts.push("build");
-  // Full unit testing already includes every offline RAG contract suite.
-  if (!scope.docs_only) scripts.push("check:rag:fixtures");
+  // Fixtures for every non-docs change; full offline RAG contracts when
+  // retrieval/answer surfaces are in scope (eval:rag:offline includes fixtures).
+  if (scope.rag_eval_changed) scripts.push("eval:rag:offline");
+  else if (!scope.docs_only) scripts.push("check:rag:fixtures");
   if (extended && scope.ui_changed) scripts.push("verify:ui");
   return scripts;
 }
@@ -85,21 +84,18 @@ if (options.dryRun) {
   console.log("\nPR-local verification plan (dry run):");
   for (const script of scripts) console.log(`- npm run ${script}`);
   if (!scope.build_changed) console.log("- build skipped: no build-affecting changes detected");
-  if (scope.docs_only) console.log("- offline RAG fixture validation skipped: docs-only change");
+  if (scope.docs_only) console.log("- offline RAG checks skipped: docs-only change");
+  else if (!scope.rag_eval_changed)
+    console.log("- offline RAG production contracts skipped: no RAG-scoped changes (fixtures still selected)");
   if (options.extended && !scope.ui_changed)
     console.log("- Chromium UI gate skipped: no UI-affecting changes detected");
   process.exit(0);
 }
 
-const lock = acquireHeavyRunLock({ projectRoot, command: "npm run verify:pr-local" });
 let exitCode = 0;
-try {
-  for (const script of scripts) {
-    exitCode = runNpmScript(script, lock.environment);
-    if (exitCode !== 0) break;
-  }
-} finally {
-  lock.release();
+for (const script of scripts) {
+  exitCode = runNpmScript(script);
+  if (exitCode !== 0) break;
 }
 
 if (exitCode !== 0) process.exit(exitCode);

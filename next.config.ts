@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
+import { expectedSupabaseProject } from "./src/lib/supabase/project";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const requestedDistDir = process.env.NEXT_DIST_DIR?.trim();
@@ -47,6 +48,37 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "151mb",
   },
   poweredByHeader: false,
+  images: {
+    // Explicit responsive breakpoints for next/image. Leave minimumCacheTTL at
+    // Next's default (60s): a day-long floor can retain optimizer output past
+    // signed-URL lifetimes if a private preview ever omits `unoptimized`.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [32, 48, 64, 96, 128, 256, 384],
+    // Prefer AVIF (~20-30% smaller than WebP), falling back to WebP, for any
+    // next/image output.
+    formats: ["image/avif", "image/webp"],
+    // Private signed document/image previews opt out of the optimizer at the
+    // component level (`SignedImage` sets `unoptimized`). Do not raise
+    // `minimumCacheTTL` as a "safety" cap for bearer URLs: it is a lower bound,
+    // and stale-while-revalidate can keep serving private bytes past the
+    // signed-URL lifetime without re-entering the authenticated signed-URL route.
+    // Permit optimizing other Supabase Storage URLs through next/image when a
+    // caller intentionally uses the optimizer. Scoped to this app's exact
+    // production and (when configured) staging project hostnames, not the
+    // wildcard *.supabase.co.
+    remotePatterns: (() => {
+      const allowedHostnames = [expectedSupabaseProject.ref + ".supabase.co"];
+      const stagingRef = process.env.SUPABASE_STAGING_PROJECT_REF?.trim();
+      if (stagingRef) {
+        allowedHostnames.push(stagingRef + ".supabase.co");
+      }
+      return allowedHostnames.map((hostname) => ({
+        protocol: "https" as const,
+        hostname,
+        pathname: "/storage/v1/object/**",
+      }));
+    })(),
+  },
   turbopack: {
     root: projectRoot,
   },
@@ -89,6 +121,20 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/manifest.webmanifest",
+        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
+      },
+      {
+        // Therapy catalogues are content-addressed by the generator. A new data
+        // revision gets a new URL, so browsers and the CDN can retain old bytes
+        // without revalidation while an already-open client finishes using them.
+        source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\.[a-f0-9]{16}\\.json)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        // Compatibility aliases for deployment-straddling clients. These names
+        // stay stable across regenerations, so force revalidation instead of
+        // inheriting the hashed-asset immutable policy above.
+        source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\.json)",
         headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
     ];

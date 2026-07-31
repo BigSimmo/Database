@@ -214,7 +214,7 @@ function mockRuntime(client: ReturnType<typeof createSupabaseMock>) {
         headers: { "content-type": "application/json" },
       }),
   }));
-  vi.doMock("@/lib/rag", () => ({
+  vi.doMock("@/lib/rag/rag", () => ({
     invalidateRagCachesForDocumentMutation: vi.fn(),
     invalidateRagCachesForOwner: vi.fn(),
   }));
@@ -579,7 +579,7 @@ describe("API validation contracts", () => {
       throw new Error("Upstream unavailable");
     });
     mockRuntime(summarizeClient);
-    vi.doMock("@/lib/rag", () => ({ summarizeDocument }));
+    vi.doMock("@/lib/rag/rag", () => ({ summarizeDocument }));
     const summarizeRoute = await import("../src/app/api/documents/[id]/summarize/route");
     const summarizeResponse = await summarizeRoute.POST(
       authenticatedRequest(`/api/documents/${documentId}/summarize`, { method: "POST" }),

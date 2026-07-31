@@ -1,3 +1,4 @@
+import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 // Canonical Tools dataset. Previously duplicated between the live launcher
@@ -198,6 +199,74 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     output: "Care-plan structure, review points, and monitoring prompts.",
   },
   {
+    id: "safety-plan",
+    title: "Safety plan",
+    mobileTitle: "Safety plan",
+    description: "Build an identifier-free safety plan with the Stanley-Brown six steps and a printable copy.",
+    bestFor: "Collaborative safety planning",
+    detail:
+      "Build an identifier-free safety plan with the patient — warning signs, coping strategies, supports, and means safety. Working content stays in the current browser tab until you copy, print, or save a PDF.",
+    href: "/safety-plan",
+    area: "care",
+    status: "ready",
+    sourceBacked: false,
+    safetyFirst: true,
+    actionLabel: "Open",
+    keywords: [
+      "safety plan",
+      "safety planning",
+      "crisis",
+      "crisis plan",
+      "stanley brown",
+      "coping",
+      "warning signs",
+      "suicide",
+      "means safety",
+    ],
+    checkFirst: ["Current risk and recent changes", "Warning signs and triggers", "Trusted supports and crisis lines"],
+    neededInput: [
+      "No patient identifiers",
+      "Warning signs",
+      "Coping strategies and supports",
+      "Crisis contacts and means-safety steps",
+    ],
+    output: "An identifier-free six-step safety plan to export through an approved clinical workflow.",
+  },
+  {
+    id: "calculators",
+    title: "Calculators",
+    mobileTitle: "Calculators",
+    description: "Score psychiatry rating scales and clinical decision calculators with source-cited guidance.",
+    bestFor: "Bedside scoring and severity banding",
+    detail:
+      "Search and complete clinical calculators (PHQ-9, GAD-7, CSSRS, and related scales). Scores support clinical judgement and cite their source — they never replace a full assessment.",
+    href: "/calculators",
+    area: "assessment",
+    status: "ready",
+    sourceBacked: true,
+    highYield: true,
+    actionLabel: "Open",
+    keywords: [
+      "calculator",
+      "calculators",
+      "rating scale",
+      "rating scales",
+      "score",
+      "scoring",
+      "phq",
+      "phq-9",
+      "gad",
+      "gad-7",
+      "cssrs",
+      "severity",
+      "depression severity",
+      "clinical decision",
+    ],
+    checkFirst: ["Scale indication and setting", "Time available for completion", "Source and scoring notes"],
+    neededInput: ["Clinical indication or symptom focus", "Item responses for the chosen scale"],
+    output: "Total score, severity band, caution flags, and source-cited scoring guidance.",
+  },
+  {
     id: "monitoring",
     title: "Monitoring",
     description: "Track and review key monitoring parameters and results.",
@@ -237,6 +306,12 @@ export function toolCatalogRecordById(id: string) {
   return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
 }
 
+/** Hide account-scoped Favourites / Saved workflows from guest Tools surfaces. */
+export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
+  if (canAccessFavouritesMode(options)) return toolCatalogRecords;
+  return toolCatalogRecords.filter((tool) => tool.id !== "favourites" && !tool.href.startsWith("/favourites"));
+}
+
 export function toolSearchText(tool: ToolCatalogRecord) {
   return normalizeSearchText(
     [
@@ -262,8 +337,14 @@ export function rankToolRecords(
   limit?: number,
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
   expansions: string[] = [],
+  /**
+   * Session access for Favourites / Saved workflows. Defaults fail closed so callers
+   * that omit session never leak account-scoped Tools entries to guests.
+   */
+  session: { authenticated: boolean; demoMode: boolean } = { authenticated: false, demoMode: false },
 ): ToolSearchMatch[] {
-  return rankCatalogRecords(toolCatalogRecords, query, {
+  const records = toolCatalogRecordsForSession(session);
+  return rankCatalogRecords(records, query, {
     fields: [
       {
         id: "title",

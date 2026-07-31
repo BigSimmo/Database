@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { answerRouteBudgetMs } from "../src/lib/rag/rag-route-budget";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -106,7 +107,7 @@ async function answerOffline(
   const embedTextWithTelemetry = vi.fn();
   vi.doMock("@/lib/openai", () => ({ embedTextWithTelemetry, generateStructuredTextResult }));
 
-  const { answerQuestionWithScope } = await import("../src/lib/rag");
+  const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
   const answer = await answerQuestionWithScope({ query, ownerId: undefined, logQuery: false, skipCache: true });
   return { answer, generateStructuredTextResult, embedTextWithTelemetry };
 }
@@ -158,10 +159,10 @@ describe("source-only / offline answers", () => {
     expect(new Set(answer.sources.map((item) => item.id))).toEqual(
       new Set(answer.citations.map((citation) => citation.chunk_id)),
     );
-    expect(answer.answer.replaceAll("**", "")).toContain(
-      "guidance on ANC threshold for the decision to withhold clozapine",
+    expect(answer.answer.replaceAll("**", "")).toMatch(
+      /withhold clozapine.*(?:ANC|absolute neutrophil count).*below 1\.5 x10\^9\/L/i,
     );
-    expect(answer.answer).toContain("review them directly");
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
     // quality signalling for the UI disclosure
     expect(answer.answerQualityTier).toBe("source_only");
     expect(answer.providerMode).toBe("offline");
@@ -238,5 +239,57 @@ describe("source-only / offline answers", () => {
     expect(answer.answer).toContain("below 1.5 x 10^9/L");
     expect(answer.answer).toContain("below 1.0 x 10^9/L");
     expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["clozapine-chunk-1", "clozapine-chunk-2"]);
+  });
+});
+
+describe("route budget consumed by retrieval", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("flags route budget exhausted by retrieval", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    // Retrieval burns 13_000ms of fake wall-clock before returning sources — more than
+    // the whole 12_000ms extractive route budget — so the route deadline is created with
+    // its budget already fully consumed by pre-generation work.
+    let retrievalDelayApplied = false;
+    const { answer, generateStructuredTextResult } = await answerOffline(
+      "What ANC threshold should withhold clozapine?",
+      [],
+      (name) => {
+        if (name === "match_document_chunks_text_v2" || name === "match_document_chunks_text") {
+          if (!retrievalDelayApplied) {
+            retrievalDelayApplied = true;
+            vi.setSystemTime(new Date(Date.now() + answerRouteBudgetMs.extractive + 1_000));
+          }
+          return { data: [source()], error: null };
+        }
+        return { data: [], error: null };
+      },
+    );
+
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.latencyTimings?.route_budget_ms).toBe(answerRouteBudgetMs.extractive);
+    expect(answer.latencyTimings?.route_budget_exhausted_by_retrieval).toBe(true);
+    expect(answer.latencyTimings?.route_deadline_exceeded).toBe(true);
+    // Budget exhaustion is additive telemetry, not a failure: the answer must still be a
+    // grounded extractive answer built without any provider call.
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.map((citation) => citation.chunk_id)).toContain("clozapine-chunk-1");
+  });
+
+  it("keeps the exhaustion flag false for fast retrieval", async () => {
+    const { answer, generateStructuredTextResult } = await answerOffline(
+      "What ANC threshold should withhold clozapine?",
+      [source()],
+    );
+
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.latencyTimings?.route_budget_exhausted_by_retrieval).toBe(false);
+    expect(answer.latencyTimings?.route_deadline_exceeded).toBe(false);
+    expect(answer.grounded).toBe(true);
   });
 });

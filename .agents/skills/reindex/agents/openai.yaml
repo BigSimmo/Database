@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reindex"
+  short_description: "Plan safe Database reindex and backfill work"
+  default_prompt: "Use $reindex to plan and verify this index generation, backfill, promotion, or cleanup workflow safely."

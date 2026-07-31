@@ -1,6 +1,6 @@
 .tc-root {
-  min-height: calc(100dvh - 4rem);
-  background: var(--surface-chrome);
+  min-height: 0;
+  background: var(--background);
   color: var(--text);
 }
 
@@ -887,12 +887,16 @@
   border-radius: 50%;
   background: var(--surface-raised);
   box-shadow: var(--shadow-tight);
-  transform: translateY(-50%);
-  transition: left 150ms ease;
+  /* Animate the horizontal move on the compositor (transform) rather than `left`,
+     which forces layout each frame. The 18px offset matches the knob width so the
+     resting/active positions are visually identical to the old left-based values.
+     IMP-01: spring token for a tactile toggle without hardcoding the bezier. */
+  transform: translate(0, -50%);
+  transition: transform 150ms var(--ease-spring);
 }
 
 .tc-clinician-knob.tc-is-active {
-  left: 50%;
+  transform: translate(18px, -50%);
 }
 
 .tc-paper {
@@ -900,16 +904,19 @@
   --tc-paper-ink: #0f1720;
   --tc-paper-body: #2b3444;
   --tc-paper-muted: #5b6472;
-  --tc-paper-accent: #095d70;
-  --tc-paper-accent-strong: #0b6f86;
-  --tc-paper-accent-background: #f4f8f9;
-  --tc-paper-accent-border: #d9e9ec;
+  /* Fixed print palette — deliberately NOT theme-reactive (the patient sheet
+     must print identically in either theme), but the accent still mirrors the
+     Clinical Sky ramp by hand so a printed sheet is not a different brand. */
+  --tc-paper-accent: #185c99;
+  --tc-paper-accent-strong: #1d6fb8;
+  --tc-paper-accent-background: #f4f7fb;
+  --tc-paper-accent-border: #d7e3f0;
   --tc-paper-border: #d6dce5;
   --tc-paper-border-subtle: #e6e9ee;
   --tc-paper-warning: #8a5a12;
   --tc-paper-warning-background: #fbf6ee;
   --tc-paper-warning-border: #f0e2c8;
-  --tc-paper-focus: #0b6f86;
+  --tc-paper-focus: #1d6fb8;
   --tc-paper-shadow: 0 2px 6px rgb(15 23 32 / 8%), 0 18px 42px rgb(15 23 32 / 10%);
 
   background: var(--tc-paper-background);
@@ -927,13 +934,30 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* ISSUE-02: Halt rotational animation completely — slowing it still triggers
+     vestibular distress for motion-sensitive users. Replace with a static fade. */
   .tc-root .tc-spin {
-    animation-duration: 2s;
+    animation: none !important;
+    opacity: 0.6;
   }
 
   .tc-root * {
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ISSUE-05: Mirror the OS-level prefers-reduced-motion gate to the in-app
+   preference toggle (html[data-motion="reduced"]) so users who set "Reduce motion"
+   inside application settings get the same behaviour even when their OS motion
+   preference is enabled. globals.css already sets this attribute via the settings
+   dialog; therapy-compass.css must honour it in its own scope. */
+html[data-motion="reduced"] .tc-root .tc-spin {
+  animation: none !important;
+  opacity: 0.6;
+}
+
+html[data-motion="reduced"] .tc-root * {
+  transition-duration: 0.001ms !important;
 }
 
 @media (max-width: 640px) {
@@ -1040,18 +1064,30 @@
   z-index: 20;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   padding: 14px 40px;
   background: var(--surface-glass);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
+
+/* Portaled under the universal header on phones: the collapse row owns
+   stacking/hide, so sticky would fight the shared chrome geometry. */
+#phone-header-collapse-addon-slot .tc-nav-001 {
+  position: relative;
+  top: auto;
+  z-index: auto;
+}
 .tc-root .tc-nav-007 {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
+  margin-inline: auto;
   overflow-x: auto;
   padding-bottom: 2px;
 }
@@ -1279,9 +1315,15 @@
   padding: 32px 40px 40px;
 }
 .tc-root .tc-workspace-006 {
-  min-height: calc(100dvh - 4rem);
-  background: var(--surface-chrome);
+  min-height: 0;
+  background: var(--background);
   color: var(--text);
+}
+@media (min-width: 640px) {
+  .tc-root,
+  .tc-root .tc-workspace-006 {
+    min-height: calc(100dvh - var(--shell-header-h));
+  }
 }
 .tc-root .tc-screens-brief-screen-001 {
   max-width: 1240px;
@@ -2966,49 +3008,6 @@
 .tc-root .tc-screens-search-screen-001 {
   max-width: 1180px;
   margin: 0 auto;
-}
-.tc-root .tc-screens-search-screen-002 {
-  margin: 0 0 6px;
-  font-size: 27px;
-  font-weight: 680;
-  color: var(--text-heading);
-  letter-spacing: -0.02em;
-}
-.tc-root .tc-screens-search-screen-003 {
-  margin: 0 0 22px;
-  font-size: 14.5px;
-  color: var(--text-muted);
-}
-.tc-root .tc-screens-search-screen-004 {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.tc-root .tc-screens-search-screen-005 {
-  flex: 1;
-  min-width: 260px;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.tc-root .tc-screens-search-screen-006 {
-  position: absolute;
-  left: 16px;
-  color: var(--text-soft);
-}
-.tc-root .tc-screens-search-screen-007 {
-  width: 100%;
-  height: 52px;
-  padding: 0 16px 0 46px;
-  border: 1px solid var(--border-strong);
-  border-radius: 13px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 16px;
-  font-family: inherit;
-  box-shadow: var(--shadow-tight);
 }
 .tc-root .tc-screens-search-screen-008 {
   display: flex;

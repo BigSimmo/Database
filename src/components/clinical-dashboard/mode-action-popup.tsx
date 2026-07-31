@@ -15,6 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   Activity,
+  BookOpenText,
   TriangleAlert,
   CalendarDays,
   Check,
@@ -59,7 +60,8 @@ export type ModeActionSetId =
   | "dsm"
   | "specifiers"
   | "formulation"
-  | "prescribing";
+  | "prescribing"
+  | "factsheets";
 export type ModeActionPlacement = "up" | "down";
 
 type IntegratedSurfaceLayout = {
@@ -131,7 +133,9 @@ export type ModeActionId =
   | "formulation-search"
   | "formulation-builder"
   | "formulation-compare"
-  | "formulation-map";
+  | "formulation-map"
+  | "factsheets-search"
+  | "factsheets-browse";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -153,7 +157,7 @@ const modeActionSets = {
       icon: MessageSquarePlus,
       primary: true,
     },
-    { id: "documents-upload", label: "Add document", description: "Upload a source to the library", icon: UploadCloud },
+    { id: "documents-upload", label: "Add document", description: "Upload a source", icon: UploadCloud },
     { id: "documents-scope", label: "Scope", description: "Limit answers to chosen sources", icon: Filter },
     {
       id: "answer-evidence-map",
@@ -161,14 +165,14 @@ const modeActionSets = {
       description: "Trace quotes and source support",
       icon: ListChecks,
     },
-    { id: "documents-search", label: "Search library", description: "Find indexed sources", icon: Search },
+    { id: "documents-search", label: "Search sources", description: "Find indexed sources", icon: Search },
     { id: "tools-browse", label: "Clinical tools", description: "Open clinical tools", icon: Wrench },
   ],
   documents: [
     {
       id: "documents-upload",
       label: "Upload PDF",
-      description: "Add a source to the library",
+      description: "Add an indexed source",
       icon: UploadCloud,
       primary: true,
     },
@@ -328,6 +332,21 @@ const modeActionSets = {
       icon: TriangleAlert,
     },
     { id: "medication-access", label: "Documentation", description: "Required forms and eligibility", icon: Lock },
+  ],
+  factsheets: [
+    {
+      id: "factsheets-search",
+      label: "Search factsheets",
+      description: "Find a medicine, condition, therapy, or test",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "factsheets-browse",
+      label: "Browse all sheets",
+      description: "Open the full patient-information library",
+      icon: BookOpenText,
+    },
   ],
 } as const satisfies Record<ModeActionSetId, readonly ModeActionItem[]>;
 
@@ -799,7 +818,7 @@ export function ModeActionPopup({
   // subtitle sits on its own full-width line so it can never be crushed.
   function renderPopoverHeader() {
     return (
-      <div className="relative z-[1] flex items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 py-3.5">
+      <div className="relative z-10 flex items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 py-3.5">
         <span
           aria-hidden="true"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"

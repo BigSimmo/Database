@@ -1,5 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -178,6 +180,8 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo, opt
   expect(summary, "axe found critical/serious WCAG A/AA violations").toEqual([]);
 }
 
+test.beforeEach(stubZeroTouchPoints);
+
 test.describe("Clinical KB accessibility coverage", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -190,6 +194,62 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectDashboardUsable(page);
     await openScopeControl(page);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("scripted scrolls honour the reduced-motion preference", async ({ page }) => {
+    // ANIM-01 (WCAG 2.3.3): the scripted scrollTo/scrollIntoView calls resolve their
+    // behaviour through resolveScrollBehavior(), so a reduced-motion preference must
+    // turn them into instant ("auto") jumps instead of smooth animations. Record the
+    // behaviour argument every scroll call receives, then trigger a known one.
+    await page.addInitScript(() => {
+      const store: string[] = [];
+      (window as unknown as { __scrollBehaviors: string[] }).__scrollBehaviors = store;
+      const record = (behavior?: ScrollBehavior) => store.push(behavior ?? "auto");
+      const origScrollTo = Element.prototype.scrollTo;
+      Element.prototype.scrollTo = function scrollTo(this: Element, ...args: unknown[]) {
+        const options = args[0];
+        if (options && typeof options === "object" && "behavior" in options) {
+          record((options as ScrollToOptions).behavior);
+        }
+        return (origScrollTo as (...callArgs: unknown[]) => void).apply(this, args);
+      } as typeof Element.prototype.scrollTo;
+      const origScrollIntoView = Element.prototype.scrollIntoView;
+      Element.prototype.scrollIntoView = function scrollIntoView(this: Element, ...args: unknown[]) {
+        const options = args[0];
+        if (options && typeof options === "object" && "behavior" in options) {
+          record((options as ScrollIntoViewOptions).behavior);
+        }
+        return (origScrollIntoView as (...callArgs: unknown[]) => void).apply(this, args);
+      } as typeof Element.prototype.scrollIntoView;
+    });
+
+    const readBehaviours = () =>
+      page.evaluate(() => (window as unknown as { __scrollBehaviors: string[] }).__scrollBehaviors);
+    const resetBehaviours = () =>
+      page.evaluate(() => {
+        (window as unknown as { __scrollBehaviors: string[] }).__scrollBehaviors.length = 0;
+      });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+
+    // Reduced motion → every scripted scroll must be an instant "auto" jump.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+    await resetBehaviours();
+    await page.getByRole("button", { name: "New chat" }).first().click();
+    await expect.poll(readBehaviours).not.toHaveLength(0);
+    const reduced = await readBehaviours();
+    expect(reduced, "reduced motion must not animate scripted scrolls").not.toContain("smooth");
+    expect(reduced.every((behaviour) => behaviour === "auto")).toBe(true);
+
+    // No preference → the same action animates smoothly.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await resetBehaviours();
+    await page.getByRole("button", { name: "New chat" }).first().click();
+    await expect.poll(readBehaviours).not.toHaveLength(0);
+    expect(await readBehaviours(), "no-preference should animate scripted scrolls").toContain("smooth");
   });
 
   test("mode menu dismisses when keyboard focus leaves its wrapper", async ({ page }) => {
@@ -209,7 +269,60 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("phone quick actions meet the tap target and guests do not poll private ingestion routes", async ({ page }) => {
+  test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
+    // jsdom cannot enforce `inert`, so the browser is the only place the modal
+    // containment contract (and its release) can actually be proven.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    const readState = () =>
+      page.evaluate(() => {
+        const marked = Array.from(document.querySelectorAll('[data-sheet-inert="true"]'));
+        const dialog = document.querySelector('[role="dialog"]');
+        const background = marked.flatMap((element) => Array.from(element.querySelectorAll("button, a[href]"))).at(0);
+        let focusRefused: boolean | null = null;
+        if (background instanceof HTMLElement) {
+          const before = document.activeElement;
+          background.focus();
+          focusRefused = document.activeElement !== background;
+          if (before instanceof HTMLElement) before.focus();
+        }
+        return {
+          marked: marked.length,
+          allInert: marked.every((element) => element.hasAttribute("inert")),
+          dialogIsMarked: dialog != null && dialog.closest('[data-sheet-inert="true"]') != null,
+          focusInDialog: dialog != null && document.activeElement != null && dialog.contains(document.activeElement),
+          focusRefused,
+          overflow: document.body.style.overflow,
+        };
+      });
+
+    const modeButton = page.getByRole("button", { name: "Mode Answer", exact: true });
+    await modeButton.click();
+    await expect(page.locator('[role="dialog"]').first()).toBeVisible();
+
+    const open = await readState();
+    expect(open.marked, "background should be deactivated behind the sheet").toBeGreaterThan(0);
+    expect(open.allInert).toBe(true);
+    expect(open.dialogIsMarked, "the sheet itself must stay interactive").toBe(false);
+    expect(open.focusInDialog).toBe(true);
+    expect(open.focusRefused, "the browser must refuse focus into the deactivated background").toBe(true);
+    expect(open.overflow).toBe("hidden");
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]').first()).toBeHidden();
+
+    await expect
+      .poll(async () => (await readState()).marked, { message: "inert markers must be released on close" })
+      .toBe(0);
+    expect(await page.locator("[inert]").count()).toBe(0);
+    await expect(modeButton).toBeFocused();
+    expect((await readState()).overflow).toBe("");
+  });
+
+  test("phone privacy link meets the tap target and guests do not poll private ingestion routes", async ({ page }) => {
     const privateIngestionRequests: string[] = [];
     page.on("request", (request) => {
       if (/\/api\/ingestion\/(?:jobs|batches|quality)(?:\?|$)/.test(request.url())) {
@@ -223,11 +336,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectDashboardUsable(page);
 
     const targetSizes = await Promise.all(
-      [
-        page.getByRole("button", { name: "Search documents", exact: true }),
-        page.getByRole("button", { name: "Upload document", exact: true }),
-        page.getByRole("link", { name: "Privacy and data processing", exact: true }),
-      ].map((target) =>
+      [page.getByRole("link", { name: "Privacy and data processing", exact: true })].map((target) =>
         target.evaluate((element) => {
           const bounds = element.getBoundingClientRect();
           return { width: bounds.width, height: bounds.height };
@@ -253,7 +362,11 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("solid-button label tokens stay legible with forced colors", async ({ page }) => {
+  test("solid-button label tokens stay legible with forced colors", async ({ browserName, page }) => {
+    test.skip(
+      browserName === "webkit",
+      "WebKit has no forced-colors implementation; Playwright's forcedColors emulation cannot engage the @media (forced-colors: active) token remap under test (the guarded glyph-backplate behavior is Chromium's).",
+    );
     // Chromium paints a Canvas backplate behind every glyph run in forced-colors
     // mode: a label whose color resolves into the Canvas/ButtonFace family
     // disappears into its own backplate (axe cannot see this — it reads CSS,
@@ -330,49 +443,68 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoBlockingAxeViolations(page, testInfo, { disableRules: ["color-contrast"] });
   });
 
-  test("differential result types are pressed filters instead of tabs", async ({ page }) => {
+  test("differential result types use an accessible mobile filter instead of tabs", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockMinimalDashboardApi(page);
     await mockDifferentialSearch(page);
     await gotoApp(page, "/differentials");
 
-    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
-    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    // Retry fill-then-enabled together: the server-rendered composer is visible
+    // before React controls it, and a fill landing in that gap is discarded by
+    // hydration, leaving the search button disabled and the click a no-op.
+    const presentationInput = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const differentialSubmit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await expect(async () => {
+      await presentationInput.fill("acute confusion");
+      await expect(presentationInput).toHaveValue("acute confusion");
+      await expect(differentialSubmit).toBeEnabled({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+    await differentialSubmit.click();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
 
-    const filterGroup = page.getByRole("group", { name: "Result type" });
-    await expect(filterGroup).toBeVisible();
-    await expect(filterGroup.getByRole("tab")).toHaveCount(0);
-    const allFilter = filterGroup.getByRole("button", { name: /^All \(\d+\)$/ });
-    const presentationsFilter = filterGroup.getByRole("button", { name: /^Presentations \(\d+\)$/ });
-    const diagnosesFilter = filterGroup.getByRole("button", { name: /^Diagnoses \(\d+\)$/ });
-    await expect(allFilter).toHaveAttribute("aria-pressed", "true");
-    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
+    const filterSelect = page.getByTestId("differential-result-type-select");
+    await expect(filterSelect).toBeVisible();
+    await expect(filterSelect).toHaveAccessibleName("Filter by result type");
+    await expect(filterSelect).toHaveValue("all");
+    await expect(page.getByRole("tab")).toHaveCount(0);
 
-    await presentationsFilter.focus();
-    await page.keyboard.press("Space");
-    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "true");
-    await expect(allFilter).toHaveAttribute("aria-pressed", "false");
-
-    await diagnosesFilter.focus();
-    await page.keyboard.press("Enter");
-    await expect(diagnosesFilter).toHaveAttribute("aria-pressed", "true");
-    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
+    await filterSelect.focus();
+    await expect(filterSelect).toBeFocused();
+    await filterSelect.selectOption("presentation");
+    await expect(filterSelect).toHaveValue("presentation");
+    await filterSelect.selectOption("diagnosis");
+    await expect(filterSelect).toHaveValue("diagnosis");
   });
 
-  test("guest upload action exposes the admin boundary and opens the source library", async ({ page }) => {
+  test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
 
-    const uploadButton = page.getByRole("button", { name: /Upload document/i });
-    await expect(uploadButton).toBeVisible();
-    await uploadButton.click();
+    const menuTrigger = page.getByRole("button", { name: "Open answer options" });
+    await expect(menuTrigger).toBeVisible();
+    await menuTrigger.click();
+    const menu = page.getByTestId("daily-actions-menu");
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: "Add document" }).click();
     await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Source library" })).toBeVisible();
+    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
+    await expect(sourcesDialog).toBeVisible();
     await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
-      "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
+      "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
     );
+    await sourcesDialog.getByRole("button", { name: "Close Sources" }).click();
+    await expect(sourcesDialog).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const activeElement = document.activeElement;
+          return activeElement instanceof HTMLElement
+            ? `${activeElement.tagName}:${activeElement.getAttribute("aria-label") ?? activeElement.textContent?.trim() ?? ""}:${activeElement.getClientRects().length > 0 ? "visible" : "hidden"}`
+            : "none";
+        }),
+      )
+      .toBe("BUTTON:Open documents options:visible");
   });
 
   test("Therapy Compass preserves focus, selection, tap targets, and fixed paper tokens", async ({
@@ -383,7 +515,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { name: "What therapy are you looking for?" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({
       timeout: 60_000,
     });
 
@@ -394,26 +526,48 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Therapy Search" })).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
+    // The shared `ModeNav` routes with real hrefs, so the current page is a
+    // link with `aria-current`, not a button with an onClick. Deep links,
+    // middle-click, back and prefetch all work as a result.
+    await expect(
+      page.getByRole("navigation", { name: "Therapy pages" }).getByRole("link", { name: "Search", exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+    const therapyRibbon = page.getByTestId("search-query-ribbon");
+    await expect(therapyRibbon.getByRole("heading", { name: "All", level: 1 })).toBeVisible({ timeout: 60_000 });
+    await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Search therapies" })).toHaveCount(0);
+    const therapyTopics = therapyRibbon.getByTestId("therapy-topic-filter-select");
+    const therapyAvailability = therapyRibbon.getByTestId("therapy-availability-filter-select");
+    await expect(therapyTopics).toBeVisible();
+    await expect(therapyTopics).toHaveAccessibleName("Add or remove a therapy topic filter");
+    await expect(therapyAvailability).toBeVisible();
+    await expect(therapyAvailability).toHaveAccessibleName("Change therapy availability filters");
 
-    const searchInput = page.getByRole("textbox", { name: "Search therapies" });
-    await searchInput.focus();
-    const inputFocus = await searchInput.evaluate((element) => {
+    await therapyTopics.focus();
+    const topicsFocus = await therapyTopics.evaluate((element) => {
       const style = getComputedStyle(element);
       return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
     });
-    expect(inputFocus.outlineStyle).not.toBe("none");
-    expect(inputFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(topicsFocus.outlineStyle).not.toBe("none");
+    expect(topicsFocus.outlineWidth).toBeGreaterThanOrEqual(2);
 
-    const clearButtonSize = await page
-      .locator('[data-screen-label="Search"]')
-      .getByRole("button", { name: "Clear", exact: true })
-      .evaluate((element) => {
+    await therapyTopics.selectOption("CBT");
+    await expect(therapyTopics.locator('option[value=""]')).toHaveText("1 topics selected");
+    await therapyAvailability.selectOption("reviewed");
+    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("1 more selected");
+
+    for (const control of [therapyTopics, therapyAvailability]) {
+      const controlSize = await control.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
         return { width: bounds.width, height: bounds.height };
       });
-    expect(clearButtonSize.height).toBeGreaterThanOrEqual(44);
+      expect(controlSize.width).toBeGreaterThanOrEqual(44);
+      expect(controlSize.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await therapyAvailability.selectOption("clear");
+    await expect(therapyTopics.locator('option[value=""]')).toHaveText("All topics");
+    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("Any availability");
 
     await expectNoPageHorizontalOverflow(page);
 
@@ -466,5 +620,71 @@ test.describe("Clinical KB accessibility coverage", () => {
     const editableOutline = await editable.evaluate((element) => getComputedStyle(element).outlineStyle);
     expect(editableOutline).not.toBe("none");
     await expectNoBlockingAxeViolations(page, testInfo);
+  });
+  // The accent rail must be the card's real border-top and must actually win the
+  // cascade. Tailwind's utilities layer outranks `@layer components`, and the band
+  // root also carries `border` / `border-[color:var(--border)]`, so a layered rule
+  // silently degrades to a neutral 1px border while every class-presence assertion
+  // still passes. Assert computed style, not classes.
+  test("search results band renders the accent rail and survives forced colors", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/services?q=CMHT&run=1", { waitUntil: "domcontentloaded" });
+    const band = page.locator('[data-testid="search-query-ribbon"]:visible').first();
+    await expect(band).toBeVisible({ timeout: 20_000 });
+
+    const rail = await band.evaluate((node) => {
+      const style = getComputedStyle(node);
+      return { width: style.borderTopWidth, color: style.borderTopColor, leftColor: style.borderLeftColor };
+    });
+    expect(rail.width, "accent rail must be 2px, not the neutral 1px border").toBe("2px");
+    expect(rail.color, "accent rail must use the clinical accent, not --border").not.toBe(rail.leftColor);
+    expect(rail.color).not.toBe("rgb(229, 231, 235)");
+
+    // Under forced colors the rail survives as thickness, since --clinical-accent
+    // resolves to LinkText and would otherwise match the other three borders.
+    // Poll: the forced-colors style recalc does not always land on the first
+    // read after emulateMedia resolves.
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect
+      .poll(async () => band.evaluate((node) => getComputedStyle(node).borderTopWidth), { timeout: 10_000 })
+      .toBe("3px");
+    await page.emulateMedia({ forcedColors: "none" });
+  });
+
+  test("fault recovery actions wrap instead of clipping on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    // Differentials is the widest fault: Retry plus two "Browse …" links. Their
+    // combined width exceeds a 390px panel, and the band root is
+    // `overflow-hidden`, so without wrapping the trailing link is cut off.
+    await page.route("**/api/differentials**", (route) => route.fulfill({ status: 500, json: { error: "down" } }));
+    await page.goto("/differentials?q=acute+confusion&run=1", { waitUntil: "domcontentloaded" });
+
+    const fault = page.locator('[data-testid="search-query-ribbon-fault"]:visible').first();
+    await expect(fault).toBeVisible({ timeout: 20_000 });
+
+    const actions = fault.locator("a, button");
+    await expect(actions).toHaveCount(3);
+
+    const panelBox = await fault.boundingBox();
+    expect(panelBox).not.toBeNull();
+    const boxes = await actions.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top };
+      }),
+    );
+
+    for (const box of boxes) {
+      expect(box.left, "a recovery action must not start left of the fault panel").toBeGreaterThanOrEqual(
+        panelBox!.x - 1,
+      );
+      expect(box.right, "a recovery action must not be clipped by the overflow-hidden band").toBeLessThanOrEqual(
+        panelBox!.x + panelBox!.width + 1,
+      );
+    }
+
+    // Proof the row actually wrapped rather than merely fitting: three actions
+    // this wide cannot share one line at 390px.
+    expect(new Set(boxes.map((box) => Math.round(box.top))).size).toBeGreaterThan(1);
   });
 });

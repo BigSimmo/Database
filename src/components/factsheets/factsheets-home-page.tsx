@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenText, Clock, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpenText, Clock } from "lucide-react";
 
 import {
   categoryCount,
@@ -8,6 +8,7 @@ import {
   featuredFactsheets,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetCategoryGlyph, factsheetGlyph } from "@/components/factsheets/factsheets-icons";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -23,13 +24,13 @@ export function FactsheetsHomePage() {
       <div className="mode-home-template mx-auto flex w-full max-w-none flex-col items-center gap-5 px-0 text-center sm:max-w-[62rem] sm:gap-6">
         <ModeHomeHero
           testId="factsheets-home"
-          title="Clear information for the next conversation."
-          subtitle="Find a short, plain-language factsheet to support a patient conversation — sourced, dated, and easy to take away."
+          title="Factsheets"
+          subtitle="Plain-language patient handouts."
           icon={BookOpenText}
         />
 
         {/* The universal composer portals itself into this slot on the mode home (hero placement). */}
-        <div
+        <DesktopComposerPortalSlot
           id={modeHomeDesktopComposerSlotId}
           className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
         />
@@ -135,7 +136,6 @@ export function FactsheetsHomePage() {
 
         <div className="w-full px-4 pt-1 sm:px-0">
           <ModeHomeVerificationFooter
-            icon={ShieldCheck}
             label="Demonstration patient information"
             body="Connect only governance-approved content before publication"
           />
