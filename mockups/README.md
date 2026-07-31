@@ -43,8 +43,8 @@ Static desktop/phone comps for the pages that need redesign (not ModeHome mockup
 
 | Page                                                | Recommended direction             | Issue  |
 | --------------------------------------------------- | --------------------------------- | ------ |
-| Tools search                                        | A — Compact Results Instrument    | `#161` |
-| Services search                                     | B — Progressive Referral Workflow | `#162` |
-| Favourites (hybrid dashboard + search, no ModeHome) | B — Search-Led Workspace          | `#163` |
+| Tools search                                        | A — Compact Results Instrument    | `#162` |
+| Services search                                     | B — Progressive Referral Workflow | `#163` |
+| Favourites (hybrid dashboard + search, no ModeHome) | B — Search-Led Workspace          | `#164` |
 
 These are PNGs for design review only. Runnable `/mockups/*` routes are a separate implementation step.

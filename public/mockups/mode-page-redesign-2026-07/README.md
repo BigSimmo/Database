@@ -40,4 +40,4 @@ Live screenshots from `http://localhost:4461` (1280×900 / 390×844) for side-by
 
 ## Implementation queue
 
-Tracked in `docs/outstanding-issues.md` as `#161` (Tools), `#162` (Services), `#163` (Favourites hybrid).
+Tracked in `docs/outstanding-issues.md` as `#162` (Tools), `#163` (Services), `#164` (Favourites hybrid).
