@@ -2,7 +2,7 @@ name: PR Policy
 
 on:
   pull_request_target:
-    branches: [main]
+    branches: [main, "release/**"]
     types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
   merge_group:
 

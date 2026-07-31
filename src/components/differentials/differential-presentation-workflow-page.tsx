@@ -693,25 +693,32 @@ export function DifferentialPresentationWorkflowPage({
               <span className="inline-flex min-h-10 items-center rounded-lg px-3 text-sm font-bold text-[color:var(--text-muted)]">
                 {workflow.selectedCount} selected
               </span>
-              <div className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]">
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled
-                  title="Soon"
-                  className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+              <div className="grid gap-1">
+                <div
+                  className="inline-flex rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+                  aria-describedby="density-controls-unavailable"
                 >
-                  Compact
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled
-                  title="Soon"
-                  className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+                  <button
+                    type="button"
+                    disabled
+                    className="min-h-9 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    className="min-h-9 rounded-md px-3 text-xs font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Detailed
+                  </button>
+                </div>
+                <span
+                  id="density-controls-unavailable"
+                  className="px-1 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
                 >
-                  Detailed
-                </button>
+                  Density controls coming soon
+                </span>
               </div>
             </div>
           </section>

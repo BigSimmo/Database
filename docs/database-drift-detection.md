@@ -177,6 +177,6 @@ live project need explicit operator approval.
    GUC pattern (`20260702160000` precedent).
 10. **Migration-chain fidelity** (affects Supabase Preview/branches, not
     live): 13 keys where the chain diverges from schema.sql — buckets are only
-    created by schema.sql, `documents`/`ingestion_jobs` updated_at trigger
+    created by schema.sql, `documents`/`ingestion_jobs` updated*at trigger
     variants, post-legacy-drop embedding-fields index set,
-    `document_chunks_content_trgm_idx` shape, `rag_visual_eval_*` shapes.
+    `document_chunks_content_trgm_idx` shape, `rag_visual_eval*\*` shapes.
