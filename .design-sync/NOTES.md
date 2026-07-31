@@ -51,9 +51,10 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 - `[TOKENS_MISSING]` 7 CSS custom properties — triaged 2026-07-30, all seven
   are **expected in the bundle**, so the warn line itself is known. Four are
   benign by construction (runtime-set or scan artifacts); the other three were
-  genuinely undefined references in repo code and were **repaired by PR #1451**
-  (`#141`, now resolved). The warn count only drops on the next re-sync, once the
-  bundle is rebuilt from the repaired source:
+  genuinely undefined references in repo code (`#141`, now resolved). Production
+  `--clinical-accent-strong` was defined by **PR #1480**; the two mockup hover
+  refs were repaired by **PR #1451**. The warn count only drops on the next
+  re-sync, once the bundle is rebuilt from the repaired source:
   - `--mobile-composer-reserve` — set at runtime by
     `clinical-dashboard/mobile-composer-reserve.ts` and always read through a
     `var(…, 0rem)` fallback. Never in a static stylesheet. Do not "fix".
@@ -61,19 +62,19 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     `bg-[color:var(--x)]` in `docs/redesign/03-decision-log.md` prose, and
     emitted a class for it. An artifact of documenting a class name; nothing
     renders it.
-  - `--med-accent`, `--med-accent-border`, `--med-accent-soft` — also
-    runtime-set, not defects. `medicationAccentStyle()` in
-    `clinical-dashboard/medication-record-page.tsx:88-94` assigns all three, and
-    that style object is applied to the ancestor that contains every
-    referenced class (`:393`). A stylesheet-only missing-token scan cannot
-    see React `style` assignments; do not "fix" these. Verified 2026-07-30 by
-    computed style: all four consuming sites paint `rgb(225,29,72)` on
-    `/medications/acamprosate` in light and dark. (`--med-accent-soft` is set
-    but unread — tracked as `#154`, not a missing-token defect.)
+  - `--med-accent`, `--med-accent-border` — also runtime-set, not defects.
+    `medicationAccentStyle()` in
+    `clinical-dashboard/medication-record-page.tsx:88-94` assigns both (plus
+    unread `--med-accent-soft`, tracked as `#154`), and that style object is
+    applied to the ancestor that contains every referenced class (`:393`). A
+    stylesheet-only missing-token scan cannot see React `style` assignments;
+    do not "fix" these. Verified 2026-07-30 by computed style: all four
+    consuming sites paint `rgb(225,29,72)` on `/medications/acamprosate` in
+    light and dark.
   - `--clinical-accent-strong`
-    (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
-    to `--primary-700` in both themes and `LinkText` in forced-colors,
-    with contrast and token-presence contracts in
+    (`clinical-dashboard/answer-status.tsx:252`) — **fixed in PR #1480** by
+    mapping the role to `--primary-700` in both themes and `LinkText` in
+    forced-colors, with contrast and token-presence contracts in
     `tests/design-token-contract.test.ts`.
   - `--primary-hover`, `--success-hover` —
     `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
