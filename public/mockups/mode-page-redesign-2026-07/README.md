@@ -36,7 +36,7 @@ Product decision: Favourites is **not** a ModeHome. It is one combined dashboard
 
 ### Current baselines (`current/`)
 
-Live screenshots from `http://localhost:4461` (1280×900 / 390×844) for side-by-side comparison.
+Live screenshots captured after `npm run ensure` (1280×900 / 390×844). Use the URL it prints for side-by-side comparison.
 
 ## Implementation queue
 
