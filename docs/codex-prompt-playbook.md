@@ -947,3 +947,21 @@ Produce:
 If the change is safe and scoped and I asked for implementation, add the
 smallest migration plus focused tests. Otherwise stop at the plan.
 ```
+
+## 32. Cursor PR Babysit (Thorough / Default / Unblock)
+
+Use when asking `@Cursoragent` to babysit an open PR. Full copy/paste bodies
+live in [prompts/cursor-pr-babysit.md](prompts/cursor-pr-babysit.md).
+
+All three depths require reviewing every unresolved comment and fix suggestion,
+replying with the fix SHA or disposition, then marking the thread resolved.
+CI green alone is not done if comments stay open.
+
+```text
+@Cursoragent Work the current open PR using docs/prompts/cursor-pr-babysit.md
+at Default depth (or Thorough / Unblock if I named one).
+
+Review every unresolved comment and fix suggestion, fix or disposition each,
+reply on the thread, then mark it resolved. Also clear required CI and
+merge-tree / real conflicts. Do not merge the PR.
+```
