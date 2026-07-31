@@ -33,6 +33,10 @@ const reviewedActionPins = new Map([
   ["peter-evans/create-or-update-comment", new Map([["e8674b075228eee787fea43ef493e45ece1004c9", "v5"]])],
   ["docker/setup-buildx-action", new Map([["bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4"]])],
   ["docker/build-push-action", new Map([["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"]])],
+  // Reviewed 2026-07-31: official autofix.ci action; tag v1.3.4 / moving v1 both
+  // resolve to this immutable commit (node24 runtime). Used only after local
+  // Prettier write; the action itself never receives write tokens in-workflow.
+  ["autofix-ci/action", new Map([["c5b2d67aa2274e7b5a18224e8171550871fc7e4a", "v1.3.4"]])],
 ]);
 
 const usesPattern = /^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)(?:\s+#\s*(\S.*?))?\s*$/;
