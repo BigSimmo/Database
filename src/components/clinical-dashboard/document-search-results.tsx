@@ -67,6 +67,7 @@ import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
+  projectSmartTagFacetGroups,
   smartDocumentFacetGroups,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
@@ -199,18 +200,28 @@ function DocumentTagFacetRail({
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {facets.map((facet) => {
                     const selected = active.has(facet.key);
+                    // Zero-count unselected facets stay visible so the list does not
+                    // jump, but they are disabled: selecting them would empty the set.
+                    const deadEnd = !selected && facet.count === 0;
                     return (
                       <button
                         key={facet.key}
                         type="button"
                         onClick={() => onToggle(facet)}
                         aria-pressed={selected}
-                        title={`Filter to ${facet.label}`}
+                        disabled={deadEnd}
+                        title={
+                          deadEnd
+                            ? `${facet.label} — no documents with the current filters`
+                            : `Filter to ${facet.label}`
+                        }
                         className={cn(
                           "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
                           selected
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                          deadEnd &&
+                            "cursor-not-allowed opacity-50 hover:border-[color:var(--border-lux)] hover:text-[color:var(--text-muted)]",
                         )}
                       >
                         <span className="truncate">{facet.label}</span>
@@ -921,7 +932,14 @@ function DocumentSearchResultsPanelImpl({
     [activeFacetState, query],
   );
   const tagFacetIndex = useMemo(() => buildSmartDocumentTagFacetIndex(matches, { query }), [matches, query]);
-  const tagFacetGroups = tagFacetIndex.groups;
+  // Counts must describe the set the reader is looking at. `tagFacetIndex.groups`
+  // counts against the whole match set, so once a facet is selected the rest of
+  // the panel reports numbers for a set that no longer exists — several of them
+  // pointing at AND-combinations that return nothing.
+  const tagFacetGroups = useMemo(
+    () => projectSmartTagFacetGroups(tagFacetIndex, activeFacetKeys),
+    [tagFacetIndex, activeFacetKeys],
+  );
   const visibleMatches = useMemo(
     () => filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeFacetKeys),
     [tagFacetIndex, activeFacetKeys],
