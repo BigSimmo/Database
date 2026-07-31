@@ -15,7 +15,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -568,7 +568,7 @@ test.describe("Clinical KB tools launcher", () => {
     await formsMode.click();
     await expect(page).toHaveURL(/\/forms$/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
     await expectNoPageHorizontalOverflow(page);
@@ -590,14 +590,14 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("");
 
     await gotoLauncher(page, "/forms");
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
 
     menu = await openAppModeMenu(page, "Forms");
     const servicesMode = menu.getByRole("menuitemradio", { name: /^Services\b/ });
@@ -1015,8 +1015,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("services-home").getByTestId("global-search-input")).toBeFocused();
 
     await gotoLauncher(page, "/forms?focus=1");
-    await expect(page.getByTestId("forms-home").getByTestId("global-search-input")).toBeVisible();
-    await expect(page.getByTestId("forms-home").getByTestId("global-search-input")).toBeFocused();
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toBeFocused();
   });
 
   test("services mode shows source-backed records in search results", async ({ page }) => {
@@ -1199,7 +1199,14 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(/pathway/i);
+    // Guards the unsubstantiated pathway-claims feature (supportsPathwayClaims),
+    // not the word itself: result cards now carry the catalogue's own purpose
+    // text, and several official purposes legitimately say "pathway" ("Use for
+    // each leave episode from inpatient treatment order pathway"). Match the
+    // feature's own strings so real form content cannot trip this guard.
+    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(
+      /related pathway|view full pathway/i,
+    );
     await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
@@ -1398,11 +1405,11 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
-    await expect(page.getByTestId("forms-home")).toBeVisible();
+    await expect(visibleByTestId(page, "forms-home")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Forms" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toHaveCount(0);
-    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
-    const formsHomeSearch = page.getByTestId("forms-home").getByTestId("global-search-input");
+    await expect(visibleByTestId(page, "forms-home").getByTestId("global-search-input")).toHaveCount(1);
+    const formsHomeSearch = visibleByTestId(page, "forms-home").getByTestId("global-search-input");
     await expect(formsHomeSearch).toBeVisible();
     const formsSearchBox = await formsHomeSearch.boundingBox();
     const formsHeadingBox = await page.getByRole("heading", { level: 1, name: "Forms" }).boundingBox();
@@ -1537,7 +1544,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     // Evidence arrived, so the results view renders — ranked from the imported
     // differentials catalogue with a real query-matched result row.
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     await expect(page.getByTestId("differentials-catalogue-notice")).toBeVisible();
     await expect(page.getByText("Catalogue ranking").first()).toBeVisible();
     await expect(page.getByRole("link", { name: "Delirium / Acute Confusion / Encephalopathy" }).first()).toBeVisible();
@@ -1594,7 +1601,7 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/differentials");
     await submitDifferentialSearch(page, "acute confusion");
 
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
     await expect(typeSelect).toHaveAccessibleName("Filter by result type");
@@ -1695,7 +1702,7 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/differentials");
     await submitDifferentialSearch(page, "acute confusion");
 
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
     await expect(typeSelect).toHaveAccessibleName("Filter by result type");
@@ -1824,7 +1831,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     const compareAction = page.getByTestId("differentials-compare-selected-mobile");
     const dock = page.locator("form.answer-footer-search-dock");
-    const scrollport = page.getByTestId("differentials-search-results");
+    const scrollport = visibleByTestId(page, "differentials-search-results");
     const mainContent = page.locator("#main-content");
     await expect(scrollport).toBeVisible();
     await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);

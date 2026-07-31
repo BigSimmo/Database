@@ -28,7 +28,6 @@ import {
   Route,
   Shield,
   ShieldAlert,
-  ShieldCheck,
   Sparkles,
   Tag,
   Target,
@@ -40,7 +39,7 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
 import {
   MobileResultFilterControl,
@@ -601,11 +600,6 @@ function DocumentSearchHome({
       }))}
       footer={
         <div className="grid w-full gap-3">
-          <ModeHomeVerificationFooter
-            icon={ShieldCheck}
-            label="Searches indexed clinical sources"
-            body="Clinical source collection"
-          />
           {documentCount > 0 ? (
             <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
@@ -832,7 +826,7 @@ function SearchRecordResults({
 }
 
 function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus; mode: SearchRecordMode }) {
-  if (status === "ready") return null;
+  if (status === "ready" || status === "refetching") return null;
   const noun = mode === "forms" ? "forms" : "services";
   const config =
     status === "loading"
@@ -1017,7 +1011,9 @@ function DocumentSearchResultsPanelImpl({
                   ? "error"
                   : recordStatus === "loading"
                     ? "loading"
-                    : "ready"
+                    : recordStatus === "refetching"
+                      ? "refetching"
+                      : "ready"
               : (unavailable?.status ?? (loading ? "loading" : "ready"))
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
