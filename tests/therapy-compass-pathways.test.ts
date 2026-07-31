@@ -12,7 +12,13 @@ import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/gene
 // from recurring by asserting every step references a therapy that (a) exists and
 // (b) is clinically appropriate for that pathway's clinicalProblem.
 
-type Therapy = { slug: string; bestUsedFor: string };
+type Therapy = {
+  slug: string;
+  name?: string;
+  bestUsedFor: string;
+  modality?: string | null;
+  tags?: string[];
+};
 type Step = { therapySlug: string; label: string; description: string };
 type Pathway = { slug: string; clinicalProblem: string; steps: Step[] };
 
@@ -212,20 +218,33 @@ describe("Therapy Compass catalogue clinical labelling", () => {
     // detail and recommend screens and scores related-therapy selection, so an
     // inferred label reads as clinical fact. The generator emits `null` unless
     // the source curates a value that is not already a tag; consumers treat
-    // `null` as unknown and render nothing.
-    const echoes = therapiesIndexJson
-      .filter((therapy) => therapy.modality && (therapy.tags ?? []).includes(therapy.modality))
-      .map((therapy) => `${therapy.name} → ${therapy.modality}`);
-    expect(echoes, "modality must be curated, not inferred from tags").toEqual([]);
+    // `null` as unknown and render nothing. Assert both the server index and the
+    // full catalogue asset — detail/recommend load `catalogue: "full"`, so pinning
+    // only the index would green-pass while the chips still showed the mislabel.
+    for (const [label, records] of [
+      ["server index", therapiesIndexJson],
+      ["full catalogue", therapies],
+    ] as const) {
+      const echoes = records
+        .filter((therapy) => therapy.modality && (therapy.tags ?? []).includes(therapy.modality))
+        .map((therapy) => `${therapy.name ?? therapy.slug} → ${therapy.modality}`);
+      expect(echoes, `${label}: modality must be curated, not inferred from tags`).toEqual([]);
+    }
   });
 
   it("does not label somatic or psychodynamic treatments with a talking-therapy modality", () => {
     // Pins the specific records the tag-derived value got wrong, so a future
-    // regeneration that reintroduces the inference fails by name.
+    // regeneration that reintroduces the inference fails by name. Check the full
+    // catalogue (the UI path) as well as the server index projection.
     for (const name of ["ECT", "rTMS", "Psychoanalysis", "Psychodynamic Psychotherapy"]) {
-      const record = therapiesIndexJson.find((therapy) => therapy.name === name);
-      if (!record) continue;
-      expect(record.modality, `${name} carries an inferred modality`).toBeNull();
+      for (const [label, records] of [
+        ["server index", therapiesIndexJson],
+        ["full catalogue", therapies],
+      ] as const) {
+        const record = records.find((therapy) => therapy.name === name);
+        if (!record) continue;
+        expect(record.modality, `${label}: ${name} carries an inferred modality`).toBeNull();
+      }
     }
   });
 });
