@@ -1,27 +1,37 @@
 ## Summary
 
-- Add opt-in, privacy-first server-side Sentry error tracking that is inert without `SENTRY_DSN` and scrubs request, user, body, breadcrumb, and clinical content before export.
-- Surface conservative, normalized source-governance metadata in the RAG prompt so generation can see provenance state without inventing adverse unverified status for empty, index-only, or partial-sibling `documents.metadata`.
-- Document the privacy envelope, operator approval checklist, and rollback path in `docs/error-tracking.md`.
+Two product commits plus a `main` merge that renumbered the ledger, and a small follow-up that disables dead-end facets.
 
-RAG impact: no retrieval behaviour change — prompt presentation only adds conservative normalized source-governance metadata; retrieval, ranking, and source selection are unchanged.
+**`cf5d7cdf` — fix the stale facet counts (archived as `#173`).** `buildSmartDocumentTagFacetIndex` counted every facet once against the whole match set and never revised it. Selections AND together (`filterDocumentsBySmartTagFacetIndex`), so the moment one facet was applied every other one still reported a number for a set the reader was no longer looking at — and some pointed at combinations returning nothing.
+
+`projectSmartTagFacetGroups(index, selectedTagKeys)` re-counts an already-built index against the live selection. Each count answers: *how many documents would I have if I ticked this as well?* An already-selected facet reports the current result count.
+
+- Membership and order are preserved (no jump under the pointer).
+- A facet falling to zero stays visible at zero so the UI can disable it.
+- No-op when nothing is selected (same array identity).
+
+**`a919bf98` — capture five search-filter findings** in `docs/outstanding-issues.md`. After merging `main` (which claimed `#169` for unpushed local branches), these are `#170`–`#174`: phone filter sheet, four overlapping filtering surfaces, `Sources` as navigation, the stale-count defect (archived `#173`), and AND-within-group as a product decision.
+
+**`9f6cf337` — merge `main`**, resolving the outstanding-issues id collision without dropping either side's rows.
+
+**`51eae876` — disable zero-count unselected facet buttons** in the documents tag rail so dead-end combinations cannot be selected.
 
 ## Verification
 
-- [x] `npm run verify:pr-local`
-- [x] Focused Vitest for `tests/error-tracking.test.ts`, `tests/rag-source-governance-prompt.test.ts`, and `tests/source-metadata.test.ts`
-- [x] `npm run eval:rag:offline` — 36/36 golden retrieval cases
-- [x] `npm run check:production-readiness:ci` returned READY (offline; expected missing-env warnings)
-- [x] `npm run build` succeeded for production instrumentation wiring
-- [x] Merged `origin/main` and resolved Codex Cloud git-remote helper conflicts; `git merge-tree` vs `origin/main` is clean
-- UI verification not run: no UI, routing, styling, or browser-behavior changes
-- Live answer-generation quality evaluation not run — OpenAI/provider interaction requires explicit owner approval
+- [x] `npm run verify:cheap` — exit 0 (`Test Files 449 passed`, `Tests 4697 passed | 4 skipped`)
+- [x] `npm run typecheck` clean; `npm run format` run and committed
+- [x] `tests/document-tags.test.ts` — 16 passed (six new projection cases; mutation-verified)
+- [x] `npm run check:outstanding-issues` — `172 rows (56 open, 116 archived)`, `next-id=175`
+- [x] `git merge-tree --write-tree origin/main HEAD` clean; GitHub `mergeable: MERGEABLE`
+- UI verification not run locally (Chromium pin mismatch); `Production UI` gates in CI
 
 ## Risk and rollout
 
-- Risk: medium; optional Sentry path is disabled unless configured, but prompt wording changes answer-generation context and should land only with owner acceptance of offline evidence or an approved live answer-quality check.
-- Rollback: revert the squash-merge commit on `main`, remove `SENTRY_DSN` and restart services if observability was enabled, and confirm prompts no longer emit the Source governance line.
-- Provider or production effects: None unless an operator explicitly sets `SENTRY_DSN`; no browser DSN, tracing, or source-map upload is configured.
+- **Risk:** low, confined to documents mode. Only facet counts (and disable of zero-count unselected rows) change while a facet is selected. Filtering itself is unchanged — `filterDocumentsBySmartTagFacetIndex` is unmodified.
+- **Rollback:** revert the facet-count and disable commits (or their squash hunks after merge).
+- **Provider or production effects:** None.
+
+RAG impact: no retrieval behaviour change — display/disable of facet counts only; no `src/lib/rag/**`, clinical-search, retrieval-selection, ranking, eval, or golden fixture changes.
 
 ## Clinical Governance Preflight
 
@@ -33,8 +43,14 @@ RAG impact: no retrieval behaviour change — prompt presentation only adds cons
 - [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
 - [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
+Presents counts over an already-retrieved result set. No retrieval, ranking, or source-selection change. More conservative: dead-end facets report zero and cannot be selected.
+
 ## Notes
 
-- Empty/`{}`/index-only governance metadata remains unrecorded in prompts; partial sibling fields use neutral `unknown` rather than inventing adverse `unverified`; explicit stored `clinical_validation_status: "unverified"` from upload is preserved.
-- Optional Sentry init failures are swallowed so observability cannot block production boot.
-- Merge remains gated on approved live answer-quality verification or an explicit owner decision to accept the offline-only evidence.
+Batch A from PR #1523. Still outstanding after renumber:
+
+- `#171` + `#172` — merge the four filtering surfaces; move `Sources` to nav as Browse library
+- `#170` — adopt `ui/sheet.tsx` for phone filter controls
+- `#174` — OR-within-group product decision
+
+This file is a CI sync template only. A follow-up commit on this branch deletes it so squash-merge does not leave a leftover body template on `main`.
