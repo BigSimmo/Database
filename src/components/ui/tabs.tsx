@@ -94,7 +94,9 @@ export function Tabs({ items, value, onChange, label, variant = "tabs", classNam
               role="tab"
               id={`${baseId}-tab-${item.id}`}
               aria-selected={selected}
-              aria-controls={`${baseId}-panel-${item.id}`}
+              // Only the selected tab points at the live panel. Unselected
+              // tabs must not aria-controls missing IDs (APG / a11y tree).
+              aria-controls={children && selected ? `${baseId}-panel-${item.id}` : undefined}
               tabIndex={selected ? 0 : -1}
               disabled={item.disabled}
               onClick={() => onChange(item.id)}
