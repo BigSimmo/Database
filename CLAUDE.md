@@ -18,15 +18,16 @@ in it is already in force. This file is the **orientation layer** — what the s
 it is laid out, how work flows through it. It deliberately does not restate AGENTS.md policy;
 where the two ever disagree, **AGENTS.md wins**.
 
-| Need                                        | Read                                                                   |
-| ------------------------------------------- | ---------------------------------------------------------------------- |
-| Rules, gates, shortcuts, safety boundaries  | `AGENTS.md` (auto-loaded)                                              |
-| Architecture, modules, schema, domain flows | `docs/codebase-index.md` — the deep map; start there for any real task |
-| Routes and modes                            | `docs/site-map.md` (generated — `npm run sitemap:update`)              |
-| Which gate to run for a change              | `docs/process-hardening.md`, or the `gates` skill                      |
-| Test execution, focused/live, flake policy  | `docs/testing.md`                                                      |
-| Every maintained doc, categorised           | `docs/README.md`                                                       |
-| Outstanding work across sessions            | `docs/outstanding-issues.md` (`/issues`)                               |
+| Need                                        | Read                                                                                                         |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Rules, gates, shortcuts, safety boundaries  | `AGENTS.md` (auto-loaded)                                                                                    |
+| Architecture, modules, schema, domain flows | `docs/codebase-index.md` — the deep map; start there for any real task                                       |
+| Design-system rules before any UI building  | `docs/design-system/README.md` — the system of record: tokens, component contracts, gates, adoption playbook |
+| Routes and modes                            | `docs/site-map.md` (generated — `npm run sitemap:update`)                                                    |
+| Which gate to run for a change              | `docs/process-hardening.md`, or the `gates` skill                                                            |
+| Test execution, focused/live, flake policy  | `docs/testing.md`                                                                                            |
+| Every maintained doc, categorised           | `docs/README.md`                                                                                             |
+| Outstanding work across sessions            | `docs/outstanding-issues.md` (`/issues`)                                                                     |
 
 When adding to this file, add **orientation**. Policy belongs in `AGENTS.md`; deep structure
 belongs in `docs/codebase-index.md`. Keeping those three non-overlapping is what stops five
