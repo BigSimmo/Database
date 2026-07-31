@@ -18,7 +18,7 @@ describe("SearchResultsHeaderBand", () => {
 
     expect(screen.getByRole("region", { name: `Search results for ${query}` })).toHaveAttribute("aria-busy", "false");
     expect(screen.getByRole("heading", { level: 2, name: query })).toHaveAttribute("title", query);
-    expect(screen.getByRole("status")).toHaveTextContent("12 matches");
+    expect(screen.getByRole("status")).toHaveTextContent("12 services");
   });
 
   it("can provide the primary heading on standalone search routes", () => {
@@ -36,7 +36,7 @@ describe("SearchResultsHeaderBand", () => {
       "true",
     );
     expect(screen.getByRole("status")).toHaveTextContent("Searching…");
-    expect(screen.queryByText("8 matches")).toBeNull();
+    expect(screen.queryByText("8 differentials")).toBeNull();
   });
 
   // The clinical invariant. A failed services search that renders "0 matches"
@@ -134,7 +134,7 @@ describe("SearchResultsHeaderBand", () => {
   it("reports a genuine zero result without raising a fault", () => {
     render(<SearchResultsHeaderBand modeId="services" query="clozapine rechallenge" matchCount={0} />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("0 matches");
+    expect(screen.getByRole("status")).toHaveTextContent("0 services");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -144,7 +144,7 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByRole("region", { name: "Search results for CMHT" })).toHaveAttribute("aria-busy", "true");
     // Text content must match the ready state exactly so the atomic live region
     // does not re-announce an unchanged count.
-    expect(screen.getByRole("status")).toHaveTextContent("8 matches");
+    expect(screen.getByRole("status")).toHaveTextContent("8 services");
   });
 
   it("keeps an honest count while labelling a partial-source failure", () => {
@@ -152,7 +152,7 @@ describe("SearchResultsHeaderBand", () => {
 
     const region = screen.getByRole("region", { name: "Search results for saved" });
     expect(region).toHaveAttribute("data-status", "partial");
-    expect(screen.getByRole("status")).toHaveTextContent("3 matches · some sources unavailable");
+    expect(screen.getByRole("status")).toHaveTextContent("3 favourites · some sources unavailable");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -164,7 +164,7 @@ describe("SearchResultsHeaderBand", () => {
       <SearchResultsHeaderBand modeId="favourites" query="saved" matchCount={3} status="partial" onRetry={onRetry} />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("3 matches · some sources unavailable");
+    expect(screen.getByRole("status")).toHaveTextContent("3 favourites · some sources unavailable");
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -185,7 +185,7 @@ describe("SearchResultsHeaderBand", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={4} loading status="ready" />);
 
     expect(screen.getByRole("region", { name: "Search results for CMHT" })).toHaveAttribute("aria-busy", "false");
-    expect(screen.getByRole("status")).toHaveTextContent("4 matches");
+    expect(screen.getByRole("status")).toHaveTextContent("4 services");
   });
 
   it("does not render an empty utility strip for a stale scope from another mode", () => {
@@ -269,15 +269,34 @@ describe("SearchResultsHeaderBand", () => {
     expect(onSortChange).toHaveBeenCalledWith("alpha");
   });
 
-  it("leads with the query and reports the count without spending success colour on it", () => {
+  it("leads with the count, names what it counted, and keeps the query as its anchor", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={10} />);
 
     const heading = screen.getByRole("heading", { level: 2, name: "CMHT" });
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("10 matches");
+    // The count is the answer to the search, so it comes first and says what it
+    // counted. The query still carries the heading role and its accessible name,
+    // so anything resolving it by role is unaffected by the reordering.
+    expect(status).toHaveTextContent("10 services");
+    expect(status.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // The count is neutral text, not a success pill, and the band carries no eyebrow.
     expect(status.className).not.toMatch(/success/);
     expect(heading.parentElement?.textContent).not.toMatch(/Query|Results for/);
+  });
+
+  it("uses the singular noun for a single result", () => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={1} />);
+    expect(screen.getByRole("status")).toHaveTextContent("1 service");
+  });
+
+  it("keeps an acronym intact in the counted noun", () => {
+    render(<SearchResultsHeaderBand modeId="dsm" query="bipolar" matchCount={3} />);
+    expect(screen.getByRole("status")).toHaveTextContent("3 DSM diagnoses");
+  });
+
+  it("singularises an irregular counted noun", () => {
+    render(<SearchResultsHeaderBand modeId="dsm" query="bipolar" matchCount={1} />);
+    expect(screen.getByRole("status")).toHaveTextContent("1 DSM diagnosis");
   });
 
   it("keeps page-specific actions and filters inside the shared ribbon", async () => {
