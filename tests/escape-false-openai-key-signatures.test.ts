@@ -18,4 +18,29 @@ describe("escapeFalseOpenAiKeySignatures", () => {
     // Consumers that JSON.parse escaped catalogue text still see the original.
     expect(JSON.parse(`"${escaped.split(" ")[1]}"`)).toBe("sk-abcdefghijklmnopqrstuvwxyz12");
   });
+
+  it("breaks project-scoped sk-proj- keys, whose hyphen an alnum-only tail rejects", () => {
+    // `sk-proj-` puts a hyphen four characters in. An `[A-Za-z0-9]{16,}` tail
+    // never matches it, so the key shape most likely to be pasted into source
+    // was the one shape left unescaped.
+    const keyShaped = "prefix sk-proj-abcdefghijklmnop_qrstuvwxyz012345 suffix";
+    const escaped = escapeFalseOpenAiKeySignatures(keyShaped);
+    expect(escaped).toContain("s\\u006b-proj-abcdefghijklmnop_qrstuvwxyz012345");
+    expect(escaped).not.toContain("sk-proj-abcdefghijklmnop");
+    expect(JSON.parse(`"${escaped.split(" ")[1]}"`)).toBe("sk-proj-abcdefghijklmnop_qrstuvwxyz012345");
+  });
+
+  it("still leaves hyphenated clinical prose alone with the widened tail", () => {
+    // The widened tail accepts `-`, so re-pin the words that the original
+    // mid-word rewrite mangled. `\b` anchoring is what keeps these safe.
+    const prose = JSON.stringify(
+      [
+        { name: "Task-centred practice with positive risk-taking and skill-building support work" },
+        { slug: "risk-taking-and-task-centred-community-casework-support" },
+      ],
+      null,
+      2,
+    );
+    expect(escapeFalseOpenAiKeySignatures(prose)).toBe(prose);
+  });
 });

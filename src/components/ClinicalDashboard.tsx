@@ -3282,6 +3282,12 @@ export function ClinicalDashboard({
         appBackdrop,
         // Browser phones scroll the document; installed mode keeps <main> bounded.
         "mobile-app-shell phone-viewport-shell flex flex-col text-[color:var(--text)] sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
+        // Sidebar collapse snaps by design (#1489): the previous
+        // `motion-safe:transition-[grid-template-columns]` needed a mount-gating
+        // hook in both shells to avoid animating from the default track width,
+        // and animating a grid track relayouts the whole shell on every frame.
+        // Restoring the animation means restoring that cost — do not re-add it
+        // as a "missing transition" fix.
         settingsState.sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={

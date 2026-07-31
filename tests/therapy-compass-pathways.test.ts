@@ -12,7 +12,13 @@ import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/gene
 // from recurring by asserting every step references a therapy that (a) exists and
 // (b) is clinically appropriate for that pathway's clinicalProblem.
 
-type Therapy = { slug: string; bestUsedFor: string };
+type Therapy = {
+  slug: string;
+  name?: string;
+  bestUsedFor: string;
+  modality?: string | null;
+  tags?: string[];
+};
 type Step = { therapySlug: string; label: string; description: string };
 type Pathway = { slug: string; clinicalProblem: string; steps: Step[] };
 
@@ -202,6 +208,56 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
     "stair-skills-training-in-affective-and-interpersonal-regulation",
   ],
 };
+
+describe("Therapy Compass catalogue clinical labelling", () => {
+  it("never ships a modality that is merely an echo of the record's own tags", () => {
+    // The source catalogue derives `modality` from the tag list, which collapses
+    // 205 therapies onto CBT/ACT/DBT and mislabels treatments it cannot describe:
+    // ECT and rTMS as "ACT", Psychoanalysis and Psychodynamic Psychotherapy as
+    // "CBT", MBT and TFP as "DBT". That value renders as a curated chip on the
+    // detail and recommend screens and scores related-therapy selection, so an
+    // inferred label reads as clinical fact. The generator emits `null` unless
+    // the source curates a value that is not already a tag; consumers treat
+    // `null` as unknown and render nothing. Assert both the server index and the
+    // full catalogue asset — detail/recommend load `catalogue: "full"`, so pinning
+    // only the index would green-pass while the chips still showed the mislabel.
+    for (const [label, records] of [
+      ["server index", therapiesIndexJson],
+      ["full catalogue", therapies],
+    ] as const) {
+      const echoes = records
+        .filter((therapy) => therapy.modality && (therapy.tags ?? []).includes(therapy.modality))
+        .map((therapy) => `${therapy.name ?? therapy.slug} → ${therapy.modality}`);
+      expect(echoes, `${label}: modality must be curated, not inferred from tags`).toEqual([]);
+    }
+  });
+
+  it("does not label somatic or psychodynamic treatments with a talking-therapy modality", () => {
+    // Pins the specific records the tag-derived value got wrong, so a future
+    // regeneration that reintroduces the inference fails by name. Check the full
+    // catalogue (the UI path) as well as the server index projection.
+    for (const name of ["ECT", "rTMS", "Psychoanalysis", "Psychodynamic Psychotherapy"]) {
+      for (const [label, records] of [
+        ["server index", therapiesIndexJson],
+        ["full catalogue", therapies],
+      ] as const) {
+        const record = records.find((therapy) => therapy.name === name);
+        if (!record) continue;
+        expect(record.modality, `${label}: ${name} carries an inferred modality`).toBeNull();
+      }
+    }
+  });
+
+  it("keeps the full catalogue compact so a field scrub cannot mint a 36k-line PR", () => {
+    // Historical `therapies.json` is one minified line (~2.5 MB). Pretty-printing
+    // it when scrubbing modality produced ~18k-line alias + hashed twin diffs.
+    // Projections may stay pretty; the full payload must not.
+    const fullPath = new URL(`../public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`, import.meta.url);
+    const text = readFileSync(fullPath, "utf8");
+    expect(text.includes("\n"), "full catalogue must be single-line JSON").toBe(false);
+    expect(text.startsWith("["), "full catalogue must be a JSON array").toBe(true);
+  });
+});
 
 describe("Therapy Compass pathway clinical integrity", () => {
   it("keeps legacy duplicate therapy slugs out of the canonical catalogue", () => {
