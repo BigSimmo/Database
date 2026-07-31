@@ -1,4 +1,4 @@
 interface:
   display_name: "Prompt Perfector"
-  short_description: "Refine prompts and evaluate them in isolation"
-  default_prompt: "Use $prompt-perfector to refine this prompt for clarity, constraints, and safe isolated evaluation."
+  short_description: "Refine prompts with explicit safety and output controls"
+  default_prompt: "Use $prompt-perfector to refine this prompt while preserving intent and return only the improved prompt unless I explicitly request evaluation or execution."

@@ -53,16 +53,17 @@ export async function POST(request: Request) {
       documentIds: documents.map((document) => document.id),
       action: "Bulk reindex",
       checkActiveJobs: true,
-      checkActiveAgentEnrichmentJobs: parsed.mode !== "enrichment",
+      // Agent-enrichment conflicts are filtered per document below so one
+      // blocked document does not reject an otherwise processable batch.
+      checkActiveAgentEnrichmentJobs: false,
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
-    // Preflight conflict (same all-or-nothing shape as active ingestion jobs):
-    // full/retry rebuilds clash with a live agent enrichment pass. Enrichment
-    // mode is unchanged and uses its own RPC guard. For retry_failed, only the
-    // documents this mode will actually process (status=failed) are checked —
-    // leased non-failed selections are skipped later and must not 409 the batch.
+    const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
+
+    let processableDocuments = documents;
+
     if (parsed.mode !== "enrichment") {
       const enrichmentCheckIds =
         parsed.mode === "retry_failed"
@@ -75,20 +76,21 @@ export async function POST(request: Request) {
           staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
         });
         if (blockedDocumentIds.length > 0) {
-          return NextResponse.json(
-            {
-              error: "Bulk reindex is paused while enrichment is active for one or more selected documents.",
-              blockedDocumentIds,
-            },
-            { status: 409 },
-          );
+          const blockedSet = new Set(blockedDocumentIds);
+          for (const documentId of blockedDocumentIds) {
+            results.push({
+              documentId,
+              mode: parsed.mode,
+              ok: false,
+              error: "Reindex paused while enrichment is active.",
+            });
+          }
+          processableDocuments = documents.filter((document) => !blockedSet.has(document.id));
         }
       }
     }
 
-    const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
-
-    for (const document of documents) {
+    for (const document of processableDocuments) {
       try {
         if (parsed.mode === "retry_failed" && document.status !== "failed") {
           results.push({

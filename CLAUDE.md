@@ -87,14 +87,21 @@ src/components/   UI; clinical-dashboard/ is the shell, *-mockups.tsx are design
 src/lib/          ~200 modules — rag/, supabase/, validation/, observability/,
                   extractors/, webhooks/ are the extracted subdirectories
 src/data/         Static clinical content (DSM, formulation, therapies indexes)
+data/             Generated clinical snapshot exports loaded at runtime — regenerate, never hand-edit
 supabase/         migrations/ (source of truth), schema.sql (mirror), functions/
 worker/           Ingestion worker; worker/python/ is the OCR stack
-scripts/          ~160 files backing 194 npm scripts: gates, eval, reindex, governance, dev
+scripts/          gates, eval, reindex, governance, dev — counted and mapped in docs/scripts-index.md
 tests/            Vitest unit + Playwright E2E, side by side
 docs/             Runbooks, governance, plans; docs/README.md categorises them
 eslint-rules/     Repo-specific lint rules (see Conventions below)
+mockups/          Notes for the design-scratch routes under src/app/mockups/
+plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .claude/          Claude Code agents, skills, hooks, settings
 .agents/          Single-word skill catalogue (`npm run skills`)
+.cursor/          Cursor project rules and local-agent configuration
+.design-sync/     Generated design-system package metadata and validation notes
+.githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.vscode/          Shared VS Code workspace recommendations and settings
 ```
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
@@ -134,7 +141,7 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                            |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                              |
-| `npm run verify:cheap`                    | The broad local gate: 24 static/consistency gates + `lint` + `typecheck` + full offline unit suite                                                                                    |
+| `npm run verify:cheap`                    | The broad local gate: 29 static/consistency gates + `lint` + `typecheck` + full offline unit suite                                                                                    |
 | `npm run verify:pr-local`                 | Closest local mirror of the PR gate; adds format and conditional build / client-bundle scan / RAG fixture validation. `-- --dry-run --files <paths>` shows selection without running. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                             |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                               |

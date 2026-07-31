@@ -46,7 +46,48 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 
 ## Known render warns
 
-- None — 10/10 render clean, no thin/blank/variantsIdentical flags.
+- Renders themselves stay clean: 10/10, no thin/blank/variantsIdentical flags
+  (re-confirmed 2026-07-30).
+- `[TOKENS_MISSING]` 7 CSS custom properties — triaged 2026-07-30, all seven
+  are **expected in the bundle**, so the warn line itself is known. Four are
+  benign by construction (runtime-set or scan artifacts); the other three were
+  genuinely undefined references in repo code and were repaired across PRs
+  #1480 and #1451. The warn count only drops on the next re-sync, once the
+  bundle is rebuilt from the repaired source:
+  - `--mobile-composer-reserve` — set at runtime by
+    `clinical-dashboard/mobile-composer-reserve.ts` and always read through a
+    `var(…, 0rem)` fallback. Never in a static stylesheet. Do not "fix".
+  - `--x` — Tailwind v4 scans the whole repo, found the literal string
+    `bg-[color:var(--x)]` in `docs/redesign/03-decision-log.md` prose, and
+    emitted a class for it. An artifact of documenting a class name; nothing
+    renders it.
+  - `--med-accent`, `--med-accent-border` — also runtime-set, not defects.
+    `medicationAccentStyle()` in
+    `clinical-dashboard/medication-record-page.tsx:88-94` assigns both (plus
+    unread `--med-accent-soft`, which is not one of the seven missing tokens;
+    that dead-plumbing question is tracked separately as #157), and that style
+    object is applied to the ancestor that contains every referenced class
+    (`:393`). A stylesheet-only missing-token scan cannot see React `style`
+    assignments; do not "fix" these.
+  - `--clinical-accent-strong`
+    (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
+    to `--primary-700` in both themes and `LinkText` in forced-colors,
+    with contrast and token-presence contracts in
+    `tests/design-token-contract.test.ts`.
+  - `--primary-hover`, `--success-hover` —
+    `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
+    gate-exempt design scratch. Repaired by mapping to `--primary-strong` and
+    `hover:brightness-110` respectively; the success family has no darker step.
+- If a future sync sees a **different** var in the `[TOKENS_MISSING]` warn, that
+  one is new — look at it before recording it.
+
+The triage rule this warn needs, since it fires on both: a custom property is
+correct-as-reported when it has a runtime setter or is always read through a
+`var(…, fallback)`. It is a real defect when it has neither — the declaration
+becomes invalid at computed-value time and the property resolves to its initial
+or inherited value, so the intended colour silently does not apply. Check for a
+setter or fallback before calling a new report noise, and for the absence of
+both before calling it a defect.
 
 ## Re-sync risks
 
@@ -64,3 +105,17 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
   components, but prop renames need preview edits.
 - The `prompt-for-codex-medical-knowledge-base` import specifier in previews is
   the package.json `name`; if the repo is renamed, update previews + config.
+- `conventions.md` drifts silently when the token set moves. The 2026-07-30
+  re-sync caught two dead claims after the Clinical Sky port: a `-solid` /
+  `-solid-contrast` pair claimed for every status family when only `danger`
+  has one, and `controlBase` listed as module-private when
+  `ui-primitives.tsx:34` exports it. Re-validate every enumerated token/class/
+  icon against `ds-bundle/_ds_bundle.css` (definitions only — match
+  `--name\s*:`, not bare `var(--name)`, or referenced-but-undefined vars read
+  as defined) and the bundle's export list on every re-sync. A helper lives at
+  `.design-sync/.cache/validate-conventions.mjs` (gitignored, cheap to rewrite).
+- The driver reports the token port as `changed: []` with `sourceKeys`
+  unchanged: `sourceKeys` track the authored preview + preview-affecting config,
+  NOT component source. A component-source or token change surfaces instead as
+  render churn (`canary`/`[SPOT_CHECK]`) plus `styling: true`. Grade the
+  spot-check sheets — the churn is real even though nothing is listed "changed".

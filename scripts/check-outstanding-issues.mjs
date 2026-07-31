@@ -2,11 +2,14 @@
 // Structural gate for docs/outstanding-issues.md.
 //
 // Ledger #112. The `issues:next-id` marker is a plain HTML comment that every
-// editor read-modify-writes with no lock. The file now has `merge=union` (PR
-// #1416), which preserves concurrent row appends the same way as
-// docs/branch-review-ledger.md, but union merge cannot allocate unique IDs —
-// two agents can still collide, and a hurried conflict resolution can still
-// take one side wholesale. On 2026-07-29 that happened three times in one hour
+// editor read-modify-writes with no lock. A `merge=union` driver was tried (PR
+// #1416) and removed: unlike docs/branch-review-ledger.md this file allocates
+// IDs by read-modify-write, so union could not allocate unique IDs either, and
+// it silently concatenated conflicting hunks — two marker bumps became two
+// `next-id` lines (#133), and on 2026-07-30 the whole open-items table was
+// duplicated on four merges (#1430). This gate now requires that NO driver is
+// set, so overlapping edits conflict loudly. A hurried conflict resolution can
+// still take one side wholesale. On 2026-07-29 that happened three times in one hour
 // on a single PR, and nothing noticed: no gate read this file's structure at
 // all. This structural gate is what makes those failures loud.
 //
@@ -14,6 +17,7 @@
 //   - an id used twice is a merge that kept both sides' rows under one number
 //   - an id above the marker is a merge that kept a row and lost the bump
 //   - an id in both tables is an archive move that copied instead of moving
+//   - an id absent from both tables relative to the base is a row deletion
 //   - a malformed row is usually a hand-edit that broke the column count
 //   - a row outside any table is a blank line that silently ended the table
 //
@@ -29,6 +33,7 @@ export const ISSUES_PATH = "docs/outstanding-issues.md";
 const OPEN_HEADING = "## Open items";
 const ARCHIVE_HEADING = "## Resolved / archive";
 const MARKER = /<!--\s*issues:next-id=(\d+)\s*-->/;
+const PRETTIER_IGNORE = "<!-- prettier-ignore -->";
 /**
  * An id cell's shape, e.g. `#042`. Used to READ the number, never to decide
  * whether a line is a row.
@@ -66,6 +71,10 @@ function cells(line) {
     .replace(/(?<!\\)\|\s*$/, "")
     .split(/(?<!\\)\|/)
     .map((cell) => cell.trim());
+}
+
+function canonicalTableRow(line) {
+  return `| ${cells(line).join(" | ")} |`;
 }
 
 /**
@@ -220,9 +229,33 @@ export function parseIssues(markdown) {
   };
 }
 
-export function checkIssues(markdown) {
+export function checkIssues(markdown, { prettierIgnored = false } = {}) {
   const problems = [];
   const { openStart, archiveStart, nextId, markerCount, rows, orphans, bodyCount } = parseIssues(markdown);
+  const lines = markdown.split("\n");
+
+  // Prettier pads every Markdown table cell to the widest value in its column.
+  // In this long-lived ledger, changing one cell would then rewrite hundreds
+  // of unrelated rows and make concurrent merges needlessly conflict.
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^\|.*\|\s*$/.test(line) && line !== canonicalTableRow(line)) {
+      problems.push(
+        `line ${index + 1} is not a compact canonical table row — use one space around each cell delimiter`,
+      );
+    }
+    if (
+      !prettierIgnored &&
+      /^\|/.test(line) &&
+      SEPARATOR.test(lines[index + 1] ?? "") &&
+      lines[index - 1]?.trim() !== PRETTIER_IGNORE
+    ) {
+      problems.push(
+        `line ${index + 1} starts a table without ${PRETTIER_IGNORE} immediately above it — ` +
+          "formatting would re-pad every row and amplify merge conflicts",
+      );
+    }
+  }
 
   if (openStart < 0) problems.push(`missing the "${OPEN_HEADING}" heading`);
   if (archiveStart < 0) problems.push(`missing the "${ARCHIVE_HEADING}" heading`);
@@ -334,20 +367,88 @@ export function checkIssues(markdown) {
   return problems;
 }
 
+export function prettierIgnoreCoversIssues(prettierIgnore) {
+  return prettierIgnore.split(/\r?\n/).some((line) => line.trim() === ISSUES_PATH);
+}
+
+/**
+ * IDs that existed at the comparison base but disappeared from the current
+ * ledger entirely. Moving a row from open to archive keeps its allocation and
+ * therefore passes; deleting it from both tables does not.
+ */
+export function missingIssueIds(baseMarkdown, currentMarkdown) {
+  const numbers = (markdown) =>
+    new Set(
+      parseIssues(markdown)
+        .rows.filter((row) => row.number !== null)
+        .map((row) => row.number),
+    );
+  const baseIds = numbers(baseMarkdown);
+  const currentIds = numbers(currentMarkdown);
+  return [...baseIds].filter((number) => !currentIds.has(number)).sort((left, right) => left - right);
+}
+
+function argumentValue(name) {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? (process.argv[index + 1] ?? "") : "";
+}
+
+function gitOutput(args) {
+  return execFileSync("git", args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+/**
+ * Resolve the comparison commit without network access. CI supplies the event
+ * base explicitly; local feature branches compare with their merge base
+ * against the already-fetched origin/main. A checkout with neither source
+ * still receives all structural checks, but an explicit unreadable base fails
+ * closed instead of silently dropping deletion protection.
+ */
+function issueBaseRevision() {
+  const requested = argumentValue("--base-ref") || process.env.OUTSTANDING_ISSUES_BASE_SHA || "";
+  if (requested && !/^0{40}$/.test(requested)) return { ref: requested, required: true };
+  try {
+    const main = gitOutput(["rev-parse", "--verify", "refs/remotes/origin/main^{commit}"]);
+    return { ref: gitOutput(["merge-base", "HEAD", main]), required: false };
+  } catch {
+    return null;
+  }
+}
+
+function readIssuesAtRevision(ref) {
+  const commit = gitOutput(["rev-parse", "--verify", `${ref}^{commit}`]);
+  return execFileSync("git", ["show", `${commit}:${ISSUES_PATH}`], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
 function selfTest() {
   const good = [
     "<!-- issues:next-id=3 -->",
+    "## Recommended execution queue",
+    PRETTIER_IGNORE,
+    "| Rank | ID |",
+    "| --- | --- |",
+    "| 1 | #001 |",
     "## Open items",
+    PRETTIER_IGNORE,
     "| ID | Pri | Summary |",
     "| --- | --- | --- |",
     "| #001 | P2 | a |",
     "## Resolved / archive",
+    PRETTIER_IGNORE,
     "| ID | Summary |",
     "| --- | --- |",
     "| #002 | b |",
   ].join("\n");
   const cases = [
     ["a well-formed file", good, 0],
+    ["a table without a scoped prettier ignore", good.replace(`${PRETTIER_IGNORE}\n| Rank | ID |`, "| Rank | ID |"), 1],
+    ["a padded table row", good.replace("| #001 | P2 | a |", "| #001 | P2      | a |"), 1],
     ["a duplicated id", good.replace("| #002 | b |", "| #001 | b |"), 2], // duplicate + both-tables
     ["an id at the marker", good.replace("next-id=3", "next-id=2"), 1],
     ["a row with a stray pipe", good.replace("| #001 | P2 | a |", "| #001 | P2 | a | b |"), 1],
@@ -400,8 +501,70 @@ function selfTest() {
       for (const problem of problems) console.error(`  - ${problem}`);
     }
   }
+  const fileWideIgnoreProblems = checkIssues(good.replaceAll(`${PRETTIER_IGNORE}\n`, ""), {
+    prettierIgnored: true,
+  });
+  if (fileWideIgnoreProblems.length !== 0) {
+    failures += 1;
+    console.error(
+      `self-test FAILED: a file-wide prettier ignore replaces scoped table comments — expected 0 problems, got ${fileWideIgnoreProblems.length}`,
+    );
+  }
+  if (!prettierIgnoreCoversIssues(`# ledger files\n${ISSUES_PATH}\n`) || prettierIgnoreCoversIssues("docs/*.md\n")) {
+    failures += 1;
+    console.error("self-test FAILED: file-wide prettier-ignore detection must require the exact ledger path");
+  }
+  if (failures > 0) process.exit(1);
+
+  const deletionCases = [
+    ["an unchanged id set", good, []],
+    ["an open row deleted from both tables", good.replace("| #001 | P2 | a |\n", ""), [1]],
+    [
+      "an open row moved to the archive",
+      good.replace("| #001 | P2 | a |\n", "").replace("| #002 | b |", "| #002 | b |\n| #001 | a |"),
+      [],
+    ],
+    ["a newly allocated row", good.replace("| #001 | P2 | a |", "| #001 | P2 | a |\n| #003 | P3 | c |"), []],
+  ];
+  for (const [name, current, expected] of deletionCases) {
+    const actual = missingIssueIds(good, current);
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+      failures += 1;
+      console.error(`self-test FAILED: ${name} — expected missing ${expected}, got ${actual}`);
+    }
+  }
   if (failures > 0) process.exit(1);
   console.log("outstanding-issues self-test passed.");
+}
+
+/**
+ * The only acceptable state for this file's `merge` attribute.
+ *
+ * Git distinguishes three non-driver states, and they are NOT interchangeable
+ * (see gitattributes, "merge"): *Unspecified* — no pattern matches — is the
+ * documented default 3-way text merge, which is the contract here. *Unset*
+ * (`-merge`) instead takes the current branch's version and declares the merge
+ * conflicted, so every two-sided edit becomes a manual resolution — a different
+ * regression from a driver, but a regression all the same, and one a global or
+ * future attributes file could introduce while this gate stayed green. A named
+ * driver (`union`, `ledger`, …) is the case #133 removed.
+ *
+ * Exported so the distinction is unit-tested rather than only reasoned about.
+ */
+export function mergeAttributeProblem(mergeAttribute) {
+  if (mergeAttribute === "unspecified") return null;
+  if (mergeAttribute === "unset") {
+    return (
+      `${ISSUES_PATH} must leave \`merge\` unspecified (found \`-merge\`, i.e. Unset) — ` +
+      "Unset takes the current branch's version and declares a conflict instead of running the " +
+      "default 3-way merge, so drop the negated attribute rather than adding one (ledger #133)"
+    );
+  }
+  return (
+    `${ISSUES_PATH} must have NO merge driver (found merge=${mergeAttribute || "empty"}) — ` +
+    "remove it from .gitattributes so overlapping edits conflict loudly instead of " +
+    "silently concatenating both sides (ledger #133)"
+  );
 }
 
 function effectiveMergeAttribute() {
@@ -418,14 +581,40 @@ function main() {
     return;
   }
   const markdown = readFileSync(ISSUES_PATH, "utf8");
-  const problems = checkIssues(markdown);
-  const mergeAttribute = effectiveMergeAttribute();
-  if (mergeAttribute !== "union") {
-    problems.push(
-      `${ISSUES_PATH} must resolve to merge=union (found ${JSON.stringify(mergeAttribute || "unset")}) — ` +
-        "set it in .gitattributes so concurrent appends keep both sides' rows",
-    );
+  let prettierIgnored = false;
+  try {
+    prettierIgnored = prettierIgnoreCoversIssues(readFileSync(".prettierignore", "utf8"));
+  } catch {
+    // Without a file-wide ignore, each table must carry its own scoped comment.
   }
+  const problems = checkIssues(markdown, { prettierIgnored });
+  const base = issueBaseRevision();
+  let checkedBase = null;
+  if (base) {
+    try {
+      const missing = missingIssueIds(readIssuesAtRevision(base.ref), markdown);
+      checkedBase = base.ref;
+      for (const number of missing) {
+        problems.push(
+          `${canonicalId(number)} existed at base ${base.ref.slice(0, 12)} but is absent from both open and archive tables — ` +
+            "move resolved or superseded rows to the archive; never delete their allocation",
+        );
+      }
+    } catch (error) {
+      if (base.required) {
+        problems.push(
+          `could not read ${ISSUES_PATH} at required base ${JSON.stringify(base.ref)} — ` +
+            `deletion protection cannot run (${error instanceof Error ? error.message.split("\n")[0] : String(error)})`,
+        );
+      }
+    }
+  }
+  // A merge driver on this file is a regression, not an improvement: union
+  // concatenated conflicting hunks and duplicated the whole table rather than
+  // failing (#133, and four times on PR #1430). Honest conflicts are the
+  // contract; ids still need manual renumbering either way.
+  const mergeProblem = mergeAttributeProblem(effectiveMergeAttribute());
+  if (mergeProblem) problems.push(mergeProblem);
   if (problems.length > 0) {
     console.error(`${ISSUES_PATH} check FAILED:`);
     for (const problem of problems) console.error(`  - ${problem}`);
@@ -439,7 +628,8 @@ function main() {
   const open = rows.filter((row) => row.table === "open").length;
   console.log(
     `Outstanding-issues guard passed: ${rows.length} rows (${open} open, ${rows.length - open} archived), ` +
-      `unique ids, next-id=${nextId} above the highest, union merge active.`,
+      `unique ids, next-id=${nextId} above the highest, no merge driver` +
+      `${checkedBase ? `, no ids deleted from base ${checkedBase.slice(0, 12)}` : ", deletion baseline unavailable"}.`,
   );
 }
 

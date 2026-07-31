@@ -86,10 +86,12 @@ artifact before release; see
   Future-process only — do not mutate unrelated active PRs unless explicitly asked.
 - **Outstanding-issues concurrency (`#112`):** the structural gate landed in PR #1410
   (`npm run check:outstanding-issues` in `verify:cheap` / CI `static-pr` — duplicate IDs,
-  both-tables, stale `issues:next-id`, malformed rows). PR #1416 adds `merge=union` in
-  `.gitattributes` and a runtime attribute check so concurrent appends keep both sides'
-  rows; union merge still cannot allocate unique IDs, so the structural gate remains
-  required.
+  both-tables, stale `issues:next-id`, malformed rows). PR #1416 added `merge=union` in
+  `.gitattributes`; it is now **removed** and the runtime attribute check inverted to require
+  no driver at all. Union could not allocate unique IDs either, and it concatenated
+  conflicting hunks instead of failing — two marker bumps became two `next-id` lines (`#133`),
+  and on 2026-07-30 it duplicated the whole open-items table on four merges (PR #1430).
+  Default 3-way merge conflicts loudly instead; the structural gate remains required.
 - **Silent CI on conflicted PRs (`#116`):** when GitHub cannot build
   `refs/pull/<n>/merge`, every `pull_request` workflow is skipped with no failing check.
   `.github/workflows/pr-mergeability.yml` checks trusted `pull_request_target` events and
@@ -97,6 +99,110 @@ artifact before release; see
   unchanged open-PR head. Only that sweep receives job-scoped `checks: write`; neither path
   checks out PR code or updates branches. Behind-but-clean heads remain an operator
   `sync:pr-branches` concern. Contract: `npm run check:pr-mergeability`.
+- **Confirmed in the field the same day (PR #1427):** that PR pushed, opened, and was marked
+  ready for review while producing **zero** `pull_request` runs — no `CI`, no `Gitleaks`, no
+  `Semgrep` — with only `pull_request_target` (`PR policy`) firing. `git merge-tree` showed
+  real conflicts against a base 35 commits ahead. The new `PR mergeability` check caught it
+  and named the cause. Read a missing check list as a conflict signal, never as a pass.
+
+## CI shape and cost, measured per job (2026-07-30)
+
+The PR #1406 sample above counts runs. This is where the time inside one goes — job-level
+timings from two full UI-scope PR runs (`30520443076`, `30519912667`), read from the Actions
+API rather than estimated:
+
+| Job               | Duration        | On the critical path?    |
+| ----------------- | --------------- | ------------------------ |
+| Change scope      | 13 s            | yes                      |
+| Static PR checks  | 3m03            | no                       |
+| Safety and config | 47 s            | no                       |
+| Unit coverage     | 3m57            | no                       |
+| Advisory UI       | 3m14            | no                       |
+| **Production UI** | **15m26–16m31** | **yes — 83–89% of wall** |
+| PR required       | 5 s             | yes                      |
+| **Whole run**     | **16.8–18.6 m** |                          |
+
+- **Every other job finishes by minute 4 and then waits ~12 minutes for Production UI.**
+  Inside it, Playwright reported `339 passed (13.5m)`; the remaining ~2 min is the isolated
+  production build (see outstanding-issues `#136`). Docs-only PRs run 3–5.5 min.
+- Because the 42% cancellation rate is dominated by pushes that supersede a run mid-Production-UI,
+  almost all of the wasted runner time is this one job. Shortening it cuts churn cost directly.
+- **`ui-critical` is therefore sharded across runners** (`ci.yml`), not parallelised within one:
+  `workers: 1` / `fullyParallel: false` / `retries: 0` are unchanged inside each shard, so
+  determinism is identical and per-runner load falls — which matters because `#093`'s duplicate
+  page root is load-dependent.
+- **The shard count is measured, not chosen.** With `fullyParallel: false` a spec file is
+  indivisible, so shard sizes are lumpy. Against the 342 required chromium tests on the
+  post-merge tree, N=3 gives 121/111/110 and N=4 gives 121/106/98/17 — the same 121-test
+  bound for an extra runner. On the 340-test tree just before, N=5 and N=8 produced **empty**
+  shards, which would go red because `test:e2e:pr` deliberately omits `--pass-with-no-tests`.
+  Re-measure with
+  `npx playwright test --project=chromium --grep-invert "@quarantine|@mockup" --shard=i/N --list`
+  (needs a running server via `npm run ensure` and `PLAYWRIGHT_BASE_URL`) before changing N,
+  and keep every shard non-empty.
+- **These timings predate `ui-critical-fast`.** The `@critical` fail-fast job (15 tests) now
+  runs before the full suite, so the UI critical path is that job plus the slowest shard.
+- **Measured on the first real sharded run** (CI `30530618838`, 2026-07-30, all green):
+  `ui-critical-fast` 3m14, then shards of 9m36 / 6m54 / 6m20; whole run **13m39** against a
+  16.8–18.6 min unsharded baseline. **The prediction from test counts was wrong by ~40%:**
+  6.8 min was expected for the largest shard, 9m36 happened. Per-test cost is not uniform —
+  111 tests took 6m54 while 121 took 9m36 — so a count-balanced split understates the slowest
+  shard whenever the slow specs land together. `--shard` can only balance by count; balancing
+  by duration would require splitting the slow spec files themselves. Prefer a measured run
+  over the arithmetic when judging any further shard change.
+- **Which spec drags shard 1, measured 2026-07-30** by running `--shard=1/3` locally and
+  summing per-test durations from the list reporter (121 passed, 6.9 min):
+
+  | Spec                               | Time   | Tests | Per test  |
+  | ---------------------------------- | ------ | ----- | --------- |
+  | `ui-phone-scroll.spec.ts`          | 267.0s | 56    | **4.77s** |
+  | `ui-chrome-scroll.spec.ts`         | 56.3s  | 17    | 3.31s     |
+  | `ui-accessibility.spec.ts`         | 28.1s  | 15    | 1.87s     |
+  | `ui-formulation.spec.ts`           | 18.2s  | 7     | 2.60s     |
+  | `ui-overlap.spec.ts`               | 15.3s  | 14    | 1.09s     |
+  | `answer-progress-ui-smoke.spec.ts` | 12.2s  | 2     | 6.10s     |
+  | `ui-mode-nav-density.spec.ts`      | 6.8s   | 7     | 0.97s     |
+  | `ui-hydration.spec.ts`             | 5.2s   | 3     | 1.73s     |
+
+  **`ui-phone-scroll.spec.ts` is 65% of the shard** — 267s of 409s — at the worst per-test rate
+  of any large spec in it. It is also the file behind both `#127` and `#146`. Re-measure with
+  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium node scripts/run-playwright.mjs --project=chromium --grep-invert "@quarantine|@mockup" --shard=1/3`
+  before acting — local absolute times differ from CI, but the per-spec ranking holds.
+
+- **"Splitting the slow spec rebalances the shards" is REFUTED, measured 2026-07-30.** That
+  claim appeared in this document and in PR #1453; it is wrong, and the correction matters more
+  than the original guess. `ui-phone-scroll.spec.ts` was split into three files (21 / 19 / 16
+  tests) and the shard distribution did not move at all:
+
+  |               | Before                | After                 |
+  | ------------- | --------------------- | --------------------- |
+  | Project total | 342 tests, 18 files   | 342 tests, 20 files   |
+  | Shard 1       | 121 (56 phone-scroll) | 121 (56 phone-scroll) |
+  | Shard 2       | 111 (0)               | 111 (0)               |
+  | Shard 3       | 110 (0)               | 110 (0)               |
+
+  **Why:** `--shard` does not distribute files, it walks them in collection order (alphabetical)
+  and cuts at test-count boundaries. Sibling files named `ui-phone-scroll*` sort adjacently, so
+  all three land in the same shard. The shards were already count-balanced; the imbalance is
+  duration, and splitting a file cannot fix a metric the scheduler does not use:
+
+  ```text
+  shard 1  121 tests / 10 files — phone-scroll(56), chrome-scroll(17), accessibility(15), overlap(14), …
+  shard 2  111 tests /  4 files — ui-smoke(92), route-coverage(12), specifiers(5), pwa(2)
+  shard 3  110 tests /  6 files — ui-tools(87), universal-search(16), stress(3), …
+  ```
+
+  Shard 1 is slow because it holds ten _slow-per-test_ files while shards 2 and 3 are dominated
+  by one fast-per-test file each. **The only lever that would actually rebalance is assigning
+  explicit spec groups per shard in `ci.yml` instead of `--shard=i/N`.** That is not obviously
+  worth it: perfect balance is ~7m37 against a measured 9m36 largest shard, so ~2 min of a
+  13m39 critical path, bought with a hand-maintained file list in the **required** UI job whose
+  miss mode is a spec silently running nowhere. Do not build it without deciding that trade
+  first, and not without a guard asserting every collected spec appears in exactly one group.
+
+  **Stop:** do not "fix" this by renaming spec files so they sort into different shards. It
+  works, and it encodes undocumented scheduler behaviour into filenames where the next reader
+  cannot see it.
 
 ## Phase 1 - Active now
 
@@ -217,9 +323,26 @@ Three gates added for the "mature repo" verification pass. Full usage is in
 
 ## Route sitemap guard (2026-07-03)
 
-- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run sitemap:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
+- Route, navigation, redirect, app-mode, registry-slug, and mockup-route changes must run `npm run docs:update` and `npm run sitemap:check` so `docs/site-map.md` stays aligned with `src/app`, `src/lib/app-modes.ts`, Services/Forms registry fixtures, Differentials, and medication detail routes.
 - `npm run verify:cheap` now includes `npm run sitemap:check`; a stale sitemap is treated as process drift, not a documentation nicety.
 - Keep `docs/site-map.md` as the human-readable route map for now. If it becomes too large for review, split into a concise `docs/site-map.md` summary plus a generated `docs/site-map.generated.md` inventory, and update `scripts/generate-site-map.ts` / `tests/site-map.test.ts` in the same change.
+
+## Automatic documentation synchronization (2026-07-30)
+
+- `npm run docs:update` regenerates `docs/site-map.md` and refreshes the exact `scripts/` file and
+  `package.json` command counts in `docs/scripts-index.md`.
+- `.githooks/pre-commit` runs the affected part of that update for staged route/catalog/mockup or
+  script/package changes, and runs `docs:check-index` for staged app/lib/schema changes. Ordinary
+  component-only commits avoid the sitemap generator. If generated or module-map documentation is
+  still unstaged, the hook stops so the author can review and stage the diff. It never auto-stages
+  or commits files. It also refuses mixed staged/unstaged generator inputs so the generated docs
+  cannot accidentally describe work outside the commit. Use `SKIP_DOCS_SYNC_HOOK=1` only as an
+  explicit one-commit bypass.
+- `docs:check-inventory` is blocking in `verify:cheap` and CI, alongside `sitemap:check` and
+  `docs:check-index`, so bypassing the local hook cannot merge stale generated facts.
+- Semantic descriptions in `docs/codebase-index.md` and curated script grouping still require human
+  judgment. The hook detects top-level module/route/schema gaps but does not invent architecture
+  descriptions or ledger evidence.
 
 ## Retrieval RPC drift & indexing hygiene (2026-07-01)
 
@@ -470,8 +593,9 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
   each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
   PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
-  CI `format:check` gap; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness (`SKIP_DRIFT_GUARD=1`).
-  `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
+  with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness
+  (`SKIP_DRIFT_GUARD=1`). `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
   installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
   Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
 - **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory

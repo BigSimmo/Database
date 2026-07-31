@@ -20,6 +20,10 @@ This is the clean-checkout and validation install contract. Use `npm install`
 only when intentionally changing dependencies and regenerating
 `package-lock.json`.
 
+For Codex Cloud, use the tracked environment setup and acceptance contract in
+[`docs/codex-cloud.md`](docs/codex-cloud.md). It installs the complete repository
+toolchain and distinguishes safe offline tasks from explicitly connected provider tasks.
+
 3. Copy the full `.env.example` to `.env.local` and fill in Supabase and OpenAI
    values. Copy the worker and upload defaults too — they are conservative
    local-first settings, not optional extras.
@@ -104,6 +108,13 @@ heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
 It uses the conservative worker defaults from `.env.example` when those vars are
 set in `.env.local`.
 
+### Codex Cloud
+
+For isolated provider-free Cloud work, create the environment with the exact values in
+[`docs/codex-cloud.md`](docs/codex-cloud.md). Its checked-in setup and maintenance
+scripts match the Node/npm, Deno, Python/OCR, and Playwright toolchain without copying
+local credentials or enabling live provider access.
+
 ## Environment Notes
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it in the browser.
@@ -170,9 +181,10 @@ Full categorized index: `docs/README.md` (maintained docs vs point-in-time
 records vs archive). The most load-bearing entries:
 
 - `docs/codebase-index.md` — architecture and module map (start here)
-- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
+- `docs/site-map.md` — generated route map (`npm run docs:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
 - `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
+- `docs/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
 - `docs/clinical-governance.md` — deployment and source governance checklist
 - `docs/deployment-architecture.md` — app/worker/Supabase deployment topology
 - `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
