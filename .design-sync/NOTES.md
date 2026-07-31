@@ -65,7 +65,7 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
   - `--med-accent`, `--med-accent-border` — also runtime-set, not defects.
     `medicationAccentStyle()` in
     `clinical-dashboard/medication-record-page.tsx:88-94` assigns both (plus
-    unread `--med-accent-soft`, tracked as `#154`), and that style object is
+    unread `--med-accent-soft`, tracked as `#155`), and that style object is
     applied to the ancestor that contains every referenced class (`:393`). A
     stylesheet-only missing-token scan cannot see React `style` assignments;
     do not "fix" these. Verified 2026-07-30 by computed style: all four
