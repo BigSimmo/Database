@@ -3,7 +3,7 @@ import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-au
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
-const knownValidation = new Set(["unverified", "locally_reviewed", "approved"]);
+const knownValidation = new Set(["unverified", "locally_reviewed", "approved", "unknown"]);
 const knownExtraction = new Set(["good", "partial", "poor", "unknown"]);
 const knownSourceKinds = new Set(["document", "registry_record"]);
 const knownRegistryRecordKinds = new Set(["service", "form", "medication", "differential"]);
@@ -61,6 +61,41 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   };
 }
 
+const GOVERNANCE_FIELDS = ["document_status", "clinical_validation_status", "extraction_quality"] as const;
+
+/** True when the record carries at least one explicit governance field. */
+export function hasRecordedGovernanceFields(input: unknown): boolean {
+  if (input == null || typeof input !== "object") return false;
+  const value = input as Record<string, unknown>;
+  return GOVERNANCE_FIELDS.some((field) => {
+    const fieldValue = value[field];
+    return typeof fieldValue === "string" && fieldValue.trim().length > 0;
+  });
+}
+
+/**
+ * Preserve genuinely unrecorded governance metadata while normalizing recorded data.
+ * Production `documents.metadata` is NOT NULL DEFAULT '{}'::jsonb and often holds only
+ * index bookkeeping keys — treat those the same as null so prompts do not invent
+ * adverse `clinical_validation_status: "unverified"`.
+ * When some governance fields are present, missing siblings use neutral tokens
+ * (`unknown`) rather than inventing adverse `unverified`.
+ */
+export function normalizeOptionalSourceMetadata(input: unknown): ClinicalSourceMetadata | null {
+  if (input == null || !hasRecordedGovernanceFields(input)) return null;
+  const value = input as Record<string, unknown>;
+  const recorded = (field: (typeof GOVERNANCE_FIELDS)[number]) => {
+    const fieldValue = value[field];
+    return typeof fieldValue === "string" && fieldValue.trim().length > 0;
+  };
+  return normalizeSourceMetadata({
+    ...value,
+    document_status: recorded("document_status") ? value.document_status : "unknown",
+    clinical_validation_status: recorded("clinical_validation_status") ? value.clinical_validation_status : "unknown",
+    extraction_quality: recorded("extraction_quality") ? value.extraction_quality : "unknown",
+  });
+}
+
 export function formatClinicalDate(value: string | null | undefined) {
   if (!value) return "Unknown";
   const date = new Date(value);
@@ -90,6 +125,7 @@ export function validationStatusLabel(metadata?: ClinicalSourceMetadata | null) 
   const status = metadata?.clinical_validation_status ?? "unverified";
   if (status === "approved") return "Approved";
   if (status === "locally_reviewed") return "Locally reviewed";
+  if (status === "unknown") return "Validation unknown";
   return "Not locally validated";
 }
 

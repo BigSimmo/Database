@@ -110,7 +110,7 @@ export type ClinicalSourceMetadata = {
   indexed_at: string | null;
   uploaded_by: string | null;
   document_status: "current" | "review_due" | "outdated" | "unknown";
-  clinical_validation_status: "unverified" | "locally_reviewed" | "approved";
+  clinical_validation_status: "unverified" | "locally_reviewed" | "approved" | "unknown";
   clinical_validation_evidence?: Record<string, unknown> | null;
   extraction_quality: "good" | "partial" | "poor" | "unknown";
 };
