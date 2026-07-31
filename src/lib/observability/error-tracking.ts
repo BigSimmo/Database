@@ -97,7 +97,10 @@ export const captureRequestError: Instrumentation.onRequestError = async (error,
     scope.setTag("route_type", context.routeType);
     // This is Next's static route pattern, never the requested URL/query string.
     scope.setTag("route_path", context.routePath);
-    scope.setFingerprint([context.routePath, error instanceof Error ? error.name : typeof error]);
+    // Error.name is mutable free-form text; never put it on the scope fingerprint.
+    // beforeSend rebuilds a privacy-safe fingerprint from route + runtime type + frame.
+    const errorType = error instanceof Error ? privacySafeExceptionType(error.name) : typeof error;
+    scope.setFingerprint([context.routePath, String(errorType)]);
     Sentry.captureException(error);
   });
   await Sentry.flush(2_000);

@@ -10,7 +10,7 @@ The static route pattern (for example `/api/documents/[id]`) is safe operational
 
 ## Operator approval and rollout
 
-Before setting `SENTRY_DSN`, the operator must approve the vendor/project, data region, retention period, access roles, sampling/cost envelope, and alert destination. Configure a server-side DSN only; never use a `NEXT_PUBLIC_*` DSN. Keep provider-side IP/user enrichment disabled and restrict project access. Start with a non-production synthetic exception and inspect the received event before enabling production alerts.
+Before setting `SENTRY_DSN`, the operator must approve the vendor/project, data region, retention period, access roles, sampling rate, cost budget, and alert destination. Configure a server-side DSN only; never use a `NEXT_PUBLIC_*` DSN. Keep provider-side IP/user enrichment disabled and restrict project access. Start with a non-production synthetic exception and inspect the received event before enabling production alerts.
 
 No source-map upload is configured: builds do not contact Sentry and do not require a Sentry auth token. This reduces provider coupling, at the cost of less useful minified production frames. Reconsider source maps only through a separate privacy and build-provider review.
 
