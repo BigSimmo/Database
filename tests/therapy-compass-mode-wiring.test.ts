@@ -11,6 +11,7 @@ const loaderSrc = readFileSync(
   new URL("../src/components/therapy-compass/data/use-therapy-data.ts", import.meta.url),
   "utf8",
 );
+const bindingsSrc = readFileSync(new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url), "utf8");
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
 const therapyMetadataFiles = [
   "../src/app/(search-app)/therapy-compass/page.tsx",
@@ -80,11 +81,13 @@ describe("Therapy Compass production-mode wiring", () => {
     }
   });
 
-  it("ships a materially smaller catalogue index for browse and search routes", () => {
+  it("ships a compact browse index without narrowing the full-prose search corpus", () => {
     const fullSize = readFileSync(new URL("therapies.json", dataDir)).byteLength;
     const indexSize = readFileSync(new URL("therapies-index.json", dataDir)).byteLength;
-    expect(indexSize).toBeLessThan(fullSize * 0.4);
+    expect(indexSize).toBeLessThan(fullSize * 0.1);
     expect(loaderSrc).toContain('options.catalogue === "full" ? "therapies.json" : "therapies-index.json"');
+    expect(bindingsSrc).toContain('screen === "home" || screen === "pathways"');
+    expect(bindingsSrc).not.toContain('screen === "home" || screen === "search" || screen === "pathways"');
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {

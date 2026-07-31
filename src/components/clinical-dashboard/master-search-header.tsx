@@ -82,7 +82,7 @@ const composerPrivacyWarningId = "answer-composer-privacy-warning";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
-const desktopPageComposerMediaQuery = "(min-width: 1024px)";
+const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
 
@@ -248,8 +248,8 @@ export function MasterSearchHeader({
    *  middle of the hero instead of docking to the bottom edge. Which widths the
    *  hero owns is controlled by `heroComposerBreakpoint`. */
   desktopHomeComposerSlotId?: string;
-  /** Normal-flow page slot used by submitted/search views on desktop only.
-   * Below lg the existing phone dock/tablet sticky composer remains the owner. */
+  /** Normal-flow page slot used by submitted/search views from tablet widths up.
+   * Phones keep the bottom dock. */
   desktopPageComposerSlotId?: string;
   /** Widths where the mode-home hero slot hosts the composer. "all" keeps the
    *  hero pill on phones too (the answer home); "sm-up" reserves the hero for
@@ -290,9 +290,9 @@ export function MasterSearchHeader({
      *
      * "sticky" pins an outer stack to the viewport top above phones and still
      * collapses only the top-bar row inside that stack — for hosts that hand
-     * scrolling back to the document (GlobalSearchShell). Tablet search stays
-     * in that stack; desktop result search may portal into page flow, leaving
-     * the same stack to own only the top bar.
+     * scrolling back to the document (GlobalSearchShell). Tablet and desktop
+     * result search portal into page flow, leaving the stack to own only the
+     * top bar.
      */
     wide?: "collapse" | "sticky";
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
@@ -1074,7 +1074,8 @@ export function MasterSearchHeader({
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
     // Hero slots retain their existing all/sm-up ownership. Generic page slots
-    // are desktop-only so phone docks and tablet sticky composers do not change.
+    // start at sm so tablets and desktops share normal-flow search behaviour,
+    // while phone docks remain unchanged.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
@@ -1508,12 +1509,13 @@ export function MasterSearchHeader({
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
-    // Search sits outside the collapsing top-bar row. Sticky hosts already pin an
-    // outer [top bar | search] stack, so the composer must stay in normal flow
-    // inside that stack — a second sticky + top offset would overlay page
-    // controls once the top bar collapses. Collapse-everywhere hosts have no
-    // outer stack, so their composer keeps its own sticky and drops the top-bar
-    // clearance while the bar is hidden.
+    // Search sits outside the collapsing top-bar row. Sticky hosts pin an outer
+    // top-bar stack; result composers portal into page flow at sm+, so this
+    // relative fallback only covers the brief pre-portal default placement (a
+    // second sticky + top offset would overlay page controls). Collapse-
+    // everywhere hosts have no outer stack, so their non-portaled composer
+    // keeps its own sticky and drops the top-bar clearance while the bar is
+    // hidden.
     const stickySearchOwnedByOuterStack = sticksAbovePhones;
     const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
     const stickySearchTopClass = stickySearchClearsTopBar
@@ -1566,9 +1568,10 @@ export function MasterSearchHeader({
                         ? "phone-footer-layer document-mobile-search-edge universal-top-search-edge z-40 w-full sm:fixed"
                         : cn(
                             "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                            // Sticky-stack hosts already pin [top bar | search]. Never
-                            // leave a `fixed`/`sticky` composer in that stack — it
-                            // overlays page controls (Services decision rail).
+                            // Sticky-stack hosts pin the top bar; result search
+                            // portals out at sm+. Never leave a fixed/sticky
+                            // default composer in that stack — it overlays page
+                            // controls (Services decision rail).
                             stickySearchOwnedByOuterStack
                               ? "relative"
                               : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
@@ -2102,8 +2105,8 @@ export function MasterSearchHeader({
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
     // so an outer sticky stack pins its chrome below the wide safe-area spacer.
-    // Tablet search remains in that stack; desktop result search portals
-    // into page flow, so the stack contains only the top bar there. The host
+    // Tablet and desktop result search portal into page flow, so the stack
+    // contains only the top bar there. The host
     // ancestor uses `display: contents`, allowing this semantic sticky owner to
     // travel against the browser viewport and become static in standalone.
     const collapsingTopBar = (
@@ -2184,8 +2187,8 @@ export function MasterSearchHeader({
           // release it so the scroll surface reaches the physical viewport
           // edge instead of leaving an opaque status-bar band. Match the
           // header row's timing to avoid a one-frame gap during hide/reveal.
-          // sm+ keeps its pinned inset because the sticky [bar | search] stack
-          // is a separate wide-layout contract.
+          // sm+ keeps its pinned inset because sticky top-bar chrome is a
+          // separate wide-layout contract from page-flow search.
           //
           // Paint the header's own surface, not the page background. While the
           // spacer is visible it is the top of the header, so `--background`
@@ -2234,8 +2237,8 @@ export function MasterSearchHeader({
               viewport, landing near the top of the screen. Portal it to the
               frame footer host on phones — the mechanism invariant 21 already
               requires of every phone footer — while `sm+` keeps it inline in
-              this sticky [top bar | search] stack, because tablet must not
-              double-sticky the composer.
+              this sticky stack; result composers have already portaled into
+              page flow at tablet and desktop widths.
             */}
             {phoneOverlayMotion && usesPhoneBottomDock ? (
               <PhoneFooterLayerPortal>{searchComposer}</PhoneFooterLayerPortal>

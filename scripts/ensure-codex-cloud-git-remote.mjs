@@ -38,10 +38,11 @@ export function remoteRepositoryIdentity(remoteUrl) {
 }
 
 export function inspectOriginRemote(root) {
-  // Read the configured remote URL, not `git remote get-url`. Global
-  // `url.*.insteadOf` rewrites (common in Cursor Cloud / agent sandboxes) inject
-  // credentials into get-url output even when remote.origin.url is clean; the
-  // safety check must judge what is stored on the remote, not the rewritten fetch URL.
+  // Read the configured URL, not `git remote get-url`. The latter applies
+  // global `url.*.insteadOf` rewrites, so a credential-free origin becomes a
+  // credential-bearing URL in environments (Cursor Cloud, some CI helpers)
+  // that inject token insteadOf rules. This helper decides whether *origin
+  // itself* embeds credentials; rewritten fetch URLs are a separate path.
   const result = run("git", ["config", "--get", "remote.origin.url"], root);
   if (result.status !== 0) {
     return {

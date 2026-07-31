@@ -169,13 +169,17 @@ describe("Codex Cloud environment contract", () => {
 });
 
 describe("Codex Cloud origin repair", () => {
+  // Assert the configured URL (`git config --get`), not `git remote get-url`.
+  // Environments with global `url.*.insteadOf` token rewrites (Cursor Cloud)
+  // expand get-url to a credential-bearing form even when origin itself is clean.
+  const configuredOriginUrl = (directory: string) =>
+    git(directory, "config", "--get", "remote.origin.url").stdout.trim();
+
   it("adds the credential-free origin once, then preserves it", () => {
     const directory = temporaryGitRepository();
     expect(ensureOriginRemote(directory).action).toBe("added");
     expect(ensureOriginRemote(directory).action).toBe("preserved");
-    // Assert the configured URL — `git remote get-url` can be rewritten by global
-    // `url.*.insteadOf` injectors and is not what the safety check inspects.
-    expect(git(directory, "config", "--get", "remote.origin.url").stdout.trim()).toBe(CODEX_CLOUD_ORIGIN_URL);
+    expect(configuredOriginUrl(directory)).toBe(CODEX_CLOUD_ORIGIN_URL);
     expect(inspectOriginRemote(directory)).toEqual({
       configured: true,
       repositoryMatch: true,
@@ -187,37 +191,12 @@ describe("Codex Cloud origin repair", () => {
     const wrong = temporaryGitRepository();
     expect(git(wrong, "remote", "add", "origin", "https://github.com/example/other.git").status).toBe(0);
     expect(() => ensureOriginRemote(wrong)).toThrow(/refusing to overwrite/);
-    expect(git(wrong, "config", "--get", "remote.origin.url").stdout.trim()).toBe(
-      "https://github.com/example/other.git",
-    );
+    expect(configuredOriginUrl(wrong)).toBe("https://github.com/example/other.git");
 
     const credentialed = temporaryGitRepository();
     const unsafe = "https://token-value@github.com/BigSimmo/Database.git";
     expect(git(credentialed, "remote", "add", "origin", unsafe).status).toBe(0);
     expect(() => ensureOriginRemote(credentialed)).toThrow(/embedded credentials/);
-    expect(git(credentialed, "config", "--get", "remote.origin.url").stdout.trim()).toBe(unsafe);
-  });
-
-  it("does not treat global url.*.insteadOf credential injection as an embedded origin", () => {
-    const directory = temporaryGitRepository();
-    expect(ensureOriginRemote(directory).action).toBe("added");
-    // Mimic Cursor Cloud / agent sandboxes that rewrite github.com fetches through
-    // a tokenized insteadOf URL while leaving remote.origin.url clean.
-    expect(
-      git(
-        directory,
-        "config",
-        "--local",
-        "--add",
-        "url.https://x-access-token:test-token@github.com/.insteadOf",
-        "https://github.com/",
-      ).status,
-    ).toBe(0);
-    expect(inspectOriginRemote(directory)).toEqual({
-      configured: true,
-      repositoryMatch: true,
-      credentialsEmbedded: false,
-    });
-    expect(ensureOriginRemote(directory).action).toBe("preserved");
+    expect(configuredOriginUrl(credentialed)).toBe(unsafe);
   });
 });

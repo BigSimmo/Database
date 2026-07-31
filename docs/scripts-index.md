@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (195 files) and the `package.json` script surface (209 entries),
+Curated map of `scripts/` (196 files) and the `package.json` script surface (209 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -51,7 +51,9 @@ Also in the gate set: `check-assets.mjs`, `check-branch-review-ledger.mjs`,
 `check-hosted-migration-role.mjs` (`check:migration-role` — pins the immutable applied migration and
 the `postgres` role), `check-edge-functions.mjs`, `check-env-parity.mjs`, `check-ci-env.mjs`,
 `run-gitleaks-pinned.mjs`, `rag-offline-contract.mjs` + `test-rag-offline.mjs` (offline RAG
-contract), `check-lighthouse-budget.mjs` + `run-lighthouse-budget.mjs`, and the workflow-contract
+contract), `check-lighthouse-budget.mjs` + `run-lighthouse-budget.mjs`, `measure-cls-attribution.mjs`
+(ledger `#147` — names the elements behind a CLS breach, which Lighthouse's own
+`layout-shift-elements` audit did not; CLS reproduces offline, LCP does not), and the workflow-contract
 guards `check-pr-policy-workflow.mjs` and `check-codex-autofix-workflow.mjs`.
 `audit-formatting-fixtures.ts` checks the formatting fixtures themselves.
 `setup-codex-cloud.sh` and `maintain-codex-cloud.sh` reproduce the provider-free Cloud

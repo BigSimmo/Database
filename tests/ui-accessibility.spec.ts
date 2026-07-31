@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { visibleByTestId } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -459,7 +460,7 @@ test.describe("Clinical KB accessibility coverage", () => {
       await expect(differentialSubmit).toBeEnabled({ timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
     await differentialSubmit.click();
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
 
     const filterSelect = page.getByTestId("differential-result-type-select");
     await expect(filterSelect).toBeVisible();
