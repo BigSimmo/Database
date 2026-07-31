@@ -67,6 +67,7 @@ import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
+  projectSmartTagFacetGroups,
   smartDocumentFacetGroups,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
@@ -921,7 +922,14 @@ function DocumentSearchResultsPanelImpl({
     [activeFacetState, query],
   );
   const tagFacetIndex = useMemo(() => buildSmartDocumentTagFacetIndex(matches, { query }), [matches, query]);
-  const tagFacetGroups = tagFacetIndex.groups;
+  // Counts must describe the set the reader is looking at. `tagFacetIndex.groups`
+  // counts against the whole match set, so once a facet is selected the rest of
+  // the panel reports numbers for a set that no longer exists — several of them
+  // pointing at AND-combinations that return nothing.
+  const tagFacetGroups = useMemo(
+    () => projectSmartTagFacetGroups(tagFacetIndex, activeFacetKeys),
+    [tagFacetIndex, activeFacetKeys],
+  );
   const visibleMatches = useMemo(
     () => filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeFacetKeys),
     [tagFacetIndex, activeFacetKeys],
