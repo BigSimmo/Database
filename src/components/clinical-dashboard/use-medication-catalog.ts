@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 
+import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import type { MedicationRecord, MedicationSearchResult } from "@/lib/medications";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -61,28 +62,43 @@ export function useMedicationCatalog(
   const trimmed = query?.trim() ?? "";
   // Auth-aware like use-registry-records: without the header an authenticated owner was
   // silently served the public fixture catalogue instead of their seeded records.
-  const { authorizationHeader } = useAuthSession();
+  const { authorizationHeader, session, status: authStatus } = useAuthSession();
+  const authIdentity = authSessionFingerprint(authStatus, session?.user.id);
   const [prevQuery, setPrevQuery] = useState(trimmed);
   const [prevEnabled, setPrevEnabled] = useState(enabled);
+  const [prevAuthIdentity, setPrevAuthIdentity] = useState(authIdentity);
+  const [prevAuthorizationHeader, setPrevAuthorizationHeader] = useState(authorizationHeader);
+  const [requestLifecycle] = useState(() => createAuthRequestLifecycle());
   const [state, setState] = useState<AsyncState<MedicationCatalogResponse>>({
     data: null,
     loading: enabled,
     error: null,
   });
 
-  if (trimmed !== prevQuery || enabled !== prevEnabled) {
+  const resourceChanged = trimmed !== prevQuery || enabled !== prevEnabled;
+  const identityChanged = authIdentity !== prevAuthIdentity;
+  const credentialChanged = authorizationHeader !== prevAuthorizationHeader;
+  if (resourceChanged || identityChanged || credentialChanged) {
     setPrevQuery(trimmed);
     setPrevEnabled(enabled);
-    setState({
-      data: null,
-      loading: enabled,
-      error: null,
-    });
+    setPrevAuthIdentity(authIdentity);
+    setPrevAuthorizationHeader(authorizationHeader);
+    setState((current) =>
+      !resourceChanged && !identityChanged && credentialChanged && current.data
+        ? { ...current, loading: true, error: null }
+        : { data: null, loading: enabled, error: null },
+    );
   }
+
+  useLayoutEffect(() => {
+    requestLifecycle.invalidate();
+  }, [authIdentity, authorizationHeader, enabled, fields, requestLifecycle, trimmed]);
 
   useEffect(() => {
     if (!enabled) return;
     const controller = new AbortController();
+    const registration = requestLifecycle.register(controller);
+    const isCurrentRequest = () => requestLifecycle.isCurrent(registration.epoch);
     const params = new URLSearchParams();
     if (trimmed) params.set("q", trimmed);
     if (fields) params.set("fields", fields);
@@ -92,10 +108,15 @@ export function useMedicationCatalog(
     const timer = window.setTimeout(() => {
       fetchJson<MedicationCatalogResponse>(url, authorizationHeader, controller.signal)
         .then((data) => {
-          if (!controller.signal.aborted) setState({ data, loading: false, error: null });
+          if (!controller.signal.aborted && isCurrentRequest()) setState({ data, loading: false, error: null });
         })
         .catch((error) => {
-          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          if (
+            controller.signal.aborted ||
+            !isCurrentRequest() ||
+            (error instanceof DOMException && error.name === "AbortError")
+          )
+            return;
           setState({
             data: null,
             loading: false,
@@ -107,8 +128,9 @@ export function useMedicationCatalog(
     return () => {
       window.clearTimeout(timer);
       controller.abort();
+      registration.release();
     };
-  }, [trimmed, enabled, fields, debounceMs, authorizationHeader]);
+  }, [trimmed, enabled, fields, debounceMs, authIdentity, authorizationHeader, requestLifecycle]);
 
   return state;
 }

@@ -9,6 +9,7 @@ import {
 const authSession = vi.hoisted(() => ({
   authorizationHeader: { Authorization: "Bearer differential-search-test" },
   markSessionExpired: vi.fn(),
+  session: { user: { id: "user-a" } },
   status: "authenticated" as const,
 }));
 
@@ -23,6 +24,7 @@ beforeEach(() => {
   clearDifferentialSearchCacheForTests();
   authSession.markSessionExpired.mockReset();
   authSession.authorizationHeader = { Authorization: "Bearer differential-search-test" };
+  authSession.session = { user: { id: "user-a" } };
   authSession.status = "authenticated";
   fetchMock = vi.fn<typeof fetch>();
   vi.stubGlobal("fetch", fetchMock);
@@ -158,11 +160,273 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
 
     authSession.authorizationHeader = { Authorization: "Bearer other-user" };
+    authSession.session = { user: { id: "user-b" } };
     rerender();
     expect(result.current.status).toBe("loading");
     expect(result.current.matches).toEqual({ diagnoses: [], presentations: [] });
 
     await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+  });
+
+  it("keeps same-query matches visible while a same-user token refresh refetches", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    let resolveDiagnosis!: (response: Response) => void;
+    let resolvePresentation!: (response: Response) => void;
+    fetchMock.mockImplementation(
+      (input) =>
+        new Promise<Response>((resolve) => {
+          if (String(input).includes("kind=diagnosis")) resolveDiagnosis = resolve;
+          else resolvePresentation = resolve;
+        }),
+    );
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
+    rerender();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    await advanceDebounce();
+    await act(async () => {
+      resolveDiagnosis(jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      resolvePresentation(jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+  });
+
+  it("retries over the network after a warm-cache error instead of soft-succeeding", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "boom" }, 500)));
+    await act(async () => {
+      result.current.refetch();
+    });
+    await advanceDebounce();
+    await flushMicrotasks();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("error");
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+    await act(async () => {
+      result.current.refetch();
+    });
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+  });
+
+  it("refetches after an error when the same identity refreshes credentials", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "boom" }, 500)));
+    await act(async () => {
+      result.current.refetch();
+    });
+    expect(result.current.status).toBe("refetching");
+    await advanceDebounce();
+    await flushMicrotasks();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("error");
+    expect(result.current.matches.diagnoses).toEqual([]);
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-after-error" };
+    rerender();
+    expect(result.current.status).toBe("loading");
+    expect(result.current.matches.diagnoses).toEqual([]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+  });
+
+  it("keeps refetching across back-to-back same-identity credential refreshes", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    const refreshedMatch = {
+      record: { slug: "persistent-depressive-disorder", title: "Persistent depressive disorder" },
+      score: 10,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
+    rerender();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user-again" };
+    rerender();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(4);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    await act(async () => {
+      pending[2](jsonResponse({ matches: [refreshedMatch], demoMode: false }));
+      pending[3](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([refreshedMatch]);
+  });
+
+  it("ignores a late previous-user refresh after the auth identity changes", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-same-user" };
+    rerender();
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    authSession.authorizationHeader = { Authorization: "Bearer user-b" };
+    authSession.session = { user: { id: "user-b" } };
+    rerender();
+    expect(result.current).toMatchObject({
+      status: "loading",
+      matches: { diagnoses: [], presentations: [] },
+    });
+    await advanceDebounce();
+    expect(pending).toHaveLength(4);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current).toMatchObject({
+      status: "loading",
+      matches: { diagnoses: [], presentations: [] },
+    });
+
+    await act(async () => {
+      pending[2](jsonResponse({ matches: [], demoMode: false }));
+      pending[3](jsonResponse({ matches: [], demoMode: false }));
+    });
     await flushMicrotasks();
     expect(result.current.status).toBe("ready");
   });
