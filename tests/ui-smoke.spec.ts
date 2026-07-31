@@ -8,7 +8,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -2938,7 +2938,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/differentials?q=acute+confusion&focus=1&run=1");
 
-    await expect(page.getByTestId("differentials-search-results")).toBeVisible({ timeout: 30_000 });
+    await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await expect(page.getByTestId("differentials-home")).toHaveCount(0);
   });
@@ -3058,7 +3058,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
 
-    await page.getByTestId("favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
+    await visibleByTestId(page, "favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
     const workspace = page.getByTestId("favourites-item-workspace");
     await expect(workspace).toBeVisible();
     await expect(workspace.getByRole("heading", { name: "Lithium monitoring guideline", level: 3 })).toBeVisible();
