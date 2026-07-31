@@ -242,3 +242,21 @@ Found while verifying, fixed in the same pass: `answer-card.tsx` used arbitrary
 `leading-[var(--leading-prose,1.65)]` — a restated token value that failed the
 design-token contract's no-arbitrary-leading rule on the branch tip. Now the named
 `leading-prose` step. Both token-contract test files: **47 passed (47)**.
+
+6. **Dark-ink cascade bug — found by adversarial self-review, fixed pre-merge.** The
+   cascade port made the light `.ckb-v2` block match inside dark subtrees, silently breaking
+   the documented fall-through: `--text`, `--text-heading`, `--disabled`, glows, backdrop and
+   the accent-soft trio resolved to their **light** values on the dark ramp. Fixed on the
+   PR #1538 head by re-declaring every light-declared colour role in the dark block
+   (mirroring the live `.dark` values previously inherited) plus a contract regression: dark
+   `--text`/`--text-heading` ≥4.5:1 on the dark surface. New standing rule: a colour role
+   added to the light block is added to the dark block in the same commit.
+7. **Post-merge hygiene pass (this PR).** PR #1538 merged; single follow-up bundling: the
+   stale-state sweep (SHAs now pinned only in this log; all other docs state rolling
+   status) · literal `var()` fallback values stripped from the v2 components (the last
+   value-restatement channel; the one surviving fallback is role→role,
+   `var(--e2, var(--shadow-soft))`, which restates no value) · the contract test parses the
+   structural and light blocks separately · HCM `--overlay-backdrop` is transparent, not
+   opaque Canvas · the six now-landed paths removed from the docs-link allowlist per their
+   own remove-after-merge note. Remaining design-app step unchanged: one real
+   `/design-sync` run (guidelines index + `_ds_needs_recompile`).
