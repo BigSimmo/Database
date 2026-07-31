@@ -11,7 +11,6 @@ import {
   ListChecks,
   Network,
   Search,
-  ShieldCheck,
   Waypoints,
 } from "lucide-react";
 
@@ -146,7 +145,6 @@ function FormulationHome() {
           <div className="grid gap-3">
             <FormulationThreadStrip />
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
               label="Hypothesis-led decision support"
               body="Check fit, alternatives, risk, and context before using a draft"
             />
