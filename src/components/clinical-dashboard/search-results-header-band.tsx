@@ -1,21 +1,10 @@
 "use client";
 
-import {
-  Bookmark,
-  ChevronsUpDown,
-  CircleAlert,
-  Funnel,
-  LayoutList,
-  LoaderCircle,
-  Search,
-  Table2,
-  X,
-} from "lucide-react";
+import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
 
@@ -166,13 +155,6 @@ export function SearchResultsHeaderBand({
   headingLevel?: 1 | 2;
   className?: string;
 }) {
-  const command = useSearchCommand();
-  const config = searchCommandSurfaceConfig(modeId);
-  const activeScopes = command?.commandScopes ?? [];
-  const visibleScopes = activeScopes.flatMap((scopeId) => {
-    const scope = config?.scopes.find((entry) => entry.id === scopeId);
-    return scope ? [scope] : [];
-  });
   const displayQuery = query.trim() || "All";
   // `status` wins when both are passed; `loading` is the deprecated shim.
   const resolvedStatus: SearchResultsBandStatus = status ?? (loading ? "loading" : "ready");
@@ -220,11 +202,9 @@ export function SearchResultsHeaderBand({
   const countUntrusted = faulted || resolvedStatus === "loading";
   const pageControls = countUntrusted ? null : filterControls;
   const pageMobileControls = countUntrusted ? null : mobileControls;
-  const hasUtilities =
-    visibleScopes.length > 0 ||
-    Boolean(
-      onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
-    );
+  const hasUtilities = Boolean(
+    onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
+  );
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
 
@@ -257,8 +237,6 @@ export function SearchResultsHeaderBand({
                 one before any text is read. */}
             {faulted || partial ? (
               <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
-            ) : visibleScopes.length > 0 ? (
-              <Funnel className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
               <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             )}
@@ -456,55 +434,6 @@ export function SearchResultsHeaderBand({
           </div>
         ) : null}
       </div>
-      {/* The applied-filter shelf. Its own row, labelled, with one action that
-          undoes all of it — removing three filters used to be three taps with no
-          shortcut. Unlike the page filter row below it survives `loading`: these
-          chips carry no counts, so keeping them through a pending search avoids
-          the shelf flickering out and back on every keystroke. Only a faulted
-          search drops them, because filtering a result set that never loaded is
-          meaningless. */}
-      {visibleScopes.length > 0 && !faulted ? (
-        <div
-          data-testid="search-query-ribbon-scopes"
-          role="group"
-          aria-label="Applied filters"
-          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
-          {visibleScopes.map((scope) => (
-            <button
-              key={scope.id}
-              type="button"
-              onClick={() => command?.onRemoveScope(scope.id)}
-              aria-label={`Remove ${scope.label} filter`}
-              data-selected="true"
-              className={cn(
-                // Hover deepens the chip's own accent rather than swapping to the
-                // neutral border the surface controls use — an accent-soft chip
-                // going grey on hover reads as losing its active state.
-                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                focusRing,
-              )}
-            >
-              <span className="truncate">{scope.label}</span>
-              <X className="h-3 w-3 shrink-0" aria-hidden />
-            </button>
-          ))}
-          <span className="min-w-1 flex-1" aria-hidden />
-          {command?.onClearScopes && visibleScopes.length > 1 ? (
-            <button
-              type="button"
-              onClick={() => command.onClearScopes()}
-              className={cn(
-                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
-                focusRing,
-              )}
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-      ) : null}
       {pageControls ? (
         <div
           data-testid="search-query-ribbon-filters"
@@ -658,22 +587,18 @@ export function MobileResultFilterControl<Value extends string>({
 export function SearchResultsEmptyState({
   modeId,
   query,
-  onClearScopes,
   onTryExample,
   onCrossMode,
   canAccessFavourites = false,
 }: {
   modeId: AppModeId;
   query: string;
-  onClearScopes?: () => void;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
   canAccessFavourites?: boolean;
 }) {
-  const command = useSearchCommand();
   const config = searchCommandSurfaceConfig(modeId);
   const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
-  const activeScopes = command?.commandScopes ?? [];
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
@@ -684,21 +609,9 @@ export function SearchResultsEmptyState({
         No matches for &ldquo;{query.trim() || "your search"}&rdquo;
       </p>
       <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        Relax the scope, try an example, or jump to another mode.
+        Try an example, or jump to another mode.
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-        {activeScopes.length > 0 && onClearScopes ? (
-          <button
-            type="button"
-            onClick={onClearScopes}
-            className={cn(
-              "inline-flex min-h-9 items-center gap-1 rounded-lg border border-[color:var(--clinical-accent-border)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]",
-              focusRing,
-            )}
-          >
-            Clear scope filters ({activeScopes.length})
-          </button>
-        ) : null}
         {config?.examples[0] && onTryExample ? (
           <button
             type="button"

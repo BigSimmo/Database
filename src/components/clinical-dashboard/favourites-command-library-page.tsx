@@ -43,8 +43,6 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
@@ -606,7 +604,6 @@ function FavouritesTable({
   viewMode,
   sortMode,
   selectedItemId,
-  commandScopes = [],
   onSortModeChange,
   onSelectItem,
 }: {
@@ -617,7 +614,6 @@ function FavouritesTable({
   viewMode: ViewMode;
   sortMode: SortMode;
   selectedItemId: string | null;
-  commandScopes?: string[];
   onSortModeChange: (value: SortMode) => void;
   onSelectItem: (id: string) => void;
 }) {
@@ -629,9 +625,8 @@ function FavouritesTable({
       viewMode,
       sortMode,
     });
-    if (!commandScopes.length) return rows;
-    return rows.filter((item) => favouriteMatchesCommandScopes(item, commandScopes));
-  }, [commandScopes, items, searchTerm, selectedSet, selectedTypeId, viewMode, sortMode]);
+    return rows;
+  }, [items, searchTerm, selectedSet, selectedTypeId, viewMode, sortMode]);
 
   // With the item workspace open (only at 2xl), the middle column narrows sharply.
   // Drop the leading icon and the secondary Evidence column there so titles keep
@@ -1022,7 +1017,6 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
-  const command = useSearchCommand();
   const auth = useAuthSession();
   const favouritesAccessible = canAccessFavouritesMode({
     authenticated: auth.status === "authenticated",
@@ -1072,15 +1066,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       }),
     [items, query, selectedTypeId, selectedSet, viewMode, sortMode],
   );
-  const scopedItems = useMemo(() => {
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return filteredItems;
-    return filteredItems.filter((item) => favouriteMatchesCommandScopes(item, scopes));
-  }, [command?.commandScopes, filteredItems]);
-
   const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
   const showContinueStrip =
-    continueItem !== null && scopedItems.some((item) => item.id === continueItem.id) && scopedItems.length > 0;
+    continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
 
   const selectedItem = selectedItemId ? (items.find((item) => item.id === selectedItemId) ?? null) : null;
 
@@ -1208,7 +1196,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
             <SearchResultsHeaderBand
               modeId="favourites"
               query={query}
-              matchCount={scopedItems.length}
+              matchCount={filteredItems.length}
               // Without this a failed registry read renders as "0 matches", which
               // reads as "you have no saved favourites" rather than "we could not
               // load them". `partial` keeps unaffected items (local
@@ -1261,8 +1249,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
             {/* Only a successful read can say "no matches". While loading or
                 faulted an empty list means we could not look, not that the
                 library is empty; the band's fault panel reports that. */}
-            {query.trim() && scopedItems.length === 0 && favouritesRegistryStatus === "ready" ? (
-              <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
+            {query.trim() && filteredItems.length === 0 && favouritesRegistryStatus === "ready" ? (
+              <SearchResultsEmptyState modeId="favourites" query={query} />
             ) : (
               <FavouritesTable
                 items={items}
@@ -1272,7 +1260,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 viewMode={viewMode}
                 sortMode={sortMode}
                 selectedItemId={selectedItemId}
-                commandScopes={command?.commandScopes}
                 onSortModeChange={setSortMode}
                 onSelectItem={setSelectedItemId}
               />

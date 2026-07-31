@@ -188,41 +188,14 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByRole("status")).toHaveTextContent("4 services");
   });
 
-  it("does not render an empty utility strip for a stale scope from another mode", () => {
-    render(
-      <SearchCommandProvider
-        value={{
-          query: "transport order",
-          modeId: "forms",
-          commandScopes: ["scope-from-another-mode"],
-          onRemoveScope: vi.fn(),
-          onClearScopes: vi.fn(),
-        }}
-      >
-        <SearchResultsHeaderBand modeId="forms" query="transport order" matchCount={3} />
-      </SearchCommandProvider>,
-    );
-
-    expect(screen.queryByTestId("search-query-ribbon-utilities")).toBeNull();
-  });
-
-  it("keeps scope, sort, view, and save controls wired inside the utility row", async () => {
+  it("keeps sort, view, and save controls wired inside the utility row", async () => {
     const user = userEvent.setup();
-    const onRemoveScope = vi.fn();
     const onSortChange = vi.fn();
     const onViewChange = vi.fn();
     const onSaveSearch = vi.fn();
 
     render(
-      <SearchCommandProvider
-        value={{
-          query: "transport order",
-          modeId: "forms",
-          commandScopes: ["official"],
-          onRemoveScope,
-          onClearScopes: vi.fn(),
-        }}
-      >
+      <SearchCommandProvider value={{ query: "transport order", modeId: "forms" }}>
         <SearchResultsHeaderBand
           modeId="forms"
           query="transport order"
@@ -236,12 +209,10 @@ describe("SearchResultsHeaderBand", () => {
       </SearchCommandProvider>,
     );
 
-    await user.click(screen.getByRole("button", { name: "Remove Official only filter" }));
     await user.click(screen.getByRole("button", { name: "A–Z" }));
     await user.click(screen.getByRole("button", { name: "List view" }));
     await user.click(screen.getByRole("button", { name: "Save search" }));
 
-    expect(onRemoveScope).toHaveBeenCalledWith("official");
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onViewChange).toHaveBeenCalledWith("list");
     expect(onSaveSearch).toHaveBeenCalledOnce();
