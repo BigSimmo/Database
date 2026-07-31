@@ -22,6 +22,13 @@
     ],
     "aliases": [
       "ACT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 explicitly lists Acceptance and Commitment Therapy among the structured psychotherapies practised by psychiatrists and frames psychotherapy as core psychiatric treatment. NICE formally recommends ACT for chronic primary pain when delivered by appropriately trained professionals, which is the clearest current major-guideline endorsement of ACT as a named modality. A 2023 meta-analysis found ACT reduced depressive symptoms and improved psychological flexibility in depressive disorders, supporting its use in depression, though this is not the same as broad first-line guideline status across all psychiatric disorders. A 2022 systematic review and meta-analysis found internet-delivered ACT improved depressive symptoms, anxiety, stress, psychological distress, and quality of life, supporting the broader transdiagnostic flexibility model."
+      }
     ]
   },
   {
@@ -44,7 +51,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE medicines adherence guidance says clinicians should adapt communication, ask open-ended questions, routinely assess adherence non-judgementally, and identify both perceptual and practical barriers to medicine-taking. Australian Prescriber notes that non-adherence may be intentional or unintentional and that patient education, shared decision-making, pharmacist support, and motivational interviewing reduce intentional non-adherence. The adherence-therapy meta-analysis in schizophrenia describes adherence therapy as a brief intervention based on motivational interviewing and CBT principles, but this remains a selective adjunctive therapy rather than a universal front-line psychiatric psychotherapy."
+      }
+    ]
   },
   {
     "slug": "adolescent-cbt",
@@ -69,7 +83,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression in children and young people guideline, including stepped-care, adolescent CBT, and moderate-to-severe depression recommendations. (NICE) NICE rationale/research recommendation explaining why individual CBT is first-line for 12–18-year-olds with moderate to severe depression. (NICE) NICE social anxiety guideline for child/adolescent CBT structure and developmental adaptation. (NICE) RANZCP psychotherapy position statement for CBT as a core psychiatric psychotherapy. (RANZCP)"
+      }
+    ]
   },
   {
     "slug": "adolescent-focused-psychotherapy-for-anorexia-nervosa",
@@ -89,7 +110,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 eating-disorder recommendations state that if FT-AN is unacceptable, contraindicated, or ineffective for children and young people with anorexia nervosa, clinicians should consider individual CBT-ED or AFP-AN. (NICE) NICE NG69 specifies AFP-AN structure as 32–40 individual sessions over 12–18 months plus 8–12 additional family sessions, with review at 4 weeks and then every 3 months, and with focus on self-image, emotions, interpersonal processes, psychological formulation, anorexic behaviour as coping, fears about weight gain, and healthy eating/weight gain. (NICE) NICE public guidance summarises AFP as up to 40 sessions over 12–18 months, with possible parent/carer sessions, and with focus on fears about weight gain, nutrition/starvation, causes of anorexia, and behaviour change. (NICE) Your uploaded guide already contains an AFP-AN draft and notes the key sequencing point that AFP-AN is considered when FT-AN is unacceptable, contraindicated, or ineffective."
+      }
+    ]
   },
   {
     "slug": "advocacy-informed-therapeutic-work",
@@ -107,7 +135,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Recovery and the psychiatrist* position statement. (RANZCP) Australian Government psychosocial support pages, including the Commonwealth Psychosocial Support Program. (Dept of Health, Disability & Ageing) NICE rehabilitation guidance for complex psychosis, used for the broader rehabilitation and support context. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "app-supported-therapy",
@@ -131,7 +166,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE guidance on guided self-help digital CBT technologies, including apps used with regular support. (Dept of Health, Disability & Ageing) Australian Government page on MindSpot as a therapist-guided digital mental health clinic. (Dept of Health, Disability & Ageing) MindSpot service pages describing online treatment with therapist support and digital psychology delivery. (MindSpot) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "applied-relaxation-relaxation-based-therapy",
@@ -152,7 +194,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "arts-therapies-for-psychosis",
@@ -170,7 +219,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE CG178 says to consider offering arts therapies to all people with psychosis or schizophrenia, particularly for the alleviation of negative symptoms, and says they can start in the acute phase or later, including inpatient settings. It also specifies delivery by a registered arts therapist and usually in groups. RANZCP PS #54 provides the Australian umbrella position that psychotherapy is a core part of psychiatric treatment, which supports arts therapies as a legitimate psychotherapy modality when properly delivered."
+      }
+    ]
   },
   {
     "slug": "behaviour-therapy",
@@ -193,7 +249,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "behavioural-activation-ba",
@@ -218,6 +281,13 @@
     ],
     "aliases": [
       "BA"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -238,6 +308,13 @@
     ],
     "aliases": [
       "BCT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG222 recommends behavioural couples therapy for depression when relationship problems may be contributing to depression or involving the partner may help, and specifies 15 to 20 sessions over 5 to 6 months. NICE CG91 also gives the same behavioural-couples-therapy dose for depression in adults with chronic physical health problems. Systematic review and meta-analysis literature supports behavioural couples therapy as effective for alcohol and drug use disorders, including benefits for substance outcomes and relationship functioning."
+      }
     ]
   },
   {
@@ -256,6 +333,13 @@
     ],
     "aliases": [
       "BCT-SUD"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -276,7 +360,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE conduct disorder guideline and quality standard on parent/carer training programmes, including age range, group-first approach, social learning model, and session structure. (NICE) NICE public information for parents/carers on parent training programme content and format. (NICE) RANZCP psychotherapy position statement, supporting family/system psychotherapy as part of psychiatric psychotherapy scope. (RANZCP)"
+      }
+    ]
   },
   {
     "slug": "brief-low-intensity-cbt",
@@ -297,7 +388,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression guidance on low-intensity psychosocial interventions. (NICE) NICE definition of low-intensity intervention in perinatal mental health guidance. (NICE) Australian Government announcements and service description for Medicare Mental Health Check In and low-intensity CBT rollout in 2026. (Dept of Health, Disability & Ageing) RANZCP psychotherapy position statement. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "brief-supportive-psychotherapy",
@@ -321,7 +419,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP position statement on psychotherapy, including supportive psychotherapy as a recognised form of psychiatric psychotherapy and psychotherapy as a core component of psychiatric treatment. (RANZCP) NICE NG225 self-harm guidance for ris\u006b-aware supportive work, psychosocial assessment, collaborative care planning, safety planning, and adaptation for neurodevelopmental/learning needs. (NICE)"
+      }
+    ]
   },
   {
     "slug": "bright-light-therapy",
@@ -341,7 +446,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "2024/2025 JAMA Psychiatry systematic review and meta-analysis of BLT for nonseasonal depressive disorders. (JAMA Network) 2024 Asian Journal of Psychiatry systematic review/meta-analysis on BLT in major depressive disorder. (ScienceDirect) 2024 systematic review/meta-analysis of BLT in perinatal depression, used cautiously for subgroup adaptation. (Sage Journals) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "carer-groups",
@@ -358,7 +470,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE quality statement on carer-focused education and support for psychosis and schizophrenia. (NICE) NICE guideline on supporting adult carers. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "carer-interventions",
@@ -376,7 +495,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "carer-focused-education-and-support-carer-psychoeducation-in-psychosis",
@@ -393,7 +519,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE Quality Standard QS80 states that carers of adults with psychosis or schizophrenia are offered carer-focused education and support programmes and explains that these programmes provide information, mutual support and discussion, should be offered as soon as possible, be available as needed, and help carers identify symptoms of concern while reducing burden and psychological distress. A 2024 systematic review and meta-analysis found caregiver-targeted psychoeducation may improve caregiver outcomes such as burden and quality of life, but concluded that effectiveness is still not conclusive, so claims should remain modest. A 2023 systematic review and meta-analysis also supports psychoeducation for reducing burden among family caregivers of adults with schizophrenia."
+      }
+    ]
   },
   {
     "slug": "carer-supported-meal-based-interventions",
@@ -412,7 +545,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE eating disorders guideline, especially FT-AN recommendations for parents/carers taking a central temporary role in eating and treatment structure. (NICE) InsideOut Institute treatment summary for eating disorders, including Australian context and the importance of involving family and carers in treatment, especially children and adolescents. (insideoutinstitute.org.au) InsideOut Institute carer resources and SupportED programme, used for Australian carer-support context. (insideoutinstitute.org.au)"
+      }
+    ]
   },
   {
     "slug": "cbt-informed-psychological-intervention-for-self-harm",
@@ -436,7 +576,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG225 recommends a structured, person-centred, CBT-informed psychological intervention tailored for adults who self-harm, started as soon as possible and typically delivered over 4–10 sessions. It also recommends DBT-A for children and young people with significant emotional dysregulation and frequent self-harm. (NICE) NICE defines CBT-informed psychological intervention broadly as work that helps people identify and evaluate thoughts about emotional experiences and change how they deal with problems, including behavioural and problem-solving elements. (NICE) Your uploaded master list already places crisis intervention, supportive work, self-harm safety planning, and CBT-informed self-harm care in the foundational/crisis layer, so this addition belongs there rather than under generic CBT alone."
+      }
+    ]
   },
   {
     "slug": "child-cbt",
@@ -458,7 +605,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression in children and young people guideline, including stepped-care recommendations and developmental adaptation requirements. (NICE) NICE rationale/research recommendations noting limited evidence for 5–11-year-olds and stronger adolescent evidence. (NICE) NICE social anxiety guidance for child/youth CBT structure and parent involvement. (NICE)"
+      }
+    ]
   },
   {
     "slug": "circadian-rhythm-based-interventions",
@@ -480,7 +634,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "IPSRT review describing bipolar recurrence as linked to disrupted social rhythms and outlining evidence for IPSRT as acute and prophylactic adjunctive treatment. (PubMed) 2025 systematic review on circadian realignment and depressed mood. (PubMed) Adolescent IPSRT adaptation and youth bipolar trial literature, used for adaptation framing. (PubMed)"
+      }
+    ]
   },
   {
     "slug": "client-directed-feedback-informed-brief-work",
@@ -498,7 +659,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP states psychotherapy is a core component of psychiatric treatment and supports aligned use of psychotherapeutic modalities across settings, which provides the Australian frame for using feedback-informed work as an adjunct within psychiatric care. A 2024 review of routine outcome monitoring and clinical feedback describes it as an evidence-based adjunct across multiple settings and notes small but significant benefits on symptom reduction and dropout when feedback is actively used. A 2024 qualitative meta-analysis found clinicians use routine outcome monitoring to obtain clinically relevant information, adapt treatment, facilitate communication, enhance the therapeutic relationship, and support change, which is the clearest practical rationale for this therapy table."
+      }
+    ]
   },
   {
     "slug": "cognitive-analytic-therapy-cat",
@@ -521,6 +689,13 @@
     ],
     "aliases": [
       "CAT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 explicitly includes Cognitive Analytic Therapy among structured psychotherapies used by psychiatrists. A 2020 systematic review and meta-analysis concluded CAT is promising and acceptable, but the overall evidence base remains limited relative to better-established specialist treatments. A BPD RCT found 24-session CAT outperformed treatment as usual over the treatment period, supporting CAT as a serious specialist option for personality disorder while still leaving the evidence base smaller than some alternatives. NICE BPD guidance provides the broader requirements for structured specialist psychotherapy but does not specifically privilege CAT by name."
+      }
     ]
   },
   {
@@ -547,6 +722,13 @@
     ],
     "aliases": [
       "CBT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -566,7 +748,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "cognitive-behavioural-therapy-for-insomnia",
@@ -590,7 +779,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Sleep Health Foundation Australia CBT-I page, including CBT-I as proven/recommended, 4–8 session structure, and core components. (Sleep Health Foundation) RACGP/ACP first-line positioning cited within Sleep Health Foundation’s Australian patient-facing summary. (Sleep Health Foundation) Sleep Foundation overview used only for general CBT-I components such as stimulus control, sleep restriction, and relaxation training. (Sleep Foundation)"
+      }
+    ]
   },
   {
     "slug": "cognitive-behavioural-therapy-for-insomnia-cbt-i",
@@ -613,6 +809,13 @@
     ],
     "aliases": [
       "CBT-I"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -638,6 +841,13 @@
     ],
     "aliases": [
       "CBTp"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -659,6 +869,13 @@
     ],
     "aliases": [
       "CPT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia PTSD guidelines give a strong recommendation for CPT in adults with PTSD and describe it as a 12-session manualised treatment focused on trauma themes including safety, trust, power and control, self-esteem, and intimacy, with a smaller exposure component than imaginal exposure therapy. NICE PTSD guidance includes cognitive processing therapy within the individual trauma-focused CBT interventions recommended for adults with PTSD and says these treatments should be manual-based, supervised, and typically 8 to 12 sessions, with more if clinically indicated. RANZCP’s psychotherapy position statement supports trauma-focused psychotherapies within core psychiatric treatment."
+      }
     ]
   },
   {
@@ -682,6 +899,13 @@
     ],
     "aliases": [
       "CRT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG181 defines cognitive remediation as a manualised intervention to improve cognitive function and recommends considering cognitive remediation alongside vocational rehabilitation services for adults with complex psychosis. A major meta-analysis found cognitive remediation effective for both cognitive and functional outcomes in schizophrenia, with best effects when there is an active trained therapist, structured strategy development, and integration with rehabilitation. RANZCP PS #54 provides the Australian umbrella position that psychotherapy and psychological treatment are core parts of psychiatric practice, though CRT is best framed here as a rehabilitation-linked intervention rather than a classic verbal psychotherapy."
+      }
     ]
   },
   {
@@ -696,11 +920,17 @@
       "Mood",
       "Psychosis",
       "Eating/body image",
-      "Crisis/risk",
       "ACT",
       "5-minute intervention"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE dementia guideline recommends group cognitive stimulation therapy for people living with mild to moderate dementia and distinguishes it from cognitive rehabilitation, cognitive training, and other non-pharmacological interventions. 2024 systematic review/meta-analysis found the original 14-session CST protocol improved cognition, depressive symptoms, communication, quality of life, and related outcomes in mild to moderate dementia. Recent Australian community-based cognitive-intervention literature describes CST as typically delivered in 14 biweekly 45-minute sessions over 7 weeks and notes strong guideline support for mild to moderate dementia."
+      }
+    ]
   },
   {
     "slug": "cognitive-therapy",
@@ -721,7 +951,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "cognitive-therapy-for-ptsd-ct-ptsd",
@@ -745,6 +982,13 @@
     ],
     "aliases": [
       "CT-PTSD"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia PTSD guideline materials, including the interventions chapter and executive summary, which give a strong recommendation for CT in adult PTSD and describe CT-PTSD as an individualised version of the Ehlers and Clark model. NICE PTSD guidance, which recommends individual trauma-focused CBT for adults with PTSD and describes these interventions as typically 8 to 12 sessions, manual-based, and extendable when clinically indicated. RANZCP PS #54, which provides the Australian umbrella position that psychotherapy is core psychiatric treatment."
+      }
     ]
   },
   {
@@ -764,6 +1008,13 @@
     ],
     "aliases": [
       "CRAFT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -787,7 +1038,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Community Reinforcement Approach evidence update describing CRA as a comprehensive behavioural treatment that makes healthy, substance-free living more rewarding than alcohol/drug use. (PMC) DARE/NCBI review summarising limited-to-moderate evidence for CRA, with or without medication or contingency management, in alcohol and substance-related disorders. (NCBI) NICE drug misuse psychosocial interventions for broader psychosocial addiction context, including contingency management, behavioural couples therapy, CBT for comorbid problems, and self-help facilitation. (NICE)"
+      }
+    ]
   },
   {
     "slug": "community-based-psychosocial-intervention",
@@ -806,7 +1064,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government psychosocial support pages, including the Commonwealth Psychosocial Support Program. (Dept of Health, Disability & Ageing) NICE rehabilitation for adults with complex psychosis. (NICE) RANZCP *Recovery and the psychiatrist* for the broader recovery-oriented context. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "compassion-focused-therapy",
@@ -829,7 +1094,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "2023 systematic review and meta-analysis of CFT with clinical populations. (PubMed) 2020 systematic review of CFT effectiveness and acceptability. (PubMed) 2025 systematic review focused on compassion flows, self-criticism, and shame. (PubMed) RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "constructivist-therapies",
@@ -849,7 +1121,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Classic appraisal of constructivist psychotherapies outlining major constructivist clinical lineages and their postmodern epistemic base. (PubMed) Systematic review and meta-analysis of personal construct psychotherapy in clinical practice, showing advantage over no treatment but no clear superiority to active treatment, with important quality limitations. (NCBI) Comprehensive review of personal construct therapy efficacy, used cautiously because it is older but still one of the more central evidence summaries for this psychotherapy family. (PubMed) RANZCP *Psychotherapy conducted by psychiatrists* for contemporary psychiatric positioning of more guideline-prominent psychotherapies. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "contingency-management-cm",
@@ -866,6 +1145,13 @@
     ],
     "aliases": [
       "CM"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -889,7 +1175,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP recognises structured and brief psychotherapies as core psychiatric practice and requires case formulation plus outcome measures in structured brief psychotherapy training, which supports the psychiatric relevance of brief skills-based interventions. WHO’s Problem Management Plus is a current evidence-based low-intensity intervention for adults with distress exposed to adversity; it explicitly combines psychoeducation, stress management, problem management, behavioural strategies, and social-support strengthening, which is the clearest formal model for broad coping-skills work. A recent meta-analysis found transdiagnostic CBT has beneficial effects for emotional disorders across formats, supporting the broader use of structured coping- and skills-based interventions in mixed anxiety/depression presentations when used appropriately."
+      }
+    ]
   },
   {
     "slug": "couples-therapy",
@@ -908,7 +1201,14 @@
       "ACT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression guideline recommends behavioural couples therapy for depression when relationship problems may be contributing to depression or partner involvement may help, and specifies 15 to 20 sessions over 5 to 6 months. RANZCP recognises family and couples therapy as a distinct psychotherapy modality and advanced training area. Review evidence suggests couples interventions can improve relationship distress overall, but the broader evidence base is more heterogeneous than the diagnosis-specific NICE recommendation for depression."
+      }
+    ]
   },
   {
     "slug": "craving-management-interventions",
@@ -933,7 +1233,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE drug misuse psychosocial interventions guideline. (nice.org.uk) Australian evidence-based alcohol treatment guideline summary, including CBT and motivational interviewing as psychosocial treatments. (pubmed.ncbi.nlm.nih.gov) Cochrane review summary on psychosocial interventions for severe mental illness and substance misuse, noting MI, CBT, contingency management, psychoeducation, and skills training as common psychosocial approaches. (cochrane.org)"
+      }
+    ]
   },
   {
     "slug": "crisis-intervention-crisis-oriented-brief-therapy",
@@ -956,7 +1263,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG225 self-harm guidance on psychosocial assessment, immediate safety, care planning, safety planning, family/carer involvement, means restriction, initial aftercare, and structured CBT-informed interventions after self-harm. (NICE) WHO psychological first aid principles, used only for acute crisis-support principles after traumatic events, not as formal psychotherapy evidence. (verywellhealth.com)"
+      }
+    ]
   },
   {
     "slug": "cue-exposure-therapy-cet-for-substance-use-disorders",
@@ -975,6 +1289,13 @@
     ],
     "aliases": [
       "CET"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -998,7 +1319,14 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy position statement. (RANZCP) NICE borderline personality disorder guideline. (NICE) RANZCP group psychotherapies training page, used to support the importance of structured, supervised group psychotherapy delivery. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "dbt-informed-adjunctive-emotion-regulation-work-for-eating-disorders",
@@ -1019,7 +1347,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 does not recommend DBT as a first-line psychotherapy for anorexia nervosa, bulimia nervosa, or binge eating disorder; instead it recommends diagnosis-specific treatments such as FT-AN, FT-BN, CBT-ED, MANTRA, SSCM, and guided self-help, which is why DBT-informed work should be framed as adjunctive rather than primary. A 2021 systematic review and meta-analysis found that DBT in eating disorders appeared to improve emotion dysregulation mainly in binge eating disorder and bulimia nervosa, supporting a selective adjunctive role rather than broad first-line status. A 2020 controlled study in binge eating disorder found both CBT and DBT-adapted treatment reduced binge eating, but CBT remained the guideline treatment of choice and DBT was discussed as a possible alternative model for selected cases. Recent review material on bulimia nervosa and binge eating disorder continues to place CBT-based treatments at the centre of evidence-based psychotherapy, which supports keeping DBT-informed work secondary and selective."
+      }
+    ]
   },
   {
     "slug": "developmental-social-skills-interventions",
@@ -1040,7 +1375,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE autism spectrum disorder in under-19s support and management, especially social-communication intervention recommendations. (NICE) NICE autism in adults guidance for social learning programme components. (NICE) NICE autism quality standard on psychosocial interventions for core features of autism. (NICE)"
+      }
+    ]
   },
   {
     "slug": "developmentally-adapted-dbt",
@@ -1064,7 +1406,14 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "DBT-A systematic review and meta-analysis for adolescent self-harm and suicidal ideation. (Cambridge University Press & Assessment) RANZCP psychotherapy statement recognising DBT as a structured psychotherapy in psychiatric practice. (RANZCP) NICE borderline personality disorder guidance for DBT as comprehensive programme context, applied cautiously because DBT-A evidence and adolescent service models differ from adult BPD guidance."
+      }
+    ]
   },
   {
     "slug": "developmentally-adapted-erp",
@@ -1086,7 +1435,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE OCD and BDD guideline, including paediatric CBT with ERP, developmental adaptation, family/carer involvement, and step-up after inadequate response. (NICE) NICE technical audit definition confirming CBT including ERP for children/young people means involving family/carers and adapting to developmental age. (NICE) AACAP/paediatric OCD evidence was considered as supporting context, but NICE was prioritised because it provides the clearest accessible formal guideline detail."
+      }
+    ]
   },
   {
     "slug": "dialectical-behaviour-therapy-dbt",
@@ -1112,6 +1468,13 @@
     ],
     "aliases": [
       "DBT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -1132,7 +1495,14 @@
       "ACT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "A 2025 comprehensive scoping review describes dignity therapy as an intervention for emotional suffering and loss of dignity in advanced illness/end-of-life care, with growing adaptations and generally promising but not uniformly conclusive evidence. (SpringerLink) A 2024 RCT examined dignity therapy effects on psychological distress and wellbeing in palliative patients and family caregivers. (SpringerLink) A 2023 review of reviews assessed dignity therapy in culturally competent palliative care and supports cautious, culturally adapted use. (PubMed)"
+      }
+    ]
   },
   {
     "slug": "dyadic-therapy",
@@ -1150,7 +1520,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Cochrane’s review of parent–infant psychotherapy describes it as an intervention delivered directly to the parent–infant dyad to address the relationship and related difficulties, and highlights variable evidence across outcomes. A 2020 meta-analysis found mother–infant psychotherapy reduced short-term depressive symptoms in postpartum depression, but did not show clear long-term benefit across maternal mood, mother–infant interaction, and infant attachment outcomes. A recent scoping review of maternal–infant dyadic care identified multiple dyadic care models rather than one single dyadic-treatment format, which supports treating dyadic therapy as a format category rather than one uniform psychotherapy."
+      }
+    ]
   },
   {
     "slug": "dynamic-interpersonal-therapy",
@@ -1175,7 +1552,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy statement, which recognises psychodynamic psychotherapy as a major foundation of psychiatric psychotherapy and notes psychotherapy may be brief/focal or intensive. (RANZCP) RCT evidence on DIT for major depressive disorder. (PubMed) British Psychoanalytic Council DIT description, used only for standard DIT structure and UK service context, not as Australian guideline authority. (psychoanalytic-council.org) RANZCP individual dynamic psychotherapies training page for Australian psychiatric psychodynamic training context. (RANZCP)"
+      }
+    ]
   },
   {
     "slug": "eating-disorder-focused-cognitive-behavioural-therapy-cbt-ed-cbt-e",
@@ -1196,6 +1580,13 @@
     ],
     "aliases": [
       "CBT-ED / CBT-E"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 recommends individual CBT-ED, MANTRA, or SSCM for adults with anorexia nervosa; specifies up to 40 sessions over 40 weeks for adult anorexia CBT-ED; recommends group CBT-ED then individual CBT-ED for adults with binge eating disorder; and recommends individual CBT-ED for adults with bulimia nervosa when guided self-help is unacceptable, contraindicated, or ineffective, with up to 20 sessions over 20 weeks. (nice.org.uk) NICE’s public information pages confirm the same diagnosis-specific adult treatment structure and emphasise that anorexia treatment should also help the person reach a healthy weight, while bulimia CBT focuses on regular eating, eating-disorder psychopathology, and relapse prevention. (nice.org.uk) (nice.org.uk) RANZCP PS #54 supports psychotherapy as core psychiatric treatment, but the most specific current dosing and indication detail for CBT-ED comes from NICE eating-disorder guidance. (ranzcp.org)"
+      }
     ]
   },
   {
@@ -1216,6 +1607,13 @@
     ],
     "aliases": [
       "FPT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 adult anorexia recommendations state that adults should first be considered for CBT-ED, MANTRA, or SSCM, and that FPT is considered if one of those is unacceptable, contraindicated, or ineffective. FPT should typically be up to 40 sessions over 40 weeks and follow the specified phase structure. NICE public information for adult anorexia confirms the same sequencing and notes that changing to focal psychodynamic therapy is an option if the initial therapy is not right or does not help. NICE NG69 overview confirms the guideline remains current, with last review on 15 August 2024."
+      }
     ]
   },
   {
@@ -1234,7 +1632,14 @@
       "ACT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Electroconvulsive therapy (ECT)* position statement. (RANZCP) NICE TA59 ECT guidance for catatonia and prolonged/severe mania, plus consent, risk assessment, training, and monitoring requirements. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "emotion-focused-therapy",
@@ -1257,7 +1662,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) Meta-analysis of emotionally focused couples therapy and behavioural couples therapy. (PubMed) Systematic review of emotionally focused couples therapy effectiveness. (PubMed) Review of the therapeutic relationship in emotion-focused therapy. (PubMed) Comparison paper on cognitive-behavioural and emotion-focused couple therapy. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "empowerment-focused-practice",
@@ -1276,7 +1688,14 @@
       "ACT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Recovery and the psychiatrist* position statement. (RANZCP) RANZCP statement on recovery-oriented practice within mental health legislation and treatment planning. (RANZCP) NICE rehabilitation guidance on strengths, hope, goals, self-management, positive ris\u006b-taking, and support networks. (NICE) RANZCP trauma-informed practice statement, which explicitly links strengths-based work to empowerment and recovery. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "existential-psychotherapy",
@@ -1297,7 +1716,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) Review on existential issues in psychotherapy. (PubMed) Narrative review of existential therapy within palliative care. (PMC) Review of existential issues and psychosocial interventions in palliative care. (PMC) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "experiential-therapies",
@@ -1321,7 +1747,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) 2025 systematic review and meta-analysis update on experiential dynamic therapies. (PMC) Earlier meta-analysis of experiential dynamic therapy for psychiatric conditions. (PubMed) Qualitative meta-analysis of client experiences of emotion-focused therapy, used to support the experiential-process description. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "exposure-and-response-prevention-erp",
@@ -1342,6 +1775,13 @@
     ],
     "aliases": [
       "ERP"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE OCD/BDD guideline CG31, last reviewed 11 July 2024, which gives the stepped-care recommendations and key practice details for CBT including ERP in adults, children, and BDD. Australian Prescriber OCD review, which supports psychological interventions and SSRIs as first-line OCD treatments in Australian practice."
+      }
     ]
   },
   {
@@ -1361,6 +1801,13 @@
     ],
     "aliases": [
       "ERP for Tics"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -1382,7 +1829,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE social anxiety disorder guideline, especially individual CBT with behavioural experiments, exposure, and safety-behaviour work. (NICE) NICE OCD and BDD guideline for CBT including ERP. (NICE) NICE PTSD guideline for trauma-focused CBT and prolonged exposure. (NICE) VA National Center for PTSD prolonged exposure overview, used as supporting implementation detail. (PTSD VA)"
+      }
+    ]
   },
   {
     "slug": "exposure-based-cbt-exposure-therapy",
@@ -1402,7 +1856,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 identifies psychotherapy as core psychiatric treatment and explicitly names cognitive and behavioural psychotherapy as structured psychotherapies used by psychiatrists. NICE panic disorder guidance recommends CBT as the psychological treatment for panic disorder, usually 7 to 14 hours total, typically weekly, completed within 4 months. NICE social anxiety disorder guidance recommends individual CBT specifically developed for social anxiety and describes treatment over about 4 months, including behavioural experiments and exposure to feared or avoided social situations. NICE PTSD guidance confirms that trauma-focused CBT interventions include prolonged exposure therapy, showing that exposure is also a core active ingredient within trauma-focused treatments when specifically indicated."
+      }
+    ]
   },
   {
     "slug": "eye-movement-desensitisation-and-reprocessing-emdr",
@@ -1424,6 +1885,13 @@
     ],
     "aliases": [
       "EMDR"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia adult PTSD recommendations give EMDR a strong recommendation for adults with PTSD. NICE recommends EMDR for adults with PTSD or clinically important PTSD symptoms after non-combat-related trauma and describes it as typically 8 to 12 sessions, phased, manual-based, and using bilateral stimulation. Phoenix Australia’s interventions chapter describes EMDR as a standardised eight-phase trauma-focused therapy using bilateral stimulation while focusing on trauma-related imagery, thoughts, emotions, and body sensations."
+      }
     ]
   },
   {
@@ -1442,7 +1910,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "family-problem-solving-interventions",
@@ -1462,7 +1937,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE quality statement on family intervention for adults with psychosis or schizophrenia. (NICE) NICE adult psychosis and schizophrenia guideline defining family intervention structure and problem-solving/crisis-management content. (NICE) NICE child and youth psychosis quality statement on family intervention and adaptations for learning disability, autism, or cognitive impairment. (NICE) NICE bipolar disorder guideline on structured psychological intervention and problem-solving for communication and functional difficulties. (NICE) Family-focused therapy bipolar disorder review, used for bipolar family problem-solving context. (pmc.ncbi.nlm.nih.gov)"
+      }
+    ]
   },
   {
     "slug": "family-psychoeducation-for-psychosis",
@@ -1479,7 +1961,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "family-therapy",
@@ -1498,7 +1987,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 states psychotherapy may be practised with an individual, dyad, couples, family, group, or system, and frames psychotherapy as a core part of psychiatric treatment. RANZCP psychotherapy training requirements explicitly recognise family therapy across child, adolescent, and adult cases, showing it is treated as a distinct psychotherapy modality. NICE NG69 uses diagnosis-specific family therapies as first-line treatments in eating disorders, including FT-AN and FT-BN. NICE CG178 and QS80 support family intervention in psychosis as a structured psychological therapy. NICE NG134 includes family therapy as an option in moderate to severe depression in children and young people, depending on age and treatment stage."
+      }
+    ]
   },
   {
     "slug": "family-based-treatment-for-adolescent-anorexia-nervosa-ft-an",
@@ -1517,6 +2013,13 @@
     ],
     "aliases": [
       "FT-AN"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 states that FT-AN is the recommended treatment for children and young people with anorexia nervosa, and specifies 18 to 20 sessions over 1 year, review at 4 weeks and then every 3 months, early parental/carer central role, psychoeducation about nutrition and malnutrition, later developmentally appropriate independence work, and final-phase relapse prevention. NICE public information for young people with anorexia states family therapy usually involves 18 to 20 sessions over a year, often lasts 12 to 18 months, allows together/separate/mixed sessions, and includes helping with fears about weight gain, understanding nutrition and starvation, and changing anorexic behaviour. NICE states that if FT-AN is unacceptable, contraindicated, or ineffective, clinicians should consider individual CBT-ED or AFP-AN."
+      }
     ]
   },
   {
@@ -1535,6 +2038,13 @@
     ],
     "aliases": [
       "FT-BN"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 recommends FT-BN for children and young people with bulimia nervosa and specifies that it should typically involve 18 to 20 sessions over 6 months, include regular individual meetings with the young person, use self-monitoring of bulimic behaviours, support regular eating, minimise compensatory behaviours, and end with relapse prevention. NICE’s public information page for youth bulimia explains that FT-BN usually lasts 6 months, involves 18 to 20 sessions, and focuses on helping the family support regular eating and changing behaviours used to control weight. NICE Quality Standard QS175 states that children and young people with bulimia nervosa should be offered FT-BN and notes benefit for remission, binge-eating frequency, and hospitalisation."
+      }
     ]
   },
   {
@@ -1555,7 +2065,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "family-focused-therapy-for-bipolar-disorder-fft-bd",
@@ -1575,6 +2092,13 @@
     ],
     "aliases": [
       "FFT-BD"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Research overview of Family-Focused Therapy for Bipolar Disorder describing the core components as psychoeducation, communication enhancement training, and problem-solving skills training, with supportive adult and youth trial evidence. Adult bipolar outpatient trial of family-focused psychoeducation plus pharmacotherapy. Adolescent bipolar RCT using 21 sessions over 9 months alongside pharmacotherapy. NICE bipolar guideline for the broader bipolar treatment context and RANZCP psychotherapy statement for the Australian psychotherapy frame."
+      }
     ]
   },
   {
@@ -1595,6 +2119,13 @@
     ],
     "aliases": [
       "FFT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE alcohol-use disorders guideline includes FFT for 10 to 17 year-olds with alcohol misuse plus significant comorbidities and/or limited social support, and specifies the core FFT components and 3-month delivery. The 2023 Campbell systematic review/meta-analysis found FFT did not produce consistent benefits or harms for youth behaviour problems, with very low-certainty evidence overall. A 2024 scoping review similarly concluded MST and FFT had uncertain effectiveness for severe and persistent conduct problems, with only 1 of 4 FFT trials showing an effect in that review set."
+      }
     ]
   },
   {
@@ -1617,7 +2148,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) NCBI/StatPearls overview of Gestalt therapy for current descriptive framing. (PubMed) Older meta-analysis of Gestalt therapy effectiveness, used cautiously because of age and language limitations. (PubMed) Recent case-based Gestalt psychotherapy paper for contemporary clinical process framing. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "good-psychiatric-management",
@@ -1641,7 +2179,14 @@
       "DBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Review article describing GPM as a “good enough,” less difficult to implement, principle-based model for BPD, centred on interpersonal hypersensitivity and suitable for stepped-care integration. (PubMed) 2025 review on GPM foundations and future challenges in borderline personality disorder. (PubMed) Case-report and conceptual literature describing GPM as a generalist clinical management approach incorporating common ingredients of good standard care and specialist psychotherapy principles. (Frontiers) Your uploaded therapy guide’s specialist personality section already includes DBT, MBT, schema therapy, CAT, psychodynamic psychotherapy and intensive psychodynamic psychotherapy, making GPM a missing pragmatic generalist model in that same category."
+      }
+    ]
   },
   {
     "slug": "graded-exposure",
@@ -1660,7 +2205,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE panic disorder guidance, which frames CBT as the main psychological treatment and gives the practical treatment dose for panic-spectrum CBT. NICE social anxiety disorder guidance, which explicitly includes exposure to feared or avoided social situations within disorder-specific individual CBT. RANZCP PS #54, which provides the Australian umbrella position that structured cognitive and behavioural psychotherapies are core psychiatric treatments."
+      }
+    ]
   },
   {
     "slug": "group-exposure-programmes",
@@ -1681,7 +2233,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE anxiety disorder guidelines (CBT and exposure-based treatment positioning) RANZCP psychotherapy and anxiety disorder frameworks Standard CBT/exposure therapy evidence base (high consensus clinical practice) Your attached prior chat for structure continuity"
+      }
+    ]
   },
   {
     "slug": "group-psychoeducation",
@@ -1703,7 +2262,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy position statement. (RANZCP) Systematic review of psychoeducation in bipolar disorder. (PMC) Systematic review of RCTs of psychoeducation modalities in bipolar disorder. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "group-psychoeducation-for-bipolar-disorder",
@@ -1722,7 +2288,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "group-relapse-prevention-programmes",
@@ -1742,7 +2315,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression quality statement on preventing relapse. (NICE) NICE depression in adults guideline overview and relapse-prevention framework. (NICE) RANZCP psychotherapy position statement for psychotherapy as a core part of psychiatric maintenance care. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "group-social-skills-training",
@@ -1762,7 +2342,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE adult autism guidance recommends group-based social learning programmes for autistic adults with social interaction problems and lists modelling, peer feedback, discussion, explicit rules and strategies for difficult situations. (NICE) NICE under-19 autism guidance supports social-communication interventions adjusted to developmental level and mediated by parents, carers, teachers or peers. (NICE) Cochrane schizophrenia review found possible benefit for social functioning and relapse versus standard care, but evidence quality was very low and findings were less clear versus discussion groups. (Cochrane) A 2022 systematic review/meta-analysis supports combined psychoeducation, MI, cognitive remediation and/or social-skills training for psychosocial functioning in schizophrenia-spectrum disorders, but intervention combinations vary."
+      }
+    ]
   },
   {
     "slug": "guided-self-help",
@@ -1785,7 +2372,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression guidance on guided self-help and low-intensity CBT-based interventions. (NICE) NICE HealthTech guidance on guided self-help digital CBT and its role as an initial option for mild to moderate symptoms, with explicit safety monitoring requirements. (NICE) RANZCP psychotherapy position statement for psychotherapy as a core psychiatric treatment modality. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "guided-self-help-for-binge-eating-disorder",
@@ -1802,7 +2396,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 states that adults with binge eating disorder should be offered a binge-eating-disorder-focused guided self-help programme as first-line treatment, using cognitive behavioural self-help materials, 4 to 9 supportive sessions of about 20 minutes over 16 weeks, and weekly support at first. It also says to offer group CBT-ED if guided self-help is unacceptable, contraindicated, or ineffective after 4 weeks, and not to offer medication as the sole treatment. NICE quality standard QS175 confirms self-help as the first-line psychological treatment for binge eating disorder and highlights accessibility and format adaptation requirements. NICE public information states that body weight is unlikely to change during therapy and that healthy weight work is a longer-term recovery issue."
+      }
+    ]
   },
   {
     "slug": "guided-self-help-for-bulimia-nervosa",
@@ -1819,7 +2420,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 adult bulimia recommendations state to consider bulimia-nervosa-focused guided self-help, specify CBT self-help materials plus 4 to 9 brief supportive sessions of about 20 minutes over 16 weeks, and recommend stepping up to individual CBT-ED if it is unacceptable, contraindicated, or ineffective after 4 weeks. NICE public information for adult bulimia confirms the same structure and notes that psychological treatments have limited effect on body weight. NICE NG69 overview confirms the guideline remains current, with last review on 15 August 2024."
+      }
+    ]
   },
   {
     "slug": "habit-reversal-training-cbit",
@@ -1842,7 +2450,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "CDC Tourette treatment guidance describes CBIT as evidence-based behavioural therapy for Tourette syndrome and chronic tic disorders, including habit reversal, education, relaxation, and environmental/function-based strategies. (CDC) CDC CBIT article states CBIT can help people with tic disorders manage tics and notes medication is not the only treatment pathway. (CDC) MSD Manual Professional describes body-focused repetitive behaviour disorders and notes CBT, most often habit reversal training, including awareness training, stimulus control, and competing response training. (MSD Manuals) Your uploaded guide already includes OCD/exposure-related therapies and body-focused areas are best added near ERP/exposure because the treatment logic is behavioural but distinct from OCD rituals."
+      }
+    ]
   },
   {
     "slug": "habit-reversal-training-for-trichotillomania-and-excoriation-disorder",
@@ -1860,7 +2475,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "harm-reduction-counselling",
@@ -1881,7 +2503,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE drug misuse psychosocial interventions guideline, including brief motivational interventions and contingency management for harm-reduction-related outcomes. (NICE) Australian Psychological Society public guidance on alcohol and other drug treatments, including MI, brief interventions, harm minimisation, CBT, mindfulness, community reinforcement, and family/couples therapy. (Australian Psychological Society) Australian alcohol treatment guideline overview, including CBT as first-line psychosocial treatment for alcohol dependence and MI short-term efficacy. (PubMed)"
+      }
+    ]
   },
   {
     "slug": "health-anxiety-focused-cbt",
@@ -1904,7 +2533,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "CBT meta-analysis for hypochondriasis/health anxiety. (PubMed) Cochrane review on psychotherapies for hypochondriasis, noting benefit for cognitive and behavioural therapies but limited study size and long-term certainty. (Cochrane) RCT comparing cognitive therapy and exposure therapy for hypochondriasis/health anxiety. (PubMed) RANZCP psychotherapy statement for CBT as a core structured psychiatric psychotherapy. (RANZCP)"
+      }
+    ]
   },
   {
     "slug": "humanistic-psychotherapy",
@@ -1923,7 +2559,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Review of humanistic psychotherapy research and outcomes. (PubMed) Review of psychotherapy of depressive disorders noting less robust evidence for client-centred psychotherapy than CBT/IPT. (PubMed) RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "illness-management-and-recovery-style-interventions-imr-style-interventions",
@@ -1943,6 +2586,13 @@
     ],
     "aliases": [
       "IMR-Style Interventions"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "A review of the IMR literature describes IMR as a standardized psychosocial intervention designed to help people with severe mental illness manage illness and achieve personal recovery goals, with classic delivery in group or individual format over approximately 6 months to 1 year and modules covering recovery, practical facts about mental illness, stress-vulnerability, social support, medication, substances, relapse reduction, coping with stress and persistent symptoms, and healthy lifestyle. A 2022 systematic review and meta-analysis found IMR appears promising for improving personal recovery outcomes, while a multicentre RCT found improvement in self-reported illness management but mixed effects across broader outcomes. NICE rehabilitation guidance for adults with complex psychosis supports recovery-orientated rehabilitation that helps people gain skills to manage everyday activities and mental health, including movement toward self-management of medication, which is the clearest mainstream guideline frame for IMR-style work in current psychosis rehabilitation."
+      }
     ]
   },
   {
@@ -1963,6 +2613,13 @@
     ],
     "aliases": [
       "IRT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -1989,7 +2646,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Systematic literature review in social anxiety disorder describes imagery rescripting as targeting distressing formative memories linked to negative self-imagery and summarises evidence for this use. (PubMed) 2024 systematic review/meta-analysis of imagery rescripting for veterans with nightmares and sleep disturbance found significant pre-post improvements and better sleep-quality outcomes versus controls, while cautioning that included studies were relatively small, heterogeneous, and generally lower quality. (PubMed) 2024 Australian open trial in trauma-affected voice hearers suggests promising transdiagnostic use, but this remains preliminary and not a first-line guideline-equivalent claim. (PubMed) Your uploaded trauma and exposure sections already distinguish guideline-dominant PTSD therapies from adjunctive/stabilisation techniques, which is important for placing imagery rescripting as a targeted technique rather than a universal first-line trauma therapy."
+      }
+    ]
   },
   {
     "slug": "inference-based-cbt-for-ocd",
@@ -2010,7 +2674,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE CG31 remains the main guideline anchor and recommends CBT including ERP as the treatment of choice for OCD, with stepped intensity and family involvement for youth. (NICE) A 2024 multisite RCT compared I-CBT with CBT for OCD and tested non-inferiority across 20 sessions. (PubMed) IOCDF describes I-CBT as a treatment for OCD focused on inferential confusion and obsessional doubt. (International OCD Foundation) A poor-insight OCD RCT found both IBA/I-CBT-type treatment and CBT improved OCD symptoms, with possible advantage in the worst-insight subgroup."
+      }
+    ]
   },
   {
     "slug": "integrated-cbt-for-ptsd-and-substance-use-disorders",
@@ -2028,7 +2699,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "integrated-dual-diagnosis-psychotherapy",
@@ -2049,7 +2727,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "SAMHSA Integrated Treatment for Co-Occurring Disorders EBP Kit. (samhsa.gov) Better Health Channel dual diagnosis overview, used as Australian public health context. (betterhealth.vic.gov.au) Cochrane review on psychosocial interventions for people with severe mental illness and substance misuse. (cochrane.org) 2024 scoping review of interventions for co-occurring severe mental illness and substance use in general practice. (bmcprimcare.biomedcentral.com)"
+      }
+    ]
   },
   {
     "slug": "intensive-psychodynamic-psychotherapy",
@@ -2069,7 +2754,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 explicitly lists intensive psychodynamic psychotherapy and states longer-term psychodynamic psychotherapy of one year and longer benefits people with complex disorders; it also notes that some treatments may take more than a year and several sessions a week. The 2011 meta-analysis of long-term psychodynamic psychotherapy in complex mental disorders defined it as at least one year or 50 sessions and found it outperformed less intensive psychotherapies on several outcomes. The 2012 meta-analysis of long-term psychoanalytic psychotherapy supports a clinically relevant evidence base for longer-course psychodynamic treatment, though the literature remains more contested and older than for some shorter structured therapies."
+      }
+    ]
   },
   {
     "slug": "internet-delivered-cbt",
@@ -2091,7 +2783,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government Department of Health page on MindSpot. (Dept of Health, Disability & Ageing) NICE guidance on guided self-help digital CBT technologies for mild to moderate anxiety or low mood in young people. (NICE) NICE safety and monitoring requirements for digital CBT technologies. (NICE) RANZCP psychotherapy position statement. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "interoceptive-exposure",
@@ -2110,7 +2809,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE panic disorder guidance recommends CBT as the main psychological treatment, usually 7 to 14 hours total, typically weekly, completed within 4 months, which is the main guideline framework within which interoceptive exposure sits. The panic-disorder CBT literature underpinning NICE conceptualises panic in terms of catastrophic appraisal of bodily sensations and behavioural maintenance, which is the direct rationale for interoceptive exposure within panic CBT. RANZCP PS #54 provides the Australian umbrella position that structured psychotherapies, including cognitive and behavioural psychotherapy, are core psychiatric treatment modalities."
+      }
+    ]
   },
   {
     "slug": "interpersonal-and-social-rhythm-therapy-ipsrt",
@@ -2135,6 +2841,13 @@
     ],
     "aliases": [
       "IPSRT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2160,6 +2873,13 @@
     ],
     "aliases": [
       "IPT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression guideline NG222, last reviewed 30 January 2026, lists interpersonal psychotherapy (IPT) as a treatment option for both less severe and more severe depression. It describes IPT as focusing on how interpersonal relationships or circumstances are related to depression and states it is usually 8 to 16 sessions for less severe depression and 16 sessions for more severe depression. RANZCP PS #54 identifies psychotherapy as core psychiatric practice and explicitly names interpersonal therapy among the structured psychotherapies used by psychiatrists."
+      }
     ]
   },
   {
@@ -2179,7 +2899,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Cochrane review on reminiscence therapy for dementia describes RT as discussing past events/experiences using prompts such as pictures, videos and objects, with outcomes including quality of life, cognition, communication, mood and carer effects. (Cochrane) A 2025 umbrella review summarised systematic reviews/meta-analyses of reminiscence therapy in older adults and noted inconsistent outcomes across health domains. (SpringerLink) A 2023 systematic review/meta-analysis found life review and reminiscence therapy may improve quality of life and life satisfaction in older adults, with individual sessions and 6–8 session formats appearing useful in subgroup analyses."
+      }
+    ]
   },
   {
     "slug": "low-intensity-relapse-prevention-programmes",
@@ -2199,7 +2926,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression relapse-prevention quality statement. (NICE) NICE depression guideline recommendations on preventing relapse, including group CBT or MBCT and typical course length. (NICE) NICE rationale and impact section noting good evidence for antidepressants, group CBT and MBCT, and limited evidence for brief psychotherapy courses. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "matrix-model",
@@ -2216,7 +2950,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "maudsley-anorexia-nervosa-treatment-for-adults-mantra",
@@ -2236,6 +2977,13 @@
     ],
     "aliases": [
       "MANTRA"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 adult anorexia recommendations, including the specific MANTRA dosing and content requirements. NICE public information for adult anorexia treatment, which confirms MANTRA as one of the main adult therapy options. RANZCP PS #54 for the broader Australian psychotherapy frame."
+      }
     ]
   },
   {
@@ -2256,7 +3004,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Meaning-centered psychotherapy: a form of psychotherapy for patients with cancer. (PubMed) Meaning-Centered Psychotherapy and Cancer: Finding Meaning in the Face of Suffering. (PubMed) Individual meaning-centered psychotherapy RCT in advanced cancer. (PubMed) Pilot palliative-care adaptation of MCP. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "mentalisation-based-therapy-mbt",
@@ -2281,6 +3036,13 @@
     ],
     "aliases": [
       "MBT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2305,6 +3067,13 @@
     ],
     "aliases": [
       "MCT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 provides the Australian umbrella position that psychotherapy is core psychiatric treatment, but it does not specifically list MCT alongside the more established structured therapies it names, which is one reason to be more cautious about guideline positioning. A 2018 systematic review and meta-analysis found the strongest evidence for MCT in anxiety and depression, reported large effects in the pooled literature, and noted that most studies used weekly sessions with a mean of about 9.5 sessions. A 2024 review focused on metacognitive therapy for depression supports its growing evidence base in depressive disorders, but this still does not amount to broad mainstream first-line guideline endorsement equivalent to CBT."
+      }
     ]
   },
   {
@@ -2328,6 +3097,13 @@
     ],
     "aliases": [
       "MBCT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression guideline NG222, last reviewed 30 January 2026, recommends group CBT or mindfulness-based cognitive therapy (MBCT) for people at higher risk of relapse and also describes a mindfulness-based cognitive therapy programme for depression as usually 8 regular sessions with 8 to 15 participants and home practice using mindfulness recordings. It also notes MBCT may be difficult for people with intense distressing thoughts or who find body-focused attention difficult. RANZCP PS #54 describes psychotherapy as core psychiatric practice and includes structured psychotherapies and newer CBT-related approaches within psychiatrist-delivered psychotherapy."
+      }
     ]
   },
   {
@@ -2351,6 +3127,13 @@
     ],
     "aliases": [
       "MBRP"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2372,7 +3155,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "2023 meta-analysis on MBSR and depressive symptoms. (Sage Journals) 2024 systematic review/meta-analysis of MBSR in veterans for depression, PTSD, and mindfulness. (PubMed) 2025 meta-analysis of mindfulness-based interventions reducing depressive symptoms across mental disorders, used to keep current psychiatric positioning grounded. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "mindfulness-based-therapies-not-primarily-cbt-anchored",
@@ -2394,7 +3184,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) 2025 meta-analysis of mindfulness-based interventions across mental disorders. (RANZCP) Prior MBSR-focused evidence already used in this sequence for mindfulness-based intervention positioning. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "mindfulness-based-therapy-for-insomnia-mbti",
@@ -2415,6 +3212,13 @@
     ],
     "aliases": [
       "MBTI"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2436,7 +3240,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "motivational-enhancement-therapy-met",
@@ -2457,6 +3268,13 @@
     ],
     "aliases": [
       "MET"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2477,7 +3295,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "SAMHSA’s 2025 resource explicitly frames motivational interviewing as a recognised approach in substance use disorder treatment. Your handbook drafts position MI as a foundational engagement and ambivalence-reduction therapy, strongest when readiness is the barrier and weaker when used instead of needed active treatment."
+      }
+    ]
   },
   {
     "slug": "motivational-interviewing-mi-for-substance-use-disorders",
@@ -2497,6 +3322,13 @@
     ],
     "aliases": [
       "MI"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2514,7 +3346,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "multidimensional-family-therapy",
@@ -2534,7 +3373,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "MDFT review describes it as an integrative outpatient treatment blending family therapy, individual therapy, drug counselling and multisystem intervention across adolescent, parent, family and extrafamilial domains. (PMC) RCT evidence suggests MDFT may be especially helpful for higher-severity adolescent substance use with more comorbidity. (PubMed) A 2023 young-adult justice-involved adaptation found MDFT feasible, high-fidelity and acceptable, but this is smaller and should be treated as emerging extension evidence. (Springer) NICE drug misuse prevention guidance supports skills and family/carer involvement for vulnerable young people, but does not make MDFT a central named recommendation."
+      }
+    ]
   },
   {
     "slug": "multisystemic-therapy-mst",
@@ -2553,6 +3399,13 @@
     ],
     "aliases": [
       "MST"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE conduct-disorder guidance recommends multimodal interventions such as MST for 11 to 17 year-olds with conduct disorder, with 3 to 4 meetings per week over 3 to 5 months, trained case managers, manual fidelity, and work across family, school, criminal-justice, and community systems. NICE alcohol-use disorders guidance includes MST for 10 to 17 year-olds with alcohol misuse plus significant comorbidities and/or limited social support, and specifies 3 to 6 months with low caseload and strong family / peer / school / community work. A 2017 systematic review concluded MST is efficacious for severe antisocial behaviour and delinquency reduction, but later reviews show more mixed findings and some uncertainty across settings and populations."
+      }
     ]
   },
   {
@@ -2575,6 +3428,13 @@
     ],
     "aliases": [
       "NET"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia adult PTSD recommendations give NET a conditional recommendation for PTSD linked to genocide, civil conflict, torture, political detention, or displacement. Phoenix Australia interventions chapter describes NET as a standardised short-term intervention using life narrative construction and detailed processing of traumatic events. A meta-analysis found NET reduced PTSD symptoms and described it as a short-term trauma-focused therapy often used in refugees and other repeated-trauma survivors, while noting that controlled comparisons with other guideline-supported trauma therapies remain limited."
+      }
     ]
   },
   {
@@ -2594,7 +3454,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists* for current psychiatric positioning of major psychotherapies and the absence of narrative therapy as a guideline-dominant structured modality. (RANZCP) 2026 systematic review of narrative therapy in cancer, which describes narrative therapy as a postmodern constructivist approach and outlines its core therapeutic sequence while also noting high risk of bias across included studies. (PMC) Recent general overview and review literature on narrative therapy, used cautiously for broad psychotherapy framing rather than guideline authority. (PMC) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "narrative-informed-community-work",
@@ -2612,7 +3479,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Recovery and the psychiatrist*. (RANZCP) RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) NICE rehabilitation for adults with complex psychosis. (NICE) NICE person-centred and recovery-focused transition guidance. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "neurodevelopmentally-adapted-psychosocial-interventions",
@@ -2636,7 +3510,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE autism spectrum disorder in under-19s support and management, including social-communication and behaviour-that-challenges recommendations. (NICE) NICE autism in adults diagnosis and management, including social learning, life-skills, and leisure activity programmes. (NICE) NICE autism quality standard definitions of psychosocial interventions for children/young people and adults. (NICE) Systematic review on clinician experience adapting mental health interventions for autistic adults, summarising concrete therapy adaptations. (Springer)"
+      }
+    ]
   },
   {
     "slug": "panic-focused-cbt",
@@ -2659,7 +3540,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE guideline CG113 on generalised anxiety disorder and panic disorder in adults. (NICE) NICE public guidance on panic disorder CBT duration and structure. (NICE) Cochrane review on psychological therapies for panic disorder with or without agoraphobia. (Cochrane) RANZCP psychotherapy position statement for CBT as a core structured psychiatric psychotherapy. (RANZCP)"
+      }
+    ]
   },
   {
     "slug": "parent-management-training-pmt",
@@ -2679,6 +3567,13 @@
     ],
     "aliases": [
       "PMT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2695,7 +3590,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "parent-and-child-training",
@@ -2711,7 +3613,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "parent-child-relational-therapy",
@@ -2729,7 +3638,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "parent-child-interaction-therapy-pcit",
@@ -2749,6 +3665,13 @@
     ],
     "aliases": [
       "PCIT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2765,7 +3688,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "SAMHSA peer recovery support service resources and peer worker role descriptions. (SAMHSA) 2025 systematic review of peer recovery support services and recovery coaching for SUD. (Springer) NICE drug misuse psychosocial guidance on self-help and support linkage. (NICE)"
+      }
+    ]
   },
   {
     "slug": "peer-support",
@@ -2782,7 +3712,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "peer-led-groups",
@@ -2801,7 +3738,14 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "2024 umbrella review of peer support approaches for mental health. (SpringerLink) Systematic review and meta-analysis of group peer support interventions for mental health conditions. (SpringerLink) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "person-centred-rogerian-therapy",
@@ -2822,7 +3766,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression in adults guideline recommendations, especially the counselling sections. (NICE) RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) NICE behaviour change guidance for person-centred approach principles. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "phase-oriented-trauma-therapy",
@@ -2843,7 +3794,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia’s current PTSD guidelines state that for complex PTSD there is currently no direct evidence about how to treat it, which is why phase-oriented work is better framed as an evidence-informed clinical approach than as a formally guideline-preferred first-line treatment. NICE PTSD guidance recognises that people with PTSD, including complex PTSD, may present with dissociation, emotional dysregulation, interpersonal difficulties, and negative self-perception, which are the main clinical reasons phased treatment is sometimes used. Phoenix Australia’s practitioner complex-trauma toolkit notes that Australian and ISTSS guidance still recommend trauma-focused CBT or EMDR as first-line PTSD treatments, while also highlighting the need for emotion-regulation skills in clients with associated difficulties after prolonged trauma."
+      }
+    ]
   },
   {
     "slug": "play-therapy-play-based-therapies",
@@ -2865,7 +3823,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Systematic review/meta-analysis of play-based interventions in children and adolescents with autism and developmental language disorder, used cautiously because outcome evidence was limited and population-specific. (PubMed) Systematic review of play therapy in children with chronic illness, used as supportive evidence for psychosocial outcomes rather than broad psychiatric first-line claims. (PubMed) NICE depression in children and young people evidence material, used to keep play therapy positioned below more established child/adolescent CBT and IPT pathways for depressive disorders."
+      }
+    ]
   },
   {
     "slug": "problem-management-plus-pm",
@@ -2888,7 +3853,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "WHO describes PM+ as a scalable intervention for adults impaired by psychological distress in communities exposed to adversity, adapted from CBT components for feasibility in low-specialist settings. (World Health Organization) WHO’s 2025 individual PM+ training manual states PM+ is a 5-session, evidence-based individual psychological intervention and provides implementation/training guidance. (World Health Organization) WHO also publishes Group PM+ as a group version for adults impaired by distress in adversity-exposed communities."
+      }
+    ]
   },
   {
     "slug": "problem-solving-therapy-pst",
@@ -2910,6 +3882,13 @@
     ],
     "aliases": [
       "PST"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -2932,7 +3911,14 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP group psychotherapies training requirements. (RANZCP) RANZCP psychotherapy position statement. (RANZCP) RANZCP psychotherapies certificate overview. (RANZCP) Psychodynamic group psychotherapy review used cautiously for descriptive process-group features. (PMC) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "prolonged-exposure-pe",
@@ -2953,6 +3939,13 @@
     ],
     "aliases": [
       "PE"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia PTSD guideline materials, including the interventions chapter, patient guide, and executive summary, which give a strong recommendation for PE in adult PTSD and describe its core components and typical session structure. NICE PTSD guidance, which includes prolonged exposure within recommended individual trauma-focused CBT interventions for adults and describes the general treatment dose as typically 8 to 12 sessions, with more when clinically indicated. RANZCP PS #54, which provides the Australian umbrella position that psychotherapy is core psychiatric treatment."
+      }
     ]
   },
   {
@@ -2973,7 +3966,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 states psychotherapy is core psychiatric treatment, explicitly includes psychoanalysis, and notes that some psychotherapies may take more than a year and several sessions a week to achieve full benefit. It also emphasises that psychiatrists should consider psychotherapy alongside other treatments and that longer-term psychodynamic treatments may benefit complex disorders. (ranzcp.org) The 2012 meta-analysis of long-term psychoanalytic psychotherapy found that evidence is mixed and debated, with some signals of benefit but no strong clear superiority over specialised comparators, which supports a cautious framing rather than overclaiming. (pubmed.ncbi.nlm.nih.gov) Long-term observational work suggests some patients improve substantially over time, but this is not the same as strong contemporary first-line guideline endorsement."
+      }
+    ]
   },
   {
     "slug": "psychodynamic-psychotherapy",
@@ -2996,7 +3996,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 states psychotherapy is core psychiatric treatment, identifies psychodynamic therapy as one of the most common psychotherapy foundations, and states there is considerable empirical evidence supporting psychodynamic approaches across depression, eating disorders, panic, somatoform disorders, substance-related disorders, personality disorders, and some anxiety disorders. The 2023 World Psychiatry umbrella review concluded psychodynamic psychotherapy qualifies as an empirically supported treatment for several common mental disorders."
+      }
+    ]
   },
   {
     "slug": "psychoeducation",
@@ -3017,7 +4024,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 states psychotherapy is an evidence-based treatment essential to psychiatric practice and a core component of every psychiatric treatment, supporting psychoeducation as a foundational therapeutic element within psychiatric care. Your handbook drafts consistently place psychoeducation in the foundational layer and emphasise it as a core intervention in psychosis, mood disorders, anxiety, OCD, and eating disorders."
+      }
+    ]
   },
   {
     "slug": "psychoeducation-for-psychosis",
@@ -3034,7 +4048,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "psychoeducational-recovery-groups",
@@ -3053,7 +4074,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "SAMHSA Illness Management and Recovery EBP toolkit. (SAMHSA) Review of the IMR literature. (PMC) Earlier review of illness management and recovery research. (PubMed) One active-control RCT, used to keep claims appropriately cautious. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "psychosis-specific-self-management-programmes",
@@ -3073,7 +4101,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE psychosis and schizophrenia guidance recommends considering a manualised self-management programme for psychosis or schizophrenia, delivered face-to-face as part of treatment and management. It also specifies content areas including symptoms, medication, coping, crisis response, relapse prevention, support services, social support, and recovery goals."
+      }
+    ]
   },
   {
     "slug": "psychosocial-case-planning",
@@ -3091,7 +4126,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government psychosocial support pages and Commonwealth Psychosocial Support Program. (Dept of Health, Disability & Ageing) RANZCP *Recovery and the psychiatrist* position statement. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "recovery-groups",
@@ -3109,7 +4151,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Recovery and the psychiatrist* position statement. (RANZCP) RANZCP psychotherapy position statement. (RANZCP) SAMHSA Illness Management and Recovery EBP toolkit, used cautiously because it is not Australian guidance but is a major implementation reference for recovery-oriented group work. (SAMHSA) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "recovery-planning-for-addiction",
@@ -3132,7 +4181,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "SAMHSA recovery and peer recovery support resources, especially recovery support principles and peer recovery service descriptions. (SAMHSA) NICE drug misuse psychosocial interventions guidance, including self-help/12-step linkage and psychosocial intervention context. (NICE) Australian Psychological Society alcohol and other drug treatment overview previously used in this addendum for harm minimisation, CBT, MI, and relapse-related psychological strategies."
+      }
+    ]
   },
   {
     "slug": "recovery-oriented-case-management",
@@ -3150,7 +4206,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government psychosocial support pages and Commonwealth Psychosocial Support Program. (Dept of Health, Disability & Ageing) RANZCP *Recovery and the psychiatrist* position statement. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "recovery-oriented-psychosocial-interventions",
@@ -3169,7 +4232,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "relapse-prevention-therapy-for-substance-use-disorders",
@@ -3188,7 +4258,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "relapse-prevention-psychotherapy",
@@ -3211,7 +4288,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "relational-psychodynamic-therapies",
@@ -3236,7 +4320,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy statement, especially psychodynamic psychotherapy, intensive longer-term treatment, psychotherapy relationship focus, and evidence for psychodynamic approaches. (RANZCP) RANZCP individual dynamic psychotherapies training page for Australian psychiatric training and supervision context. (RANZCP) CADTH review summarising guideline positions for short-term psychodynamic psychotherapy in depression and social anxiety, used cautiously as secondary evidence. (ncbi.nlm.nih.gov)"
+      }
+    ]
   },
   {
     "slug": "relational-cultural-therapy",
@@ -3256,7 +4347,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) 2026 review on relational-cultural theory in therapy. (ScienceDirect) Outcome study of brief relational-cultural therapy in a women’s mental health centre. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "relationship-focused-therapy",
@@ -3278,7 +4376,14 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy position statement, including dyad, couples, family, group, and system psychotherapy. (RANZCP) RANZCP family and couples therapy training requirements. (RANZCP) NICE depression guideline recommendation for behavioural couples therapy when relationship problems contribute to depression. (NICE)"
+      }
+    ]
   },
   {
     "slug": "resource-linkage-coordination-as-therapeutic-intervention",
@@ -3296,7 +4401,14 @@
       "ACT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government psychosocial support overview. (Dept of Health, Disability & Ageing) Commonwealth Psychosocial Support Program description. (Dept of Health, Disability & Ageing) NICE rehabilitation for adults with complex psychosis. (NICE) RANZCP *Recovery and the psychiatrist*. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "rtms",
@@ -3313,7 +4425,14 @@
       "ACT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP Repetitive Transcranial Magnetic Stimulation position statement. (RANZCP) NICE Repetitive transcranial magnetic stimulation for depression guidance. (NICE) RANZCP rTMS credentialling for psychiatrists page for current Australian MBS/training context. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "schema-therapy",
@@ -3334,7 +4453,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 includes schema therapy among structured psychotherapies used by psychiatrists. A 2024 RCT found schema therapy and DBT were both effective for BPD, supporting schema therapy as a serious specialist option rather than a fringe approach. A 2024 systematic review of BPD psychotherapies supports specialist psychotherapies overall, while recent schema-therapy reviews suggest promise, especially in group formats, but the wider evidence base is still evolving. NICE BPD guidance provides the broader structure for specialist BPD therapy but does not specifically privilege schema therapy by name."
+      }
+    ]
   },
   {
     "slug": "school-refusal-cbt",
@@ -3359,7 +4485,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "2024 systematic review of school refusal. (Springer) 2024 narrative review of school refusal behaviour, psychopathology, and neurodevelopmental associations. (SpringerLink) NICE social anxiety guidance for developmentally adapted CBT principles and family/school-relevant adaptation. (NICE)"
+      }
+    ]
   },
   {
     "slug": "seeking-safety",
@@ -3380,7 +4513,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "self-management-interventions",
@@ -3399,7 +4539,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE psychosis and schizophrenia guidance says to consider a manualised self-management programme for people with psychosis or schizophrenia and specifies that these programmes should include information about symptoms, medication, coping, crisis response, relapse prevention, and recovery goals. NICE rehabilitation guidance for complex psychosis emphasises helping people gain skills to manage everyday activities and their mental health, including moving toward self-management of medication through a graduated programme when appropriate. Your handbook drafts already place self-management programmes within the psychosis/recovery/rehabilitation layer and treat them as recovery-focused skill-building rather than a substitute for active syndrome-specific treatment."
+      }
+    ]
   },
   {
     "slug": "short-term-psychodynamic-psychotherapy-stpp",
@@ -3422,6 +4569,13 @@
     ],
     "aliases": [
       "STPP"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 provides the Australian umbrella position that psychotherapy is core psychiatric treatment and includes intensive psychodynamic psychotherapy among core psychotherapy traditions, supporting the psychodynamic family within psychiatric practice. A 2023 meta-analysis found STPP superior to no intervention and usual unstructured treatments in depressive disorders, supporting it as an evidence-based option for depression. A 2025 systematic review found support for adding STPP to pharmacotherapy in depressive disorders, again strongest in depression rather than across all diagnoses. A recent article argues strongly for STPP as first-line in depression, but that is a perspective piece rather than a mainstream guideline position, so I have treated it cautiously rather than as consensus."
+      }
     ]
   },
   {
@@ -3446,6 +4600,13 @@
     ],
     "aliases": [
       "STPP"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -3467,7 +4628,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy position statement. (RANZCP) NICE psychosis and schizophrenia guideline, especially the recommendation not to routinely offer social skills training as a specific intervention. (NICE) NICE rehabilitation for adults with complex psychosis guideline, especially structured group activities aimed at improving interpersonal skills. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "sleep-compression-therapy-for-insomnia",
@@ -3486,7 +4654,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "--"
+      }
+    ]
   },
   {
     "slug": "social-cognition-training",
@@ -3505,7 +4680,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "A network meta-analysis found broad-based social cognition training was the most consistently effective form, improving multiple domains of social cognition and social functioning, while group formats were associated with better social-functioning outcomes. Earlier meta-analytic work defined the main target domains as facial affect recognition, social perception, theory of mind, and attributional style. NICE rehabilitation guidance supports broader psychosis rehabilitation and interpersonal-skills work but does not position SCT as a core first-line named psychotherapy alongside CBTp or family intervention."
+      }
+    ]
   },
   {
     "slug": "social-skills-training-sst",
@@ -3527,6 +4709,13 @@
     ],
     "aliases": [
       "SST"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE CG178 explicitly states: “Do not routinely offer social skills training (as a specific intervention) to people with psychosis or schizophrenia.” NICE rehabilitation guidance recommends structured group activities aimed at improving interpersonal skills in complex psychosis rehabilitation, which supports a narrower rehabilitation role for skills-focused work. Recent meta-analytic and trial literature suggests CBSST may improve functioning in schizophrenia, but this is a more specific hybrid intervention and does not override NICE’s routine-practice recommendation against SST as a stand-alone specific intervention."
+      }
     ]
   },
   {
@@ -3550,7 +4739,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE guideline CG159 on social anxiety disorder, especially Clark and Wells and Heimberg CBT components. (NICE) RANZCP psychotherapy position statement for CBT as a core psychiatric psychotherapy. (RANZCP) NICE GAD/panic guideline used only for broader anxiety stepped-care comparison, not as the primary social-anxiety source. (NICE)"
+      }
+    ]
   },
   {
     "slug": "social-communication-parent-mediated-autism-interventions",
@@ -3568,7 +4764,14 @@
       "ACT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "social-role-restoration-work",
@@ -3588,7 +4791,14 @@
       "ACT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Recovery and the psychiatrist*. (RANZCP) NICE rehabilitation for adults with complex psychosis. (NICE) Australian Government psychosocial support overview and CPSP description. (Dept of Health, Disability & Ageing) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "solution-focused-brief-therapy",
@@ -3608,7 +4818,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP psychotherapy position statement for how SFBT sits relative to more established structured psychotherapies in psychiatric practice. (RANZCP) 2024 umbrella review of systematic reviews and meta-analyses on SFBT effectiveness. (PubMed) Earlier systematic review commentary noting variable evidence quality and caution against overstating benefits. (NCBI) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "specialist-supportive-clinical-management-sscm",
@@ -3626,6 +4843,13 @@
     ],
     "aliases": [
       "SSCM"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG69 adult anorexia recommendations, including the specific SSCM dosing and content requirements. NICE public information for adult anorexia treatment, which confirms SSCM as one of the main adult therapy options. RANZCP PS #54 for the broader Australian psychotherapy frame."
+      }
     ]
   },
   {
@@ -3651,7 +4875,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia Australian PTSD Guidelines, including NHMRC-approved recommendations and stepped/collaborative care framing. (Phoenix Australia) Phoenix Australia Disaster Mental Health Hub summary of PTSD treatment options and TF-CBT components. (Phoenix Australia) Open Arms PTSD treatment guidance on stabilising emotions and addressing current crises, suicidal/homicidal ideation, and substance abuse before trauma memory work. (openarms.gov.au) VA/DoD PTSD psychotherapy overview, used as a supporting international guideline source for trauma-focused treatment primacy. (PTSD VA)"
+      }
+    ]
   },
   {
     "slug": "stair-skills-training-in-affective-and-interpersonal-regulation",
@@ -3676,6 +4907,13 @@
     ],
     "aliases": [
       "Skills Training in Affective and Interpersonal Regulation"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Your uploaded guide already frames trauma-informed skills work as preparatory/adjunctive, notes STAIR as a prominent example, and describes it as typically 10 weekly sessions drawing on cognitive, behavioural, and DBT-informed strategies. A 2024 systematic review of STAIR for complex trauma reported significant symptom reductions across seven studies, including improvements in disturbances in self-organisation, but found mixed results when compared with direct trauma-focused approaches. (ScienceDirect) The RESTORE pilot RCT studied enhanced STAIR versus treatment as usual for ICD-11 complex PTSD, supporting STAIR’s relevance to CPTSD while keeping claims appropriately cautious. (PubMed) Phoenix Australia PTSD Guidelines provide the Australian PTSD/CPTSD guideline frame and continue to prioritise evidence-based trauma-focused treatments for PTSD while recognising complexity in implementation. (Phoenix Australia)"
+      }
     ]
   },
   {
@@ -3692,7 +4930,14 @@
       "ACT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Meta-analysis of strengths-based approaches in severe mental illness. (PubMed) Randomised controlled trial of strengths model case management versus standard care. (PubMed) Study linking strengths-model fidelity with outcomes. (PubMed) NICE rehabilitation guidance for the broader recovery-oriented rehabilitation context. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "strengths-based-practice",
@@ -3710,7 +4955,14 @@
       "ACT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE rehabilitation for adults with complex psychosis, especially recommendations on recovery-oriented rehabilitation, strengths, goals, support networks, self-management, and assessment domains. (NICE) NICE rationale and impact section on recovery-oriented rehabilitation and service success. (NICE) RANZCP *Recovery and the psychiatrist* position statement. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "structured-clinical-management",
@@ -3733,7 +4985,14 @@
       "DBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "BMC Psychiatry trial description of SCM as protocol-driven best current clinical practice, including crisis plans, pharmacotherapy, general psychiatric review, written information, weekly individual/group sessions, and 3-monthly medication review. (SpringerLink) Springer/Nature trial summary describing SCM as manualised supportive counselling plus case management, advocacy support, and problem-oriented psychotherapeutic interventions. (Springer) RCT comparing MBT with structured case management in a mainstream public health service. (PubMed) Your uploaded guide’s personality section emphasises structured specialist psychotherapies, explicit models, supervision, and careful evidence gradients, which supports adding SCM as a structured generalist/public-sector personality-disorder model rather than a vague supportive therapy."
+      }
+    ]
   },
   {
     "slug": "support-groups",
@@ -3754,7 +5013,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE quality statement on carer-focused education and support for psychosis/schizophrenia. (NICE) NICE quality statement on support for carers in youth bipolar disorder, psychosis, and schizophrenia. (NICE) Systematic review and meta-analysis of group peer support interventions for mental health conditions. (SpringerLink) RANZCP psychotherapy position statement for psychotherapy-versus-support distinctions in psychiatric care. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "supported-digital-cbt",
@@ -3776,7 +5042,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government Department of Health page on MindSpot. (Dept of Health, Disability & Ageing) Australian Government page on digital mental health services. (Dept of Health, Disability & Ageing) NICE HTG660 on guided self-help digital CBT technologies, including the technology description and recommendations. (NICE) NICE evidence-generation safety and monitoring material. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "supported-digital-trauma-focused-cbt",
@@ -3797,7 +5070,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia Australian PTSD Guidelines for Australian PTSD guideline context and recommended trauma-focused psychological treatments. (Phoenix Australia) Systematic review and meta-analysis of internet-delivered CBT for PTSD. (PubMed) CADTH review of internet-delivered CBT for PTSD, highlighting heterogeneity and comparison findings. (NCBI) Systematic review on acceptability of i-CBT for PTSD and dropout concerns. (PMC) VA/DoD PTSD psychotherapy overview for international guideline support that PE, CPT, and EMDR remain the strongest trauma-focused psychotherapies."
+      }
+    ]
   },
   {
     "slug": "supported-digital-trauma-focused-cbt-self-help-and-digital-therapies",
@@ -3820,6 +5100,13 @@
     ],
     "aliases": [
       "Supported digital trauma-focused CBT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Systematic review and meta-analysis of internet-delivered CBT for PTSD. (PubMed) RCT of internet-based trauma-focused CBT for PTSD with and without exposure components. (PubMed) Child and adolescent internet-delivered CBT meta-analysis, used cautiously for adaptation framing rather than PTSD-specific claims. (PubMed) Face-to-face youth TF-CBT evidence, used to keep youth digital-trauma claims appropriately cautious. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
     ]
   },
   {
@@ -3842,7 +5129,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE rehabilitation guidance for adults with complex psychosis recommends educational and skill-development opportunities, including recovery colleges and mainstream adult education settings, and broader community activities tailored to goals and ability."
+      }
+    ]
   },
   {
     "slug": "supported-employment-individual-placement-and-support-ips",
@@ -3862,6 +5156,13 @@
     ],
     "aliases": [
       "IPS"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG181 recommends considering referral to supported employment using the IPS approach for people with complex psychosis who want mainstream employment, advises discussing welfare-benefit impact, and defines IPS as rapid job finding with time-unlimited individualised support. NICE QS80 describes supported employment programmes / IPS as vocational approaches aiming to place service users in competitive employment immediately, with only a very short preparation period and no sheltered work, training, or transitional employment first. Meta-analyses show IPS improves competitive employment, job duration, and income compared with usual services."
+      }
     ]
   },
   {
@@ -3883,7 +5184,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 explicitly names supportive psychotherapy as one of the psychotherapies practised by psychiatrists and frames psychotherapy as a core component of psychiatric treatment. Your handbook drafts explicitly reframe supportive psychotherapy as foundational and broadly useful, but not equivalent to disorder-specific therapies such as ERP, trauma-focused therapy, or structured BPD treatments."
+      }
+    ]
   },
   {
     "slug": "supportive-expressive-psychodynamic-counselling-approaches-for-depression",
@@ -3905,7 +5213,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
+    ]
   },
   {
     "slug": "systemic-family-therapy",
@@ -3922,7 +5237,14 @@
       "ACT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG134 specifically names systemic family therapy as an option for children and young people with depression, including at least 15 fortnightly sessions after non-response in some cases. RANZCP PS #54 states psychotherapy may be practised with a family or system, and notes psychiatrists should understand which form is most appropriate, including family systems therapy. RANZCP psychotherapy training requirements recognise family and couples therapy as a distinct advanced psychotherapy modality."
+      }
+    ]
   },
   {
     "slug": "tas\u006b-centred-practice",
@@ -3943,7 +5265,14 @@
       "ACT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP recovery-oriented practice statement, which supports collaborative, person-centred, empowering psychiatric work rather than deficit-only care. (RANZCP) NICE rehabilitation guidance, which supports goal-focused, strengths-based, practical rehabilitation work tied to meaningful occupation, skills, self-management, and support networks. (NICE) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "telehealth-delivered-psychotherapy",
@@ -3965,7 +5294,14 @@
       "ACT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP telehealth in psychiatry page. (RANZCP) RANZCP psychotherapy conducted by psychiatrists position statement. (RANZCP) Australian Government Better Access information, including permanent telehealth arrangements. (Dept of Health, Disability & Ageing) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "telephone-delivered-cbt",
@@ -3989,7 +5325,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Australian Government digital mental health services page. (Dept of Health, Disability & Ageing) MindSpot service pages describing online and telephone delivery and brief teletherapy. (MindSpot) RANZCP psychotherapy position statement. (RANZCP) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "transference-focused-psychotherapy-tfp",
@@ -4013,6 +5356,13 @@
     ],
     "aliases": [
       "TFP"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP PS #54 provides the Australian umbrella position that psychotherapy is core psychiatric treatment and includes psychodynamic psychotherapy among core psychotherapy traditions. Programmatic reviews describe TFP as an empirically supported individual psychotherapy for BPD and summarise the evidence base and theoretical model. The classic comparative BPD trial evaluated three year-long outpatient treatments: TFP, DBT, and supportive psychodynamic psychotherapy. NICE BPD guidance provides the broader framework for structured specialist psychotherapy in BPD, while not specifically privileging TFP by name."
+      }
     ]
   },
   {
@@ -4036,6 +5386,13 @@
     ],
     "aliases": [
       "TF-CBT"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia PTSD guidelines give a strong recommendation for trauma-focused CBT in adults with PTSD and list CPT, CT, and PE as recommended trauma-focused options. NICE PTSD guidance recommends offering an individual trauma-focused CBT intervention to adults with PTSD or clinically important PTSD symptoms more than 1 month after trauma, and says these are typically 8 to 12 sessions, manual-based, and should include trauma processing, arousal/flashback management, work on trauma meanings, avoidance reduction, and functional restoration. RANZCP recognises psychotherapy as core psychiatric treatment and emphasises trauma histories as common and clinically important in psychiatric practice."
+      }
     ]
   },
   {
@@ -4057,7 +5414,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia’s complex-trauma practitioner toolkit describes STAIR as an evidence-informed way of working with affective and interpersonal symptoms of trauma, typically delivered over 10 weekly sessions, and notes that it can improve emotion regulation, relationship functioning, and ability to engage in first-line exposure-based treatments. Phoenix Australia’s disaster mental health materials describe trauma-informed care as an evidence-informed approach that emphasises safety, trust, control, and empowerment, which supports the stance behind trauma-informed skills work but does not make it equivalent to a formal PTSD first-line psychotherapy. Phoenix Australia and NICE continue to position trauma-focused treatments as the primary evidence-based PTSD treatments, so skills work should be framed as preparatory or adjunctive rather than a replacement."
+      }
+    ]
   },
   {
     "slug": "twelve-step-facilitation-tsf",
@@ -4076,6 +5440,13 @@
     ],
     "aliases": [
       "TSF"
+    ],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": null
+      }
     ]
   },
   {
@@ -4094,7 +5465,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "RANZCP *Psychotherapy conducted by psychiatrists*. (RANZCP) Review of ACT as a psychotherapy centred on psychological flexibility and core life values. (PubMed) Review on values as a core process in ACT/behaviour-analytic intervention. (PubMed) Values-based CBT example trial, used cautiously for applied values-based protocol framing. (PubMed) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "vocational-rehabilitation",
@@ -4111,7 +5489,14 @@
       "CBT",
       "Micro skill"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE NG181 frames vocational recovery within rehabilitation for adults with complex psychosis and recommends education, skill development, supported employment using IPS, volunteering, transitional employment, and partnerships to support work or education goals. NICE QS80 clarifies that supported employment / IPS is a specific approach within vocational rehabilitation, defined by rapid placement into competitive employment rather than long sheltered preparation."
+      }
+    ]
   },
   {
     "slug": "waitlist-bridging-brief-interventions",
@@ -4131,7 +5516,14 @@
       "CBT",
       "Single session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "2024 RCT on brief waitlist interventions and treatment retention/outcomes. (PubMed) Web-based depression intervention during psychotherapy waiting time, used cautiously because it is a protocol and highlights both rationale and uncertainty. (PMC) Feasibility study of a monitored digital problem-solving intervention for patients on psychiatric waiting lists. (PMC) Australian Government information on Medicare Mental Health Check In as a current low-intensity early-support pathway. (Dept of Health, Disability & Ageing) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "wake-therapy-sleep-deprivation-chronotherapy",
@@ -4152,7 +5544,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Your uploaded guide already describes wake/sleep-deprivation approaches as chronotherapeutic, short-term, protocolised, and often combined with bright light and sleep pha"
+      }
+    ]
   },
   {
     "slug": "workbook-based-therapy",
@@ -4174,7 +5573,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression guidance on guided self-help and structured self-help materials. (Dept of Health, Disability & Ageing) MindSpot service information, used indirectly to support structured guided self-help and online course models rather than workbook-only claims. (MindSpot) Your attached prior chat for sequence and locked format continuity."
+      }
+    ]
   },
   {
     "slug": "worry-focused-cbt",
@@ -4199,7 +5605,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE guideline on GAD and panic disorder in adults, including stepped-care, CBT, guided self-help, and psychoeducational group recommendations. (NICE) RANZCP psychotherapy statement and structured psychotherapy training material recognising CBT as a core psychiatric psychotherapy. (RANZCP) Cochrane summary on psychological therapies for GAD, supporting CBT efficacy in adult GAD. (Cochrane Complementary Medicine)"
+      }
+    ]
   },
   {
     "slug": "written-exposure-therapy",
@@ -4221,7 +5634,14 @@
       "CBT",
       "Group programme"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "VA National Center for PTSD describes WET as a manualised exposure-based PTSD treatment, typically 5 sessions of about 50 minutes, with 30-minute written narratives, highly scripted delivery, and no between-session assignments. It also notes 8 RCTs, lower dropout than CPT/PE in comparative trials, and that WET is second-line in the 2023 VA/DoD guideline. (PTSD.va.gov) VA/DoD 2023 PTSD guideline page confirms the 2023 CPG is an evidence-based PTSD/ASD guideline intended to support clinical decision-making. (PTSD.va.gov) VA National Center for PTSD overview states PE, CPT, and EMDR remain the three most strongly recommended trauma-focused psychotherapies in the 2023 VA/DoD guideline, supporting WET’s lower-tier placement. (PTSD.va.gov) Phoenix Australia PTSD Guidelines remain the Australian guideline anchor and are endorsed by RANZCP, RACGP, and APS; WET should therefore be framed cautiously in Australian practice because it is not listed in those guidelines. (Phoenix Australia)"
+      }
+    ]
   },
   {
     "slug": "youth-ipt-ipt-a",
@@ -4245,7 +5665,14 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "NICE depression in children and young people guideline, including IPT-A positioning for 12–18-year-olds with moderate to severe depression when CBT is unsuitable. (NICE) Systematic review/meta-analysis of IPT-A for adolescent depression. (PubMed) RCT evidence for IPT-A in depressed adolescents. (JAMA Network) IPT-AST systematic review/meta-analysis for preventive adolescent interpersonal skills training, used only for adaptation context. (PMC)"
+      }
+    ]
   },
   {
     "slug": "youth-trauma-focused-cbt",
@@ -4270,6 +5697,13 @@
       "CBT",
       "Multi-session"
     ],
-    "aliases": []
+    "aliases": [],
+    "sources": [
+      {
+        "title": "Single Therapies 3497889e8a228045b290cedd09a905bf.md",
+        "sourceType": "uploaded_source",
+        "reference": "Phoenix Australia Australian PTSD Guidelines and child/adolescent PTSD guidance. (Phoenix Australia) NICE PTSD guideline recommendations for children and young people. (NICE) Phoenix Australia plain-language PTSD guideline material for recommended trauma-focused therapy in children and teens. (Phoenix Australia)"
+      }
+    ]
   }
 ]
