@@ -1,0 +1,38 @@
+# autofix.ci — auto-apply Prettier fixes to PRs (and main pushes).
+# Workflow name must remain exactly "autofix.ci" so the autofix.ci GitHub App
+# can securely identify this workflow. Install the app for this repository at
+# https://autofix.ci before expecting commits to land.
+name: autofix.ci # needed to securely identify the workflow
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autofix-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  autofix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Format with Prettier
+        run: npm run format
+
+      - name: Apply autofix.ci patch
+        uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4
+        with:
+          commit-message: "style: apply Prettier format"
