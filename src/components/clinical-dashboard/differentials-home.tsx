@@ -1364,7 +1364,7 @@ export function DifferentialsHome({
                 onClick: () => handleSuggestedSearch(item.query),
               }))
         }
-        footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Decision support" body="Review before use" />}
+        footer={<ModeHomeVerificationFooter label="Decision support" body="Review before use" />}
       />
     </div>
   );

@@ -239,7 +239,7 @@ function MedicationHome({
             apiUnavailable={apiUnavailable}
             setupWarning={setupWarning}
           />
-          <ModeHomeVerificationFooter icon={ShieldCheck} label="Prescribing support" body="Confirm against source" />
+          <ModeHomeVerificationFooter label="Prescribing support" body="Confirm against source" />
         </div>
       }
     />

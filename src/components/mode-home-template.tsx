@@ -157,26 +157,30 @@ export function ModeHomeMain({
   );
 }
 
+// One quiet line of text. Deliberately no icon and no accent colour: a shield
+// (and especially a ShieldCheck) reads as "verified", which several of these
+// footers must not assert — validation status varies per document and is
+// surfaced on the results themselves. Hierarchy comes from weight alone, so the
+// caveat half is what carries emphasis rather than the capability half.
+//
+// Modes whose footer said only what the mode does, with no caveat, no longer
+// render this at all; the remaining call sites are the ones whose `body` is a
+// genuine review-before-use instruction.
 export function ModeHomeVerificationFooter({
-  icon: Icon,
   label,
   body,
   verifiedCount,
   totalCount,
 }: {
-  icon: LucideIcon;
   label: string;
   body: string;
   verifiedCount?: number;
   totalCount?: number;
 }) {
   return (
-    <p className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 pt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:pt-1 sm:text-sm">
-      <span className="inline-flex items-center gap-2 font-semibold text-[color:var(--clinical-accent)]">
-        <Icon className="h-4 w-4" aria-hidden="true" />
-        {label}
-      </span>
-      <span aria-hidden="true">•</span>
+    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pt-0.5 text-2xs leading-4 text-[color:var(--text-muted)] sm:pt-1">
+      <span className="font-medium text-[color:var(--text-heading)]">{label}</span>
+      <span aria-hidden="true">·</span>
       <span>{body}</span>
       {typeof verifiedCount === "number" && typeof totalCount === "number" ? (
         <span className="sr-only">
