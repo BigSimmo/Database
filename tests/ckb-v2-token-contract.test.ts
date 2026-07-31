@@ -156,6 +156,15 @@ describe("ckb-v2 ink tiers (#20)", () => {
   it("keeps muted text readable on the dark shell too", () => {
     expect(contrastRatio(hexOf(darkShell, "--text-muted"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(4.5);
   });
+
+  it("re-declares body and heading ink in dark — the cascade port makes the light block match dark subtrees", () => {
+    // Regression guard for the fall-through break: without these declarations,
+    // dark subtrees resolve --text to the LIGHT ink and text disappears.
+    expect(contrastRatio(hexOf(darkShell, "--text"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(hexOf(darkShell, "--text-heading"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+  });
 });
 
 describe("ckb-v2 command colour (#1, #12)", () => {
