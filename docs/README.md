@@ -29,6 +29,11 @@ npm run docs:check-links
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
 - [design-system.md](design-system.md) — tokens, primitives, styling conventions
+- [design-system/SPEC.md](design-system/SPEC.md) — the complete v2 design system: roles, rules, rationale (never values)
+- [design-system/TOKENS.md](design-system/TOKENS.md) — reconciled token inventory: every role, winning name, owner, and what it replaces
+- [design-system/COMPONENTS.md](design-system/COMPONENTS.md) — the eight safety-component specifications plus the maturity matrix
+- [design-system/DECISIONS.md](design-system/DECISIONS.md) — conflicts C1–C5 resolved, clinical Q&A record, assumptions, blocked items
+- [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
