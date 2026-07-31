@@ -38,7 +38,10 @@ export function remoteRepositoryIdentity(remoteUrl) {
 }
 
 export function inspectOriginRemote(root) {
-  const result = run("git", ["remote", "get-url", "origin"], root);
+  // Read the configured remote URL, not the insteadOf-rewritten fetch URL.
+  // Environments that inject tokenized url.*.insteadOf rewrites (Cursor Cloud)
+  // would otherwise make a clean stored origin look credential-bearing.
+  const result = run("git", ["config", "--get", "remote.origin.url"], root);
   if (result.status !== 0) {
     return {
       configured: false,
