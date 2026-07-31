@@ -165,11 +165,44 @@ API rather than estimated:
   | `ui-hydration.spec.ts`             | 5.2s   | 3     | 1.73s     |
 
   **`ui-phone-scroll.spec.ts` is 65% of the shard** — 267s of 409s — at the worst per-test rate
-  of any large spec in it. It is also the file behind both `#127` and `#141`. Splitting it is
-  the only lever that rebalances the shards, because `--shard` cannot divide a single file.
-  Re-measure with
+  of any large spec in it. It is also the file behind both `#127` and `#146`. Re-measure with
   `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium node scripts/run-playwright.mjs --project=chromium --grep-invert "@quarantine|@mockup" --shard=1/3`
   before acting — local absolute times differ from CI, but the per-spec ranking holds.
+
+- **"Splitting the slow spec rebalances the shards" is REFUTED, measured 2026-07-30.** That
+  claim appeared in this document and in PR #1453; it is wrong, and the correction matters more
+  than the original guess. `ui-phone-scroll.spec.ts` was split into three files (21 / 19 / 16
+  tests) and the shard distribution did not move at all:
+
+  |               | Before                | After                 |
+  | ------------- | --------------------- | --------------------- |
+  | Project total | 342 tests, 18 files   | 342 tests, 20 files   |
+  | Shard 1       | 121 (56 phone-scroll) | 121 (56 phone-scroll) |
+  | Shard 2       | 111 (0)               | 111 (0)               |
+  | Shard 3       | 110 (0)               | 110 (0)               |
+
+  **Why:** `--shard` does not distribute files, it walks them in collection order (alphabetical)
+  and cuts at test-count boundaries. Sibling files named `ui-phone-scroll*` sort adjacently, so
+  all three land in the same shard. The shards were already count-balanced; the imbalance is
+  duration, and splitting a file cannot fix a metric the scheduler does not use:
+
+  ```text
+  shard 1  121 tests / 10 files — phone-scroll(56), chrome-scroll(17), accessibility(15), overlap(14), …
+  shard 2  111 tests /  4 files — ui-smoke(92), route-coverage(12), specifiers(5), pwa(2)
+  shard 3  110 tests /  6 files — ui-tools(87), universal-search(16), stress(3), …
+  ```
+
+  Shard 1 is slow because it holds ten _slow-per-test_ files while shards 2 and 3 are dominated
+  by one fast-per-test file each. **The only lever that would actually rebalance is assigning
+  explicit spec groups per shard in `ci.yml` instead of `--shard=i/N`.** That is not obviously
+  worth it: perfect balance is ~7m37 against a measured 9m36 largest shard, so ~2 min of a
+  13m39 critical path, bought with a hand-maintained file list in the **required** UI job whose
+  miss mode is a spec silently running nowhere. Do not build it without deciding that trade
+  first, and not without a guard asserting every collected spec appears in exactly one group.
+
+  **Stop:** do not "fix" this by renaming spec files so they sort into different shards. It
+  works, and it encodes undocumented scheduler behaviour into filenames where the next reader
+  cannot see it.
 
 ## Phase 1 - Active now
 
