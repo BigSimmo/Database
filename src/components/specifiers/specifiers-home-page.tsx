@@ -2,16 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  ArrowRight,
-  ChevronRight,
-  GitCompareArrows,
-  ListChecks,
-  Search,
-  ShieldCheck,
-  Tags,
-  Waypoints,
-} from "lucide-react";
+import { ArrowRight, ChevronRight, GitCompareArrows, ListChecks, Search, Tags, Waypoints } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
@@ -152,7 +143,6 @@ function SpecifiersHome() {
           <div className="grid gap-3">
             <SpecifierPathwayStrip />
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
               label="Diagnostic decision support"
               body="Review criteria and exclusions before documenting"
             />

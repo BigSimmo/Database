@@ -1,17 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import {
-  Check,
-  Circle,
-  Clipboard,
-  ClipboardCheck,
-  History,
-  Loader2,
-  MessageSquareText,
-  ShieldCheck,
-  Square,
-} from "lucide-react";
+import { Check, Circle, Clipboard, ClipboardCheck, History, Loader2, MessageSquareText, Square } from "lucide-react";
 
 import {
   answerProgressDisplayMessage,
@@ -22,7 +12,7 @@ import {
 import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
 
@@ -104,11 +94,6 @@ export function AnswerEmptyState({
           {/* Pre-query copy must describe what the search does, not assert that
               every indexed source is verified/current (PT-06): validation status
               varies per document and is surfaced on the results themselves. */}
-          <ModeHomeVerificationFooter
-            icon={ShieldCheck}
-            label="Searches indexed clinical sources"
-            body="Clinical Guide library"
-          />
         </div>
       }
     />
