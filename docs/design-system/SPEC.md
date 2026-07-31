@@ -5,8 +5,10 @@
 restated in prose here is a defect in this document.
 
 - **Date:** 31 July 2026
-- **Applies to:** branch `claude/clinical-kb-design-system-333a69` at `ef13a072a`
-  (committed, **local-only**, base `cf7728ca2`) · design project `08d6f126-3fd0-4764-aedf-0062a467280a`
+- **Applies to:** the v2 layer and components as merged to `main` (PR #1538; canonical
+  token file `src/app/ckb-v2-tokens.css`) · design project `08d6f126-3fd0-4764-aedf-0062a467280a`.
+  Commit SHAs are pinned only in DECISIONS' resolution log — everywhere else this set
+  states rolling status, so the docs cannot silently age against the repo.
 - **Replaces:** `01-MASTER-SPEC-AND-HANDOVER.md`, `HANDOVER_TO_CLAUDE_DESIGN.md`,
   `01-DESIGN-SYSTEM-SPEC-CORRECTED.md`, and the export's `DESIGN_GUIDE.md` as spec documents.
   Where any of them disagrees with this set, this set wins; where this set disagrees with the
@@ -18,8 +20,8 @@ restated in prose here is a defect in this document.
 
 **Source of truth, ranked.** 1. `AGENTS.md` · 2. `ckb-v2-tokens.css` · 3. committed tests · 4. `.design-sync/conventions.md` · 5. this document set.
 
-**Status keys** used throughout: `main` (in production code) · `branch` (committed at
-`ef13a072a`, local-only, **nothing adopted by product surfaces**) · `design` (landed only in the
+**Status keys** used throughout: `main` (in production code) · `branch` (historic tier —
+merged to `main` via PR #1538, still **nothing adopted by product surfaces**) · `design` (landed only in the
 claude.ai/design project) · `spec` (specified, not built) · `planned` (rule stated, gate not
 built). Claims are marked **[verified: evidence]** or **[assumed: assumption]** where the
 distinction is load-bearing.
@@ -109,7 +111,7 @@ Rules:
 
 ## 4 · Foundations
 
-### 4.1 Theme cascade — `design` landed, `branch` still carries the old form
+### 4.1 Theme cascade — landed (`main`, PR #1538)
 
 ```css
 .ckb-v2 {
@@ -125,11 +127,11 @@ Rules:
 `<html class="dark">`, so v2 light values override the inherited dark values — v2 dark never
 worked outside same-node demos, and every dark capture from before the fix is void.
 
-**[verified:** the branch copy at `ef13a072a` still ships `.ckb-v2:not(.dark)`
-(`src/app/ckb-v2-tokens.css:162`); the fix exists design-side only. Porting it breaks
-`tests/ckb-v2-token-contract.test.ts` twice — the opt-in scope filter accepts only selectors
-starting `.ckb-v2` (test line 70) and the theme blocks are read by their exact selector names
-(test lines 39–41) — so the test updates in the same commit, or the PR lands red.**]**
+**[verified:** ported in PR #1538 with the contract test's block parser updated in the same
+commit. One consequence the port created and the same PR fixed: the light `.ckb-v2` block now
+matches inside dark subtrees, so **every colour role the light block declares must be
+re-declared in the dark block** — otherwise it resolves to its light value (the dark-ink bug,
+DECISIONS §Resolution log). Ink is contract-enforced at ≥4.5:1 on the dark surface.**]**
 
 Constraints that survive the port:
 
@@ -627,13 +629,13 @@ and adoption.** Status keys as in the header; "done" entries cite their commit.
 
 ### Phase 1 — correctness
 
-| PR                             | Contents                                                                                                                                                                                                                                      | Status                       |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| PR 0 · Truth correction        | Retractions, gate labelling, accurate packaging contract — zero code change                                                                                                                                                                   | **done** — this document set |
-| PR 1 · Theme cascade           | Port `.ckb-v2` / `.dark .ckb-v2, .ckb-v2.dark`; update the contract test's selector filter and block names in the same commit; computed-style tests, ancestor **and** same-node                                                               | open                         |
-| PR 2 · Forced colours          | v2 HCM block over the three selectors (§4.2); computed assertions: filled command, filled danger, status marks, disabled, focus, flattened elevation                                                                                          | open                         |
-| PR 3 · Contrast and text roles | `--danger-solid-contrast` on danger · eyebrows and placeholders off the decoration tier · `--text-placeholder` role · finish the disabled encoding across the 10 remaining `disabled:opacity` sites · extend the contrast gate to live tokens | open                         |
-| PR 4 · Interaction contracts   | Discriminated unions for `Citation`, `Chip`, `ToggleSwitch`; `RadioGroup` controlled-or-uncontrolled; `AsyncButton` `type="button"` or retirement                                                                                             | open                         |
+| PR                             | Contents                                                                                                                                                                                                                                      | Status                                              |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| PR 0 · Truth correction        | Retractions, gate labelling, accurate packaging contract — zero code change                                                                                                                                                                   | **done** — this document set                        |
+| PR 1 · Theme cascade           | Port `.ckb-v2` / `.dark .ckb-v2, .ckb-v2.dark`; update the contract test's selector filter and block names in the same commit; computed-style tests, ancestor **and** same-node                                                               | open                                                |
+| PR 2 · Forced colours          | v2 HCM block over the three selectors (§4.2); computed assertions: filled command, filled danger, status marks, disabled, focus, flattened elevation                                                                                          | open                                                |
+| PR 3 · Contrast and text roles | `--danger-solid-contrast` on danger · eyebrows and placeholders off the decoration tier · `--text-placeholder` role · finish the disabled encoding across the 10 remaining `disabled:opacity` sites · extend the contrast gate to live tokens | partial — danger contrast landed (#1538); rest open |
+| PR 4 · Interaction contracts   | Discriminated unions for `Citation`, `Chip`, `ToggleSwitch`; `RadioGroup` controlled-or-uncontrolled; `AsyncButton` `type="button"` or retirement                                                                                             | open                                                |
 
 ### Phase 2 — values, split three ways
 
