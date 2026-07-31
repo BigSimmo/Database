@@ -45,6 +45,44 @@ Use these terms consistently.
 
 Static badges must not look clickable. Interactive chips must use proper button or link semantics.
 
+### One Status System — Which Component For Which Job
+
+The four status affordances are not interchangeable. Pick by what the mark answers,
+not by how much room is left.
+
+| Affordance    | Component                                               | Answers                                 | Use when                                                                                             |
+| ------------- | ------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Badge         | `SourceStatusBadge`, `SourceDesignationBadge`           | "Is this current?" / "Who issued this?" | The state is a clinical-governance fact about the source and must be readable at a glance            |
+| Dot           | `statusDotReady` / `statusDotReview` / `statusDotMuted` | "Is this healthy?"                      | A dense row or list where the label already carries the words; **never** the sole carrier of meaning |
+| Pill          | `metadataPill`, `subtleStatusPill`                      | "What is this value?"                   | Neutral metadata (page count, version, jurisdiction) with no governance verdict                      |
+| Identity chip | `Chip` with a `--type-*` hue                            | "What kind of record is this?"          | Distinguishing record kinds (document, service, form, differential) — identity, not state            |
+
+A dot plus its own visible label is a dot. A dot alone is a colour-only signal and
+fails both forced-colors and fast scanning.
+
+### Enum Vocabularies
+
+These three fields are closed vocabularies, normalized in `src/lib/source-metadata.ts`:
+
+| Field                        | Values                                            | Fallback     |
+| ---------------------------- | ------------------------------------------------- | ------------ |
+| `document_status`            | `current` · `review_due` · `outdated` · `unknown` | `unknown`    |
+| `clinical_validation_status` | `unverified` · `locally_reviewed` · `approved`    | `unverified` |
+| `extraction_quality`         | `good` · `partial` · `poor` · `unknown`           | `unknown`    |
+
+**Off-vocabulary values degrade to the neutral triad.** A value that is present but
+unrecognised — a typo, a renamed enum, a malformed ingest — coerces to the fallback
+above and is traced once, with its field and value, through
+`sourceMetadataDiagnostics.warn`. It must never be rendered raw, guessed at, or
+allowed to throw: an unknown status is a governance signal, and a crash is not.
+
+Note the field name: it is `clinical_validation_status`, **not** `validation_status`.
+The wrong key silently normalizes to "Not locally validated" with no error.
+
+The three axes are independent. Official does not imply current; current does not
+imply locally approved; approved does not imply a good extraction. Never collapse
+two of them into one mark.
+
 ## Master Palette
 
 Use six top-level tones only. Do not add more badge colours.

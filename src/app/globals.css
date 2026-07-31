@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Opt-in v2 design-system token layer. Every rule is scoped to `.ckb-v2`, so
+   importing it cannot change any surface that does not carry the class. */
+@import "./ckb-v2-tokens.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

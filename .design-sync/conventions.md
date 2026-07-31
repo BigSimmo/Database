@@ -33,9 +33,39 @@ arbitrary-value form — never hardcoded colours:
   focus owner by design; a second ring both stacks a halo and wipes the control's resting elevation.
 
 Radius rules: `rounded-md` chips/pills, `rounded-lg` controls/cards/panels,
-`rounded-xl` sheets/dialogs. Tap targets: `min-h-tap` / `h-tap w-tap` (44px).
+`rounded-xl` sheets/dialogs. Tap targets: `min-h-tap` / `h-tap w-tap` (44px) —
+interactive controls only. A static chip is 28px text, not a touch target;
+putting `min-h-tap` on one is why dense tables scrolled so much.
 Dark mode is automatic via the `.dark` class — the variables flip; never write
 `dark:` colour overrides yourself.
+
+## Colour boundaries
+
+Three layers, and they do not borrow from each other:
+
+1. **Clinical state** — `success` / `warning` / `danger`. Reserved for currency,
+   validation and safety. Never decorative. Amber and red appear only in
+   `SourceStatusBadge`, `InlineNotice`, `ConfirmDialog`, the extraction-quality
+   row, and a `DoseLine` row whose cited source is overdue.
+2. **Information** — `info` plus the accent. Neutral emphasis, not a verdict.
+3. **Identity** — the muted `--type-*` hues that tell record kinds apart.
+
+`--command` is the one filled action colour, and a surface carries at most one
+filled `--command` button. `--danger-solid` has exactly one home: the `danger`
+variant of `Button`, i.e. a destructive confirmation. Importance is `primary`.
+
+`--text-soft` is around 3.2:1 on white — decoration only (dots, dividers,
+glyphs). Label and caption **text** uses `--text-muted`.
+
+## Opt-in v2 token layer
+
+`.ckb-v2` is an opt-in class that swaps in the v2 shell: white surfaces, a blue
+`--command`, a crisper `--e1`…`--e4` ladder, a 7-step type scale with per-step
+line-height and tracking, semantic spacing (`--gap-*`, `--pad-*`), density
+(`--tap-min`, `--chip-height`, `--row-*`), icon sizes (`--icon-*`) and motion
+durations. Add `ckb-v2` (plus `dark` for the dark ramp) to a subtree to adopt it;
+without the class nothing changes. Components that reference v2-only tokens carry
+a v1 fallback (`var(--pad-panel,1.5rem)`) so they render correctly either way.
 
 ## Class-string vocabulary (exported constants)
 
@@ -51,6 +81,13 @@ control shell the button recipes build on — prefer `primaryControl` /
 chat/search composer and tone recipes documented in
 `docs/redesign/09-ui-primitives-recipes.md`. Join with the exported `cn(...)`
 helper.
+
+Prefer a component over a recipe where one now exists. `Button` supersedes
+hand-composing `primaryControl` / `floatingControl` / `toolbarButton` on a raw
+`<button>`; `TextField` / `SearchField` supersede hand-wiring `fieldLabel` +
+`fieldControl*` + `aria-describedby`; `Chip` supersedes `metadataPill` /
+`subtleStatusPill` for filter and status chips; `AnswerCard` supersedes
+`answerSurface`, which was only `rounded-lg bg-transparent`.
 
 Module-private helpers (`insetCard`, `iconTile`, `compactMetadataRow`,
 `toneWarningQuiet`, `statusDotBase`, `chatComposerShellDelta`)

@@ -122,3 +122,59 @@ absence of both before calling it a defect.
   NOT component source. A component-source or token change surfaces instead as
   render churn (`canary`/`[SPOT_CHECK]`) plus `styling: true`. Grade the
   spot-check sheets — the churn is real even though nothing is listed "changed".
+
+## v2 design-system pass (2026-07-31)
+
+Scope was explicitly **design system only, no site-wide changes**, so the app
+surfaces (ClinicalDashboard, DocumentViewer, mode homes) were not touched.
+
+What landed:
+
+- **Browser crash (P1).** `source-metadata.ts` no longer imports the server
+  logger. It reached the browser through the source badges, and its unguarded
+  `process.env.LOG_LEVEL` read threw a ReferenceError there, so any
+  off-vocabulary metadata value unmounted the whole React tree instead of
+  falling back. The trace now goes through `sourceMetadataDiagnostics.warn`
+  (`console.warn`, spy-able the way `logger.warn` was), and `logger.ts` reads
+  the environment defensively as defence in depth. Regressions:
+  `tests/source-metadata-browser-safety.test.ts`,
+  `tests/source-badges-off-vocab.dom.test.tsx`.
+  The `ds-safety-shim.js` in the design project (`window.process = { env: {} }`)
+  can be deleted once the next bundle ships.
+- **`.ckb-v2` token layer** — `src/app/ckb-v2-tokens.css`, imported from
+  `globals.css`. Values verbatim from the design project's `ckb-v2-tokens.css`,
+  but **everything is class-scoped**, including the structural half that the
+  source file puts on `:root`. That deviation is deliberate: on `:root` it would
+  repaint the live app, which was out of scope. Promoting the structural tokens
+  to `:root` is a separate change and needs its own visual-regression pass.
+- **Twelve new components** (`src/components/ui/`): `Button`, `TextField`,
+  `SearchField`, `Chip`, `ToastProvider`/`ToastRegion`/`useToast`, `Tabs`,
+  `Tooltip`, `Pagination`, `ConfirmDialog`, `PageHeader`, `Breadcrumb`,
+  and the answer surface trio `AnswerCard` / `DoseLine` / `AnswerFooter`.
+  Components referencing v2-only tokens carry v1 fallbacks
+  (`var(--pad-panel,1.5rem)`) so they render with or without the class.
+- **Four orphans documented** — `AsyncButton`, `IconButton`, `Skeleton`,
+  `SourceDesignationBadge` now have previews and config entries instead of
+  shipping undocumented.
+- **`AccessibleTable`** — per-column alignment (`columnAlign` / `numericColumns`,
+  auto-detecting numeric columns by default), `aria-controls` on the expander,
+  sticky header in the expanded view, and a real warning treatment for an
+  unverified extraction instead of a muted grey line.
+- **`Sheet`** gained an optional `id` so an opener can advertise `aria-controls`.
+- **`EmptyState`** accepts `description` as a deprecated alias for `body`;
+  passing `PanelHeading`'s prop name used to render nothing, silently.
+
+Component count went 10 → 28, so the next sync writes a much larger bundle.
+
+### Still design-app-side, not fixable here
+
+- The generated half of the published `README.md` lists a `tokens/*.css` folder
+  that this DS does not ship — and contradicts itself two lines later ("this DS
+  ships one compiled stylesheet rather than separate token files"). That text
+  comes from the converter, not from `conventions.md`, so it needs a fix in
+  `resync.mjs` / the design app, not in this repo.
+- The stale `_ds_manifest.json` (236 tokens indexed vs 341 declared, `themes: []`,
+  `--tw-*` runtime vars published as _spacing_, 126 Tailwind utility classes read
+  as theme scopes) is likewise classifier-side. Re-running the sync regenerates
+  it from the compiled CSS; the misclassification rules themselves are not in
+  this repo.

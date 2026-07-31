@@ -57,6 +57,7 @@ export function Sheet({
   portal = false,
   desktopBackdropClassName,
   testId,
+  id,
 }: {
   open: boolean;
   onClose: () => void;
@@ -84,6 +85,10 @@ export function Sheet({
   portal?: boolean;
   desktopBackdropClassName?: string;
   testId?: string;
+  // Stable id for the dialog element so an opener can advertise `aria-controls`.
+  // Without it a trigger can only carry `aria-expanded`, which tells assistive
+  // technology that something expanded but never which region.
+  id?: string;
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -332,6 +337,7 @@ export function Sheet({
     >
       <div
         ref={panelRef}
+        id={id}
         data-testid={testId}
         role="dialog"
         aria-modal="true"
