@@ -177,4 +177,18 @@ describe("document filter panel", () => {
     await user.click(done);
     expect(screen.queryByTestId("document-filter-panel")).toBeNull();
   });
+
+  it("closes when the search query changes", async () => {
+    // Open state is query-scoped (same contract as facet keys). A new submit must
+    // not leave the panel covering a different result set.
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    expect(screen.getByTestId("document-filter-panel")).toBeInTheDocument();
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} query="lithium" />);
+    expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+    expect(screen.getByTestId("document-filter-trigger-phone")).toHaveAttribute("aria-expanded", "false");
+  });
 });

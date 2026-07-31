@@ -1048,13 +1048,14 @@ function DocumentSearchResultsPanelImpl({
   const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
   const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
   const filterPanelId = useId();
-  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
-  // Facet keys are already query-scoped (`activeFacetState.query === query`); the
-  // open flag is not. Without this, submitting a new search leaves the panel open
-  // over a different result set and can look stuck on phones where it covers results.
-  useEffect(() => {
-    setFilterPanelOpen(false);
-  }, [query]);
+  // Query-scope the open flag the same way facets are scoped: a new search must
+  // not leave the panel covering a different result set (especially on phones).
+  // Do not reset via useEffect+setState — react-hooks/set-state-in-effect fails CI.
+  const [filterPanelState, setFilterPanelState] = useState<{ query: string; open: boolean }>({
+    query: "",
+    open: false,
+  });
+  const filterPanelOpen = filterPanelState.query === query && filterPanelState.open;
   const activeFacetKeys = useMemo(
     () => (activeFacetState.query === query ? activeFacetState.keys : []),
     [activeFacetState, query],
@@ -1142,7 +1143,12 @@ function DocumentSearchResultsPanelImpl({
         testId={testId}
         open={filterPanelOpen}
         activeCount={activeFilterCount}
-        onToggle={() => setFilterPanelOpen((open) => !open)}
+        onToggle={() =>
+          setFilterPanelState((current) => ({
+            query,
+            open: current.query === query ? !current.open : true,
+          }))
+        }
       />
     ) : null;
   const showIdentityHeader =
@@ -1283,7 +1289,7 @@ function DocumentSearchResultsPanelImpl({
                 setActiveResultType("all");
               }}
               resultCount={sortedMatches.length}
-              onDone={() => setFilterPanelOpen(false)}
+              onDone={() => setFilterPanelState({ query, open: false })}
             />
           ) : null}
           {/* With the panel closed the active filters are otherwise invisible
