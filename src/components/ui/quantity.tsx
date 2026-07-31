@@ -51,8 +51,8 @@ export function Quantity({ value, unit, demoted = false, size = "md", className 
           "font-mono tabular-nums",
           step.value,
           demoted
-            ? "text-[color:var(--text-muted)] [font-weight:var(--font-weight-label,500)]"
-            : "text-[color:var(--text-heading)] [font-weight:var(--font-weight-value,650)]",
+            ? "text-[color:var(--text-muted)] [font-weight:var(--font-weight-label)]"
+            : "text-[color:var(--text-heading)] [font-weight:var(--font-weight-value)]",
         )}
       >
         {value}
@@ -63,8 +63,8 @@ export function Quantity({ value, unit, demoted = false, size = "md", className 
           // `normal-case` is load-bearing: it blocks an inherited uppercase
           // transform from silently rewriting the unit.
           className={cn(
-            "normal-case text-[color:var(--text-muted)] [font-weight:var(--font-weight-label,500)]",
-            "ml-[var(--quantity-unit-gap,0.15em)] tracking-[var(--quantity-unit-tracking,0.01em)]",
+            "normal-case text-[color:var(--text-muted)] [font-weight:var(--font-weight-label)]",
+            "ml-[var(--quantity-unit-gap)] tracking-[var(--quantity-unit-tracking)]",
             step.unit,
           )}
         >

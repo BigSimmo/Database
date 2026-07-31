@@ -18,7 +18,6 @@ Reading order:
 5. [GATES.md](GATES.md) — every rule paired with its enforcement status. A prohibition
    with no row there is a suggestion.
 
-Canonical code: branch `claude/clinical-kb-design-system-333a69` at `59e4c3dfc`
-(`src/app/ckb-v2-tokens.css` is the single token file; nothing is adopted by product
-surfaces yet). Design project `08d6f126-3fd0-4764-aedf-0062a467280a` conforms to the repo
+Canonical code: `src/app/ckb-v2-tokens.css` on `main` (the single token file, merged via
+PR #1538; nothing is adopted by product surfaces yet). Design project `08d6f126-3fd0-4764-aedf-0062a467280a` conforms to the repo
 file. No visual change ships from this document set — it is the system and its rules.

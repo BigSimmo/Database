@@ -53,15 +53,6 @@ const ALLOWLIST = new Set([
   "src/app/(search-app)/tools/page.tsx",
   "src/lib/tools.ts",
   "src/components/ServiceDetailPage.tsx",
-  // Design-system branch (claude/clinical-kb-design-system-333a69 @ ef13a072a) paths
-  // cited by docs/design-system/*.md; the files land when that branch merges —
-  // remove these entries afterwards so the checker guards them again:
-  "src/app/ckb-v2-tokens.css",
-  "tests/ckb-v2-token-contract.test.ts",
-  "tests/source-badges-off-vocab.dom.test.tsx",
-  "tests/source-metadata-browser-safety.test.ts",
-  "tests/accessible-table-alignment.dom.test.tsx",
-  "tests/ui-v2-components.dom.test.tsx",
 ]);
 
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;
