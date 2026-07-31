@@ -322,3 +322,78 @@ describe("projectSmartTagFacetGroups", () => {
     );
   });
 });
+
+describe("facet selections combine OR within a group and AND across groups", () => {
+  const docs = [
+    {
+      id: "a",
+      labels: [label({ label: "lithium", label_type: "medication" }), label({ label: "renal", label_type: "risk" })],
+    },
+    {
+      id: "b",
+      labels: [label({ label: "lithium", label_type: "medication" }), label({ label: "thyroid", label_type: "risk" })],
+    },
+    {
+      id: "c",
+      labels: [label({ label: "clozapine", label_type: "medication" }), label({ label: "renal", label_type: "risk" })],
+    },
+    {
+      id: "d",
+      labels: [
+        label({ label: "quetiapine", label_type: "medication" }),
+        label({ label: "thyroid", label_type: "risk" }),
+      ],
+    },
+  ];
+  const index = buildSmartDocumentTagFacetIndex(docs);
+  const keyFor = (value: string, type: DocumentLabel["label_type"]) =>
+    buildSmartDocumentTags([label({ label: value, label_type: type })])[0].key;
+  const ids = (keys: string[]) =>
+    filterDocumentsBySmartTagFacetIndex(index, keys)
+      .map((document) => document.id)
+      .sort();
+
+  const lithium = keyFor("lithium", "medication");
+  const clozapine = keyFor("clozapine", "medication");
+  const renal = keyFor("renal", "risk");
+  const thyroid = keyFor("thyroid", "risk");
+
+  it("treats two values from one group as alternatives", () => {
+    // Previously this ANDed and returned nothing, which made multi-select within
+    // a group a dead affordance.
+    expect(ids([lithium, clozapine])).toEqual(["a", "b", "c"]);
+  });
+
+  it("still narrows across groups", () => {
+    expect(ids([lithium, renal])).toEqual(["a"]);
+  });
+
+  it("combines both rules at once", () => {
+    // (lithium OR clozapine) AND (renal) -> a, c
+    expect(ids([lithium, clozapine, renal])).toEqual(["a", "c"]);
+  });
+
+  it("widens within each group independently", () => {
+    // (lithium OR clozapine) AND (renal OR thyroid) -> a, b, c
+    expect(ids([lithium, clozapine, renal, thyroid])).toEqual(["a", "b", "c"]);
+  });
+
+  it("keeps a single selection unchanged", () => {
+    expect(ids([renal])).toEqual(["a", "c"]);
+  });
+
+  it("keeps counts and filter in agreement under the grouped rules", () => {
+    const selection = [lithium, renal];
+    for (const facet of projectSmartTagFacetGroups(index, selection).flatMap((group) => group.facets)) {
+      const combined = [...new Set([...selection, facet.key])];
+      expect(filterDocumentsBySmartTagFacetIndex(index, combined)).toHaveLength(facet.count);
+    }
+  });
+
+  it("reports a same-group sibling as widening rather than as a dead end", () => {
+    // Under the old all-AND rules clozapine would have counted 0 beside lithium.
+    const projected = projectSmartTagFacetGroups(index, [lithium]);
+    const clozapineFacet = projected.flatMap((group) => group.facets).find((facet) => facet.key === clozapine);
+    expect(clozapineFacet?.count).toBe(3);
+  });
+});
