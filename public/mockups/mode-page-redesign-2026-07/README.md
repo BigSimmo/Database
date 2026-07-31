@@ -38,6 +38,18 @@ Product decision: Favourites is **not** a ModeHome. It is one combined dashboard
 
 Live screenshots captured after `npm run ensure` (1280×900 / 390×844). Use the URL it prints for side-by-side comparison.
 
+## Perfected combined comps (`perfected-combined/`)
+
+Recommended directions only, **desktop + phone in one image** each (Clinical White / Sky Graphite, one-composer contract):
+
+| File                                                                     | Direction                         | Issue  |
+| ------------------------------------------------------------------------ | --------------------------------- | ------ |
+| `perfected-combined/tools-a-compact-results-desktop-phone.png`           | A — Compact Results Instrument    | `#162` |
+| `perfected-combined/services-b-progressive-workflow-desktop-phone.png`   | B — Progressive Referral Workflow | `#163` |
+| `perfected-combined/favourites-b-search-led-workspace-desktop-phone.png` | B — Search-Led Workspace          | `#164` |
+
+See [`perfected-combined/README.md`](./perfected-combined/README.md).
+
 ## Implementation queue
 
 Tracked in `docs/outstanding-issues.md` as `#162` (Tools), `#163` (Services), `#164` (Favourites hybrid).
