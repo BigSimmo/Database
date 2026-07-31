@@ -161,7 +161,7 @@ export function ModeHomeMain({
 // (and especially a ShieldCheck) reads as "verified", which several of these
 // footers must not assert — validation status varies per document and is
 // surfaced on the results themselves. Hierarchy comes from weight alone, so the
-// caveat half is what carries emphasis rather than the capability half.
+// label half (capability) carries the emphasis rather than the body half (caveat).
 //
 // Modes whose footer said only what the mode does, with no caveat, no longer
 // render this at all; the remaining call sites are the ones whose `body` is a
