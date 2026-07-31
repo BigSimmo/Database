@@ -79,6 +79,10 @@ try {
     sendDefaultPii: false,
     dataCollection: {
       databaseQueryData: false,
+      // Defense in depth for AI agent monitoring: the OpenAI wrap in
+      // agent-monitoring.ts already sets recordInputs/recordOutputs false, and
+      // privacySafeTransactionEvent strips prompt/output attributes on export.
+      genAI: { inputs: false, outputs: false },
     },
     includeLocalVariables: false,
     enableLogs: false,
