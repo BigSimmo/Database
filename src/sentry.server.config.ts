@@ -1,9 +1,16 @@
 import * as Sentry from "@sentry/nextjs";
+import { createClient } from "@supabase/supabase-js";
 
-import { privacySafeErrorEvent } from "@/lib/observability/error-tracking";
+import {
+  isSentryDbTracingEnabled,
+  privacySafeErrorEvent,
+  privacySafeTransactionEvent,
+  resolveTracesSampleRate,
+} from "@/lib/observability/error-tracking";
 
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
+const tracesSampleRate = resolveTracesSampleRate();
 const sentryRelease =
   process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
 
@@ -29,22 +36,64 @@ function isBotTrafficEvent(event: Sentry.Event): boolean {
   );
 }
 
+/** Bootstrap client used only to attach constructor-level Supabase DB instrumentation. */
+function supabaseTracingIntegrations() {
+  // Inert unless DSN is set and tracing sample rate is > 0 (docs/error-tracking.md).
+  if (!isSentryDbTracingEnabled()) {
+    return [];
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    return [];
+  }
+
+  try {
+    const supabaseClient = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+    return [
+      Sentry.supabaseIntegration({
+        supabaseClient,
+        // Never attach PostgREST filter values or mutation bodies — clinical privacy.
+        sendOperationData: false,
+      }),
+    ];
+  } catch {
+    return [];
+  }
+}
+
 try {
   Sentry.init({
     ...(sentryDsn ? { dsn: sentryDsn } : {}),
     release: sentryRelease,
     environment: sentryEnvironment,
-    // Privacy posture: no traces, logs, breadcrumbs, locals, or PII (docs/error-tracking.md).
-    tracesSampleRate: 0,
+    // Performance tracing for DB query dashboards. Override with SENTRY_TRACES_SAMPLE_RATE
+    // (0 disables). Query filters/bodies stay redacted — see docs/error-tracking.md.
+    tracesSampleRate,
     sendDefaultPii: false,
+    dataCollection: {
+      databaseQueryData: false,
+    },
     includeLocalVariables: false,
     enableLogs: false,
     attachStacktrace: true,
     maxBreadcrumbs: 0,
     ignoreErrors: ignoredServerErrors,
+    integrations: supabaseTracingIntegrations(),
     beforeSend(event) {
       if (isBotTrafficEvent(event)) return null;
       return privacySafeErrorEvent(event);
+    },
+    beforeSendTransaction(event) {
+      if (isBotTrafficEvent(event)) return null;
+      // Local scrubber shape is structural; cast back to the SDK transaction type.
+      return privacySafeTransactionEvent(event) as typeof event;
     },
   });
 } catch {
