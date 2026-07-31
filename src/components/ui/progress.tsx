@@ -112,7 +112,7 @@ export function StageList({
                 )}
               />
             ) : null}
-            <span className="relative z-[1] grid w-[var(--gutter-col,1.25rem)] shrink-0 place-items-center pt-0.5">
+            <span className="relative z-5 grid w-[var(--gutter-col,1.25rem)] shrink-0 place-items-center pt-0.5">
               {stage.state === "done" ? (
                 <Check aria-hidden="true" className="size-icon-sm text-[color:var(--success)]" strokeWidth={3} />
               ) : stage.state === "active" ? (
