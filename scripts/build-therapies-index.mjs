@@ -25,6 +25,11 @@ const source = existsSync(join(publicData, "therapies.json"))
   : currentFullFilename
     ? join(publicData, currentFullFilename)
     : join(publicData, "therapies.json");
+if (!existsSync(source)) {
+  throw new Error(
+    `Missing therapy source dataset. Expected ${join(publicData, "therapies.json")} or the manifest full asset.`,
+  );
+}
 
 const therapies = JSON.parse(readFileSync(source, "utf8"));
 
@@ -135,6 +140,9 @@ if (!checkOnly) {
   );
   console.log(`Wrote content-addressed therapy assets: ${homeFilename}, ${indexFilename}, ${fullFilename}`);
 } else {
+  if (!existsSync(manifestTarget)) {
+    throw new Error(`Missing generated therapy asset manifest: ${manifestTarget}`);
+  }
   const manifest = readFileSync(manifestTarget, "utf8");
   for (const [kind, records] of [
     ["full", therapies],
@@ -145,10 +153,11 @@ if (!checkOnly) {
     if (!filename) throw new Error(`Missing ${kind} therapy asset in ${manifestTarget}`);
     const contents = readFileSync(join(publicData, filename));
     const hash = createHash("sha256").update(contents).digest("hex").slice(0, 16);
-    if (!filename.includes(`.${hash}.json`) || JSON.stringify(JSON.parse(contents)) !== JSON.stringify(records)) {
+    const stem = kind === "full" ? "therapies" : `therapies-${kind}`;
+    const legacyFilename = `${stem}.json`;
+    if (filename !== `${stem}.${hash}.json` || JSON.stringify(JSON.parse(contents)) !== JSON.stringify(records)) {
       throw new Error(`Generated therapy asset is stale: ${filename}`);
     }
-    const legacyFilename = kind === "full" ? "therapies.json" : `therapies-${kind}.json`;
     const legacyContents = readFileSync(join(publicData, legacyFilename));
     if (!legacyContents.equals(contents)) {
       throw new Error(`Therapy compatibility alias is stale: ${legacyFilename}`);
