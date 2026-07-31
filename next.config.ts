@@ -153,7 +153,7 @@ function getSentryRelease() {
   );
 }
 
-export default async function () {
+export default async function loadNextConfig() {
   const baseConfig = await withOptionalBundleAnalyzer(nextConfig);
 
   if (!shouldEnableSentrySourceMapUpload()) {

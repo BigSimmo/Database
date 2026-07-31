@@ -1,12 +1,12 @@
 # Privacy-safe production error tracking
 
-Production server exception tracking is an optional, provider-gated Sentry integration. It is inert unless `SENTRY_DSN` is configured. Browser telemetry, performance tracing, logs, and session replay are not enabled. Runtime init is owned by `src/sentry.{server,edge,client}.config.ts` (loaded once from Next instrumentation); do not add a second `Sentry.init()` path.
+Production server exception tracking is an optional, provider-gated Sentry integration. It is inert unless `SENTRY_DSN` is configured. Browser telemetry, performance tracing, logs, and session replay are not enabled — there is no client Sentry bundle path. Runtime init is owned by `src/sentry.{server,edge}.config.ts` (loaded once from Next server/edge instrumentation); do not add a second `Sentry.init()` path or a browser SDK import.
 
 ## Data envelope
 
-The application sends only an error type, scrubbed code stack-frame locations, the static Next.js route pattern, route/router type, release/environment identifiers, and an event identifier. Before export it discards exception messages, requested URLs and query strings, headers, cookies, bodies, users, breadcrumbs, arbitrary context, local variables, prompts, clinical queries, answers, and document content. Do not add those fields to the allowlist. The same `privacySafeErrorEvent` scrubber runs on server, edge, and client `beforeSend` hooks.
+The application sends only an error type, scrubbed code stack-frame locations, the static Next.js route pattern, route/router type, release/environment identifiers, and an event identifier. Before export it discards exception messages, requested URLs and query strings, headers, cookies, bodies, users, breadcrumbs, arbitrary context, local variables, prompts, clinical queries, answers, and document content. Do not add those fields to the allowlist. The same `privacySafeErrorEvent` scrubber runs on server and edge `beforeSend` hooks.
 
-The static route pattern (for example `/api/documents/[id]`) is safe operational metadata; the actual request path is deliberately ignored. Error grouping uses the route pattern, a fixed JavaScript runtime error type, and scrubbed code-frame location. Custom error names are treated as untrusted free-form text and collapse to `Error`; grouping never uses an owner, patient, query, document, or request identifier. Authenticated user sync, when present, sets Sentry user id only — never email.
+The static route pattern (for example `/api/documents/[id]`) is safe operational metadata; the actual request path is deliberately ignored. Error grouping uses the route pattern, a fixed JavaScript runtime error type, and scrubbed code-frame location. Custom error names are treated as untrusted free-form text and collapse to `Error`; grouping never uses an owner, patient, query, document, or request identifier.
 
 ## Operator approval and rollout
 
