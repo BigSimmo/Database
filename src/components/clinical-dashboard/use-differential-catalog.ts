@@ -183,7 +183,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       return { status: "refetching", matches: emptyDifferentialMatches, demoMode: false };
     });
     setRetryAttempt((attempt) => attempt + 1);
-  }, [cacheKey, requestKey]);
+  }, [cacheKey, requestKey, setState]);
 
   useEffect(() => {
     if (!requestKey || !cacheKey) return undefined;
