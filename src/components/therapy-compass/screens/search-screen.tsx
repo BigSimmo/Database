@@ -1,11 +1,11 @@
 "use client";
 
-import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+import { useId, useState } from "react";
+
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 
 import { useTcBindings } from "../bindings";
+import { TherapyFilterSheet, TherapyFilterTrigger } from "../filter-sheet";
 import { outlineControl, softControl } from "../controls";
 import { SearchXIcon, XIcon } from "../icons";
 import { EmptyState, LoadingState } from "../ui";
@@ -21,6 +21,9 @@ export function SearchScreen() {
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
   const availabilityFilterCount = Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
+  const activeFilterCount = b.search.tags.length + availabilityFilterCount;
+  const filterPanelId = useId();
+  const [filterOpen, setFilterOpen] = useState(false);
 
   return (
     <section data-screen-label="Search" className="tc-screens-search-screen-001">
@@ -34,53 +37,12 @@ export function SearchScreen() {
         headingLevel={1}
         filterLabel="Filter therapy results"
         mobileControls={
-          <div className="grid min-w-0 grid-cols-2 gap-1.5">
-            <MobileResultFilterControl
-              label="Topics"
-              ariaLabel="Add or remove a therapy topic filter"
-              testId="therapy-topic-filter-select"
-              value=""
-              options={[
-                {
-                  value: "",
-                  label: b.search.tags.length ? `${b.search.tags.length} topics selected` : "All topics",
-                  disabled: true,
-                },
-                ...QUICK_TAGS.map((tag) => ({
-                  value: tag,
-                  label: `${b.search.tags.includes(tag) ? "✓ " : ""}${tag}`,
-                })),
-              ]}
-              onChange={(tag) => {
-                if (tag) b.toggleTag(tag);
-              }}
-            />
-            <MobileResultFilterControl
-              label="More"
-              ariaLabel="Change therapy availability filters"
-              testId="therapy-availability-filter-select"
-              value=""
-              options={[
-                {
-                  value: "",
-                  label: availabilityFilterCount ? `${availabilityFilterCount} more selected` : "Any availability",
-                  disabled: true,
-                },
-                { value: "reviewed", label: `${b.search.reviewedOnly ? "✓ " : ""}Reviewed only` },
-                { value: "brief", label: `${b.search.briefOnly ? "✓ " : ""}Brief available` },
-                {
-                  value: "clear",
-                  label: "Clear filters",
-                  disabled: b.search.tags.length === 0 && availabilityFilterCount === 0 && !q,
-                },
-              ]}
-              onChange={(filter) => {
-                if (filter === "reviewed") b.toggleReviewedOnly();
-                if (filter === "brief") b.toggleBriefOnly();
-                if (filter === "clear") b.clearSearch();
-              }}
-            />
-          </div>
+          <TherapyFilterTrigger
+            panelId={filterPanelId}
+            open={filterOpen}
+            activeCount={activeFilterCount}
+            onToggle={() => setFilterOpen((current) => !current)}
+          />
         }
         filterControls={
           <div className="tc-screens-search-screen-008">
@@ -120,6 +82,21 @@ export function SearchScreen() {
             </button>
           </div>
         }
+      />
+
+      <TherapyFilterSheet
+        open={filterOpen}
+        panelId={filterPanelId}
+        onClose={() => setFilterOpen(false)}
+        topics={QUICK_TAGS}
+        activeTopics={b.search.tags}
+        onToggleTopic={b.toggleTag}
+        reviewedOnly={b.search.reviewedOnly}
+        onToggleReviewed={b.toggleReviewedOnly}
+        briefOnly={b.search.briefOnly}
+        onToggleBrief={b.toggleBriefOnly}
+        onClear={b.clearSearch}
+        resultCount={results.length}
       />
 
       {/* The band's fault panel owns the failure. Without this guard an error
