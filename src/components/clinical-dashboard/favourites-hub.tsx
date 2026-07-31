@@ -1,7 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpDown, ChevronDown, Filter, Folder, Heart, Plus, Search, ShieldCheck, X } from "lucide-react";
+import {
+  ArrowUpDown,
+  ChevronDown,
+  CircleAlert,
+  Filter,
+  Folder,
+  Heart,
+  Plus,
+  Search,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
@@ -188,6 +199,16 @@ export function FavouritesHub({
             id={desktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full [&:not(:empty)]:block"
           />
+        ) : null}
+
+        {savedRegistryStatus === "partial" ? (
+          <div
+            role="status"
+            className="flex w-full max-w-md items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-left text-xs font-semibold text-[color:var(--warning)]"
+          >
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <span>Some saved sources are unavailable. Counts include the favourites that loaded successfully.</span>
+          </div>
         ) : null}
 
         <div className="grid w-full max-w-md grid-cols-3 gap-2 text-left">
@@ -470,18 +491,22 @@ export function FavouritesHub({
                       ? "No favourites match"
                       : savedRegistryStatus === "loading"
                         ? "Loading your favourites"
-                        : "Could not load your favourites"}
+                        : savedRegistryStatus === "partial"
+                          ? "No loaded favourites match"
+                          : "Could not load your favourites"}
                   </p>
                   <p className="mt-1 text-sm text-[color:var(--text-muted)]">
                     {savedRegistryStatus === "ready"
                       ? "Clear the composer text or choose another tab."
                       : savedRegistryStatus === "loading"
                         ? "Fetching your saved services and forms."
-                        : savedRegistryStatus === "unauthorized"
-                          ? "Your session expired. Sign in again to see your saved items."
-                          : "Your saved items could not be loaded. Try again shortly."}
+                        : savedRegistryStatus === "partial"
+                          ? "Some saved sources are unavailable. Clear the filters or try loading them again."
+                          : savedRegistryStatus === "unauthorized"
+                            ? "Your session expired. Sign in again to see your saved items."
+                            : "Your saved items could not be loaded. Try again shortly."}
                   </p>
-                  {savedRegistryStatus === "error" ? (
+                  {savedRegistryStatus === "error" || savedRegistryStatus === "partial" ? (
                     <button
                       type="button"
                       onClick={() => refetchFavouritesRegistry()}

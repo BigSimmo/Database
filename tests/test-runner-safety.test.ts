@@ -8,6 +8,7 @@ import { childProcessExitCode, childProcessFailureSummary } from "../scripts/chi
 import {
   offlineTestEnvironment,
   offlineUrlValues,
+  providerFreeCloudLiveTestGap,
   providerEnvironmentKeys,
   requireProviderTestPermission,
 } from "../scripts/test-environment.mjs";
@@ -553,6 +554,34 @@ describe("provider-safe test environment", () => {
     expect(() => requireProviderTestPermission({ ALLOW_PROVIDER_TESTS: "true" })).not.toThrow();
   });
 
+  it("reports the intentional Cloud credential boundary after live-test authorization", () => {
+    const environment = {
+      ALLOW_PROVIDER_TESTS: "true",
+      CODEX_CLOUD: "1",
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      RAG_PROVIDER_MODE: "offline",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+      OPENAI_API_KEY: "must-not-appear",
+    };
+    const gap = providerFreeCloudLiveTestGap(environment);
+    expect(gap).toContain("agent-phase provider credentials are intentionally unavailable");
+    expect(gap).not.toContain(environment.OPENAI_API_KEY);
+    for (const malformedModes of [
+      { RAG_PROVIDER_MODE: "openai" },
+      { NEXT_PUBLIC_DEMO_MODE: "false" },
+      { PLAYWRIGHT_OFFLINE_MODE: "false" },
+    ]) {
+      expect(providerFreeCloudLiveTestGap({ ...environment, ...malformedModes })).toContain(
+        "Live provider test capability gap",
+      );
+    }
+    expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: undefined })).toContain(
+      "Live provider test capability gap",
+    );
+    expect(providerFreeCloudLiveTestGap({ ...environment, CODEX_CLOUD_ACCESS_PROFILE: "connected" })).toBeNull();
+  });
+
   it("keeps live tests out of default Vitest discovery", () => {
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
     expect(config).toContain('exclude: liveProviderTests ? [] : ["tests/**/*.live.test.ts"]');
@@ -583,6 +612,29 @@ describe("provider-safe test environment", () => {
     expect(`${result.stdout}${result.stderr}`).toContain("Live provider tests are disabled");
   });
 
+  it("fails the authorized live-test command with a sanitized offline Cloud capability gap", () => {
+    const secret = "sensitive-test-value";
+    const result = spawnSync(process.execPath, ["scripts/run-live-tests.mjs"], {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
+      env: {
+        ...process.env,
+        ALLOW_PROVIDER_TESTS: "true",
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        RAG_PROVIDER_MODE: "offline",
+        NEXT_PUBLIC_DEMO_MODE: "true",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+        OPENAI_API_KEY: secret,
+      },
+      encoding: "utf8",
+    });
+    const output = `${result.stdout}${result.stderr}`;
+    expect(childProcessExitCode(result)).toBe(2);
+    expect(output).toContain("Live provider test capability gap");
+    expect(output).not.toContain(secret);
+    expect(output).not.toContain("sensitive-test");
+  });
+
   it("loads credentials from Next environment files without accepting persisted permission", () => {
     const runner = readFileSync(new URL("../scripts/run-live-tests.mjs", import.meta.url), "utf8");
     const permissionSnapshot = "const providerTestPermission = process.env.ALLOW_PROVIDER_TESTS;";
@@ -605,6 +657,7 @@ describe("provider-safe test environment", () => {
 
   it("builds and starts an isolated production server for Playwright", () => {
     const runner = readFileSync(new URL("../scripts/run-playwright.mjs", import.meta.url), "utf8");
+    const preflight = readFileSync(new URL("../scripts/playwright-browser-preflight.mjs", import.meta.url), "utf8");
     const baseUrl = readFileSync(new URL("../scripts/playwright-base-url.ts", import.meta.url), "utf8");
     const ragRunner = readFileSync(new URL("../scripts/eval-rag-offline.mjs", import.meta.url), "utf8");
     const playwrightConfig = readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
@@ -622,6 +675,12 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('PLAYWRIGHT_KEEP_BUILD_ROOT must be unset or exactly "true"');
     expect(runner).toContain("PLAYWRIGHT_KEEP_BUILD_ROOT requires PLAYWRIGHT_BUILD_ROOT_ID");
     expect(runner).toContain("if (!keepBuildRoot)");
+    // Run-scoped artifact sharing (not actions/cache) — avoids the measured 804 MB
+    // Actions-cache budget regression while still warming the three production shards.
+    expect(ciWorkflow).toContain("name: playwright-next-build-cache-${{ github.run_id }}");
+    expect(ciWorkflow).toContain("Publish isolated Next.js build cache");
+    expect(ciWorkflow).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1");
+    expect(ciWorkflow).not.toMatch(/playwright-next-\$\{\{\s*runner\.os\s*\}\}/);
     expect(ciWorkflow.match(/path: \.next-playwright\/ci-production\/dist\/cache/g)).toHaveLength(2);
     expect(ciWorkflow.match(/PLAYWRIGHT_BUILD_ROOT_ID: ci-production/g)).toHaveLength(2);
     expect(ciWorkflow.match(/PLAYWRIGHT_KEEP_BUILD_ROOT: "true"/g)).toHaveLength(2);
@@ -630,6 +689,18 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");
     expect(runner).not.toContain("if (!body || body.includes(missingErrorComponentsNeedle))");
     expect(runner).not.toContain("supabase.co");
+    // Missing browser binaries must fail before the heavy lock / production build (#120).
+    expect(runner).toContain("assertPlaywrightBrowsersReady(playwrightArgs);");
+    expect(runner.indexOf("assertPlaywrightBrowsersReady(playwrightArgs);")).toBeLessThan(
+      runner.indexOf("lock = acquireHeavyRunLock("),
+    );
+    expect(runner.indexOf("assertPlaywrightBrowsersReady(playwrightArgs);")).toBeLessThan(
+      runner.indexOf("console.log(`Building isolated production Playwright app"),
+    );
+    expect(preflight).toContain("chromium_headless_shell");
+    expect(preflight).toContain("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH");
+    expect(preflight).toContain("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD");
+    expect(runner).toContain("process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = preinstalledChromium.path");
     expect(packageJson.scripts["test:e2e:pr"]).toContain('--grep-invert "@quarantine|@mockup"');
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));

@@ -6,6 +6,7 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
+import { assertPlaywrightBrowsersReady } from "./playwright-browser-preflight.mjs";
 import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import {
@@ -45,6 +46,21 @@ const mockupProjectRequested =
       argument === "--project=chromium-mockups" ||
       (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
   );
+
+// Fail loud on missing browser binaries before the heavy lock or production build.
+// Otherwise launch failures surface as "N failed" product tests and are easy to misread
+// when a caller pipes output without `pipefail` (outstanding-issues #120).
+const browserPreflight = assertPlaywrightBrowsersReady(playwrightArgs);
+const preinstalledChromium = browserPreflight.checked.find(
+  (entry) => entry.source === "preinstalled container Chromium (PLAYWRIGHT_BROWSERS_PATH)",
+);
+if (preinstalledChromium && !process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH = preinstalledChromium.path;
+  console.error(
+    `[playwright] Managed Chromium is unavailable; using the preinstalled container browser at ${preinstalledChromium.path}.`,
+  );
+}
+
 const requestedRunId = process.env.PLAYWRIGHT_BUILD_ROOT_ID?.trim();
 if (requestedRunId && !/^[a-z0-9-]+$/i.test(requestedRunId)) {
   console.error("PLAYWRIGHT_BUILD_ROOT_ID must contain only letters, numbers, and hyphens.");
