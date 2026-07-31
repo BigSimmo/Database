@@ -20,6 +20,8 @@ try {
     sendDefaultPii: false,
     dataCollection: {
       databaseQueryData: false,
+      // Mirror the server runtime: AI inputs/outputs are never collected.
+      genAI: { inputs: false, outputs: false },
     },
     enableLogs: false,
     maxBreadcrumbs: 0,
