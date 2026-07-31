@@ -18,6 +18,28 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
+  // Optional Sentry error/tracing capture. Blank is treated as unset so a missing
+  // DSN is fully inert — no SDK import, no egress. Deliberately NOT part of
+  // requireServerEnv — a missing DSN must never block boot. See
+  // src/lib/observability/error-capture.ts and sentry.server.config.ts.
+  SENTRY_DSN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
+  SENTRY_ENVIRONMENT: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().optional(),
+  ),
+  // Public (browser) DSN + environment. Read by instrumentation-client.ts via
+  // process.env; also declared here so env-parity / schema checks stay complete.
+  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().url().optional(),
+  ),
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().optional(),
+  ),
   // Inbound webhook receivers. Each shared secret gates a machine-to-machine
   // endpoint under /api/webhooks/* and fails closed when unset (the route 503s
   // rather than trusting an unauthenticated caller). See docs/webhooks.md.

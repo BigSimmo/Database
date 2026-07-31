@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
 
@@ -82,12 +83,21 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
-  webpack(config) {
+  webpack(config, { webpack }) {
     // Avoid a Next/webpack WasmHash worker crash observed on Node 24 during local production builds.
     config.output = {
       ...config.output,
       hashFunction: "sha256",
     };
+    // Build-time flag so the browser Sentry SDK is fully tree-shaken out unless a
+    // public DSN is set at build. Next does NOT fold an UNSET NEXT_PUBLIC_* var to a
+    // compile-time constant, so a plain `if (process.env.NEXT_PUBLIC_SENTRY_DSN)` gate
+    // leaves the dynamic import (and its chunk) on disk. See instrumentation-client.ts.
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        __SENTRY_ENABLED__: JSON.stringify(Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN?.trim())),
+      }),
+    );
     return config;
   },
   async headers() {
@@ -127,4 +137,16 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withOptionalBundleAnalyzer(nextConfig);
+// Source-map upload + same-origin tunnel. Org/project/authToken are optional at
+// build time — without them the SDK still instruments, but maps are not uploaded.
+// tunnelRoute keeps client envelopes on connect-src 'self' (no *.sentry.io in CSP).
+export default withOptionalBundleAnalyzer(nextConfig).then((config) =>
+  withSentryConfig(config, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    widenClientFileUpload: true,
+    tunnelRoute: "/monitoring",
+    silent: !process.env.CI,
+  }),
+);

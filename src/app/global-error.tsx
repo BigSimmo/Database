@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { captureClientException } from "@/lib/observability/sentry-client";
 import { redactLogValue } from "@/lib/privacy";
 
 /**
@@ -20,6 +21,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
 
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
+    // No-op unless the browser Sentry SDK was initialized (NEXT_PUBLIC_SENTRY_DSN).
+    captureClientException(error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error]);
 

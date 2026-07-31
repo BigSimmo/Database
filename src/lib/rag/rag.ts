@@ -129,6 +129,7 @@ export {
   retrievalPlanCacheQuery,
 } from "@/lib/rag/rag-cache";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
+import { captureServerEvent } from "@/lib/observability/error-capture";
 import {
   recordAnswerOrigination,
   recordAnswerOriginationFinished,
@@ -4139,6 +4140,17 @@ ${qualityRetryInstruction}`
       generationFallbackArtifacts,
     );
     const sanitizedReason = summarizeGenerationFailureReason(error);
+    // This degradation is invisible to route-level capture (the request still
+    // succeeds with a source-only answer), so report it here. The token-starvation
+    // incident (GEN-C1) lived exclusively in this branch for weeks. Skip expected
+    // offline/source-only profiles — those never attempt generation.
+    if (!isSourceOnlyMode()) {
+      await captureServerEvent("answer_generation_fallback", {
+        reason: sanitizedReason,
+        queryClass,
+        routeMode: route.mode ?? "unknown",
+      });
+    }
     const comparisonExtractiveFallbackAnswer =
       queryClass === "comparison"
         ? buildExtractiveAnswer({

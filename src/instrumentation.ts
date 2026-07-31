@@ -1,13 +1,30 @@
+import type { Instrumentation } from "next";
+
 // Next.js calls register() once when a server instance starts, before it serves
 // any requests. We use it to fail fast: a clinical production server must be fully
 // and correctly configured rather than silently degrading — or, worse, serving
 // unauthenticated demo content — on the first request. See production-readiness
 // plan items 0.1 and 0.3.
+//
+// Optional Sentry init runs last and only when a DSN is set, so a misconfigured
+// server fails the guards below rather than reporting a half-configured boot.
 export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await runNodeProductionBootGuards();
+    if (process.env.SENTRY_DSN?.trim()) {
+      await import("../sentry.server.config");
+    }
+  }
+
+  if (process.env.NEXT_RUNTIME === "edge" && process.env.SENTRY_DSN?.trim()) {
+    await import("../sentry.edge.config");
+  }
+}
+
+async function runNodeProductionBootGuards() {
   // Only the Node.js server runtime in production needs this gate. Development
   // keeps its local/demo fallbacks, and the Edge runtime doesn't use the Node-only
   // server configuration these checks validate.
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NODE_ENV !== "production") return;
 
   // Playwright validates a real production build, but its runner must remain a
@@ -53,3 +70,21 @@ export async function register() {
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
 }
+
+// Uncaught request errors (route handlers, RSC renders, server actions). Errors the
+// answer routes catch and convert to degraded responses never reach this hook — those
+// are captured explicitly at the catch sites via error-capture.ts.
+export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
+  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (!process.env.SENTRY_DSN?.trim()) return;
+  const { captureServerException } = await import("@/lib/observability/error-capture");
+  await captureServerException(error, {
+    source: "onRequestError",
+    // Path only — query strings could carry user input.
+    path: request.path.split("?")[0],
+    method: request.method,
+    routerKind: context.routerKind,
+    routePath: context.routePath,
+    routeType: context.routeType,
+  });
+};

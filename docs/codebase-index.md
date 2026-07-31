@@ -171,12 +171,12 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Infra helpers
 
-| Module                                                                                           | Role                                                          |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
-| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                      | External APIs and rate limits                                 |
-| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`                       | Deep-health SLO / cache-hit / answer-spend snapshots          |
-| `validation/`                                                                                    | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
-| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs` | Routing and project identity                                  |
+| Module                                                                                                                                | Role                                                                                                               |
+| ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                                                           | External APIs and rate limits                                                                                      |
+| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`, `error-capture.ts`, `sentry-scrub.ts`, `sentry-client.ts` | Deep-health SLO / cache-hit / answer-spend snapshots; optional privacy-scrubbed Sentry capture (inert without DSN) |
+| `validation/`                                                                                                                         | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts`                                                      |
+| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                                      | Routing and project identity                                                                                       |
 
 ---
 

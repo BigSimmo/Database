@@ -144,5 +144,6 @@ export const config = {
   // Run on everything except static assets and image files. API routes stay in
   // the matcher so cookie-authenticated requests can return rotated cookies and
   // every response carries the CSP header.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  // Exclude the Sentry tunnel so auth/redirect logic never intercepts envelopes.
+  matcher: ["/((?!monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };

@@ -5,6 +5,7 @@ import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { captureClientException } from "@/lib/observability/sentry-client";
 import { redactLogValue } from "@/lib/privacy";
 
 export type RouteErrorBoundaryProps = {
@@ -47,6 +48,8 @@ export function RouteErrorBoundary({
 
   useEffect(() => {
     console.error(logLabel, error);
+    // No-op unless the browser Sentry SDK was initialized (NEXT_PUBLIC_SENTRY_DSN).
+    captureClientException(error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);
 

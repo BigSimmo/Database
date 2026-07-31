@@ -29,6 +29,7 @@ import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
+import { captureServerException } from "@/lib/observability/error-capture";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { startSseHeartbeat } from "@/lib/sse-heartbeat";
@@ -120,6 +121,8 @@ function logStreamError(error: unknown, signal?: AbortSignal) {
   if ((error instanceof DOMException && error.name === "AbortError") || signal?.aborted) return;
   if (error instanceof PublicApiError && error.status < 500) return;
   logger.error("Search stream failed", safeErrorLogDetails(error));
+  const status = error instanceof PublicApiError ? error.status : 500;
+  void captureServerException(error, { route: "api/answer/stream", status });
 }
 
 function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string) {
@@ -349,11 +352,21 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
+    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
+      if (error.status >= 500 && !clientAborted) {
+        void captureServerException(error, { route: "api/answer/stream", status: error.status });
+      }
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
+      if (!clientAborted) {
+        void captureServerException(error, { route: "api/answer/stream", status: 500 });
+      }
       return jsonError(new PublicApiError("Answer processing failed.", 500, { code: error.name }), 500);
+    }
+    if (!clientAborted) {
+      void captureServerException(error, { route: "api/answer/stream", status: 500 });
     }
     return jsonError("Answer processing failed.", 500);
   }
