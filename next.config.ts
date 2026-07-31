@@ -148,7 +148,9 @@ function shouldEnableSentrySourceMapUpload() {
 }
 
 function getSentryRelease() {
-  return process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
+  return (
+    process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev"
+  );
 }
 
 export default async function () {
@@ -162,12 +164,14 @@ export default async function () {
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
     authToken: process.env.SENTRY_AUTH_TOKEN,
-    release: getSentryRelease(),
+    release: { name: getSentryRelease() },
     silent: process.env.NODE_ENV === "production",
     sourcemaps: {
       disable: false,
+      // Successor to the removed `hideSourceMaps` option: upload maps to
+      // Sentry, never serve them publicly.
+      deleteSourcemapsAfterUpload: true,
     },
     widenClientFileUpload: true,
-    hideSourceMaps: true,
   });
 }
