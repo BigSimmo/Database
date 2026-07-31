@@ -420,7 +420,12 @@ jobs:
       # so an npm lifecycle wrapper cannot keep the step alive after the check
       # has printed success.
       - name: Bundle budget (enforced — fails on >tolerancePct gzip growth vs baseline)
-        timeout-minutes: 3
+        # 8 minutes is headroom, not an expected duration: the check gzips every
+        # chunk once and finishes in seconds. The ceiling only needs to be low
+        # enough to fail as `failure` well before the job timeout would cancel it
+        # (see the comment above), and high enough that a slow or contended
+        # runner does not turn a healthy build red.
+        timeout-minutes: 8
         run: node scripts/check-bundle-budget.mjs
 
       - name: Deployment boot smoke
