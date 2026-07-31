@@ -215,6 +215,106 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     expect(result.current.status).toBe("ready");
   });
 
+  it("retries over the network after a warm-cache error instead of soft-succeeding", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "boom" }, 500)));
+    await act(async () => {
+      result.current.refetch();
+    });
+    await advanceDebounce();
+    await flushMicrotasks();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("error");
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+    await act(async () => {
+      result.current.refetch();
+    });
+    expect(result.current.status).toBe("refetching");
+    expect(result.current.matches.diagnoses).toEqual([]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+  });
+
+  it("refetches after an error when the same identity refreshes credentials", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? { matches: [diagnosisMatch], demoMode: false }
+            : { matches: [], demoMode: false },
+        ),
+      ),
+    );
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "boom" }, 500)));
+    await act(async () => {
+      result.current.refetch();
+    });
+    expect(result.current.status).toBe("refetching");
+    await advanceDebounce();
+    await flushMicrotasks();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("error");
+    expect(result.current.matches.diagnoses).toEqual([]);
+
+    const pending: Array<(response: Response) => void> = [];
+    fetchMock.mockImplementation(() => new Promise<Response>((resolve) => pending.push(resolve)));
+    authSession.authorizationHeader = { Authorization: "Bearer refreshed-after-error" };
+    rerender();
+    expect(result.current.status).toBe("loading");
+    expect(result.current.matches.diagnoses).toEqual([]);
+    await advanceDebounce();
+    expect(pending).toHaveLength(2);
+
+    await act(async () => {
+      pending[0](jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      pending[1](jsonResponse({ matches: [], demoMode: false }));
+    });
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+  });
+
   it("keeps refetching across back-to-back same-identity credential refreshes", async () => {
     const diagnosisMatch = {
       record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },

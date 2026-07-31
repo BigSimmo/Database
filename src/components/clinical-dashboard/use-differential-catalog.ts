@@ -143,8 +143,18 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
           ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false }
           : { status: "ready", matches: emptyDifferentialMatches, demoMode: false },
       );
-    } else if (!requestChanged && credentialChanged && (state.status === "ready" || state.status === "refetching")) {
+    } else if (credentialChanged && !requestChanged && (state.status === "ready" || state.status === "refetching")) {
       setState({ ...state, status: "refetching" });
+    } else if (credentialChanged && !requestChanged) {
+      // Error/unauthorized/loading: drop the same-identity LRU entry so the
+      // render/effect cache short-circuits cannot paint stale ready matches
+      // without revalidating the new Authorization header.
+      if (cacheKey) differentialSearchCache.delete(cacheKey);
+      setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+    } else if (credentialChanged && cached) {
+      // Query changed in the same pulse as the credential: show the warm hit
+      // but stay in refetching so the new Authorization header is revalidated.
+      setState({ status: "refetching", matches: cached.matches, demoMode: cached.demoMode });
     } else if (cached) {
       setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode });
     } else {
@@ -162,18 +172,25 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   const [retryAttempt, setRetryAttempt] = useState(0);
   const refetch = useCallback(() => {
     if (!requestKey) return;
-    setState((current) =>
-      current.status === "ready" || current.status === "refetching"
-        ? { ...current, status: "refetching" }
-        : { status: "loading", matches: emptyDifferentialMatches, demoMode: false },
-    );
+    setState((current) => {
+      if (current.status === "ready" || current.status === "refetching") {
+        return { ...current, status: "refetching" };
+      }
+      // Retry after error/unauthorized must not soft-succeed from a warm LRU
+      // entry that survived the failed attempt. Use refetching (not loading):
+      // the render short-circuit still promotes loading+cache → ready.
+      if (cacheKey) differentialSearchCache.delete(cacheKey);
+      return { status: "refetching", matches: emptyDifferentialMatches, demoMode: false };
+    });
     setRetryAttempt((attempt) => attempt + 1);
-  }, [requestKey]);
+  }, [cacheKey, requestKey]);
 
   useEffect(() => {
     if (!requestKey || !cacheKey) return undefined;
 
-    if (peekDifferentialCache(cacheKey) && state.status !== "refetching") {
+    // Only a settled ready hit may skip the network. loading/refetching must
+    // revalidate so Retry and credential pulses cannot soft-succeed offline.
+    if (state.status === "ready" && peekDifferentialCache(cacheKey)) {
       touchDifferentialCache(cacheKey);
       return undefined;
     }
