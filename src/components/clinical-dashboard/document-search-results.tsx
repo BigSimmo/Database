@@ -826,7 +826,7 @@ function SearchRecordResults({
 }
 
 function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus; mode: SearchRecordMode }) {
-  if (status === "ready") return null;
+  if (status === "ready" || status === "refetching") return null;
   const noun = mode === "forms" ? "forms" : "services";
   const config =
     status === "loading"
@@ -1011,7 +1011,9 @@ function DocumentSearchResultsPanelImpl({
                   ? "error"
                   : recordStatus === "loading"
                     ? "loading"
-                    : "ready"
+                    : recordStatus === "refetching"
+                      ? "refetching"
+                      : "ready"
               : (unavailable?.status ?? (loading ? "loading" : "ready"))
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}

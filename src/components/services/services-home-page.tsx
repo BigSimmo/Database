@@ -86,7 +86,7 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
   const taskCards = buildTaskCards(defaultServiceSlug);
   const registry = useRegistryRecords("service");
   const verifiedCount = countVerifiedRegistryRecords(registry);
-  const registryReady = registry.status === "ready";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
   const registryNotice =
     registry.status === "loading" ? (
