@@ -72,7 +72,12 @@ const patterns = {
   phoneContract: [
     /^docs\/(?:search-chrome-behaviour|phone-chrome-physical-acceptance)\.md$/,
     /^tests\/(?:header-scroll-hide-contract|mobile-composer-reserve|ui-overlay-css-contract|clinical-dashboard-merge-artifacts|use-hide-on-scroll)\.test\.ts$/,
-    /^tests\/ui-(?:phone-scroll|chrome-scroll|therapy-nav-scroll)\.spec\.ts$/,
+    // Same `-<suffix>` arm as phoneChromeBrowserSpecPattern: a sibling-only
+    // edit (routes / page-owned) must still count as phoneContract so contracts
+    // and ownership stages run. Exact `phone-scroll` alone marks phoneRelevant
+    // false and the note says "No phone-chrome-affecting file was detected"
+    // while changed-browser still runs the file — incomplete, not empty.
+    /^tests\/ui-(?:phone-scroll(?:-[a-z0-9-]+)?|chrome-scroll|therapy-nav-scroll)\.spec\.ts$/,
   ],
 };
 

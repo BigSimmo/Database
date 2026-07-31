@@ -102,6 +102,23 @@ describe("phoneChromePlan", () => {
     expect(changedBrowser?.command.args).toContain(file);
     expect(changedBrowser?.command.args).not.toContain("--grep");
   });
+
+  /**
+   * phoneContract must recognise the phone-scroll siblings the same way
+   * phoneChromeBrowserSpecPattern does. A routes/page-owned-only edit that
+   * matched only the browser pattern ran changed-browser but skipped contracts
+   * and reported phoneRelevant=false — the incomplete-gate half of the same
+   * silent-miss class this PR closes.
+   */
+  it.each(["tests/ui-phone-scroll-routes.spec.ts", "tests/ui-phone-scroll-page-owned.spec.ts"])(
+    "treats phone-scroll sibling %s as phoneContract (contracts + relevant)",
+    (file) => {
+      const plan = phoneChromePlan([file]);
+      expect(plan.phoneRelevant).toBe(true);
+      expect(plan.stages.map((candidate) => candidate.id)).toContain("contracts");
+      expect(plan.notes.join(" ")).not.toContain("No phone-chrome-affecting file was detected");
+    },
+  );
 });
 
 describe("runPhoneChromeStages", () => {
