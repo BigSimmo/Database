@@ -466,8 +466,11 @@ jobs:
       # ~804 MB warm cache was measured as a net CI loss against the shared
       # 10 GB budget (would evict the Playwright browser cache). Artifacts expire
       # after one day and never compete with that budget.
+      # continue-on-error: publish is an optimization. A miss must not fail the
+      # critical job after green @critical journeys — shards cold-build instead.
       - name: Publish isolated Next.js build cache
         if: success()
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-next-build-cache-${{ github.run_id }}

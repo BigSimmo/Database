@@ -696,6 +696,10 @@ describe("provider-safe test environment", () => {
     // silently publishes nothing (same class of bug as eval-canary's `.local/`).
     expect(ciWorkflow).toContain("include-hidden-files: true");
     expect(ciWorkflow).toContain("compression-level: 0");
+    // Publish must not gate the critical job: a cache miss falls back to cold builds.
+    expect(ciWorkflow).toMatch(
+      /Publish isolated Next\.js build cache[\s\S]*?continue-on-error:\s*true[\s\S]*?actions\/upload-artifact/,
+    );
     expect(ciWorkflow).not.toMatch(/playwright-next-\$\{\{\s*runner\.os\s*\}\}/);
     expect(ciWorkflow.match(/path: \.next-playwright\/ci-production\/dist\/cache/g)).toHaveLength(2);
     expect(ciWorkflow.match(/PLAYWRIGHT_BUILD_ROOT_ID: ci-production/g)).toHaveLength(2);
