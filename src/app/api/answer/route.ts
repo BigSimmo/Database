@@ -11,6 +11,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
@@ -58,6 +59,10 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 
 export async function POST(request: Request) {
   const interactionId = randomUUID();
+  // Group this request's LLM calls (embedding, generation, verification) into
+  // one Sentry agent-monitoring conversation keyed by the synthetic interaction
+  // UUID — never by query text.
+  setAgentConversationId(interactionId);
   const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {

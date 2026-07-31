@@ -23,6 +23,20 @@ Privacy constraints for traces:
 
 View samples in Sentry under **Explore → Traces**, and aggregated DB performance under **Dashboards → Sentry Built → Queries**.
 
+### AI agent monitoring (OpenAI spans)
+
+The OpenAI client is wrapped by `src/lib/observability/agent-monitoring.ts` (`Sentry.instrumentOpenAiClient`, SDK ≥ 10.67) so Sentry's AI/agents views show per-call operation, model, latency, and token usage. The wrap is inert unless `SENTRY_DSN` is set, the resolved traces sample rate is greater than zero, **and** the runtime actually initialized Sentry — so it is always a no-op in the ingestion worker and in tests, which import the module but never run `Sentry.init()`.
+
+Privacy constraints for agent monitoring:
+
+- `recordInputs` / `recordOutputs` are **false** on the wrap and `dataCollection.genAI` is `{ inputs: false, outputs: false }` in both runtime configs — prompts, clinical queries, source evidence, generated answers, and embedding inputs are never recorded.
+- `privacySafeTransactionEvent` allowlists only gen_ai metadata attributes (system, operation name, request/response model, response id, finish reasons, token usage, conversation id) and rebuilds gen_ai span descriptions as `<operation> <model>` from those attributes. Message, prompt, tool-payload, and embedding-input attributes are stripped on export even if a future SDK version records them.
+- Each answer request (`/api/answer` and `/api/answer/stream`, summaries included) calls `Sentry.setConversationId(<interactionId>)` — the request's synthetic UUID — so the embedding/generation calls of one request group into one conversation without carrying any query text.
+- User identification (`Sentry.setUser`) is deliberately **not** wired: the committed privacy boundary strips `user` from every outgoing event (see the tests), and linking clinical-query telemetry to an identity would need its own governance review first.
+- `responses.parse` (schema-parsed generation) is not in the SDK's instrumentation registry and emits no gen_ai span; `responses.create` and `embeddings.create` are covered.
+
+Rollback matches tracing: set `SENTRY_TRACES_SAMPLE_RATE=0` (agent spans stop; error capture stays) or remove `SENTRY_DSN`. Raising the sample rate above the 0.1 default captures a larger share of answer requests in the agents view and is an operator decision.
+
 ## Operator approval and rollout
 
 Before setting `SENTRY_DSN`, the operator must approve the vendor/project, data region, retention period, access roles, sampling rate, cost budget, and alert destination. Configure a server-side DSN only; never use a `NEXT_PUBLIC_*` DSN. Keep provider-side IP/user enrichment disabled and restrict project access. Start with a non-production synthetic exception and inspect the received event before enabling production alerts.
