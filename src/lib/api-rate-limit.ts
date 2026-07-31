@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
+import { SENTRY_LOG_MESSAGES, sentryLog } from "@/lib/observability/sentry-logging";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 /** Prefer durable RPC rate limits; fall back to per-instance memory when the DB function is unavailable. */
@@ -226,10 +227,12 @@ export async function consumeApiRateLimit(args: {
 
   if (error) {
     if (args.allowInMemoryFallbackOnUnavailable) {
-      console.warn("Durable API rate limit check unavailable; using local in-memory fallback.", {
+      // Wide-event log: static message + operational attributes only (no owner id / PII).
+      sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
         bucket: args.bucket,
         code: error.code,
-        message: error.message,
+        backend: "in_memory",
+        fallback: true,
       });
       return consumeInMemoryApiRateLimit({ ownerId: args.ownerId, bucket: args.bucket, limit, windowSeconds });
     }
@@ -238,8 +241,10 @@ export async function consumeApiRateLimit(args: {
   const row = parseRateLimitRow(data);
   if (!row || typeof row.limited !== "boolean") {
     if (args.allowInMemoryFallbackOnUnavailable) {
-      console.warn("Durable API rate limit check returned an invalid payload; using local in-memory fallback.", {
+      sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_INVALID_PAYLOAD, {
         bucket: args.bucket,
+        backend: "in_memory",
+        fallback: true,
       });
       return consumeInMemoryApiRateLimit({ ownerId: args.ownerId, bucket: args.bucket, limit, windowSeconds });
     }
@@ -311,10 +316,12 @@ export async function consumeSubjectApiRateLimit(args: {
 
     if (error) {
       if (allowAnonymousRateLimitFallback(args.bucket, allowInMemoryFallbackOnUnavailable)) {
-        console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
+        sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
           bucket: args.bucket,
           code: error.code,
-          message: error.message,
+          backend: "in_memory",
+          fallback: true,
+          event: "anonymous",
         });
         return consumeInMemoryApiRateLimit({
           ownerId: subjectKey,
@@ -329,6 +336,12 @@ export async function consumeSubjectApiRateLimit(args: {
     const row = parseRateLimitRow(data);
     if (!row || typeof row.limited !== "boolean") {
       if (allowAnonymousRateLimitFallback(args.bucket, allowInMemoryFallbackOnUnavailable)) {
+        sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_INVALID_PAYLOAD, {
+          bucket: args.bucket,
+          backend: "in_memory",
+          fallback: true,
+          event: "anonymous",
+        });
         return consumeInMemoryApiRateLimit({
           ownerId: subjectKey,
           bucket: args.bucket,
@@ -472,7 +485,20 @@ function consumeInMemoryApiRateLimit({
   };
 }
 
-export function rateLimitJsonResponse(message: string, rateLimit: ApiRateLimitResult) {
+export function rateLimitJsonResponse(
+  message: string,
+  rateLimit: ApiRateLimitResult,
+  meta?: { bucket?: ApiRateLimitBucket },
+) {
+  // Example wide event: denial counts by bucket without subject identifiers.
+  sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMITED, {
+    code: "rate_limited",
+    status: 429,
+    bucket: meta?.bucket,
+    retry_after_seconds: rateLimit.retryAfterSeconds,
+    limit: rateLimit.limit,
+    remaining: rateLimit.remaining,
+  });
   return NextResponse.json(
     {
       error: message,
