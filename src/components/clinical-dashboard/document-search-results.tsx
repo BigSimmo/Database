@@ -19,6 +19,7 @@ import {
   ExternalLink,
   FileImage,
   FileText,
+  Funnel,
   Link2,
   ListChecks,
   Loader2,
@@ -41,10 +42,7 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
-import {
-  MobileResultFilterControl,
-  SearchResultsHeaderBand,
-} from "@/components/clinical-dashboard/search-results-header-band";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
@@ -157,34 +155,117 @@ const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
   Manual: Sparkles,
 };
 
-function DocumentTagFacetRail({
+const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
+  all: BookOpen,
+  tables: ListChecks,
+  images: FileImage,
+  pdfs: FileText,
+};
+
+/**
+ * The single filtering surface for document results.
+ *
+ * It replaces two separate ones. Source type (All/Tables/Images/PDFs) used to be
+ * a chip row inside the ribbon on desktop and a native `<select>` on phones,
+ * while the smart-tag facets were a rail below it — and that rail was mounted
+ * only when a facet was already selected, which nothing could do, so the facets
+ * were unreachable in production. Both now live here, behind one trigger, so
+ * "what is narrowing this list" has one answer and one place to undo it.
+ *
+ * Source type is single-select and the tag facets are multi-select (OR within a
+ * group, AND across groups, per `filterDocumentsBySmartTagFacetIndex`), so the
+ * two carry different affordances deliberately: `aria-pressed` toggles for the
+ * facets, `role="radiogroup"` for the mutually exclusive source type.
+ */
+function DocumentFilterPanel({
+  panelId,
   groups,
   activeKeys,
+  resultTabs,
+  activeResultType,
+  onResultTypeChange,
   onToggle,
   onClear,
+  resultCount,
+  onDone,
 }: {
+  panelId: string;
   groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
   activeKeys: string[];
+  resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
+  activeResultType: ResultTypeFilter;
+  onResultTypeChange: (value: ResultTypeFilter) => void;
   onToggle: (facet: SmartDocumentTagFacet) => void;
   onClear: () => void;
+  resultCount: number;
+  onDone: () => void;
 }) {
-  if (groups.length === 0) return null;
   const active = new Set(activeKeys);
+  const showSourceType = resultTabs.length > 1;
+  if (groups.length === 0 && !showSourceType) return null;
 
   return (
     <aside
-      aria-label="Document tag filters"
+      id={panelId}
+      data-testid="document-filter-panel"
+      aria-label="Filter documents"
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Tag facets</p>
-        {activeKeys.length > 0 ? (
-          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
+        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Filter documents</p>
+        {activeKeys.length > 0 || activeResultType !== "all" ? (
+          <button
+            type="button"
+            onClick={onClear}
+            data-testid="document-filter-clear"
+            className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}
+          >
             <X aria-hidden="true" className="h-3.5 w-3.5" />
-            Clear
+            Clear all
           </button>
         ) : null}
       </div>
+
+      {showSourceType ? (
+        <section className="mt-3 min-w-0">
+          <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+            <BookOpen aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+            Source type
+          </h3>
+          {/* Radio semantics, not toggles: picking one source type replaces the
+              last, so `aria-pressed` on four buttons would describe a state the
+              filter cannot be in. */}
+          <div role="radiogroup" aria-label="Source type" className="mt-2 flex flex-wrap gap-1.5">
+            {resultTabs.map((tab) => {
+              const selected = tab.key === activeResultType;
+              const Icon = resultTypeIcons[tab.key];
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => onResultTypeChange(tab.key)}
+                  className={cn(
+                    "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    selected
+                      ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                  <span className="nums rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {smartDocumentFacetGroups
           .map((group) => groups.find((item) => item.group === group))
@@ -252,7 +333,81 @@ function DocumentTagFacetRail({
             );
           })}
       </div>
+
+      {/* The count is the point of the panel: it is what tells the reader whether
+          the combination they have built still returns anything before they
+          dismiss it. `aria-live` is deliberate — the number changes under them as
+          they toggle, and on a phone the results sit below the fold. */}
+      <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--border)] pt-3">
+        <span aria-live="polite" className={cn("nums mr-auto text-2xs font-semibold", textMuted)}>
+          {resultCount} document{resultCount === 1 ? "" : "s"}
+        </span>
+        <button
+          type="button"
+          onClick={onDone}
+          data-testid="document-filter-done"
+          className={cn(
+            "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-10",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          )}
+        >
+          Show {resultCount} document{resultCount === 1 ? "" : "s"}
+        </button>
+      </div>
     </aside>
+  );
+}
+
+/**
+ * Opens the filter panel and reports how many filters are active.
+ *
+ * Rendered into both of the ribbon's page-control slots — `filterControls` (the
+ * full-width row, `sm` and up) and `mobileControls` (the utility row, below
+ * `sm`) — because the ribbon hides one or the other by breakpoint and only ever
+ * shows one at a time.
+ */
+function DocumentFilterTrigger({
+  panelId,
+  testId,
+  open,
+  activeCount,
+  onToggle,
+}: {
+  panelId: string;
+  /** Distinct per slot: both copies are in the DOM, so a shared id would make
+      every `getByTestId` lookup ambiguous under Playwright strict mode even
+      though only one is ever displayed. */
+  testId: string;
+  open: boolean;
+  activeCount: number;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={panelId}
+      data-testid={testId}
+      title="Filter documents"
+      className={cn(
+        floatingControl,
+        "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
+        activeCount > 0 &&
+          "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+      )}
+    >
+      <Funnel aria-hidden="true" className="size-icon-md shrink-0" />
+      <span>Filter</span>
+      {activeCount > 0 ? (
+        <span className="nums rounded bg-[color:var(--clinical-accent)] px-1 text-2xs font-bold text-[color:var(--surface)]">
+          {activeCount}
+        </span>
+      ) : null}
+      <span className="sr-only">
+        {activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "No filters active"}
+      </span>
+    </button>
   );
 }
 
@@ -638,60 +793,6 @@ function DocumentSearchHome({
   );
 }
 
-function DocumentSourceTypeFilters({
-  resultTabs,
-  activeResultType,
-  onResultTypeChange,
-}: {
-  resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
-  activeResultType: ResultTypeFilter;
-  onResultTypeChange: (value: ResultTypeFilter) => void;
-}) {
-  const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
-    all: BookOpen,
-    tables: ListChecks,
-    images: FileImage,
-    pdfs: FileText,
-  };
-
-  return (
-    <div data-testid="document-results-controls" className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)]">
-        Source type
-      </span>
-      <div
-        role="group"
-        aria-label="Filter by source type"
-        className="polished-scroll flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
-      >
-        {resultTabs.map((tab) => {
-          const active = tab.key === activeResultType;
-          const Icon = resultTypeIcons[tab.key];
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onResultTypeChange(tab.key)}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-bold transition motion-reduce:transition-none sm:text-xs",
-                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                active
-                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              )}
-            >
-              <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-              {tab.label}
-              <span className="nums opacity-75">{tab.count}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function MatchExplanationChips({ source }: { source: SearchResult }) {
   const explanation = source.match_explanation;
   const reasons = explanation?.reasons?.length
@@ -943,6 +1044,8 @@ function DocumentSearchResultsPanelImpl({
   const trimmedQuery = query.trim();
   const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
   const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
+  const filterPanelId = useId();
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const activeFacetKeys = useMemo(
     () => (activeFacetState.query === query ? activeFacetState.keys : []),
     [activeFacetState, query],
@@ -1017,6 +1120,22 @@ function DocumentSearchResultsPanelImpl({
   const recordBandOwnsFault =
     showRecordMatches && (recordStatus === "error" || recordStatus === "not_found" || recordStatus === "unauthorized");
   const showResultsControls = matches.length > 0 && !loading;
+  const activeFilterCount = activeFacetKeys.length + (effectiveResultType === "all" ? 0 : 1);
+  // Both the source-type tabs and the tag facets are derived from the current
+  // match set, so a query that yields one uniform kind of document has nothing
+  // to offer. Advertising Filter there would open an empty panel.
+  const hasFilters = resultTabs.length > 1 || tagFacetGroups.length > 0;
+  const showFilterControl = showResultsControls && hasFilters;
+  const renderFilterTrigger = (testId: string) =>
+    showFilterControl ? (
+      <DocumentFilterTrigger
+        panelId={filterPanelId}
+        testId={testId}
+        open={filterPanelOpen}
+        activeCount={activeFilterCount}
+        onToggle={() => setFilterPanelOpen((open) => !open)}
+      />
+    ) : null;
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||
@@ -1070,31 +1189,11 @@ function DocumentSearchResultsPanelImpl({
               </button>
             ) : null
           }
-          filterLabel="Filter documents by source type"
-          mobileControls={
-            showResultsControls && resultTabs.length > 1 ? (
-              <MobileResultFilterControl
-                label="Show"
-                ariaLabel="Filter by source type"
-                testId="document-source-type-select"
-                value={effectiveResultType}
-                options={resultTabs.map((tab) => ({
-                  value: tab.key,
-                  label: `${tab.label} (${tab.count})`,
-                }))}
-                onChange={setActiveResultType}
-              />
-            ) : null
-          }
-          filterControls={
-            showResultsControls && resultTabs.length > 1 ? (
-              <DocumentSourceTypeFilters
-                resultTabs={resultTabs}
-                activeResultType={effectiveResultType}
-                onResultTypeChange={setActiveResultType}
-              />
-            ) : null
-          }
+          filterLabel="Filter documents"
+          // The same trigger goes in both slots: the ribbon shows `mobileControls`
+          // below `sm` and `filterControls` from `sm` up, never both at once.
+          mobileControls={renderFilterTrigger("document-filter-trigger-phone")}
+          filterControls={renderFilterTrigger("document-filter-trigger-wide")}
         />
       ) : null}
 
@@ -1150,15 +1249,31 @@ function DocumentSearchResultsPanelImpl({
         )
       ) : (
         <>
-          {activeFacetKeys.length > 0 ? (
-            <DocumentTagFacetRail
+          {/* Opened by the ribbon's Filter trigger. Previously this was gated on
+              `activeFacetKeys.length > 0`, which nothing else could satisfy —
+              the only writers of that state lived inside the gated subtree — so
+              the facets were unreachable. The trigger is now the way in. */}
+          {filterPanelOpen && showFilterControl ? (
+            <DocumentFilterPanel
+              panelId={filterPanelId}
               groups={tagFacetGroups}
               activeKeys={activeFacetKeys}
+              resultTabs={resultTabs}
+              activeResultType={effectiveResultType}
+              onResultTypeChange={setActiveResultType}
               onToggle={toggleTagFacet}
-              onClear={() => setActiveFacetState({ query, keys: [] })}
+              onClear={() => {
+                setActiveFacetState({ query, keys: [] });
+                setActiveResultType("all");
+              }}
+              resultCount={sortedMatches.length}
+              onDone={() => setFilterPanelOpen(false)}
             />
           ) : null}
-          {activeFacetKeys.length > 0 ? (
+          {/* With the panel closed the active filters are otherwise invisible
+              apart from the trigger's badge, so the reader needs the count to
+              explain why the list is shorter than the ribbon's total. */}
+          {activeFilterCount > 0 && !filterPanelOpen ? (
             <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
