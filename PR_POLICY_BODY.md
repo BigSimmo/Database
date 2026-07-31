@@ -1,7 +1,7 @@
 ## Summary
 
 - Add opt-in, privacy-first server-side Sentry error tracking that is inert without `SENTRY_DSN` and scrubs request, user, body, breadcrumb, and clinical content before export.
-- Surface conservative, normalized source-governance metadata in the RAG prompt so generation can see provenance state without inventing adverse unverified status for empty or index-only `documents.metadata`.
+- Surface conservative, normalized source-governance metadata in the RAG prompt so generation can see provenance state without inventing adverse unverified status for empty, index-only, or partial-sibling `documents.metadata`.
 - Document the privacy envelope, operator approval checklist, and rollback path in `docs/error-tracking.md`.
 
 RAG impact: no retrieval behaviour change — prompt presentation only adds conservative normalized source-governance metadata; retrieval, ranking, and source selection are unchanged.
@@ -24,7 +24,13 @@ RAG impact: no retrieval behaviour change — prompt presentation only adds cons
 
 ## Clinical Governance Preflight
 
-<!-- GOVERNANCE_PREFLIGHT -->
+- [x] Source-backed claims still require linked source verification before clinical use
+- [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
+- [x] Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)
+- [x] Service-role keys and private document access remain server-only
+- [x] Demo/synthetic content remains clearly separated from real clinical sources
+- [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
+- [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
 ## Notes
 
