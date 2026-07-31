@@ -86,7 +86,7 @@ const concepts: Array<{
     id: "compressed",
     letter: "F",
     name: "Compressed obligation",
-    idea: "The only variant that fits one line on a 390px phone. Shortens the pinned APP-5 sentence to get there.",
+    idea: "Shortens the pinned APP-5 sentence to chase a phone fit. Measured result: still two lines at 390px — compression alone does not buy a single phone line while the privacy link stays.",
     lines: "1 line desktop · 2 phone",
     cost: "Changes governance copy: needs clinical/privacy sign-off and a matching update to tests/privacy-ui.test.ts. Not a design decision.",
     governanceGated: true,
@@ -247,7 +247,11 @@ export function WarningLineMockupsPage() {
                 Today — three elements, three type sizes
               </p>
               <p className="text-2xs leading-4 text-[color:var(--text-muted)]">⚠ {OBLIGATION}</p>
-              <p className="mt-1 text-2xs leading-4 text-[color:var(--text-muted)] underline">{PRIVACY_LINK}</p>
+              <p className="mt-1 text-2xs leading-4 text-[color:var(--text-muted)]">
+                <Link href="/privacy" className={linkClass}>
+                  {PRIVACY_LINK}
+                </Link>
+              </p>
               <p className="mt-2 text-sm font-medium leading-5 text-[color:var(--clinical-accent)]">
                 ✓ Searches indexed clinical sources • Clinical Guide library
               </p>

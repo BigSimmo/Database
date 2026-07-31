@@ -22,11 +22,13 @@ import { cn } from "@/components/ui-primitives";
 // all four statements into ONE block with one voice, and adds the missing
 // fourth statement at the bottom.
 //
-// Two strings are governance copy, not design copy, and are reproduced verbatim
-// in every concept: "Do not enter patient-identifiable information." (APP-5 /
-// PIA-5) and the "Privacy and data processing" link to /privacy. Both are pinned
-// by tests/privacy-ui.test.ts — a concept that paraphrases either one is not a
-// candidate, however tidy it looks.
+// Two strings are governance copy, not design copy, and are pinned by
+// tests/privacy-ui.test.ts: "Do not enter patient-identifiable information."
+// (APP-5 / PIA-5) and the "Privacy and data processing" link to /privacy.
+// Concept 02 keeps both always visible. Concepts 01 and 03 keep the full
+// strings reachable (Details / Why) but paraphrase the collapsed phone/footnote
+// line — those paraphrases need the same governance sign-off as study-2 F
+// before adoption, and are labelled as such on the page.
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -57,8 +59,8 @@ const concepts: Array<{
     name: "Assurance bar",
     summary:
       "One 24px row. Obligation and verify-before-use stay permanently visible; scope, library and the privacy link move behind a quiet Details disclosure.",
-    strengths: ["Smallest footprint", "Fits the docked composer", "Nothing safety-critical is hidden"],
-    cost: "Scope and the privacy link cost one tap, and the row grows to two lines on a narrow phone rather than clipping.",
+    strengths: ["Smallest footprint", "Fits the docked composer", "Desktop obligation stays on-bar"],
+    cost: "Scope and the privacy link cost one tap; the compact phone line paraphrases APP-5 (governance-gated), and the row grows to two lines rather than clipping.",
   },
   {
     id: "card",
@@ -77,7 +79,7 @@ const concepts: Array<{
     summary:
       "A single centred grey line that reads as one sentence, with an inline expander for the full text. The calmest option and the closest to the current visual weight.",
     strengths: ["Least chrome of any option", "Reads as one statement", "Cheapest to adopt"],
-    cost: "Lowest salience — the obligation is present but never emphasised. Weakest for a first-time user.",
+    cost: 'Lowest salience; the collapsed line paraphrases APP-5 to "No patient identifiers" (governance-gated) and hides the privacy link behind Why. Weakest for a first-time user.',
   },
 ];
 
@@ -481,7 +483,7 @@ export function WarningConsolidationMockupsPage() {
           <div className="grid gap-3">
             <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3">
               <p className="mb-2 text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
-                Governance copy — reproduced verbatim in every concept
+                Governance copy — pinned; concept 02 keeps both always visible
               </p>
               <ul className="grid gap-1.5 text-2xs leading-4 text-[color:var(--text-muted)]">
                 <li>
@@ -494,7 +496,10 @@ export function WarningConsolidationMockupsPage() {
                 </li>
               </ul>
               <p className="mt-2 text-2xs leading-4 text-[color:var(--text-soft)]">
-                Both may be re-styled, re-positioned and re-grouped. Neither may be paraphrased or dropped.
+                Both may be re-styled and re-grouped. Concept 02 never paraphrases or drops them. Concepts 01 (compact
+                phone) and 03 (collapsed footnote) paraphrase the obligation and park the privacy link behind a
+                disclosure — those variants need the same clinical/privacy sign-off as study-2 F before adoption, and
+                are not free design options.
               </p>
             </div>
             {showBaseline ? (
