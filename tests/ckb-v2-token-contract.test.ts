@@ -27,16 +27,16 @@ function block(selector: string) {
   // every top-level block whose selector line starts with the given selector.
   const opener = `\n${selector} {`;
   const grouped = `\n${selector},`;
-  const found: string[] = [];
   let start = stylesheet.indexOf(opener);
   if (start === -1) start = stylesheet.indexOf(grouped);
+  expect(start, `${selector} block is missing from ckb-v2-tokens.css`).toBeGreaterThan(-1);
+  let combined = "";
   while (start > -1) {
     const end = stylesheet.indexOf("\n}", start);
-    found.push(stylesheet.slice(start, end));
+    combined += stylesheet.slice(start, end);
     start = stylesheet.indexOf(opener, end);
   }
-  expect(found.length, `${selector} block is missing from ckb-v2-tokens.css`).toBeGreaterThan(0);
-  return found;
+  return combined;
 }
 
 function declarations(source: string) {
@@ -47,13 +47,9 @@ function declarations(source: string) {
   return map;
 }
 
-const ckbBlocks = block(".ckb-v2");
-expect(ckbBlocks.length, "expected distinct structural and light .ckb-v2 blocks").toBe(2);
-const structural = declarations(ckbBlocks[0]);
-// Parsed separately so a light-only token accidentally declared structural (or
-// vice versa) fails here instead of passing through a merged map.
-const lightShell = declarations(ckbBlocks[1]);
-const darkShell = declarations(block(".dark .ckb-v2").join("\n"));
+const structural = declarations(block(".ckb-v2"));
+const lightShell = structural; // structural + light now share the .ckb-v2 selector
+const darkShell = declarations(block(".dark .ckb-v2"));
 
 function hexOf(tokens: Map<string, string>, name: string) {
   const value = tokens.get(name);
@@ -159,6 +155,15 @@ describe("ckb-v2 ink tiers (#20)", () => {
 
   it("keeps muted text readable on the dark shell too", () => {
     expect(contrastRatio(hexOf(darkShell, "--text-muted"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("re-declares body and heading ink in dark — the cascade port makes the light block match dark subtrees", () => {
+    // Regression guard for the fall-through break: without these declarations,
+    // dark subtrees resolve --text to the LIGHT ink and text disappears.
+    expect(contrastRatio(hexOf(darkShell, "--text"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(hexOf(darkShell, "--text-heading"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(
+      4.5,
+    );
   });
 });
 

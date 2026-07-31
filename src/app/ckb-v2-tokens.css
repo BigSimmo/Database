@@ -259,6 +259,13 @@
   --border-strong: #47505a;
   --border-lux: #3a424a;
 
+  /* Required since the cascade port: the light block now matches inside dark
+     subtrees too, so every light-declared role must be re-declared here or it
+     resolves to light ink on dark surfaces. Values mirror the live .dark layer
+     these previously fell through to. */
+  --text-heading: #fbfcfd;
+  --text: #f4f6f8;
+  --disabled: #626c7a;
   --text-muted: #a8b2bd;
   --text-soft: #7d8792;
   --decoration-soft: #7d8792;
@@ -268,6 +275,13 @@
   --command-hover: #4a91d2;
   --command-active: #1d6fb8;
   --command-contrast: #06121e;
+
+  --clinical-accent-soft: #123556;
+  --clinical-accent-border: #235a7d;
+  --primary-soft: #123556;
+  --glow-primary: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 45%, transparent), 0 8px 24px rgb(0 0 0 / 45%);
+  --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
+  --overlay-backdrop: rgb(0 0 0 / 72%);
 
   --ring-hairline: 0 0 0 1px rgb(255 255 255 / 9%);
   --e0: none;
