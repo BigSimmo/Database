@@ -62,19 +62,22 @@ describe("mobile interaction regressions", () => {
     );
     expect(presentationSource).toContain("Comparing ({workflow.selectedCount})");
     expect(presentationSource).not.toContain("Compare ({workflow.selectedCount} selected)");
-    // Scope each density control independently so Compact's disabled attrs cannot
-    // greedily satisfy the Detailed assertion (or vice versa).
+    // Density placeholders use native disabled only (no redundant aria-disabled).
+    // Scope Compact/Detailed independently so one button cannot satisfy both asserts.
+    expect(presentationSource).toContain('aria-describedby="density-controls-unavailable"');
+    expect(presentationSource).toContain("Density controls coming soon");
     expect(presentationSource).toMatch(
-      /<button\s+type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*?>\s*Compact\s*<\/button>/,
+      /<button\s+type="button"\s+disabled\s+className="[^"]*"\s*>\s*Compact\s*<\/button>/,
     );
     expect(presentationSource).toMatch(
-      /<button\s+type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*?>\s*Detailed\s*<\/button>/,
+      /<button\s+type="button"\s+disabled\s+className="[^"]*"\s*>\s*Detailed\s*<\/button>/,
     );
-    expect(
-      presentationSource.match(
-        /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"/g,
-      ),
-    ).toHaveLength(2);
+    const densityButtonBlock = presentationSource.match(
+      /aria-describedby="density-controls-unavailable"[\s\S]*?Density controls coming soon/,
+    )?.[0];
+    expect(densityButtonBlock).toBeTruthy();
+    expect(densityButtonBlock).not.toContain("aria-disabled");
+    expect(densityButtonBlock?.match(/type="button"\s+disabled/g)).toHaveLength(2);
   });
 
   it("does not fake Add success or Tools sort/more menus", () => {
