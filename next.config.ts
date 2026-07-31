@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { withSentryConfig } from "@sentry/nextjs";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
 
@@ -27,6 +28,7 @@ async function withOptionalBundleAnalyzer(config: NextConfig): Promise<NextConfi
 }
 
 const nextConfig: NextConfig = {
+  productionBrowserSourceMaps: shouldEnableSentrySourceMapUpload(),
   distDir: requestedDistDir || ".next",
   ...(requestedTsConfigPath ? { typescript: { tsconfigPath: requestedTsConfigPath } } : {}),
   // Playwright and some local tooling hit the dev server via 127.0.0.1; without
@@ -127,4 +129,31 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withOptionalBundleAnalyzer(nextConfig);
+function shouldEnableSentrySourceMapUpload() {
+  return Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT);
+}
+
+function getSentryRelease() {
+  return process.env.SENTRY_RELEASE ?? process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.VERCEL_GIT_COMMIT_SHA ?? "dev";
+}
+
+export default async function () {
+  const baseConfig = await withOptionalBundleAnalyzer(nextConfig);
+
+  if (!shouldEnableSentrySourceMapUpload()) {
+    return baseConfig;
+  }
+
+  return withSentryConfig(baseConfig, {
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    release: getSentryRelease(),
+    silent: process.env.NODE_ENV === "production",
+    sourcemaps: {
+      disable: false,
+    },
+    widenClientFileUpload: true,
+    hideSourceMaps: true,
+  });
+}
