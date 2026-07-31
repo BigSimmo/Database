@@ -56,6 +56,23 @@ paragraph; put the smallest next action in **Detail / next action**.
 
 ## Writing rules
 
+**Use the writer, not an editor.** Row mechanics are handled by
+`scripts/outstanding-issues.mjs`, the counterpart to the gate:
+
+```bash
+npm run issues:add -- --pri P2 --type issue --summary "…" --detail "…" --source "…"
+npm run issues:done -- '#151' --outcome "Resolved 2026-07-31 by PR #1494. …"
+npm run issues:update -- '#151' --detail "…"
+```
+
+It allocates the id from the marker and bumps it, appends into the **open** table (never the
+archive), moves rather than copies on `done`, reshapes to each table's width, escapes `|`, and
+re-runs the gate against its own output — refusing to write anything CI would reject. Hand-editing
+is what produced the wrong-table inserts, unescaped pipes and broken cell counts this writer exists
+to prevent; treat it like `ledger:append` for the review ledger. It does **not** solve id collisions
+between concurrent branches (see `#156` / `#168`) — that needs a different id scheme, not a better
+writer.
+
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
 - Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
   gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
