@@ -342,7 +342,9 @@ export function requireSentryEnv() {
     }
 
     if (isPlaceholderValue(sentryAuthToken) || isPlaceholderValue(sentryOrg) || isPlaceholderValue(sentryProject)) {
-      throw new Error("Sentry sourcemap environment values contain placeholder text. Set real SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN.");
+      throw new Error(
+        "Sentry sourcemap environment values contain placeholder text. Set real SENTRY_ORG, SENTRY_PROJECT, and SENTRY_AUTH_TOKEN.",
+      );
     }
   }
 }

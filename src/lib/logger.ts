@@ -15,7 +15,11 @@ function getSentryLogger(): Partial<SentryLoggerMethods> | null {
   const loggerCandidate = Sentry.logger as Partial<SentryLoggerMethods> | undefined;
   if (!loggerCandidate) return null;
   const candidate = loggerCandidate;
-  if (typeof candidate.debug !== "function" && typeof candidate.info !== "function" && typeof candidate.warn !== "function") {
+  if (
+    typeof candidate.debug !== "function" &&
+    typeof candidate.info !== "function" &&
+    typeof candidate.warn !== "function"
+  ) {
     return null;
   }
   return candidate;

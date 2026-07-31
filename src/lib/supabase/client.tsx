@@ -245,12 +245,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setNotice(null);
           }
         }
-    } catch {
-      if (!active) return;
-      setStatus("error");
-      setError("Session could not be loaded.");
-      syncSentryUser(null);
-    }
+      } catch {
+        if (!active) return;
+        setStatus("error");
+        setError("Session could not be loaded.");
+        syncSentryUser(null);
+      }
     };
 
     void initializeSession();
@@ -385,7 +385,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (oauthError) {
         setStatus("error");
-        Sentry.logger?.error("auth.sign_in_with_oauth_failed", { provider, error_code: oauthError?.code ?? "sign_in_error" });
+        Sentry.logger?.error("auth.sign_in_with_oauth_failed", {
+          provider,
+          error_code: oauthError?.code ?? "sign_in_error",
+        });
         setError(oauthError.message);
         return;
       }
@@ -402,7 +405,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await client.auth.signOut();
     } catch (error) {
-      Sentry.logger?.error("auth.sign_out_failed", { provider: "browser", error: String(error instanceof Error ? error.message : `${error}`) });
+      Sentry.logger?.error("auth.sign_out_failed", {
+        provider: "browser",
+        error: String(error instanceof Error ? error.message : `${error}`),
+      });
       Sentry.captureException(error);
       setStatus("error");
       setError("Sign out failed. Please try again.");
