@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSmartDocumentTagFacetIndex,
+  projectSmartTagFacetGroups,
   buildSmartDocumentTagFacets,
   buildSmartDocumentTags,
   documentLabelReviewStatus,
@@ -249,6 +250,75 @@ describe("smart document tags", () => {
         expect.objectContaining({ kind: "low_confidence", canonicalLabel: "lithium" }),
         expect.objectContaining({ kind: "overused", canonicalLabel: "long acting injectable medication" }),
       ]),
+    );
+  });
+});
+
+describe("projectSmartTagFacetGroups", () => {
+  // Three documents whose label sets deliberately do not all overlap, so an
+  // AND-combination that returns nothing is reachable.
+  const docs = [
+    {
+      id: "a",
+      labels: [label({ label: "lithium", label_type: "medication" }), label({ label: "renal", label_type: "risk" })],
+    },
+    {
+      id: "b",
+      labels: [label({ label: "lithium", label_type: "medication" }), label({ label: "thyroid", label_type: "risk" })],
+    },
+    {
+      id: "c",
+      labels: [label({ label: "clozapine", label_type: "medication" }), label({ label: "renal", label_type: "risk" })],
+    },
+  ];
+  const index = buildSmartDocumentTagFacetIndex(docs);
+  // Resolve by key, not by label: the tag builder canonicalises and capitalises.
+  const keyFor = (value: string, type: DocumentLabel["label_type"]) =>
+    buildSmartDocumentTags([label({ label: value, label_type: type })])[0].key;
+  const countOf = (groups: ReturnType<typeof projectSmartTagFacetGroups>, key: string) =>
+    groups.flatMap((group) => group.facets).find((facet) => facet.key === key)?.count;
+
+  const lithium = keyFor("lithium", "medication");
+  const clozapine = keyFor("clozapine", "medication");
+  const renal = keyFor("renal", "risk");
+  const thyroid = keyFor("thyroid", "risk");
+
+  it("returns the built groups untouched when nothing is selected", () => {
+    expect(projectSmartTagFacetGroups(index, [])).toBe(index.groups);
+  });
+
+  it("recounts every facet against the current selection", () => {
+    // Lithium is on 2 of 3 documents overall, but only 1 of the 2 renal ones.
+    // The built index keeps saying 2 — that is the stale number this fixes.
+    expect(countOf(index.groups, lithium)).toBe(2);
+    const projected = projectSmartTagFacetGroups(index, [renal]);
+    expect(countOf(projected, lithium)).toBe(1);
+    expect(countOf(projected, clozapine)).toBe(1);
+  });
+
+  it("reports the current result count for a facet that is already selected", () => {
+    expect(countOf(projectSmartTagFacetGroups(index, [renal]), renal)).toBe(2);
+  });
+
+  it("drives a dead-end combination to zero rather than leaving it live", () => {
+    // Lithium AND thyroid exists; clozapine AND thyroid does not. Before this
+    // projection clozapine advertised 1 and led to an empty result.
+    const projected = projectSmartTagFacetGroups(index, [thyroid]);
+    expect(countOf(projected, clozapine)).toBe(0);
+    expect(countOf(projected, lithium)).toBe(1);
+  });
+
+  it("agrees with the filter it describes", () => {
+    const selection = [renal];
+    for (const facet of projectSmartTagFacetGroups(index, selection).flatMap((group) => group.facets)) {
+      const combined = [...new Set([...selection, facet.key])];
+      expect(filterDocumentsBySmartTagFacetIndex(index, combined)).toHaveLength(facet.count ?? -1);
+    }
+  });
+
+  it("keeps facet membership and order stable so rows cannot jump while selecting", () => {
+    expect(projectSmartTagFacetGroups(index, [renal]).map((group) => group.facets.map((facet) => facet.key))).toEqual(
+      index.groups.map((group) => group.facets.map((facet) => facet.key)),
     );
   });
 });

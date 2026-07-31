@@ -839,6 +839,46 @@ export function buildSmartDocumentTagFacetIndex<T extends ClinicalTagSource>(
   return { entries, groups };
 }
 
+/**
+ * Re-count an already-built facet index against the facets currently selected.
+ *
+ * `buildSmartDocumentTagFacetIndex` counts every facet across the whole match
+ * set, which is correct only while nothing is selected. Selections AND together
+ * (see `filterDocumentsBySmartTagFacetIndex`), so the moment one is applied the
+ * built-in counts describe a set the reader is no longer looking at — and some
+ * of them point at combinations that yield nothing, which reads as a live option
+ * and behaves as a dead end.
+ *
+ * Each count here answers the question the row actually poses: *how many
+ * documents would I have if I ticked this as well?* A facet that is already
+ * selected reports the current result count, because that is what it is
+ * currently giving you.
+ *
+ * Membership and order are deliberately left alone. Re-sorting by the new counts
+ * would make rows jump under the pointer as you select, and re-slicing to the
+ * top N could drop a facet you have already ticked. A facet whose count falls to
+ * zero stays in place at zero so the caller can disable it: removing it makes
+ * the list jump and hides the reason it went away.
+ */
+export function projectSmartTagFacetGroups<T extends ClinicalTagSource>(
+  index: SmartDocumentTagFacetIndex<T>,
+  selectedTagKeys: string[],
+): SmartDocumentTagFacetGroup[] {
+  const selected = [...new Set(selectedTagKeys)];
+  if (selected.length === 0) return index.groups;
+
+  const selectedKeys = new Set(selected);
+  const withinSelection = index.entries.filter((entry) => selected.every((key) => entry.tagKeys.has(key)));
+  const selectionCount = withinSelection.length;
+  const countWith = (key: string) =>
+    selectedKeys.has(key) ? selectionCount : withinSelection.filter((entry) => entry.tagKeys.has(key)).length;
+
+  return index.groups.map((group) => ({
+    group: group.group,
+    facets: group.facets.map((facet) => ({ ...facet, count: countWith(facet.key) })),
+  }));
+}
+
 export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(
   documents: T[],
   selectedTagKeys: string[],
