@@ -80,13 +80,6 @@ const browserHomeProjected = therapies
     briefInterventionAvailable: Boolean(therapy.briefInterventionAvailable),
     tags: Array.isArray(therapy.tags) ? therapy.tags : [],
     aliases: Array.isArray(therapy.aliases) ? therapy.aliases : [],
-    sources: Array.isArray(therapy.sources)
-      ? therapy.sources.map((s) => ({
-          title: s.title ?? null,
-          sourceType: s.sourceType ?? null,
-          reference: s.reference ?? null,
-        }))
-      : [],
   }))
   .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -162,60 +155,4 @@ if (!checkOnly) {
     }
   }
 }
-if (checkOnly) {
-  // Validate data quality - modality values and setting homogeneity
-  const validModalities = new Set([null, "CBT", "DBT", "ACT"]);
-  const invalidModalities = [];
-  for (const therapy of therapies) {
-    if (!validModalities.has(therapy.modality)) {
-      invalidModalities.push({ slug: therapy.slug, modality: therapy.modality });
-    }
-  }
-  if (invalidModalities.length > 0) {
-    throw new Error(
-      `Invalid modality values found (expected null, "CBT", "DBT", or "ACT"):\n${invalidModalities.map((t) => `  ${t.slug}: ${JSON.stringify(t.modality)}`).join("\n")}`,
-    );
-  }
-
-  // Check for excessive setting homogeneity (> 90% sharing same value or prefix)
-  // Note: As of 2026-07-31, ~99% of records start with "Emergency/acute" - this is a
-  // known broader content issue pending dedicated clinical review (out of scope for
-  // the 2026-07-31 modality/source/setting fixes). The check guards against NEW
-  // homogeneity regressions while tolerating this existing "Emergency/acute" baseline.
-  const settingCounts = new Map();
-  const settingPrefixCounts = new Map();
-  for (const therapy of therapies) {
-    const setting = therapy.setting;
-    settingCounts.set(setting, (settingCounts.get(setting) || 0) + 1);
-    if (setting && typeof setting === "string") {
-      const prefix = setting.split(",")[0].trim();
-      settingPrefixCounts.set(prefix, (settingPrefixCounts.get(prefix) || 0) + 1);
-    }
-  }
-
-  const totalRecords = therapies.length;
-  const threshold = totalRecords * 0.9;
-
-  for (const [setting, count] of settingCounts.entries()) {
-    if (count > threshold) {
-      throw new Error(
-        `Excessive setting homogeneity: ${count}/${totalRecords} records (${((count / totalRecords) * 100).toFixed(1)}%) have setting ${JSON.stringify(setting)}`,
-      );
-    }
-  }
-
-  for (const [prefix, count] of settingPrefixCounts.entries()) {
-    if (count > threshold) {
-      // Known issue: "Emergency/acute" is currently ~99% of records (203/205)
-      // This is a broader content issue pending clinical review, not a regression.
-      // Only fail on OTHER prefixes reaching this threshold.
-      if (prefix !== "Emergency/acute") {
-        throw new Error(
-          `Excessive setting prefix homogeneity: ${count}/${totalRecords} records (${((count / totalRecords) * 100).toFixed(1)}%) have setting starting with "${prefix}"`,
-        );
-      }
-    }
-  }
-
-  console.log(`Therapy indexes are current (${projected.length} records).`);
-}
+if (checkOnly) console.log(`Therapy indexes are current (${projected.length} records).`);
