@@ -69,7 +69,7 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     see React `style` assignments; do not "fix" these. Verified 2026-07-30 by
     computed style: all four consuming sites paint `rgb(225,29,72)` on
     `/medications/acamprosate` in light and dark. (`--med-accent-soft` is set
-    but unread — tracked as `#149`, not a missing-token defect.)
+    but unread — tracked as `#154`, not a missing-token defect.)
   - `--clinical-accent-strong`
     (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
     to `--primary-700` in both themes and `LinkText` in forced-colors,
