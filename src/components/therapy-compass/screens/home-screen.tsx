@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Network, Search, ShieldCheck, Sparkles, Waypoints } from "lucide-react";
+import { FileText, Network, Search, Sparkles, Waypoints } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -66,7 +66,6 @@ export function HomeScreen() {
         }))}
         footer={
           <ModeHomeVerificationFooter
-            icon={ShieldCheck}
             label="Decision support"
             body="Source-grounded — review status before clinical use"
           />

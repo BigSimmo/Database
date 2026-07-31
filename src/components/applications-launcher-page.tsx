@@ -25,7 +25,7 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeHero } from "@/components/mode-home-template";
 import {
   MobileResultFilterControl,
   SearchResultsHeaderBand,
@@ -889,8 +889,6 @@ export function ApplicationsLauncherWorkspace({
           Colour coding reference
         </Link>
       </div>
-
-      <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
 
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>

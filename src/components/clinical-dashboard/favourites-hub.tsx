@@ -1,22 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowUpDown,
-  ChevronDown,
-  CircleAlert,
-  Filter,
-  Folder,
-  Heart,
-  Plus,
-  Search,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { ArrowUpDown, ChevronDown, CircleAlert, Filter, Folder, Heart, Plus, Search, X } from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
-import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { ModeHomeHero } from "@/components/mode-home-template";
 import {
   cn,
   floatingControl,
@@ -570,8 +559,6 @@ export function FavouritesHub({
           </section>
         </aside>
       </div>
-
-      <ModeHomeVerificationFooter icon={ShieldCheck} label="Saved clinical work" body="Local library" />
     </div>
   );
 }
