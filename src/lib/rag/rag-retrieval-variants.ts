@@ -14,7 +14,8 @@ import type { ClinicalQueryAnalysis, RagQueryClass, SearchResult } from "@/lib/t
 
 const maxRetrievalQueryVariants = 4;
 export const maxTextRpcQueryVariants = 3;
-const ragAliasCacheTtlMs = 60_000;
+/** Aliases change rarely; longer TTL cuts cold-instance DB RTT without ranking impact. */
+const ragAliasCacheTtlMs = 300_000;
 const maxRagAliasCacheEntries = 256;
 const maxRagAliasesPerScope = 200;
 const maxRagAliasExpansions = 12;
@@ -110,6 +111,23 @@ export function shouldApplyUnsupportedSearchShortCircuit(
   aliasExpansions: string[] = [],
 ) {
   return aliasExpansions.length === 0 && shouldShortCircuitUnsupportedSearch(query, analysis);
+}
+
+/**
+ * Warm the global (owner_id IS NULL) rag_aliases cache at server startup so the
+ * first search after a deploy does not pay the cold-cache DB RTT.
+ * Failures are swallowed — warmup must never block boot.
+ */
+export async function warmEnabledRagAliasCache(
+  supabase: ReturnType<typeof createAdminClient> = createAdminClient(),
+): Promise<void> {
+  try {
+    await fetchEnabledRagAliases(supabase, undefined, { includePublic: true });
+  } catch (error) {
+    console.warn("rag_aliases cache warmup failed; first request will retry.", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 /** Fetch enabled rag aliases. */

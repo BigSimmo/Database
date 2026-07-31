@@ -671,6 +671,9 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("primary key (subject_key, bucket)");
     expect(schema).toContain("create or replace function public.consume_api_rate_limit");
     expect(schema).toContain("create or replace function public.consume_api_subject_rate_limit");
+    expect(schema).toContain("on conflict (owner_id, bucket) do update");
+    expect(schema).toContain("on conflict (subject_key, bucket) do update");
+    expect(schema).toContain("document_images_searchable_doc_page_relevance_idx");
     expect(schema).toContain("returns table ( limited boolean, limit_value integer, remaining integer");
     expect(schema).toContain("grant select, insert, update, delete on table");
     expect(schema).toContain("public.api_rate_limits,");
