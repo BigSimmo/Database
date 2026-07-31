@@ -284,6 +284,9 @@ function DocumentFilterPanel({
                     // Zero-count unselected facets stay visible so the list does not
                     // jump, but they are disabled: selecting them would empty the set.
                     const deadEnd = !selected && facet.count === 0;
+                    // Facet keys can contain spaces (e.g. "Medication:Mood stabilizer");
+                    // HTML ids must not, or aria-describedby cannot resolve them.
+                    const deadEndDescId = `facet-dead-end-${facet.key.replace(/[^A-Za-z0-9_-]/g, "-")}`;
                     return (
                       <button
                         key={facet.key}
@@ -301,7 +304,7 @@ function DocumentFilterPanel({
                         }}
                         aria-pressed={selected}
                         aria-disabled={deadEnd || undefined}
-                        aria-describedby={deadEnd ? `${facet.key}-dead-end` : undefined}
+                        aria-describedby={deadEnd ? deadEndDescId : undefined}
                         title={
                           deadEnd
                             ? `${facet.label} — no documents with the current filters`
@@ -318,7 +321,7 @@ function DocumentFilterPanel({
                       >
                         <span className="truncate">{facet.label}</span>
                         {deadEnd ? (
-                          <span id={`${facet.key}-dead-end`} className="sr-only">
+                          <span id={deadEndDescId} className="sr-only">
                             No documents match this with the current filters.
                           </span>
                         ) : null}
@@ -1046,6 +1049,12 @@ function DocumentSearchResultsPanelImpl({
   const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
   const filterPanelId = useId();
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  // Facet keys are already query-scoped (`activeFacetState.query === query`); the
+  // open flag is not. Without this, submitting a new search leaves the panel open
+  // over a different result set and can look stuck on phones where it covers results.
+  useEffect(() => {
+    setFilterPanelOpen(false);
+  }, [query]);
   const activeFacetKeys = useMemo(
     () => (activeFacetState.query === query ? activeFacetState.keys : []),
     [activeFacetState, query],
