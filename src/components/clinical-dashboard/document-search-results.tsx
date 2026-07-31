@@ -207,9 +207,20 @@ function DocumentTagFacetRail({
                       <button
                         key={facet.key}
                         type="button"
-                        onClick={() => onToggle(facet)}
+                        // `aria-disabled` rather than `disabled`: a real disabled
+                        // button leaves the tab order, so a keyboard or screen-reader
+                        // user loses the row entirely and never learns why it went
+                        // quiet — and a `title` on a disabled control is not reliably
+                        // announced. Kept focusable and explained, with the click
+                        // guarded instead. Matches the disabled-affordance pattern in
+                        // docs/wiring-conventions.md.
+                        onClick={() => {
+                          if (deadEnd) return;
+                          onToggle(facet);
+                        }}
                         aria-pressed={selected}
-                        disabled={deadEnd}
+                        aria-disabled={deadEnd || undefined}
+                        aria-describedby={deadEnd ? `${facet.key}-dead-end` : undefined}
                         title={
                           deadEnd
                             ? `${facet.label} — no documents with the current filters`
@@ -221,10 +232,15 @@ function DocumentTagFacetRail({
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                           deadEnd &&
-                            "cursor-not-allowed opacity-50 hover:border-[color:var(--border-lux)] hover:text-[color:var(--text-muted)]",
+                            "cursor-default opacity-50 hover:border-[color:var(--border-lux)] hover:text-[color:var(--text-muted)]",
                         )}
                       >
                         <span className="truncate">{facet.label}</span>
+                        {deadEnd ? (
+                          <span id={`${facet.key}-dead-end`} className="sr-only">
+                            No documents match this with the current filters.
+                          </span>
+                        ) : null}
                         <span className="rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
                           {facet.count}
                         </span>
