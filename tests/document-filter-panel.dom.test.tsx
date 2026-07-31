@@ -166,6 +166,29 @@ describe("document filter panel", () => {
     expect(within(panel()).getByRole("radio", { name: /All/ })).toHaveAttribute("aria-checked", "true");
   });
 
+  it("is a dialog, so it overlays the results rather than pushing them down", async () => {
+    // The phone contract: the panel covers the list it describes instead of
+    // displacing it, which is why the footer count is the thing that reports
+    // what the current combination returns.
+    const user = userEvent.setup();
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+
+    const panel = screen.getByTestId("document-filter-panel");
+    expect(panel.closest('[role="dialog"]') ?? panel).toHaveAttribute("role", "dialog");
+    expect(screen.getByTestId("document-filter-trigger-phone")).toHaveAttribute("aria-haspopup", "dialog");
+  });
+
+  it("closes on Escape", async () => {
+    const user = userEvent.setup();
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    expect(screen.getByTestId("document-filter-panel")).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+  });
+
   it("closes on Show N documents", async () => {
     const user = userEvent.setup();
     render(<DocumentSearchResultsPanel {...baseProps} />);

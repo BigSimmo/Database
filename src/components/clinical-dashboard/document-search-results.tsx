@@ -42,6 +42,7 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
+import { Sheet } from "@/components/ui/sheet";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -178,6 +179,7 @@ const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
  * facets, `role="radiogroup"` for the mutually exclusive source type.
  */
 function DocumentFilterPanel({
+  open,
   panelId,
   groups,
   activeKeys,
@@ -189,6 +191,7 @@ function DocumentFilterPanel({
   resultCount,
   onDone,
 }: {
+  open: boolean;
   panelId: string;
   groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
   activeKeys: string[];
@@ -205,15 +208,15 @@ function DocumentFilterPanel({
   if (groups.length === 0 && !showSourceType) return null;
 
   return (
-    <aside
+    <Sheet
+      open={open}
+      onClose={onDone}
+      title="Filter documents"
+      portal
       id={panelId}
-      data-testid="document-filter-panel"
-      aria-label="Filter documents"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">Filter documents</p>
-        {activeKeys.length > 0 || activeResultType !== "all" ? (
+      testId="document-filter-panel"
+      headerActions={
+        activeKeys.length > 0 || activeResultType !== "all" ? (
           <button
             type="button"
             onClick={onClear}
@@ -223,11 +226,33 @@ function DocumentFilterPanel({
             <X aria-hidden="true" className="h-3.5 w-3.5" />
             Clear all
           </button>
-        ) : null}
-      </div>
-
+        ) : null
+      }
+      footer={
+        // The count is the point of the panel: it tells the reader whether the
+        // combination they have built still returns anything before they dismiss
+        // it. `aria-live` is deliberate — the number changes under them as they
+        // toggle, and the sheet covers the results it describes.
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span aria-live="polite" className={cn("nums mr-auto text-2xs font-semibold", textMuted)}>
+            {resultCount} document{resultCount === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={onDone}
+            data-testid="document-filter-done"
+            className={cn(
+              "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-10",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            )}
+          >
+            Show {resultCount} document{resultCount === 1 ? "" : "s"}
+          </button>
+        </div>
+      }
+    >
       {showSourceType ? (
-        <section className="mt-3 min-w-0">
+        <section className="min-w-0">
           <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <BookOpen aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
             Source type
@@ -336,28 +361,7 @@ function DocumentFilterPanel({
             );
           })}
       </div>
-
-      {/* The count is the point of the panel: it is what tells the reader whether
-          the combination they have built still returns anything before they
-          dismiss it. `aria-live` is deliberate — the number changes under them as
-          they toggle, and on a phone the results sit below the fold. */}
-      <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-[color:var(--border)] pt-3">
-        <span aria-live="polite" className={cn("nums mr-auto text-2xs font-semibold", textMuted)}>
-          {resultCount} document{resultCount === 1 ? "" : "s"}
-        </span>
-        <button
-          type="button"
-          onClick={onDone}
-          data-testid="document-filter-done"
-          className={cn(
-            "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-10",
-            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-          )}
-        >
-          Show {resultCount} document{resultCount === 1 ? "" : "s"}
-        </button>
-      </div>
-    </aside>
+    </Sheet>
   );
 }
 
@@ -390,7 +394,8 @@ function DocumentFilterTrigger({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      aria-controls={panelId}
+      aria-haspopup="dialog"
+      aria-controls={open ? panelId : undefined}
       data-testid={testId}
       title="Filter documents"
       className={cn(
@@ -1274,9 +1279,13 @@ function DocumentSearchResultsPanelImpl({
           {/* Opened by the ribbon's Filter trigger. Previously this was gated on
               `activeFacetKeys.length > 0`, which nothing else could satisfy —
               the only writers of that state lived inside the gated subtree — so
-              the facets were unreachable. The trigger is now the way in. */}
-          {filterPanelOpen && showFilterControl ? (
+              the facets were unreachable. The trigger is now the way in.
+              Mounted unconditionally: `Sheet` returns null while closed and owns
+              its own open/close transition, so gating the mount here would cut
+              the dismiss animation off mid-flight. */}
+          {showFilterControl ? (
             <DocumentFilterPanel
+              open={filterPanelOpen}
               panelId={filterPanelId}
               groups={tagFacetGroups}
               activeKeys={activeFacetKeys}
