@@ -905,5 +905,6 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
   support (including run/job/log/artifact inspection and review-thread replies/resolution).
   A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
   workaround. The intended connection is `BigSimmo` with administrator access to this
-  repository. Verify the exact target and connector result before any write. Use shell
-  `git` or `gh` only for a genuine connector gap and only when the task permits it.
+  repository. Verify the exact target and connector result before any write. Ordinary
+  authorised shell `git` branch publication remains allowed; use shell `gh` only for a
+  genuine connector gap and only when the task permits it.
