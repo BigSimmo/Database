@@ -31,11 +31,26 @@ Privacy constraints for agent monitoring:
 
 - `recordInputs` / `recordOutputs` are **false** on the wrap and `dataCollection.genAI` is `{ inputs: false, outputs: false }` in both runtime configs — prompts, clinical queries, source evidence, generated answers, and embedding inputs are never recorded.
 - `privacySafeTransactionEvent` allowlists only gen_ai metadata attributes (system, operation name, request/response model, response id, finish reasons, token usage, conversation id) and rebuilds gen_ai span descriptions as `<operation> <model>` from those attributes. Message, prompt, tool-payload, and embedding-input attributes are stripped on export even if a future SDK version records them.
-- Each answer request (`/api/answer` and `/api/answer/stream`, summaries included) calls `Sentry.setConversationId(<interactionId>)` — the request's synthetic UUID — so the embedding/generation calls of one request group into one conversation without carrying any query text.
+- Each answer / stream / document-summarize request calls `Sentry.setConversationId(<interactionId>)` **before** OpenAI work — the request's synthetic UUID — so the embedding/generation calls of one request group into one conversation without carrying any query text.
 - User identification (`Sentry.setUser`) is deliberately **not** wired: the committed privacy boundary strips `user` from every outgoing event (see the tests), and linking clinical-query telemetry to an identity would need its own governance review first.
 - `responses.parse` (schema-parsed generation) is not in the SDK's instrumentation registry and emits no gen_ai span; `responses.create` and `embeddings.create` are covered.
 
 Rollback matches tracing: set `SENTRY_TRACES_SAMPLE_RATE=0` (agent spans stop; error capture stays) or remove `SENTRY_DSN`. Raising the sample rate above the 0.1 default captures a larger share of answer requests in the agents view and is an operator decision.
+
+### Sentry “Agent Monitoring” wizard mapping
+
+The product wizard’s copy is generic. Map it to this repo as follows — do **not** paste the wizard’s sample code:
+
+| Wizard step                      | This repo                                                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install `@sentry/nextjs` ≥ 10.67 | npm dependency (`^10.67.0`, lock ≥ 10.67); do not switch to pnpm                                                                                                         |
+| `Sentry.init` + tracing          | `src/sentry.server.config.ts` / `src/sentry.edge.config.ts`; DSN from `SENTRY_DSN` only (never hardcode); default `tracesSampleRate` 0.1 via `SENTRY_TRACES_SAMPLE_RATE` |
+| `dataCollection.genAI`           | Explicitly `{ inputs: false, outputs: false }`                                                                                                                           |
+| `instrumentOpenAiClient`         | `instrumentOpenAIClientForAgentMonitoring` in `createOpenAIClient()` — `recordInputs`/`recordOutputs` **false**                                                          |
+| `setConversationId`              | `setAgentConversationId(interactionId)` on `/api/answer`, `/api/answer/stream`, and `/api/documents/[id]/summarize`                                                      |
+| `setUser` (optional)             | **Rejected** — scrubbers strip `user`; do not wire                                                                                                                       |
+
+Leaving wizard checkboxes for “record inputs/outputs” or “identify users” unchecked is expected and correct for this clinical app.
 
 ## Operator approval and rollout
 
