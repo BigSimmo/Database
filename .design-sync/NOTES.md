@@ -83,10 +83,11 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 
 The triage rule this warn needs, since it fires on both: a custom property is
 correct-as-reported when it has a runtime setter or is always read through a
-`var(…, fallback)`. It is a real defect when it has neither — the whole
-declaration is then dropped at CSS parse time and the colour silently does not
-apply. Check for a setter or fallback before calling a new report noise, and
-for the absence of both before calling it a defect.
+`var(…, fallback)`. It is a real defect when it has neither — the declaration
+becomes invalid at computed-value time and the property resolves to its initial
+or inherited value, so the intended colour silently does not apply. Check for a
+setter or fallback before calling a new report noise, and for the absence of
+both before calling it a defect.
 
 ## Re-sync risks
 
