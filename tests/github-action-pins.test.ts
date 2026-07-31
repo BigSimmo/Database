@@ -35,4 +35,10 @@ describe("GitHub Action pin validation", () => {
   it("allows repository-local actions", () => {
     expect(validateActionReference("        uses: ./.github/actions/example@v1")).toBeNull();
   });
+
+  it("accepts the reviewed autofix.ci action pin", () => {
+    expect(
+      validateActionReference("      - uses: autofix-ci/action@c5b2d67aa2274e7b5a18224e8171550871fc7e4a # v1.3.4"),
+    ).toBeNull();
+  });
 });
