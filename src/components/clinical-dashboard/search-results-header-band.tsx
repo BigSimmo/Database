@@ -1,6 +1,16 @@
 "use client";
 
-import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import {
+  Bookmark,
+  ChevronsUpDown,
+  CircleAlert,
+  Funnel,
+  LayoutList,
+  LoaderCircle,
+  Search,
+  Table2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
@@ -33,6 +43,26 @@ export type SearchResultsBandStatus =
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+/**
+ * "Documents" -> "documents", but "DSM diagnoses" keeps its acronym. Lower-casing
+ * blindly is what the fault-title copy was phrased around to avoid; inline in a
+ * sentence the noun has to be lower-case unless it starts with an acronym.
+ */
+function inlineNoun(noun: string) {
+  return /^[A-Z]{2,}/.test(noun) ? noun : noun.charAt(0).toLowerCase() + noun.slice(1);
+}
+
+/**
+ * Singular for the one-result case. Three rules cover every `resultHeading` the
+ * mode registry actually carries: therapies -> therapy, DSM diagnoses -> DSM
+ * diagnosis, everything else drops a trailing "s".
+ */
+function singularNoun(plural: string) {
+  if (/ies$/.test(plural)) return `${plural.slice(0, -3)}y`;
+  if (/ses$/.test(plural)) return `${plural.slice(0, -2)}is`;
+  return plural.replace(/s$/, "");
+}
 
 /** Sort is a two-state choice, so it reads as a segmented control rather than a
     select: a dropdown over two values makes you open a menu to learn nothing. */
@@ -221,21 +251,26 @@ export function SearchResultsHeaderBand({
                 : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
             )}
           >
+            {/* The tile carries state as shape as well as colour: alert when the
+                search failed or degraded, funnel once the result set is narrowed,
+                search otherwise. A filtered list looks different from an unfiltered
+                one before any text is read. */}
             {faulted || partial ? (
               <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
+            ) : visibleScopes.length > 0 ? (
+              <Funnel className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
               <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             )}
           </span>
-          {/* No eyebrow: the icon already says "search", and the query is the only
-              thing in this band set at heading weight. */}
-          <QueryHeading
-            className="search-band-query min-w-0 truncate text-[color:var(--text-heading)] lg:max-w-[32rem]"
-            title={displayQuery}
-          >
-            {displayQuery}
-          </QueryHeading>
-          <span className="search-band-rule mx-0.5 h-[0.9375rem] w-px shrink-0" aria-hidden />
+          {/* Count first, query second. The count is the answer to the search; the
+              query is what you already typed, and the composer above still shows it.
+              Leading with the query spent the band's only heading slot on
+              information the reader supplied seconds ago, and left the count with
+              nothing to anchor it once the composer scroll-hides on a phone.
+              The heading element and its accessible name are unchanged — only its
+              position and weight — so anything resolving the query by role still
+              finds it. */}
           {/* Neutral, not a success pill: a count is not a state that was achieved,
               and green has to keep meaning something where it does appear. */}
           {/* One unconditional `role="status"` in every state. Playwright asserts it
@@ -282,7 +317,11 @@ export function SearchResultsHeaderBand({
                   >
                     {matchCount}
                   </span>{" "}
-                  {matchCount === 1 ? "match" : "matches"}
+                  {/* The count names what it counted. "12 matches" matched what?
+                      Once the query stops being the heading, an unlabelled number
+                      is unanchored on a deep link or below the fold — and the mode
+                      registry already carries the noun. */}
+                  {matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun)}
                 </span>
                 {partial ? (
                   <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
@@ -292,6 +331,19 @@ export function SearchResultsHeaderBand({
               </span>
             )}
           </span>
+          {/* The query, stated quietly after the count. The composer holds it too,
+              but phone chrome scroll-hides and this band pins, so while you read
+              results nothing on screen would otherwise say what was asked. It is
+              always rendered rather than appearing on scroll — conditional chrome
+              is what this band spent its last redesign removing — and it is the
+              part that truncates when the line runs out, never the number. */}
+          <span className="search-band-rule mx-0.5 h-[0.9375rem] w-px shrink-0" aria-hidden />
+          <QueryHeading
+            className="search-band-subject min-w-0 truncate text-[color:var(--text-muted)] lg:max-w-[24rem]"
+            title={displayQuery}
+          >
+            {displayQuery}
+          </QueryHeading>
         </div>
 
         {hasUtilities ? (
@@ -305,29 +357,10 @@ export function SearchResultsHeaderBand({
               "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
             )}
           >
-            {/* Scope reads as a removable chip beside the query — it is a constraint on
-                the list, the same kind of thing the query is. */}
-            {visibleScopes.map((scope) => (
-              <button
-                key={scope.id}
-                type="button"
-                onClick={() => command?.onRemoveScope(scope.id)}
-                aria-label={`Remove ${scope.label} filter`}
-                data-selected="true"
-                className={cn(
-                  // Hover deepens the chip's own accent rather than swapping to the
-                  // neutral border the surface controls use — an accent-soft chip
-                  // going grey on hover reads as losing its active state.
-                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                  focusRing,
-                )}
-              >
-                <span className="truncate">{scope.label}</span>
-                <X className="h-3 w-3 shrink-0" aria-hidden />
-              </button>
-            ))}
-            {/* Desktop only: pushes the controls to the trailing edge while the chips
-                stay next to the query. On the phone rail this collapses away. */}
+            {/* Applied scopes have moved to their own labelled shelf below. They are
+                state, not tools: sharing the utilities rail with sort and view mixed
+                the two, and let a chip be pushed off the right edge of a scrolling
+                rail — losing the only affordance for removing it. */}
             <span className="hidden lg:block lg:flex-1" aria-hidden />
             {partial && onRetry ? (
               <AsyncButton
@@ -423,6 +456,55 @@ export function SearchResultsHeaderBand({
           </div>
         ) : null}
       </div>
+      {/* The applied-filter shelf. Its own row, labelled, with one action that
+          undoes all of it — removing three filters used to be three taps with no
+          shortcut. Unlike the page filter row below it survives `loading`: these
+          chips carry no counts, so keeping them through a pending search avoids
+          the shelf flickering out and back on every keystroke. Only a faulted
+          search drops them, because filtering a result set that never loaded is
+          meaningless. */}
+      {visibleScopes.length > 0 && !faulted ? (
+        <div
+          data-testid="search-query-ribbon-scopes"
+          role="group"
+          aria-label="Applied filters"
+          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
+          {visibleScopes.map((scope) => (
+            <button
+              key={scope.id}
+              type="button"
+              onClick={() => command?.onRemoveScope(scope.id)}
+              aria-label={`Remove ${scope.label} filter`}
+              data-selected="true"
+              className={cn(
+                // Hover deepens the chip's own accent rather than swapping to the
+                // neutral border the surface controls use — an accent-soft chip
+                // going grey on hover reads as losing its active state.
+                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                focusRing,
+              )}
+            >
+              <span className="truncate">{scope.label}</span>
+              <X className="h-3 w-3 shrink-0" aria-hidden />
+            </button>
+          ))}
+          <span className="min-w-1 flex-1" aria-hidden />
+          {command?.onClearScopes && visibleScopes.length > 1 ? (
+            <button
+              type="button"
+              onClick={() => command.onClearScopes()}
+              className={cn(
+                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
+                focusRing,
+              )}
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {pageControls ? (
         <div
           data-testid="search-query-ribbon-filters"

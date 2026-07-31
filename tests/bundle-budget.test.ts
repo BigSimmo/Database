@@ -1,8 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { spawn } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
 import {
   compareToBudget,
+  EXIT_FAILSAFE_MS,
+  exitProcess,
   findFixtureSnapshotsInChunks,
   initialDashboardChunkNames,
+  measureChunkPaths,
   measureChunks,
 } from "../scripts/check-bundle-budget.mjs";
 
@@ -19,6 +26,122 @@ describe("measureChunks", () => {
     expect(m.totalGzipBytes).toBeGreaterThan(0);
     expect(m.totalGzipBytes).toBeLessThan(m.totalRawBytes);
     expect(m.largest[0].name).toBe("b.js");
+  });
+});
+
+describe("measureChunkPaths", () => {
+  it("streams paths without requiring callers to retain buffers", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "bundle-budget-paths-"));
+    try {
+      const a = path.join(dir, "a.js");
+      const b = path.join(dir, "b.js");
+      writeFileSync(a, buf(1000));
+      writeFileSync(b, buf(4000));
+      const m = measureChunkPaths([a, b]);
+      expect(m.files).toBe(2);
+      expect(m.totalRawBytes).toBe(5000);
+      expect(m.largest[0].name.endsWith("b.js")).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("exitProcess", () => {
+  it("exits immediately when stdout write buffer is empty", () => {
+    const exitImpl = vi.fn();
+    const stdout = {
+      write: vi.fn(() => true),
+      once: vi.fn(),
+    };
+    const setTimer = vi.fn(() => ({ unref: vi.fn() }));
+    exitProcess(0, {
+      exitImpl,
+      stdout,
+      setTimer: setTimer as unknown as typeof setTimeout,
+    });
+    expect(exitImpl).toHaveBeenCalledWith(0);
+    expect(stdout.once).not.toHaveBeenCalled();
+    expect(setTimer).toHaveBeenCalled();
+  });
+
+  it("forces exit via failsafe when stdout drain never fires", () => {
+    vi.useFakeTimers();
+    try {
+      const exitImpl = vi.fn();
+      const stdout = {
+        write: vi.fn(() => false),
+        once: vi.fn(),
+      };
+      exitProcess(0, { exitImpl, stdout, setTimer: setTimeout, failsafeMs: EXIT_FAILSAFE_MS });
+      expect(exitImpl).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(EXIT_FAILSAFE_MS);
+      expect(exitImpl).toHaveBeenCalledWith(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("check-bundle-budget CLI exit", () => {
+  it("terminates within a deadline after printing success", async () => {
+    const sandbox = mkdtempSync(path.join(tmpdir(), "bundle-budget-cli-"));
+    const chunksDir = path.join(sandbox, ".next", "static", "chunks");
+    mkdirSync(chunksDir, { recursive: true });
+    writeFileSync(path.join(chunksDir, "main.js"), "console.log('ok')");
+    writeFileSync(
+      path.join(sandbox, ".next", "app-build-manifest.json"),
+      JSON.stringify({
+        rootMainFiles: ["static/chunks/main.js"],
+        pages: { "/layout": [], "/page": [] },
+      }),
+    );
+    writeFileSync(
+      path.join(sandbox, "bundle-budget.json"),
+      // Baseline well above the tiny fixture chunk so the CLI takes the success path.
+      JSON.stringify({ enforce: true, tolerancePct: 10, totalGzipBytes: 100_000 }),
+    );
+
+    const script = path.join(process.cwd(), "scripts/check-bundle-budget.mjs");
+    const started = Date.now();
+    const result = await new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve, reject) => {
+      const child = spawn(process.execPath, [script], {
+        cwd: sandbox,
+        env: { ...process.env, NODE_OPTIONS: "", BUNDLE_BUDGET_ROOT: sandbox },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk: Buffer) => {
+        stdout += chunk.toString("utf8");
+      });
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString("utf8");
+      });
+      const killTimer = setTimeout(() => {
+        child.kill("SIGKILL");
+        reject(new Error(`CLI hung after success (stdout=${JSON.stringify(stdout)} stderr=${JSON.stringify(stderr)})`));
+      }, 5_000);
+      child.on("error", (error) => {
+        clearTimeout(killTimer);
+        reject(error);
+      });
+      child.on("close", (code) => {
+        clearTimeout(killTimer);
+        resolve({ code, stdout, stderr });
+      });
+    });
+
+    try {
+      expect(
+        { code: result.code, stdout: result.stdout, stderr: result.stderr },
+        "CLI should exit 0 after printing done",
+      ).toMatchObject({ code: 0 });
+      expect(result.stdout).toContain("[bundle-budget] done.");
+      expect(Date.now() - started).toBeLessThan(5_000);
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true });
+    }
   });
 });
 

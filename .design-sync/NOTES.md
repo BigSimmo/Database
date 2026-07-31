@@ -51,9 +51,10 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
 - `[TOKENS_MISSING]` 7 CSS custom properties — triaged 2026-07-30, all seven
   are **expected in the bundle**, so the warn line itself is known. Four are
   benign by construction (runtime-set or scan artifacts); the other three were
-  genuinely undefined references in repo code and were repaired across PRs
-  #1480 and #1451. The warn count only drops on the next re-sync, once the
-  bundle is rebuilt from the repaired source:
+  genuinely undefined references in repo code (`#141`, now resolved). Production
+  `--clinical-accent-strong` was defined by **PR #1480**; the two mockup hover
+  refs were repaired by **PR #1451**. The warn count only drops on the next
+  re-sync, once the bundle is rebuilt from the repaired source:
   - `--mobile-composer-reserve` — set at runtime by
     `clinical-dashboard/mobile-composer-reserve.ts` and always read through a
     `var(…, 0rem)` fallback. Never in a static stylesheet. Do not "fix".
@@ -65,19 +66,21 @@ repo defects — re-flag to the design agent instead of restructuring CSS:
     `medicationAccentStyle()` in
     `clinical-dashboard/medication-record-page.tsx:88-94` assigns both (plus
     unread `--med-accent-soft`, which is not one of the seven missing tokens;
-    that dead-plumbing question is tracked separately as #157), and that style
-    object is applied to the ancestor that contains every referenced class
-    (`:393`). A stylesheet-only missing-token scan cannot see React `style`
-    assignments; do not "fix" these.
+    that dead-plumbing question is tracked separately as #157). Verified
+    2026-07-30 by computed style: all four consuming sites paint
+    `rgb(225,29,72)` on `/medications/acamprosate` in light and dark. A
+    stylesheet-only missing-token scan cannot see React `style` assignments;
+    do not "fix" these.
   - `--clinical-accent-strong`
-    (`clinical-dashboard/answer-status.tsx:252`) — resolved by mapping the role
-    to `--primary-700` in both themes and `LinkText` in forced-colors,
-    with contrast and token-presence contracts in
+    (`clinical-dashboard/answer-status.tsx:252`) — **fixed in PR #1480** by
+    mapping the role to `--primary-700` in both themes and `LinkText` in
+    forced-colors, with contrast and token-presence contracts in
     `tests/design-token-contract.test.ts`.
   - `--primary-hover`, `--success-hover` —
     `favourites-page-mockups/favourites-library-redesign-page.tsx`, which is
-    gate-exempt design scratch. Repaired by mapping to `--primary-strong` and
-    `hover:brightness-110` respectively; the success family has no darker step.
+    gate-exempt design scratch. **Fixed in PR #1451** by mapping to
+    `--primary-strong` and `hover:brightness-110`; the success family has no
+    darker step.
 - If a future sync sees a **different** var in the `[TOKENS_MISSING]` warn, that
   one is new — look at it before recording it.
 
@@ -85,9 +88,9 @@ The triage rule this warn needs, since it fires on both: a custom property is
 correct-as-reported when it has a runtime setter or is always read through a
 `var(…, fallback)`. It is a real defect when it has neither — the declaration
 becomes invalid at computed-value time and the property resolves to its initial
-or inherited value, so the intended colour silently does not apply. Check for a
-setter or fallback before calling a new report noise, and for the absence of
-both before calling it a defect.
+or inherited value, so the intended colour silently does not apply (`#094`).
+Check for a setter or fallback before calling a new report noise, and for the
+absence of both before calling it a defect.
 
 ## Re-sync risks
 

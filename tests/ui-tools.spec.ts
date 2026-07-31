@@ -984,15 +984,6 @@ test.describe("Clinical KB tools launcher", () => {
             // bottom (safe-area is padding inside the form, not a `bottom` gap).
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
-        } else if (viewport.width < 1024) {
-          // Sticky-stack shells pin via an outer wrapper; collapse-everywhere hosts
-          // still self-sticky the form. Tablet behaviour stays unchanged.
-          expect(
-            metrics?.position === "sticky" || metrics?.stickyAncestor,
-            `${route.path} at ${viewport.name} should stick via the form or its sticky stack`,
-          ).toBe(true);
-          expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
-          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         } else {
           expect(metrics?.composerPlacement).toBe("desktop-page");
           expect(metrics?.insideDesktopPageSlot).toBe(true);

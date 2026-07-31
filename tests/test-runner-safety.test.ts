@@ -673,6 +673,7 @@ describe("provider-safe test environment", () => {
     const baseUrl = readFileSync(new URL("../scripts/playwright-base-url.ts", import.meta.url), "utf8");
     const ragRunner = readFileSync(new URL("../scripts/eval-rag-offline.mjs", import.meta.url), "utf8");
     const playwrightConfig = readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
+    const ciWorkflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
     const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
       scripts: Record<string, string>;
     };
@@ -682,6 +683,27 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('NODE_ENV: "production"');
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
+    expect(runner).toContain("process.env.PLAYWRIGHT_BUILD_ROOT_ID?.trim()");
+    expect(runner).toContain('PLAYWRIGHT_KEEP_BUILD_ROOT must be unset or exactly "true"');
+    expect(runner).toContain("PLAYWRIGHT_KEEP_BUILD_ROOT requires PLAYWRIGHT_BUILD_ROOT_ID");
+    expect(runner).toContain("if (!keepBuildRoot)");
+    // Run-scoped artifact sharing (not actions/cache) — avoids the measured 804 MB
+    // Actions-cache budget regression while still warming the three production shards.
+    expect(ciWorkflow).toContain("name: playwright-next-build-cache-${{ github.run_id }}");
+    expect(ciWorkflow).toContain("Publish isolated Next.js build cache");
+    expect(ciWorkflow).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1");
+    // Dot-directory paths require include-hidden-files or upload-artifact v4.4+
+    // silently publishes nothing (same class of bug as eval-canary's `.local/`).
+    expect(ciWorkflow).toContain("include-hidden-files: true");
+    expect(ciWorkflow).toContain("compression-level: 0");
+    // Publish must not gate the critical job: a cache miss falls back to cold builds.
+    expect(ciWorkflow).toMatch(
+      /Publish isolated Next\.js build cache[\s\S]*?continue-on-error:\s*true[\s\S]*?actions\/upload-artifact/,
+    );
+    expect(ciWorkflow).not.toMatch(/playwright-next-\$\{\{\s*runner\.os\s*\}\}/);
+    expect(ciWorkflow.match(/path: \.next-playwright\/ci-production\/dist\/cache/g)).toHaveLength(2);
+    expect(ciWorkflow.match(/PLAYWRIGHT_BUILD_ROOT_ID: ci-production/g)).toHaveLength(2);
+    expect(ciWorkflow.match(/PLAYWRIGHT_KEEP_BUILD_ROOT: "true"/g)).toHaveLength(2);
     expect(runner).toContain("!explicitProjectRequested ||");
     // Empty 3xx bodies from legacy redirect route handlers must not fail readiness.
     expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");

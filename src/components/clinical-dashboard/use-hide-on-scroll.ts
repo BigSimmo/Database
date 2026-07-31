@@ -80,6 +80,17 @@ export function computeScrollHideUpdate(params: {
   combinedChrome?: boolean;
   collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
+  /**
+   * True when the visual viewport height changed since the previous report
+   * (Safari toolbar show/hide, on-screen keyboard, orientation, Playwright
+   * `setViewportSize`). Resize can emit scroll-looking deltas and maxOffset
+   * jumps that are geometry feedback, not user hide/reveal intent — preserve
+   * chrome state and rebase. Measured from `visualViewport.height`, not
+   * `window.innerHeight`: a Safari toolbar collapse moves the visual viewport
+   * while the layout viewport can stay put, which is the exact case this guard
+   * is named for.
+   */
+  viewportHeightChanged?: boolean;
   currentlyHidden: boolean;
   direction?: ScrollDirection;
   directionTravel?: number;
@@ -98,6 +109,7 @@ export function computeScrollHideUpdate(params: {
     combinedChrome = false,
     collapseKind,
     sourceChanged = false,
+    viewportHeightChanged = false,
     currentlyHidden,
     direction = null,
     directionTravel = 0,
@@ -109,8 +121,19 @@ export function computeScrollHideUpdate(params: {
   if (sourceChanged) {
     return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
   }
+  // The top reveal band is an absolute layout contract, so it outranks the
+  // resize guard below: a viewport change does not stop the reader being at the
+  // top of the range, and holding `hidden` here would strand the chrome
+  // off-screen at offset 0 until the next scroll.
   if (offset <= topRevealOffset) {
     return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+  // Viewport resize is not scroll intent. Without this guard, a toolbar shrink
+  // (or CI `setViewportSize`) can look like a deliberate upward scroll, reveal
+  // chrome, and leave it stuck until the next down-scroll — the Services
+  // result-anchor flake under Production UI load (#146).
+  if (viewportHeightChanged) {
+    return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
   // When hidden chrome releases layout, the scroll range shrinks and a previous
@@ -145,6 +168,22 @@ export function computeScrollHideUpdate(params: {
   // state through top overscroll. A symmetric window would instead reveal the
   // chrome mid-rubber-band, reintroducing the flicker this guard removes.
   if (currentlyHidden && maxOffset !== undefined && offset < lastOffset && offset >= maxOffset - bottomClampTolerance) {
+    return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+
+  // Viewport/layout range changes (Safari toolbar collapse, Playwright
+  // `setViewportSize`, overlay-reserve remeasure) can emit a one-shot upward
+  // scroll reading while the user is still mid-page. Treat that as geometry
+  // feedback, not reveal intent, when the offset remains past the hide band and
+  // the upward delta has not yet reached deliberate reveal travel (#146).
+  if (
+    currentlyHidden &&
+    maxOffset !== undefined &&
+    previousMaxOffset !== undefined &&
+    maxOffset !== previousMaxOffset &&
+    offset > hideActivationOffset + hideIntentDistance &&
+    lastOffset - offset < revealIntentDistance
+  ) {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
@@ -333,6 +372,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
   const lastMaxOffsetRef = useRef<number | undefined>(undefined);
+  const lastViewportHeightRef = useRef<number | undefined>(undefined);
   const directionRef = useRef<ScrollDirection>(null);
   const directionTravelRef = useRef(0);
   const scrollSourceRef = useRef<EventTarget | null>(null);
@@ -353,6 +393,20 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
             }
           : report;
       if (!active) return;
+      // `visualViewport.height` is the surface a Safari toolbar collapse and an
+      // on-screen keyboard actually move; `innerHeight` can stay put through
+      // both. Round so sub-pixel jitter during a toolbar animation does not
+      // register as a resize on every frame, and fall back for jsdom/older
+      // engines with no visualViewport.
+      const viewportHeight =
+        typeof window !== "undefined" ? Math.round(window.visualViewport?.height ?? window.innerHeight) : undefined;
+      const viewportHeightChanged =
+        viewportHeight !== undefined &&
+        lastViewportHeightRef.current !== undefined &&
+        lastViewportHeightRef.current !== viewportHeight;
+      if (viewportHeight !== undefined) {
+        lastViewportHeightRef.current = viewportHeight;
+      }
       const lastOffset = lastOffsetRef.current;
       const delta = offset - lastOffset;
       const sourceChanged = source !== undefined && hasScrollSourceRef.current && scrollSourceRef.current !== source;
@@ -367,7 +421,13 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
       // evaluate. Undefined explicitly clears stale geometry for numeric reports.
       lastMaxOffsetRef.current = maxOffset;
       if (offset < 0) return;
-      if (!sourceChanged && !comparableRangeChanged && Math.abs(delta) < minimumDelta && offset > topRevealOffset)
+      if (
+        !sourceChanged &&
+        !viewportHeightChanged &&
+        !comparableRangeChanged &&
+        Math.abs(delta) < minimumDelta &&
+        offset > topRevealOffset
+      )
         return;
       const update = computeScrollHideUpdate({
         offset,
@@ -378,6 +438,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
         collapseKind,
         combinedChrome,
         sourceChanged,
+        viewportHeightChanged,
         currentlyHidden: hiddenRef.current,
         direction: directionRef.current,
         directionTravel: directionTravelRef.current,
@@ -396,6 +457,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
     lastMaxOffsetRef.current = undefined;
+    lastViewportHeightRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
@@ -413,6 +475,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
     lastMaxOffsetRef.current = undefined;
+    lastViewportHeightRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
@@ -427,6 +490,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const reset = useCallback(() => {
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    lastMaxOffsetRef.current = undefined;
+    lastViewportHeightRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
@@ -503,7 +568,20 @@ export function useDocumentScrollHideReporter(
       frame = window.requestAnimationFrame(evaluate);
     };
 
+    // Rebase hide state on viewport resize before a coalesced scroll event can
+    // look like upward reveal intent (Safari toolbar / CI setViewportSize).
+    const onViewportResize = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(evaluate);
+    };
+
     window.addEventListener("scroll", onScroll, { passive: true });
+    // Re-sample on layout/visual viewport changes so maxOffset and
+    // viewportHeightChanged update through both #146 guards (range-change hold
+    // + viewport-height rebase) instead of waiting for a user scroll that may
+    // never come after a toolbar-style shrink.
+    window.addEventListener("resize", onViewportResize, { passive: true });
+    window.visualViewport?.addEventListener("resize", onViewportResize);
     window.addEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, {
       capture: true,
       passive: true,
@@ -519,6 +597,8 @@ export function useDocumentScrollHideReporter(
     window.addEventListener("keydown", releaseComposerFocusOnKeyboardScrollIntent, true);
     return () => {
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onViewportResize);
+      window.visualViewport?.removeEventListener("resize", onViewportResize);
       window.removeEventListener("wheel", releaseComposerFocusOnOutsideScrollIntent, true);
       window.removeEventListener("touchmove", releaseComposerFocusOnOutsideScrollIntent, true);
       window.removeEventListener("pointerdown", releaseComposerFocusOnOutsideScrollIntent, true);
@@ -608,6 +688,11 @@ export function useHideOnScroll({
       frame = window.requestAnimationFrame(evaluate);
     };
 
+    const onViewportResize = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(evaluate);
+    };
+
     const attach = () => {
       const container = resolveContainer();
       if (containerRef && !container) return false;
@@ -634,9 +719,17 @@ export function useHideOnScroll({
       attach();
     }
 
+    // Same resize re-sample as useDocumentScrollHideReporter (#146): feed both
+    // the range-change hold and the viewport-height rebase without doubling
+    // listeners inside attach().
+    window.addEventListener("resize", onViewportResize, { passive: true });
+    window.visualViewport?.addEventListener("resize", onViewportResize);
+
     return () => {
       disposed = true;
       attachedTarget?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onViewportResize);
+      window.visualViewport?.removeEventListener("resize", onViewportResize);
       if (frame) window.cancelAnimationFrame(frame);
       if (attachFrame) window.cancelAnimationFrame(attachFrame);
     };

@@ -1,9 +1,21 @@
+import { captureRequestError } from "@/lib/observability/error-tracking";
+
 // Next.js calls register() once when a server instance starts, before it serves
 // any requests. We use it to fail fast: a clinical production server must be fully
 // and correctly configured rather than silently degrading — or, worse, serving
 // unauthenticated demo content — on the first request. See production-readiness
 // plan items 0.1 and 0.3.
 export async function register() {
+  // Single Sentry init path per runtime (sentry.*.config.ts). Do not also call
+  // initializeErrorTracking() — a second Sentry.init() races privacy/sampling options.
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+  }
+
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("./sentry.edge.config");
+  }
+
   // Only the Node.js server runtime in production needs this gate. Development
   // keeps its local/demo fallbacks, and the Edge runtime doesn't use the Node-only
   // server configuration these checks validate.
@@ -33,7 +45,8 @@ export async function register() {
     throw new Error("Refusing to start: local no-auth mode is enabled in a production build.");
   }
 
-  const { env, isDemoMode, requireOpenAIEnv, requireQueryHashSecret, requireServerEnv } = await import("@/lib/env");
+  const { env, isDemoMode, requireOpenAIEnv, requireQueryHashSecret, requireSentryEnv, requireServerEnv } =
+    await import("@/lib/env");
 
   // A clinical production server must run against real, configured backends — never
   // in demo mode, which bypasses auth and serves canned content.
@@ -52,4 +65,9 @@ export async function register() {
   // A keyed HMAC secret must be present so clinical-query hashes written to the log
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.
   requireQueryHashSecret();
+  // Runtime DSN consistency only. Sourcemap upload credentials are build-time
+  // and are gated in next.config.ts — not re-checked here.
+  requireSentryEnv();
 }
+
+export { captureRequestError as onRequestError };

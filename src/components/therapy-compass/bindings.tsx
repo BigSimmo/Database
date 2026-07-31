@@ -203,9 +203,12 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { screen, slug: routeSlug } = resolveRoute(pathname);
-  const usesCatalogueIndex = screen === "home" || screen === "search" || screen === "pathways";
+  // Search needs the complete prose corpus to preserve its existing weighted
+  // matches (#1471). Home uses the smallest landing projection; pathways use
+  // the thin browse index — keeping the 2.5 MB full dataset off those paints.
+  const catalogue = screen === "home" ? "home" : screen === "pathways" ? "index" : "full";
   const { data, loading, error, retry } = useTherapyData({
-    catalogue: usesCatalogueIndex ? "index" : "full",
+    catalogue,
     includePathways: screen === "pathways",
     includeReference: false,
   });

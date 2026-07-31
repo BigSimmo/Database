@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 import { clearTherapyDataCache } from "@/components/therapy-compass/data/use-therapy-data";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import { HomeScreen } from "@/components/therapy-compass/screens/home-screen";
 
 const navigation = vi.hoisted(() => ({ pathname: "/therapy-compass" }));
@@ -44,7 +45,7 @@ describe("Therapy Compass required data recovery", () => {
     });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies-index.json")) {
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`)) {
         await therapiesGate;
         return response([therapy]);
       }
@@ -73,9 +74,12 @@ describe("Therapy Compass required data recovery", () => {
 
   it("shows an honest load error, retries all required files, and recovers", async () => {
     let failTherapies = true;
+    // The loader tries the content-addressed URL, then the unversioned alias
+    // (a pre-deploy bundle can name a hash that no longer exists). Both must
+    // fail before the tool is allowed to claim the catalogue could not load.
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies-index.json")) {
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`) || path.endsWith("/therapies-home.json")) {
         return failTherapies ? response(null, false, 503) : response([therapy]);
       }
       throw new Error(`Unexpected fetch: ${path}`);
@@ -101,7 +105,13 @@ describe("Therapy Compass required data recovery", () => {
     expect(await screen.findByRole("heading", { name: "Therapy" })).toBeInTheDocument();
     expect(screen.getByText(/1 source-grounded therapy record\./)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // Hashed + alias on the failing load, hashed only once it recovers.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining(`/${THERAPY_CATALOGUE_ASSETS.home}`),
+      expect.stringContaining("/therapies-home.json"),
+      expect.stringContaining(`/${THERAPY_CATALOGUE_ASSETS.home}`),
+    ]);
   });
 
   it("keeps Retry busy until the replacement catalogue request settles", async () => {
@@ -112,7 +122,7 @@ describe("Therapy Compass required data recovery", () => {
     });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies-index.json")) {
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`)) {
         if (failTherapies) return response(null, false, 503);
         await retryGate;
         return response([therapy]);
@@ -146,7 +156,7 @@ describe("Therapy Compass required data recovery", () => {
     navigation.pathname = "/therapy-compass/test-therapy";
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies.json")) return response([therapy]);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.full}`)) return response([therapy]);
       throw new Error(`Unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -158,6 +168,48 @@ describe("Therapy Compass required data recovery", () => {
     );
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/therapies\.json$/);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/${THERAPY_CATALOGUE_ASSETS.full}`);
+  });
+
+  it("keeps the full prose corpus on the search route", async () => {
+    navigation.pathname = "/therapy-compass/search";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.full}`)) return response([therapy]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Search ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/${THERAPY_CATALOGUE_ASSETS.full}`);
+  });
+
+  it("keeps the compact browse index on the pathways route", async () => {
+    navigation.pathname = "/therapy-compass/pathways";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.index}`)) return response([therapy]);
+      if (path.endsWith("/pathways.json")) return response([]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Pathways ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const fetched = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(fetched.some((url) => url.endsWith(`/${THERAPY_CATALOGUE_ASSETS.index}`))).toBe(true);
+    expect(fetched.some((url) => /\/pathways\.json$/.test(url))).toBe(true);
+    expect(fetched.some((url) => url.includes(`/${THERAPY_CATALOGUE_ASSETS.full}`))).toBe(false);
   });
 });

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
+import { THERAPY_CATALOGUE_ASSETS } from "./generated-assets";
 
 // Served as static public assets. Kept outside /mockups so the production
 // `/therapy-compass` route can load them — `proxy.ts` 404s every /mockups path
@@ -10,13 +11,13 @@ import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 const BASE = "/therapy-compass-data";
 
 type TherapyDataOptions = {
-  catalogue?: "index" | "full";
+  catalogue?: "home" | "index" | "full";
   includePathways?: boolean;
   includeReference?: boolean;
 };
 
-// Cache each route-sized payload once per session. Catalogue routes use the compact
-// index; detail/compare/recommend/artifact routes opt into the full records.
+// Cache each route-sized payload once per session. Home uses the smallest catalogue,
+// pathways use the thin browse index, and search/detail/compare/recommend use full records.
 const cache = new Map<string, Promise<TherapyDataset>>();
 
 /** Test helper: drop the session-scoped dataset cache between cases. */
@@ -30,9 +31,33 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// Unversioned aliases. These names never change, always hold the current data,
+// and are served `max-age=0, must-revalidate` (see next.config.ts).
+const CATALOGUE_ALIASES = {
+  full: "therapies.json",
+  index: "therapies-index.json",
+  home: "therapies-home.json",
+} as const;
+
+/**
+ * Content-addressed URL first, unversioned alias as the fallback. A session that
+ * started before a deploy has the previous hashed filename compiled into its
+ * bundle; the generator retains that generation for one deploy, but a client
+ * older than that — or one that lands mid-rollout — would otherwise get a 404
+ * and an error screen on a route it had already loaded once. The alias is the
+ * standing answer to that, so use it rather than surfacing a dead catalogue.
+ */
+async function fetchCatalogue(catalogue: "home" | "index" | "full"): Promise<Therapy[]> {
+  try {
+    return await fetchJson<Therapy[]>(`${BASE}/${THERAPY_CATALOGUE_ASSETS[catalogue]}`);
+  } catch {
+    return fetchJson<Therapy[]>(`${BASE}/${CATALOGUE_ALIASES[catalogue]}`);
+  }
+}
+
 async function loadDataset(options: Required<TherapyDataOptions>): Promise<TherapyDataset> {
   const [therapies, pathways, reference] = await Promise.all([
-    fetchJson<Therapy[]>(`${BASE}/${options.catalogue === "full" ? "therapies.json" : "therapies-index.json"}`),
+    fetchCatalogue(options.catalogue),
     options.includePathways ? fetchJson<Pathway[]>(`${BASE}/pathways.json`) : Promise.resolve([]),
     options.includeReference
       ? fetchJson<ReferenceData>(`${BASE}/reference.json`)

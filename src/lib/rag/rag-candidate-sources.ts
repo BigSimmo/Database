@@ -35,7 +35,7 @@ import {
 import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
-import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import { normalizeOptionalSourceMetadata, normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import type { DocumentIndexUnitMatch, DocumentMemoryCard, SearchResult } from "@/lib/types";
 
@@ -630,7 +630,7 @@ export async function searchDocumentLookupFastPath(args: {
       content: chunk.content,
       retrieval_synopsis: chunk.retrieval_synopsis ?? null,
       image_ids: chunk.image_ids ?? [],
-      source_metadata: normalizeSourceMetadata(document.metadata),
+      source_metadata: normalizeOptionalSourceMetadata(document.metadata),
       similarity,
       text_rank: documentScore,
       hybrid_score: Math.min(0.94, similarity + 0.02),
@@ -725,7 +725,7 @@ export async function loadChunksForMemoryCards(
         content: chunk.content,
         retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
-        source_metadata: normalizeSourceMetadata(document.metadata),
+        source_metadata: normalizeOptionalSourceMetadata(document.metadata),
         similarity,
         text_rank: card?.confidence ?? 0,
         hybrid_score: Math.min(0.96, similarity + 0.03),
@@ -921,7 +921,7 @@ export async function loadChunksForSignalMatches(args: {
         content: chunk.content,
         retrieval_synopsis: chunk.retrieval_synopsis ?? null,
         image_ids: chunk.image_ids ?? [],
-        source_metadata: normalizeSourceMetadata(document.metadata),
+        source_metadata: normalizeOptionalSourceMetadata(document.metadata),
         // ChunkSignalMatch similarities are fabricated from table-fact text rank (RC9).
         similarity_origin: "synthetic_text" as const,
         similarity: match.similarity,

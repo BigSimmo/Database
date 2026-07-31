@@ -62,6 +62,15 @@ describe("shared header hide/reveal wiring", () => {
     expect(dashboardCoordinatorSource).toContain(
       "useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainScrollRoot, composerInputRef)",
     );
+    // #146: viewport/toolbar range changes must re-sample maxOffset without
+    // waiting for a user scroll that may never arrive after chrome re-shows.
+    // Layout + visualViewport resize both feed evaluate(); product code then
+    // holds hide via the range-change guard and viewportHeightChanged rebase.
+    expect(hookSource).toContain('window.addEventListener("resize", onViewportResize, { passive: true })');
+    expect(hookSource).toContain('window.visualViewport?.addEventListener("resize", onViewportResize)');
+    expect(hookSource).toContain("maxOffset !== previousMaxOffset");
+    expect(hookSource).toContain("lastOffset - offset < revealIntentDistance");
+    expect(hookSource).toContain("viewportHeightChanged");
   });
 
   it("feeds DocumentViewer footer chrome from both possible phone scroll owners", () => {
@@ -189,11 +198,11 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("max-sm:-translate-y-full");
   });
 
-  it("moves submitted search composers into normal page flow on desktop only", () => {
+  it("moves submitted search composers into normal page flow on tablets and desktops", () => {
     expect(composerSlotSource).toContain(
       'export const desktopPageComposerSlotId = "desktop-page-search-composer-slot"',
     );
-    expect(headerSource).toContain('const desktopPageComposerMediaQuery = "(min-width: 1024px)"');
+    expect(headerSource).toContain('const desktopPageComposerMediaQuery = "(min-width: 640px)"');
     expect(headerSource).toContain("desktopHomeComposerSlotId ?? desktopPageComposerSlotId");
     expect(headerSource).toContain('placement: "default" | "desktop-home" | "desktop-page"');
     expect(headerSource).toContain("data-composer-placement={placement}");
@@ -201,13 +210,13 @@ describe("shared header hide/reveal wiring", () => {
       '"document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"',
     );
     expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(shellSource).toContain('className="hidden lg:block lg:empty:hidden"');
+    expect(shellSource).toContain('className="hidden sm:block sm:empty:hidden"');
     // Dashboard result slot lives in a budget-extracted helper so ClinicalDashboard
     // stays under the maintainability no-growth ceiling.
     expect(dashboardSource).toContain("DashboardDesktopResultComposerSlot");
     expect(dashboardResultComposerSlotSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(dashboardResultComposerSlotSource).toContain('className="hidden lg:block lg:empty:hidden"');
-    expect(behaviourDocSource).toContain("Desktop search is page-owned");
+    expect(dashboardResultComposerSlotSource).toContain('className="hidden sm:block sm:empty:hidden"');
+    expect(behaviourDocSource).toContain("Tablet and desktop search are page-owned");
   });
 
   it("collapses only the top bar and keeps the search composer outside that row", () => {
@@ -415,17 +424,14 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;");
   });
 
-  it("documents tablet pinning and desktop page ownership independently from the top bar", () => {
+  it("documents tablet and desktop page ownership independently from the top bar", () => {
     expect(behaviourDocSource).toContain("Hide the top bar, not the search field");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
     expect(behaviourDocSource).toContain("Every production phone navigation header has one collapse owner");
     expect(behaviourDocSource).toContain("One transition, no jump");
-    expect(behaviourDocSource).toContain("Do not double-sticky tablet search inside an outer sticky stack");
+    expect(behaviourDocSource).toContain("Do not sticky-position tablet or desktop result search");
     expect(behaviourDocSource).toContain("desktop-page-search-composer-slot");
     expect(behaviourDocSource).toContain("Release the phone top inset with collapsing chrome");
-    expect(behaviourDocSource).toContain(
-      "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
-    );
   });
 
   it("does not carry dock focus into GlobalSearchShell submitted result views", () => {

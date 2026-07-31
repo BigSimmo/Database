@@ -52,7 +52,6 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
-import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import {
@@ -552,7 +551,6 @@ export function ClinicalDashboard({
     [mainRef],
   );
   const settingsState = useSettingsState();
-  const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const uploadUsesDesktopRegions = useUploadDesktopLayout();
   const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
@@ -3284,8 +3282,12 @@ export function ClinicalDashboard({
         appBackdrop,
         // Browser phones scroll the document; installed mode keeps <main> bounded.
         "mobile-app-shell phone-viewport-shell flex flex-col text-[color:var(--text)] sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
-        sidebarColumnTransitionReady &&
-          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
+        // Sidebar collapse snaps by design (#1489): the previous
+        // `motion-safe:transition-[grid-template-columns]` needed a mount-gating
+        // hook in both shells to avoid animating from the default track width,
+        // and animating a grid track relayouts the whole shell on every frame.
+        // Restoring the animation means restoring that cost — do not re-add it
+        // as a "missing transition" fix.
         settingsState.sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={

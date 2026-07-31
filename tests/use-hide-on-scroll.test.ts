@@ -137,6 +137,70 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("preserves chrome state across a viewport-height change that looks like upward scroll", () => {
+    // Safari toolbar / CI setViewportSize can shrink the viewport and emit a
+    // scroll-looking delta. That must not reveal hidden chrome (#146); the next
+    // genuine user gesture still can.
+    expect(
+      computeScrollHideUpdate({
+        offset: 480,
+        lastOffset: 500,
+        maxOffset: 900,
+        previousMaxOffset: 836,
+        viewportHeightChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 480,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    expect(
+      computeScrollHideUpdate({
+        offset: 500,
+        lastOffset: 480,
+        maxOffset: 900,
+        viewportHeightChanged: true,
+        currentlyHidden: false,
+        direction: "up",
+        directionTravel: 20,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 500,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
+  it("still reveals at the top of the range when the viewport height changes", () => {
+    // The top reveal band is an absolute layout contract and outranks the resize
+    // guard. A resize that lands while the chrome is hidden and the scroller is
+    // clamped to the top (short page, keyboard dismiss, orientation flip) must
+    // not strand the chrome off-screen at offset 0 until the next scroll.
+    expect(
+      computeScrollHideUpdate({
+        offset: 0,
+        lastOffset: 240,
+        maxOffset: 120,
+        previousMaxOffset: 900,
+        viewportHeightChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 0,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("holds the chrome hidden across a multi-frame collapse clamp at the bottom", () => {
     // As the collapsing header hands its height back to the scroll container,
     // maxOffset shrinks frame by frame and the browser clamps scrollTop to it,
@@ -174,6 +238,43 @@ describe("computeScrollHideUpdate", () => {
       currentlyHidden: state.hidden,
       direction: state.direction,
       directionTravel: state.directionTravel,
+    });
+    expect(revealed.hidden).toBe(false);
+    expect(revealed.direction).toBe("up");
+  });
+
+  it("holds chrome hidden across a mid-page viewport range change with a small upward reading (#146)", () => {
+    // Safari toolbar / Playwright setViewportSize shrinks the layout viewport,
+    // growing maxOffset. Under CI load that geometry change can arrive with a
+    // few pixels of upward scroll noise while the user is still deep in the
+    // page — not deliberate reveal intent.
+    expect(
+      computeScrollHideUpdate({
+        offset: 496,
+        lastOffset: 500,
+        maxOffset: 1200,
+        previousMaxOffset: 1100,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 496,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    // A deliberate upward gesture that already clears revealIntentDistance must
+    // still reveal even when the range changed in the same evaluation.
+    const revealed = computeScrollHideUpdate({
+      offset: 480,
+      lastOffset: 500,
+      maxOffset: 1200,
+      previousMaxOffset: 1100,
+      currentlyHidden: true,
+      direction: "down",
+      directionTravel: 200,
     });
     expect(revealed.hidden).toBe(false);
     expect(revealed.direction).toBe("up");

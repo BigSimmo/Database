@@ -48,7 +48,6 @@ import {
 } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
-import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import {
   loadSettingsDialog,
   prefetchAccountDialog,
@@ -397,7 +396,6 @@ function GlobalStandaloneSearchShellBody({
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
-  const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -725,9 +723,8 @@ function GlobalStandaloneSearchShellBody({
         // shared display-mode contract without returning to a fixed root.
         "phone-viewport-shell sm:min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
-        shouldShowDesktopSidebar &&
-          sidebarColumnTransitionReady &&
-          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
+        // Sidebar collapse snaps by design (#1489) — see the matching note in
+        // ClinicalDashboard. Do not re-add the grid-track transition here.
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
@@ -857,9 +854,8 @@ function GlobalStandaloneSearchShellBody({
             heroComposerBreakpoint="all"
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the top bar to hand space back to content.
-            // Tablet: the document scrolls, so an outer sticky stack pins
-            // [top bar | search]. Desktop portals search into normal page flow,
-            // leaving this stack to own only the auto-hiding top bar.
+            // Tablet and desktop portal search into normal page flow. The outer
+            // sticky stack therefore owns only the auto-hiding top bar.
             hideOnScroll={{
               strategy: "collapse",
               // Phones always overlay. The collapse mechanism is a 1fr -> 0fr
@@ -934,7 +930,7 @@ function GlobalStandaloneSearchShellBody({
               <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
-                className="hidden lg:block lg:empty:hidden"
+                className="hidden sm:block sm:empty:hidden"
               />
             ) : null}
             {/*
@@ -946,7 +942,7 @@ function GlobalStandaloneSearchShellBody({
               Subnav (SpecifierSubnav / FormulationSubnav), so the shared mode bar
               is skipped for them to avoid a duplicate row on their workflow routes.
               Rendered in normal flow (sticky={false}) so it never contends with
-              the universal collapsing header / pinned search chrome.
+              the universal collapsing header or page-flow search chrome.
             */}
             {searchMode !== "specifiers" && searchMode !== "formulation" ? (
               <PageSecondaryNavigation
