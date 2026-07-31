@@ -3,6 +3,8 @@ import { logger } from "../src/lib/logger";
 import {
   clipboardProvenanceLine,
   formatClinicalDate,
+  hasRecordedGovernanceFields,
+  normalizeOptionalSourceMetadata,
   normalizeSourceMetadata,
   sourceProvenanceSummary,
   sourceStatusLabel,
@@ -19,6 +21,24 @@ describe("source metadata helpers", () => {
     expect(sourceStatusLabel(metadata)).toBe("Review status unknown");
     expect(validationStatusLabel(metadata)).toBe("Not locally validated");
     expect(sourceProvenanceSummary(metadata)).toContain("Review status unknown");
+  });
+
+  it("preserves empty and index-only metadata as unrecorded for optional normalization", () => {
+    expect(hasRecordedGovernanceFields({})).toBe(false);
+    expect(hasRecordedGovernanceFields({ index_generation_id: "gen-1" })).toBe(false);
+    expect(hasRecordedGovernanceFields({ document_status: "   " })).toBe(false);
+    expect(normalizeOptionalSourceMetadata(undefined)).toBeNull();
+    expect(normalizeOptionalSourceMetadata(null)).toBeNull();
+    expect(normalizeOptionalSourceMetadata({})).toBeNull();
+    expect(normalizeOptionalSourceMetadata({ index_generation_id: "gen-1" })).toBeNull();
+    expect(normalizeOptionalSourceMetadata({ clinical_validation_status: "unverified" })).toMatchObject({
+      clinical_validation_status: "unverified",
+    });
+    expect(normalizeOptionalSourceMetadata({ document_status: "current" })).toMatchObject({
+      document_status: "current",
+      clinical_validation_status: "unknown",
+      extraction_quality: "unknown",
+    });
   });
 
   it("traces unrecognized enum values via logger.warn while keeping the safe fallback, and stays silent for absent/blank inputs", () => {
