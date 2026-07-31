@@ -161,4 +161,46 @@ describe("Therapy Compass required data recovery", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/${THERAPY_CATALOGUE_ASSETS.full}`);
   });
+
+  it("keeps the full prose corpus on the search route", async () => {
+    navigation.pathname = "/therapy-compass/search";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.full}`)) return response([therapy]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Search ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/${THERAPY_CATALOGUE_ASSETS.full}`);
+  });
+
+  it("keeps the compact browse index on the pathways route", async () => {
+    navigation.pathname = "/therapy-compass/pathways";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.index}`)) return response([therapy]);
+      if (path.endsWith("/pathways.json")) return response([]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Pathways ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const fetched = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(fetched.some((url) => url.endsWith(`/${THERAPY_CATALOGUE_ASSETS.index}`))).toBe(true);
+    expect(fetched.some((url) => /\/pathways\.json$/.test(url))).toBe(true);
+    expect(fetched.some((url) => url.includes(`/${THERAPY_CATALOGUE_ASSETS.full}`))).toBe(false);
+  });
 });

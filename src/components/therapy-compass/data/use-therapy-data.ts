@@ -17,7 +17,7 @@ type TherapyDataOptions = {
 };
 
 // Cache each route-sized payload once per session. Home uses the smallest catalogue,
-// search/pathways use the index, and detail/compare/recommend/artifact use full records.
+// pathways use the thin browse index, and search/detail/compare/recommend use full records.
 const cache = new Map<string, Promise<TherapyDataset>>();
 
 /** Test helper: drop the session-scoped dataset cache between cases. */

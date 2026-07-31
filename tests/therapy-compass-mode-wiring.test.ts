@@ -12,6 +12,7 @@ const loaderSrc = readFileSync(
   new URL("../src/components/therapy-compass/data/use-therapy-data.ts", import.meta.url),
   "utf8",
 );
+const bindingsSrc = readFileSync(new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url), "utf8");
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
 const legacyCatalogueAssets = {
   full: "therapies.json",
@@ -104,11 +105,16 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
   });
 
-  it("ships a materially smaller catalogue index for browse and search routes", () => {
+  it("ships a compact browse home/index without narrowing the full-prose search corpus", () => {
     const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
     const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
-    expect(indexSize).toBeLessThan(fullSize * 0.4);
+    const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
+    expect(indexSize).toBeLessThan(fullSize * 0.1);
+    expect(homeSize).toBeLessThanOrEqual(indexSize);
     expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[options.catalogue]");
+    expect(bindingsSrc).toContain('screen === "home" ? "home"');
+    expect(bindingsSrc).toContain('screen === "pathways" ? "index"');
+    expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {

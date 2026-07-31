@@ -57,13 +57,10 @@ const browserProjected = therapies
     name: therapy.name,
     category: therapy.category ?? null,
     modality: therapy.modality ?? null,
-    clinicalSummary: therapy.clinicalSummary ?? null,
-    bestUsedFor: therapy.bestUsedFor ?? null,
-    indications: therapy.indications ?? null,
-    contraindicationsOrCautions: therapy.contraindicationsOrCautions ?? null,
-    targetSymptoms: therapy.targetSymptoms ?? null,
-    patientPopulation: therapy.patientPopulation ?? null,
-    setting: therapy.setting ?? null,
+    // The browser index is the browse/pathway payload, not the search corpus.
+    // Keep only the short subtitle the catalogue cards render. Search loads the
+    // full records so removing long clinical prose here cannot change recall.
+    bestUsedFor: therapy.bestUsedFor?.split(/(?<=\.)\s+/)[0] ?? null,
     reviewStatus: therapy.reviewStatus ?? "needs_review",
     patientSheetAvailable: Boolean(therapy.patientSheetAvailable),
     briefInterventionAvailable: Boolean(therapy.briefInterventionAvailable),
@@ -73,13 +70,13 @@ const browserProjected = therapies
   .sort((a, b) => a.name.localeCompare(b.name));
 
 // The landing page only renders compact list rows. Keep its first-paint payload
-// free of search-only prose; search/pathway routes retain the complete index.
+// free of search-only prose; search loads the full records separately.
 const browserHomeProjected = therapies
   .map((therapy) => ({
     slug: therapy.slug,
     name: therapy.name,
     category: therapy.category ?? null,
-    bestUsedFor: therapy.bestUsedFor ?? null,
+    bestUsedFor: therapy.bestUsedFor?.split(/(?<=\.)\s+/)[0] ?? null,
     reviewStatus: therapy.reviewStatus ?? "needs_review",
     patientSheetAvailable: Boolean(therapy.patientSheetAvailable),
     briefInterventionAvailable: Boolean(therapy.briefInterventionAvailable),
