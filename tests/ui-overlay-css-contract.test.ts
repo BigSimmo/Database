@@ -208,7 +208,7 @@ describe("overlay and global CSS contracts", () => {
     expect(globalSearchShellSource).toContain("phone-viewport-shell");
     expect(clinicalDashboardSource).toContain("phone-viewport-shell");
     expect(uiPrimitivesSource).toContain('"min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[');
-    expect(therapyWorkspaceSource).toContain('data-therapy-root');
+    expect(therapyWorkspaceSource).toContain("data-therapy-root");
     expect(therapyWorkspaceSource).toContain("min-h-0");
     expect(therapyWorkspaceSource).toContain("sm:min-h-[calc(100dvh-var(--shell-header-h))]");
   });

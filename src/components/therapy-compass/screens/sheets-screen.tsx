@@ -28,13 +28,19 @@ export function SheetsScreen() {
     <section data-screen-label="Patient sheet" className="max-w-[1240px] my-0 mx-auto">
       <div data-therapy-no-print className="flex items-start justify-between gap-5 mb-5 flex-wrap">
         <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Patient Sheet Builder</h1>
+          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+            Patient Sheet Builder
+          </h1>
           <p className="m-0 text-sm text-[color:var(--text-muted)]">
             Design, personalise and print a plain-language handout from a source-grounded record.
           </p>
         </div>
         <div className="max-sm:flex-wrap flex gap-2.5">
-          <button type="button" className={`${therapyBtn} inline-flex items-center gap-2 h-tap py-0 px-[18px] border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm-minus font-semibold shadow-[var(--shadow-tight)] cursor-pointer`} onClick={b.printSheet}>
+          <button
+            type="button"
+            className={`${therapyBtn} inline-flex items-center gap-2 h-tap py-0 px-[18px] border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm-minus font-semibold shadow-[var(--shadow-tight)] cursor-pointer`}
+            onClick={b.printSheet}
+          >
             <PrinterIcon size={16} />
             Print / PDF
           </button>
@@ -47,7 +53,9 @@ export function SheetsScreen() {
           <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[18px] px-5">
             <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mb-3">Therapy</div>
             <TherapyPicker />
-            <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-[18px] mx-0 mb-2.5">Reading level &amp; tone</div>
+            <div className="text-sm-minus font-semibold text-[color:var(--text-heading)] mt-[18px] mx-0 mb-2.5">
+              Reading level &amp; tone
+            </div>
             <div className="flex gap-0.5 p-[3px] bg-[color:var(--surface-inset)] rounded-lg">
               <button
                 type="button"
@@ -126,8 +134,12 @@ export function SheetsScreen() {
           <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[18px] px-5">
             <div className="flex items-center justify-between gap-3">
               <span>
-                <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">Clinician footer</span>
-                <span className="block text-xs text-[color:var(--text-soft)] mt-0.5">Name, service and review date.</span>
+                <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                  Clinician footer
+                </span>
+                <span className="block text-xs text-[color:var(--text-soft)] mt-0.5">
+                  Name, service and review date.
+                </span>
               </span>
               <button
                 type="button"
@@ -160,15 +172,25 @@ export function SheetsScreen() {
                 <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
                   <ScaleIcon size={20} strokeWidth={1.6} />
                 </span>
-                <span className="text-sm-minus font-semibold text-[color:var(--tc-paper-muted)] tracking-[0.02em]">Therapy · Patient information</span>
+                <span className="text-sm-minus font-semibold text-[color:var(--tc-paper-muted)] tracking-[0.02em]">
+                  Therapy · Patient information
+                </span>
               </div>
               <span className="text-2xs text-[color:var(--tc-paper-muted)]">Prepared for you</span>
             </div>
 
-            <h1 contentEditable suppressContentEditableWarning className="mt-0 mx-0 mb-1.5 text-3xl-minus font-bold text-[color:var(--tc-paper-ink)] tracking-tight">
+            <h1
+              contentEditable
+              suppressContentEditableWarning
+              className="mt-0 mx-0 mb-1.5 text-3xl-minus font-bold text-[color:var(--tc-paper-ink)] tracking-tight"
+            >
               {sheetTitle}
             </h1>
-            <p contentEditable suppressContentEditableWarning className="mt-0 mx-0 mb-[26px] text-sm text-[color:var(--tc-paper-muted)]">
+            <p
+              contentEditable
+              suppressContentEditableWarning
+              className="mt-0 mx-0 mb-[26px] text-sm text-[color:var(--tc-paper-muted)]"
+            >
               {t.bestUsedFor && t.bestUsedFor.length < 70 && !/^(most|the|a |an )/i.test(t.bestUsedFor)
                 ? `A step-by-step plan to help with ${t.bestUsedFor.toLowerCase()}.`
                 : `A plain-language plan to help you get the most from ${sheetTitle.toLowerCase()}.`}
@@ -178,14 +200,24 @@ export function SheetsScreen() {
 
             {b.secSteps && steps.length ? (
               <div className="mb-[22px]">
-                <h2 contentEditable suppressContentEditableWarning className="mt-0 mx-0 mb-2.5 text-base font-semibold text-[color:var(--tc-paper-accent)]">
+                <h2
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="mt-0 mx-0 mb-2.5 text-base font-semibold text-[color:var(--tc-paper-accent)]"
+                >
                   Your plan
                 </h2>
                 <div className="flex flex-col gap-2.5">
                   {steps.map((step, i) => (
                     <div key={i} className="flex gap-3">
-                      <span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)] text-xs font-bold flex-none">{i + 1}</span>
-                      <p contentEditable suppressContentEditableWarning className="m-0 text-sm-minus leading-normal text-[color:var(--tc-paper-body)] flex-1">
+                      <span className="inline-flex items-center justify-center w-[24px] h-[24px] rounded-full bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)] text-xs font-bold flex-none">
+                        {i + 1}
+                      </span>
+                      <p
+                        contentEditable
+                        suppressContentEditableWarning
+                        className="m-0 text-sm-minus leading-normal text-[color:var(--tc-paper-body)] flex-1"
+                      >
                         {step}
                       </p>
                     </div>
@@ -196,10 +228,18 @@ export function SheetsScreen() {
 
             {b.secPractice ? (
               <div className="mb-[22px] bg-[color:var(--tc-paper-accent-background)] border border-[color:var(--tc-paper-accent-border)] rounded-md py-4 px-[18px]">
-                <h2 contentEditable suppressContentEditableWarning className="mt-0 mx-0 mb-2 text-base-minus font-semibold text-[color:var(--tc-paper-accent)]">
+                <h2
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="mt-0 mx-0 mb-2 text-base-minus font-semibold text-[color:var(--tc-paper-accent)]"
+                >
                   Practice at home
                 </h2>
-                <p contentEditable suppressContentEditableWarning className="m-0 text-sm-minus leading-normal text-[color:var(--tc-paper-body)]">
+                <p
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="m-0 text-sm-minus leading-normal text-[color:var(--tc-paper-body)]"
+                >
                   {t.homework ||
                     "Try the steps above between sessions. Note what you did and how it felt, and bring this to your next appointment."}
                 </p>
@@ -216,10 +256,18 @@ export function SheetsScreen() {
 
             {b.secContacts ? (
               <div className="mb-2 bg-[color:var(--tc-paper-warning-background)] border border-[color:var(--tc-paper-warning-border)] rounded-md py-4 px-[18px]">
-                <h2 contentEditable suppressContentEditableWarning className="mt-0 mx-0 mb-2 text-base-minus font-semibold text-[color:var(--tc-paper-warning)]">
+                <h2
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="mt-0 mx-0 mb-2 text-base-minus font-semibold text-[color:var(--tc-paper-warning)]"
+                >
                   Support contacts
                 </h2>
-                <div contentEditable suppressContentEditableWarning className="text-sm-minus leading-normal text-[color:var(--tc-paper-body)]">
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="text-sm-minus leading-normal text-[color:var(--tc-paper-body)]"
+                >
                   Your clinician: ______________________ · Phone: ______________
                   <br />
                   In a crisis, call your local emergency number or a 24/7 crisis line.
@@ -250,10 +298,18 @@ export function SheetsScreen() {
 function PaperSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mb-[22px]">
-      <h2 contentEditable suppressContentEditableWarning className="mt-0 mx-0 mb-2 text-base font-semibold text-[color:var(--tc-paper-accent)]">
+      <h2
+        contentEditable
+        suppressContentEditableWarning
+        className="mt-0 mx-0 mb-2 text-base font-semibold text-[color:var(--tc-paper-accent)]"
+      >
         {title}
       </h2>
-      <p contentEditable suppressContentEditableWarning className="m-0 text-sm-minus leading-normal text-[color:var(--tc-paper-body)]">
+      <p
+        contentEditable
+        suppressContentEditableWarning
+        className="m-0 text-sm-minus leading-normal text-[color:var(--tc-paper-body)]"
+      >
         {children}
       </p>
     </div>
@@ -283,7 +339,9 @@ function TherapyPicker() {
       >
         <span className="flex items-center gap-[9px] min-w-0">
           <ScaleIcon size={16} className="text-[color:var(--clinical-accent)] flex-none" />
-          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{b.selectedTherapy?.name ?? "Choose a therapy"}</span>
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">
+            {b.selectedTherapy?.name ?? "Choose a therapy"}
+          </span>
         </span>
         <ChevronDownIcon size={15} strokeWidth={1.8} className="text-[color:var(--text-soft)] flex-none" />
       </button>

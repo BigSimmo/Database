@@ -46,7 +46,9 @@ export function OtherScreen() {
     <section data-screen-label="Review Queue" className="max-w-[1180px] my-0 mx-auto">
       <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
         <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Review Queue</h1>
+          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+            Review Queue
+          </h1>
           <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
             Records awaiting source and clinical review, lowest review-completeness first.
           </p>
@@ -59,10 +61,15 @@ export function OtherScreen() {
 
       <div className="flex flex-col gap-3">
         {queue.map((t) => (
-          <div key={t.slug} className="grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-tight)] py-4 px-5">
+          <div
+            key={t.slug}
+            className="grid grid-cols-1 sm:grid-cols-[minmax(200px,_1.4fr)_repeat(3,_minmax(110px,_1fr))_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-tight)] py-4 px-5"
+          >
             <div className="min-w-0">
               <div className="text-sm font-semibold text-[color:var(--text-heading)]">{t.name}</div>
-              <div className="text-xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">{t.category}</div>
+              <div className="text-xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                {t.category}
+              </div>
             </div>
             <Meter value={t.sourceCompleteness} label="Source" />
             <Meter value={t.indexCompleteness} label="Index" />

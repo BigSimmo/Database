@@ -11,10 +11,7 @@ import { TherapyCompassNav, TherapyModeNav } from "./nav";
 
 function TherapyCompassFooter() {
   return (
-    <div
-      data-therapy-no-print
-      className="mx-auto mt-[30px] max-w-[1240px] border-t border-[color:var(--border)] pt-5"
-    >
+    <div data-therapy-no-print className="mx-auto mt-[30px] max-w-[1240px] border-t border-[color:var(--border)] pt-5">
       <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
     </div>
   );

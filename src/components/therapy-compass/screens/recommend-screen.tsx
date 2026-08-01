@@ -36,7 +36,9 @@ export function RecommendScreen() {
 
   return (
     <section data-screen-label="Recommend" className="max-w-[1180px] my-0 mx-auto">
-      <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Recommend Tool</h1>
+      <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+        Recommend Tool
+      </h1>
       <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
         Refine a clinical question with setting, time and caution constraints.
       </p>
@@ -51,7 +53,9 @@ export function RecommendScreen() {
           onChange={(e) => b.setRecQuery(e.target.value)}
           className="w-full min-h-[74px] py-[13px] px-[15px] border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-base-minus leading-normal resize-y"
         />
-        <div className="text-2xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mt-5 mx-0 mb-2.5">QUICK CONSTRAINTS</div>
+        <div className="text-2xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mt-5 mx-0 mb-2.5">
+          QUICK CONSTRAINTS
+        </div>
         <div className="flex flex-wrap gap-[9px]">
           {RECOMMEND_CONSTRAINTS.map((c) => {
             const on = b.recConstraints.includes(c.key);
@@ -111,8 +115,14 @@ export function RecommendScreen() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2.5 flex-wrap mb-[5px]">
                   <span className="text-base font-semibold text-[color:var(--text-heading)]">{top.name}</span>
-                  <span className="text-2xs font-semibold text-[color:var(--success-text)] bg-[color:var(--success-bg)] border border-[color:var(--success-border)] py-0.5 px-[9px] rounded-sm">Strong match</span>
-                  {top.modality ? <span className="text-2xs font-semibold text-[color:var(--info-text)] bg-[color:var(--info-bg)] border border-[color:var(--info-border)] py-0.5 px-[9px] rounded-sm">{top.modality}</span> : null}
+                  <span className="text-2xs font-semibold text-[color:var(--success-text)] bg-[color:var(--success-bg)] border border-[color:var(--success-border)] py-0.5 px-[9px] rounded-sm">
+                    Strong match
+                  </span>
+                  {top.modality ? (
+                    <span className="text-2xs font-semibold text-[color:var(--info-text)] bg-[color:var(--info-bg)] border border-[color:var(--info-border)] py-0.5 px-[9px] rounded-sm">
+                      {top.modality}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">
                   {summarise(top.clinicalSummary, 2) || top.bestUsedFor}
@@ -152,16 +162,26 @@ export function RecommendScreen() {
             </div>
           </div>
 
-          <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">Ranked clinical matches</div>
+          <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">
+            Ranked clinical matches
+          </div>
           <div className="flex flex-col gap-3">
             {rest.map(({ therapy: t }, i) => (
-              <div key={t.slug} className="grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-tight)] py-4 px-5">
-                <span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] text-sm-minus font-bold">{i + 2}</span>
+              <div
+                key={t.slug}
+                className="grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-tight)] py-4 px-5"
+              >
+                <span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] text-sm-minus font-bold">
+                  {i + 2}
+                </span>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-1.5">{t.name}</div>
                   <div className="flex gap-1.5 flex-wrap">
                     {(t.tags.length ? t.tags : [t.category]).slice(0, 2).map((tag) => (
-                      <span key={tag} className="text-2xs font-semibold py-0.5 px-2 rounded-sm bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]">
+                      <span
+                        key={tag}
+                        className="text-2xs font-semibold py-0.5 px-2 rounded-sm bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -213,7 +233,9 @@ function MatchCell({
   children?: ReactNode;
 }) {
   return (
-    <div className={`bg-[color:var(--surface)] p-3.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)]${tone === "accent" ? " bg-[color:var(--clinical-accent-soft)]" : ""}`}>
+    <div
+      className={`bg-[color:var(--surface)] p-3.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)]${tone === "accent" ? " bg-[color:var(--clinical-accent-soft)]" : ""}`}
+    >
       <div className="mb-2 flex items-center gap-1.5 text-2xs font-bold tracking-eyebrow">
         <ArrowRightIcon size={13} strokeWidth={1.9} />
         {eyebrow}

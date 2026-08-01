@@ -67,5 +67,4 @@ export const flexControl = "min-w-[150px] flex-1";
 export const compactControl = "px-[13px] text-xs";
 
 /** Shared hover wash for list rows. */
-export const therapyRow =
-  "transition-colors duration-100 hover:bg-[color:var(--surface-subtle)]";
+export const therapyRow = "transition-colors duration-100 hover:bg-[color:var(--surface-subtle)]";

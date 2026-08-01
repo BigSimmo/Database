@@ -71,8 +71,7 @@ function findTherapyButtonsWithoutBaseClass(file) {
         (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
       );
       const classText = classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassText(classAttribute) : "";
-      const classSource =
-        classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
+      const classSource = classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
       // Recipes from controls.ts all include therapyBtn; accept either the base
       // export or a named control recipe in the className expression text.
       const hasTherapyInteraction =

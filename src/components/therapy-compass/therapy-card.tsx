@@ -120,7 +120,9 @@ function CardCell({
   text: string;
 }) {
   return (
-    <div className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === 'accent' ? 'text-[color:var(--clinical-accent)]' : tone === 'warning' ? 'bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]' : 'text-[color:var(--text-soft)]'}`}>
+    <div
+      className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-soft)]"}`}
+    >
       <div className="mb-[7px] flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.9} />
         <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>

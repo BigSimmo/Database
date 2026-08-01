@@ -32,7 +32,11 @@ export function DetailScreen() {
 
   return (
     <section data-screen-label="Detail" className="max-w-[1240px] my-0 mx-auto">
-      <button type="button" className={`${therapyBtn} flex items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`} onClick={b.goSearch}>
+      <button
+        type="button"
+        className={`${therapyBtn} flex items-center gap-2 mb-4 py-1.5 px-1 border-0 bg-transparent text-[color:var(--clinical-accent)] text-sm font-semibold cursor-pointer`}
+        onClick={b.goSearch}
+      >
         <ArrowLeftIcon size={18} />
         Back to results
       </button>
@@ -44,17 +48,31 @@ export function DetailScreen() {
             <div className="flex gap-2.5 mb-3.5 flex-wrap">
               <StatusBadge status={t.reviewStatus} />
               {t.complexity ? (
-                <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">{complexityLabel(t.complexity)}</span>
+                <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
+                  {complexityLabel(t.complexity)}
+                </span>
               ) : null}
-              {t.modality ? <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">{t.modality}</span> : null}
+              {t.modality ? (
+                <span className="text-xs font-semibold py-[5px] px-[11px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] border border-[color:var(--border)]">
+                  {t.modality}
+                </span>
+              ) : null}
             </div>
-            <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">{t.name}</h1>
+            <h1 className="mt-0 mx-0 mb-1 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+              {t.name}
+            </h1>
             {t.aliases.length ? (
-              <div className="text-sm-minus text-[color:var(--text-soft)] mb-3">Also known as {t.aliases.join(", ")}</div>
+              <div className="text-sm-minus text-[color:var(--text-soft)] mb-3">
+                Also known as {t.aliases.join(", ")}
+              </div>
             ) : (
               <div className="text-sm-minus text-[color:var(--text-soft)] mb-3">{t.category}</div>
             )}
-            {t.clinicalSummary ? <p className="mt-0 mx-0 mb-4 text-base-minus leading-normal text-[color:var(--text-muted)] max-w-[64ch]">{t.clinicalSummary}</p> : null}
+            {t.clinicalSummary ? (
+              <p className="mt-0 mx-0 mb-4 text-base-minus leading-normal text-[color:var(--text-muted)] max-w-[64ch]">
+                {t.clinicalSummary}
+              </p>
+            ) : null}
             <TagRow tags={t.tags.length ? t.tags : [t.category]} max={8} />
           </div>
 
@@ -116,7 +134,11 @@ export function DetailScreen() {
           {/* ACTIONS */}
           <div className="flex flex-wrap gap-2.5">
             {t.patientSheetAvailable ? (
-              <button type="button" className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--shadow-tight)] cursor-pointer`} onClick={() => b.openSheet(t.slug)}>
+              <button
+                type="button"
+                className={`${therapyBtn} inline-flex items-center gap-[9px] h-[46px] py-0 px-5 border-0 rounded-lg bg-[color:var(--command)] text-[color:var(--command-contrast)] text-sm font-semibold shadow-[var(--shadow-tight)] cursor-pointer`}
+                onClick={() => b.openSheet(t.slug)}
+              >
                 <FileTextIcon size={17} />
                 Generate patient sheet
               </button>
@@ -178,8 +200,12 @@ export function DetailScreen() {
                     onClick={() => b.open(r.slug)}
                   >
                     <span className="min-w-0">
-                      <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">{r.name}</span>
-                      <span className="block text-xs text-[color:var(--text-soft)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">{r.bestUsedFor ?? r.category}</span>
+                      <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                        {r.name}
+                      </span>
+                      <span className="block text-xs text-[color:var(--text-soft)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                        {r.bestUsedFor ?? r.category}
+                      </span>
                     </span>
                     <ChevronRightIcon size={15} strokeWidth={1.8} className="text-[color:var(--text-soft)] flex-none" />
                   </button>
@@ -213,7 +239,13 @@ export function DetailScreen() {
               )}
               <div>
                 Review:{" "}
-                <span className={t.reviewStatus === "reviewed" ? "font-semibold text-[color:var(--success-text)]" : "font-semibold text-[color:var(--warning-text)]"}>
+                <span
+                  className={
+                    t.reviewStatus === "reviewed"
+                      ? "font-semibold text-[color:var(--success-text)]"
+                      : "font-semibold text-[color:var(--warning-text)]"
+                  }
+                >
                   {t.reviewStatus === "reviewed" ? "Reviewed" : "Not yet provided"}
                 </span>
               </div>
@@ -237,7 +269,9 @@ function Tile({
   text: string;
 }) {
   return (
-    <div className={`rounded-[14px] border border-[color:var(--border)] bg-[color:var(--surface)] px-[17px] py-4 text-[color:var(--text-muted)] [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-inherit ${tone === 'accent' ? 'border-[color:var(--clinical-accent-border)]' : tone === 'warning' ? 'border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]' : tone === 'info' ? 'border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]' : ''}`}>
+    <div
+      className={`rounded-[14px] border border-[color:var(--border)] bg-[color:var(--surface)] px-[17px] py-4 text-[color:var(--text-muted)] [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-inherit ${tone === "accent" ? "border-[color:var(--clinical-accent-border)]" : tone === "warning" ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : tone === "info" ? "border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]" : ""}`}
+    >
       <div className="mb-2 flex items-center gap-[7px]">
         <Icon size={15} strokeWidth={1.9} />
         <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
@@ -264,7 +298,11 @@ function BodyRow({
       </span>
       <div className="min-w-0">
         <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-[5px]">{title}</div>
-        {typeof body === "string" ? <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">{body}</p> : body}
+        {typeof body === "string" ? (
+          <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">{body}</p>
+        ) : (
+          body
+        )}
       </div>
     </div>
   );

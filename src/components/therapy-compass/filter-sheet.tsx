@@ -67,12 +67,7 @@ export function TherapyFilterSheet({
       testId="therapy-filter-panel"
       headerActions={
         clearableCount > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            data-testid="therapy-filter-clear"
-            className={outlineControl}
-          >
+          <button type="button" onClick={onClear} data-testid="therapy-filter-clear" className={outlineControl}>
             <XIcon size={15} strokeWidth={1.8} />
             Clear all
           </button>
@@ -123,12 +118,7 @@ export function TherapyFilterSheet({
             {reviewedOnly ? <CheckIcon size={14} strokeWidth={2} /> : null}
             Reviewed only
           </button>
-          <button
-            type="button"
-            onClick={onToggleBrief}
-            aria-pressed={briefOnly}
-            className={`${softControl} min-h-12`}
-          >
+          <button type="button" onClick={onToggleBrief} aria-pressed={briefOnly} className={`${softControl} min-h-12`}>
             {briefOnly ? <CheckIcon size={14} strokeWidth={2} /> : null}
             Brief available
           </button>

@@ -99,8 +99,12 @@ export function CompareScreen() {
       <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
         <div>
           <div className="flex items-baseline gap-3 flex-wrap">
-            <h1 className="m-0 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Therapy Comparison</h1>
-            <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">{items.length} of 4 selected</span>
+            <h1 className="m-0 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+              Therapy Comparison
+            </h1>
+            <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">
+              {items.length} of 4 selected
+            </span>
           </div>
           <p className="mt-1.5 mx-0 mb-0 text-sm text-[color:var(--text-muted)]">
             Compare fit, cautions, delivery and evidence without losing source context.
@@ -125,7 +129,12 @@ export function CompareScreen() {
               Dense
             </button>
           </div>
-          <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={copySet} disabled={items.length < 2}>
+          <button
+            type="button"
+            className={`${therapyBtn} ${outlineControl}`}
+            onClick={copySet}
+            disabled={items.length < 2}
+          >
             {copied === "set" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
             {copied === "set" ? "Copied" : "Copy set"}
           </button>
@@ -143,9 +152,14 @@ export function CompareScreen() {
       <div className="flex gap-3 my-[18px] mx-0 flex-wrap items-center">
         <AddPicker />
         {items.map((t) => (
-          <span key={t.slug} className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
+          <span
+            key={t.slug}
+            className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]"
+          >
             <ScaleIcon size={15} className="text-[color:var(--text-soft)]" />
-            <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">{t.name}</span>
+            <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">
+              {t.name}
+            </span>
             <button
               type="button"
               className={`${therapyBtn} inline-flex items-center justify-center w-tap h-tap border-0 bg-transparent text-[color:var(--text-soft)] cursor-pointer rounded-sm`}
@@ -186,7 +200,11 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div className="therapy-compare-tabs flex gap-[26px] border-b border-[color:var(--border)] mb-0.5" role="group" aria-label="Comparison fields">
+          <div
+            className="therapy-compare-tabs flex gap-[26px] border-b border-[color:var(--border)] mb-0.5"
+            role="group"
+            aria-label="Comparison fields"
+          >
             <button
               type="button"
               className={`${therapyBtn} ${b.tabPriorities}`}
@@ -227,7 +245,13 @@ export function CompareScreen() {
                     <ScaleIcon size={15} className="text-[color:var(--text-soft)]" />
                     <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                   </div>
-                  <div className={t.reviewStatus === "reviewed" ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]" : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"}>
+                  <div
+                    className={
+                      t.reviewStatus === "reviewed"
+                        ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]"
+                        : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"
+                    }
+                  >
                     {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
                   </div>
                 </div>
@@ -276,7 +300,9 @@ function SummaryCell({
   warn?: boolean;
 }) {
   return (
-    <div className={`border-l border-[color:var(--border)] px-[22px] py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}>
+    <div
+      className={`border-l border-[color:var(--border)] px-[22px] py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
+    >
       <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mb-1.5">{label}</div>
       <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>
     </div>

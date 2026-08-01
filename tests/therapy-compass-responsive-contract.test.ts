@@ -60,9 +60,7 @@ describe("Therapy Compass responsive contract", () => {
     expect(therapyNavSource).toContain("overflow-x-auto");
     expect(therapyNavSource).toContain("w-fit");
     expect(therapyNavSource).toContain("max-w-full");
-    expect(globalsSource).toContain(
-      '#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"]',
-    );
+    expect(globalsSource).toContain('#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"]');
     expect(globalsSource).toContain("position: relative;");
   });
 
@@ -94,7 +92,9 @@ describe("Therapy Compass responsive contract", () => {
     expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);
     expect(detailSource).toContain("max-sm:static");
-    expect(responsiveStackCount(compareSource) + (compareSource.includes("therapy-compare-tabs") ? 1 : 0)).toBeGreaterThanOrEqual(1);
+    expect(
+      responsiveStackCount(compareSource) + (compareSource.includes("therapy-compare-tabs") ? 1 : 0),
+    ).toBeGreaterThanOrEqual(1);
     expect(compareSource).toContain("therapy-compare-tabs");
     expect(compareSource).toContain("therapy-compare-table");
     expect(compareSource).toContain("data-therapy-scroll-sm");
@@ -106,9 +106,16 @@ describe("Therapy Compass responsive contract", () => {
     expect(sheetsSource).toContain("max-sm:static");
     expect(responsiveStackCount(otherSource)).toBeGreaterThanOrEqual(1);
 
-    const allScreens = [therapyCardSource, detailSource, compareSource, recommendSource, pathwaysSource, briefSource, sheetsSource, otherSource].join(
-      "\n",
-    );
+    const allScreens = [
+      therapyCardSource,
+      detailSource,
+      compareSource,
+      recommendSource,
+      pathwaysSource,
+      briefSource,
+      sheetsSource,
+      otherSource,
+    ].join("\n");
     expect(allScreens).toMatch(/sm:grid-cols-\[/);
   });
 

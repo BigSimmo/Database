@@ -32,7 +32,9 @@ export function PathwaysScreen() {
     <section data-screen-label="Pathways" className="max-w-[1240px] my-0 mx-auto">
       <div className="flex items-start justify-between gap-5 mb-[22px] flex-wrap">
         <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Clinical Pathways</h1>
+          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+            Clinical Pathways
+          </h1>
           <p className="m-0 text-sm text-[color:var(--text-muted)]">
             Problem-based workflows generated from imported therapy records.
           </p>
@@ -71,7 +73,7 @@ export function PathwaysScreen() {
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-2xs text-[color:var(--text-soft)]">{p.steps.length} linked steps</span>
                       <span
-                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-semibold ${(p.reviewStatus === "reviewed" ) ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]" : "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"}`}
+                        className={`inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-semibold ${p.reviewStatus === "reviewed" ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]" : "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"}`}
                       >
                         {p.reviewStatus === "reviewed" ? "Reviewed" : p.incomplete ? "Incomplete" : "Needs review"}
                       </span>
@@ -81,7 +83,9 @@ export function PathwaysScreen() {
               );
             })}
           </div>
-          <p className="mt-4 mx-0 mb-0 text-2xs text-[color:var(--text-soft)] italic">Pathways are generated from imported therapy records.</p>
+          <p className="mt-4 mx-0 mb-0 text-2xs text-[color:var(--text-soft)] italic">
+            Pathways are generated from imported therapy records.
+          </p>
         </div>
 
         {/* pathway detail */}
@@ -94,7 +98,7 @@ export function PathwaysScreen() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h2 className="m-0 text-xl font-semibold text-[color:var(--text-heading)]">{pathway.name}</h2>
                 <span
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${(pathway.reviewStatus === "reviewed" ) ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]" : "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"}`}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-semibold ${pathway.reviewStatus === "reviewed" ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]" : "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"}`}
                 >
                   <AlertIcon size={14} strokeWidth={1.8} />
                   {pathway.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
@@ -117,7 +121,11 @@ export function PathwaysScreen() {
               const last = i === pathway.steps.length - 1;
               return (
                 <div key={i} className="flex items-center gap-4">
-                  <span className={`inline-flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]${last ? " bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]" : ""}`}>{i + 1}</span>
+                  <span
+                    className={`inline-flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]${last ? " bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]" : ""}`}
+                  >
+                    {i + 1}
+                  </span>
                   <div className="transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex-1 min-w-0 flex items-center gap-3.5 py-3.5 px-4 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)]">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] flex-none">
                       <ScaleIcon size={17} strokeWidth={1.6} />
@@ -130,7 +138,9 @@ export function PathwaysScreen() {
                         {step.description ?? therapy?.bestUsedFor ?? "Review fit, contraindications and source status."}
                       </div>
                     </div>
-                    <span className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-soft)] whitespace-nowrap">{step.label ?? "STEP"}</span>
+                    <span className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-soft)] whitespace-nowrap">
+                      {step.label ?? "STEP"}
+                    </span>
                     {therapy ? (
                       <button
                         type="button"
@@ -140,7 +150,11 @@ export function PathwaysScreen() {
                         Open record
                       </button>
                     ) : (
-                      <ChevronRightIcon size={16} strokeWidth={1.8} className="text-[color:var(--text-soft)] flex-none" />
+                      <ChevronRightIcon
+                        size={16}
+                        strokeWidth={1.8}
+                        className="text-[color:var(--text-soft)] flex-none"
+                      />
                     )}
                   </div>
                 </div>
@@ -162,7 +176,11 @@ export function PathwaysScreen() {
           </div>
         </div>
         <div className="max-sm:flex-wrap flex gap-[9px]">
-          <button type="button" className={`${therapyBtn} flex items-center gap-[7px] h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`} onClick={copyPathway}>
+          <button
+            type="button"
+            className={`${therapyBtn} flex items-center gap-[7px] h-[40px] py-0 px-3.5 border border-[color:var(--warning-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-sm-minus font-semibold cursor-pointer`}
+            onClick={copyPathway}
+          >
             <CopyIcon size={15} />
             Copy pathway
           </button>

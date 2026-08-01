@@ -61,7 +61,9 @@ export function BriefScreen() {
     <section data-screen-label="Brief" className="max-w-[1240px] my-0 mx-auto">
       <div className="flex items-start justify-between gap-5 mb-5 flex-wrap">
         <div>
-          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Brief Intervention</h1>
+          <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+            Brief Intervention
+          </h1>
           <p className="m-0 text-sm text-[color:var(--text-muted)]">
             Fast scripts and steps drawn from each record&rsquo;s delivery fields.
           </p>
@@ -80,11 +82,25 @@ export function BriefScreen() {
         </div>
       </div>
 
-      <div className="flex gap-6 border-b border-[color:var(--border)] mb-5 flex-wrap" role="group" aria-label="Brief intervention duration">
-        <button type="button" className={`${therapyBtn} ${b.brief5}`} onClick={b.set5} aria-pressed={b.briefTab === "5min"}>
+      <div
+        className="flex gap-6 border-b border-[color:var(--border)] mb-5 flex-wrap"
+        role="group"
+        aria-label="Brief intervention duration"
+      >
+        <button
+          type="button"
+          className={`${therapyBtn} ${b.brief5}`}
+          onClick={b.set5}
+          aria-pressed={b.briefTab === "5min"}
+        >
           5 minutes
         </button>
-        <button type="button" className={`${therapyBtn} ${b.brief15}`} onClick={b.set15} aria-pressed={b.briefTab === "15min"}>
+        <button
+          type="button"
+          className={`${therapyBtn} ${b.brief15}`}
+          onClick={b.set15}
+          aria-pressed={b.briefTab === "15min"}
+        >
           15 minutes
         </button>
         <button
@@ -123,18 +139,26 @@ export function BriefScreen() {
                 >
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">{x.name}</span>
-                    <span className="block text-2xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">{x.bestUsedFor ?? x.category}</span>
+                    <span className="block text-2xs text-[color:var(--text-muted)] mt-0.5 overflow-hidden text-ellipsis whitespace-nowrap">
+                      {x.bestUsedFor ?? x.category}
+                    </span>
                   </span>
                   <AlertIcon
                     size={15}
                     strokeWidth={1.8}
-                    className={x.reviewStatus === "reviewed" ? "flex-none text-[color:var(--success-text)]" : "flex-none text-[color:var(--warning-text)]"}
+                    className={
+                      x.reviewStatus === "reviewed"
+                        ? "flex-none text-[color:var(--success-text)]"
+                        : "flex-none text-[color:var(--warning-text)]"
+                    }
                   />
                 </button>
               );
             })}
           </div>
-          <div className="text-center text-2xs text-[color:var(--text-soft)] mt-3.5">Showing {briefTherapies.length} records</div>
+          <div className="text-center text-2xs text-[color:var(--text-soft)] mt-3.5">
+            Showing {briefTherapies.length} records
+          </div>
         </div>
 
         {/* brief detail */}
@@ -143,7 +167,9 @@ export function BriefScreen() {
             <div className="flex items-center justify-between gap-3 mb-[18px] flex-wrap">
               <div className="flex items-center gap-3 flex-wrap">
                 <h2 className="m-0 text-lg font-semibold text-[color:var(--text-heading)]">{t.name}</h2>
-                <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)] border border-[color:var(--clinical-accent-border)]">{durationLabel} mode</span>
+                <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)] border border-[color:var(--clinical-accent-border)]">
+                  {durationLabel} mode
+                </span>
                 <span className="text-2xs font-semibold py-[3px] px-2.5 rounded-sm bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] border border-[color:var(--warning-border)]">
                   {t.reviewStatus === "reviewed" ? "Reviewed" : "Clinician review required"}
                 </span>
@@ -171,12 +197,16 @@ export function BriefScreen() {
 
           <div className="grid grid-cols-1 sm:grid-cols-[1.6fr_1fr] gap-4 items-start">
             <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-5 px-[22px] min-w-0">
-              <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">{durationLabel} delivery</div>
+              <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-4">
+                {durationLabel} delivery
+              </div>
               {steps.length ? (
                 <div className="flex flex-col gap-3.5">
                   {steps.map((step, i) => (
                     <div key={i} className="flex gap-3.5">
-                      <span className={`inline-flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]${i === steps.length - 1 ? " bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]" : ""}`}>
+                      <span
+                        className={`inline-flex h-[26px] w-[26px] flex-none items-center justify-center rounded-full bg-[color:var(--surface-inset)] text-xs font-semibold text-[color:var(--text-muted)]${i === steps.length - 1 ? " bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]" : ""}`}
+                      >
                         {i + 1}
                       </span>
                       <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
@@ -204,10 +234,16 @@ export function BriefScreen() {
 
               {t.clinicianScripts.length ? (
                 <div className="mt-5 pt-4 border-t border-[color:var(--border)]">
-                  <div className="text-xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mb-2.5">CLINICIAN SCRIPT</div>
+                  <div className="text-xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mb-2.5">
+                    CLINICIAN SCRIPT
+                  </div>
                   {t.clinicianScripts.slice(0, 2).map((c, i) => (
                     <div key={i} className="mb-3">
-                      {c.scriptType ? <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-[3px]">{c.scriptType}</div> : null}
+                      {c.scriptType ? (
+                        <div className="text-xs font-semibold text-[color:var(--text-heading)] mb-[3px]">
+                          {c.scriptType}
+                        </div>
+                      ) : null}
                       <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">{c.body}</p>
                     </div>
                   ))}
@@ -226,7 +262,11 @@ export function BriefScreen() {
                 ))}
               </div>
               <div className="flex items-start gap-[9px] py-[13px] px-3.5 bg-[color:var(--warning-bg)] border border-[color:var(--warning-border)] rounded-lg">
-                <AlertIcon size={17} strokeWidth={1.8} className="text-[color:var(--warning-text)] flex-none mt-[1px]" />
+                <AlertIcon
+                  size={17}
+                  strokeWidth={1.8}
+                  className="text-[color:var(--warning-text)] flex-none mt-[1px]"
+                />
                 <span className="text-xs font-semibold leading-normal text-[color:var(--warning-text)]">
                   Clinical review is required before saving or sharing.
                 </span>
@@ -262,7 +302,9 @@ export function BriefScreen() {
 
 function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: string; tone?: "warning" }) {
   return (
-    <div className={`rounded-lg bg-[color:var(--surface-inset)] p-3${tone === "warning" ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}>
+    <div
+      className={`rounded-lg bg-[color:var(--surface-inset)] p-3${tone === "warning" ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
+    >
       <div className="text-2xs font-bold tracking-eyebrow">{eyebrow}</div>
       <p>{text}</p>
     </div>
