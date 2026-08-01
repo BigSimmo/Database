@@ -19,6 +19,13 @@ export const expectedCloudCliVersions = Object.freeze({
   codex: "0.146.0",
 });
 
+export const expectedMcpConfiguration = Object.freeze({
+  railwayUrl: "https://mcp.railway.com/",
+  supabaseUrl: "https://mcp.supabase.com/mcp",
+  supabaseProjectRef: "sjrfecxgysukkwxsowpy",
+  supabaseFeatures: Object.freeze(["database", "debugging", "development", "docs"]),
+});
+
 export const providerCredentialVariables = Object.freeze([
   ...providerEnvironmentKeys,
   "RAILWAY_API_TOKEN",
@@ -114,16 +121,83 @@ export function parseMcpServerMetadata(text) {
   if (!servers || Array.isArray(servers) || typeof servers !== "object") {
     throw new Error(".mcp.json must contain an mcpServers object.");
   }
-  return Object.entries(servers).map(([name, server]) => ({
-    name,
-    command: typeof server?.command === "string" ? server.command : "invalid",
-    environmentNames:
-      server?.env && !Array.isArray(server.env) && typeof server.env === "object" ? Object.keys(server.env).sort() : [],
-  }));
+  return Object.entries(servers).map(([name, server]) => {
+    let endpoint = "none";
+    let queryNames = [];
+    if (typeof server?.url === "string") {
+      const url = new URL(server.url);
+      endpoint = `${url.origin}${url.pathname}`;
+      queryNames = [...url.searchParams.keys()].sort();
+    }
+    return {
+      name,
+      type: typeof server?.type === "string" ? server.type : typeof server?.command === "string" ? "stdio" : "invalid",
+      command: typeof server?.command === "string" ? server.command : "none",
+      endpoint,
+      queryNames,
+      environmentNames:
+        server?.env && !Array.isArray(server.env) && typeof server.env === "object"
+          ? Object.keys(server.env).sort()
+          : [],
+    };
+  });
+}
+
+export function validateMcpConfiguration(text) {
+  const errors = [];
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    return [`.mcp.json is invalid JSON: ${error instanceof Error ? error.message : String(error)}`];
+  }
+  const servers = parsed?.mcpServers;
+  if (!servers || Array.isArray(servers) || typeof servers !== "object") {
+    return [".mcp.json must contain an mcpServers object."];
+  }
+
+  const railway = servers.railway;
+  if (railway?.type !== "http" || railway?.url !== expectedMcpConfiguration.railwayUrl.replace(/\/$/, "")) {
+    errors.push("Railway MCP must use the hosted OAuth endpoint.");
+  }
+
+  const supabase = servers.supabase;
+  if (supabase?.type !== "http" || typeof supabase?.url !== "string") {
+    errors.push("Supabase MCP must use the hosted HTTP endpoint.");
+    return errors;
+  }
+  try {
+    const url = new URL(supabase.url);
+    if (`${url.origin}${url.pathname}` !== expectedMcpConfiguration.supabaseUrl) {
+      errors.push("Supabase MCP must use the official hosted endpoint.");
+    }
+    if (url.searchParams.get("project_ref") !== expectedMcpConfiguration.supabaseProjectRef) {
+      errors.push("Supabase MCP must be scoped to the expected project.");
+    }
+    if (url.searchParams.get("read_only") !== "true") {
+      errors.push("Supabase MCP must keep the production project read-only.");
+    }
+    const features = (url.searchParams.get("features") ?? "").split(",").filter(Boolean).sort();
+    if (JSON.stringify(features) !== JSON.stringify(expectedMcpConfiguration.supabaseFeatures)) {
+      errors.push("Supabase MCP must expose only the approved read-only feature groups.");
+    }
+  } catch {
+    errors.push("Supabase MCP URL must be valid.");
+  }
+  return errors;
 }
 
 function approvedModeValue(value, allowed) {
   return allowed.includes(value) ? value : "invalid";
+}
+
+export function codexCloudValidationScope({ runtime = false, environment = false, browserInstallSkipped = false }) {
+  if (runtime && browserInstallSkipped) {
+    return "static, environment, and source-only runtime (browser validation skipped)";
+  }
+  if (runtime) return "static, environment, and runtime";
+  if (environment) return "static and environment";
+  return "static";
 }
 
 function commandAvailable(command) {
@@ -156,19 +230,27 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   lines.push(`git.github_cli_helper_configured=${safeGitHelper}`);
   for (const server of mcpServers) {
     lines.push(
-      `mcp.server=${server.name} command=${server.command} environment_names=${server.environmentNames.join(",") || "none"}`,
+      `mcp.server=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
     );
   }
   return lines;
 }
 
-export function localGitBaseline(root = process.cwd()) {
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
+export function localGitBaseline(root = process.cwd(), env = process.env) {
   for (const ref of ["refs/remotes/origin/main", "refs/heads/main"]) {
     const result = spawnSync("git", ["show-ref", "--verify", "--quiet", ref], {
       cwd: root,
       stdio: "ignore",
     });
     if (result.status === 0) return ref;
+  }
+  if (env.CODEX_CLOUD === "1") {
+    const result = spawnSync("git", ["rev-parse", "--verify", "--quiet", "HEAD"], {
+      cwd: root,
+      stdio: "ignore",
+    });
+    if (result.status === 0) return "HEAD";
   }
   return null;
 }
@@ -276,17 +358,12 @@ export function validateCodexCloudSetup() {
   requireMatch(errors, guide, /bash scripts\/setup-codex-cloud\.sh/, "The guide must provide the setup command.");
   requireMatch(errors, guide, /CODEX_CLOUD_ACCESS_PROFILE=connected/, "The guide must document connected access.");
   requireMatch(errors, guide, /GitHub connector/, "The guide must document GitHub connector access.");
-  requireMatch(
-    errors,
-    mcp,
-    new RegExp(`@railway/cli@${expectedCloudCliVersions.railway.replaceAll(".", "\\.")}`),
-    "Railway MCP and the installed Railway CLI must use the same stable version.",
-  );
   try {
     parseMcpServerMetadata(mcp);
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error));
   }
+  errors.push(...validateMcpConfiguration(mcp));
 
   for (const command of [
     "check:supabase-project",
@@ -373,7 +450,9 @@ export async function validateCodexCloudRuntime(env = process.env) {
   if (obsoleteProxyNames.length > 0) {
     errors.push(`Obsolete npm proxy variable names are set: ${obsoleteProxyNames.join(", ")}.`);
   }
-  if (!localGitBaseline(repoRoot)) errors.push("Neither local main nor origin/main is available.");
+  if (!localGitBaseline(repoRoot, env)) {
+    errors.push("Neither local main, origin/main, nor a Cloud task HEAD is available.");
+  }
   const origin = inspectOriginRemote(repoRoot);
   if (!origin.configured) errors.push("origin is unavailable in the Cloud checkout.");
   else if (origin.credentialsEmbedded) errors.push("origin contains embedded credentials.");
@@ -395,7 +474,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     for (const error of errors) console.error(`[Codex Cloud Check] FAIL: ${error}`);
     process.exitCode = 1;
   } else {
-    const scope = runtime ? "static, environment, and runtime" : environment ? "static and environment" : "static";
+    const scope = codexCloudValidationScope({
+      runtime,
+      environment,
+      browserInstallSkipped: process.env.CODEX_CLOUD_SKIP_BROWSER_INSTALL === "1",
+    });
     console.log(`[Codex Cloud Check] PASS: ${scope} Cloud contracts match.`);
   }
 }
