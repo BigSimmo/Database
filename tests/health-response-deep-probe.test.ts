@@ -45,7 +45,11 @@ describe("authorized deep health probe diagnostics", () => {
     mockEnv();
     mockSupabase(true);
     const answerSloSnapshot = vi.fn(async () => ({ windowMinutes: 60, answers: 12 }));
-    const spendSnapshot = vi.fn(async (_client: unknown, _options: unknown) => ({ windowMinutes: 60, totalUsd: 1.5 }));
+    const spendCalls: unknown[][] = [];
+    const spendSnapshot = vi.fn(async (...args: unknown[]) => {
+      spendCalls.push(args);
+      return { windowMinutes: 60, totalUsd: 1.5 };
+    });
     vi.doMock("@/lib/observability/answer-slo", () => ({ answerSloSnapshot }));
     vi.doMock("@/lib/observability/spend-metrics", () => ({ spendSnapshot }));
 
@@ -55,7 +59,7 @@ describe("authorized deep health probe diagnostics", () => {
     expect(body.checks).toMatchObject({ supabase: "ok" });
     expect(body.slo).toMatchObject({ answers: 12 });
     expect(body.spend).toMatchObject({ totalUsd: 1.5 });
-    expect(spendSnapshot.mock.calls[0]?.[1]).toMatchObject({
+    expect(spendCalls[0]?.[1]).toMatchObject({
       pricing: { inputPerMTok: 1.25, cachedInputPerMTok: 0.125, outputPerMTok: 10 },
       alertDailyUsd: 25,
     });
