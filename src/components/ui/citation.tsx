@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/ui-primitives";
 import { StatusMark, type DocumentStatus } from "@/components/ui/status-mark";
 
-export type CitationProps = {
+type CitationBase = {
   /** 1-based index as it appears in the answer text. */
   index: number;
   /** Short source label — document title, abbreviated. */
@@ -14,11 +14,15 @@ export type CitationProps = {
   locator?: string;
   /** Currency of the cited source. Drives the mark, never the label wording. */
   status?: DocumentStatus;
-  onActivate?: () => void;
-  /** Rendered as static when there is nowhere to go (print, export). */
-  interactive?: boolean;
   className?: string;
 };
+
+/**
+ * Interactive citation requires an activation handler. Static (print/export)
+ * citations set `interactive={false}` and must not advertise an action.
+ */
+export type CitationProps = CitationBase &
+  ({ interactive?: true; onActivate: () => void } | { interactive: false; onActivate?: never });
 
 /**
  * The citation chip — the mark that makes a grounded answer auditable, and the

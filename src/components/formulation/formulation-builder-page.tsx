@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import {
@@ -367,7 +367,7 @@ export function FormulationBuilderPage({
                       value={query}
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder="Search mechanisms or patient language..."
-                      className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                      className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
                     />
                   </label>
                   <label>
@@ -535,7 +535,7 @@ export function FormulationBuilderPage({
                           rows={3}
                           aria-label={section.label}
                           placeholder="Add de-identified case evidence..."
-                          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                          className="mt-3 min-h-24 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
                         />
                         {suggestions.length ? (
                           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -597,7 +597,7 @@ export function FormulationBuilderPage({
                         rows={4}
                         aria-label={prompt.label}
                         placeholder="Record a concise review note..."
-                        className="mt-3 min-h-28 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
+                        className="mt-3 min-h-28 w-full resize-y rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-3 text-sm font-medium leading-6 text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
                       />
                       {starter.length ? (
                         <div className="mt-2 rounded-lg bg-[color:var(--surface-subtle)] p-2.5">

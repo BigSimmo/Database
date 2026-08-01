@@ -6,7 +6,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AnswerFooter, DoseLine } from "@/components/ui/answer-card";
 import { Button } from "@/components/ui/button";
+import { Citation } from "@/components/ui/citation";
 import { Chip } from "@/components/ui/chip";
+import { RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
 import { Tabs } from "@/components/ui/tabs";
@@ -71,14 +73,53 @@ describe("Chip", () => {
     const onRemove = vi.fn();
     render(
       <>
-        <Chip onRemove={onRemove}>WA</Chip>
-        <Chip onRemove={onRemove}>Current only</Chip>
+        <Chip onRemove={onRemove} removeLabel="Remove WA">
+          WA
+        </Chip>
+        <Chip onRemove={onRemove} removeLabel="Remove Current only">
+          Current only
+        </Chip>
       </>,
     );
 
     expect(screen.getByRole("button", { name: "Remove WA" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Remove Current only" }));
     expect(onRemove).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Citation", () => {
+  it("activates when interactive and named", async () => {
+    const onActivate = vi.fn();
+    render(<Citation index={1} label="RANZCP" locator="p. 12" onActivate={onActivate} />);
+    await userEvent.click(screen.getByRole("button", { name: /Source 1, RANZCP/ }));
+    expect(onActivate).toHaveBeenCalledOnce();
+  });
+
+  it("renders a static mark when interactive is false", () => {
+    render(<Citation index={2} label="NICE" interactive={false} />);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByTestId("citation")).toHaveAttribute("aria-label", expect.stringContaining("NICE"));
+  });
+});
+
+describe("RadioGroup", () => {
+  it("keeps controlled value and onChange paired", async () => {
+    const onChange = vi.fn();
+    render(
+      <RadioGroup
+        label="Sort"
+        name="sort"
+        value="relevance"
+        onChange={onChange}
+        options={[
+          { value: "relevance", label: "Relevance" },
+          { value: "newest", label: "Newest" },
+        ]}
+      />,
+    );
+    await userEvent.click(screen.getByLabelText("Newest"));
+    expect(onChange).toHaveBeenCalledWith("newest");
   });
 });
 

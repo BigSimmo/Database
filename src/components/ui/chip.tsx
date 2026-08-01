@@ -22,20 +22,21 @@ const DOT: Record<ChipTone, string> = {
   danger: "bg-[color:var(--danger)]",
 };
 
-export type ChipProps = {
+type ChipBase = {
   children: ReactNode;
   tone?: ChipTone;
   /** Status dot. Never the only carrier of meaning — the label still says it. */
   dot?: boolean;
   icon?: LucideIcon;
-  /**
-   * Removal handler. The label is per-chip and required when removable: a row of
-   * identical "Remove" buttons is unusable by voice or screen reader.
-   */
-  onRemove?: () => void;
-  removeLabel?: string;
   className?: string;
 };
+
+/**
+ * Removable chips require a per-chip `removeLabel` — a row of identical "Remove"
+ * buttons is unusable by voice or screen reader.
+ */
+export type ChipProps = ChipBase &
+  ({ onRemove: () => void; removeLabel: string } | { onRemove?: never; removeLabel?: never });
 
 // A chip is static text at 28px (`--chip-height`), NOT a 44px tap target — that
 // floor is for interactive controls (register #7/#18). The remove control inside
@@ -65,7 +66,7 @@ export function Chip({
         <button
           type="button"
           onClick={onRemove}
-          aria-label={removeLabel ?? `Remove ${typeof children === "string" ? children : "filter"}`}
+          aria-label={removeLabel}
           className="grid h-5 w-5 shrink-0 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
         >
           <X aria-hidden="true" className="h-3 w-3" />

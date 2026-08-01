@@ -125,19 +125,40 @@ export type RadioGroupProps = {
   label: string;
   name: string;
   options: RadioOption[];
-  value?: string;
-  onChange?: (value: string) => void;
   hideLabel?: boolean;
   className?: string;
-};
+} & (
+  | {
+      /** Controlled mode — value and onChange travel together. */
+      value: string;
+      onChange: (value: string) => void;
+      defaultValue?: never;
+    }
+  | {
+      /** Uncontrolled mode — native radio state, optional initial value. */
+      value?: never;
+      onChange?: never;
+      defaultValue?: string;
+    }
+);
 
 /**
  * A real `<fieldset>` + `<legend>`. A radio set without one announces each option
  * with no idea what question it answers — "Relevance, radio button, 1 of 3" tells
  * a screen-reader user nothing about what is being sorted.
  */
-export function RadioGroup({ label, name, options, value, onChange, hideLabel, className }: RadioGroupProps) {
+export function RadioGroup({
+  label,
+  name,
+  options,
+  value,
+  onChange,
+  defaultValue,
+  hideLabel,
+  className,
+}: RadioGroupProps) {
   const groupId = useId();
+  const controlled = value !== undefined;
 
   return (
     <fieldset className={cn("min-w-0 border-0 p-0", className)}>
@@ -163,10 +184,11 @@ export function RadioGroup({ label, name, options, value, onChange, hideLabel, c
                   type="radio"
                   name={name}
                   value={option.value}
-                  checked={value === option.value}
+                  checked={controlled ? value === option.value : undefined}
+                  defaultChecked={!controlled ? defaultValue === option.value : undefined}
                   disabled={option.disabled}
                   aria-describedby={descId}
-                  onChange={() => onChange?.(option.value)}
+                  onChange={controlled ? () => onChange(option.value) : undefined}
                   className="peer absolute inset-0 size-full cursor-pointer appearance-none rounded-full disabled:cursor-not-allowed"
                 />
                 <span

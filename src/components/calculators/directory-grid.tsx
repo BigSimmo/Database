@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { BookOpen, Calculator, ChevronDown, Clock3, Info, ListChecks, Search, ShieldCheck, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -221,7 +221,7 @@ export function CalculatorsDirectoryGridMockup() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search by scale, symptom, or indication"
               aria-label="Search calculators"
-              className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+              className="min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus:outline-none"
             />
           </form>
 
