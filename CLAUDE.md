@@ -139,17 +139,17 @@ npm run dev        # direct dev server on the project-stable port
 
 Verification pyramid — run the **smallest gate that covers the change**, then widen:
 
-| Gate                                      | What it is                                                                                                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                              |
-| `npm run verify:cheap`                    | The broad local gate: 29 static/consistency gates + `lint` + `typecheck` + full offline unit suite                                                                                    |
-| `npm run verify:pr-local`                 | Closest local mirror of the PR gate; adds format and conditional build / client-bundle scan / RAG fixture validation. `-- --dry-run --files <paths>` shows selection without running. |
-| `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                             |
-| `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                               |
-| `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                          |
+| Gate                                      | What it is                                                                                                                                                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
+| `npm run verify:cheap`                    | The broad local gate: 30 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
+| `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
+| `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |
+| `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                                 |
 
-`verify:cheap` deliberately does **not** run `format:check`, which is why the installed
-pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) blocks on unformatted files.
+`verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
+installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
 It also guards the auto-merge race on `claude/*` branches and drift-manifest staleness. Each
 guard has a documented override env var.
 
@@ -158,9 +158,10 @@ output, source governance) additionally want the smallest relevant domain check 
 `npm run check:production-readiness`.
 
 CI (`.github/workflows/ci.yml`) is risk-scoped: a `changes` job classifies paths, `static-pr`
-always runs, and `pr-required` is the single always-reporting required aggregate. Heavier
-jobs (coverage, build, Chromium, Supabase migration replay, Docker builds) run only when
-their file scope applies.
+always runs a small baseline and conditionally selects docs/workflow or heavy static checks,
+and `pr-required` is the single always-reporting required aggregate. Coverage, safety/RAG,
+build, Chromium, Supabase migration replay, and Docker builds run only when their file scope
+applies; unknown non-document paths fail closed to heavy scope.
 
 ## Conventions the gates enforce
 

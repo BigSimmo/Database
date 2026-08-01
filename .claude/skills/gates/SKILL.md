@@ -24,8 +24,8 @@ Check these before believing any result.
   for exactly this reason — if installed packages do not match `package-lock.json`, treat any test,
   lint, or typecheck result as void until `npm ci` has run. Its own failure message says as much.
 - **`verify:cheap` stops at the first failing check.** Everything after that point never ran. Do not
-  describe the change as broadly verified when the gate died at check 2 of 32.
-- **`format:check` is required in CI but is not part of `verify:cheap`.** A locally green
+  describe the change as broadly verified when the gate died at check 2 of 33.
+- **Changed-file formatting is required in CI but is not part of `verify:cheap`.** A locally green
   `verify:cheap` can still fail CI on formatting. Run `npx prettier --write <changed files>` before
   pushing — scoped to your files, never `prettier --write .`, which sweeps the whole tree.
 - **Piping a gate into `tail` or `head` masks its exit code.** In Bash, capture `${PIPESTATUS[0]}`,
@@ -34,16 +34,18 @@ Check these before believing any result.
 ## Pick the smallest gate that can fail
 
 Match the gate to what actually changed. Running a broader gate is not more rigorous if it cannot
-observe the change; running a narrower one is not sloppy if it can.
+observe the change; running a narrower one is not sloppy if it can. Add a second gate only when it
+covers a distinct plausible regression and the incremental confidence justifies its cost.
 
-| Change                        | Gate that can actually fail                                     |
-| ----------------------------- | --------------------------------------------------------------- |
-| Markdown / docs only          | `prettier --check`, `docs:check-links`, `docs:check-index`      |
-| Source, config, tests         | `verify:cheap`                                                  |
-| Before PR handoff             | `verify:pr-local`                                               |
-| UI, styling, routing, a11y    | `npm run ensure` then `verify:ui`                               |
-| Phone chrome                  | `verify:phone-chrome` (narrower than `verify:ui`; run it first) |
-| Release or handoff confidence | `verify:release`                                                |
+| Change                      | Gate that can actually fail                                     |
+| --------------------------- | --------------------------------------------------------------- |
+| Markdown / docs only        | `prettier --check`, `docs:check-links`, `docs:check-index`      |
+| Localised source behavior   | `test:focused -- --files <paths>`                               |
+| Cross-module/unknown scope  | `verify:cheap`                                                  |
+| Before PR handoff           | `verify:pr-local` (risk-routed; inspect with `--dry-run`)       |
+| UI, styling, routing, a11y  | `npm run ensure`, affected journey, broad UI only when shared   |
+| Phone chrome                | `verify:phone-chrome` (narrower than `verify:ui`; run it first) |
+| Explicit release confidence | `verify:release` (provider approval still required)             |
 
 `lint`, `typecheck`, and `test` cannot observe a markdown-only change. Say so rather than running
 them for appearance.
