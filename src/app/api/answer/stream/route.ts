@@ -49,7 +49,7 @@ function encodeSse(event: string, data: unknown) {
 }
 
 function rateLimitStream(rateLimit: ApiRateLimitResult) {
-  return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+  return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit, { bucket: "answer" });
 }
 
 function documentSummaryRateLimitStream(rateLimit: ApiRateLimitResult) {

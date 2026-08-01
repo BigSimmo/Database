@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     });
     const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+      return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit, { bucket: "answer" });
     }
 
     const scopeStartedAt = Date.now();
