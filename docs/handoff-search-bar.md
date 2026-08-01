@@ -1,42 +1,29 @@
 # Handoff — search results bar, `Results bar — perfected`
 
-Branch `claude/top-search-design-mockups-w53znc`, pushed, **no PR open**.
-Three commits on top of `origin/main` (`40814b44`).
+Branch `claude/top-search-design-mockups-w53znc`. Four commits on top of
+`origin/main` (`40814b44`).
 
-## Do this first
+## Status
 
-`6917e732` is **unverified**. Run, in order:
+All four commits are verified. The `wip(search)` commit message calls itself
+UNVERIFIED and points here — that caveat is **superseded**; it was written before
+the gates ran, and history was not rewritten to correct it because the branch was
+already pushed.
 
-```bash
-npm run verify:cheap
-npm run ensure
-PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
-  node scripts/run-playwright.mjs tests/ui-tools.spec.ts tests/ui-smoke.spec.ts \
-  tests/ui-accessibility.spec.ts --project=chromium
-```
+| Gate                                                        | Result                                                                                                          |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `npm run verify:pr-local`                                   | exit 0 — 460 files / 4796 tests, production build, client-bundle secret scan, RAG fixtures 36 cases / 23 suites |
+| `tests/ui-tools.spec.ts`                                    | 87 passed                                                                                                       |
+| `tests/ui-smoke.spec.ts` + `tests/ui-accessibility.spec.ts` | 108 passed, 1 failed                                                                                            |
 
-`ui-tools.spec.ts` is the one at risk: it had two assertions on the Sort/Filter
-pair that this commit rewrites, and it runs `expectNoPageHorizontalOverflow` at
-390 px right after them. Moving Filter to the right edge changes the utility
-rail's layout, so overflow at 390 px is the plausible failure.
+The single failure is `document viewer puts the PDF preview first with pinned
+evidence after it on mobile`, at `pdfScroller.locator("canvas")`. It fails
+identically with these changes stashed — this box runs Chromium 1194 against the
+project's pinned 1228. Do not chase it.
 
-**Known-environmental:** `ui-smoke.spec.ts` → `document viewer puts the PDF
-preview first with pinned evidence after it on mobile` fails on
-`pdfScroller.locator("canvas")`. It fails identically with these changes
-stashed — this box has Chromium 1194 against the project's pinned 1228. Do not
-chase it.
-
-## The three commits
-
-| SHA        | State          | What                                                |
-| ---------- | -------------- | --------------------------------------------------- |
-| `df8c3fb7` | verified       | Delete the inert command-scope system               |
-| `cea1d1ca` | verified       | Rebuild the applied-filter shelf on live facet data |
-| `6917e732` | **unverified** | Bar anatomy — tile states, Filter to the right edge |
-
-Verified means `verify:cheap` exit 0 (460 files / 4796 tests) plus `ui-smoke` +
-`ui-accessibility` 108 passed / 1 failed (the PDF canvas above), taken before
-the rebase onto current `main`. Re-run after the rebase regardless.
+`ui-tools` was the one at genuine risk: it carried two assertions on the
+Sort/Filter pair that this work deliberately separates, and it runs
+`expectNoPageHorizontalOverflow` at 390 px straight after them. Both clear.
 
 ## Where the work came from
 
@@ -48,7 +35,7 @@ its own seven-step build list. Current state of each:
 | 1   | Merge scope chips + source-type into the facet panel            | Done — source-type merged in #1536; scope chips were inert, so `df8c3fb7` deletes rather than merges them |
 | 2   | Counts against the same set, disable dead-end facets            | Done (#1523 era)                                                                                          |
 | 3   | Drop "of 12", use the mode's own noun                           | Done (#1523)                                                                                              |
-| 4   | State tile, Filter right edge, Sort inboard                     | **`6917e732`, unverified**                                                                                |
+| 4   | State tile, Filter right edge, Sort inboard                     | `6917e732`                                                                                                |
 | 5   | The shelf — `Filtered by`, trailing Clear, survives zero result | Done (`cea1d1ca`)                                                                                         |
 | 6   | Remove Sources from the results bar                             | **Deliberately not done** — see below                                                                     |
 | 7   | Decide OR-within-group                                          | Done                                                                                                      |
