@@ -107,7 +107,7 @@ export function RecommendScreen() {
       ) : (
         <>
           {/* top match */}
-          <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px_solid_var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
+          <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
             <div className="flex items-start gap-3.5 mb-[18px]">
               <span className="inline-flex items-center justify-center w-[40px] h-[40px] rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] flex-none">
                 <SparkleIcon size={20} strokeWidth={1.7} />
