@@ -29,6 +29,14 @@ export function SearchScreen() {
   // not a filter. Counting it there makes the control announce a state the page
   // is not in, which is the exact defect this screen's sheet was built to fix.
   const activeFilterCount = b.search.tags.length + availabilityFilterCount;
+  // Topics and availability both narrow the same list, so both belong on the
+  // shelf. The query is deliberately absent: it is stated in the composer and
+  // removing it is not a filter operation.
+  const appliedFilters = [
+    ...b.search.tags.map((tag) => ({ id: `topic-${tag}`, label: tag, onRemove: () => b.toggleTag(tag) })),
+    ...(b.search.reviewedOnly ? [{ id: "reviewed", label: "Reviewed only", onRemove: b.toggleReviewedOnly }] : []),
+    ...(b.search.briefOnly ? [{ id: "brief", label: "Brief available", onRemove: b.toggleBriefOnly }] : []),
+  ];
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
 
@@ -42,6 +50,8 @@ export function SearchScreen() {
         faultBody={b.error ?? undefined}
         onRetry={b.retryData}
         headingLevel={1}
+        appliedFilters={appliedFilters}
+        onClearFilters={b.clearSearch}
         filterLabel="Filter therapy results"
         mobileControls={
           <TherapyFilterTrigger

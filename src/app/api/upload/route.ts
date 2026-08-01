@@ -120,6 +120,7 @@ export async function POST(request: Request) {
       return rateLimitJsonResponse(
         "Document upload is temporarily rate limited because too many requests were received. Retry shortly.",
         rateLimit,
+        { bucket: "document_upload" },
       );
     }
 

@@ -557,21 +557,12 @@ export function ClinicalDashboard({
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
-  const [commandScopes, setCommandScopes] = useState<string[]>([]);
-  const removeCommandScope = useCallback(
-    (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-    [],
-  );
-  const clearCommandScopes = useCallback(() => setCommandScopes([]), []);
   const searchCommandContextValue = useMemo(
     () => ({
       query,
       modeId: searchMode,
-      commandScopes,
-      onRemoveScope: removeCommandScope,
-      onClearScopes: clearCommandScopes,
     }),
-    [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
+    [query, searchMode],
   );
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
@@ -2364,7 +2355,6 @@ export function ClinicalDashboard({
     }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
-    setCommandScopes([]);
     setQuery(crossQuery);
     setModeSearchSubmitted(false);
     setLoading(false);
@@ -2668,7 +2658,6 @@ export function ClinicalDashboard({
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
-    setCommandScopes([]);
     if (mode === "answer") {
       resetAnswerThread();
       setAnswer(null);
@@ -3356,8 +3345,6 @@ export function ClinicalDashboard({
           queryInputRef={composerInputRef}
           queryInputAutoFocus={shouldAutoFocusComposer}
           recentQueries={recentQueries}
-          commandScopes={commandScopes}
-          onCommandScopesChange={setCommandScopes}
           onPickRecent={(recent) => {
             pickRecentQuery(recent);
             void ask();

@@ -1,6 +1,6 @@
 # Privacy-safe production error tracking
 
-Production server exception tracking is an optional, provider-gated Sentry integration. It is inert unless `SENTRY_DSN` is configured. Browser telemetry, logs, and session replay are not enabled — there is no client Sentry bundle path. Runtime init is owned by `src/sentry.{server,edge}.config.ts` (loaded once from Next server/edge instrumentation); do not add a second `Sentry.init()` path or a browser SDK import.
+Production server exception tracking is an optional, provider-gated Sentry integration. It is inert unless `SENTRY_DSN` is configured. Browser telemetry and session replay are not enabled — there is no client Sentry bundle path. Structured server/edge **Logs** are available under the privacy rules below. Runtime init is owned by `src/sentry.{server,edge}.config.ts` (loaded once from Next server/edge instrumentation); do not add a second `Sentry.init()` path or a browser SDK import.
 
 ## Data envelope
 
@@ -52,14 +52,45 @@ The product wizard’s copy is generic. Map it to this repo as follows — do **
 
 Leaving wizard checkboxes for “record inputs/outputs” or “identify users” unchecked is expected and correct for this clinical app.
 
+### Structured logs (Sentry Logs)
+
+Server/edge `enableLogs` turns on when `SENTRY_DSN` is set (disable with `SENTRY_ENABLE_LOGS=false`). There is still no browser logging path and no `consoleLoggingIntegration` — console output is too easy to leak clinical text.
+
+Privacy constraints for logs:
+
+- Emit only through `sentryLog` / the app `logger` bridge in `src/lib/observability/sentry-logging.ts`.
+- Prefer **wide events**: a static allowlisted message plus structured attributes (`bucket`, `code`, `status`, `retry_after_seconds`, …). Never interpolate queries, answers, prompts, document text, emails, or owner ids into the message.
+- `beforeSendLog` → `privacySafeLog` is fail-closed: drops `trace`/`debug`, unknown messages, and non-allowlisted attributes.
+- The Node runtime registers `forwardAppLogToSentry` after init so existing `logger.warn` / `logger.error` calls reach Sentry with the same scrubber (unknown messages collapse to `Application warn` / `Application error`).
+
+Examples already wired:
+
+- Rate-limit denials and durable-limiter fallbacks in `src/lib/api-rate-limit.ts` (`API rate limited`, fallback messages).
+- API failures via `jsonError` → `logger.error("API request failed", …)` (bridged).
+- Upload cleanup warnings via the existing logger messages (allowlisted).
+
+#### Sentry Logs wizard mapping
+
+| Wizard step                                                                            | This repo                                                                      |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `npm install @sentry/nextjs` (min `9.41.0`)                                            | `@sentry/nextjs@^10.69.0` (installed `10.69.0`)                                |
+| Hardcoded `dsn: "https://…@….ingest…"`                                                 | Env-only `SENTRY_DSN` — never commit a DSN                                     |
+| `enableLogs: true`                                                                     | `enableLogs: isSentryLoggingEnabled()` in `src/sentry.{server,edge}.config.ts` |
+| `consoleLoggingIntegration({ levels: ["log","warn","error"] })`                        | **Not enabled** — too leaky for clinical text; use `sentryLog` / logger bridge |
+| Verify: `Sentry.logger.info('User triggered test log', { log_source: 'sentry_test' })` | `sendSentryTestLog()` after Node init when `SENTRY_SEND_TEST_LOG=true`         |
+
+View samples in Sentry under **Explore → Logs**. Set `SENTRY_ENABLE_LOGS=false` to roll logs back without removing the DSN. For a one-shot wizard verify, set `SENTRY_SEND_TEST_LOG=true`, restart once, confirm the log, then unset the flag.
+
 ## Operator approval and rollout
 
 Before setting `SENTRY_DSN`, the operator must approve the vendor/project, data region, retention period, access roles, sampling rate, cost budget, and alert destination. Configure a server-side DSN only; never use a `NEXT_PUBLIC_*` DSN. Keep provider-side IP/user enrichment disabled and restrict project access. Start with a non-production synthetic exception and inspect the received event before enabling production alerts.
 
 When enabling tracing, also review a sampled transaction in Sentry and confirm span descriptions contain only table/operation metadata (no filter literals, clinical text, or mutation payloads). Set `SENTRY_TRACES_SAMPLE_RATE=0` to roll tracing back without removing the DSN.
 
+When enabling logs, inspect a sample in **Explore → Logs** and confirm bodies are allowlisted static strings with only operational attributes. Set `SENTRY_ENABLE_LOGS=false` to disable logs without removing the DSN.
+
 No source-map upload is configured: builds do not contact Sentry and do not require a Sentry auth token. This reduces provider coupling, at the cost of less useful minified production frames. Reconsider source maps only through a separate privacy and build-provider review.
 
 ## Disable and rollback
 
-Remove `SENTRY_DSN` and restart the service. The tracker then makes no provider calls. To disable only performance tracing while keeping error capture, set `SENTRY_TRACES_SAMPLE_RATE=0` and restart. Provider-side deletion and retention remain operator responsibilities under the approved Sentry project policy.
+Remove `SENTRY_DSN` and restart the service. The tracker then makes no provider calls. To disable only performance tracing while keeping error capture, set `SENTRY_TRACES_SAMPLE_RATE=0` and restart. To disable only structured logs while keeping errors/traces, set `SENTRY_ENABLE_LOGS=false` and restart. Provider-side deletion and retention remain operator responsibilities under the approved Sentry project policy.

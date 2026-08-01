@@ -174,8 +174,6 @@ export function MasterSearchHeader({
   queryInputAutoFocus = false,
   composerPlaceholder,
   recentQueries = [],
-  commandScopes = [],
-  onCommandScopesChange,
   onPickRecent,
   onCrossModeSearch,
   composerFollowUpSuggestions,
@@ -229,8 +227,6 @@ export function MasterSearchHeader({
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
   recentQueries?: string[];
-  commandScopes?: string[];
-  onCommandScopesChange?: (scopes: string[]) => void;
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
   composerFollowUpSuggestions?: string[];
@@ -1618,7 +1614,6 @@ export function MasterSearchHeader({
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
-          commandScopes={commandScopes}
           placement={commandSurfacePlacement}
           dropdownOpen={commandDropdownOpen}
           onDropdownOpenChange={setCommandDropdownOpen}
@@ -1646,7 +1641,6 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onRunModeAction={runModeAction}
-          onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={() => queryInputRef?.current?.focus()}

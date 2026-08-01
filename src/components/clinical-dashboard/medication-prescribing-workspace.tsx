@@ -29,7 +29,6 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import {
@@ -39,7 +38,6 @@ import {
   type ClinicalBadgeTone,
 } from "@/components/clinical-dashboard/clinical-badge";
 import { medicationIdentityBadges, type MedicationRecord } from "@/lib/medications";
-import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { SEMANTIC_TONE_META } from "@/lib/semantic-tone";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, EmptyState, pageContainer } from "@/components/ui-primitives";
@@ -399,7 +397,6 @@ function MedicationResults({
   MedicationPrescribingWorkspaceProps,
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
-  const command = useSearchCommand();
   // Debounced + aborted fetches (see useMedicationCatalog) stop keystroke storms.
   // Keep the full catalogue payload here: Safety/Monitoring chips and patient
   // alerts need sections/stats/quick that `fields=index` strips. Cross-mode
@@ -440,10 +437,7 @@ function MedicationResults({
           record,
         ),
       );
-    const scopes = command?.commandScopes ?? [];
-    const scoped = scopes.length
-      ? sourceRows.filter((row) => medicationMatchesCommandScopes(row.result, scopes))
-      : sourceRows;
+    const scoped = sourceRows;
     const filterCounts: Record<MedicationResultFilter, number> = { best: 0, indication: 0, safety: 0, monitoring: 0 };
     for (const row of scoped) {
       for (const filter of medicationResultFilters) {
@@ -455,7 +449,7 @@ function MedicationResults({
       counts: filterCounts,
       totalAvailable: scoped.length,
     };
-  }, [activeFilter, catalog.data, command?.commandScopes, profile, profileEmpty]);
+  }, [activeFilter, catalog.data, profile, profileEmpty]);
   const resultCount = rows.length;
   // The match-quality badge only earns its slot when it differentiates: hide it on
   // "Exact clinical fit" rows when every visible row says the same thing.
