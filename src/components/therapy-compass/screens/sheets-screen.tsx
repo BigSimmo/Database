@@ -167,7 +167,7 @@ export function SheetsScreen() {
             data-therapy-paper
             className="w-full max-w-[720px] bg-[color:var(--tc-paper-background)] border border-[color:var(--tc-paper-border)] rounded-sm shadow-[var(--tc-paper-shadow)] py-[52px] px-14 text-[color:var(--tc-paper-ink)]"
           >
-            <div className="max-sm:flex-wrap flex items-center justify-between border-b-[2px_solid_var(--tc-paper-accent-strong)] pb-4 mb-6">
+            <div className="max-sm:flex-wrap flex items-center justify-between border-b-2 border-b-[color:var(--tc-paper-accent-strong)] pb-4 mb-6">
               <div className="flex items-center gap-[11px]">
                 <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--tc-paper-accent-background)] text-[color:var(--tc-paper-accent)]">
                   <ScaleIcon size={20} strokeWidth={1.6} />
