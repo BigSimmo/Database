@@ -1,5 +1,11 @@
 # design-sync notes — Clinical KB
 
+**Day-to-day:** run `node scripts/design-sync.mjs` from the repo root. That installs the
+gitignored `.ds-sync` toolchain and compiles CSS into `.design-sync/.cache/compiled.css`.
+Use `node scripts/design-sync.mjs --skip-install` when `.ds-sync` is already populated.
+Remote upload to claude.ai/design (`resync.mjs --remote`) remains a session skill
+outside this lockfile — run it after the local CSS prep when you need a full sync.
+
 - This repo is the Next.js app itself, not a component library: no `dist/`, no
   Storybook. The sync uses the package shape with a hand-authored entry at
   `.design-sync/entry.tsx`, passed to the converter via `--entry` (the driver
