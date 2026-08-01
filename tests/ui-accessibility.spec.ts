@@ -536,38 +536,76 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(therapyRibbon.getByRole("heading", { name: "All", level: 1 })).toBeVisible({ timeout: 60_000 });
     await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Search therapies" })).toHaveCount(0);
-    const therapyTopics = therapyRibbon.getByTestId("therapy-topic-filter-select");
-    const therapyAvailability = therapyRibbon.getByTestId("therapy-availability-filter-select");
-    await expect(therapyTopics).toBeVisible();
-    await expect(therapyTopics).toHaveAccessibleName("Add or remove a therapy topic filter");
-    await expect(therapyAvailability).toBeVisible();
-    await expect(therapyAvailability).toHaveAccessibleName("Change therapy availability filters");
+    // Topics and availability used to be two native `<select>`s faking
+    // multi-select: `value` pinned to "", a literal "✓ " prefix in option text,
+    // and the placeholder row doing the reporting ("1 topics selected"). A
+    // listbox cannot express "three of these are on", so assistive technology
+    // was told the opposite of what the visible text said. Both are now
+    // `aria-pressed` toggles inside a dialog, matching the wide viewport.
+    const therapyFilterTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    await expect(therapyFilterTrigger).toBeVisible();
+    await expect(therapyFilterTrigger).toHaveAccessibleName(/Filter/);
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-haspopup", "dialog");
 
-    await therapyTopics.focus();
-    const topicsFocus = await therapyTopics.evaluate((element) => {
+    await therapyFilterTrigger.focus();
+    const triggerFocus = await therapyFilterTrigger.evaluate((element) => {
       const style = getComputedStyle(element);
       return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
     });
-    expect(topicsFocus.outlineStyle).not.toBe("none");
-    expect(topicsFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(triggerFocus.outlineStyle).not.toBe("none");
+    expect(triggerFocus.outlineWidth).toBeGreaterThanOrEqual(2);
 
-    await therapyTopics.selectOption("CBT");
-    await expect(therapyTopics.locator('option[value=""]')).toHaveText("1 topics selected");
-    await therapyAvailability.selectOption("reviewed");
-    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("1 more selected");
+    const triggerSize = await therapyFilterTrigger.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    // 44, not 48. This trigger sits in the ribbon's utility row beside
+    // `ResultSortControl`, which is `min-h-tap` (44px) — raising only this
+    // control would leave the row visibly ragged. The repo's `min-h-12` rule
+    // exists to stop generic a11y advice pulling production down to `min-h-11`
+    // (a known `ui-smoke` flake), not to override a page's own row rhythm; the
+    // sheet's own toggles, which have the room, are `min-h-12`.
+    expect(triggerSize.width).toBeGreaterThanOrEqual(44);
+    expect(triggerSize.height).toBeGreaterThanOrEqual(44);
 
-    for (const control of [therapyTopics, therapyAvailability]) {
-      const controlSize = await control.evaluate((element) => {
-        const bounds = element.getBoundingClientRect();
-        return { width: bounds.width, height: bounds.height };
-      });
-      expect(controlSize.width).toBeGreaterThanOrEqual(44);
-      expect(controlSize.height).toBeGreaterThanOrEqual(44);
-    }
+    await therapyFilterTrigger.click();
+    const therapyFilterPanel = page.getByTestId("therapy-filter-panel");
+    await expect(therapyFilterPanel).toBeVisible();
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-expanded", "true");
+    const therapyPanelId = await therapyFilterPanel.getAttribute("id");
+    expect(therapyPanelId).toBeTruthy();
+    await expect(therapyFilterTrigger).toHaveAttribute("aria-controls", therapyPanelId!);
 
-    await therapyAvailability.selectOption("clear");
-    await expect(therapyTopics.locator('option[value=""]')).toHaveText("All topics");
-    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("Any availability");
+    // The state the old select could not express: selection is on the control
+    // itself, and turning one on leaves the others alone.
+    const cbtToggle = therapyFilterPanel.getByRole("button", { name: "CBT" });
+    const reviewedToggle = therapyFilterPanel.getByRole("button", { name: "Reviewed only" });
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
+    await cbtToggle.click();
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
+    await reviewedToggle.click();
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "true");
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
+
+    await therapyFilterPanel.getByTestId("therapy-filter-clear").click();
+    await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
+
+    await therapyFilterPanel.getByTestId("therapy-filter-done").click();
+    await expect(therapyFilterPanel).toHaveCount(0);
+
+    // End-to-end guard the component tests cannot give: it is `SearchScreen`
+    // that decides what the trigger counts. A query-only session must offer
+    // Clear all (the phone's only route to `clearSearch`) while the badge still
+    // reports no filters, because a search term is not a filter.
+    await page.goto("/therapy-compass/search?q=anxiety", { waitUntil: "domcontentloaded" });
+    await expect(therapyRibbon.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
+    const queryOnlyTrigger = therapyRibbon.getByTestId("therapy-filter-trigger");
+    await expect(queryOnlyTrigger).toHaveAccessibleName(/No filters active/);
+    await queryOnlyTrigger.click();
+    const queryOnlyPanel = page.getByTestId("therapy-filter-panel");
+    await expect(queryOnlyPanel.getByTestId("therapy-filter-clear")).toBeVisible();
+    await queryOnlyPanel.getByTestId("therapy-filter-done").click();
 
     await expectNoPageHorizontalOverflow(page);
 

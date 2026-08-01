@@ -36,8 +36,6 @@ import {
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { FormCodeBadge } from "@/components/forms/form-code-badge";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { useResultSort } from "@/components/use-result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -774,7 +772,6 @@ export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const router = useRouter();
   const [sortValue, setSortValue] = useResultSort();
-  const command = useSearchCommand();
   const registry = useRegistryRecords("form");
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const [refineOpen, setRefineOpen] = useState(false);
@@ -788,14 +785,9 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
     if (!deferredQuery.trim()) return [];
     return rankFormRecords(registry.records, deferredQuery);
   }, [registryReady, registry.records, deferredQuery, query]);
-  const scopedMatches = useMemo(() => {
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return matches;
-    return matches.filter((match) => recordMatchesCommandScopes(match.service, scopes, "forms"));
-  }, [command?.commandScopes, matches]);
   const displayedMatches = useMemo(
-    () => sortResultItems(scopedMatches, sortValue, (match) => match.service.title),
-    [scopedMatches, sortValue],
+    () => sortResultItems(matches, sortValue, (match) => match.service.title),
+    [matches, sortValue],
   );
 
   return (
@@ -856,7 +848,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               <SearchResultsEmptyState
                 modeId="forms"
                 query={query}
-                onClearScopes={command?.onClearScopes}
                 onTryExample={(example) =>
                   router.push(appModeHomeHref("forms", { query: example, focus: true, run: true }))
                 }

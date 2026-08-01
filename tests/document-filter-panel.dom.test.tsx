@@ -175,8 +175,16 @@ describe("document filter panel", () => {
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
 
     const panel = screen.getByTestId("document-filter-panel");
-    expect(panel.closest('[role="dialog"]') ?? panel).toHaveAttribute("role", "dialog");
-    expect(screen.getByTestId("document-filter-trigger-phone")).toHaveAttribute("aria-haspopup", "dialog");
+    const dialog = panel.closest('[role="dialog"]') ?? panel;
+    const trigger = screen.getByTestId("document-filter-trigger-phone");
+    expect(dialog).toHaveAttribute("role", "dialog");
+    // The trigger must name the dialog it opens. Asserting only `aria-haspopup`
+    // would pass with a stale or wrong id, which is the whole point of wiring
+    // `aria-controls` through Sheet's `id` prop.
+    expect(dialog.id).not.toBe("");
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(trigger).toHaveAttribute("aria-controls", dialog.id);
   });
 
   it("closes on Escape", async () => {
@@ -187,6 +195,30 @@ describe("document filter panel", () => {
 
     await user.keyboard("{Escape}");
     expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+    const closedTrigger = screen.getByTestId("document-filter-trigger-phone");
+    expect(closedTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(closedTrigger).not.toHaveAttribute("aria-controls");
+  });
+
+  it("releases the scroll lock when a refetch unmounts an open panel", async () => {
+    // `showFilterControl` folds in `!loading`, so a refetch on the same query
+    // unmounts the open Sheet. That skips Sheet's focus restore — but the
+    // trigger is gated on the same flag and unmounts too, so there is no opener
+    // left to restore to. What must not leak is the body scroll lock, and it
+    // does not: `popSheet` runs in the same effect cleanup as the unmount.
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    expect(screen.getByTestId("document-filter-panel")).toBeInTheDocument();
+    // Prove the lock was taken, or the release assertion below passes vacuously
+    // the day the sheet stops locking at all.
+    expect(document.body.style.overflow).toBe("hidden");
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} loading />);
+
+    expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+    expect(document.body.style.overflow).not.toBe("hidden");
   });
 
   it("closes on Show N documents", async () => {
@@ -213,5 +245,71 @@ describe("document filter panel", () => {
     rerender(<DocumentSearchResultsPanel {...baseProps} query="lithium" />);
     expect(screen.queryByTestId("document-filter-panel")).toBeNull();
     expect(screen.getByTestId("document-filter-trigger-phone")).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
+describe("applied-filter shelf", () => {
+  async function selectClozapine(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /Clozapine/ }));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done"));
+  }
+
+  it("shows an applied facet as a chip and removes it in one tap", async () => {
+    const user = userEvent.setup();
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+
+    await selectClozapine(user);
+
+    const shelf = screen.getByTestId("search-query-ribbon-shelf");
+    expect(shelf).toHaveTextContent("Filtered by");
+    expect(resultTitles()).toHaveLength(1);
+
+    // One tap, and the count follows immediately.
+    await user.click(within(shelf).getByRole("button", { name: /Remove Clozapine filter/ }));
+    expect(resultTitles()).toHaveLength(2);
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+  });
+
+  it("carries the source type alongside facets, and Clear tears both down at once", async () => {
+    const user = userEvent.setup();
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    const panel = screen.getByTestId("document-filter-panel");
+    await user.click(within(panel).getByRole("button", { name: /Clozapine/ }));
+    await user.click(within(panel).getByRole("radio", { name: /Tables/ }));
+    await user.click(within(panel).getByTestId("document-filter-done"));
+
+    const shelf = screen.getByTestId("search-query-ribbon-shelf");
+    expect(within(shelf).getByRole("button", { name: /Remove Clozapine filter/ })).toBeInTheDocument();
+    expect(within(shelf).getByRole("button", { name: /Remove Tables filter/ })).toBeInTheDocument();
+
+    // Clear appears only past one chip — teardown that used to be one tap each.
+    await user.click(within(shelf).getByTestId("search-query-ribbon-shelf-clear"));
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+    expect(resultTitles()).toHaveLength(2);
+  });
+
+  it("survives a pending search, because chips must not flicker on every keystroke", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+    await selectClozapine(user);
+    expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} loading />);
+
+    expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
+  });
+
+  it("drops only on a fault, where filtering a set that never loaded is meaningless", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+    await selectClozapine(user);
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} apiUnavailable realDataReady={false} />);
+
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
   });
 });

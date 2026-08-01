@@ -52,19 +52,41 @@ function activeLevel(): LogLevel {
   return env().NODE_ENV === "production" ? "info" : "debug";
 }
 
+type SentryLogForwarder = (level: "warn" | "error", message: string, context?: Record<string, unknown>) => void;
+
+let sentryLogForwarder: SentryLogForwarder | null = null;
+
+/**
+ * Register a Sentry Logs bridge from server instrumentation after `Sentry.init`.
+ * Kept as a callback so this module never imports `@sentry/nextjs` (bundler-safe).
+ */
+export function registerSentryLogForwarder(forwarder: SentryLogForwarder | null) {
+  sentryLogForwarder = forwarder;
+}
+
 function emit(level: LogLevel, message: string, context?: Record<string, unknown>) {
   // Keep tests quiet; they assert on responses, not log output.
   if (env().NODE_ENV === "test") return;
   if (LEVEL_RANK[level] < LEVEL_RANK[activeLevel()]) return;
+  const redacted = context ? redactLogContext(context) : undefined;
   const line = JSON.stringify({
     level,
     message,
     timestamp: new Date().toISOString(),
-    ...(context ? redactLogContext(context) : {}),
+    ...(redacted ?? {}),
   });
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
+
+  // Forward warn/error to privacy-scrubbed Sentry Logs when instrumentation registered a bridge.
+  if ((level === "warn" || level === "error") && sentryLogForwarder) {
+    try {
+      sentryLogForwarder(level, message, redacted);
+    } catch {
+      // Optional observability must never interfere with request handling.
+    }
+  }
 }
 
 export const logger = {
