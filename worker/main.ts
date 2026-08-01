@@ -1937,9 +1937,10 @@ async function main() {
     } catch (error) {
       consecutiveClaimFailures += 1;
       console.warn("Ingestion job claim failed", safeErrorLogDetails(error));
-      // Report only once the retry budget is spent: a single transient claim
-      // failure is normal and self-heals on the next poll.
-      if (consecutiveClaimFailures >= env.WORKER_MAX_CLAIM_FAILURES) {
+      // Report only on the threshold transition: a single transient claim
+      // failure is normal, and a sustained outage must not spam Sentry on
+      // every subsequent poll after the retry budget is spent.
+      if (consecutiveClaimFailures === env.WORKER_MAX_CLAIM_FAILURES) {
         captureWorkerException(error, "claim");
       }
       if (once) throw error;
