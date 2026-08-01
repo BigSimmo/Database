@@ -43,7 +43,7 @@ The product wizard’s copy is generic. Map it to this repo as follows — do **
 
 | Wizard step                      | This repo                                                                                                                                                                |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Install `@sentry/nextjs` ≥ 10.67 | npm dependency (`^10.67.0`, lock ≥ 10.67); do not switch to pnpm                                                                                                         |
+| Install `@sentry/nextjs` ≥ 10.67 | repository dependency `@sentry/nextjs@^10.69.0` (lockfile resolves `10.69.0`); `10.67` is the minimum supported version; do not switch to pnpm                          |
 | `Sentry.init` + tracing          | `src/sentry.server.config.ts` / `src/sentry.edge.config.ts`; DSN from `SENTRY_DSN` only (never hardcode); default `tracesSampleRate` 0.1 via `SENTRY_TRACES_SAMPLE_RATE` |
 | `dataCollection.genAI`           | Explicitly `{ inputs: false, outputs: false }`                                                                                                                           |
 | `instrumentOpenAiClient`         | `instrumentOpenAIClientForAgentMonitoring` in `createOpenAIClient()` — `recordInputs`/`recordOutputs` **false**                                                          |
