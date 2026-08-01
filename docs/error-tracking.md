@@ -37,7 +37,6 @@ Privacy constraints for agent monitoring:
 
 Rollback matches tracing: set `SENTRY_TRACES_SAMPLE_RATE=0` (agent spans stop; error capture stays) or remove `SENTRY_DSN`. Raising the sample rate above the 0.1 default captures a larger share of answer requests in the agents view and is an operator decision.
 
-
 ### Ingestion worker
 
 The worker is a plain Node process, not a Next runtime, so it initializes `@sentry/node` directly in `worker/observability.ts` (called from `worker/index.ts` before `main.ts` loads, so module-level failures are caught too). It reuses the same `privacySafeErrorEvent` / `privacySafeTransactionEvent` scrubbers as the app and is inert unless `SENTRY_DSN` is set **on the worker service**, which is a separate Railway service from the app — setting the DSN on the app alone leaves ingestion unreported.
@@ -79,20 +78,17 @@ Examples already wired:
 
 View samples in Sentry under **Explore → Logs**. Set `SENTRY_ENABLE_LOGS=false` to roll logs back without removing the DSN. For a one-shot wizard verify, set `SENTRY_SEND_TEST_LOG=true`, restart once, confirm the log, then unset the flag.
 
-
 ## Operator approval and rollout
 
 Before setting `SENTRY_DSN`, the operator must approve the vendor/project, data region, retention period, access roles, sampling rate, cost budget, and alert destination. Configure a server-side DSN only; never use a `NEXT_PUBLIC_*` DSN. Keep provider-side IP/user enrichment disabled and restrict project access. Start with a non-production synthetic exception and inspect the received event before enabling production alerts.
 
 When enabling tracing, also review a sampled transaction in Sentry and confirm span descriptions contain only table/operation metadata (no filter literals, clinical text, or mutation payloads). Set `SENTRY_TRACES_SAMPLE_RATE=0` to roll tracing back without removing the DSN.
 
-
 Source-map upload is wired in `next.config.ts` (`withSentryConfig`, `deleteSourcemapsAfterUpload: true` — maps are uploaded to Sentry and never served publicly) but stays **inert** unless all three of `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are present at build time. None are set in the Railway production service today, so builds do not contact Sentry and production frames arrive minified. Supplying those three is an operator decision: it makes stack traces readable at the cost of build-time provider coupling, and the auth token needs only project release/sourcemap scope.
 
 When enabling logs, inspect a sample in **Explore → Logs** and confirm bodies are allowlisted static strings with only operational attributes. Set `SENTRY_ENABLE_LOGS=false` to disable logs without removing the DSN.
 
 No source-map upload is configured: builds do not contact Sentry and do not require a Sentry auth token. This reduces provider coupling, at the cost of less useful minified production frames. Reconsider source maps only through a separate privacy and build-provider review.
-
 
 ## Disable and rollback
 
