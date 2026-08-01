@@ -48,3 +48,5 @@ Static desktop/phone comps for the pages that need redesign (not ModeHome mockup
 | Favourites (hybrid dashboard + search, no ModeHome) | B — Search-Led Workspace          | `#164` |
 
 These are PNGs for design review only. Runnable `/mockups/*` routes are a separate implementation step.
+
+**Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-31T14:44:06.210Z",
+  "generated_at": "2026-07-31T17:55:21.421Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
   "schema_sha256": "d45841d7de9b2e4834134204e1919fcbbf239540f9f0003d555739e15f806dd8",
-  "replay_seconds": 17,
+  "replay_seconds": 107,
   "snapshot": {
     "views": [
       {
@@ -4981,6 +4981,12 @@
         "def_hash": "10b08574f74bb01b0727ce93ef68e25d"
       },
       {
+        "def": "CREATE INDEX document_images_searchable_doc_page_relevance_idx ON public.document_images USING btree (document_id, page_number, clinical_relevance_score DESC NULLS LAST) WHERE ((searchable IS TRUE) AND (image_type IS DISTINCT FROM 'logo_decorative'::text))",
+        "name": "document_images_searchable_doc_page_relevance_idx",
+        "table": "document_images",
+        "def_hash": "c4375ac3874774369a483bd951677606"
+      },
+      {
         "def": "CREATE INDEX document_images_searchable_idx ON public.document_images USING btree (document_id, searchable, image_type, page_number)",
         "name": "document_images_searchable_idx",
         "table": "document_images",
@@ -6747,7 +6753,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "c30484095942ebbcbfd087215dd7ec0a",
+        "def_hash": "fdfad79a080ac7993b486e83399aa349",
         "signature": "public.consume_api_rate_limit(uuid,text,integer,integer)"
       },
       {
@@ -6755,7 +6761,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "e263f3819b05177abcf2eedd3f468991",
+        "def_hash": "18f2c79eaaadbf2025377e9db3e12902",
         "signature": "public.consume_api_subject_rate_limit(text,text,integer,integer)"
       },
       {

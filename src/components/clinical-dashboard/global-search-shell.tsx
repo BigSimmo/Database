@@ -6,7 +6,6 @@ import {
   type CSSProperties,
   type ReactNode,
   type UIEvent,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -399,21 +398,12 @@ function GlobalStandaloneSearchShellBody({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
-  const [commandScopes, setCommandScopes] = useState<string[]>([]);
-  const removeCommandScope = useCallback(
-    (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-    [setCommandScopes],
-  );
-  const clearCommandScopes = useCallback(() => setCommandScopes([]), [setCommandScopes]);
   const searchCommandContextValue = useMemo(
     () => ({
       query,
       modeId: searchMode,
-      commandScopes,
-      onRemoveScope: removeCommandScope,
-      onClearScopes: clearCommandScopes,
     }),
-    [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
+    [query, searchMode],
   );
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
@@ -627,7 +617,6 @@ function GlobalStandaloneSearchShellBody({
       return;
     }
     setQuery("");
-    setCommandScopes([]);
     setMobileMenuOpen(false);
     // Let the URL sync (render-time) own searchMode. Optimistic setSearchMode
     // before pathname updates was the namespaced mode-switch reserve flip.
@@ -657,7 +646,6 @@ function GlobalStandaloneSearchShellBody({
       return;
     }
     setQuery(crossQuery);
-    setCommandScopes([]);
     setMobileMenuOpen(false);
     navigateToMode(mode, { query: crossQuery, focus: false, run: true });
   }
@@ -829,8 +817,6 @@ function GlobalStandaloneSearchShellBody({
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
             recentQueries={recentQueries}
-            commandScopes={commandScopes}
-            onCommandScopesChange={setCommandScopes}
             onPickRecent={pickRecentQuery}
             onCrossModeSearch={crossModeSearch}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}

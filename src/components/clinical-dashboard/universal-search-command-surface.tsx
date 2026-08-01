@@ -351,7 +351,6 @@ export function UniversalSearchCommandSurface({
   modeId,
   query,
   recentQueries,
-  commandScopes,
   dropdownOpen,
   onDropdownOpenChange,
   onQueryChange,
@@ -359,7 +358,6 @@ export function UniversalSearchCommandSurface({
   onPickRecent,
   onCrossMode,
   onRunModeAction,
-  onCommandScopesChange,
   onInputKeyDown,
   onFocusSearchInput,
   onListboxIdReady,
@@ -373,7 +371,6 @@ export function UniversalSearchCommandSurface({
   modeId: AppModeId;
   query: string;
   recentQueries: string[];
-  commandScopes: string[];
   dropdownOpen: boolean;
   onDropdownOpenChange: (open: boolean) => void;
   onQueryChange: (query: string) => void;
@@ -381,7 +378,6 @@ export function UniversalSearchCommandSurface({
   onPickRecent: (query: string) => void;
   onCrossMode: (modeId: AppModeId, query: string) => void;
   onRunModeAction?: (actionId: ModeActionId) => void;
-  onCommandScopesChange: (scopes: string[]) => void;
   onInputKeyDown?: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onFocusSearchInput?: () => void;
   onListboxIdReady?: (listboxId: string) => void;
@@ -389,8 +385,6 @@ export function UniversalSearchCommandSurface({
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
-  void commandScopes;
-  void onCommandScopesChange;
   const config = searchCommandSurfaceConfig(modeId);
   const crossModes = useMemo(
     () =>

@@ -29,9 +29,7 @@ import {
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
@@ -551,7 +549,6 @@ export function ServicesNavigatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
-  const command = useSearchCommand();
   const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
@@ -575,22 +572,17 @@ export function ServicesNavigatorPage() {
     // never dump the full catalogue as if the box were cleared.
     return [];
   }, [deferredQuery, query, searchableRecords]);
-  const scopedMatches = useMemo(() => {
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return matches;
-    return matches.filter((service) => recordMatchesCommandScopes(service, scopes, "services"));
-  }, [command?.commandScopes, matches]);
   const displayedMatches = useMemo(
-    () => sortResultItems(scopedMatches, sortValue, (service) => service.title),
-    [scopedMatches, sortValue],
+    () => sortResultItems(matches, sortValue, (service) => service.title),
+    [matches, sortValue],
   );
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
-    scopedMatches.forEach((service, index) => {
+    matches.forEach((service, index) => {
       map.set(service.slug, index + 1);
     });
     return map;
-  }, [scopedMatches]);
+  }, [matches]);
   const [selectedSlugs, setSelectedSlugs] = useState<string[] | null>(null);
   const effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2).map((service) => service.slug);
   const selected = searchableRecords.filter((service) => effectiveSelectedSlugs.includes(service.slug));
@@ -737,7 +729,6 @@ export function ServicesNavigatorPage() {
         <SearchResultsEmptyState
           modeId="services"
           query={query}
-          onClearScopes={command?.onClearScopes}
           onTryExample={(example) => applyServiceQuery(example)}
         />
       ) : (

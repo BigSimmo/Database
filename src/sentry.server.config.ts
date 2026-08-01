@@ -7,6 +7,13 @@ import {
   privacySafeTransactionEvent,
   resolveTracesSampleRate,
 } from "@/lib/observability/error-tracking";
+import { registerSentryLogForwarder } from "@/lib/logger";
+import {
+  forwardAppLogToSentry,
+  isSentryLoggingEnabled,
+  privacySafeLog,
+  sendSentryTestLog,
+} from "@/lib/observability/sentry-logging";
 
 const sentryEnvironment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || "development";
 const sentryDsn = process.env.SENTRY_DSN?.trim();
@@ -85,7 +92,9 @@ try {
       genAI: { inputs: false, outputs: false },
     },
     includeLocalVariables: false,
-    enableLogs: false,
+    // Structured Sentry Logs (opt out with SENTRY_ENABLE_LOGS=false). Console
+    // capture stays off — only allowlisted messages/attributes pass beforeSendLog.
+    enableLogs: isSentryLoggingEnabled(),
     attachStacktrace: true,
     maxBreadcrumbs: 0,
     ignoreErrors: ignoredServerErrors,
@@ -99,7 +108,15 @@ try {
       // Local scrubber shape is structural; cast back to the SDK transaction type.
       return privacySafeTransactionEvent(event) as typeof event;
     },
+    beforeSendLog(log) {
+      return privacySafeLog(log as Parameters<typeof privacySafeLog>[0]) as typeof log | null;
+    },
   });
+  if (isSentryLoggingEnabled()) {
+    registerSentryLogForwarder(forwardAppLogToSentry);
+    // Opt-in wizard verify sample only — never hardcoded DSN, never console capture.
+    sendSentryTestLog();
+  }
 } catch {
   // Optional observability must never take down the clinical server.
 }
