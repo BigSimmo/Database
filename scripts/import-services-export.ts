@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import os from "node:os";
@@ -55,13 +55,20 @@ function findCatalogInDirectory(directory: string) {
 function extractZip(zipPath: string) {
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "services-import-"));
   try {
+    // Argument vectors, never a shell string: a path containing `$(...)`, backticks,
+    // or quotes would otherwise be evaluated by the shell.
     if (process.platform === "win32") {
-      execSync(
-        `powershell -NoProfile -Command "Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${tempDir.replace(/'/g, "''")}' -Force"`,
+      execFileSync(
+        "powershell",
+        [
+          "-NoProfile",
+          "-Command",
+          `Expand-Archive -LiteralPath '${zipPath.replace(/'/g, "''")}' -DestinationPath '${tempDir.replace(/'/g, "''")}' -Force`,
+        ],
         { stdio: "pipe" },
       );
     } else {
-      execSync(`unzip -oq ${JSON.stringify(zipPath)} -d ${JSON.stringify(tempDir)}`, { stdio: "pipe" });
+      execFileSync("unzip", ["-oq", zipPath, "-d", tempDir], { stdio: "pipe" });
     }
     const catalogPath = findCatalogInDirectory(tempDir);
     if (!catalogPath) {
