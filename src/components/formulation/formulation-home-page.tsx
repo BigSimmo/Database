@@ -3,16 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useDeferredValue } from "react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  ChevronRight,
-  GitCompareArrows,
-  ListChecks,
-  Network,
-  Search,
-  Waypoints,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, ChevronRight, GitCompareArrows, ListChecks, Network, Search } from "lucide-react";
 
 import {
   FormulationBreadcrumbs,
@@ -22,6 +13,7 @@ import {
   MechanismDomainChips,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
+import { ClinicalPathwayStrip } from "@/components/clinical-record-panels";
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
   MobileResultFilterControl,
@@ -48,51 +40,18 @@ function builderTemplateHref(templateId: string) {
 }
 
 function FormulationThreadStrip() {
-  const steps = [
-    { label: "Notice", body: "Presenting patterns and patient language" },
-    { label: "Hypothesise", body: "Mechanisms that may explain the pattern" },
-    { label: "Test", body: "Fit, alternatives, and disconfirming evidence" },
-    { label: "Act", body: "Treatment leverage and review points" },
-  ];
-
   return (
-    <section
-      aria-labelledby="formulation-thread-title"
-      className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-left shadow-[var(--shadow-inset)]"
-    >
-      <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-2.5">
-        <div>
-          <p className={eyebrowText}>Formulation thread</p>
-          <h2 id="formulation-thread-title" className="mt-0.5 text-sm font-extrabold text-[color:var(--text-heading)]">
-            Carry evidence through to an actionable hypothesis
-          </h2>
-        </div>
-        <Waypoints className="h-5 w-5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-      </div>
-      <ol className="grid sm:grid-cols-2 lg:grid-cols-4">
-        {steps.map((step, index) => (
-          <li
-            key={step.label}
-            className={cn(
-              "relative grid grid-cols-[2rem_minmax(0,1fr)] gap-2.5 px-4 py-3",
-              index > 0 && "border-t border-[color:var(--border)] sm:border-t-0",
-              index % 2 === 1 && "sm:border-l sm:border-[color:var(--border)]",
-              index === 2 && "lg:border-l lg:border-[color:var(--border)]",
-            )}
-          >
-            <span className="nums grid h-8 w-8 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
-              {index + 1}
-            </span>
-            <span>
-              <span className="block text-sm font-bold text-[color:var(--text-heading)]">{step.label}</span>
-              <span className="mt-0.5 block text-xs font-medium leading-4 text-[color:var(--text-muted)]">
-                {step.body}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <ClinicalPathwayStrip
+      id="formulation-thread"
+      eyebrow="Formulation thread"
+      title="Carry evidence through to an actionable hypothesis"
+      steps={[
+        { label: "Notice", body: "Presenting patterns and patient language" },
+        { label: "Hypothesise", body: "Mechanisms that may explain the pattern" },
+        { label: "Test", body: "Fit, alternatives, and disconfirming evidence" },
+        { label: "Act", body: "Treatment leverage and review points" },
+      ]}
+    />
   );
 }
 
