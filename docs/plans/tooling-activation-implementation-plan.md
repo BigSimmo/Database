@@ -4,7 +4,7 @@
 **Repo:** Clinical KB (`BigSimmo/Database`)  
 **Related ledger:** `#025`, `#027`, `#028` (text stale — SDK already landed), redesign `#162`–`#164`  
 **Created:** 2026-08-01  
-**Local progress:** Context7 remote MCP in `.cursor/mcp.json` (`https://mcp.context7.com/mcp`, optional `CONTEXT7_API_KEY` via `${env:…}`); `context7-plugin` in `.cursor/settings.json`; habit doc in `docs/agents-guide.md` + `.env.example`; `npm run design-sync`; `npm run mockups:capture`
+**Local progress:** Context7 remote MCP in `.cursor/mcp.json` (`https://mcp.context7.com/mcp`, optional `CONTEXT7_API_KEY` via `${env:…}`); `context7-plugin` in `.cursor/settings.json`; habit doc in `docs/agents-guide.md` + `.env.example`; `node scripts/design-sync.mjs`; `node scripts/capture-mockup-screenshots.mjs` (npm aliases deferred — they trip container/build CI scope)
 
 ---
 
@@ -31,7 +31,7 @@ Execution model: four parallel workstreams (WS-A…D) after human approvals for 
 | SC-B2 | GitHub PR check visibility works (Checks:read and/or Actions API / GitHub MCP) | Agent/operator can list failing required checks without empty `total:0`                                       |
 | SC-B3 | Railway + Supabase MCP “default read path” documented                          | Short runbook in `docs/agents-guide.md` or sibling; agents prefer MCP over dashboard                          |
 | SC-C1 | One command captures mockup desktop+phone PNGs after `ensure`                  | Script writes to `public/mockups/.../current/` at 1280×900 and 390×844                                        |
-| SC-C2 | `npm run design-sync` (or equivalent) rebuilds CSS + resyncs primitives        | Documented script; NOTES.md friction steps folded in                                                          |
+| SC-C2 | `node scripts/design-sync.mjs` rebuilds CSS + resyncs primitives               | Documented script; NOTES.md friction steps folded in                                                          |
 | SC-D1 | Visual baselines committed from **CI** artifact for declared targets           | `npm run test:e2e:visual` compares; no laptop-only baselines                                                  |
 | SC-D2 | Lighthouse budget has non-null baseline; enforce policy decided                | `lighthouse-budget.json` `baseline` set; `enforce` flipped only after soak                                    |
 
@@ -348,7 +348,7 @@ flowchart LR
 | SC-B2     | List PR checks via MCP/API        | Dev                    |
 | SC-B3     | Doc exists; agents-guide updated  | Dev                    |
 | SC-C1     | Screenshot script + PNG paths     | Dev                    |
-| SC-C2     | `npm run design-sync` (name TBD)  | Dev                    |
+| SC-C2     | `node scripts/design-sync.mjs`    | Dev                    |
 | SC-D1     | CI `test:e2e:visual`              | Dev                    |
 | SC-D2     | `check:lighthouse-budget`         | Dev                    |
 
@@ -418,7 +418,7 @@ You are executing WS-C of docs/plans/tooling-activation-implementation-plan.md.
 C1: add a Playwright/Node script that runs after `npm run ensure`, captures 1280×900 and 390×844
 PNGs into public/mockups/mode-page-redesign-2026-07/current/ (see that folder’s README),
 using the ensure-printed URL and confirming /api/local-project-id.
-C2: add npm run design-sync that installs .ds-sync deps, runs .design-sync/config.json buildCmd,
+C2: add node scripts/design-sync.mjs that installs .ds-sync deps, runs .design-sync/config.json buildCmd,
 and invokes the existing resync path; update .design-sync/NOTES.md.
 Mockups only — no production route rewrites. No Figma. Return: script names + sample command output.
 ```
