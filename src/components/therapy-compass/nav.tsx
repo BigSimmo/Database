@@ -6,17 +6,26 @@ import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone
 import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
 
 import { MAX_COMPARE, useTcBindings } from "./bindings";
+import { therapyBtn } from "./controls";
 
 /** Core Therapy destinations for non-home screens. */
 export function TherapyCompassNav() {
   const b = useTcBindings();
 
   const navShell = (
-    <div className="tc-topnav tc-no-print tc-nav-001" data-testid="therapy-compass-section-nav">
-      <nav className="tc-scroll tc-nav-007" aria-label="Therapy sections">
+    <div
+      data-therapy-no-print
+      className="sticky top-0 z-20 flex items-center justify-center gap-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] px-4 py-3 backdrop-blur-md sm:gap-[18px] sm:px-10 sm:py-3.5"
+      data-testid="therapy-compass-section-nav"
+    >
+      <nav
+        data-therapy-scroll
+        className="mx-auto flex w-fit max-w-full min-w-0 flex-[0_1_auto] items-center gap-1.5 overflow-x-auto pb-0.5"
+        aria-label="Therapy sections"
+      >
         <button
           type="button"
-          className={`tc-btn ${b.navHome}`}
+          className={`${therapyBtn} ${b.navHome}`}
           onClick={b.goHome}
           aria-current={b.isHome ? "page" : undefined}
         >
@@ -36,7 +45,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navSearch}`}
+          className={`${therapyBtn} ${b.navSearch}`}
           onClick={b.goSearch}
           aria-current={b.isSearch ? "page" : undefined}
         >
@@ -56,7 +65,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navRecommend}`}
+          className={`${therapyBtn} ${b.navRecommend}`}
           onClick={b.goRecommend}
           aria-current={b.isRecommend ? "page" : undefined}
         >
@@ -76,7 +85,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navCompare}`}
+          className={`${therapyBtn} ${b.navCompare}`}
           onClick={b.goCompare}
           aria-current={b.isCompare ? "page" : undefined}
         >
@@ -97,10 +106,10 @@ export function TherapyCompassNav() {
           </svg>
           Compare
         </button>
-        <span className="tc-nav-008" aria-hidden="true" />
+        <span className="mx-1 h-[22px] w-px flex-none bg-[color:var(--border)]" aria-hidden="true" />
         <button
           type="button"
-          className={`tc-btn ${b.navPathways}`}
+          className={`${therapyBtn} ${b.navPathways}`}
           onClick={b.goPathways}
           aria-current={b.isPathways ? "page" : undefined}
         >
@@ -122,7 +131,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navBrief}`}
+          className={`${therapyBtn} ${b.navBrief}`}
           onClick={b.goBrief}
           aria-current={b.isBrief ? "page" : undefined}
         >
@@ -142,7 +151,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navSheets}`}
+          className={`${therapyBtn} ${b.navSheets}`}
           onClick={b.goSheets}
           aria-current={b.isSheets ? "page" : undefined}
         >

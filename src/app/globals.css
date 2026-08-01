@@ -3367,3 +3367,184 @@ html.theme-transitioning *:after {
     border-color: CanvasText;
   }
 }
+
+/* =============================================================================
+ * Therapy Compass residuals — irreducible rules that cannot become utilities.
+ * Print isolation, printable paper tokens, CSS-var comparison grids, clinician
+ * toggle ::before track, and thin scrollbars. Everything else in the old
+ * therapy-compass.css parallel system is token-backed Tailwind on the components.
+ * ============================================================================= */
+
+/* Portaled under the universal header on phones: the collapse row owns
+   stacking/hide, so sticky would fight the shared chrome geometry. */
+#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"] {
+  position: relative;
+  top: auto;
+  z-index: auto;
+}
+
+[data-therapy-scroll] {
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+[data-therapy-scroll]::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-therapy-scroll]::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: var(--border-strong);
+  background-clip: content-box;
+}
+
+.therapy-compare-grid {
+  display: grid;
+  grid-template-columns: var(--tc-compare-columns);
+  border-bottom: 1px solid var(--border);
+}
+
+.therapy-compare-cell,
+.therapy-compare-row-label {
+  padding: var(--tc-compare-cell-padding);
+}
+
+[data-therapy-clinician-track] {
+  position: relative;
+  width: var(--spacing-tap);
+  height: var(--spacing-tap);
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+[data-therapy-clinician-track]::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--border-strong);
+  content: "";
+  transform: translate(-50%, -50%);
+  transition: background-color 150ms ease;
+}
+
+[data-therapy-clinician-track][data-active="true"]::before {
+  background: var(--clinical-accent);
+}
+
+[data-therapy-clinician-knob] {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: calc(50% - 18px);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-tight);
+  transform: translate(0, -50%);
+  transition: transform 150ms var(--ease-spring);
+}
+
+[data-therapy-clinician-track][data-active="true"] [data-therapy-clinician-knob] {
+  transform: translate(18px, -50%);
+}
+
+[data-therapy-paper] {
+  /* Fixed print palette — deliberately NOT theme-reactive. Accent mirrors Clinical Sky. */
+  --tc-paper-background: #ffffff;
+  --tc-paper-ink: #0f1720;
+  --tc-paper-body: #2b3444;
+  --tc-paper-muted: #5b6472;
+  --tc-paper-accent: #185c99;
+  --tc-paper-accent-strong: #1d6fb8;
+  --tc-paper-accent-background: #f4f7fb;
+  --tc-paper-accent-border: #d7e3f0;
+  --tc-paper-border: #d6dce5;
+  --tc-paper-border-subtle: #e6e9ee;
+  --tc-paper-warning: #8a5a12;
+  --tc-paper-warning-background: #fbf6ee;
+  --tc-paper-warning-border: #f0e2c8;
+  --tc-paper-focus: #1d6fb8;
+  --tc-paper-shadow: 0 2px 6px rgb(15 23 32 / 8%), 0 18px 42px rgb(15 23 32 / 10%);
+  background: var(--tc-paper-background);
+  color: var(--tc-paper-ink);
+}
+
+[data-therapy-paper] [contenteditable="true"]:focus-visible {
+  outline-color: var(--tc-paper-focus);
+}
+
+@media (max-width: 640px) {
+  [data-therapy-scroll-sm],
+  .therapy-compare-table {
+    overflow-x: auto !important;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .therapy-compare-tabs {
+    gap: 18px !important;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .therapy-compare-tabs > * {
+    flex: none;
+  }
+
+  .therapy-pathway-list {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--border);
+  }
+
+  [data-therapy-paper] {
+    padding: 28px 22px !important;
+  }
+}
+
+@media print {
+  @page therapy-compass-sheet {
+    size: a4 portrait;
+    margin: 14mm;
+  }
+
+  body:has([data-therapy-root]) {
+    background: #ffffff !important;
+  }
+
+  body:has([data-therapy-root]) * {
+    visibility: hidden !important;
+  }
+
+  body:has([data-therapy-root]) [data-therapy-paper],
+  body:has([data-therapy-root]) [data-therapy-paper] * {
+    visibility: visible !important;
+  }
+
+  body:has([data-therapy-root]) [data-therapy-paper] {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    page: therapy-compass-sheet;
+  }
+
+  body:has([data-therapy-root]) [data-therapy-no-print] {
+    display: none !important;
+  }
+}

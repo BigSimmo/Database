@@ -71,7 +71,15 @@ function findTherapyButtonsWithoutBaseClass(file) {
         (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
       );
       const classText = classAttribute && ts.isJsxAttribute(classAttribute) ? jsxClassText(classAttribute) : "";
-      if (!classText.includes("tc-btn")) {
+      const classSource = classAttribute && ts.isJsxAttribute(classAttribute) ? classAttribute.getText(source) : "";
+      // Recipes from controls.ts all include therapyBtn; accept either the base
+      // export or a named control recipe in the className expression text.
+      const hasTherapyInteraction =
+        /\btherapyBtn\b/.test(classText) ||
+        /\b(?:therapyBtn|accentControl|commandControl|outlineControl|softControl|iconControl|linkButton)\b/.test(
+          classSource,
+        );
+      if (!hasTherapyInteraction) {
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         findings.push(`${file.relativePath}:${line}`);
       }
@@ -131,7 +139,10 @@ const therapyInlineStyleFindings = therapyFiles.flatMap(({ relativePath }) => {
     .filter(({ line }) => /style=\{/.test(line))
     .filter(({ line }) => {
       if (relativePath.endsWith("/icons.tsx")) return !/style=\{style\}/.test(line);
-      if (relativePath.endsWith("/ui.tsx")) return !/--tc-meter-width/.test(line);
+      // The completeness meter's fill is a data-driven percentage, which no utility
+      // class can express. `--tc-meter-width` only existed to hand that value to
+      // therapy-compass.css; as that stylesheet retires, the width is set directly.
+      if (relativePath.endsWith("/ui.tsx")) return !/--tc-meter-width|width: `\$\{v\}%`/.test(line);
       if (relativePath.endsWith("/screens/compare-screen.tsx")) return !/--tc-compare-columns/.test(line);
       return true;
     })
@@ -159,21 +170,33 @@ assert(
 assert(!/outline\s*:\s*none/i.test(therapySource), "Therapy Compass suppresses a focus outline");
 assert(!therapySource.toLowerCase().includes("#8a94a3"), "the low-contrast patient-sheet gray returned");
 
-const therapyCss = textAt("src/components/therapy-compass/therapy-compass.css");
-assert(!/(?:^|[^0-9])44px/.test(therapyCss), "Therapy Compass CSS contains a literal 44px tap target");
-assert(therapyCss.includes("--tc-paper-muted: #5b6472"), "the fixed paper palette must keep its accessible muted ink");
+// Therapy's parallel stylesheet is retired. Printable paper tokens, print
+// isolation, and interaction recipes live in globals.css + controls.ts.
 assert(
-  therapyCss.includes('.tc-paper [contenteditable="true"]:focus-visible'),
+  !fs.existsSync(path.join(ROOT, "src/components/therapy-compass/therapy-compass.css")),
+  "therapy-compass.css must stay deleted — residuals live in globals.css",
+);
+const globalsForTherapy = textAt("src/app/globals.css");
+assert(
+  globalsForTherapy.includes("--tc-paper-muted: #5b6472"),
+  "the fixed paper palette must keep its accessible muted ink",
+);
+assert(
+  globalsForTherapy.includes('[data-therapy-paper] [contenteditable="true"]:focus-visible'),
   "patient-sheet editing needs a visible focus state",
 );
-assert(therapyCss.includes(".tc-btn:hover:not(:disabled)"), "Therapy buttons need a hover state");
-assert(therapyCss.includes(".tc-btn:disabled"), "Therapy buttons need a disabled state");
+assert(globalsForTherapy.includes("body:has([data-therapy-root])"), "Therapy print isolation must stay in globals.css");
+assert(globalsForTherapy.includes("[data-therapy-no-print]"), "Therapy no-print hooks must stay in globals.css");
+const controlsSource = textAt("src/components/therapy-compass/controls.ts");
+assert(controlsSource.includes("hover:enabled:"), "Therapy buttons need a hover state");
+assert(controlsSource.includes("disabled:"), "Therapy buttons need a disabled state");
+assert(controlsSource.includes("export const therapyBtn"), "Therapy shared button recipe is missing");
 
-const paperStart = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-023");
-const paperEnd = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-050");
-const hasPaperBoundaries = paperStart >= 0 && paperEnd > paperStart;
+const paperBlockStart = globalsForTherapy.indexOf("[data-therapy-paper] {");
+const paperBlockEnd = globalsForTherapy.indexOf("[data-therapy-paper] [contenteditable");
+const hasPaperBoundaries = paperBlockStart >= 0 && paperBlockEnd > paperBlockStart;
 assert(hasPaperBoundaries, "patient-sheet paper rule boundaries are missing or misordered");
-const paperRules = hasPaperBoundaries ? therapyCss.slice(paperStart, paperEnd) : therapyCss;
+const paperRules = hasPaperBoundaries ? globalsForTherapy.slice(paperBlockStart, paperBlockEnd) : "";
 assert(
   !/var\(--(?:background|surface|border|text|clinical|command|focus)/.test(paperRules),
   "patient-sheet paper rules leaked theme-reactive application tokens",

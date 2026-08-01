@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { SharedSearchAppShell } from "@/components/clinical-dashboard/shared-search-app-shell";
-import "@/components/therapy-compass/therapy-compass.css";
 
 /**
  * Shared search chrome for mode homes and related routes. Keeping GlobalSearchShell

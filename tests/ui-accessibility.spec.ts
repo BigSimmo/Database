@@ -635,14 +635,15 @@ test.describe("Clinical KB accessibility coverage", () => {
     expect(clinicianSwitchSize.width).toBeGreaterThanOrEqual(44);
     expect(clinicianSwitchSize.height).toBeGreaterThanOrEqual(44);
 
-    const therapyPicker = page.locator("button.tc-screens-sheets-screen-051");
-    await expect(therapyPicker).toHaveAttribute("aria-expanded", "false");
-    await therapyPicker.click();
-    await expect(therapyPicker).toHaveAttribute("aria-expanded", "true");
-    await therapyPicker.click();
-    await expect(therapyPicker).toHaveAttribute("aria-expanded", "false");
+    // Sheet builder therapy picker — the only aria-expanded control in the builder rail.
+    const builderPicker = page.locator("[data-therapy-root] button[aria-expanded]").first();
+    await expect(builderPicker).toHaveAttribute("aria-expanded", "false");
+    await builderPicker.click();
+    await expect(builderPicker).toHaveAttribute("aria-expanded", "true");
+    await builderPicker.click();
+    await expect(builderPicker).toHaveAttribute("aria-expanded", "false");
 
-    const paper = page.locator(".tc-paper");
+    const paper = page.locator("[data-therapy-paper]");
     const paperColors = await paper.evaluate((element) => {
       const style = getComputedStyle(element);
       return {

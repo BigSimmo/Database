@@ -19,6 +19,8 @@ import { CheckIcon, SlidersIcon, XIcon } from "./icons";
  *
  * The controls here are the same `aria-pressed` toggles the wide viewport has
  * always used, so both breakpoints now describe the same state the same way.
+ * Selected / success visuals come from the softControl recipe (`aria-pressed`
+ * and `data-tone=success`) — no parallel `tc-is-*` classes.
  */
 export function TherapyFilterSheet({
   open,
@@ -65,12 +67,7 @@ export function TherapyFilterSheet({
       testId="therapy-filter-panel"
       headerActions={
         clearableCount > 0 ? (
-          <button
-            type="button"
-            onClick={onClear}
-            data-testid="therapy-filter-clear"
-            className={`tc-btn ${outlineControl}`}
-          >
+          <button type="button" onClick={onClear} data-testid="therapy-filter-clear" className={outlineControl}>
             <XIcon size={15} strokeWidth={1.8} />
             Clear all
           </button>
@@ -81,7 +78,7 @@ export function TherapyFilterSheet({
           <span aria-live="polite" className="nums mr-auto text-2xs font-semibold">
             {resultCount} therap{resultCount === 1 ? "y" : "ies"}
           </span>
-          <button type="button" onClick={onClose} data-testid="therapy-filter-done" className={`tc-btn ${softControl}`}>
+          <button type="button" onClick={onClose} data-testid="therapy-filter-done" className={softControl}>
             Show {resultCount} therap{resultCount === 1 ? "y" : "ies"}
           </button>
         </div>
@@ -98,7 +95,7 @@ export function TherapyFilterSheet({
                 type="button"
                 onClick={() => onToggleTopic(topic)}
                 aria-pressed={on}
-                className={`tc-btn min-h-12 ${softControl}${on ? " tc-is-selected" : ""}`}
+                className={`${softControl} min-h-12`}
               >
                 {on ? <CheckIcon size={14} strokeWidth={2} /> : null}
                 {topic}
@@ -115,17 +112,13 @@ export function TherapyFilterSheet({
             type="button"
             onClick={onToggleReviewed}
             aria-pressed={reviewedOnly}
-            className={`tc-btn min-h-12 ${softControl}${reviewedOnly ? " tc-is-success" : ""}`}
+            data-tone={reviewedOnly ? "success" : undefined}
+            className={`${softControl} min-h-12`}
           >
             {reviewedOnly ? <CheckIcon size={14} strokeWidth={2} /> : null}
             Reviewed only
           </button>
-          <button
-            type="button"
-            onClick={onToggleBrief}
-            aria-pressed={briefOnly}
-            className={`tc-btn min-h-12 ${softControl}${briefOnly ? " tc-is-selected" : ""}`}
-          >
+          <button type="button" onClick={onToggleBrief} aria-pressed={briefOnly} className={`${softControl} min-h-12`}>
             {briefOnly ? <CheckIcon size={14} strokeWidth={2} /> : null}
             Brief available
           </button>
@@ -152,11 +145,12 @@ export function TherapyFilterTrigger({
       type="button"
       onClick={onToggle}
       aria-expanded={open}
+      aria-pressed={activeCount > 0}
       aria-haspopup="dialog"
       aria-controls={open ? panelId : undefined}
       data-testid="therapy-filter-trigger"
       title="Filter therapies"
-      className={`tc-btn ${softControl}${activeCount > 0 ? " tc-is-selected" : ""}`}
+      className={softControl}
     >
       <SlidersIcon size={15} strokeWidth={1.8} />
       Filter

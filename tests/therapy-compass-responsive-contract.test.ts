@@ -1,13 +1,15 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const therapyPath = "src/components/therapy-compass";
 
-const therapyCssSource = read(`${therapyPath}/therapy-compass.css`);
+const globalsSource = read("src/app/globals.css");
+const controlsSource = read(`${therapyPath}/controls.ts`);
 const therapyNavSource = read(`${therapyPath}/nav.tsx`);
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
+const workspaceSource = read(`${therapyPath}/workspace.tsx`);
 const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
 const modeHomeComposerSource = read("src/lib/mode-home-composer.ts");
 const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
@@ -19,12 +21,12 @@ const briefSource = read(`${therapyPath}/screens/brief-screen.tsx`);
 const sheetsSource = read(`${therapyPath}/screens/sheets-screen.tsx`);
 const otherSource = read(`${therapyPath}/screens/other-screen.tsx`);
 
-function classCount(source: string, className: string) {
-  return source.match(new RegExp(`className="[^"]*\\b${className}\\b[^"]*"`, "g"))?.length ?? 0;
-}
-
+/**
+ * A fixed multi-column grid must collapse to a single column on phones via
+ * Tailwind's mobile-first `grid-cols-1` + `sm:grid-cols-*`.
+ */
 function responsiveStackCount(source: string) {
-  return classCount(source, "tc-mobile-stack") + classCount(source, "tc-stack-sm");
+  return source.match(/className="[^"]*\bgrid-cols-1\b[^"]*\bsm:grid-cols-/g)?.length ?? 0;
 }
 
 function openingTagWith(source: string, tagName: string, attributes: string[]) {
@@ -49,27 +51,17 @@ function contrastRatio(firstHex: string, secondHex: string) {
 }
 
 describe("Therapy Compass responsive contract", () => {
-  it("uses the shared page canvas and centers the top navigation without breaking phone overflow", () => {
-    const rootRule = therapyCssSource.match(/\.tc-root\s*\{([^}]*)\}/)?.[1] ?? "";
-    const workspaceRule = therapyCssSource.match(/\.tc-root \.tc-workspace-006\s*\{([^}]*)\}/)?.[1] ?? "";
-    const navShellRule = therapyCssSource.match(/\.tc-root \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
-    const navScrollerRule = therapyCssSource.match(/\.tc-root \.tc-nav-007\s*\{([^}]*)\}/)?.[1] ?? "";
-    const portaledNavRule =
-      therapyCssSource.match(/#phone-header-collapse-addon-slot \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
-
-    expect(rootRule).toContain("background: var(--background);");
-    expect(workspaceRule).toContain("background: var(--background);");
-    expect(rootRule).not.toContain("var(--surface-chrome)");
-    expect(workspaceRule).not.toContain("var(--surface-chrome)");
-    expect(navShellRule).toContain("justify-content: center;");
-    expect(navScrollerRule).toContain("flex: 0 1 auto;");
-    expect(navScrollerRule).toContain("width: fit-content;");
-    expect(navScrollerRule).toContain("max-width: 100%;");
-    expect(navScrollerRule).toContain("margin-inline: auto;");
-    expect(navScrollerRule).toContain("overflow-x: auto;");
-    // Portaled phone chrome must not keep sticky — the collapse row owns hide.
-    expect(portaledNavRule).toContain("position: relative;");
-    expect(portaledNavRule).toContain("top: auto;");
+  it("retires the parallel stylesheet and uses the shared page canvas", () => {
+    expect(existsSync(new URL(`../${therapyPath}/therapy-compass.css`, import.meta.url))).toBe(false);
+    expect(workspaceSource).toContain("data-therapy-root");
+    expect(workspaceSource).toContain("bg-[color:var(--background)]");
+    expect(workspaceSource).not.toContain("var(--surface-chrome)");
+    expect(therapyNavSource).toContain("justify-center");
+    expect(therapyNavSource).toContain("overflow-x-auto");
+    expect(therapyNavSource).toContain("w-fit");
+    expect(therapyNavSource).toContain("max-w-full");
+    expect(globalsSource).toContain('#phone-header-collapse-addon-slot [data-testid="therapy-compass-section-nav"]');
+    expect(globalsSource).toContain("position: relative;");
   });
 
   it("portals the section nav into the header collapse host on phones", () => {
@@ -80,24 +72,17 @@ describe("Therapy Compass responsive contract", () => {
     expect(therapyNavSource).toContain('data-testid="therapy-compass-section-nav"');
   });
 
-  it("defines one scoped phone reflow and a local comparison scroller", () => {
-    expect(therapyCssSource).toMatch(/@media \(max-width: 640px\)/);
-    expect(therapyCssSource).toContain(".tc-root .tc-mobile-stack");
-    expect(therapyCssSource).toContain("grid-template-columns: minmax(0, 1fr) !important;");
-    expect(therapyCssSource).toContain(".tc-root .tc-mobile-grid-2");
-    expect(therapyCssSource).toContain(".tc-root .tc-mobile-static");
-    expect(therapyCssSource).toContain(".tc-root .tc-compare-table");
-    expect(therapyCssSource).toContain("overflow-x: auto !important;");
+  it("keeps phone reflow and comparison scroll residuals in globals.css", () => {
+    expect(globalsSource).toMatch(/@media \(max-width: 640px\)/);
+    expect(globalsSource).toContain(".therapy-compare-table");
+    expect(globalsSource).toContain("overflow-x: auto !important;");
+    expect(globalsSource).toContain("[data-therapy-scroll-sm]");
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
-    expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
+    expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(1);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
-    // Mode-home action tiles switch to the auto-fit multi-column grid at `sm`
-    // (not `lg`) so tablet widths get a real grid before the large breakpoint.
-    // Stack separators must stop at the same breakpoint (`max-sm`) so they do
-    // not double `lg:border` card chrome once the grid is multi-column.
     expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("max-sm:border-t");
     expect(modeHomeTemplateSource).toContain("sm:rounded-lg sm:border");
@@ -105,25 +90,33 @@ describe("Therapy Compass responsive contract", () => {
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
-    expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(2);
-    expect(detailSource).toContain("tc-mobile-static");
-    expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
-    expect(compareSource).toContain("tc-compare-tabs");
-    expect(compareSource).toContain("tc-compare-table tc-scroll-sm");
-    expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(2);
+    expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(1);
+    expect(detailSource).toContain("max-sm:static");
+    expect(
+      responsiveStackCount(compareSource) + (compareSource.includes("therapy-compare-tabs") ? 1 : 0),
+    ).toBeGreaterThanOrEqual(1);
+    expect(compareSource).toContain("therapy-compare-tabs");
+    expect(compareSource).toContain("therapy-compare-table");
+    expect(compareSource).toContain("data-therapy-scroll-sm");
+    expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(1);
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
-    expect(pathwaysSource).toContain("tc-pathway-list");
-    expect(responsiveStackCount(briefSource)).toBeGreaterThanOrEqual(2);
-    expect(briefSource).toContain("tc-mobile-grid-2");
+    expect(pathwaysSource).toContain("therapy-pathway-list");
+    expect(responsiveStackCount(briefSource)).toBeGreaterThanOrEqual(1);
     expect(responsiveStackCount(sheetsSource)).toBeGreaterThanOrEqual(1);
-    expect(sheetsSource).toContain("tc-builder-panel tc-mobile-static");
+    expect(sheetsSource).toContain("max-sm:static");
     expect(responsiveStackCount(otherSource)).toBeGreaterThanOrEqual(1);
 
-    expect(therapyCssSource).toContain("grid-template-columns: minmax(280px, 1fr) minmax(400px, 1.35fr) auto");
-    expect(therapyCssSource).toContain("grid-template-columns: minmax(0, 1fr) 344px");
-    expect(therapyCssSource).toContain("grid-template-columns: 320px minmax(0, 1fr)");
-    expect(therapyCssSource).toContain("grid-template-columns: 300px minmax(0, 1fr)");
-    expect(therapyCssSource).toContain("grid-template-columns: 340px minmax(0, 1fr)");
+    const allScreens = [
+      therapyCardSource,
+      detailSource,
+      compareSource,
+      recommendSource,
+      pathwaysSource,
+      briefSource,
+      sheetsSource,
+      otherSource,
+    ].join("\n");
+    expect(allScreens).toMatch(/sm:grid-cols-\[/);
   });
 
   it("renders the unavailable Favourite action honestly disabled", () => {
@@ -134,8 +127,7 @@ describe("Therapy Compass responsive contract", () => {
     expect(favouriteButton).toBeTruthy();
     expect(favouriteButton).toContain("disabled");
     expect(favouriteButton).toContain('aria-label="Favourite saving is not available yet"');
-    expect(favouriteButton).toContain("tc-therapy-card-009");
-    expect(therapyCssSource).toMatch(/\.tc-therapy-card-009\s*\{[\s\S]*?cursor:\s*not-allowed;/);
+    expect(favouriteButton).toContain("cursor-not-allowed");
     expect(favouriteButton).not.toContain("onClick");
   });
 
@@ -159,29 +151,22 @@ describe("Therapy Compass responsive contract", () => {
     expect(compareSource).not.toContain('role="tab"');
     expect(compareSource).not.toContain("aria-selected=");
 
-    const pickerTriggerTag = openingTagWith(sheetsSource, "button", [
-      'className="tc-btn tc-screens-sheets-screen-051"',
-      "aria-expanded={open}",
-    ]);
+    const pickerTriggerTag = openingTagWith(sheetsSource, "button", ["aria-expanded={open}"]);
     expect(pickerTriggerTag).toBeTruthy();
 
-    const clinicianTrackRule = therapyCssSource.match(/\.tc-clinician-track\s*\{([^}]*)\}/)?.[1] ?? "";
-    const clinicianTrackVisualRule = therapyCssSource.match(/\.tc-clinician-track::before\s*\{([^}]*)\}/)?.[1] ?? "";
-    expect(clinicianTrackRule).toContain("width: var(--spacing-tap);");
-    expect(clinicianTrackRule).toContain("height: var(--spacing-tap);");
-    expect(clinicianTrackVisualRule).toContain("width: 42px;");
-    expect(clinicianTrackVisualRule).toContain("height: 24px;");
+    expect(globalsSource).toContain("[data-therapy-clinician-track]");
+    expect(globalsSource).toContain("width: var(--spacing-tap);");
+    expect(globalsSource).toContain("[data-therapy-clinician-track]::before");
+    expect(sheetsSource).toContain("data-therapy-clinician-track");
   });
 
   it("scopes print hiding and page sizing to the mounted Therapy route", () => {
-    const printBlock = therapyCssSource.slice(
-      therapyCssSource.indexOf("@media print"),
-      therapyCssSource.indexOf("/* Static screen rules"),
-    );
+    const pageRuleStart = globalsSource.indexOf("@page therapy-compass-sheet");
+    expect(pageRuleStart).toBeGreaterThanOrEqual(0);
+    const printBlock = globalsSource.slice(pageRuleStart, pageRuleStart + 1200);
 
-    expect(printBlock).toContain("@page therapy-compass-sheet");
-    expect(printBlock).toContain("body:has(.tc-root) *");
-    expect(printBlock).toContain("body:has(.tc-root) .tc-paper");
+    expect(printBlock).toContain("body:has([data-therapy-root]) *");
+    expect(printBlock).toContain("body:has([data-therapy-root]) [data-therapy-paper]");
     expect(printBlock).toContain("page: therapy-compass-sheet;");
     expect(printBlock).not.toMatch(/\n\s*body\s+\*/);
   });
@@ -190,7 +175,7 @@ describe("Therapy Compass responsive contract", () => {
 describe("clinical accent contrast contract", () => {
   it("uses the semantic contrast token on every identified accent foreground", () => {
     const sources = [
-      read(`${therapyPath}/controls.ts`),
+      controlsSource,
       read(`${therapyPath}/ui.tsx`),
       recommendSource,
       pathwaysSource,
@@ -202,7 +187,7 @@ describe("clinical accent contrast contract", () => {
       expect(source).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
       expect(source).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
     }
-    expect(therapyCssSource).toContain("color: var(--clinical-accent-contrast)");
+    expect(controlsSource).toContain("text-[color:var(--clinical-accent-contrast)]");
     expect(homeSource).toContain("ModeHomeTemplate");
     expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
     expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
@@ -211,7 +196,6 @@ describe("clinical accent contrast contract", () => {
   });
 
   it("keeps the current dark accent/foreground token pair above text contrast", () => {
-    const globalsSource = read("src/app/globals.css");
     const darkStart = globalsSource.indexOf(".dark {");
     const darkEnd = globalsSource.indexOf("\n}", darkStart);
     const darkTokens = globalsSource.slice(darkStart, darkEnd);

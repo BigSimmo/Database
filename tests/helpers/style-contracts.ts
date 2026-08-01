@@ -281,4 +281,12 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "pwa-install-sheet": "install sheet — presence covered by ui-pwa, effect not contracted",
   "search-band-count": "count weight/colour; the zero-result state needs a deterministic empty fixture first",
   "search-band-rule": "gradient divider — forced-colors fallback covered by ui-accessibility",
+
+  // Therapy Compass residuals moved out of the deleted parallel stylesheet.
+  // Phone/print behaviour is pinned by therapy-compass-responsive-contract; no
+  // browser computed-effect contract yet (#094 / #183).
+  "therapy-compare-grid":
+    "CSS-var comparison columns — column count is set inline via --tc-compare-columns; layout covered by therapy-compass-responsive-contract",
+  "therapy-pathway-list":
+    "phone border swap (right→bottom) under max-width 640px — covered by therapy-compass-responsive-contract",
 };

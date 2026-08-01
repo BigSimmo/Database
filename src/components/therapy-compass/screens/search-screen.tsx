@@ -6,7 +6,7 @@ import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-
 
 import { useTcBindings } from "../bindings";
 import { TherapyFilterSheet, TherapyFilterTrigger } from "../filter-sheet";
-import { outlineControl, softControl } from "../controls";
+import { outlineControl, softControl, therapyBtn } from "../controls";
 import { SearchXIcon, XIcon } from "../icons";
 import { EmptyState, LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
@@ -41,7 +41,7 @@ export function SearchScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   return (
-    <section data-screen-label="Search" className="tc-screens-search-screen-001">
+    <section data-screen-label="Search" className="max-w-[1180px] my-0 mx-auto">
       <SearchResultsHeaderBand
         modeId="therapy-compass"
         query={q}
@@ -62,14 +62,14 @@ export function SearchScreen() {
           />
         }
         filterControls={
-          <div className="tc-screens-search-screen-008">
+          <div className="flex flex-wrap gap-2.5 mb-6">
             {QUICK_TAGS.map((tag) => {
               const on = b.search.tags.includes(tag);
               return (
                 <button
                   key={tag}
                   type="button"
-                  className={`tc-btn ${softControl}${on ? " tc-is-selected" : ""}`}
+                  className={`${therapyBtn} ${softControl}`}
                   onClick={() => b.toggleTag(tag)}
                   aria-pressed={on}
                 >
@@ -79,7 +79,7 @@ export function SearchScreen() {
             })}
             <button
               type="button"
-              className={`tc-btn ${softControl}${b.search.reviewedOnly ? " tc-is-success" : ""}`}
+              className={`${therapyBtn} ${softControl}`}
               onClick={b.toggleReviewedOnly}
               aria-pressed={b.search.reviewedOnly}
             >
@@ -87,13 +87,17 @@ export function SearchScreen() {
             </button>
             <button
               type="button"
-              className={`tc-btn ${softControl}${b.search.briefOnly ? " tc-is-selected" : ""}`}
+              className={`${therapyBtn} ${softControl}`}
               onClick={b.toggleBriefOnly}
               aria-pressed={b.search.briefOnly}
             >
               Brief available
             </button>
-            <button type="button" className="tc-btn tc-screens-search-screen-009" onClick={b.clearSearch}>
+            <button
+              type="button"
+              className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-soft)] text-sm-minus font-medium cursor-pointer`}
+              onClick={b.clearSearch}
+            >
               <XIcon size={15} strokeWidth={1.8} />
               Clear
             </button>
@@ -130,13 +134,13 @@ export function SearchScreen() {
               title="No therapies match those filters"
               body="Try a broader term, remove a tag, or clear the filters to browse the full library."
               action={
-                <button type="button" className={`tc-btn ${outlineControl}`} onClick={b.clearSearch}>
+                <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={b.clearSearch}>
                   Clear filters
                 </button>
               }
             />
           ) : (
-            <div className="tc-screens-search-screen-014">
+            <div className="flex flex-col gap-3.5">
               {shown.map((t) => (
                 <ResultCard key={t.slug} therapy={t} />
               ))}

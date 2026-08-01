@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useTcBindings } from "./bindings";
 import { summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { accentControl, outlineControl } from "./controls";
+import { accentControl, outlineControl, therapyBtn } from "./controls";
 import {
   AlertIcon,
   ChevronRightIcon,
@@ -23,20 +23,22 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
   const inCompare = b.isInCompare(therapy.slug);
   return (
-    <article className="tc-therapy-card-001">
-      <div className="tc-stack-sm tc-therapy-card-002">
-        <div className="tc-therapy-card-003">
+    <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+      <div className="grid grid-cols-1 items-start gap-[22px] px-[22px] py-5 sm:grid-cols-[minmax(280px,1fr)_minmax(400px,1.35fr)_auto]">
+        <div className="flex min-w-0 gap-[15px]">
           <IconTile icon={ScaleIcon} />
-          <div className="tc-therapy-card-004">
-            <h3 className="tc-therapy-card-005">{therapy.name}</h3>
-            <p className="tc-therapy-card-006">
+          <div className="min-w-0">
+            <h3 className="m-0 mb-[5px] text-[color:var(--text-heading)] tracking-[-0.01em] text-base font-semibold">
+              {therapy.name}
+            </h3>
+            <p className="m-0 mb-[11px] text-sm-minus leading-normal text-[color:var(--text-muted)]">
               {summarise(therapy.clinicalSummary, 1) || therapy.bestUsedFor || therapy.category}
             </p>
             <TagRow tags={therapy.tags.length ? therapy.tags : [therapy.category]} max={4} />
           </div>
         </div>
 
-        <div className="tc-stack-sm tc-therapy-card-007">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-3">
           <CardCell
             icon={CrosshairIcon}
             eyebrow="WHY MATCHED"
@@ -61,10 +63,10 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           />
         </div>
 
-        <div className="tc-therapy-card-008">
+        <div className="flex gap-1">
           <button
             type="button"
-            className="tc-btn tc-therapy-card-009"
+            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-[9px] border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65`}
             disabled
             title="Favourite saving is not available yet"
             aria-label="Favourite saving is not available yet"
@@ -73,10 +75,10 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           </button>
         </div>
       </div>
-      <div className="tc-therapy-card-010">
+      <div className="flex flex-wrap gap-2.5 px-[22px] pb-5">
         <button
           type="button"
-          className={`tc-btn ${accentControl} tc-flex-control`}
+          className={`${therapyBtn} ${accentControl} min-w-[150px] flex-1`}
           onClick={() => b.open(therapy.slug)}
         >
           <ExternalLinkIcon size={16} strokeWidth={1.8} />
@@ -84,7 +86,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`tc-btn ${outlineControl}${inCompare ? " tc-is-selected" : ""}`}
+          className={`${therapyBtn} ${outlineControl}`}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
         >
@@ -93,7 +95,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`tc-btn ${outlineControl}`}
+          className={`${therapyBtn} ${outlineControl}`}
           onClick={() => b.openSheet(therapy.slug)}
           disabled={!therapy.patientSheetAvailable}
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
@@ -118,8 +120,10 @@ function CardCell({
   text: string;
 }) {
   return (
-    <div className={`tc-card-cell tc-card-cell-${tone}`}>
-      <div className="tc-card-cell-heading">
+    <div
+      className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === "accent" ? "text-[color:var(--clinical-accent)]" : tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]" : "text-[color:var(--text-soft)]"}`}
+    >
+      <div className="mb-[7px] flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.9} />
         <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
       </div>
@@ -145,21 +149,23 @@ export function TherapyListItem({
   return (
     <button
       type="button"
-      className={`tc-btn tc-row tc-therapy-list-item${active ? " tc-is-active" : ""}`}
+      className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
       onClick={onClick}
       aria-pressed={active}
     >
       <IconTile icon={ScaleIcon} size={38} variant={active ? "accent" : "soft"} />
-      <span className="tc-therapy-card-011">
-        <span className="tc-therapy-card-012">{therapy.name}</span>
-        <span className="tc-therapy-card-013">{subtitle ?? therapy.bestUsedFor ?? therapy.category}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">{therapy.name}</span>
+        <span className="mt-0.5 block overflow-hidden text-xs text-ellipsis whitespace-nowrap text-[color:var(--text-muted)]">
+          {subtitle ?? therapy.bestUsedFor ?? therapy.category}
+        </span>
       </span>
       {trailing ?? (
-        <span className="tc-therapy-card-014">
+        <span className="flex-none text-[color:var(--text-soft)]">
           {therapy.reviewStatus === "reviewed" ? null : <AlertIcon size={15} strokeWidth={1.8} />}
         </span>
       )}
-      <ChevronRightIcon size={15} strokeWidth={1.8} className="tc-therapy-card-015" />
+      <ChevronRightIcon size={15} strokeWidth={1.8} className="flex-none text-[color:var(--text-soft)]" />
     </button>
   );
 }

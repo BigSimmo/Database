@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 import { useTcBindings } from "../bindings";
-import { commandControl, outlineControl } from "../controls";
+import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
 import { ArrowRightIcon, CheckIcon, CopyIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
 import { LoadingState } from "../ui";
@@ -35,31 +35,35 @@ export function RecommendScreen() {
     );
 
   return (
-    <section data-screen-label="Recommend" className="tc-screens-recommend-screen-001">
-      <h1 className="tc-screens-recommend-screen-002">Recommend Tool</h1>
-      <p className="tc-screens-recommend-screen-003">
+    <section data-screen-label="Recommend" className="max-w-[1180px] my-0 mx-auto">
+      <h1 className="mt-0 mx-0 mb-1.5 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">
+        Recommend Tool
+      </h1>
+      <p className="mt-0 mx-0 mb-[22px] text-sm text-[color:var(--text-muted)]">
         Refine a clinical question with setting, time and caution constraints.
       </p>
 
-      <div className="tc-screens-recommend-screen-004">
-        <label htmlFor="tc-rec-q" className="tc-screens-recommend-screen-005">
+      <div className="bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[22px]">
+        <label htmlFor="tc-rec-q" className="block text-xs font-semibold text-[color:var(--text-heading)] mb-[9px]">
           What do you need help choosing?
         </label>
         <textarea
           id="tc-rec-q"
           value={b.recQuery}
           onChange={(e) => b.setRecQuery(e.target.value)}
-          className="tc-screens-recommend-screen-006"
+          className="w-full min-h-[74px] py-[13px] px-[15px] border border-[color:var(--border-strong)] rounded-lg bg-[color:var(--surface)] text-[color:var(--text)] text-base-minus leading-normal resize-y"
         />
-        <div className="tc-screens-recommend-screen-007">QUICK CONSTRAINTS</div>
-        <div className="tc-screens-recommend-screen-008">
+        <div className="text-2xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mt-5 mx-0 mb-2.5">
+          QUICK CONSTRAINTS
+        </div>
+        <div className="flex flex-wrap gap-[9px]">
           {RECOMMEND_CONSTRAINTS.map((c) => {
             const on = b.recConstraints.includes(c.key);
             return (
               <button
                 key={c.key}
                 type="button"
-                className={`tc-btn tc-recommend-constraint${on ? " tc-is-active" : ""}`}
+                className={`${therapyBtn} inline-flex min-h-tap items-center rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)] aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)] aria-pressed:font-semibold aria-pressed:text-[color:var(--clinical-accent-hover)]`}
                 onClick={() => b.toggleConstraint(c.key)}
                 aria-pressed={on}
               >
@@ -81,17 +85,17 @@ export function RecommendScreen() {
             );
           })}
         </div>
-        <div className="tc-screens-recommend-screen-009">
+        <div className="flex items-center justify-between mt-[18px] gap-3 flex-wrap">
           <button
             type="button"
-            className={`tc-btn ${outlineControl}`}
+            className={`${therapyBtn} ${outlineControl}`}
             onClick={copyShortlist}
             disabled={!ranked.length}
           >
             {copied === "shortlist" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
             {copied === "shortlist" ? "Copied" : "Copy shortlist"}
           </button>
-          <button type="button" className={`tc-btn ${commandControl}`} onClick={b.goSearch}>
+          <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
             <SearchIcon size={16} strokeWidth={1.9} />
             Refine in search
           </button>
@@ -103,23 +107,29 @@ export function RecommendScreen() {
       ) : (
         <>
           {/* top match */}
-          <div className="tc-screens-recommend-screen-010">
-            <div className="tc-screens-recommend-screen-011">
-              <span className="tc-screens-recommend-screen-012">
+          <div className="bg-[color:var(--surface)] border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] rounded-xl shadow-[var(--shadow-soft)] py-[22px] px-6 mb-[26px]">
+            <div className="flex items-start gap-3.5 mb-[18px]">
+              <span className="inline-flex items-center justify-center w-[40px] h-[40px] rounded-lg bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] flex-none">
                 <SparkleIcon size={20} strokeWidth={1.7} />
               </span>
-              <div className="tc-screens-recommend-screen-013">
-                <div className="tc-screens-recommend-screen-014">
-                  <span className="tc-screens-recommend-screen-015">{top.name}</span>
-                  <span className="tc-screens-recommend-screen-016">Strong match</span>
-                  {top.modality ? <span className="tc-screens-recommend-screen-017">{top.modality}</span> : null}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2.5 flex-wrap mb-[5px]">
+                  <span className="text-base font-semibold text-[color:var(--text-heading)]">{top.name}</span>
+                  <span className="text-2xs font-semibold text-[color:var(--success-text)] bg-[color:var(--success-bg)] border border-[color:var(--success-border)] py-0.5 px-[9px] rounded-sm">
+                    Strong match
+                  </span>
+                  {top.modality ? (
+                    <span className="text-2xs font-semibold text-[color:var(--info-text)] bg-[color:var(--info-bg)] border border-[color:var(--info-border)] py-0.5 px-[9px] rounded-sm">
+                      {top.modality}
+                    </span>
+                  ) : null}
                 </div>
-                <p className="tc-screens-recommend-screen-018">
+                <p className="m-0 text-sm-minus leading-normal text-[color:var(--text-muted)]">
                   {summarise(top.clinicalSummary, 2) || top.bestUsedFor}
                 </p>
               </div>
             </div>
-            <div className="tc-mobile-stack tc-screens-recommend-screen-019">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
               <MatchCell eyebrow="WHAT IT TREATS" text={top.bestUsedFor || top.indications || "—"} />
               <MatchCell
                 eyebrow="HOW IT HELPS"
@@ -130,17 +140,17 @@ export function RecommendScreen() {
                 tone="accent"
                 text={`Open the record for the full protocol, or generate a patient sheet.`}
               >
-                <div className="tc-screens-recommend-screen-020">
+                <div className="flex gap-2 mt-2.5">
                   <button
                     type="button"
-                    className="tc-btn tc-screens-recommend-screen-021"
+                    className={`${therapyBtn} flex-1 h-[38px] border-0 rounded-md bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] text-sm-minus font-semibold cursor-pointer`}
                     onClick={() => b.open(top.slug)}
                   >
                     Open record
                   </button>
                   <button
                     type="button"
-                    className="tc-btn tc-screens-recommend-screen-022"
+                    className={`${therapyBtn} flex-1 h-[38px] border border-[color:var(--clinical-accent-border)] rounded-md bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] text-sm-minus font-semibold cursor-pointer`}
                     onClick={() => b.openSheet(top.slug)}
                     disabled={!top.patientSheetAvailable}
                     title={top.patientSheetAvailable ? undefined : "This record has no patient sheet"}
@@ -152,16 +162,26 @@ export function RecommendScreen() {
             </div>
           </div>
 
-          <div className="tc-screens-recommend-screen-023">Ranked clinical matches</div>
-          <div className="tc-screens-recommend-screen-024">
+          <div className="text-base-minus font-semibold text-[color:var(--text-heading)] mb-3.5">
+            Ranked clinical matches
+          </div>
+          <div className="flex flex-col gap-3">
             {rest.map(({ therapy: t }, i) => (
-              <div key={t.slug} className="tc-stack-sm tc-screens-recommend-screen-025">
-                <span className="tc-screens-recommend-screen-026">{i + 2}</span>
-                <div className="tc-screens-recommend-screen-027">
-                  <div className="tc-screens-recommend-screen-028">{t.name}</div>
-                  <div className="tc-screens-recommend-screen-029">
+              <div
+                key={t.slug}
+                className="grid grid-cols-1 sm:grid-cols-[auto_minmax(220px,_1.3fr)_1.1fr_1.1fr_auto] gap-5 items-center bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-tight)] py-4 px-5"
+              >
+                <span className="inline-flex items-center justify-center w-[28px] h-[28px] rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] text-sm-minus font-bold">
+                  {i + 2}
+                </span>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-[color:var(--text-heading)] mb-1.5">{t.name}</div>
+                  <div className="flex gap-1.5 flex-wrap">
                     {(t.tags.length ? t.tags : [t.category]).slice(0, 2).map((tag) => (
-                      <span key={tag} className="tc-screens-recommend-screen-030">
+                      <span
+                        key={tag}
+                        className="text-2xs font-semibold py-0.5 px-2 rounded-sm bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -169,17 +189,17 @@ export function RecommendScreen() {
                 </div>
                 <ColMini eyebrow="TREATS" text={summarise(top === t ? "" : t.bestUsedFor, 1) || t.bestUsedFor || "—"} />
                 <ColMini eyebrow="FIRST STEP" text={t.timeRequired || t.setting || "—"} />
-                <div className="tc-screens-recommend-screen-031">
+                <div className="flex gap-1.5">
                   <button
                     type="button"
-                    className="tc-btn tc-screens-recommend-screen-032"
+                    className={`${therapyBtn} h-[34px] py-0 px-3 border-0 rounded-md bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] text-xs font-semibold cursor-pointer`}
                     onClick={() => b.open(t.slug)}
                   >
                     Open
                   </button>
                   <button
                     type="button"
-                    className="tc-btn tc-screens-recommend-screen-033"
+                    className={`${therapyBtn} h-[34px] py-0 px-3 border border-[color:var(--border-strong)] rounded-md bg-[color:var(--surface)] text-[color:var(--text)] text-xs font-semibold cursor-pointer`}
                     onClick={() => b.openSheet(t.slug)}
                     disabled={!t.patientSheetAvailable}
                     title={t.patientSheetAvailable ? undefined : "This record has no patient sheet"}
@@ -191,7 +211,7 @@ export function RecommendScreen() {
             ))}
           </div>
 
-          <div className="tc-screens-recommend-screen-034">
+          <div className="flex items-center gap-2 mt-[18px] text-xs text-[color:var(--text-soft)]">
             <ShieldIcon size={15} />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
@@ -213,8 +233,10 @@ function MatchCell({
   children?: ReactNode;
 }) {
   return (
-    <div className={`tc-match-cell${tone === "accent" ? " tc-match-cell-accent" : ""}`}>
-      <div className="tc-match-cell-heading">
+    <div
+      className={`bg-[color:var(--surface)] p-3.5 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)]${tone === "accent" ? " bg-[color:var(--clinical-accent-soft)]" : ""}`}
+    >
+      <div className="mb-2 flex items-center gap-1.5 text-2xs font-bold tracking-eyebrow">
         <ArrowRightIcon size={13} strokeWidth={1.9} />
         {eyebrow}
       </div>
@@ -226,9 +248,9 @@ function MatchCell({
 
 function ColMini({ eyebrow, text }: { eyebrow: string; text: string }) {
   return (
-    <div className="tc-screens-recommend-screen-035">
-      <div className="tc-screens-recommend-screen-036">{eyebrow}</div>
-      <p className="tc-screens-recommend-screen-037">{text}</p>
+    <div className="min-w-0">
+      <div className="text-3xs font-bold tracking-[0.04em] text-[color:var(--text-soft)] mb-1">{eyebrow}</div>
+      <p className="m-0 text-xs leading-normal text-[color:var(--text-muted)] overflow-hidden line-clamp-2">{text}</p>
     </div>
   );
 }

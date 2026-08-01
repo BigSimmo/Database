@@ -24,23 +24,9 @@ describe("design-system contract helpers", () => {
     ).toEqual([]);
   });
 
-  it("masks raw colours only inside the two fixed-paper rendering scopes", () => {
+  it("masks raw colours only inside the fixed-paper factsheet rendering scope", () => {
     const reportFailure = vi.fn();
-    const therapySource = [
-      ".tc-app { color: #123456; }",
-      ".tc-paper { /* a closing brace here must be inert: } */ color: #ffffff; }",
-      ".tc-app-after-paper { color: #654321; }",
-      "@media print { /* an opening brace here must be inert: { */ body { background: #ffffff; } }",
-    ].join("\n");
-    const scopedTherapy = rawColorContractSource(
-      "src/components/therapy-compass/therapy-compass.css",
-      therapySource,
-      reportFailure,
-    );
-    expect(scopedTherapy).toContain("#123456");
-    expect(scopedTherapy).toContain("#654321");
-    expect(scopedTherapy).not.toContain("#ffffff");
-
+    // Therapy paper tokens now live in globals.css, which is whole-file exempt.
     const factsheetSource = [
       'const appChrome = "#123456";',
       'function FactsheetPrintSheet() { return <div style={{ color: "#ffffff" }} />; }',
@@ -123,13 +109,13 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
   });
 
-  it("fails closed when a fixed-paper boundary disappears", () => {
+  it("fails closed when a fixed-paper factsheet boundary disappears", () => {
     const reportFailure = vi.fn();
-    const source = ".tc-app { color: #123456; }";
+    const source = 'const appChrome = "#123456";';
 
-    expect(rawColorContractSource("src/components/therapy-compass/therapy-compass.css", source, reportFailure)).toBe(
+    expect(rawColorContractSource("src/components/factsheets/factsheet-detail-page.tsx", source, reportFailure)).toBe(
       source,
     );
-    expect(reportFailure).toHaveBeenCalledWith("printable Therapy paper raw-color boundaries are missing");
+    expect(reportFailure).toHaveBeenCalledWith("printable factsheet paper boundary is missing");
   });
 });
