@@ -719,6 +719,9 @@ test("Services results keep a continuous browser viewport after shared chrome re
   // Safari toolbar changes shrink and expand the visual viewport after a
   // scroll. Document ownership must keep the reading offset and its content
   // anchor stable without switching back to a fixed or nested canvas.
+  const overlayReserveBefore = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--phone-overlay-chrome-h").trim(),
+  );
   await page.setViewportSize({ width: phoneViewport.width, height: phoneViewport.height - 64 });
   // Wait for chrome *and* the result anchor to settle rather than sleeping
   // (#146). A viewport-range / height change can spuriously re-show chrome under
@@ -727,39 +730,57 @@ test("Services results keep a continuous browser viewport after shared chrome re
   // contract failed. While chrome is up the results anchor sits exactly
   // `collapseHeight + safe-area-top` lower — 72 + 59 = the 131 px jump that
   // failed this assertion on multiple heads, with `documentScrollTop`
-  // unchanged. Polling only `header.bottom <= 1` is a false settle: the bar can
-  // clear the top edge a frame before `data-scroll-hidden` and the content
-  // anchor finish recovering (reproduced on PR #1521 tip `061468e4`, Production
-  // UI shard 1). Keep the 0.5px anchor tolerance (#146 stop rule).
+  // unchanged. A related CI failure (PR #1562) kept chrome attribute-hidden and
+  // scrollTop stable while the overlay reserve briefly published `0px` then
+  // restored — same 131px anchor jump, different half of the contract. Polling
+  // only `header.bottom <= 1` is a false settle: the bar can clear the top edge
+  // a frame before `data-scroll-hidden` and the content anchor finish recovering
+  // (reproduced on PR #1521 tip `061468e4`, Production UI shard 1). Keep the
+  // 0.5px anchor tolerance (#146 stop rule) and require a positive overlay
+  // reserve so a 0px publish cannot read as settled chrome.
   await expect
     .poll(
       async () => {
-        return page.evaluate((expectedAnchorTop) => {
-          const header = document.querySelector("header#search");
-          const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
-          const dock = document.querySelector(".answer-footer-search-dock");
-          const resultList = document.querySelector('[data-testid="service-search-results"]');
-          const scrollingElement = document.scrollingElement ?? document.documentElement;
-          const headerBottom = header?.getBoundingClientRect().bottom ?? -1;
-          const anchorTop = resultList?.getBoundingClientRect().top ?? Number.NaN;
-          const chromeHidden =
-            headerBottom <= 1 &&
-            collapse?.getAttribute("data-scroll-hidden") === "true" &&
-            dock?.getAttribute("data-scroll-hidden") === "true";
-          const anchorStable = Number.isFinite(anchorTop) && Math.abs(anchorTop - expectedAnchorTop) < 0.5;
-          return {
-            ok: chromeHidden && anchorStable,
-            chromeHidden,
-            anchorStable,
-            headerBottom,
-            collapseHidden: collapse?.getAttribute("data-scroll-hidden"),
-            dockHidden: dock?.getAttribute("data-scroll-hidden"),
-            scrollSignal: collapse?.getAttribute("data-scroll-signal") ?? "missing",
-            anchorTop,
-            expectedAnchorTop,
-            documentScrollTop: scrollingElement.scrollTop,
-          };
-        }, hidden.anchorTop);
+        return page.evaluate(
+          ({ expectedAnchorTop, expectedReserve }) => {
+            const header = document.querySelector("header#search");
+            const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
+            const dock = document.querySelector(".answer-footer-search-dock");
+            const resultList = document.querySelector('[data-testid="service-search-results"]');
+            const scrollingElement = document.scrollingElement ?? document.documentElement;
+            const headerBottom = header?.getBoundingClientRect().bottom ?? -1;
+            const anchorTop = resultList?.getBoundingClientRect().top ?? Number.NaN;
+            const overlayReserve = getComputedStyle(document.documentElement)
+              .getPropertyValue("--phone-overlay-chrome-h")
+              .trim();
+            const reservePx = Number.parseFloat(overlayReserve);
+            const chromeHidden =
+              headerBottom <= 1 &&
+              collapse?.getAttribute("data-scroll-hidden") === "true" &&
+              dock?.getAttribute("data-scroll-hidden") === "true";
+            const anchorStable = Number.isFinite(anchorTop) && Math.abs(anchorTop - expectedAnchorTop) < 0.5;
+            const reserveStable =
+              Number.isFinite(reservePx) &&
+              reservePx > 0 &&
+              (!expectedReserve || Math.abs(reservePx - Number.parseFloat(expectedReserve)) < 1);
+            return {
+              ok: chromeHidden && anchorStable && reserveStable,
+              chromeHidden,
+              anchorStable,
+              reserveStable,
+              headerBottom,
+              collapseHidden: collapse?.getAttribute("data-scroll-hidden"),
+              dockHidden: dock?.getAttribute("data-scroll-hidden"),
+              scrollSignal: collapse?.getAttribute("data-scroll-signal") ?? "missing",
+              anchorTop,
+              expectedAnchorTop,
+              overlayReserve,
+              expectedReserve,
+              documentScrollTop: scrollingElement.scrollTop,
+            };
+          },
+          { expectedAnchorTop: hidden.anchorTop, expectedReserve: overlayReserveBefore },
+        );
       },
       {
         timeout: 10_000,
