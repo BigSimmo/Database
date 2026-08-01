@@ -236,6 +236,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   return lines;
 }
 
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
 export function localGitBaseline(root = process.cwd(), env = process.env) {
   for (const ref of ["refs/remotes/origin/main", "refs/heads/main"]) {
     const result = spawnSync("git", ["show-ref", "--verify", "--quiet", ref], {
