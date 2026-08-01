@@ -242,7 +242,7 @@ function DocumentFilterPanel({
             onClick={onDone}
             data-testid="document-filter-done"
             className={cn(
-              "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-10",
+              "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
               "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             )}
           >
