@@ -183,7 +183,7 @@ export function BriefScreen() {
                 <ExternalLinkIcon size={14} strokeWidth={1.7} />
               </button>
             </div>
-            <div className="grid grid-cols-2 grid-cols-[1fr_1fr_1fr_1fr] gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-[1px] bg-[color:var(--border)] border border-[color:var(--border)] rounded-lg overflow-hidden">
               <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
               <MetaCell eyebrow="FIRST STEP" text={steps[0] || summarise(durationText, 1) || "—"} />
               <MetaCell
