@@ -31,7 +31,7 @@ Privacy constraints for agent monitoring:
 
 - `recordInputs` / `recordOutputs` are **false** on the wrap and `dataCollection.genAI` is `{ inputs: false, outputs: false }` in both runtime configs — prompts, clinical queries, source evidence, generated answers, and embedding inputs are never recorded.
 - `privacySafeTransactionEvent` allowlists only gen_ai metadata attributes (system, operation name, request/response model, response id, finish reasons, token usage, conversation id) and rebuilds gen_ai span descriptions as `<operation> <model>` from those attributes. Message, prompt, tool-payload, and embedding-input attributes are stripped on export even if a future SDK version records them.
-- Each answer request (`/api/answer` and `/api/answer/stream`, summaries included) calls `Sentry.setConversationId(<interactionId>)` — the request's synthetic UUID — so the embedding/generation calls of one request group into one conversation without carrying any query text.
+- Each answer / stream / document-summarize request calls `Sentry.setConversationId(<interactionId>)` **before** OpenAI work — the request's synthetic UUID — so the embedding/generation calls of one request group into one conversation without carrying any query text.
 - User identification (`Sentry.setUser`) is deliberately **not** wired: the committed privacy boundary strips `user` from every outgoing event (see the tests), and linking clinical-query telemetry to an identity would need its own governance review first.
 - `responses.parse` (schema-parsed generation) is not in the SDK's instrumentation registry and emits no gen_ai span; `responses.create` and `embeddings.create` are covered.
 
@@ -48,6 +48,21 @@ Three failure paths report, each tagged with a fixed stage label:
 - `fatal` — the worker loop stopped. Events are flushed before exit, and the existing `WORKER_FAILURE_WEBHOOK_URL` dispatch still fires independently.
 
 Privacy constraints are stricter here than for the app, because ingestion errors routinely quote storage paths, filenames, and extracted clinical text: the exception message is discarded like every other event, and the only added tags are `service=worker` and `worker_stage`, both set from code literals and never from job, document, or owner data. Worker events have no route pattern, so grouping uses `service` + stage + runtime error type + top frame. `tests/worker-observability.test.ts` pins that a document id, owner id, storage path, filename, and extracted text are all stripped.
+
+### Sentry “Agent Monitoring” wizard mapping
+
+The product wizard’s copy is generic. Map it to this repo as follows — do **not** paste the wizard’s sample code:
+
+| Wizard step                      | This repo                                                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install `@sentry/nextjs` ≥ 10.67 | repository dependency `@sentry/nextjs@^10.69.0` (lockfile resolves `10.69.0`); `10.67` is the minimum supported version; do not switch to pnpm                           |
+| `Sentry.init` + tracing          | `src/sentry.server.config.ts` / `src/sentry.edge.config.ts`; DSN from `SENTRY_DSN` only (never hardcode); default `tracesSampleRate` 0.1 via `SENTRY_TRACES_SAMPLE_RATE` |
+| `dataCollection.genAI`           | Explicitly `{ inputs: false, outputs: false }`                                                                                                                           |
+| `instrumentOpenAiClient`         | `instrumentOpenAIClientForAgentMonitoring` in `createOpenAIClient()` — `recordInputs`/`recordOutputs` **false**                                                          |
+| `setConversationId`              | `setAgentConversationId(interactionId)` on `/api/answer`, `/api/answer/stream`, and `/api/documents/[id]/summarize`                                                      |
+| `setUser` (optional)             | **Rejected** — scrubbers strip `user`; do not wire                                                                                                                       |
+
+Leaving wizard checkboxes for “record inputs/outputs” or “identify users” unchecked is expected and correct for this clinical app.
 
 ### Structured logs (Sentry Logs)
 
@@ -87,8 +102,6 @@ When enabling tracing, also review a sampled transaction in Sentry and confirm s
 Source-map upload is wired in `next.config.ts` (`withSentryConfig`, `deleteSourcemapsAfterUpload: true` — maps are uploaded to Sentry and never served publicly) but stays **inert** unless all three of `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` are present at build time. None are set in the Railway production service today, so builds do not contact Sentry and production frames arrive minified. Supplying those three is an operator decision: it makes stack traces readable at the cost of build-time provider coupling, and the auth token needs only project release/sourcemap scope.
 
 When enabling logs, inspect a sample in **Explore → Logs** and confirm bodies are allowlisted static strings with only operational attributes. Set `SENTRY_ENABLE_LOGS=false` to disable logs without removing the DSN.
-
-No source-map upload is configured: builds do not contact Sentry and do not require a Sentry auth token. This reduces provider coupling, at the cost of less useful minified production frames. Reconsider source maps only through a separate privacy and build-provider review.
 
 ## Disable and rollback
 
