@@ -148,7 +148,9 @@ local credentials or enabling live provider access.
   and TGA Software as a Medical Device screening where applicable.
 - See `docs/clinical-governance.md` for the deployment governance checklist.
 
-## Cursor Supabase MCP
+## Cursor MCP
+
+### Supabase
 
 This repo ships workspace Supabase MCP config in `.cursor/mcp.json` and agent
 skills under `.cursor/skills/supabase*`. Use them for database inspection,
@@ -180,6 +182,19 @@ a fresh agent session.
 
 Never put `SUPABASE_SERVICE_ROLE_KEY` or other secrets into MCP config. The
 hosted Supabase MCP server uses OAuth, not repo secrets.
+
+### Context7
+
+Workspace config in `.cursor/mcp.json` points at `https://mcp.context7.com/mcp`;
+`.cursor/settings.json` enables the `context7-plugin`. Use Context7 for
+versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest** — not for
+Next.js 16: read `node_modules/next/dist/docs/` locally and do not invent App
+Router APIs from Context7 or training data.
+
+Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://context7.com/dashboard)
+raises rate limits. Set it as a user/OS env var or in Cursor MCP env (`.env.local`
+alone does not feed MCP). Context7 works without a key at lower limits. Full setup
+notes: `docs/agents-guide.md`. Never commit the API key.
 
 ## Documentation
 

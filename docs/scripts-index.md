@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (200 files) and the `package.json` script surface (215 entries),
+Curated map of `scripts/` (202 files) and the `package.json` script surface (215 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -21,6 +21,7 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 | `run-heavy.mjs`                                                                                                           | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely                                                                                                                                    |
 | `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                                                | Typed/test/e2e/eval entrypoint wrappers                                                                                                                                                                                                       |
 | `dev-free-port.mjs`, `ensure-local-server.mjs`                                                                            | Project-stable localhost port selection + background server ensure                                                                                                                                                                            |
+| `design-sync.mjs`, `capture-mockup-screenshots.mjs`                                                                       | Local design-sync CSS prep (`node scripts/design-sync.mjs`) + redesign "current" PNG pack after ensure (`node scripts/capture-mockup-screenshots.mjs`)                                                                                        |
 | `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs`                                | Install/preflight guards                                                                                                                                                                                                                      |
 | `setup-codex-cloud.sh`, `maintain-codex-cloud.sh`, `check-codex-cloud-setup.mjs`, `ensure-codex-cloud-git-remote.mjs`     | Reproducible Codex Cloud toolchain/profile setup, sanitized acceptance, and safe credential-free `origin` repair                                                                                                                              |
 | `ci-change-scope.mjs`, `ci-triage.mjs`, `pr-policy.mjs`, `pr-mergeability.mjs`                                            | CI change classification + PR policy + conflict signal (self-tested via `check:ci-scope`/`check:ci-triage`/`check:pr-policy`/`check:pr-mergeability`)                                                                                         |
