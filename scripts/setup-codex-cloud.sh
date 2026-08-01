@@ -21,6 +21,10 @@ codex_cli_version="0.146.0"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
 [[ -n "$expected_npm_version" ]] || fail "Could not read the npm version from package.json."
 
+# Codex Cloud supplies standards-based proxy variables as well. Remove npm's
+# deprecated lowercase aliases before the first npm invocation.
+unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
+
 install_npm_cli() {
   local package_name="$1"
   local expected_version="$2"
@@ -68,6 +72,19 @@ export CODEX_CLOUD=1
 export CODEX_CLOUD_ACCESS_PROFILE="\${CODEX_CLOUD_ACCESS_PROFILE:-offline}"
 export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
 export PLAYWRIGHT_OFFLINE_MODE="\${PLAYWRIGHT_OFFLINE_MODE:-true}"
+unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
+# Connected access is provided by OAuth-backed MCP servers and the GitHub
+# connector, never by raw provider variables in the agent shell. Scrub the
+# complete inventory in both profiles in case setup-only secrets were inherited.
+unset OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID OPENAI_BASE_URL
+unset NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY
+unset SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
+unset SUPABASE_PROJECT_REF SUPABASE_PROJECT_NAME SUPABASE_STAGING_PROJECT_REF SUPABASE_STAGING_PROJECT_NAME
+unset SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL DATABASE_URL POSTGRES_PASSWORD
+unset RAILWAY_API_TOKEN RAILWAY_TOKEN
+unset GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN
+unset HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
+unset E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 if [ "\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]; then
   export RAG_PROVIDER_MODE="\${RAG_PROVIDER_MODE:-auto}"
 else
@@ -75,15 +92,6 @@ else
   export RAG_PROVIDER_MODE=offline
   export NEXT_PUBLIC_DEMO_MODE=true
   export PLAYWRIGHT_OFFLINE_MODE=true
-  unset OPENAI_API_KEY OPENAI_ORG_ID OPENAI_PROJECT_ID OPENAI_BASE_URL
-  unset NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY NEXT_PUBLIC_SUPABASE_ANON_KEY
-  unset SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY
-  unset SUPABASE_PROJECT_REF SUPABASE_PROJECT_NAME SUPABASE_STAGING_PROJECT_REF SUPABASE_STAGING_PROJECT_NAME
-  unset SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL DATABASE_URL POSTGRES_PASSWORD
-  unset RAILWAY_API_TOKEN RAILWAY_TOKEN
-  unset GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN
-  unset HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
-  unset E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 fi
 EOF
 

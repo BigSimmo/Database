@@ -81,6 +81,24 @@ expected to call named providers. Configure the smallest domain/method allowlist
 least-privileged credentials for those tasks. Never commit credentials or print their
 values. The setup script does not call providers and does not prove provider authorization.
 
+Create or select a separate environment named `Database - connected` for `BigSimmo/Database`,
+then set only these ordinary environment variables in
+[Codex environment settings](https://chatgpt.com/codex/settings/environments):
+
+```text
+CODEX_CLOUD=1
+CODEX_CLOUD_ACCESS_PROFILE=connected
+RAG_PROVIDER_MODE=offline
+NEXT_PUBLIC_DEMO_MODE=true
+PLAYWRIGHT_OFFLINE_MODE=true
+```
+
+Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
+tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
+environment. The generated agent profile removes the complete provider-variable inventory in
+both access profiles. Connected access means the scoped OAuth MCP servers and GitHub connector
+are available; it does not mean raw credentials are exposed to the shell.
+
 Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
 properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
 or Railway secrets into the agent phase. Do not persist them in profiles, repository files,
@@ -191,11 +209,28 @@ in the offline profile.
 Provider access is verified separately because a generic bootstrap must not make paid or
 production-like calls. For a connected environment, name each provider, use a read-only or
 minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
-report cost or mutation risk before any write. Railway `whoami` and `status --json` require both
-the CLI and the dedicated `RAILWAY_API_TOKEN`; never use project-scoped `RAILWAY_TOKEN` as a
-fallback. Reduce Railway JSON to authenticated/project/workspace identity before output. OpenAI
-generation, Supabase live data, Railway changes, hosted CI reruns, ingestion, deployment, and
-release workflows remain separate explicit actions.
+report cost or mutation risk before any write. The checked-in MCP configuration uses Railway's
+hosted `https://mcp.railway.com` endpoint so fresh Cloud tasks authenticate through browser OAuth
+instead of depending on machine-local CLI state. Authorize only workspace `bigsimmo's Projects`
+and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`), restart the MCP client after
+consent, and reduce identity/status results to non-secret account, project, workspace, environment,
+and service metadata. Railway's remote MCP does not accept project tokens; retain the pinned CLI
+only for explicitly approved local/operator workflows.
+
+The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
+`read_only=true`, and exposes only documentation, database, debugging, and development feature
+groups. Complete its browser OAuth flow for the organization containing `Clinical KB Database`
+and restart the client if tools do not appear. Schema writes, Edge Function deployment, branching,
+and storage mutations require a separately configured non-production project or branch; do not
+broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
+reruns, ingestion, deployment, and release workflows remain separate explicit actions.
+
+In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
+provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
+provider environment variable as `present=false`, the credential-free `BigSimmo/Database` origin,
+and only the hosted Railway and project-scoped read-only Supabase MCP metadata. This proves the
+shell boundary and configured capabilities, not OAuth authorization. Then verify each explicitly
+authorized provider with a read-only identity/status call and report only non-secret metadata.
 
 ## Authenticated live testing
 
