@@ -1,5 +1,12 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  ACTIVE_INDEXING_POLL_MS,
+  countActiveRows,
+  emptyPagination,
+  indexingListResponse,
+  offsetPagination,
+  type StatusRow,
+} from "@/lib/api-list-response";
 import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +16,6 @@ import { optionalUuidQuery, parseRequestQuery, queryInteger } from "@/lib/valida
 export const runtime = "nodejs";
 
 const ACTIVE_JOB_STATUSES = new Set(["pending", "processing"]);
-const ACTIVE_INDEXING_POLL_MS = 5_000;
 
 const ingestionJobsQuerySchema = z.object({
   batchId: optionalUuidQuery(),
@@ -17,32 +23,21 @@ const ingestionJobsQuerySchema = z.object({
   offset: queryInteger({ fallback: 0, min: 0, max: 10_000 }),
 });
 
-type JobRow = Record<string, unknown> & { status?: string | null };
-
-function jobsIndexingState(jobs: JobRow[]) {
-  const activeJobCount = jobs.filter((job) => ACTIVE_JOB_STATUSES.has(String(job.status ?? ""))).length;
-  return {
-    activeJobCount,
-    hasActiveJobs: activeJobCount > 0,
-    pollAfterMs: activeJobCount > 0 ? ACTIVE_INDEXING_POLL_MS : null,
-  };
-}
+type JobRow = StatusRow;
 
 function jobsResponse(jobs: JobRow[], extra: Record<string, unknown> = {}) {
-  const indexing = jobsIndexingState(jobs);
-  return NextResponse.json(
+  const activeJobCount = countActiveRows(jobs, ACTIVE_JOB_STATUSES);
+  const hasActiveJobs = activeJobCount > 0;
+  const pollAfterMs = hasActiveJobs ? ACTIVE_INDEXING_POLL_MS : null;
+  return indexingListResponse(
     {
       jobs,
-      ...indexing,
+      activeJobCount,
+      hasActiveJobs,
+      pollAfterMs,
       ...extra,
     },
-    {
-      headers: {
-        "Cache-Control": "private, no-store",
-        "X-Indexing-Active": String(indexing.hasActiveJobs),
-        "X-Poll-After-Ms": String(indexing.pollAfterMs ?? ""),
-      },
-    },
+    { active: hasActiveJobs, pollAfterMs },
   );
 }
 
@@ -56,7 +51,7 @@ export async function GET(request: Request) {
     if (isDemoMode()) {
       return jobsResponse([], {
         demoMode: true,
-        pagination: { limit, offset, total: 0, nextOffset: offset, hasMore: false },
+        pagination: emptyPagination(limit, offset),
       });
     }
 
@@ -76,13 +71,7 @@ export async function GET(request: Request) {
     if (error) throw new Error(error.message);
     const jobs = (data ?? []) as unknown as JobRow[];
     return jobsResponse(jobs, {
-      pagination: {
-        limit,
-        offset,
-        total: count ?? jobs.length,
-        nextOffset: offset + jobs.length,
-        hasMore: count === null ? jobs.length === limit : offset + jobs.length < count,
-      },
+      pagination: offsetPagination({ limit, offset, pageLength: jobs.length, count }),
     });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
+import { ACTIVE_INDEXING_POLL_MS, indexingListResponse, offsetPagination } from "@/lib/api-list-response";
 import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoDocuments } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
@@ -95,7 +95,6 @@ const SUMMARY_LIST_COLUMNS = [
 
 const VALID_STATUSES = new Set(["queued", "processing", "indexed", "failed"]);
 const ACTIVE_DOCUMENT_STATUSES = new Set(["queued", "processing"]);
-const ACTIVE_INDEXING_POLL_MS = 5_000;
 
 type DocumentListRow = Record<string, unknown> & { id: string; owner_id?: unknown; status?: string | null };
 type LabelListRow = Record<string, unknown> & { document_id: string };
@@ -144,19 +143,7 @@ function indexingState(documents: DocumentListRow[]) {
 }
 
 function documentsResponse(payload: Record<string, unknown>, indexing: ReturnType<typeof indexingState>) {
-  return NextResponse.json(
-    {
-      ...payload,
-      indexing,
-    },
-    {
-      headers: {
-        "Cache-Control": "private, no-store",
-        "X-Indexing-Active": String(indexing.active),
-        "X-Poll-After-Ms": String(indexing.pollAfterMs ?? ""),
-      },
-    },
-  );
+  return indexingListResponse({ ...payload, indexing }, indexing);
 }
 
 export async function GET(request: Request) {
@@ -213,13 +200,7 @@ export async function GET(request: Request) {
     const documentIds = documents.map((document) => document.id);
     const indexing = indexingState(documents);
 
-    const pagination = {
-      limit,
-      offset,
-      total: count ?? documents.length,
-      nextOffset: offset + documents.length,
-      hasMore: count === null ? documents.length === limit : offset + documents.length < count,
-    };
+    const pagination = offsetPagination({ limit, offset, pageLength: documents.length, count });
 
     if (documentIds.length === 0 || !effectiveIncludeMeta) {
       return documentsResponse({ documents, pagination }, indexing);
