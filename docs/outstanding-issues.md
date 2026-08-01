@@ -1,4 +1,4 @@
-﻿# Universal Task Ledger — Outstanding Issues, Recommendations & Tasks
+# Universal Task Ledger — Outstanding Issues, Recommendations & Tasks
 
 Durable, cross-session repository memory of everything still outstanding: open **tasks**,
 **recommendations**, **issues**, ordered execution metadata, operator decisions, provider gates, and
