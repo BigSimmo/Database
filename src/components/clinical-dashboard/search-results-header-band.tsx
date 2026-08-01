@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2 } from "lucide-react";
+import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
@@ -100,6 +100,14 @@ function useRailOverflow<Element extends HTMLElement>() {
   return { ref, overflowing } as const;
 }
 
+export type AppliedFilterChip = {
+  id: string;
+  label: string;
+  onRemove: () => void;
+};
+
+const EMPTY_APPLIED_FILTERS: AppliedFilterChip[] = [];
+
 export function SearchResultsHeaderBand({
   modeId,
   query,
@@ -118,6 +126,8 @@ export function SearchResultsHeaderBand({
   utilityControls,
   mobileControls,
   filterControls,
+  appliedFilters = EMPTY_APPLIED_FILTERS,
+  onClearFilters,
   filterLabel = "Filter search results",
   headingLevel = 2,
   className,
@@ -150,6 +160,13 @@ export function SearchResultsHeaderBand({
   mobileControls?: ReactNode;
   /** Page-specific filters rendered as a full-width row within the shared ribbon. */
   filterControls?: ReactNode;
+  /** Applied filters, shown on a labelled shelf under the bar. Each removes in
+      one tap. Supplied by the page rather than read from context: the previous
+      shelf pulled from a context value nothing could populate, so it rendered
+      for nobody. */
+  appliedFilters?: AppliedFilterChip[];
+  /** Clears every applied filter at once. Omit to hide the trailing Clear. */
+  onClearFilters?: () => void;
   filterLabel?: string;
   /** Use level 1 when the ribbon is the route's primary page heading. */
   headingLevel?: 1 | 2;
@@ -445,6 +462,56 @@ export function SearchResultsHeaderBand({
           )}
         >
           {pageControls}
+        </div>
+      ) : null}
+      {/* The shelf. `Filtered by` labels it as state rather than a second bank
+          of buttons — without the label a row of accent pills reads as a
+          toolbar. It deliberately survives `loading` and a zero result: nothing
+          matching is exactly when you need to relax a filter, and dropping it
+          mid-search would flicker the chips out and back on every keystroke.
+          Only a fault removes it, because filtering a result set that never
+          loaded is meaningless. */}
+      {appliedFilters.length > 0 && !faulted ? (
+        <div
+          data-testid="search-query-ribbon-shelf"
+          role="group"
+          aria-label="Applied filters"
+          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
+          {appliedFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={filter.onRemove}
+              aria-label={`Remove ${filter.label} filter`}
+              data-selected="true"
+              className={cn(
+                // Hover deepens the chip's own accent rather than swapping to the
+                // neutral border the surface controls use — an accent-soft chip
+                // going grey on hover reads as losing its active state.
+                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                focusRing,
+              )}
+            >
+              <span className="truncate">{filter.label}</span>
+              <X className="h-3 w-3 shrink-0" aria-hidden />
+            </button>
+          ))}
+          <span className="min-w-1 flex-1" aria-hidden />
+          {onClearFilters && appliedFilters.length > 1 ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              data-testid="search-query-ribbon-shelf-clear"
+              className={cn(
+                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
+                focusRing,
+              )}
+            >
+              Clear
+            </button>
+          ) : null}
         </div>
       ) : null}
       {/* The fault panel carries the announcement and the recovery affordance.

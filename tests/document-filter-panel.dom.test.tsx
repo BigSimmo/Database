@@ -247,3 +247,69 @@ describe("document filter panel", () => {
     expect(screen.getByTestId("document-filter-trigger-phone")).toHaveAttribute("aria-expanded", "false");
   });
 });
+
+describe("applied-filter shelf", () => {
+  async function selectClozapine(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByRole("button", { name: /Clozapine/ }));
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done"));
+  }
+
+  it("shows an applied facet as a chip and removes it in one tap", async () => {
+    const user = userEvent.setup();
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+
+    await selectClozapine(user);
+
+    const shelf = screen.getByTestId("search-query-ribbon-shelf");
+    expect(shelf).toHaveTextContent("Filtered by");
+    expect(resultTitles()).toHaveLength(1);
+
+    // One tap, and the count follows immediately.
+    await user.click(within(shelf).getByRole("button", { name: /Remove Clozapine filter/ }));
+    expect(resultTitles()).toHaveLength(2);
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+  });
+
+  it("carries the source type alongside facets, and Clear tears both down at once", async () => {
+    const user = userEvent.setup();
+    render(<DocumentSearchResultsPanel {...baseProps} />);
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    const panel = screen.getByTestId("document-filter-panel");
+    await user.click(within(panel).getByRole("button", { name: /Clozapine/ }));
+    await user.click(within(panel).getByRole("radio", { name: /Tables/ }));
+    await user.click(within(panel).getByTestId("document-filter-done"));
+
+    const shelf = screen.getByTestId("search-query-ribbon-shelf");
+    expect(within(shelf).getByRole("button", { name: /Remove Clozapine filter/ })).toBeInTheDocument();
+    expect(within(shelf).getByRole("button", { name: /Remove Tables filter/ })).toBeInTheDocument();
+
+    // Clear appears only past one chip — teardown that used to be one tap each.
+    await user.click(within(shelf).getByTestId("search-query-ribbon-shelf-clear"));
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+    expect(resultTitles()).toHaveLength(2);
+  });
+
+  it("survives a pending search, because chips must not flicker on every keystroke", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+    await selectClozapine(user);
+    expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} loading />);
+
+    expect(screen.getByTestId("search-query-ribbon-shelf")).toBeInTheDocument();
+  });
+
+  it("drops only on a fault, where filtering a set that never loaded is meaningless", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+    await selectClozapine(user);
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} apiUnavailable realDataReady={false} />);
+
+    expect(screen.queryByTestId("search-query-ribbon-shelf")).toBeNull();
+  });
+});
