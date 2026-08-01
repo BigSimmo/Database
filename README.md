@@ -20,6 +20,12 @@ This is the clean-checkout and validation install contract. Use `npm install`
 only when intentionally changing dependencies and regenerating
 `package-lock.json`.
 
+Codex Desktop worktrees use `npm run setup:codex-worktree`. The local bootstrap
+reuses dependencies only from a complete worktree with a byte-identical lockfile,
+then validates the installed metadata. It falls back to the locked install above
+when no safe local donor exists. Do not configure Windows Desktop worktrees to run
+the Cloud-only Bash setup script.
+
 For Codex Cloud, use the tracked environment setup and acceptance contract in
 [`docs/codex-cloud.md`](docs/codex-cloud.md). It installs the complete repository
 toolchain and distinguishes safe offline tasks from explicitly connected provider tasks.
