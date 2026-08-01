@@ -101,7 +101,7 @@ export function Tabs({ items, value, onChange, label, variant = "tabs", classNam
               disabled={item.disabled}
               onClick={() => onChange(item.id)}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center gap-2 whitespace-nowrap px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
+                "inline-flex min-h-tap shrink-0 items-center gap-2 whitespace-nowrap px-3 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--disabled)] disabled:shadow-none",
                 segmented ? "rounded-md" : "-mb-px rounded-t-md border-b-2",
                 segmented
                   ? selected

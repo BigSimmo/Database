@@ -1180,7 +1180,7 @@ export function MasterSearchHeader({
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
         ))}
@@ -1220,7 +1220,7 @@ export function MasterSearchHeader({
               data-testid="document-scope-filter"
               aria-label="Filter document scope"
               placeholder="Filter documents by title or file"
-              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">

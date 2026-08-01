@@ -1,20 +1,21 @@
 /* Clinical KB v2 token layer — OPT-IN, design-system scope only.
  *
- * Source of truth: the design project's `ckb-v2-tokens.css` (values verbatim).
- * It resolves register findings 3-5, 7-8, 10, 12, 14-21, 23-24, 34-36, 39-46.
+ * Source of truth: THIS FILE (`src/app/ckb-v2-tokens.css`), ranked #2 under
+ * AGENTS.md per docs/design-system/SPEC.md. Committed tests are #3. The design
+ * project (08d6f126…) mirrors this reconciled copy — a divergent design export
+ * is not authoritative (DECISIONS C1 / TOKENS.md).
  *
- * DELIBERATE DEVIATION from the source file: it puts the structural half
- * (space, type, radius, elevation, density, icons, motion) on `:root` and only
- * theme-scopes the shell colours. Everything is class-scoped here instead, so
- * adopting the layer cannot repaint the live app - this pass is design-system
- * only. Opt in per subtree with `class="ckb-v2"` (plus `dark` for the dark
- * ramp); promoting the structural half to `:root` is a separate, app-wide
- * change that needs its own visual-regression pass.
+ * Structural half (space, type, radius, elevation, density, icons, motion) and
+ * shell colours are both class-scoped here, so adopting the layer cannot
+ * repaint the live app. Opt in per subtree with `class="ckb-v2"` (plus `dark`
+ * for the dark ramp); promoting the structural half to `:root` is a separate,
+ * app-wide change (PR-K) that needs its own visual-regression pass.
  *
  * Rules the values encode, which call sites must honour:
  *   - One filled `--command` button per surface. Navy is app chrome only.
- *   - `--text-soft` is ~3.2:1 on white - decoration only (dots, dividers,
- *     glyphs). Label and caption TEXT uses `--text-muted` (~6.2:1).
+ *   - `--text-soft` / `--decoration-soft` are ~3.2:1 on white — decoration only
+ *     (dots, dividers, glyphs). Label and caption TEXT uses `--text-muted`;
+ *     placeholders use `--text-placeholder` (both ≥4.5:1).
  *   - Borders own the edge, shadows own the lift - never both on one element.
  *     Borderless floating surfaces (menus, toasts, tooltips, sheets) take
  *     `--ring-hairline` for their edge.
@@ -200,6 +201,9 @@
   --text-heading: #0a1220;
   --text: #1b2533;
   --text-muted: #55627a;
+  /* Placeholder is still text (expected format in clinical data entry) — must
+     clear 4.5:1. Same ink as muted until a distinct placeholder step is needed. */
+  --text-placeholder: #55627a;
   /* 3.07:1 on white. Decoration only - dots, dividers, disabled glyphs, rules.
      Never a text node. `--decoration-soft` is the name that should have shipped:
      `--text-soft` reads like a text tier and has now been misused in three
@@ -267,6 +271,7 @@
   --text: #f4f6f8;
   --disabled: #626c7a;
   --text-muted: #a8b2bd;
+  --text-placeholder: #a8b2bd;
   --text-soft: #7d8792;
   --decoration-soft: #7d8792;
   --border-dashed: #454e57;
@@ -318,16 +323,28 @@
     --text-heading: CanvasText;
     --text: CanvasText;
     --text-muted: CanvasText;
+    --text-placeholder: CanvasText;
     --text-soft: GrayText;
     --decoration-soft: GrayText;
     --disabled: GrayText;
-    --command: LinkText;
-    --command-hover: LinkText;
-    --command-active: LinkText;
-    --command-contrast: Canvas;
+    /* Match the live HCM lesson (globals.css): Chromium paints a Canvas
+       backplate behind glyph runs, so command fills use the native button
+       pairing — not LinkText/Canvas, which blanks labels and swallows icons. */
+    --command: ButtonFace;
+    --command-hover: ButtonFace;
+    --command-active: ButtonFace;
+    --command-contrast: ButtonText;
+    --clinical-accent: LinkText;
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: CanvasText;
+    --clinical-accent-contrast: ButtonText;
     --primary-soft: Canvas;
+    --success: CanvasText;
+    --warning: CanvasText;
+    --danger: Mark;
+    --danger-solid: Mark;
+    --danger-solid-contrast: MarkText;
+    --focus: Highlight;
     --ring-hairline: 0 0 0 1px CanvasText;
     --e0: none;
     --e1: none;

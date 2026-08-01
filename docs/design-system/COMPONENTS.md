@@ -97,32 +97,32 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 
 ### 0.4 Open-defect ledger (existing components → closing PR)
 
-| Component                    | Open defects (compressed)                                                                                                                              | Closes in                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| Button                       | danger contrast token · brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary                                       | PR 3, PR 4                     |
-| AsyncButton                  | no `type="button"` (can submit a form)                                                                                                                 | PR 4 (retire or alias)         |
-| IconButton                   | `disabled:opacity` (one of 10 remaining uses)                                                                                                          | PR 3                           |
-| ToggleSwitch                 | unnameable · knob animates `left`/`right` · opacity disabled                                                                                           | PR 4, PR 9                     |
-| Chip                         | 20px remove target · optional `removeLabel` · no full-value path                                                                                       | PR 4                           |
-| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · placeholder on the decoration tier · no external id/refs                | PR 7                           |
-| Checkbox/RadioGroup          | RadioGroup inert-control contract · raw dimensions · unsanitised ids · no group hint/error                                                             | PR 4, PR 7                     |
-| Citation/CitationList        | enabled-inert · `aria-label` on bare span · index keys · unstructured data                                                                             | PR 4                           |
-| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                         | PR 6                           |
-| StatusMark                   | app-type coupling · inline styles/raw geometry · HCM asserted-not-proven                                                                               | PR 2, PR 12                    |
-| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                             | PR 6                           |
-| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                                        | PR 6                           |
-| PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · low-contrast eyebrow                                                                                         | PR 3, PR 7-adjacent layout fix |
-| Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order · split `SegmentedControl`                                       | PR 4-adjacent, own tranche     |
-| Pagination                   | unclamped props · 320px overflow · opacity disabled · no focus/announce policy                                                                         | PR 3, PR 8                     |
-| Links                        | `tone` leaks to DOM · `download` overridable by spread · `gap` animation · new-tab policy implicit                                                     | PR 9                           |
-| Tooltip                      | overwrites child handlers/describedBy · no portal/collision/delay · hardcoded z                                                                        | PR 10                          |
-| Toast                        | z below `--z-toast` · warning=danger icon · urgency coupled to tone · no pause on hover/focus · no portal/queue cap                                    | PR 10                          |
-| Sheet/ConfirmDialog          | optional name · portal default off · hardcoded z/duration · title truncates · bare "Confirm" default                                                   | PR 10                          |
-| Disclosure                   | hardcoded `<h3>` · no print behaviour · truncation                                                                                                     | PR 11                          |
-| Progress/StageList           | width animation · "step 0 of N" · whole-list live region                                                                                               | PR 8, PR 9                     |
-| EmptyState                   | `live="polite"` by default                                                                                                                             | PR 8                           |
-| AccessibleTable              | div caption vs `aria-label` · optional caption · uppercase dense headers · **bare `-` for missing cells** · inline equal widths · hand-rolled expander | PR 6 (`MissingValue`), PR 12   |
-| ui-primitives.tsx            | 572-line module mixing recipes/actions/feedback/clinical — split                                                                                       | PR 12                          |
+| Component                    | Open defects (compressed)                                                                                                                              | Closes in                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| Button                       | brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary (danger contrast landed #1538)                                | follow-on                    |
+| AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                                   | **done** (PR-A)              |
+| IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                                     | **done** (PR-A)              |
+| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob still animates `left`/`right`                                                    | PR 9 (motion)                |
+| Chip                         | 20px remove target · `removeLabel` required when removable · no full-value path                                                                        | PR 12 (target size)          |
+| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A)           | PR 7                         |
+| Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                                  | PR 7                         |
+| Citation/CitationList        | interactive requires `onActivate`; static form uses `aria-label` on span · index keys · unstructured data                                              | follow-on                    |
+| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                         | PR 6                         |
+| StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                                     | PR 12                        |
+| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                             | PR 6                         |
+| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                                        | PR 6                         |
+| PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                               | PR 7-adjacent layout fix     |
+| Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order · split `SegmentedControl`                                       | PR 4-adjacent, own tranche   |
+| Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                                 | PR 8                         |
+| Links                        | `tone` leaks to DOM · `download` overridable by spread · `gap` animation · new-tab policy implicit                                                     | PR 9                         |
+| Tooltip                      | overwrites child handlers/describedBy · no portal/collision/delay · hardcoded z                                                                        | PR 10                        |
+| Toast                        | z below `--z-toast` · warning=danger icon · urgency coupled to tone · no pause on hover/focus · no portal/queue cap                                    | PR 10                        |
+| Sheet/ConfirmDialog          | optional name · portal default off · hardcoded z/duration · title truncates · bare "Confirm" default                                                   | PR 10                        |
+| Disclosure                   | hardcoded `<h3>` · no print behaviour · truncation                                                                                                     | PR 11                        |
+| Progress/StageList           | width animation · "step 0 of N" · whole-list live region                                                                                               | PR 8, PR 9                   |
+| EmptyState                   | `live="polite"` by default                                                                                                                             | PR 8                         |
+| AccessibleTable              | div caption vs `aria-label` · optional caption · uppercase dense headers · **bare `-` for missing cells** · inline equal widths · hand-rolled expander | PR 6 (`MissingValue`), PR 12 |
+| ui-primitives.tsx            | 572-line module mixing recipes/actions/feedback/clinical — split                                                                                       | PR 12                        |
 
 ---
 

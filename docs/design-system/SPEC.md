@@ -178,14 +178,14 @@ headers, zebra) and `--surface-inset` (wells, inputs) — plus `--surface-wash` 
 **Ink roles, in full** (the incomplete hierarchy is why the decoration token kept escaping
 onto text):
 
-| Role                            | Token                                                             | Rule                                                                                                |
-| ------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Label                           | `--text`                                                          | Sentence case, label weight. Not muted, not 600, not uppercase.                                     |
-| Entered value                   | `--text`                                                          |                                                                                                     |
-| Hint / caption                  | `--text-muted`                                                    |                                                                                                     |
-| Placeholder                     | `--text-placeholder` _(planned, PR 3)_, `--text-muted` until then | Placeholder is still text; it carries the expected format in clinical data entry. Must clear 4.5:1. |
-| Decorative glyph, divider, rule | `--decoration-soft`                                               | **Never a text node.** Measured 3.07:1.                                                             |
-| Disabled label                  | `--disabled`                                                      | With an explicit contrast contract.                                                                 |
+| Role                            | Token                | Rule                                                                                                |
+| ------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------- |
+| Label                           | `--text`             | Sentence case, label weight. Not muted, not 600, not uppercase.                                     |
+| Entered value                   | `--text`             |                                                                                                     |
+| Hint / caption                  | `--text-muted`       |                                                                                                     |
+| Placeholder                     | `--text-placeholder` | Placeholder is still text; it carries the expected format in clinical data entry. Must clear 4.5:1. |
+| Decorative glyph, divider, rule | `--decoration-soft`  | **Never a text node.** Measured 3.07:1.                                                             |
+| Disabled label                  | `--disabled`         | With an explicit contrast contract.                                                                 |
 
 `--decoration-soft` is the canonical name; `--text-soft` is a deprecated alias to the same
 value — the token was misused three times _because_ its name contained "text". The contract
@@ -427,8 +427,9 @@ the element. Every component takes `className`.
 pagination. **Remove unnecessary client boundaries** — most component files are
 `"use client"` without a hook.
 
-**The disabled encoding is the `controlBase` recipe, not opacity.** Ten `disabled:opacity`
-uses remain across three files — finishing the adoption is PR 3.
+**The disabled encoding is the `controlBase` recipe, not opacity.** The ten design-system
+`disabled:opacity*` recipes across `ui-primitives.tsx`, `tabs.tsx`, and `pagination.tsx`
+were retired in PR 3 / PR-A (`disabled-encoding.contract.test.ts`).
 
 Per-component defect inventory and dispositions: COMPONENTS.md §Maturity and §Existing-defects.
 
@@ -629,13 +630,13 @@ and adoption.** Status keys as in the header; "done" entries cite their commit.
 
 ### Phase 1 — correctness
 
-| PR                             | Contents                                                                                                                                                                                                                                      | Status                                                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| PR 0 · Truth correction        | Retractions, gate labelling, accurate packaging contract — zero code change                                                                                                                                                                   | **done** — this document set                                                                                       |
-| PR 1 · Theme cascade           | Port `.ckb-v2` / `.dark .ckb-v2, .ckb-v2.dark`; update the contract test's selector filter and block names in the same commit; computed-style tests, ancestor **and** same-node                                                               | **done** — landed #1538 (cascade port + contract parser + dark-ink regression)                                     |
-| PR 2 · Forced colours          | v2 HCM block over the three selectors (§4.2); computed assertions: filled command, filled danger, status marks, disabled, focus, flattened elevation                                                                                          | partial — HCM block + three selectors landed (#1538); transparent backdrop this PR; computed assertions still open |
-| PR 3 · Contrast and text roles | `--danger-solid-contrast` on danger · eyebrows and placeholders off the decoration tier · `--text-placeholder` role · finish the disabled encoding across the 10 remaining `disabled:opacity` sites · extend the contrast gate to live tokens | partial — danger contrast landed (#1538); rest open                                                                |
-| PR 4 · Interaction contracts   | Discriminated unions for `Citation`, `Chip`, `ToggleSwitch`; `RadioGroup` controlled-or-uncontrolled; `AsyncButton` `type="button"` or retirement                                                                                             | open                                                                                                               |
+| PR                             | Contents                                                                                                                                                                                                                                      | Status                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| PR 0 · Truth correction        | Retractions, gate labelling, accurate packaging contract — zero code change                                                                                                                                                                   | **done** — this document set                                                                               |
+| PR 1 · Theme cascade           | Port `.ckb-v2` / `.dark .ckb-v2, .ckb-v2.dark`; update the contract test's selector filter and block names in the same commit; computed-style tests, ancestor **and** same-node                                                               | **done** — landed #1538 (cascade port + contract parser + dark-ink regression)                             |
+| PR 2 · Forced colours          | v2 HCM block over the three selectors (§4.2); computed assertions: filled command, filled danger, status marks, disabled, focus, flattened elevation                                                                                          | **done** — HCM remaps + Chromium computed suite + token-contract source pins                               |
+| PR 3 · Contrast and text roles | `--danger-solid-contrast` on danger · eyebrows and placeholders off the decoration tier · `--text-placeholder` role · finish the disabled encoding across the 10 remaining `disabled:opacity` sites · extend the contrast gate to live tokens | **done** — `--text-placeholder`, eyebrow/placeholder off decoration, 10 opacities retired, Gate 1 extended |
+| PR 4 · Interaction contracts   | Discriminated unions for `Citation`, `Chip`, `ToggleSwitch`; `RadioGroup` controlled-or-uncontrolled; `AsyncButton` `type="button"` or retirement                                                                                             | **done** — Citation/Chip/ToggleSwitch/RadioGroup unions; AsyncButton `type` after spread                   |
 
 ### Phase 2 — values, split three ways
 

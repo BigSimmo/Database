@@ -196,6 +196,9 @@
   --text-heading: #080b0f;
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  /* Placeholder is still text (≥4.5:1). Same ink as muted until a distinct step
+     is needed; also declared on the v2 layer for opt-in adoption. */
+  --text-placeholder: var(--neutral-600);
   --border: #e3e8ef;
   --border-strong: #c8d2de;
   /* Tracks --border-strong at 55% — re-derive both together. */
@@ -437,6 +440,7 @@
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --text-placeholder: var(--neutral-600);
   /* Per-theme values, not neutral-ramp aliases: tracking --neutral-300 left the
      dark border at ~1.35:1 against --surface, i.e. effectively invisible. */
   --border: #2b3136;
@@ -2957,6 +2961,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --text: CanvasText;
     --text-muted: CanvasText;
     --text-soft: CanvasText;
+    --text-placeholder: CanvasText;
     --border: ButtonBorder;
     --border-strong: ButtonText;
     --primary: LinkText;

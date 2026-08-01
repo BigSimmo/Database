@@ -53,27 +53,26 @@ export const controlDisabled =
   "disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)]! disabled:text-[color:var(--disabled)]! disabled:shadow-none! disabled:active:translate-y-0 aria-disabled:cursor-not-allowed";
 export const controlBase = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
 export const primaryControl = `${controlBase} bg-[color:var(--command)] px-5 text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)]`;
-export const floatingControl =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
-export const toolbarButton =
-  "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
-export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]";
+export const floatingControl = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
+export const toolbarButton = `grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
+// Eyebrows are text (section kickers), so they sit on `--text-muted` (≥4.5:1),
+// never the decoration tier. Uppercase + tracking keep the kicker role.
+export const eyebrowText =
+  "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]";
 // A field label is a text node, so it cannot use `--text-soft` (3.07:1) or the
 // uppercase eyebrow treatment: weight said "important" while colour said
 // "secondary", and the label was quieter than the value it described. Sentence
-// case, label weight, full-strength ink. `eyebrowText` stays for actual eyebrows
-// - section kickers above a heading, which are decoration beside a real title.
+// case, label weight, full-strength ink.
 export const fieldLabel = "mb-1.5 block text-sm font-medium leading-5 text-[color:var(--text)]";
 export const fieldControl =
-  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none disabled:opacity-75 read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
+  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
   "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]";
 export const shellChip =
   "inline-flex min-h-tap items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]";
-export const navPill =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
+export const navPill = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
 export const metadataPill =
   "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]";
 export const subtleStatusPill =
@@ -95,8 +94,7 @@ export const chatAnswerText =
   "max-w-[68ch] text-base-minus font-medium leading-prose text-[color:var(--text-heading)] sm:text-base";
 export const chatActionRow =
   "flex min-h-tap flex-wrap items-center gap-1.5 text-xs font-semibold text-[color:var(--text-heading)] sm:min-h-8";
-export const chatMicroAction =
-  "inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
+export const chatMicroAction = `inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
 // Answer "Sources" capsule. `sourceCapsuleHit` is an invisible 44px WCAG touch
 // target that wraps the compact visible pill `sourceCapsule` (`.source-capsule-face`),
 // so the control reads smaller and lighter without shrinking the tap area. Hover,
@@ -123,8 +121,7 @@ export const tableCardHeader =
   "border-b border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-heading)]";
 export const tableMicroActionRow =
   "flex min-h-tap flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-9";
-export const sidebarItem =
-  "flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
+export const sidebarItem = `flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
 const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
 export const statusDotReady = `${statusDotBase} bg-[color:var(--success)]`;
 export const statusDotReview = `${statusDotBase} bg-[color:var(--warning)]`;
@@ -171,10 +168,16 @@ type AsyncButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"
   idleIcon?: ReactNode;
 };
 
-/** Shared busy-state contract for async actions: one label, spinner, disabled state, and announcement hook. */
-export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, ...props }: AsyncButtonProps) {
+/**
+ * Shared busy-state contract for async actions. Prefer `Button` with
+ * `busy`/`busyLabel` for new call sites — this helper remains for existing
+ * forms that pass a ReactNode idle icon. `type` is applied AFTER the spread so
+ * a missing type cannot open a surrounding form, while an explicit
+ * `type="submit"` still wins.
+ */
+export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, type, ...props }: AsyncButtonProps) {
   return (
-    <button type="button" {...props} disabled={busy || disabled} aria-busy={busy || undefined}>
+    <button {...props} type={type ?? "button"} disabled={busy || disabled} aria-busy={busy || undefined}>
       {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : idleIcon}
       <span>{busy ? busyLabel : children}</span>
     </button>
@@ -208,7 +211,8 @@ export function IconButton({ label, icon: Icon, className, iconClassName, type, 
       type={type ?? "button"}
       aria-label={label}
       className={cn(
-        "grid size-tap shrink-0 place-items-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
+        "grid size-tap shrink-0 place-items-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        controlDisabled,
         className,
       )}
     >
@@ -277,21 +281,33 @@ export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
   return toneNeutral;
 }
 
+type ToggleSwitchBase = {
+  enabled: boolean;
+  className?: string;
+  disabled?: boolean;
+};
+
+export type ToggleSwitchProps = ToggleSwitchBase &
+  (
+    | {
+        /** Operable switch — requires an accessible name. */
+        onToggle: () => void;
+        "aria-label": string;
+      }
+    | {
+        /** Read-only presentational indicator (no interactive role). */
+        onToggle?: undefined;
+        "aria-label"?: string;
+      }
+  );
+
 export function ToggleSwitch({
   enabled,
   className,
   onToggle,
   disabled = false,
   "aria-label": ariaLabel,
-}: {
-  enabled: boolean;
-  className?: string;
-  // When provided the switch is an operable control; when omitted it renders as a
-  // read-only presentational indicator (no interactive role is advertised).
-  onToggle?: () => void;
-  disabled?: boolean;
-  "aria-label"?: string;
-}) {
+}: ToggleSwitchProps) {
   const track = cn(
     "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
     enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
@@ -318,7 +334,8 @@ export function ToggleSwitch({
         onClick={onToggle}
         className={cn(
           track,
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          controlDisabled,
         )}
       >
         {knob}
@@ -327,9 +344,15 @@ export function ToggleSwitch({
   }
 
   // Read-only: expose the state as an image label so assistive tech announces
-  // on/off without implying the control can be operated.
+  // on/off without implying the control can be operated. Unlabeled indicators
+  // are decorative — hide them from the accessibility tree.
   return (
-    <span role="img" aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined} className={track}>
+    <span
+      role={ariaLabel ? "img" : undefined}
+      aria-hidden={ariaLabel ? undefined : true}
+      aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined}
+      className={track}
+    >
       {knob}
     </span>
   );

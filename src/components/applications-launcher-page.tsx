@@ -259,7 +259,7 @@ function ToolSearch({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={copy.searchPlaceholder}
-          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus:outline-none"
         />
       </label>
       <button

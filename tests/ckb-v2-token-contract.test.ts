@@ -87,6 +87,11 @@ describe("ckb-v2 layer stays opt-in", () => {
     const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
     expect(globals).toContain('@import "./ckb-v2-tokens.css";');
   });
+
+  it("keeps --text-placeholder on the live layer too, so production placeholders resolve before .ckb-v2 adoption", () => {
+    const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+    expect(globals).toMatch(/--text-placeholder\s*:/);
+  });
 });
 
 describe("ckb-v2 borders", () => {
@@ -175,6 +180,57 @@ describe("ckb-v2 command colour (#1, #12)", () => {
     expect(contrastRatio(hexOf(darkShell, "--command"), hexOf(darkShell, "--command-contrast"))).toBeGreaterThanOrEqual(
       4.5,
     );
+  });
+});
+
+describe("ckb-v2 source-of-truth header", () => {
+  it("claims this repo file as canonical, not a design-project export", () => {
+    const header = stylesheet.slice(0, stylesheet.indexOf("\n.ckb-v2"));
+    expect(header).not.toMatch(/Source of truth:\s*the design project's/i);
+    expect(header).toMatch(/Source of truth:\s*THIS FILE/i);
+    expect(header).toMatch(/AGENTS\.md/);
+  });
+});
+
+describe("ckb-v2 placeholder and decoration roles (PR 3 / Gate 1)", () => {
+  it("declares --text-placeholder at ≥4.5:1 on both shells", () => {
+    expect(
+      contrastRatio(hexOf(lightShell, "--text-placeholder"), hexOf(lightShell, "--surface")),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(hexOf(darkShell, "--text-placeholder"), hexOf(darkShell, "--surface"))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+  });
+
+  it("pins --decoration-soft as a decoration tier, twin to --text-soft", () => {
+    const soft = contrastRatio(hexOf(lightShell, "--text-soft"), hexOf(lightShell, "--surface"));
+    const decoration = contrastRatio(hexOf(lightShell, "--decoration-soft"), hexOf(lightShell, "--surface"));
+    expect(decoration).toBeLessThan(4.5);
+    expect(decoration).toBeGreaterThanOrEqual(3);
+    expect(hexOf(lightShell, "--decoration-soft")).toBe(hexOf(lightShell, "--text-soft"));
+    expect(soft).toBe(decoration);
+  });
+});
+
+describe("ckb-v2 forced-colours block (PR 2)", () => {
+  it("remaps filled command/danger, focus, disabled, and flattens elevation under all three selectors", () => {
+    const start = stylesheet.indexOf("@media (forced-colors: active)");
+    expect(start).toBeGreaterThan(-1);
+    const block = stylesheet.slice(start, stylesheet.indexOf("\n}", stylesheet.lastIndexOf("--spine-stale")) + 2);
+    expect(block).toContain(".ckb-v2,");
+    expect(block).toContain(".dark .ckb-v2,");
+    expect(block).toContain(".ckb-v2.dark");
+    expect(block).toMatch(/--command:\s*ButtonFace/);
+    expect(block).toMatch(/--command-contrast:\s*ButtonText/);
+    expect(block).toMatch(/--danger-solid:\s*Mark/);
+    expect(block).toMatch(/--danger-solid-contrast:\s*MarkText/);
+    expect(block).toMatch(/--focus:\s*Highlight/);
+    expect(block).toMatch(/--disabled:\s*GrayText/);
+    expect(block).toMatch(/--success:\s*CanvasText/);
+    expect(block).toMatch(/--warning:\s*CanvasText/);
+    for (const tier of ["--e1", "--e2", "--e3", "--e4", "--glow-primary", "--glow-soft", "--shadow-well"]) {
+      expect(block).toMatch(new RegExp(`${tier}:\\s*none`));
+    }
   });
 });
 
