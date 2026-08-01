@@ -183,11 +183,13 @@ jobs:
         run: npm run check:gate-manifest
 
       - name: Branch review ledger integrity
-        if: needs.changes.outputs.docs_changed == 'true'
+        # Also run for static_heavy (including .gitattributes-only edits and the
+        # scheduled full-run sentinel): both checkers validate merge attributes.
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:branch-review-ledger
 
       - name: Outstanding-issues ledger integrity
-        if: needs.changes.outputs.docs_changed == 'true'
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         env:
           OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: npm run check:outstanding-issues

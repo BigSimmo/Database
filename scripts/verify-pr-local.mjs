@@ -11,6 +11,8 @@ const docsScripts = [
   "docs:check-inventory",
   "docs:check-scripts",
   "docs:check-links",
+  "check:branch-review-ledger",
+  "check:outstanding-issues",
 ];
 const workflowScripts = [
   "check:github-actions",

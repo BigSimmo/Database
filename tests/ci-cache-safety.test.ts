@@ -38,6 +38,47 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("run: npm run check:verification-plan");
   });
 
+  it("keeps every workflow-reading unit contract in the focused suite", () => {
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    const focusedScript = packageJson.scripts["test:ci-workflows"] ?? "";
+    const testsDirectory = new URL("./", import.meta.url);
+    const readers: string[] = [];
+    for (const name of readdirSync(testsDirectory).filter((entry) => entry.endsWith(".test.ts"))) {
+      const text = readFileSync(new URL(name, testsDirectory), "utf8");
+      // Only count suites that load a committed workflow file — not incidental
+      // string mentions such as mock run paths in sync helpers.
+      const loadsWorkflow =
+        /new URL\(\s*["']\.\.\/\.github\/workflows\//.test(text) ||
+        /read(?:FileSync)?\(\s*["']\.github\/workflows\//.test(text) ||
+        /path\.resolve\(\s*["']\.github\/workflows\//.test(text) ||
+        (/\.github["']\s*,\s*["']workflows["']/.test(text) && /readFileSync\(/.test(text));
+      if (!loadsWorkflow) continue;
+      readers.push(`tests/${name}`);
+    }
+    const missing = readers.filter((file) => !focusedScript.includes(file));
+    expect(missing, `add workflow-reading suites to test:ci-workflows: ${missing.join(", ")}`).toEqual([]);
+  });
+
+  it("runs ledger integrity checks when docs or heavy static scope changes", () => {
+    expect(workflow).toContain(
+      "if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'",
+    );
+    expect(workflow).toMatch(
+      /name: Branch review ledger integrity\n\s+(?:#[^\n]*\n\s+)*if: needs\.changes\.outputs\.docs_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'/,
+    );
+    expect(workflow).toMatch(
+      /name: Outstanding-issues ledger integrity\n\s+if: needs\.changes\.outputs\.docs_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'/,
+    );
+  });
+
+  it("forwards stale eval-canary status into the Ops Digest alert path", () => {
+    expect(opsDigestWorkflow).toContain("id: liveness");
+    expect(opsDigestWorkflow).toContain('core.setOutput("stale"');
+    expect(opsDigestWorkflow).toContain("needs: eval-canary-liveness");
+    expect(opsDigestWorkflow).toContain("EVAL_CANARY_STALE");
+    expect(opsDigestWorkflow).toContain("canaryStale");
+  });
+
   it("avoids unrelated network and checkout work on ordinary pull requests", () => {
     expect(workflow).not.toContain("Dependency audit (advisory)");
     expect(workflow).not.toContain("github.rest.actions.listWorkflowRuns");

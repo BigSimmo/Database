@@ -33,11 +33,21 @@ jobs:
     permissions:
       actions: read
       contents: read
+    outputs:
+      stale: ${{ steps.liveness.outputs.stale }}
+      message: ${{ steps.liveness.outputs.message }}
     steps:
       - name: Warn if the weekly canary is stale
+        id: liveness
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            const set = (stale, message) => {
+              core.setOutput("stale", stale ? "true" : "false");
+              core.setOutput("message", message);
+              if (stale) core.warning(message);
+              else core.info(message);
+            };
             try {
               const { data } = await github.rest.actions.listWorkflowRuns({
                 owner: context.repo.owner,
@@ -51,31 +61,38 @@ jobs:
               // fallback for older or partial REST payloads.
               const finishedAt = Date.parse(latest?.updated_at ?? latest?.run_started_at ?? "");
               if (!latest) {
-                core.warning("Eval-canary liveness: no completed canary runs found.");
+                set(true, "Eval-canary liveness: no completed canary runs found.");
               } else if (!Number.isFinite(finishedAt)) {
-                core.info("Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.");
+                set(
+                  false,
+                  "Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.",
+                );
               } else {
                 const ageDays = (Date.now() - finishedAt) / 86_400_000;
                 if (ageDays > 8) {
-                  core.warning(
+                  set(
+                    true,
                     `Eval-canary liveness: last completed canary run was ${ageDays.toFixed(1)} days ago (${latest.html_url}). ` +
                       "The weekly Sunday 18:00 UTC schedule may have been dropped by GitHub - dispatch one manually " +
                       "(provider-backed; needs explicit approval).",
                   );
                 } else {
-                  core.info(`Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
+                  set(false, `Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
                 }
               }
             } catch (error) {
-              core.warning(`Eval-canary liveness check skipped: ${error.message}`);
+              set(true, `Eval-canary liveness check failed: ${error.message}`);
             }
 
   ops-digest:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    needs: eval-canary-liveness
     env:
       PROD_HEALTH_URL: ${{ vars.PROD_HEALTH_URL }}
       HEALTH_DEEP_PROBE_SECRET: ${{ secrets.HEALTH_DEEP_PROBE_SECRET }}
+      EVAL_CANARY_STALE: ${{ needs.eval-canary-liveness.outputs.stale }}
+      EVAL_CANARY_MESSAGE: ${{ needs.eval-canary-liveness.outputs.message }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,9 +124,14 @@ jobs:
           script: |
             const fs = require("fs");
             const label = "ops-digest";
-            const body = fs.readFileSync("digest.md", "utf8");
+            const canaryStale = process.env.EVAL_CANARY_STALE === "true";
+            const canaryMessage = process.env.EVAL_CANARY_MESSAGE || "";
+            let body = fs.readFileSync("digest.md", "utf8");
+            if (canaryStale && canaryMessage) {
+              body = `## Eval-canary liveness\n\n⚠ ${canaryMessage}\n\n${body}`;
+            }
             const status = "${{ steps.digest.outputs.status }}" || "unknown";
-            const alerting = "${{ steps.digest.outputs.alerting }}" === "true";
+            const alerting = "${{ steps.digest.outputs.alerting }}" === "true" || canaryStale;
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -142,7 +164,8 @@ jobs:
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: issueNumber,
-                body: `⚠ Attention (status=${status}, alerting=${alerting}) — ${new Date().toISOString()}\n\n${body}`,
+                body: `⚠ Attention (status=${status}, alerting=${alerting}${canaryStale ? ", eval-canary-stale=true" : ""}) — ${new Date().toISOString()}\n\n${body}`,
               });
             }
             if (status !== "ok") core.warning(`Ops digest status: ${status}`);
+            if (canaryStale) core.warning(canaryMessage || "Eval-canary liveness reported stale.");

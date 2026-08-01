@@ -246,6 +246,21 @@ const staticConfigPatterns = [
 // Script-only `package.json` edits do not trip blocking audit (no lock churn).
 const lockfilePatterns = ["package-lock.json", ".npmrc"];
 
+/** Executable helpers under otherwise-light workflow/policy surfaces. */
+function isExecutableWorkflowSurfacePath(filePath) {
+  return /\.(?:mjs|cjs|js|ts|tsx|sh|bash|py)$/i.test(filePath);
+}
+
+/**
+ * Recognised light paths may skip the heavy static/coverage route. Markdown and
+ * YAML/policy under workflow surfaces stay light; executable files there do not.
+ */
+function isRecognisedLightPath(filePath) {
+  if (pathMatches(filePath, docPatterns)) return true;
+  if (!pathMatches(filePath, workflowPatterns)) return false;
+  return !isExecutableWorkflowSurfacePath(filePath);
+}
+
 // The ledger read is injected so `classify` stays pure and the self-test can
 // drive both the empty and non-empty cases without touching the real file.
 const readFlakeLedger = () => readFileSync("tests/flake-ledger.json", "utf8");
@@ -265,12 +280,12 @@ function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = e
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
   // Only two categories are allowed to take the lightweight path: recognised
-  // documentation and recognised workflow/policy surfaces. Unknown non-doc
-  // files fail closed to the heavy plan. Executable scripts that also match a
-  // workflow pattern remain heavy through sourceChanged.
-  const hasUnknownNonLightPath = normalized.some(
-    (file) => !pathMatches(file, docPatterns) && !pathMatches(file, workflowPatterns),
-  );
+  // documentation and recognised non-executable workflow/policy surfaces.
+  // Unknown non-doc files fail closed to the heavy plan. Executable files that
+  // also match a workflow pattern (for example `.agents/skills/**/scripts/*.mjs`
+  // or a workflow helper under `scripts/`) remain heavy even when the directory
+  // is otherwise treated as a light policy surface.
+  const hasUnknownNonLightPath = normalized.some((file) => !isRecognisedLightPath(file));
   const staticHeavyChanged =
     sourceChanged || buildChanged || containerChanged || dbChanged || lockfileChanged || hasUnknownNonLightPath;
   // Pure workflow YAML/policy changes use focused workflow-contract tests in
@@ -759,6 +774,19 @@ function selfTest() {
     docs_only: false,
     build_changed: false,
   });
+  assertScope(
+    "executable-skill-script-stays-heavy",
+    [".agents/skills/prompt-perfector/scripts/verify-repository-isolation.mjs"],
+    {
+      workflow_changed: true,
+      source_changed: false,
+      coverage_changed: true,
+      workflow_only: false,
+      static_heavy_changed: true,
+      docs_only: false,
+      build_changed: false,
+    },
+  );
   assertScope(
     "codex-autofix",
     [".github/workflows/codex-autofix-review-comments.yml", "AGENTS.md", "scripts/check-codex-autofix-workflow.mjs"],
