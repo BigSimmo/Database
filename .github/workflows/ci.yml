@@ -32,22 +32,22 @@ jobs:
     name: Change scope
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    # Only outputs a job actually reads are exported. `source_changed`,
-    # `workflow_changed` and `changed_files` were exported here and consumed by
-    # nothing, which reads as live wiring and invites a job to be gated on a
-    # value no one maintains. The script still computes all three — `docs_only`
-    # derives from the first two — they are simply not job outputs (#139).
+    # Export only signals consumed by job/step routing. Unknown non-document
+    # paths fail closed to static_heavy_changed in ci-change-scope.mjs.
     outputs:
-      docs_only: ${{ steps.scope.outputs.docs_only }}
+      docs_changed: ${{ steps.scope.outputs.docs_changed }}
+      static_heavy_changed: ${{ steps.scope.outputs.static_heavy_changed }}
       coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
       ui_changed: ${{ steps.scope.outputs.ui_changed }}
       advisory_ui_changed: ${{ steps.scope.outputs.advisory_ui_changed }}
       db_changed: ${{ steps.scope.outputs.db_changed }}
       container_changed: ${{ steps.scope.outputs.container_changed }}
       rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
+      workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
       codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
+      pr_policy_body_present: ${{ steps.scope.outputs.pr_policy_body_present }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -69,7 +69,8 @@ jobs:
 
   sync-pr-policy-body:
     name: Sync PR policy body
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_present == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -135,56 +136,12 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      # Read-only Actions access for the eval-canary liveness probe below.
-      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      # GitHub cron fires are best-effort, and the canary's own failure-issue step only reacts
-      # to runs that HAPPEN and fail — since #923 moved the canary cadence from daily to
-      # weekly (Sunday 18:00 UTC), a silently dropped fire would go unnoticed for a week or
-      # more. PR traffic runs many times a day, so a warn-only staleness probe here surfaces a
-      # dropped weekly canary within hours instead of weeks. Never fails the job — API hiccups
-      # and empty histories degrade to a warning at most.
-      - name: Eval-canary liveness (warn if stale)
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            try {
-              const { data } = await github.rest.actions.listWorkflowRuns({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                workflow_id: "eval-canary.yml",
-                status: "completed",
-                per_page: 1,
-              });
-              const latest = data.workflow_runs?.[0];
-              // updated_at ~= completion time for a completed run (the REST payload carries no
-              // completed_at); run_started_at is the fallback for older/partial payloads.
-              const finishedAt = Date.parse(latest?.updated_at ?? latest?.run_started_at ?? "");
-              if (!latest) {
-                core.warning("Eval-canary liveness: no completed canary runs found.");
-              } else if (!Number.isFinite(finishedAt)) {
-                core.info("Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.");
-              } else {
-                const ageDays = (Date.now() - finishedAt) / 86_400_000;
-                if (ageDays > 8) {
-                  core.warning(
-                    `Eval-canary liveness: last completed canary run was ${ageDays.toFixed(1)} days ago (${latest.html_url}). ` +
-                      "The weekly Sunday 18:00 UTC schedule may have been dropped by GitHub - dispatch one manually " +
-                      "(provider-backed; needs explicit approval).",
-                  );
-                } else {
-                  core.info(`Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
-                }
-              }
-            } catch (error) {
-              core.warning(`Eval-canary liveness check skipped: ${error.message}`);
-            }
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
@@ -196,70 +153,110 @@ jobs:
         run: npm run check:installed-lock-parity
 
       - name: Upload-limit parity
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:upload-limit-parity
 
       - name: GitHub Actions pin check
+        if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:github-actions
 
       - name: CI scope self-test
         run: npm run check:ci-scope
 
+      - name: Verification-plan self-test
+        run: npm run check:verification-plan
+
       - name: Pinned Gitleaks range self-test
+        if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:gitleaks-pinned
 
       - name: CI triage self-test
+        if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:ci-triage
 
       - name: PR policy self-test
+        if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-policy
 
       - name: Gate-manifest self-test
+        if: needs.changes.outputs.workflow_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:gate-manifest
 
       - name: Branch review ledger integrity
+        # Also run for static_heavy (including .gitattributes-only edits and the
+        # scheduled full-run sentinel): both checkers validate merge attributes.
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:branch-review-ledger
 
       - name: Outstanding-issues ledger integrity
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         env:
           OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: npm run check:outstanding-issues
 
       - name: PR mergeability workflow contract
+        if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-mergeability
 
+      - name: Focused CI workflow contracts
+        if: needs.changes.outputs.workflow_changed == 'true'
+        run: npm run test:ci-workflows
+
+      - name: Codex auto-resolve workflow guard
+        if: needs.changes.outputs.codex_autofix_changed == 'true'
+        run: npm run check:codex-autofix-workflow
+
       - name: Codebase index coverage
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-index
 
       - name: Documentation inventory drift
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-inventory
 
       - name: Check docs scripts
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-scripts
       - name: Check docs links
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run docs:check-links
 
       - name: Dependency and duplicate-export hygiene
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:knip
 
       - name: Maintainability hotspot budgets
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:maintainability-budgets
 
-      - name: Format check
+      - name: Changed-file format check
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
+        run: npm run format:changed
+
+      - name: Scheduled full-tree format drift
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: npm run format:check
 
       # Design-system guards that were previously only in the local verify:cheap
       # chain (offline + fast). Without them a stray type/icon/brand drift merged
       # green because no workflow ran them (there is no test backstop either).
       - name: Type scale guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:type-scale
 
       - name: Icon scale guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:icon-scale
 
       - name: Brand asset check
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run brand:check
 
       - name: Asset linting
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:assets
 
       # More generated-output drift detectors that were local-only in
@@ -268,42 +265,51 @@ jobs:
       # green because no workflow ran them. The gate-manifest self-test now fails
       # CI if this list drifts from verify:cheap again.
       - name: Site map drift
+        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run sitemap:check
 
       - name: Therapy data index drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:therapy-data-index
 
       - name: Cross-mode differentials index drift
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:cross-mode-index
 
       - name: Design-system contract
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:design-system-contract
 
       # Prevent hosted SQL/tooling from assuming a platform-reserved role while
       # byte-pinning the single immutable historical migration exception.
       - name: Hosted migration-role guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:migration-role
 
       # Fails if a SECURITY DEFINER public function is left executable by
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
       - name: Function-grant guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:function-grants
 
       # Fails if a src/app/api handler queries an owner-scoped table without a
       # recognised owner filter (defense-in-depth tenancy guard; audit D2).
       - name: Owner-scope guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:owner-scope
 
       - name: Lint
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run lint
 
       - name: Typecheck
+        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run typecheck
 
   safety:
     name: Safety and config checks
     needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
+    if: needs.changes.outputs.static_heavy_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -322,8 +328,8 @@ jobs:
 
       # A PR can only introduce a new (possibly-vulnerable) dependency when a
       # manifest/lockfile changes, so the audit blocks the merge gate only then
-      # (retried to absorb transient npm-registry flake). For every other change
-      # it runs advisory, and the weekly scheduled full run still enforces drift.
+      # (retried to absorb transient npm-registry flake). The weekly scheduled
+      # full run still enforces registry drift without querying it on every PR.
       - name: Dependency audit (blocking on dependency changes)
         if: needs.changes.outputs.lockfile_changed == 'true'
         run: |
@@ -334,23 +340,15 @@ jobs:
           done
           npm audit --omit=dev --audit-level=high
 
-      - name: Dependency audit (advisory)
-        if: needs.changes.outputs.lockfile_changed != 'true'
-        continue-on-error: true
-        run: npm audit --omit=dev --audit-level=high
-
       - name: Edge function typecheck
         run: npm run check:edge:functions
 
       - name: Production readiness (CI-safe)
         run: npm run check:production-readiness:ci
 
-      - name: Codex auto-resolve workflow guard
-        if: needs.changes.outputs.codex_autofix_changed == 'true'
-        run: npm run check:codex-autofix-workflow
-
-      # Fixtures for ordinary non-docs PRs; full offline contracts (includes
-      # fixtures) when retrieval/answer surfaces change.
+      # Fixtures for executable changes; full offline contracts (includes
+      # fixtures) when retrieval/answer surfaces change. Recognised docs and
+      # workflow-only changes skip this whole job.
       - name: Offline RAG fixture and manifest validation
         if: needs.changes.outputs.rag_eval_changed != 'true'
         run: npm run check:rag:fixtures
@@ -814,7 +812,7 @@ jobs:
     steps:
       - name: Verify required in-scope jobs
         env:
-          DOCS_ONLY: ${{ needs.changes.outputs.docs_only }}
+          STATIC_HEAVY_CHANGED: ${{ needs.changes.outputs.static_heavy_changed }}
           COVERAGE_CHANGED: ${{ needs.changes.outputs.coverage_changed }}
           UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
@@ -891,10 +889,10 @@ jobs:
           require_success "changes" "$CHANGES_RESULT"
           require_success "static-pr" "$STATIC_RESULT"
 
-          if [ "$DOCS_ONLY" = "true" ]; then
-            require_skipped_or_success "safety" "$SAFETY_RESULT"
-          else
+          if [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
             require_success "safety" "$SAFETY_RESULT"
+          else
+            require_skipped_or_success "safety" "$SAFETY_RESULT"
           fi
 
           if [ "$COVERAGE_CHANGED" = "true" ]; then
