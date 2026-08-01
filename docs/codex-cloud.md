@@ -81,6 +81,24 @@ expected to call named providers. Configure the smallest domain/method allowlist
 least-privileged credentials for those tasks. Never commit credentials or print their
 values. The setup script does not call providers and does not prove provider authorization.
 
+Create or select a separate environment named `Database - connected` for `BigSimmo/Database`,
+then set only these ordinary environment variables in
+[Codex environment settings](https://chatgpt.com/codex/settings/environments):
+
+```text
+CODEX_CLOUD=1
+CODEX_CLOUD_ACCESS_PROFILE=connected
+RAG_PROVIDER_MODE=offline
+NEXT_PUBLIC_DEMO_MODE=true
+PLAYWRIGHT_OFFLINE_MODE=true
+```
+
+Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
+tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
+environment. The generated agent profile removes the complete provider-variable inventory in
+both access profiles. Connected access means the scoped OAuth MCP servers and GitHub connector
+are available; it does not mean raw credentials are exposed to the shell.
+
 Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
 properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
 or Railway secrets into the agent phase. Do not persist them in profiles, repository files,
@@ -206,6 +224,13 @@ and restart the client if tools do not appear. Schema writes, Edge Function depl
 and storage mutations require a separately configured non-production project or branch; do not
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
+
+In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
+provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
+provider environment variable as `present=false`, the credential-free `BigSimmo/Database` origin,
+and only the hosted Railway and project-scoped read-only Supabase MCP metadata. This proves the
+shell boundary and configured capabilities, not OAuth authorization. Then verify each explicitly
+authorized provider with a read-only identity/status call and report only non-secret metadata.
 
 ## Authenticated live testing
 
