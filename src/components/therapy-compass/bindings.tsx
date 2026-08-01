@@ -186,16 +186,44 @@ export type TcBindings = {
 const TcContext = createContext<TcBindings | null>(null);
 
 function navStyle(active: boolean): string {
-  return `tc-nav-control${active ? " tc-is-active" : ""}`;
+  return [
+    "inline-flex min-h-tap flex-none items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-transparent bg-transparent px-[13px] py-2 text-sm-minus font-medium text-[color:var(--text-muted)] no-underline",
+    "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
+    active
+      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-semibold text-[color:var(--clinical-accent-hover)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 function tabStyle(active: boolean): string {
-  return `tc-tab-control${active ? " tc-is-active" : ""}`;
+  return [
+    "inline-flex min-h-tap items-center justify-center border-0 border-b-2 border-b-transparent bg-transparent px-1 py-2.5 text-sm font-medium text-[color:var(--text-muted)]",
+    "hover:enabled:text-[color:var(--text)]",
+    active ? "border-b-[color:var(--clinical-accent)] font-semibold text-[color:var(--clinical-accent-hover)]" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 function segStyle(active: boolean): string {
-  return `tc-segment-control${active ? " tc-is-active" : ""}`;
+  return [
+    "inline-flex min-h-tap items-center justify-center rounded-md border-0 bg-transparent px-4 py-[7px] text-sm-minus font-semibold text-[color:var(--text-muted)]",
+    "hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
+    active ? "bg-[color:var(--surface)] text-[color:var(--clinical-accent-hover)] shadow-[var(--shadow-tight)]" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 function chipStyle(active: boolean): string {
-  return `tc-chip-control${active ? " tc-is-active" : ""}`;
+  return [
+    "inline-flex min-h-tap items-center justify-center rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
+    "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
+    active
+      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-semibold text-[color:var(--clinical-accent-hover)]"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 export function TcProvider({ children }: { children: ReactNode }) {
@@ -478,8 +506,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
       toggleContacts: () => toggleSection("contacts"),
       sheetClinician,
       toggleClinician: () => setSheetClinician((prev) => !prev),
-      clinicianTrack: `tc-clinician-track${sheetClinician ? " tc-is-active" : ""}`,
-      clinicianKnob: `tc-clinician-knob${sheetClinician ? " tc-is-active" : ""}`,
+      clinicianTrack: "",
+      clinicianKnob: "",
       printSheet: () => {
         if (typeof window !== "undefined") window.print();
       },

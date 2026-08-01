@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { MAX_COMPARE, useTcBindings } from "../bindings";
-import { commandControl, outlineControl } from "../controls";
+import { commandControl, outlineControl, therapyBtn } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import {
@@ -95,22 +95,22 @@ export function CompareScreen() {
   const cellPad = dense ? "11px 16px" : "15px 20px";
 
   return (
-    <section data-screen-label="Compare" className="tc-screens-compare-screen-001">
-      <div className="tc-screens-compare-screen-002">
+    <section data-screen-label="Compare" className="max-w-[1240px] my-0 mx-auto">
+      <div className="flex items-start justify-between gap-5 mb-1.5 flex-wrap">
         <div>
-          <div className="tc-screens-compare-screen-003">
-            <h1 className="tc-screens-compare-screen-004">Therapy Comparison</h1>
-            <span className="tc-screens-compare-screen-005">{items.length} of 4 selected</span>
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="m-0 text-3xl-minus font-semibold text-[color:var(--text-heading)] tracking-tight">Therapy Comparison</h1>
+            <span className="text-sm-minus font-semibold text-[color:var(--clinical-accent-hover)] bg-[color:var(--clinical-accent-soft)] py-[3px] px-2.5 rounded-md">{items.length} of 4 selected</span>
           </div>
-          <p className="tc-screens-compare-screen-006">
+          <p className="mt-1.5 mx-0 mb-0 text-sm text-[color:var(--text-muted)]">
             Compare fit, cautions, delivery and evidence without losing source context.
           </p>
         </div>
-        <div className="tc-screens-compare-screen-007">
-          <div className="tc-screens-compare-screen-008">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex gap-0.5 p-[3px] bg-[color:var(--surface-inset)] rounded-lg">
             <button
               type="button"
-              className={`tc-btn ${b.segComfortable}`}
+              className={`${therapyBtn} ${b.segComfortable}`}
               onClick={b.setComfortable}
               aria-pressed={b.density === "comfortable"}
             >
@@ -118,20 +118,20 @@ export function CompareScreen() {
             </button>
             <button
               type="button"
-              className={`tc-btn ${b.segDense}`}
+              className={`${therapyBtn} ${b.segDense}`}
               onClick={b.setDense}
               aria-pressed={b.density === "dense"}
             >
               Dense
             </button>
           </div>
-          <button type="button" className={`tc-btn ${outlineControl}`} onClick={copySet} disabled={items.length < 2}>
+          <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={copySet} disabled={items.length < 2}>
             {copied === "set" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
             {copied === "set" ? "Copied" : "Copy set"}
           </button>
           <button
             type="button"
-            className={`tc-btn ${outlineControl}`}
+            className={`${therapyBtn} ${outlineControl}`}
             onClick={b.clearCompare}
             disabled={items.length === 0}
           >
@@ -140,15 +140,15 @@ export function CompareScreen() {
         </div>
       </div>
 
-      <div className="tc-screens-compare-screen-009">
+      <div className="flex gap-3 my-[18px] mx-0 flex-wrap items-center">
         <AddPicker />
         {items.map((t) => (
-          <span key={t.slug} className="tc-screens-compare-screen-010">
-            <ScaleIcon size={15} className="tc-screens-compare-screen-011" />
-            <span className="tc-screens-compare-screen-012">{t.name}</span>
+          <span key={t.slug} className="flex items-center gap-2 h-[46px] pt-0 pr-2 pb-0 pl-3.5 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
+            <ScaleIcon size={15} className="text-[color:var(--text-soft)]" />
+            <span className="text-sm-minus font-semibold text-[color:var(--text-heading)] max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap">{t.name}</span>
             <button
               type="button"
-              className="tc-btn tc-screens-compare-screen-013"
+              className={`${therapyBtn} inline-flex items-center justify-center w-tap h-tap border-0 bg-transparent text-[color:var(--text-soft)] cursor-pointer rounded-sm`}
               onClick={() => b.removeCompare(t.slug)}
               title={`Remove ${t.name}`}
             >
@@ -164,7 +164,7 @@ export function CompareScreen() {
           title={items.length === 0 ? "Add therapies to compare" : "Add one more therapy"}
           body="Pick two to four therapies — from search results, a therapy record, or the add box above — to compare fit, cautions, delivery and evidence side by side."
           action={
-            <button type="button" className={`tc-btn ${commandControl}`} onClick={b.goSearch}>
+            <button type="button" className={`${therapyBtn} ${commandControl}`} onClick={b.goSearch}>
               <SearchIcon size={16} strokeWidth={1.9} />
               Find therapies to compare
             </button>
@@ -173,9 +173,9 @@ export function CompareScreen() {
       ) : (
         <>
           {/* decision summary */}
-          <div className="tc-mobile-stack tc-screens-compare-screen-014">
-            <div className="tc-screens-compare-screen-015">
-              <div className="tc-screens-compare-screen-016">Decision summary</div>
+          <div className="grid grid-cols-1 sm:grid-cols-[1.1fr_1fr_1fr] bg-[color:var(--surface)] border border-[color:var(--border)] rounded-xl shadow-[var(--shadow-soft)] overflow-hidden mb-5">
+            <div className="py-5 px-[22px]">
+              <div className="text-base-minus font-semibold text-[color:var(--text-heading)]">Decision summary</div>
             </div>
             <SummaryCell label="SHORTEST DELIVERY" value={shortestDelivery(items)?.name ?? "—"} accent />
             <SummaryCell
@@ -186,10 +186,10 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div className="tc-compare-tabs tc-screens-compare-screen-017" role="group" aria-label="Comparison fields">
+          <div className="therapy-compare-tabs flex gap-[26px] border-b border-[color:var(--border)] mb-0.5" role="group" aria-label="Comparison fields">
             <button
               type="button"
-              className={`tc-btn ${b.tabPriorities}`}
+              className={`${therapyBtn} ${b.tabPriorities}`}
               onClick={b.setTabPriorities}
               aria-pressed={b.cmpTab === "priorities"}
             >
@@ -197,7 +197,7 @@ export function CompareScreen() {
             </button>
             <button
               type="button"
-              className={`tc-btn ${b.tabDifferences}`}
+              className={`${therapyBtn} ${b.tabDifferences}`}
               onClick={b.setTabDifferences}
               aria-pressed={b.cmpTab === "differences"}
             >
@@ -205,7 +205,7 @@ export function CompareScreen() {
             </button>
             <button
               type="button"
-              className={`tc-btn ${b.tabAll}`}
+              className={`${therapyBtn} ${b.tabAll}`}
               onClick={b.setTabAll}
               aria-pressed={b.cmpTab === "all"}
             >
@@ -215,18 +215,19 @@ export function CompareScreen() {
 
           {/* table */}
           <div
-            className="tc-compare-table tc-scroll-sm tc-screens-compare-screen-018"
+            data-therapy-scroll-sm
+            className="therapy-compare-table bg-[color:var(--surface)] border border-[color:var(--border)] border-t-0 rounded-xs shadow-[var(--shadow-soft)] overflow-hidden"
             style={{ "--tc-compare-columns": cols, "--tc-compare-cell-padding": cellPad } as CSSProperties}
           >
-            <div className="tc-compare-grid tc-compare-header">
-              <div className="tc-screens-compare-screen-019">Field</div>
+            <div className="therapy-compare-grid bg-[color:var(--surface-subtle)]">
+              <div className="py-4 px-5 text-sm-minus font-semibold text-[color:var(--text-soft)]">Field</div>
               {items.map((t) => (
-                <div key={t.slug} className="tc-screens-compare-screen-020">
-                  <div className="tc-screens-compare-screen-021">
-                    <ScaleIcon size={15} className="tc-screens-compare-screen-022" />
-                    <span className="tc-screens-compare-screen-023">{t.name}</span>
+                <div key={t.slug} className="py-3.5 px-5 border-l border-[color:var(--border)]">
+                  <div className="flex items-center gap-[7px]">
+                    <ScaleIcon size={15} className="text-[color:var(--text-soft)]" />
+                    <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
                   </div>
-                  <div className={t.reviewStatus === "reviewed" ? "tc-compare-reviewed" : "tc-compare-review-needed"}>
+                  <div className={t.reviewStatus === "reviewed" ? "mt-[3px] text-2xs font-semibold text-[color:var(--success-text)]" : "mt-[3px] text-2xs font-semibold text-[color:var(--warning-text)]"}>
                     {t.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
                   </div>
                 </div>
@@ -238,14 +239,14 @@ export function CompareScreen() {
               return (
                 <div
                   key={r.key}
-                  className={`tc-compare-grid tc-compare-row${warn ? " tc-is-warning" : stripe ? " tc-is-striped" : ""}`}
+                  className={`therapy-compare-grid bg-[color:var(--surface)]${warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : stripe ? " bg-[color:var(--surface-subtle)]" : ""}`}
                 >
-                  <div className="tc-compare-row-label">
+                  <div className="therapy-compare-row-label flex items-center">
                     <r.icon size={16} strokeWidth={1.7} />
                     {r.label}
                   </div>
                   {items.map((t) => (
-                    <div key={t.slug} className="tc-compare-cell">
+                    <div key={t.slug} className="therapy-compare-cell border-l border-[color:var(--border)]">
                       {r.get(t)}
                     </div>
                   ))}
@@ -253,7 +254,7 @@ export function CompareScreen() {
               );
             })}
           </div>
-          <div className="tc-screens-compare-screen-024">
+          <div className="flex items-center gap-2 mt-4 text-xs text-[color:var(--text-soft)]">
             <InfoIcon size={15} strokeWidth={1.8} />
             Comparisons are source-grounded. Review status reflects the latest source checks.
           </div>
@@ -275,9 +276,9 @@ function SummaryCell({
   warn?: boolean;
 }) {
   return (
-    <div className={`tc-summary-cell${accent ? " tc-is-accent" : warn ? " tc-is-warning" : ""}`}>
-      <div className="tc-screens-compare-screen-025">{label}</div>
-      <div className="tc-summary-cell-value">{value}</div>
+    <div className={`border-l border-[color:var(--border)] px-[22px] py-5${accent ? " border-l-[3px] border-l-[color:var(--clinical-accent)]" : warn ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}>
+      <div className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-soft)] mb-1.5">{label}</div>
+      <div className="text-sm font-semibold text-[color:var(--text-heading)]">{value}</div>
     </div>
   );
 }
@@ -294,9 +295,9 @@ function AddPicker() {
   }, [q, b, atLimit]);
 
   return (
-    <div className="tc-screens-compare-screen-026">
-      <label className="tc-screens-compare-screen-027">
-        <SearchIcon size={17} strokeWidth={1.8} className="tc-screens-compare-screen-028" />
+    <div className="relative flex-1 min-w-[260px]">
+      <label className="relative flex items-center">
+        <SearchIcon size={17} strokeWidth={1.8} className="absolute left-[14px] text-[color:var(--text-soft)]" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -305,23 +306,23 @@ function AddPicker() {
             atLimit ? "Maximum of 4 selected — remove one to add another" : "Add a therapy to the comparison…"
           }
           aria-label="Add a therapy to compare"
-          className="tc-compare-add-input"
+          className="h-[46px] w-full rounded-md border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-3 text-sm"
         />
       </label>
       {matches.length ? (
-        <div className="tc-screens-compare-screen-029">
+        <div className="absolute z-[30] top-[52px] left-0 right-0 bg-[color:var(--surface)] border border-[color:var(--border)] rounded-lg shadow-[var(--shadow-hover)] overflow-hidden">
           {matches.map((t) => (
             <button
               key={t.slug}
               type="button"
-              className="tc-btn tc-row tc-screens-compare-screen-030"
+              className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex items-center gap-2.5 w-full py-[11px] px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer`}
               onClick={() => {
                 b.addCompare(t.slug);
                 setQ("");
               }}
             >
-              <PlusIcon size={15} className="tc-screens-compare-screen-031" />
-              <span className="tc-screens-compare-screen-032">{t.name}</span>
+              <PlusIcon size={15} className="text-[color:var(--clinical-accent)] flex-none" />
+              <span className="text-sm-minus font-semibold text-[color:var(--text-heading)]">{t.name}</span>
             </button>
           ))}
         </div>

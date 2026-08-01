@@ -6,12 +6,15 @@ import type { ReactNode } from "react";
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
 
 import { TcProvider, useTcBindings } from "./bindings";
-import { accentControl } from "./controls";
+import { accentControl, therapyBtn } from "./controls";
 import { TherapyCompassNav, TherapyModeNav } from "./nav";
 
 function TherapyCompassFooter() {
   return (
-    <div className="tc-no-print mx-auto mt-[30px] max-w-[1240px] border-t border-[color:var(--border)] pt-5">
+    <div
+      data-therapy-no-print
+      className="mx-auto mt-[30px] max-w-[1240px] border-t border-[color:var(--border)] pt-5"
+    >
       <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
     </div>
   );
@@ -32,7 +35,7 @@ function TherapyCompassDataError() {
       </p>
       <button
         type="button"
-        className={`tc-btn ${accentControl}`}
+        className={`${therapyBtn} ${accentControl}`}
         onClick={b.retryData}
         disabled={b.loading}
         aria-disabled={b.loading}
@@ -92,10 +95,10 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      {/* `tc-root` stays until the last screen leaves therapy-compass.css: every
-          remaining numbered rule is scoped `.tc-root .tc-*`, so dropping it early
-          would unstyle the un-migrated screens. */}
-      <div className="tc-root min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]">
+      <div
+        data-therapy-root
+        className="min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]"
+      >
         {isHome ? null : <TherapyNavSlot />}
         <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
           {children}

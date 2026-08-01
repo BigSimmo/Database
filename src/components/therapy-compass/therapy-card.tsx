@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useTcBindings } from "./bindings";
 import { summarise } from "./data/select";
 import type { Therapy } from "./data/types";
-import { accentControl, outlineControl } from "./controls";
+import { accentControl, outlineControl, therapyBtn } from "./controls";
 import {
   AlertIcon,
   ChevronRightIcon,
@@ -66,7 +66,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         <div className="flex gap-1">
           <button
             type="button"
-            className="tc-btn inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-[9px] border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65"
+            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-[9px] border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65`}
             disabled
             title="Favourite saving is not available yet"
             aria-label="Favourite saving is not available yet"
@@ -78,7 +78,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       <div className="flex flex-wrap gap-2.5 px-[22px] pb-5">
         <button
           type="button"
-          className={`tc-btn ${accentControl} tc-flex-control`}
+          className={`${therapyBtn} ${accentControl} min-w-[150px] flex-1`}
           onClick={() => b.open(therapy.slug)}
         >
           <ExternalLinkIcon size={16} strokeWidth={1.8} />
@@ -86,7 +86,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`tc-btn ${outlineControl}${inCompare ? " tc-is-selected" : ""}`}
+          className={`${therapyBtn} ${outlineControl}`}
           onClick={() => b.toggleCompare(therapy.slug)}
           aria-pressed={inCompare}
         >
@@ -95,7 +95,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </button>
         <button
           type="button"
-          className={`tc-btn ${outlineControl}`}
+          className={`${therapyBtn} ${outlineControl}`}
           onClick={() => b.openSheet(therapy.slug)}
           disabled={!therapy.patientSheetAvailable}
           title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
@@ -120,8 +120,8 @@ function CardCell({
   text: string;
 }) {
   return (
-    <div className={`tc-card-cell tc-card-cell-${tone}`}>
-      <div className="tc-card-cell-heading">
+    <div className={`bg-[color:var(--surface)] px-[13px] py-3 [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-[color:var(--text-muted)] ${tone === 'accent' ? 'text-[color:var(--clinical-accent)]' : tone === 'warning' ? 'bg-[color:var(--warning-bg)] text-[color:var(--warning-text)] [&_p]:text-[color:var(--warning-text)]' : 'text-[color:var(--text-soft)]'}`}>
+      <div className="mb-[7px] flex items-center gap-1.5">
         <Icon size={13} strokeWidth={1.9} />
         <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
       </div>
@@ -147,7 +147,7 @@ export function TherapyListItem({
   return (
     <button
       type="button"
-      className={`tc-btn tc-row tc-therapy-list-item${active ? " tc-is-active" : ""}`}
+      className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
       onClick={onClick}
       aria-pressed={active}
     >

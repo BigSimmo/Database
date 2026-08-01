@@ -40,11 +40,6 @@ export const RAW_COLOR_EXEMPTIONS = [
     scope: "app-theme-colors",
   },
   {
-    category: "printable Therapy paper",
-    pattern: /^src\/components\/therapy-compass\/therapy-compass\.css$/,
-    scope: "therapy-paper",
-  },
-  {
     category: "printable factsheet paper",
     pattern: /^src\/components\/factsheets\/factsheet-detail-page\.tsx$/,
     scope: "factsheet-print-sheet",
@@ -255,15 +250,6 @@ export function rawColorContractSource(relativePath, source, reportFailure = () 
   const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
   if (!exemption) return source;
   if (exemption.scope === "whole-file") return "";
-
-  if (exemption.scope === "therapy-paper") {
-    const ranges = [balancedBlockRange(source, ".tc-paper {"), balancedBlockRange(source, "@media print {")];
-    if (ranges.some((range) => !range)) {
-      reportFailure("printable Therapy paper raw-color boundaries are missing");
-      return source;
-    }
-    return maskRanges(source, ranges);
-  }
 
   if (exemption.scope === "app-theme-colors") {
     // Anchored on the declaration keyword, not a bare identifier, so a later

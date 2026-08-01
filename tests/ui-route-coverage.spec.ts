@@ -250,12 +250,12 @@ test.describe("previously uncovered production routes", () => {
         await expect(currentPage.getByTestId("search-query-ribbon")).toBeVisible();
         // The common-search pill lands on `/therapy-compass/search`, which is the
         // shared `ModeNav`. It portals into the header collapse host (outside
-        // .tc-root), so read the canvas colour from the workspace root still in
-        // the page, and prove the bar is anchored under the collapsing top bar.
+        // [data-therapy-root]), so read the canvas colour from the workspace root
+        // still in the page, and prove the bar is anchored under the collapsing top bar.
         const nav = currentPage.getByRole("navigation", { name: "Therapy pages" });
         const layout = await nav.evaluate((element) => {
           const bar = element.querySelector<HTMLElement>(".mode-nav__bar");
-          const root = document.querySelector(".tc-root");
+          const root = document.querySelector("[data-therapy-root]");
           return {
             backgroundColor: root ? getComputedStyle(root).backgroundColor : "",
             portaledIntoCollapse: Boolean(element.closest('[data-testid="universal-header-collapse"]')),
@@ -264,7 +264,7 @@ test.describe("previously uncovered production routes", () => {
             inlineOverflow: bar ? bar.scrollWidth - bar.clientWidth : Number.POSITIVE_INFINITY,
           };
         });
-        // .tc-root is `background: var(--background)`, so this tracks the app's
+        // [data-therapy-root] is `background: var(--background)`, so this tracks the app's
         // page floor — #f1f4f8 since the Clinical Sky surface scale landed, not
         // the white it used to be.
         expect(layout.backgroundColor).toBe("rgb(241, 244, 248)");
