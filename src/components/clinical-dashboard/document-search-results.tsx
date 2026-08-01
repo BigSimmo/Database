@@ -1156,6 +1156,39 @@ function DocumentSearchResultsPanelImpl({
         }
       />
     ) : null;
+  // The shelf's contents. Facet chips carry their group's own label so a bare
+  // "Policy" is not ambiguous across ten groups, and the source-type chip joins
+  // them because it narrows the same list by the same act.
+  const appliedFilters = useMemo(() => {
+    const selected = new Set(activeFacetKeys);
+    const chips = tagFacetGroups.flatMap((group) =>
+      group.facets
+        .filter((facet) => selected.has(facet.key))
+        .map((facet) => ({
+          id: facet.key,
+          label: facet.label,
+          onRemove: () => toggleTagFacet(facet),
+        })),
+    );
+    if (effectiveResultType !== "all") {
+      const tab = resultTabs.find((entry) => entry.key === effectiveResultType);
+      if (tab) {
+        chips.push({
+          id: `result-type-${tab.key}`,
+          label: tab.label,
+          onRemove: () => setActiveResultType("all"),
+        });
+      }
+    }
+    return chips;
+    // `toggleTagFacet` is a stable closure over `query`, which is already a
+    // dependency of `activeFacetKeys`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs]);
+  const clearAllFilters = () => {
+    setActiveFacetState({ query, keys: [] });
+    setActiveResultType("all");
+  };
   const showIdentityHeader =
     recordMatchCount > 0 ||
     matches.length > 0 ||
@@ -1216,6 +1249,8 @@ function DocumentSearchResultsPanelImpl({
               </button>
             ) : null
           }
+          appliedFilters={appliedFilters}
+          onClearFilters={clearAllFilters}
           filterLabel="Filter documents"
           // The same trigger goes in both slots: the ribbon shows `mobileControls`
           // below `sm` and `filterControls` from `sm` up, never both at once.
@@ -1293,10 +1328,7 @@ function DocumentSearchResultsPanelImpl({
               activeResultType={effectiveResultType}
               onResultTypeChange={setActiveResultType}
               onToggle={toggleTagFacet}
-              onClear={() => {
-                setActiveFacetState({ query, keys: [] });
-                setActiveResultType("all");
-              }}
+              onClear={clearAllFilters}
               resultCount={sortedMatches.length}
               onDone={() => setFilterPanelState({ query, open: false })}
             />

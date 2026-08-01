@@ -15,7 +15,6 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
 
@@ -111,6 +110,14 @@ function useRailOverflow<Element extends HTMLElement>() {
   return { ref, overflowing } as const;
 }
 
+export type AppliedFilterChip = {
+  id: string;
+  label: string;
+  onRemove: () => void;
+};
+
+const EMPTY_APPLIED_FILTERS: AppliedFilterChip[] = [];
+
 export function SearchResultsHeaderBand({
   modeId,
   query,
@@ -129,6 +136,8 @@ export function SearchResultsHeaderBand({
   utilityControls,
   mobileControls,
   filterControls,
+  appliedFilters = EMPTY_APPLIED_FILTERS,
+  onClearFilters,
   filterLabel = "Filter search results",
   headingLevel = 2,
   className,
@@ -161,18 +170,18 @@ export function SearchResultsHeaderBand({
   mobileControls?: ReactNode;
   /** Page-specific filters rendered as a full-width row within the shared ribbon. */
   filterControls?: ReactNode;
+  /** Applied filters, shown on a labelled shelf under the bar. Each removes in
+      one tap. Supplied by the page rather than read from context: the previous
+      shelf pulled from a context value nothing could populate, so it rendered
+      for nobody. */
+  appliedFilters?: AppliedFilterChip[];
+  /** Clears every applied filter at once. Omit to hide the trailing Clear. */
+  onClearFilters?: () => void;
   filterLabel?: string;
   /** Use level 1 when the ribbon is the route's primary page heading. */
   headingLevel?: 1 | 2;
   className?: string;
 }) {
-  const command = useSearchCommand();
-  const config = searchCommandSurfaceConfig(modeId);
-  const activeScopes = command?.commandScopes ?? [];
-  const visibleScopes = activeScopes.flatMap((scopeId) => {
-    const scope = config?.scopes.find((entry) => entry.id === scopeId);
-    return scope ? [scope] : [];
-  });
   const displayQuery = query.trim() || "All";
   // `status` wins when both are passed; `loading` is the deprecated shim.
   const resolvedStatus: SearchResultsBandStatus = status ?? (loading ? "loading" : "ready");
@@ -220,11 +229,9 @@ export function SearchResultsHeaderBand({
   const countUntrusted = faulted || resolvedStatus === "loading";
   const pageControls = countUntrusted ? null : filterControls;
   const pageMobileControls = countUntrusted ? null : mobileControls;
-  const hasUtilities =
-    visibleScopes.length > 0 ||
-    Boolean(
-      onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
-    );
+  const hasUtilities = Boolean(
+    onSortChange || onViewChange || onSaveSearch || utilityControls || pageMobileControls || (partial && onRetry),
+  );
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
 
@@ -252,12 +259,15 @@ export function SearchResultsHeaderBand({
             )}
           >
             {/* The tile carries state as shape as well as colour: alert when the
-                search failed or degraded, funnel once the result set is narrowed,
-                search otherwise. A filtered list looks different from an unfiltered
-                one before any text is read. */}
+                search failed or degraded, a spinner while one is running, funnel
+                once the result set is narrowed, search otherwise. A filtered list
+                looks different from an unfiltered one before any text is read, and
+                a failure is visible before it is read. */}
             {faulted || partial ? (
               <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
-            ) : visibleScopes.length > 0 ? (
+            ) : busy ? (
+              <LoaderCircle className="h-4 w-4 motion-safe:animate-spin sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
+            ) : appliedFilters.length > 0 ? (
               <Funnel className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
               <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
@@ -376,31 +386,12 @@ export function SearchResultsHeaderBand({
                 Retry
               </AsyncButton>
             ) : null}
-            {onSortChange && pageMobileControls ? (
-              <div
-                data-testid="search-query-ribbon-mobile-control-pair"
-                className="flex min-w-0 shrink-0 items-center gap-1.5"
-              >
-                <ResultSortControl value={sortValue} onChange={onSortChange} />
-                <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
-                  {pageMobileControls}
-                </div>
-              </div>
-            ) : (
-              <>
-                {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
-                {pageMobileControls ? (
-                  <div
-                    data-testid="search-query-ribbon-mobile-controls"
-                    role="group"
-                    aria-label={filterLabel}
-                    className="min-w-0 shrink-0 sm:hidden"
-                  >
-                    {pageMobileControls}
-                  </div>
-                ) : null}
-              </>
-            )}
+            {/* Sort inboard: it is set about once a session, so it does not need
+                to be the easiest thing to hit. Filter is rendered last instead —
+                it is the only control carrying state, the one you return to
+                repeatedly, and on a phone the right edge is where the thumb
+                already is. */}
+            {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
             {utilityControls}
             {onViewChange ? (
               <div
@@ -453,58 +444,19 @@ export function SearchResultsHeaderBand({
                 <span className="max-[389px]:sr-only">Save search</span>
               </button>
             ) : null}
+            {pageMobileControls ? (
+              <div
+                data-testid="search-query-ribbon-mobile-controls"
+                role="group"
+                aria-label={filterLabel}
+                className="min-w-0 shrink-0 sm:hidden"
+              >
+                {pageMobileControls}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>
-      {/* The applied-filter shelf. Its own row, labelled, with one action that
-          undoes all of it — removing three filters used to be three taps with no
-          shortcut. Unlike the page filter row below it survives `loading`: these
-          chips carry no counts, so keeping them through a pending search avoids
-          the shelf flickering out and back on every keystroke. Only a faulted
-          search drops them, because filtering a result set that never loaded is
-          meaningless. */}
-      {visibleScopes.length > 0 && !faulted ? (
-        <div
-          data-testid="search-query-ribbon-scopes"
-          role="group"
-          aria-label="Applied filters"
-          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
-          {visibleScopes.map((scope) => (
-            <button
-              key={scope.id}
-              type="button"
-              onClick={() => command?.onRemoveScope(scope.id)}
-              aria-label={`Remove ${scope.label} filter`}
-              data-selected="true"
-              className={cn(
-                // Hover deepens the chip's own accent rather than swapping to the
-                // neutral border the surface controls use — an accent-soft chip
-                // going grey on hover reads as losing its active state.
-                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                focusRing,
-              )}
-            >
-              <span className="truncate">{scope.label}</span>
-              <X className="h-3 w-3 shrink-0" aria-hidden />
-            </button>
-          ))}
-          <span className="min-w-1 flex-1" aria-hidden />
-          {command?.onClearScopes && visibleScopes.length > 1 ? (
-            <button
-              type="button"
-              onClick={() => command.onClearScopes()}
-              className={cn(
-                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
-                focusRing,
-              )}
-            >
-              Clear
-            </button>
-          ) : null}
-        </div>
-      ) : null}
       {pageControls ? (
         <div
           data-testid="search-query-ribbon-filters"
@@ -516,6 +468,56 @@ export function SearchResultsHeaderBand({
           )}
         >
           {pageControls}
+        </div>
+      ) : null}
+      {/* The shelf. `Filtered by` labels it as state rather than a second bank
+          of buttons — without the label a row of accent pills reads as a
+          toolbar. It deliberately survives `loading` and a zero result: nothing
+          matching is exactly when you need to relax a filter, and dropping it
+          mid-search would flicker the chips out and back on every keystroke.
+          Only a fault removes it, because filtering a result set that never
+          loaded is meaningless. */}
+      {appliedFilters.length > 0 && !faulted ? (
+        <div
+          data-testid="search-query-ribbon-shelf"
+          role="group"
+          aria-label="Applied filters"
+          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
+          {appliedFilters.map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={filter.onRemove}
+              aria-label={`Remove ${filter.label} filter`}
+              data-selected="true"
+              className={cn(
+                // Hover deepens the chip's own accent rather than swapping to the
+                // neutral border the surface controls use — an accent-soft chip
+                // going grey on hover reads as losing its active state.
+                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                focusRing,
+              )}
+            >
+              <span className="truncate">{filter.label}</span>
+              <X className="h-3 w-3 shrink-0" aria-hidden />
+            </button>
+          ))}
+          <span className="min-w-1 flex-1" aria-hidden />
+          {onClearFilters && appliedFilters.length > 1 ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              data-testid="search-query-ribbon-shelf-clear"
+              className={cn(
+                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
+                focusRing,
+              )}
+            >
+              Clear
+            </button>
+          ) : null}
         </div>
       ) : null}
       {/* The fault panel carries the announcement and the recovery affordance.
@@ -658,22 +660,18 @@ export function MobileResultFilterControl<Value extends string>({
 export function SearchResultsEmptyState({
   modeId,
   query,
-  onClearScopes,
   onTryExample,
   onCrossMode,
   canAccessFavourites = false,
 }: {
   modeId: AppModeId;
   query: string;
-  onClearScopes?: () => void;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
   canAccessFavourites?: boolean;
 }) {
-  const command = useSearchCommand();
   const config = searchCommandSurfaceConfig(modeId);
   const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
-  const activeScopes = command?.commandScopes ?? [];
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
@@ -684,21 +682,9 @@ export function SearchResultsEmptyState({
         No matches for &ldquo;{query.trim() || "your search"}&rdquo;
       </p>
       <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        Relax the scope, try an example, or jump to another mode.
+        Try an example, or jump to another mode.
       </p>
       <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-        {activeScopes.length > 0 && onClearScopes ? (
-          <button
-            type="button"
-            onClick={onClearScopes}
-            className={cn(
-              "inline-flex min-h-9 items-center gap-1 rounded-lg border border-[color:var(--clinical-accent-border)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)]",
-              focusRing,
-            )}
-          >
-            Clear scope filters ({activeScopes.length})
-          </button>
-        ) : null}
         {config?.examples[0] && onTryExample ? (
           <button
             type="button"
