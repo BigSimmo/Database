@@ -18,6 +18,7 @@ import {
 import { generateStructuredTextResult } from "@/lib/openai";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { cleanClinicalSummaryText, fenceSourceEvidence, sourceTextForModelEvidence } from "@/lib/source-text-sanitizer";
 import type {
   ClinicalDocument,
@@ -541,7 +542,15 @@ function parseGeneratedSummary(
       },
       labels: normalizeGeneratedLabels(parsed.labels),
     } satisfies GeneratedSummary;
-  } catch {
+  } catch (error) {
+    // Unattended ingestion must not degrade silently: an unparseable enrichment
+    // payload falls back to a minimal summary that weakens retrieval for this
+    // document until it is re-indexed. Warn (greppable by document identity) so
+    // the degradation is observable, matching the truncation warning above.
+    console.warn("document enrichment parse failed", {
+      document: document.file_name ?? document.title,
+      ...safeErrorLogDetails(error),
+    });
     return {
       summary: `- ${document.title}: indexed source text is available for source-backed review.`,
       clinical_specifics: fallbackClinicalSpecifics(),
@@ -604,7 +613,14 @@ export async function upsertDocumentEnrichment(args: {
   let enrichment: GeneratedSummary;
   try {
     enrichment = await generateDocumentEnrichment(args);
-  } catch {
+  } catch (error) {
+    // Same rationale as parseGeneratedSummary: a failed generation (e.g. an
+    // OpenAI outage) degrades this document's retrieval quality, so record it
+    // instead of swallowing the error and silently persisting the fallback.
+    console.warn("document enrichment generation failed", {
+      document: args.document.file_name ?? args.document.title,
+      ...safeErrorLogDetails(error),
+    });
     enrichment = {
       summary: `- ${args.document.title}: indexed source text is available for source-backed review.`,
       clinical_specifics: fallbackClinicalSpecifics(),
