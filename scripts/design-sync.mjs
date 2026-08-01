@@ -30,8 +30,7 @@ if (process.argv.includes("--help") || process.argv.includes("-h")) {
   console.log(`Usage: node scripts/design-sync.mjs [options]
 
 Installs the gitignored .ds-sync toolchain (${DS_SYNC_PACKAGES.join(", ")})
-and compiles src/app/globals.css into .design-sync/.cache/compiled.css via
-@tailwindcss/cli, then appends .design-sync/font-vars.css.
+and runs \`.design-sync/config.json\` buildCmd (Tailwind compile + font-vars append).
 
   --skip-install   reuse an already-populated .ds-sync (no npm install)
   --dry-run        print the planned actions and exit without running them
@@ -55,6 +54,40 @@ function run(command, args, options = {}) {
   }
 }
 
+/**
+ * Execute config.buildCmd as the sole compile source of truth.
+ * The committed buildCmd is POSIX (`node … && cat … >> …`). On Windows, strip
+ * the trailing `cat >>` segment and append font-vars with Node instead.
+ */
+function runBuildCmd(buildCmd) {
+  const compiledCss = path.join(cacheDir, "compiled.css");
+  const fontVars = path.join(projectRoot, ".design-sync", "font-vars.css");
+
+  if (process.platform === "win32") {
+    const withoutCat = buildCmd.replace(/\s*&&\s*cat\s+.+$/i, "").trim();
+    console.log("[design-sync] Windows: running buildCmd without POSIX cat, then Node append");
+    const result = spawnSync(withoutCat, {
+      cwd: projectRoot,
+      stdio: "inherit",
+      shell: true,
+    });
+    if (result.error) throw result.error;
+    if (result.status !== 0) process.exit(result.status ?? 1);
+    if (fs.existsSync(fontVars)) {
+      fs.appendFileSync(compiledCss, fs.readFileSync(fontVars));
+    }
+    return;
+  }
+
+  const result = spawnSync(buildCmd, {
+    cwd: projectRoot,
+    stdio: "inherit",
+    shell: true,
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
 function main() {
   if (!fs.existsSync(configPath)) {
     console.error(`Missing ${path.relative(projectRoot, configPath)}`);
@@ -76,8 +109,7 @@ function main() {
         `[design-sync]   npm install --prefix .ds-sync --no-save --package-lock=false ${DS_SYNC_PACKAGES.join(" ")}`,
       );
     }
-    console.log("[design-sync]   compile src/app/globals.css -> .design-sync/.cache/compiled.css via @tailwindcss/cli");
-    console.log("[design-sync]   append .design-sync/font-vars.css when present");
+    console.log(`[design-sync]   run config.buildCmd: ${config.buildCmd}`);
     process.exit(0);
   }
 
@@ -100,14 +132,9 @@ function main() {
   }
 
   console.log("[design-sync] Compiling CSS via config.buildCmd…");
-  // buildCmd is authored for POSIX `cat >>`; on Windows use Node to append fonts.
-  const compiledCss = path.join(cacheDir, "compiled.css");
-  const fontVars = path.join(projectRoot, ".design-sync", "font-vars.css");
-  run(process.execPath, [twCli, "-i", path.join(projectRoot, "src", "app", "globals.css"), "-o", compiledCss]);
-  if (fs.existsSync(fontVars)) {
-    fs.appendFileSync(compiledCss, fs.readFileSync(fontVars));
-  }
+  runBuildCmd(config.buildCmd.trim());
 
+  const compiledCss = path.join(cacheDir, "compiled.css");
   console.log(`[design-sync] Wrote ${path.relative(projectRoot, compiledCss)}`);
   console.log(
     "[design-sync] Local CSS bundle ready. Remote claude.ai/design upload still uses the session design-sync skill (`resync.mjs --remote`).",

@@ -21,7 +21,8 @@
  *   node scripts/capture-mockup-screenshots.mjs --base-url http://localhost:PORT
  *   node scripts/capture-mockup-screenshots.mjs --print-url-only
  *
- * Never assumes localhost:3000. Confirms /api/local-project-id when possible.
+ * Never assumes localhost:3000. Refuses to capture unless /api/local-project-id
+ * confirms this project (AGENTS.md local server safety).
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -37,6 +38,8 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const expectedProjectId = localProjectId(projectRoot);
 const compsOutDir = path.join(projectRoot, "public", "mockups", "mode-page-redesign-2026-07", "current");
 const inventoryRoot = path.join(projectRoot, ".tmp-visual", "ds-v2-baseline");
+/** Seeded demo document used for provenance/source inventory captures. */
+const DEMO_DOCUMENT_ID = "11111111-1111-4111-8111-111111111111";
 
 const DESKTOP = { width: 1280, height: 900 };
 const PHONE = { width: 390, height: 844 };
@@ -75,8 +78,21 @@ const INVENTORY = [
   { group: "catalogues", name: "cat-differentials", path: "/differentials" },
   { group: "catalogues", name: "cat-favourites", path: "/favourites" },
   { group: "docs", name: "docs-search", path: "/documents/search" },
-  { group: "provenance", name: "prov-source", path: "/documents/source", print: true },
-  { group: "provenance", name: "prov-evidence", path: "/documents/source/evidence", print: true },
+  // /documents/source* require a valid id or they redirect to /documents/search.
+  {
+    group: "provenance",
+    name: "prov-source",
+    path: `/documents/source?id=${DEMO_DOCUMENT_ID}&page=1`,
+    print: true,
+    expectPathPrefix: `/documents/${DEMO_DOCUMENT_ID}`,
+  },
+  {
+    group: "provenance",
+    name: "prov-evidence",
+    path: `/documents/source/evidence?id=${DEMO_DOCUMENT_ID}&page=1`,
+    print: true,
+    expectPathPrefix: `/documents/${DEMO_DOCUMENT_ID}`,
+  },
   { group: "print", name: "print-safety-plan", path: "/safety-plan", print: true },
   { group: "print", name: "print-colour-coding", path: "/reference/colour-coding", print: true },
 ];
@@ -179,18 +195,22 @@ function resolveBaseUrlFromEnsure() {
 async function assertProjectIdentity(baseUrl) {
   const { status, body } = await requestText(`${baseUrl}/api/local-project-id`);
   if (status !== 200) {
-    console.warn(`[mockups:capture] Could not verify /api/local-project-id (HTTP ${status}). Continuing with caution.`);
-    return;
+    console.error(`[mockups:capture] Refusing to capture: could not verify /api/local-project-id (HTTP ${status}).`);
+    process.exit(1);
   }
   let parsed;
   try {
     parsed = JSON.parse(body);
   } catch {
-    console.warn("[mockups:capture] local-project-id response was not JSON");
-    return;
+    console.error("[mockups:capture] Refusing to capture: local-project-id response was not JSON");
+    process.exit(1);
   }
-  const got = parsed?.projectId;
-  if (got && got !== expectedProjectId) {
+  const got = typeof parsed?.projectId === "string" ? parsed.projectId.trim() : "";
+  if (!got) {
+    console.error("[mockups:capture] Refusing to capture: local-project-id response missing projectId");
+    process.exit(1);
+  }
+  if (got !== expectedProjectId) {
     console.error(`[mockups:capture] Refusing to capture: server projectId ${got} !== ${expectedProjectId}`);
     process.exit(1);
   }
@@ -269,6 +289,12 @@ async function captureInventory(browser, baseUrl, args) {
         if (variant.forcedColors) await page.emulateMedia({ forcedColors: "active" });
         if (variant.print) await page.emulateMedia({ media: "print" });
         await settle(page, url);
+        if (route.expectPathPrefix) {
+          const landed = new URL(page.url()).pathname;
+          if (!landed.startsWith(route.expectPathPrefix)) {
+            throw new Error(`expected path prefix ${route.expectPathPrefix} after navigation, landed on ${landed}`);
+          }
+        }
         await page.screenshot({ path: file, fullPage: true });
         written += 1;
         console.log(`[mockups:capture] ${route.name} ${variant.label} → ${path.basename(file)}`);
@@ -324,8 +350,12 @@ Run \`node scripts/ensure-local-server.mjs\` first (or pass --base-url).`);
 
   const browser = await chromium.launch({ headless: true });
   try {
-    if (args.inventory) await captureInventory(browser, baseUrl, args);
-    else await captureComps(browser, baseUrl);
+    if (args.inventory) {
+      const { failures } = await captureInventory(browser, baseUrl, args);
+      if (failures.length > 0) process.exitCode = 1;
+    } else {
+      await captureComps(browser, baseUrl);
+    }
   } finally {
     await browser.close();
   }

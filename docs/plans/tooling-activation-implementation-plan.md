@@ -358,15 +358,16 @@ Ledger hygiene after ops: archive/update `#025`, `#027`, `#028` via `/issues` �
 
 ## 8. Rollback / fail-closed
 
-| Change                           | Rollback                                                                             |
-| -------------------------------- | ------------------------------------------------------------------------------------ |
-| Webhook secrets                  | Remove Railway webhook URL; unset secrets → receivers return `503` (fail closed)     |
-| Chat URLs                        | Unset → notify skips / `forwarded: false`                                            |
-| Sentry DSN                       | Unset + restart → no provider calls                                                  |
-| Uptime                           | Disable monitor in vendor UI                                                         |
-| Context7 / GitHub MCP            | Remove from mcp.json                                                                 |
-| Visual/Lighthouse baselines      | Revert committed JSON/PNGs; set visual targets back to `AWAITING_BASELINE` if needed |
-| design-sync / screenshot scripts | Revert script; no runtime impact                                                     |
+| Change                           | Rollback                                                                                                               |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Webhook secrets                  | Remove Railway webhook URL; unset secrets → receivers return `503` (fail closed)                                       |
+| Chat URLs                        | Unset → notify skips / `forwarded: false`                                                                              |
+| Sentry DSN                       | Unset + restart → no provider calls                                                                                    |
+| Uptime                           | Disable monitor in vendor UI                                                                                           |
+| Context7                         | Remove the server from `.cursor/mcp.json` and disable `context7-plugin` in `.cursor/settings.json`, then reload Cursor |
+| GitHub MCP                       | Remove its server entry from its MCP configuration                                                                     |
+| Visual/Lighthouse baselines      | Revert committed JSON/PNGs; set visual targets back to `AWAITING_BASELINE` if needed                                   |
+| design-sync / screenshot scripts | Revert script; no runtime impact                                                                                       |
 
 ---
 
