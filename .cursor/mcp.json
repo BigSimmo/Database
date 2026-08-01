@@ -2,6 +2,12 @@
   "mcpServers": {
     "supabase": {
       "url": "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true"
+    },
+    "context7": {
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "${env:CONTEXT7_API_KEY}"
+      }
     }
   }
 }
