@@ -177,6 +177,13 @@ describe("shared header hide/reveal wiring", () => {
     expect(reserveHookSource).not.toContain("dataset.scrollHidden");
     expect(reserveHookSource).toContain("offsetHeight");
     expect(reserveHookSource).toContain("ResizeObserver");
+    // A present stack with offsetHeight 0 (display:contents / mid-unmount) must
+    // not publish 0px over the CSS seed via `??` — that collapses content under
+    // the out-of-flow header and jumps it back by the full stack height on the
+    // next measure (Services result-anchor +131px under CI, PR #1562 / #146).
+    expect(reserveHookSource).toContain("stack?.offsetHeight || collapse?.offsetHeight");
+    expect(reserveHookSource).toContain("if (measured <= 0)");
+    expect(reserveHookSource).toContain("readPhoneOverlayChromeReservePx");
   });
 
   it("portals the phone bottom dock out of the transformed overlay layer", () => {
