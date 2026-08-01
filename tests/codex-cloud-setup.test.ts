@@ -36,7 +36,7 @@ afterEach(() => {
 function temporaryGitRepository() {
   const directory = mkdtempSync(path.join(os.tmpdir(), "codex-cloud-git-"));
   temporaryDirectories.push(directory);
-  expect(spawnSync("git", ["init", "--quiet", directory]).status).toBe(0);
+  expect(spawnSync("git", ["init", "--quiet", "--initial-branch=task", directory]).status).toBe(0);
   return directory;
 }
 
@@ -96,6 +96,15 @@ describe("Codex Cloud environment contract", () => {
         PLAYWRIGHT_OFFLINE_MODE: "false",
       }),
     ).toEqual([]);
+
+    expect(
+      validateCodexCloudEnvironment({
+        ...offline,
+        CODEX_CLOUD_ACCESS_PROFILE: "connected",
+        RAG_PROVIDER_MODE: "offline",
+        SUPABASE_ACCESS_TOKEN: "setup-only-secret",
+      }),
+    ).toContain("Connected mode exposes provider environment variables: SUPABASE_ACCESS_TOKEN.");
   });
 
   it("emits sanitized modes, credential presence, and MCP metadata only", () => {
@@ -183,6 +192,15 @@ describe("Codex Cloud environment contract", () => {
     expect(validateMcpConfiguration(valid.replace("read_only=true", "read_only=false"))).toContain(
       "Supabase MCP must keep the production project read-only.",
     );
+    expect(validateMcpConfiguration(valid.replace('"supabase":', '"unexpected":{},"supabase":'))).toContain(
+      "Cloud MCP configuration must contain only Railway and Supabase.",
+    );
+    expect(validateMcpConfiguration(valid.replace('"railway":{"type"', '"railway":{"headers":{},"type"'))).toContain(
+      "railway MCP must use hosted OAuth without embedded environment variables or headers.",
+    );
+    expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&token=forbidden"))).toContain(
+      "Supabase MCP must not include additional query parameters.",
+    );
   });
 
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
@@ -192,6 +210,9 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
     expect(setup).toContain('"$HOME/.bash_profile"');
     expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
+    expect(setup.indexOf("unset OPENAI_API_KEY")).toBeLessThan(
+      setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]'),
+    );
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
   });
 
