@@ -1,6 +1,16 @@
 "use client";
 
-import { Bookmark, ChevronsUpDown, CircleAlert, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import {
+  Bookmark,
+  ChevronsUpDown,
+  CircleAlert,
+  Funnel,
+  LayoutList,
+  LoaderCircle,
+  Search,
+  Table2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
@@ -249,11 +259,16 @@ export function SearchResultsHeaderBand({
             )}
           >
             {/* The tile carries state as shape as well as colour: alert when the
-                search failed or degraded, funnel once the result set is narrowed,
-                search otherwise. A filtered list looks different from an unfiltered
-                one before any text is read. */}
+                search failed or degraded, a spinner while one is running, funnel
+                once the result set is narrowed, search otherwise. A filtered list
+                looks different from an unfiltered one before any text is read, and
+                a failure is visible before it is read. */}
             {faulted || partial ? (
               <CircleAlert className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
+            ) : busy ? (
+              <LoaderCircle className="h-4 w-4 motion-safe:animate-spin sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
+            ) : appliedFilters.length > 0 ? (
+              <Funnel className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             ) : (
               <Search className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" aria-hidden />
             )}
@@ -371,31 +386,12 @@ export function SearchResultsHeaderBand({
                 Retry
               </AsyncButton>
             ) : null}
-            {onSortChange && pageMobileControls ? (
-              <div
-                data-testid="search-query-ribbon-mobile-control-pair"
-                className="flex min-w-0 shrink-0 items-center gap-1.5"
-              >
-                <ResultSortControl value={sortValue} onChange={onSortChange} />
-                <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
-                  {pageMobileControls}
-                </div>
-              </div>
-            ) : (
-              <>
-                {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
-                {pageMobileControls ? (
-                  <div
-                    data-testid="search-query-ribbon-mobile-controls"
-                    role="group"
-                    aria-label={filterLabel}
-                    className="min-w-0 shrink-0 sm:hidden"
-                  >
-                    {pageMobileControls}
-                  </div>
-                ) : null}
-              </>
-            )}
+            {/* Sort inboard: it is set about once a session, so it does not need
+                to be the easiest thing to hit. Filter is rendered last instead —
+                it is the only control carrying state, the one you return to
+                repeatedly, and on a phone the right edge is where the thumb
+                already is. */}
+            {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
             {utilityControls}
             {onViewChange ? (
               <div
@@ -447,6 +443,16 @@ export function SearchResultsHeaderBand({
                 <Bookmark className="h-3.5 w-3.5" aria-hidden />
                 <span className="max-[389px]:sr-only">Save search</span>
               </button>
+            ) : null}
+            {pageMobileControls ? (
+              <div
+                data-testid="search-query-ribbon-mobile-controls"
+                role="group"
+                aria-label={filterLabel}
+                className="min-w-0 shrink-0 sm:hidden"
+              >
+                {pageMobileControls}
+              </div>
             ) : null}
           </div>
         ) : null}

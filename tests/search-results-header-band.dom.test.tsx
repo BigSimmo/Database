@@ -338,9 +338,14 @@ describe("SearchResultsHeaderBand", () => {
       />,
     );
 
-    const pair = screen.getByTestId("search-query-ribbon-mobile-control-pair");
-    await user.click(within(pair).getByRole("button", { name: "A–Z" }));
-    await user.selectOptions(within(pair).getByLabelText("Filter by result type"), "diagnosis");
+    // Sort and the page filter are no longer paired: Sort is inboard and the page
+    // filter renders last, hard against the ribbon's right edge, because it is the
+    // only control carrying state and the one a thumb reaches for.
+    const utilities = screen.getByTestId("search-query-ribbon-utilities");
+    const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
+    expect(utilities.lastElementChild).toBe(pageFilters);
+    await user.click(within(utilities).getByRole("button", { name: "A–Z" }));
+    await user.selectOptions(within(pageFilters).getByLabelText("Filter by result type"), "diagnosis");
 
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
