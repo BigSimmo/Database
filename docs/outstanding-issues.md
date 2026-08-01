@@ -127,6 +127,7 @@ removed after current-main verification; it is not missing recommended work.
 | 78 | `#198` | A3 | Operator — DR/SRE | After schema restore drill | 30–60 min | DR: Re-set custom database GUCs after schema restore — custom `app.*` GUCs required by the app/worker are set on the restored database. |
 | 79 | `#199` | A3 | Operator — DR/SRE | After schema restore; Deno v2 available | 1–2 hours | DR: Redeploy Supabase edge functions (Deno v2.x) — required edge functions are deployed to the target project with Deno v2.x. |
 | 80 | `#200` | A3 | Operator — DR/SRE | After schema restore drill | 1–2 hours | DR: Re-enter dashboard config after schema restore — auth providers/SSO redirect URLs, connection-pool caps, per-project keys, and `E2E_USER_*` are re-entered in the Supabase/Railway dashboards after restore. |
+| 81 | `#204` | A2 | High — install/CI integrity | Next dependency or verify:pr-local change | 1–3 hours | npm 11.6.2 regenerates a lockfile its own `npm ci` rejects, reddening every CI job — add `npm ci --dry-run` (or lockfile-sync assertion) to `verify:pr-local` when package.json/lock change; do not regenerate with `npm install` to "fix". Distinct from #149. |
 
 
 <!-- issues:next-id=205 -->
