@@ -63,11 +63,12 @@ describe("Codex Cloud environment contract", () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: "test",
       OPENAI_API_KEY: "never-print-this",
+      CROSS_TENANT_SERVICE_ROLE_KEY: "never-print-this-either",
       npm_config_https_proxy: "https://user:secret@example.test",
       HTTP_PROXY: "http://supported.example.test",
     };
 
-    expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY"]);
+    expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY", "CROSS_TENANT_SERVICE_ROLE_KEY"]);
     expect(obsoleteNpmProxyVariables(env)).toEqual(["npm_config_https_proxy"]);
   });
 
@@ -199,6 +200,9 @@ describe("Codex Cloud environment contract", () => {
       "railway MCP must use hosted OAuth without embedded environment variables or headers.",
     );
     expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&token=forbidden"))).toContain(
+      "Supabase MCP must not include additional query parameters.",
+    );
+    expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&read_only=false"))).toContain(
       "Supabase MCP must not include additional query parameters.",
     );
   });

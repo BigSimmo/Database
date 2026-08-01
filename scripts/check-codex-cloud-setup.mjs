@@ -37,6 +37,7 @@ export const providerCredentialVariables = Object.freeze([
   "CODEX_TRIGGER_TOKEN",
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
+  "CROSS_TENANT_SERVICE_ROLE_KEY",
 ]);
 
 function read(relativePath) {
@@ -190,7 +191,7 @@ export function validateMcpConfiguration(text) {
     if (url.searchParams.get("read_only") !== "true") {
       errors.push("Supabase MCP must keep the production project read-only.");
     }
-    const queryNames = [...new Set(url.searchParams.keys())].sort();
+    const queryNames = [...url.searchParams.keys()].sort();
     if (JSON.stringify(queryNames) !== JSON.stringify(["features", "project_ref", "read_only"])) {
       errors.push("Supabase MCP must not include additional query parameters.");
     }
