@@ -303,7 +303,7 @@ export function BriefScreen() {
 function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: string; tone?: "warning" }) {
   return (
     <div
-      className={`rounded-lg bg-[color:var(--surface-inset)] p-3${tone === "warning" ? " bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : ""}`}
+      className={`rounded-lg p-3 ${tone === "warning" ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : "bg-[color:var(--surface-inset)]"}`}
     >
       <div className="text-2xs font-bold tracking-eyebrow">{eyebrow}</div>
       <p>{text}</p>
