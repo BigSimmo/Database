@@ -131,7 +131,10 @@ const therapyInlineStyleFindings = therapyFiles.flatMap(({ relativePath }) => {
     .filter(({ line }) => /style=\{/.test(line))
     .filter(({ line }) => {
       if (relativePath.endsWith("/icons.tsx")) return !/style=\{style\}/.test(line);
-      if (relativePath.endsWith("/ui.tsx")) return !/--tc-meter-width/.test(line);
+      // The completeness meter's fill is a data-driven percentage, which no utility
+      // class can express. `--tc-meter-width` only existed to hand that value to
+      // therapy-compass.css; as that stylesheet retires, the width is set directly.
+      if (relativePath.endsWith("/ui.tsx")) return !/--tc-meter-width|width: `\$\{v\}%`/.test(line);
       if (relativePath.endsWith("/screens/compare-screen.tsx")) return !/--tc-compare-columns/.test(line);
       return true;
     })

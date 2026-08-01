@@ -11,7 +11,7 @@ import { TherapyCompassNav, TherapyModeNav } from "./nav";
 
 function TherapyCompassFooter() {
   return (
-    <div className="tc-no-print tc-workspace-001">
+    <div className="tc-no-print mx-auto mt-[30px] max-w-[1240px] border-t border-[color:var(--border)] pt-5">
       <ModeHomeVerificationFooter label="Decision support" body="Source-grounded — review status before clinical use" />
     </div>
   );
@@ -20,9 +20,14 @@ function TherapyCompassFooter() {
 function TherapyCompassDataError() {
   const b = useTcBindings();
   return (
-    <section role="alert" aria-live="assertive" aria-busy={b.loading} className="tc-workspace-002">
-      <h1 className="tc-workspace-003">Therapy could not load</h1>
-      <p className="tc-workspace-004">
+    <section
+      role="alert"
+      aria-live="assertive"
+      aria-busy={b.loading}
+      className="mx-auto my-10 max-w-2xl rounded-xl border border-[color:var(--danger)] bg-[color:var(--danger-soft)] p-6"
+    >
+      <h1 className="m-0 mb-2 text-xl text-[color:var(--text-heading)]">Therapy could not load</h1>
+      <p className="m-0 mb-4 leading-normal text-[color:var(--text-muted)]">
         The therapy catalogue is unavailable. No results are being shown as a substitute.
       </p>
       <button
@@ -55,7 +60,7 @@ function TherapyCompassMain({
   const useMainLandmark = asMain || homeNeedsMainLandmark;
   const Tag = useMainLandmark ? "main" : "div";
   return (
-    <Tag className={useMainLandmark ? "tc-main tc-workspace-005" : "tc-home-main"}>
+    <Tag className={useMainLandmark ? "min-w-0 px-4 pt-5 pb-8 sm:px-10 sm:pt-8 sm:pb-10" : "min-w-0"}>
       {b.error ? <TherapyCompassDataError /> : children}
       {showFooter ? <TherapyCompassFooter /> : null}
     </Tag>
@@ -87,7 +92,10 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      <div className="tc-root tc-workspace-006">
+      {/* `tc-root` stays until the last screen leaves therapy-compass.css: every
+          remaining numbered rule is scoped `.tc-root .tc-*`, so dropping it early
+          would unstyle the un-migrated screens. */}
+      <div className="tc-root min-h-0 bg-[color:var(--background)] text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))]">
         {isHome ? null : <TherapyNavSlot />}
         <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
           {children}

@@ -12,8 +12,14 @@ export function TherapyCompassNav() {
   const b = useTcBindings();
 
   const navShell = (
-    <div className="tc-topnav tc-no-print tc-nav-001" data-testid="therapy-compass-section-nav">
-      <nav className="tc-scroll tc-nav-007" aria-label="Therapy sections">
+    <div
+      className="tc-no-print sticky top-0 z-20 flex items-center justify-center gap-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] px-4 py-3 backdrop-blur-md sm:gap-[18px] sm:px-10 sm:py-3.5"
+      data-testid="therapy-compass-section-nav"
+    >
+      <nav
+        className="tc-scroll mx-auto flex w-fit max-w-full min-w-0 flex-[0_1_auto] items-center gap-1.5 overflow-x-auto pb-0.5"
+        aria-label="Therapy sections"
+      >
         <button
           type="button"
           className={`tc-btn ${b.navHome}`}
@@ -97,7 +103,7 @@ export function TherapyCompassNav() {
           </svg>
           Compare
         </button>
-        <span className="tc-nav-008" aria-hidden="true" />
+        <span className="mx-1 h-[22px] w-px flex-none bg-[color:var(--border)]" aria-hidden="true" />
         <button
           type="button"
           className={`tc-btn ${b.navPathways}`}

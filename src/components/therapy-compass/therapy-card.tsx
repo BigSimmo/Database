@@ -23,20 +23,22 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
   const inCompare = b.isInCompare(therapy.slug);
   return (
-    <article className="tc-therapy-card-001">
-      <div className="tc-stack-sm tc-therapy-card-002">
-        <div className="tc-therapy-card-003">
+    <article className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+      <div className="grid grid-cols-1 items-start gap-[22px] px-[22px] py-5 sm:grid-cols-[minmax(280px,1fr)_minmax(400px,1.35fr)_auto]">
+        <div className="flex min-w-0 gap-[15px]">
           <IconTile icon={ScaleIcon} />
-          <div className="tc-therapy-card-004">
-            <h3 className="tc-therapy-card-005">{therapy.name}</h3>
-            <p className="tc-therapy-card-006">
+          <div className="min-w-0">
+            <h3 className="m-0 mb-[5px] text-[color:var(--text-heading)] tracking-[-0.01em] text-base font-semibold">
+              {therapy.name}
+            </h3>
+            <p className="m-0 mb-[11px] text-sm-minus leading-normal text-[color:var(--text-muted)]">
               {summarise(therapy.clinicalSummary, 1) || therapy.bestUsedFor || therapy.category}
             </p>
             <TagRow tags={therapy.tags.length ? therapy.tags : [therapy.category]} max={4} />
           </div>
         </div>
 
-        <div className="tc-stack-sm tc-therapy-card-007">
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-3">
           <CardCell
             icon={CrosshairIcon}
             eyebrow="WHY MATCHED"
@@ -61,10 +63,10 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           />
         </div>
 
-        <div className="tc-therapy-card-008">
+        <div className="flex gap-1">
           <button
             type="button"
-            className="tc-btn tc-therapy-card-009"
+            className="tc-btn inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-[9px] border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65"
             disabled
             title="Favourite saving is not available yet"
             aria-label="Favourite saving is not available yet"
@@ -73,7 +75,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           </button>
         </div>
       </div>
-      <div className="tc-therapy-card-010">
+      <div className="flex flex-wrap gap-2.5 px-[22px] pb-5">
         <button
           type="button"
           className={`tc-btn ${accentControl} tc-flex-control`}
@@ -150,16 +152,18 @@ export function TherapyListItem({
       aria-pressed={active}
     >
       <IconTile icon={ScaleIcon} size={38} variant={active ? "accent" : "soft"} />
-      <span className="tc-therapy-card-011">
-        <span className="tc-therapy-card-012">{therapy.name}</span>
-        <span className="tc-therapy-card-013">{subtitle ?? therapy.bestUsedFor ?? therapy.category}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm-minus font-semibold text-[color:var(--text-heading)]">{therapy.name}</span>
+        <span className="mt-0.5 block overflow-hidden text-xs text-ellipsis whitespace-nowrap text-[color:var(--text-muted)]">
+          {subtitle ?? therapy.bestUsedFor ?? therapy.category}
+        </span>
       </span>
       {trailing ?? (
-        <span className="tc-therapy-card-014">
+        <span className="flex-none text-[color:var(--text-soft)]">
           {therapy.reviewStatus === "reviewed" ? null : <AlertIcon size={15} strokeWidth={1.8} />}
         </span>
       )}
-      <ChevronRightIcon size={15} strokeWidth={1.8} className="tc-therapy-card-015" />
+      <ChevronRightIcon size={15} strokeWidth={1.8} className="flex-none text-[color:var(--text-soft)]" />
     </button>
   );
 }

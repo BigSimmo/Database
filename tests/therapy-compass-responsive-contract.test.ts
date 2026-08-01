@@ -23,8 +23,16 @@ function classCount(source: string, className: string) {
   return source.match(new RegExp(`className="[^"]*\\b${className}\\b[^"]*"`, "g"))?.length ?? 0;
 }
 
+/**
+ * A fixed multi-column grid must collapse to a single column on phones. Screens still
+ * on therapy-compass.css say that with `tc-stack-sm` / `tc-mobile-stack` plus the
+ * scoped max-width media query; components already migrated off it say the same thing
+ * with Tailwind's mobile-first `grid-cols-1` + `sm:grid-cols-*`. Both satisfy the
+ * contract, so both count while the teardown is in progress.
+ */
 function responsiveStackCount(source: string) {
-  return classCount(source, "tc-mobile-stack") + classCount(source, "tc-stack-sm");
+  const tailwindReflow = source.match(/className="[^"]*\bgrid-cols-1\b[^"]*\bsm:grid-cols-/g)?.length ?? 0;
+  return classCount(source, "tc-mobile-stack") + classCount(source, "tc-stack-sm") + tailwindReflow;
 }
 
 function openingTagWith(source: string, tagName: string, attributes: string[]) {
@@ -134,8 +142,7 @@ describe("Therapy Compass responsive contract", () => {
     expect(favouriteButton).toBeTruthy();
     expect(favouriteButton).toContain("disabled");
     expect(favouriteButton).toContain('aria-label="Favourite saving is not available yet"');
-    expect(favouriteButton).toContain("tc-therapy-card-009");
-    expect(therapyCssSource).toMatch(/\.tc-therapy-card-009\s*\{[\s\S]*?cursor:\s*not-allowed;/);
+    expect(favouriteButton).toContain("cursor-not-allowed");
     expect(favouriteButton).not.toContain("onClick");
   });
 
