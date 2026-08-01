@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { captureWorkerException, flushWorkerErrorTracking } from "./observability";
 import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
 import { ragEnrichmentVersion, upsertDocumentEnrichment } from "../src/lib/document-enrichment";
@@ -1936,6 +1937,12 @@ async function main() {
     } catch (error) {
       consecutiveClaimFailures += 1;
       console.warn("Ingestion job claim failed", safeErrorLogDetails(error));
+      // Report only on the threshold transition: a single transient claim
+      // failure is normal, and a sustained outage must not spam Sentry on
+      // every subsequent poll after the retry budget is spent.
+      if (consecutiveClaimFailures === env.WORKER_MAX_CLAIM_FAILURES) {
+        captureWorkerException(error, "claim");
+      }
       if (once) throw error;
       if (consecutiveClaimFailures >= env.WORKER_MAX_CLAIM_FAILURES) {
         await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
@@ -1953,6 +1960,7 @@ async function main() {
             await processJob(job);
           } catch (error) {
             console.error("Ingestion job processing failed", safeErrorLogDetails(error));
+            captureWorkerException(error, "process");
           }
         }),
       );
@@ -1967,6 +1975,7 @@ async function main() {
 
 main().catch(async (error) => {
   console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
+  captureWorkerException(error, "fatal");
   if (env.WORKER_FAILURE_WEBHOOK_URL) {
     try {
       await fetch(env.WORKER_FAILURE_WEBHOOK_URL, {
@@ -1980,5 +1989,7 @@ main().catch(async (error) => {
       console.error("Failed to dispatch worker failure webhook", safeErrorLogDetails(webhookError));
     }
   }
+  // Flush last: the process is about to exit and buffered events would be lost.
+  await flushWorkerErrorTracking();
   process.exitCode = 1;
 });
