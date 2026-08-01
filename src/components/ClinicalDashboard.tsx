@@ -60,13 +60,13 @@ import {
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
-  LibraryHealthStrip,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
   hasReadyPublicSearchSetup,
   type SetupCheck,
   type IngestionQualityReviewItem,
-} from "@/components/clinical-dashboard/DocumentManagerPanel";
+} from "@/components/clinical-dashboard/document-manager-contracts";
+import { LibraryHealthStrip } from "@/components/clinical-dashboard/library-health-strip";
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";

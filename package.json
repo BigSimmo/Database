@@ -13,6 +13,7 @@
     "preinstall": "node scripts/check-node-engine.cjs",
     "postinstall": "node scripts/install-git-hooks.mjs",
     "hooks:install": "node scripts/install-git-hooks.mjs",
+    "setup:codex-worktree": "node scripts/setup-codex-worktree.mjs",
     "guard:push": "node scripts/guard-push.mjs",
     "guard:push:self-test": "node scripts/guard-push.mjs --self-test",
     "check:base-freshness": "node scripts/check-base-freshness.mjs",

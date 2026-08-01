@@ -26,74 +26,9 @@ import {
   SectionHeading,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
+import { compareRecordsHref, GuidanceSection, RecordFact } from "@/components/clinical-record-panels";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { formulationSourceLibrary, relatedFormulationMechanisms, type FormulationMechanism } from "@/lib/formulation";
-
-function comparisonHref(left: string, right?: string) {
-  const params = new URLSearchParams({ a: left });
-  if (right) params.set("b", right);
-  return `/formulation/compare?${params.toString()}`;
-}
-
-function RecordFact({ icon: Icon, label, body }: { icon: typeof Network; label: string; body: string }) {
-  return (
-    <div className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 px-4 py-3.5">
-      <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-        <Icon className="h-4 w-4" aria-hidden />
-      </span>
-      <span>
-        <span className="block text-xs font-bold text-[color:var(--text-heading)]">{label}</span>
-        <span className="mt-0.5 block text-xs font-medium leading-5 text-[color:var(--text-muted)]">{body}</span>
-      </span>
-    </div>
-  );
-}
-
-function GuidanceSection({
-  icon: Icon,
-  title,
-  items,
-  tone = "default",
-  open = false,
-}: {
-  icon: typeof Network;
-  title: string;
-  items: string[];
-  tone?: "default" | "success" | "warning";
-  open?: boolean;
-}) {
-  const toneClass =
-    tone === "success"
-      ? "text-[color:var(--success)] bg-[color:var(--success-soft)]"
-      : tone === "warning"
-        ? "text-[color:var(--warning)] bg-[color:var(--warning-soft)]"
-        : "text-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]";
-
-  return (
-    <details open={open} className="group border-b border-[color:var(--border)] last:border-b-0">
-      <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:px-5 [&::-webkit-details-marker]:hidden">
-        <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-lg", toneClass)}>
-          <Icon className="h-4 w-4" aria-hidden />
-        </span>
-        <span className="min-w-0 flex-1 text-sm font-extrabold text-[color:var(--text-heading)]">{title}</span>
-        <ChevronDown
-          className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180 motion-reduce:transition-none"
-          aria-hidden
-        />
-      </summary>
-      <div className="px-4 pb-4 pl-[4.25rem] sm:px-5 sm:pb-5 sm:pl-[4.75rem]">
-        <ul className="grid gap-2.5 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          {items.map((item) => (
-            <li key={item} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-2">
-              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[color:var(--clinical-accent)]" aria-hidden />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </details>
-  );
-}
 
 function FactorColumn({ title, items }: { title: string; items: string[] }) {
   return (
@@ -149,7 +84,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
 
         <div className="grid grid-cols-2 gap-2 sm:flex">
           <Link
-            href={comparisonHref(mechanism.id, primaryRelated?.id)}
+            href={compareRecordsHref("/formulation/compare", mechanism.id, primaryRelated?.id)}
             className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <GitCompareArrows className="h-4 w-4" aria-hidden />
@@ -311,7 +246,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
                 {related.map((item) => (
                   <Link
                     key={item.id}
-                    href={comparisonHref(mechanism.id, item.id)}
+                    href={compareRecordsHref("/formulation/compare", mechanism.id, item.id)}
                     className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
                   >
                     {item.name}
