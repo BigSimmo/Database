@@ -99,12 +99,12 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 
 | Component                    | Open defects (compressed)                                                                                                                              | Closes in                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
-| Button                       | danger contrast token · brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary                                       | PR 3, PR 4                   |
+| Button                       | brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary (danger contrast landed #1538)                                | follow-on                    |
 | AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                                   | **done** (PR-A)              |
 | IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                                     | **done** (PR-A)              |
 | ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob still animates `left`/`right`                                                    | PR 9 (motion)                |
 | Chip                         | 20px remove target · `removeLabel` required when removable · no full-value path                                                                        | PR 12 (target size)          |
-| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · placeholder on the decoration tier · no external id/refs                | PR 7                         |
+| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A)           | PR 7                         |
 | Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                                  | PR 7                         |
 | Citation/CitationList        | interactive requires `onActivate`; static form uses `aria-label` on span · index keys · unstructured data                                              | follow-on                    |
 | DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                         | PR 6                         |

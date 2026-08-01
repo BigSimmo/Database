@@ -344,9 +344,15 @@ export function ToggleSwitch({
   }
 
   // Read-only: expose the state as an image label so assistive tech announces
-  // on/off without implying the control can be operated.
+  // on/off without implying the control can be operated. Unlabeled indicators
+  // are decorative — hide them from the accessibility tree.
   return (
-    <span role="img" aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined} className={track}>
+    <span
+      role={ariaLabel ? "img" : undefined}
+      aria-hidden={ariaLabel ? undefined : true}
+      aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined}
+      className={track}
+    >
       {knob}
     </span>
   );

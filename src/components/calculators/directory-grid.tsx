@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { BookOpen, Calculator, ChevronDown, Clock3, Info, ListChecks, Search, ShieldCheck, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";

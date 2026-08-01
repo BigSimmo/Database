@@ -427,8 +427,9 @@ the element. Every component takes `className`.
 pagination. **Remove unnecessary client boundaries** — most component files are
 `"use client"` without a hook.
 
-**The disabled encoding is the `controlBase` recipe, not opacity.** Zero `disabled:opacity` (was ten)
-uses remain across three files — finishing the adoption is PR 3.
+**The disabled encoding is the `controlBase` recipe, not opacity.** The ten design-system
+`disabled:opacity*` recipes across `ui-primitives.tsx`, `tabs.tsx`, and `pagination.tsx`
+were retired in PR 3 / PR-A (`disabled-encoding.contract.test.ts`).
 
 Per-component defect inventory and dispositions: COMPONENTS.md §Maturity and §Existing-defects.
 

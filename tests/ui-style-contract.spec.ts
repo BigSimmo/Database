@@ -158,6 +158,7 @@ const CKB_V2_HCM_EXPECTED: Record<string, string> = {
   "--e2": "none",
   "--e4": "none",
   "--glow-primary": "none",
+  "--glow-soft": "none",
   "--shadow-well": "none",
   "--overlay-backdrop": "transparent",
 };

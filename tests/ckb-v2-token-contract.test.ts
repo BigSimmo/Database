@@ -87,6 +87,11 @@ describe("ckb-v2 layer stays opt-in", () => {
     const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
     expect(globals).toContain('@import "./ckb-v2-tokens.css";');
   });
+
+  it("keeps --text-placeholder on the live layer too, so production placeholders resolve before .ckb-v2 adoption", () => {
+    const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+    expect(globals).toMatch(/--text-placeholder\s*:/);
+  });
 });
 
 describe("ckb-v2 borders", () => {
@@ -223,7 +228,7 @@ describe("ckb-v2 forced-colours block (PR 2)", () => {
     expect(block).toMatch(/--disabled:\s*GrayText/);
     expect(block).toMatch(/--success:\s*CanvasText/);
     expect(block).toMatch(/--warning:\s*CanvasText/);
-    for (const tier of ["--e1", "--e2", "--e3", "--e4", "--glow-primary", "--shadow-well"]) {
+    for (const tier of ["--e1", "--e2", "--e3", "--e4", "--glow-primary", "--glow-soft", "--shadow-well"]) {
       expect(block).toMatch(new RegExp(`${tier}:\\s*none`));
     }
   });
