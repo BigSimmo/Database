@@ -1,8 +1,12 @@
 {
   "mcpServers": {
     "railway": {
-      "command": "npx",
-      "args": ["-y", "@railway/cli@5.30.1", "mcp"]
+      "type": "http",
+      "url": "https://mcp.railway.com"
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
     }
   }
 }

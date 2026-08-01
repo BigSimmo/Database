@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anonymousApiSubjectKey } from "@/lib/public-api-access";
+import { anonymousApiSubjectKey, withOwnerReadScope } from "@/lib/public-api-access";
 
 function anonymousRequest(ip: string, userAgent: string) {
   return new Request("http://localhost/api/answer", {
@@ -88,5 +88,52 @@ describe("anonymous API rate-limit identity", () => {
     const clean = anonymousApiSubjectKey(headersOnlyRequest({ "x-forwarded-for": "198.51.100.20" }));
 
     expect(padded).toBe(clean);
+  });
+});
+
+describe("withOwnerReadScope", () => {
+  function recordingQuery() {
+    const calls: { method: "or" | "is"; argument: string | null }[] = [];
+    const query = {
+      eq() {
+        return query;
+      },
+      is(...args: [column: string, value: null]) {
+        calls.push({ method: "is", argument: args[1] });
+        return query;
+      },
+      or(filters: string) {
+        calls.push({ method: "or", argument: filters });
+        return query;
+      },
+    };
+    return { query, calls };
+  }
+
+  it("scopes an authenticated read to the caller's rows plus the public corpus", () => {
+    const { query, calls } = recordingQuery();
+    const ownerId = "11111111-1111-4111-8111-111111111111";
+
+    withOwnerReadScope(query, ownerId);
+
+    expect(calls).toEqual([{ method: "or", argument: `owner_id.eq.${ownerId},owner_id.is.null` }]);
+  });
+
+  it("scopes an anonymous read to the public corpus", () => {
+    const { query, calls } = recordingQuery();
+
+    withOwnerReadScope(query, undefined);
+
+    expect(calls).toEqual([{ method: "is", argument: null }]);
+  });
+
+  it("fails closed on a non-uuid owner id instead of interpolating PostgREST filter syntax", () => {
+    for (const ownerId of ["*", "x,owner_id.not.is.null", "11111111-1111-4111-8111-111111111111,or(x.eq.1)"]) {
+      const { query, calls } = recordingQuery();
+
+      withOwnerReadScope(query, ownerId);
+
+      expect(calls).toEqual([{ method: "is", argument: null }]);
+    }
   });
 });
