@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
 const uiSetup = readFileSync(new URL("../.github/actions/setup-ui-e2e/action.yml", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
   it("uses npm's download cache but recreates node_modules on every job", () => {
@@ -27,6 +28,34 @@ describe("CI cache safety", () => {
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(workflow).toMatch(/cache-hit.*?install-deps\n\s+npx playwright install/s);
+  });
+
+  it("routes recognised workflow-only changes through focused contracts", () => {
+    expect(workflow).toContain("static_heavy_changed: ${{ steps.scope.outputs.static_heavy_changed }}");
+    expect(workflow).toContain("workflow_changed: ${{ steps.scope.outputs.workflow_changed }}");
+    expect(workflow).toContain("if: needs.changes.outputs.static_heavy_changed == 'true'");
+    expect(workflow).toContain("run: npm run test:ci-workflows");
+    expect(workflow).toContain("run: npm run check:verification-plan");
+  });
+
+  it("avoids unrelated network and checkout work on ordinary pull requests", () => {
+    expect(workflow).not.toContain("Dependency audit (advisory)");
+    expect(workflow).not.toContain("github.rest.actions.listWorkflowRuns");
+    expect(opsDigestWorkflow).toContain("eval-canary-liveness:");
+    expect(opsDigestWorkflow).toContain("github.rest.actions.listWorkflowRuns");
+    expect(workflow).toContain(
+      "if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_present == 'true'",
+    );
+  });
+
+  it("checks formatting only on the changed range in pull-request CI", () => {
+    expect(workflow).toContain("name: Changed-file format check");
+    expect(workflow).toContain("if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'");
+    expect(workflow).toContain("run: npm run format:changed");
+    expect(workflow).toContain("BASE_SHA: ${{ github.event.pull_request.base.sha");
+    expect(workflow).toMatch(
+      /name: Scheduled full-tree format drift\s+if: github\.event_name == 'schedule' \|\| github\.event_name == 'workflow_dispatch'\s+run: npm run format:check/,
+    );
   });
 });
 
@@ -61,7 +90,7 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
   })();
 
   const allGreen = {
-    DOCS_ONLY: "false",
+    STATIC_HEAVY_CHANGED: "false",
     COVERAGE_CHANGED: "false",
     UI_CHANGED: "false",
     DB_CHANGED: "false",
@@ -70,8 +99,8 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     EVENT_NAME: "pull_request",
     CHANGES_RESULT: "success",
     STATIC_RESULT: "success",
-    // `safety` is required whenever DOCS_ONLY is false, so the green baseline must run it.
-    SAFETY_RESULT: "success",
+    // Recognised documentation/workflow-only scopes skip the heavy safety job.
+    SAFETY_RESULT: "skipped",
     COVERAGE_RESULT: "skipped",
     BUILD_RESULT: "skipped",
     CONTAINER_RESULT: "skipped",
@@ -112,6 +141,12 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     expect(runAggregate().status).toBe(0);
   });
 
+  it("requires safety for heavy scope and accepts a skip only for recognised light scope", () => {
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "success" }).status).toBe(0);
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "skipped" }).status).not.toBe(0);
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "false", SAFETY_RESULT: "skipped" }).status).toBe(0);
+  });
+
   it("reports a superseded run as CANCELLED rather than describing a failure", () => {
     // A supersession cancels the upstream jobs, so this is what a real one looks like.
     const { status, output } = runAggregate({ CHANGES_RESULT: "cancelled", STATIC_RESULT: "cancelled" });
@@ -150,6 +185,7 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
      * failures must win, and a concurrent cancellation may only appear as context.
      */
     const { status, output } = runAggregate({
+      STATIC_HEAVY_CHANGED: "true",
       SAFETY_RESULT: "cancelled",
       BUILD_CHANGED: "true",
       BUILD_RESULT: "failure",
@@ -183,7 +219,7 @@ describe("PR required aggregate — cancelled vs failed (#095)", () => {
     for (const key of ["CHANGES_RESULT", "STATIC_RESULT"]) {
       expect(runAggregate({ [key]: "cancelled" }).status).not.toBe(0);
     }
-    expect(runAggregate({ DOCS_ONLY: "false", SAFETY_RESULT: "cancelled" }).status).not.toBe(0);
+    expect(runAggregate({ STATIC_HEAVY_CHANGED: "true", SAFETY_RESULT: "cancelled" }).status).not.toBe(0);
     expect(runAggregate({ COVERAGE_CHANGED: "true", COVERAGE_RESULT: "cancelled" }).status).not.toBe(0);
     expect(
       runAggregate({

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
 
 const zeroSha = /^0{40}$/;
 
@@ -19,7 +19,9 @@ const fullRunSentinelFiles = [
 
 const outputs = [
   "docs_only",
+  "docs_changed",
   "source_changed",
+  "static_heavy_changed",
   "coverage_changed",
   "ui_changed",
   "advisory_ui_changed",
@@ -27,9 +29,11 @@ const outputs = [
   "container_changed",
   "rag_eval_changed",
   "workflow_changed",
+  "workflow_only",
   "codex_autofix_changed",
   "build_changed",
   "lockfile_changed",
+  "pr_policy_body_present",
 ];
 
 function normalizePath(filePath) {
@@ -246,16 +250,10 @@ const lockfilePatterns = ["package-lock.json", ".npmrc"];
 // drive both the empty and non-empty cases without touching the real file.
 const readFlakeLedger = () => readFileSync("tests/flake-ledger.json", "utf8");
 
-function classify(files, { readLedger = readFlakeLedger } = {}) {
+function classify(files, { readLedger = readFlakeLedger, prPolicyBodyPresent = existsSync("PR_POLICY_BODY.md") } = {}) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
+  const docsChanged = normalized.some((file) => pathMatches(file, docPatterns));
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
-  // Preserve the pre-consolidation unit gate for every non-documentation
-  // change. Narrower signals still scope build/UI/database work, but must not
-  // leave runtime, worker, workflow, or configuration changes without unit
-  // coverage. A workflow-only edit can change test setup or the
-  // coverage gate itself, so its ~4 minute proof is deliberate rather than an
-  // accidental over-trigger (#139).
-  const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => isUiChangedPath(file));
   const advisoryUiChanged =
     normalized.some((file) => pathMatches(file, mockupPatterns)) || quarantineLedgerHasEntries(readLedger);
@@ -266,16 +264,32 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const codexAutofixChanged = normalized.some((file) => pathMatches(file, codexAutofixPatterns));
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
+  // Only two categories are allowed to take the lightweight path: recognised
+  // documentation and recognised workflow/policy surfaces. Unknown non-doc
+  // files fail closed to the heavy plan. Executable scripts that also match a
+  // workflow pattern remain heavy through sourceChanged.
+  const hasUnknownNonLightPath = normalized.some(
+    (file) => !pathMatches(file, docPatterns) && !pathMatches(file, workflowPatterns),
+  );
+  const staticHeavyChanged =
+    sourceChanged || buildChanged || containerChanged || dbChanged || lockfileChanged || hasUnknownNonLightPath;
+  // Pure workflow YAML/policy changes use focused workflow-contract tests in
+  // static-pr. Product, test, build, database, dependency and unknown changes
+  // retain the complete coverage lane.
+  const coverageChanged = staticHeavyChanged;
   const docsOnly =
     normalized.length > 0 &&
     normalized.every((file) => pathMatches(file, docPatterns)) &&
     !sourceChanged &&
     !workflowChanged;
+  const workflowOnly = workflowChanged && !staticHeavyChanged;
 
   return {
     files: normalized,
     docs_only: docsOnly,
+    docs_changed: docsChanged,
     source_changed: sourceChanged,
+    static_heavy_changed: staticHeavyChanged,
     coverage_changed: coverageChanged,
     ui_changed: uiChanged,
     advisory_ui_changed: advisoryUiChanged,
@@ -283,9 +297,11 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
     container_changed: containerChanged,
     rag_eval_changed: ragEvalChanged,
     workflow_changed: workflowChanged,
+    workflow_only: workflowOnly,
     codex_autofix_changed: codexAutofixChanged,
     build_changed: buildChanged,
     lockfile_changed: lockfileChanged,
+    pr_policy_body_present: prPolicyBodyPresent,
   };
 }
 
@@ -442,8 +458,8 @@ function writeOutputs(result) {
 
 const emptyLedger = () => '{"flakes":[]}';
 
-function assertScope(name, files, expected, options = { readLedger: emptyLedger }) {
-  const result = classify(files, options);
+function assertScope(name, files, expected, options = {}) {
+  const result = classify(files, { readLedger: emptyLedger, prPolicyBodyPresent: false, ...options });
   for (const [key, value] of Object.entries(expected)) {
     if (result[key] !== value) {
       throw new Error(`${name}: expected ${key}=${value}, received ${result[key]} for ${files.join(", ")}`);
@@ -550,13 +566,17 @@ function selfTest() {
     },
   );
 
-  assertScope("workflow-only-keeps-coverage", [".github/workflows/ci.yml"], {
-    coverage_changed: true,
+  assertScope("workflow-only-uses-focused-contracts", [".github/workflows/ci.yml"], {
+    coverage_changed: false,
     workflow_changed: true,
+    workflow_only: true,
+    static_heavy_changed: false,
   });
-  assertScope("composite-action-only-keeps-coverage", [".github/actions/setup-ui-e2e/action.yml"], {
-    coverage_changed: true,
+  assertScope("composite-action-only-uses-focused-contracts", [".github/actions/setup-ui-e2e/action.yml"], {
+    coverage_changed: false,
     workflow_changed: true,
+    workflow_only: true,
+    static_heavy_changed: false,
   });
   assertScope("runtime-config-keeps-coverage", ["lighthouse-budget.json"], {
     coverage_changed: true,
@@ -568,7 +588,9 @@ function selfTest() {
   });
   assertScope("docs-only", ["docs/process-note.md"], {
     docs_only: true,
+    docs_changed: true,
     source_changed: false,
+    static_heavy_changed: false,
     build_changed: false,
     lockfile_changed: false,
   });
@@ -576,6 +598,7 @@ function selfTest() {
     source_changed: true,
     coverage_changed: true,
     build_changed: false,
+    static_heavy_changed: true,
   });
   assertScope("coverage-config", ["vitest.config.mts"], {
     source_changed: true,
@@ -712,7 +735,9 @@ function selfTest() {
   );
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
-    coverage_changed: true,
+    workflow_only: true,
+    coverage_changed: false,
+    static_heavy_changed: false,
     docs_only: false,
     build_changed: false,
   });
@@ -721,6 +746,7 @@ function selfTest() {
     source_changed: true,
     docs_only: false,
     build_changed: false,
+    static_heavy_changed: true,
   });
   assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
     workflow_changed: true,
@@ -728,6 +754,8 @@ function selfTest() {
     // Skill Markdown is documentation-like: static policy checks still run,
     // but unit coverage has no executable product surface to measure.
     coverage_changed: false,
+    workflow_only: true,
+    static_heavy_changed: false,
     docs_only: false,
     build_changed: false,
   });
@@ -746,6 +774,7 @@ function selfTest() {
     container_changed: true,
     workflow_changed: false,
     build_changed: true,
+    static_heavy_changed: true,
     // Script/metadata edits to package.json alone do not introduce dependencies;
     // blocking audit still keys off package-lock.json / .npmrc.
     lockfile_changed: false,
@@ -812,6 +841,7 @@ function selfTest() {
   });
   assertScope("unknown-base-full-run", fullRunSentinelFiles, {
     source_changed: true,
+    static_heavy_changed: true,
     coverage_changed: true,
     ui_changed: true,
     db_changed: true,
@@ -822,6 +852,18 @@ function selfTest() {
     build_changed: true,
     lockfile_changed: true,
   });
+  assertScope("unknown-non-doc-fails-closed", ["custom.config"], {
+    docs_only: false,
+    workflow_only: false,
+    static_heavy_changed: true,
+    coverage_changed: true,
+  });
+  assertScope(
+    "pr-policy-body-presence-is-routed-without-a-second-checkout",
+    ["PR_POLICY_BODY.md"],
+    { pr_policy_body_present: true },
+    { prPolicyBodyPresent: true },
+  );
   console.log("CI change scope self-test passed.");
 }
 

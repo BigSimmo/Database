@@ -23,6 +23,53 @@ permissions:
   issues: write
 
 jobs:
+  # GitHub cron fires are best-effort, and the canary's own failure issue only
+  # reacts to runs that happen and fail. Check liveness once with the daily ops
+  # cadence instead of making the Actions API call on every pull request.
+  eval-canary-liveness:
+    name: Eval-canary liveness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Warn if the weekly canary is stale
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: "eval-canary.yml",
+                status: "completed",
+                per_page: 1,
+              });
+              const latest = data.workflow_runs?.[0];
+              // updated_at approximates completion time; run_started_at is the
+              // fallback for older or partial REST payloads.
+              const finishedAt = Date.parse(latest?.updated_at ?? latest?.run_started_at ?? "");
+              if (!latest) {
+                core.warning("Eval-canary liveness: no completed canary runs found.");
+              } else if (!Number.isFinite(finishedAt)) {
+                core.info("Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.");
+              } else {
+                const ageDays = (Date.now() - finishedAt) / 86_400_000;
+                if (ageDays > 8) {
+                  core.warning(
+                    `Eval-canary liveness: last completed canary run was ${ageDays.toFixed(1)} days ago (${latest.html_url}). ` +
+                      "The weekly Sunday 18:00 UTC schedule may have been dropped by GitHub - dispatch one manually " +
+                      "(provider-backed; needs explicit approval).",
+                  );
+                } else {
+                  core.info(`Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
+                }
+              }
+            } catch (error) {
+              core.warning(`Eval-canary liveness check skipped: ${error.message}`);
+            }
+
   ops-digest:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
