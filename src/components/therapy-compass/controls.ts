@@ -1,10 +1,15 @@
-import { cn, focusRing } from "@/components/ui-primitives";
+import { cn } from "@/components/ui-primitives";
 
 /**
  * Therapy control recipes — token-backed Tailwind only (Clinical White / Sky Graphite).
  * Selected / pressed states use aria-pressed / aria-current so call sites do not need a
  * parallel `tc-is-*` class. Hover states use `hover:enabled:` so disabled controls stay quiet.
+ *
+ * Focus ring is local (same token string as ui-primitives `searchFocusRing`) because the
+ * shared export was renamed away from `focusRing` on main; therapy buttons are not search chrome.
  */
+const focusRing =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 export const therapyBtn = cn(
   "cursor-pointer font-[inherit] transition-[background-color,border-color,color,box-shadow,transform] duration-150",
