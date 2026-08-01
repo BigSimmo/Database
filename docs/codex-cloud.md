@@ -1,5 +1,9 @@
 # Codex Cloud environment
 
+> This Bash setup is for Linux-based Codex Cloud environments. Codex Desktop on
+> Windows uses `npm run setup:codex-worktree`; pointing Desktop at this Cloud
+> script starts WSL outside the Windows worktree and cannot provision it.
+
 This repository supports reproducible Codex Cloud work with Node 24, npm 11, locked
 development dependencies, Deno 2, Python/OCR tooling, and the Chromium, Firefox, and
 WebKit Playwright browser matrix. The repository setup can prepare and validate the
