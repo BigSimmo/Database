@@ -175,8 +175,16 @@ describe("document filter panel", () => {
     await user.click(screen.getByTestId("document-filter-trigger-phone"));
 
     const panel = screen.getByTestId("document-filter-panel");
-    expect(panel.closest('[role="dialog"]') ?? panel).toHaveAttribute("role", "dialog");
-    expect(screen.getByTestId("document-filter-trigger-phone")).toHaveAttribute("aria-haspopup", "dialog");
+    const dialog = panel.closest('[role="dialog"]') ?? panel;
+    const trigger = screen.getByTestId("document-filter-trigger-phone");
+    expect(dialog).toHaveAttribute("role", "dialog");
+    // The trigger must name the dialog it opens. Asserting only `aria-haspopup`
+    // would pass with a stale or wrong id, which is the whole point of wiring
+    // `aria-controls` through Sheet's `id` prop.
+    expect(dialog.id).not.toBe("");
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(trigger).toHaveAttribute("aria-controls", dialog.id);
   });
 
   it("closes on Escape", async () => {
@@ -187,6 +195,30 @@ describe("document filter panel", () => {
 
     await user.keyboard("{Escape}");
     expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+    const closedTrigger = screen.getByTestId("document-filter-trigger-phone");
+    expect(closedTrigger).toHaveAttribute("aria-expanded", "false");
+    expect(closedTrigger).not.toHaveAttribute("aria-controls");
+  });
+
+  it("releases the scroll lock when a refetch unmounts an open panel", async () => {
+    // `showFilterControl` folds in `!loading`, so a refetch on the same query
+    // unmounts the open Sheet. That skips Sheet's focus restore — but the
+    // trigger is gated on the same flag and unmounts too, so there is no opener
+    // left to restore to. What must not leak is the body scroll lock, and it
+    // does not: `popSheet` runs in the same effect cleanup as the unmount.
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...baseProps} />);
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    expect(screen.getByTestId("document-filter-panel")).toBeInTheDocument();
+    // Prove the lock was taken, or the release assertion below passes vacuously
+    // the day the sheet stops locking at all.
+    expect(document.body.style.overflow).toBe("hidden");
+
+    rerender(<DocumentSearchResultsPanel {...baseProps} loading />);
+
+    expect(screen.queryByTestId("document-filter-panel")).toBeNull();
+    expect(document.body.style.overflow).not.toBe("hidden");
   });
 
   it("closes on Show N documents", async () => {
