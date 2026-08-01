@@ -191,11 +191,21 @@ in the offline profile.
 Provider access is verified separately because a generic bootstrap must not make paid or
 production-like calls. For a connected environment, name each provider, use a read-only or
 minimal no-op endpoint, confirm the intended account/project by non-secret metadata, and
-report cost or mutation risk before any write. Railway `whoami` and `status --json` require both
-the CLI and the dedicated `RAILWAY_API_TOKEN`; never use project-scoped `RAILWAY_TOKEN` as a
-fallback. Reduce Railway JSON to authenticated/project/workspace identity before output. OpenAI
-generation, Supabase live data, Railway changes, hosted CI reruns, ingestion, deployment, and
-release workflows remain separate explicit actions.
+report cost or mutation risk before any write. The checked-in MCP configuration uses Railway's
+hosted `https://mcp.railway.com` endpoint so fresh Cloud tasks authenticate through browser OAuth
+instead of depending on machine-local CLI state. Authorize only workspace `bigsimmo's Projects`
+and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`), restart the MCP client after
+consent, and reduce identity/status results to non-secret account, project, workspace, environment,
+and service metadata. Railway's remote MCP does not accept project tokens; retain the pinned CLI
+only for explicitly approved local/operator workflows.
+
+The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
+`read_only=true`, and exposes only documentation, database, debugging, and development feature
+groups. Complete its browser OAuth flow for the organization containing `Clinical KB Database`
+and restart the client if tools do not appear. Schema writes, Edge Function deployment, branching,
+and storage mutations require a separately configured non-production project or branch; do not
+broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
+reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
 ## Authenticated live testing
 
