@@ -37,6 +37,7 @@ export const providerCredentialVariables = Object.freeze([
   "CODEX_TRIGGER_TOKEN",
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
+  "CROSS_TENANT_SERVICE_ROLE_KEY",
 ]);
 
 function read(relativePath) {
@@ -80,6 +81,13 @@ export function validateCodexCloudEnvironment(env = process.env) {
     return errors;
   }
 
+  const configured = configuredProviderCredentialNames(env);
+  if (configured.length > 0) {
+    errors.push(
+      `${accessProfile === "offline" ? "Offline" : "Connected"} mode exposes provider environment variables: ${configured.join(", ")}.`,
+    );
+  }
+
   if (accessProfile === "offline") {
     for (const [name, expected] of Object.entries({
       RAG_PROVIDER_MODE: "offline",
@@ -87,10 +95,6 @@ export function validateCodexCloudEnvironment(env = process.env) {
       PLAYWRIGHT_OFFLINE_MODE: "true",
     })) {
       if (env[name] !== expected) errors.push(`${name} must be ${expected} in offline mode.`);
-    }
-    const configured = configuredProviderCredentialNames(env);
-    if (configured.length > 0) {
-      errors.push(`Offline mode exposes provider credential variables: ${configured.join(", ")}.`);
     }
     return errors;
   }
@@ -156,6 +160,16 @@ export function validateMcpConfiguration(text) {
     return [".mcp.json must contain an mcpServers object."];
   }
 
+  const serverNames = Object.keys(servers).sort();
+  if (JSON.stringify(serverNames) !== JSON.stringify(["railway", "supabase"])) {
+    errors.push("Cloud MCP configuration must contain only Railway and Supabase.");
+  }
+  for (const name of ["railway", "supabase"]) {
+    if (servers[name]?.env !== undefined || servers[name]?.headers !== undefined) {
+      errors.push(`${name} MCP must use hosted OAuth without embedded environment variables or headers.`);
+    }
+  }
+
   const railway = servers.railway;
   if (railway?.type !== "http" || railway?.url !== expectedMcpConfiguration.railwayUrl.replace(/\/$/, "")) {
     errors.push("Railway MCP must use the hosted OAuth endpoint.");
@@ -176,6 +190,10 @@ export function validateMcpConfiguration(text) {
     }
     if (url.searchParams.get("read_only") !== "true") {
       errors.push("Supabase MCP must keep the production project read-only.");
+    }
+    const queryNames = [...url.searchParams.keys()].sort();
+    if (JSON.stringify(queryNames) !== JSON.stringify(["features", "project_ref", "read_only"])) {
+      errors.push("Supabase MCP must not include additional query parameters.");
     }
     const features = (url.searchParams.get("features") ?? "").split(",").filter(Boolean).sort();
     if (JSON.stringify(features) !== JSON.stringify(expectedMcpConfiguration.supabaseFeatures)) {
@@ -317,7 +335,7 @@ export function validateCodexCloudSetup() {
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
-    [/unset OPENAI_API_KEY/, "Cloud setup must remove provider credentials in offline mode."],
+    [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
     [/@railway\/cli/, "Cloud setup must install the Railway CLI."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
@@ -333,7 +351,12 @@ export function validateCodexCloudSetup() {
     errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }
   for (const name of providerCredentialVariables) {
-    if (!setup.includes(name)) errors.push(`Cloud offline setup must handle ${name}.`);
+    if (!setup.includes(name)) errors.push(`Cloud setup must handle provider environment variable ${name}.`);
+  }
+  const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
+  const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
+  if (providerScrubIndex < 0 || accessProfileBranchIndex < 0 || providerScrubIndex > accessProfileBranchIndex) {
+    errors.push("Cloud setup must scrub provider environment variables before selecting an access profile.");
   }
   const credentialLikeExampleNames = [
     ...envExample.matchAll(/^([A-Z][A-Z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD|DB_URL))=/gm),

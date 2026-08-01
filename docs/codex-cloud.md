@@ -1,5 +1,9 @@
 # Codex Cloud environment
 
+> This Bash setup is for Linux-based Codex Cloud environments. Codex Desktop on
+> Windows uses `npm run setup:codex-worktree`; pointing Desktop at this Cloud
+> script starts WSL outside the Windows worktree and cannot provision it.
+
 This repository supports reproducible Codex Cloud work with Node 24, npm 11, locked
 development dependencies, Deno 2, Python/OCR tooling, and the Chromium, Firefox, and
 WebKit Playwright browser matrix. The repository setup can prepare and validate the
@@ -80,6 +84,24 @@ Use `CODEX_CLOUD_ACCESS_PROFILE=connected` only in a separate environment whose 
 expected to call named providers. Configure the smallest domain/method allowlist and the
 least-privileged credentials for those tasks. Never commit credentials or print their
 values. The setup script does not call providers and does not prove provider authorization.
+
+Create or select a separate environment named `Database - connected` for `BigSimmo/Database`,
+then set only these ordinary environment variables in
+[Codex environment settings](https://chatgpt.com/codex/settings/environments):
+
+```text
+CODEX_CLOUD=1
+CODEX_CLOUD_ACCESS_PROFILE=connected
+RAG_PROVIDER_MODE=offline
+NEXT_PUBLIC_DEMO_MODE=true
+PLAYWRIGHT_OFFLINE_MODE=true
+```
+
+Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
+tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
+environment. The generated agent profile removes the complete provider-variable inventory in
+both access profiles. Connected access means the scoped OAuth MCP servers and GitHub connector
+are available; it does not mean raw credentials are exposed to the shell.
 
 Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
 properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
@@ -206,6 +228,13 @@ and restart the client if tools do not appear. Schema writes, Edge Function depl
 and storage mutations require a separately configured non-production project or branch; do not
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
+
+In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
+provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
+provider environment variable as `present=false`, the credential-free `BigSimmo/Database` origin,
+and only the hosted Railway and project-scoped read-only Supabase MCP metadata. This proves the
+shell boundary and configured capabilities, not OAuth authorization. Then verify each explicitly
+authorized provider with a read-only identity/status call and report only non-secret metadata.
 
 ## Authenticated live testing
 
