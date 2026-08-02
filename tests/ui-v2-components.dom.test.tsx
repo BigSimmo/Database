@@ -8,9 +8,10 @@ import { AnswerFooter, DoseLine } from "@/components/ui/answer-card";
 import { Button } from "@/components/ui/button";
 import { Citation } from "@/components/ui/citation";
 import { Chip } from "@/components/ui/chip";
-import { RadioGroup } from "@/components/ui/choice";
+import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pagination } from "@/components/ui/pagination";
+import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField, TextField } from "@/components/ui/text-field";
 import { ToastProvider, useToast } from "@/components/ui/toast";
@@ -40,21 +41,46 @@ describe("TextField / SearchField", () => {
   it("wires hint text through aria-describedby", () => {
     render(<TextField label="Publisher" hint="As printed on the source." />);
 
-    const input = screen.getByLabelText("Publisher");
+    // The label now carries the optionality marker the shared shell states in
+    // text, so the accessible name is "Publisher (optional)".
+    const input = screen.getByLabelText(/Publisher/);
     const describedBy = input.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
     expect(document.getElementById(describedBy as string)).toHaveTextContent("As printed on the source.");
     expect(input).not.toHaveAttribute("aria-invalid");
   });
 
-  it("swaps the description to the error and marks the field invalid", () => {
+  it("keeps the hint alongside the error and marks the field invalid", () => {
+    // Flipped with the PR 13 fold. The old shell swapped the hint out for the
+    // error, which took away the statement of the correct format at exactly the
+    // moment the user got the format wrong. Folding onto `FormField` keeps both.
     render(<TextField label="Review date" hint="DD/MM/YYYY" error="That date does not exist." />);
 
-    const input = screen.getByLabelText("Review date");
+    const input = screen.getByLabelText(/Review date/);
     expect(input).toHaveAttribute("aria-invalid", "true");
-    const describedBy = input.getAttribute("aria-describedby") as string;
-    expect(document.getElementById(describedBy)).toHaveTextContent("That date does not exist.");
+    const ids = (input.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+    expect(ids).toHaveLength(2);
+    expect(document.getElementById(ids[0] as string)).toHaveTextContent("DD/MM/YYYY");
+    expect(document.getElementById(ids[1] as string)).toHaveTextContent("That date does not exist.");
     expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("merges a caller's aria-describedby ahead of its own hint", () => {
+    render(
+      <>
+        <p id="publisher-note">As it appears on the cover.</p>
+        <TextField label="Publisher" aria-describedby="publisher-note" hint="As printed on the source." />
+      </>,
+    );
+
+    const ids = (screen.getByLabelText(/Publisher/).getAttribute("aria-describedby") ?? "").split(" ");
+    expect(ids[0]).toBe("publisher-note");
+    expect(ids).toHaveLength(2);
+  });
+
+  it("honours an externally supplied id so an error summary can link to the field", () => {
+    render(<TextField id="publisher" label="Publisher" />);
+    expect(screen.getByLabelText(/Publisher/)).toHaveAttribute("id", "publisher");
   });
 
   it("only offers the clear control once the search field has a value", async () => {
@@ -103,6 +129,48 @@ describe("Citation", () => {
   });
 });
 
+describe("Select", () => {
+  // ADOPTION §3: `Select` shipped without a dedicated test. The fold is where
+  // that gap closes, because the fold is what makes its shell shared.
+  it("keeps the hint alongside the error, like every other folded control", () => {
+    render(
+      <Select
+        label="Jurisdiction"
+        hint="Applies to guideline filtering only."
+        error="Choose a jurisdiction."
+        options={[{ value: "wa", label: "Western Australia" }]}
+      />,
+    );
+
+    const select = screen.getByLabelText(/Jurisdiction/);
+    expect(select).toHaveAttribute("aria-invalid", "true");
+    const ids = (select.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+    expect(ids).toHaveLength(2);
+    expect(document.getElementById(ids[0] as string)).toHaveTextContent("Applies to guideline filtering only.");
+    expect(document.getElementById(ids[1] as string)).toHaveTextContent("Choose a jurisdiction.");
+  });
+
+  it("keeps a hidden label a real label rather than dropping it", () => {
+    render(<Select label="Jurisdiction" hideLabel options={[{ value: "wa", label: "Western Australia" }]} />);
+    expect(screen.getByRole("combobox")).toHaveAccessibleName(/Jurisdiction/);
+  });
+});
+
+describe("Checkbox", () => {
+  it("merges a caller's description with its own rather than overwriting it", () => {
+    render(
+      <>
+        <p id="outdated-note">Outdated sources stay flagged.</p>
+        <Checkbox label="Include outdated sources" description="Off by default." aria-describedby="outdated-note" />
+      </>,
+    );
+
+    const ids = (screen.getByRole("checkbox").getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+    expect(ids[0]).toBe("outdated-note");
+    expect(ids).toHaveLength(2);
+  });
+});
+
 describe("RadioGroup", () => {
   it("keeps controlled value and onChange paired", async () => {
     const onChange = vi.fn();
@@ -120,6 +188,49 @@ describe("RadioGroup", () => {
     );
     await userEvent.click(screen.getByLabelText("Newest"));
     expect(onChange).toHaveBeenCalledWith("newest");
+  });
+
+  it("carries a group-level hint and error together on the fieldset", () => {
+    render(
+      <RadioGroup
+        label="Sort"
+        name="sort"
+        hint="Applies to this result set only."
+        error="Choose a sort order."
+        options={[
+          { value: "relevance", label: "Relevance" },
+          { value: "newest", label: "Newest" },
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Sort" });
+    const ids = (group.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+    expect(ids).toHaveLength(2);
+    expect(document.getElementById(ids[0] as string)).toHaveTextContent("Applies to this result set only.");
+    expect(document.getElementById(ids[1] as string)).toHaveTextContent("Choose a sort order.");
+  });
+
+  it("derives option ids from a sanitised key rather than the raw value", () => {
+    render(
+      <RadioGroup
+        label="Creatinine unit"
+        name="scr-unit"
+        options={[
+          { value: "µmol/L", label: "µmol/L" },
+          { value: "mg/dL", label: "mg/dL" },
+        ]}
+      />,
+    );
+
+    const ids = ["µmol/L", "mg/dL"].map((name) => screen.getByLabelText(name).getAttribute("id") ?? "");
+    for (const id of ids) {
+      // A raw value carrying "/" or "µ" produces an id fragment a selector
+      // cannot address, and two values that sanitise alike would collide.
+      expect(id).not.toContain("/");
+      expect(id).not.toContain("µ");
+    }
+    expect(new Set(ids).size).toBe(2);
   });
 });
 

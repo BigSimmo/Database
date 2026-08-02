@@ -45,17 +45,11 @@ import {
 } from "@/components/clinical-dashboard/use-app-preferences";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
-import {
-  cn,
-  fieldControlWithIcon,
-  fieldIcon,
-  floatingControl,
-  InlineNotice,
-  primaryControl,
-  toggleThumbSurface,
-} from "@/components/ui-primitives";
+import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
 import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
+import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { TextField } from "@/components/ui/text-field";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
 
@@ -422,29 +416,22 @@ export function SettingsDialog({
                         onSubmit={submitSettingsEmail}
                         className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
                       >
-                        <label className="block">
-                          <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                            Email address
-                          </span>
-                          <div className="relative">
-                            <Mail aria-hidden="true" className={fieldIcon} />
-                            <input
-                              ref={settingsEmailInputRef}
-                              type="email"
-                              inputMode="email"
-                              autoComplete="email"
-                              enterKeyHint="go"
-                              autoCapitalize="none"
-                              autoCorrect="off"
-                              spellCheck={false}
-                              required
-                              value={settingsEmail}
-                              onChange={(event) => setSettingsEmail(event.target.value)}
-                              placeholder="you@clinic.example"
-                              className={fieldControlWithIcon}
-                            />
-                          </div>
-                        </label>
+                        <TextField
+                          ref={settingsEmailInputRef}
+                          label="Email address"
+                          icon={Mail}
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          enterKeyHint="go"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          required
+                          value={settingsEmail}
+                          onChange={(event) => setSettingsEmail(event.target.value)}
+                          placeholder="you@clinic.example"
+                        />
                         <button
                           type="submit"
                           disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
@@ -531,18 +518,20 @@ export function SettingsDialog({
               noteId="settings-clinical-defaults-note"
             >
               <SettingsGroup>
-                <SettingsField icon={Globe2} label="Jurisdiction" htmlFor="settings-jurisdiction">
+                <SettingsField icon={Globe2} label="Jurisdiction">
                   <SettingsSelect
                     id="settings-jurisdiction"
+                    label="Jurisdiction"
                     describedBy="settings-clinical-defaults-note"
                     value={preferences.jurisdiction}
                     onChange={(value) => setPreference("jurisdiction", value)}
                     options={JURISDICTION_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField icon={CircleUserRound} label="Default population" htmlFor="settings-population">
+                <SettingsField icon={CircleUserRound} label="Default population">
                   <SettingsSelect
                     id="settings-population"
+                    label="Default population"
                     describedBy="settings-clinical-defaults-note"
                     value={preferences.population}
                     onChange={(value) => setPreference("population", value)}
@@ -927,39 +916,40 @@ function SegmentedControl<T extends string>({
   );
 }
 
+/**
+ * The settings row already prints the visible label beside its icon, so the DS
+ * `Select` carries the same words as its own `sr-only` label rather than a second
+ * visible one. The row's text is therefore no longer a `<label htmlFor>` — one
+ * control must have exactly one accessible name, and two `<label for>` elements
+ * pointing at the same select concatenate into one.
+ */
 function SettingsSelect<T extends string>({
   id,
+  label,
   value,
   onChange,
   options,
   describedBy,
 }: {
   id: string;
+  label: string;
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string }>;
   describedBy?: string;
 }) {
   return (
-    <div className="relative w-full lg:w-56">
-      <select
-        id={id}
-        value={value}
-        aria-describedby={describedBy}
-        onChange={(event) => onChange(event.target.value as T)}
-        className="w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-2 pl-3 pr-9 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronRight
-        aria-hidden="true"
-        className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-[color:var(--text-soft)]"
-      />
-    </div>
+    <Select
+      id={id}
+      label={label}
+      hideLabel
+      value={value}
+      aria-describedby={describedBy}
+      onChange={(event) => onChange(event.target.value as T)}
+      options={options.map((option) => ({ value: option.value, label: option.label }))}
+      fieldClassName="w-full lg:w-56"
+      className="font-semibold text-[color:var(--text-heading)]"
+    />
   );
 }
 
