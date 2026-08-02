@@ -21,6 +21,7 @@ source "$runtime_profile"
 command -v nvm >/dev/null 2>&1 || fail "nvm is unavailable after loading the Cloud runtime profile."
 
 node_bin="$(dirname "$(nvm which "$expected_node_major")")"
+mkdir -p "$HOME/.local/bin"
 for command_name in node npm npx; do
   [[ -x "$node_bin/$command_name" ]] || fail "${command_name} is unavailable in Node ${expected_node_major}."
   cat > "$HOME/.local/bin/$command_name" <<EOF
