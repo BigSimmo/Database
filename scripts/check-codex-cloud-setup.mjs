@@ -32,6 +32,7 @@ export const providerCredentialVariables = Object.freeze([
   "RAILWAY_TOKEN",
   "GH_TOKEN",
   "GITHUB_TOKEN",
+  "CODEX_CLOUD_GITHUB_PAT",
   "GITLAB_TOKEN",
   "GLAB_TOKEN",
   "CODEX_TRIGGER_TOKEN",
@@ -311,6 +312,8 @@ export function validateCodexCloudSetup() {
   const nvmVersion = read(".nvmrc").trim();
   const setup = read("scripts/setup-codex-cloud.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
+  const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
+  const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
   const agents = read("AGENTS.md");
   const envExample = read(".env.example");
@@ -393,8 +396,68 @@ export function validateCodexCloudSetup() {
     /ensure-codex-cloud-git-remote\.mjs/,
     "Maintenance must preserve the safe origin remote.",
   );
+  requireMatch(
+    errors,
+    commandShims,
+    /nvm which/,
+    "Cloud command shims must resolve the selected Node version through nvm.",
+  );
+  requireMatch(
+    errors,
+    commandShims,
+    /mkdir -p "\$HOME\/\.local\/bin"/,
+    "Cloud command shims must create their destination directory.",
+  );
+  requireMatch(
+    errors,
+    commandShims,
+    /\.clinical-kb-codex-cloud\.sh/,
+    "Cloud command shims must load the generated profile.",
+  );
+  if (!commandShims.includes('exec "$node_bin/$command_name" "\\$@"')) {
+    errors.push("Cloud command shims must execute absolute Node commands.");
+  }
+  requireMatch(
+    errors,
+    patDelete,
+    /CODEX_CLOUD_ACCESS_PROFILE.*connected/,
+    "PAT deletion helper must require the connected profile.",
+  );
+  requireMatch(
+    errors,
+    patDelete,
+    /\[\[ "\$branch" != -\* \]\]/,
+    "PAT deletion helper must reject option-like branch names.",
+  );
+  requireMatch(errors, patDelete, /git check-ref-format --branch/, "PAT deletion helper must validate branch names.");
+  requireMatch(
+    errors,
+    patDelete,
+    /git remote get-url --push --all origin/,
+    "PAT deletion helper must validate effective push URLs.",
+  );
+  requireMatch(errors, patDelete, /GIT_ASKPASS/, "PAT deletion helper must use a temporary askpass program.");
+  requireMatch(
+    errors,
+    patDelete,
+    /core\.hooksPath=\/dev\/null/,
+    "PAT deletion helper must disable Git hooks before the token-bearing push.",
+  );
+  requireMatch(
+    errors,
+    patDelete,
+    /https:\/\/github\.com\/BigSimmo\/Database\.git/,
+    "PAT deletion helper must require the credential-free origin.",
+  );
   requireMatch(errors, guide, /bash scripts\/setup-codex-cloud\.sh/, "The guide must provide the setup command.");
+  requireMatch(
+    errors,
+    guide,
+    /install-codex-cloud-command-shims\.sh/,
+    "The guide must document the command-shim workaround.",
+  );
   requireMatch(errors, guide, /CODEX_CLOUD_ACCESS_PROFILE=connected/, "The guide must document connected access.");
+  requireMatch(errors, guide, /CODEX_CLOUD_GITHUB_PAT/, "The guide must document the narrowly scoped PAT exception.");
   requireMatch(errors, guide, /GitHub connector/, "The guide must document GitHub connector access.");
   try {
     parseMcpServerMetadata(mcp);
@@ -444,7 +507,11 @@ function commandVersion(command, args, expectedPattern) {
 }
 
 function repositoryCommand(command, args) {
-  const result = spawnSync(command, args, { cwd: repoRoot, encoding: "utf8", shell: false });
+  const result = spawnSync(command, args, {
+    cwd: repoRoot,
+    encoding: "utf8",
+    shell: false,
+  });
   if (result.status === 0) return null;
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`.trim().split(/\r?\n/).at(-1);
   return `${command} ${args.join(" ")} failed: ${output || `exit ${result.status}`}`;
@@ -474,7 +541,11 @@ export async function validateCodexCloudRuntime(env = process.env) {
   if (env.CODEX_CLOUD_SKIP_BROWSER_INSTALL !== "1") {
     try {
       const { chromium, firefox, webkit } = await import("playwright");
-      for (const [name, browserType] of Object.entries({ chromium, firefox, webkit })) {
+      for (const [name, browserType] of Object.entries({
+        chromium,
+        firefox,
+        webkit,
+      })) {
         if (!executableFile(browserType.executablePath())) {
           errors.push(`${name} browser executable is unavailable.`);
         }

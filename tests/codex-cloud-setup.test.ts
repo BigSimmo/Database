@@ -140,6 +140,11 @@ describe("Codex Cloud environment contract", () => {
     };
 
     expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY", "CROSS_TENANT_SERVICE_ROLE_KEY"]);
+    expect(
+      configuredProviderCredentialNames({
+        CODEX_CLOUD_GITHUB_PAT: "never-print-this",
+      }),
+    ).toEqual(["CODEX_CLOUD_GITHUB_PAT"]);
     expect(obsoleteNpmProxyVariables(env)).toEqual(["npm_config_https_proxy"]);
   });
 
@@ -156,9 +161,12 @@ describe("Codex Cloud environment contract", () => {
       PLAYWRIGHT_OFFLINE_MODE: "true",
     };
     expect(validateCodexCloudEnvironment(offline)).toEqual([]);
-    expect(validateCodexCloudEnvironment({ ...offline, NEXT_PUBLIC_DEMO_MODE: "false" })).toContain(
-      "NEXT_PUBLIC_DEMO_MODE must be true in offline mode.",
-    );
+    expect(
+      validateCodexCloudEnvironment({
+        ...offline,
+        NEXT_PUBLIC_DEMO_MODE: "false",
+      }),
+    ).toContain("NEXT_PUBLIC_DEMO_MODE must be true in offline mode.");
     expect(
       validateCodexCloudEnvironment({
         ...offline,
@@ -191,7 +199,11 @@ describe("Codex Cloud environment contract", () => {
         OPENAI_API_KEY: secret,
       },
       {
-        origin: { configured: true, repositoryMatch: true, credentialsEmbedded: false },
+        origin: {
+          configured: true,
+          repositoryMatch: true,
+          credentialsEmbedded: false,
+        },
         railwayCliAvailable: true,
         codexCliAvailable: true,
         safeGitHelper: true,
@@ -253,7 +265,10 @@ describe("Codex Cloud environment contract", () => {
   it("requires hosted Railway OAuth and project-scoped read-only Supabase MCP", () => {
     const valid = JSON.stringify({
       mcpServers: {
-        railway: { type: "http", url: expectedMcpConfiguration.railwayUrl.replace(/\/$/, "") },
+        railway: {
+          type: "http",
+          url: expectedMcpConfiguration.railwayUrl.replace(/\/$/, ""),
+        },
         supabase: {
           type: "http",
           url: `${expectedMcpConfiguration.supabaseUrl}?project_ref=${expectedMcpConfiguration.supabaseProjectRef}&read_only=true&features=${expectedMcpConfiguration.supabaseFeatures.join(",")}`,
@@ -281,6 +296,14 @@ describe("Codex Cloud environment contract", () => {
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
     const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
     const maintenance = readFileSync(new URL("../scripts/maintain-codex-cloud.sh", import.meta.url), "utf8");
+    const commandShims = readFileSync(
+      new URL("../scripts/install-codex-cloud-command-shims.sh", import.meta.url),
+      "utf8",
+    );
+    const patDelete = readFileSync(
+      new URL("../scripts/delete-codex-cloud-branch-with-pat.sh", import.meta.url),
+      "utf8",
+    );
     expect(setup).toContain("if ! grep -Fq '.clinical-kb-codex-cloud.sh'");
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
     expect(setup).toContain('"$HOME/.bash_profile"');
@@ -303,6 +326,15 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("DATABASE_URL");
     expect(setup).toContain("CODEX_CLOUD_SETUP_STOP_AFTER_POLICY");
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
+    expect(commandShims).toContain('nvm which "$expected_node_major"');
+    expect(commandShims).toContain('. "$runtime_profile"');
+    expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
+    expect(patDelete).toContain("CODEX_CLOUD_ACCESS_PROFILE:-offline");
+    expect(patDelete).toContain('[[ "$branch" != -* ]]');
+    expect(patDelete).toContain("git check-ref-format --branch");
+    expect(patDelete).toContain("git remote get-url --push --all origin");
+    expect(patDelete).toContain("GIT_ASKPASS");
+    expect(patDelete).toContain("core.hooksPath=/dev/null");
   });
 
   it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {
@@ -415,7 +447,9 @@ describe("Codex Cloud environment contract", () => {
     const atomicPath = path.join(atomicHome, ".codex/config.toml");
     writeFileSync(atomicPath, atomicConfig);
     const failingMktemp = path.join(atomicTools, "mktemp");
-    writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", { mode: 0o755 });
+    writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", {
+      mode: 0o755,
+    });
     const atomic = runSetupPolicyOnly(atomicHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "offline",
       PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter),
@@ -464,12 +498,20 @@ describe("Codex Cloud environment contract", () => {
   });
 
   it("does not describe a source-only runtime as fully browser-ready", () => {
-    expect(codexCloudValidationScope({ runtime: true, environment: true, browserInstallSkipped: true })).toBe(
-      "static, environment, and source-only runtime (browser validation skipped)",
-    );
-    expect(codexCloudValidationScope({ runtime: true, environment: true, browserInstallSkipped: false })).toBe(
-      "static, environment, and runtime",
-    );
+    expect(
+      codexCloudValidationScope({
+        runtime: true,
+        environment: true,
+        browserInstallSkipped: true,
+      }),
+    ).toBe("static, environment, and source-only runtime (browser validation skipped)");
+    expect(
+      codexCloudValidationScope({
+        runtime: true,
+        environment: true,
+        browserInstallSkipped: false,
+      }),
+    ).toBe("static, environment, and runtime");
   });
 
   it("distinguishes executable files from missing paths", () => {
@@ -486,9 +528,11 @@ describe("Codex Cloud environment contract", () => {
 
     expect(pythonWorkerImportError(process.execPath, run as typeof spawnSync)).toBeNull();
     expect(invocation).toEqual([process.execPath, "-c", `import ${pythonWorkerImports.join(", ")}`]);
-    expect(pythonWorkerImportError(process.execPath, (() => ({ status: 1 })) as unknown as typeof spawnSync)).toContain(
-      "Python worker imports failed",
-    );
+    expect(
+      pythonWorkerImportError(process.execPath, (() => ({
+        status: 1,
+      })) as unknown as typeof spawnSync),
+    ).toContain("Python worker imports failed");
   });
 });
 

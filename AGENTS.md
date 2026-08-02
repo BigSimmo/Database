@@ -866,8 +866,8 @@ Codex Cloud uses an isolated Linux container and does not inherit desktop files,
 credentials, OAuth sessions, MCP authentication, local services, or uncommitted work.
 Use `docs/codex-cloud.md` as the environment contract:
 
-- Setup: `bash scripts/setup-codex-cloud.sh`.
-- Maintenance: `bash scripts/maintain-codex-cloud.sh`.
+- Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
+- Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
   Use `connected` only when the user explicitly authorizes the required provider access.
 - Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
@@ -880,16 +880,19 @@ Use `docs/codex-cloud.md` as the environment contract:
 - Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
   policy, or provider credentials. Treat those as product/account settings and verify them
   separately without printing secret values.
-- In a Cloud agent shell, `npm run check:codex-cloud` validates the tracked contract and
-  effective access-profile modes. Use `npm run check:codex-cloud -- --runtime` for the
-  complete installed toolchain and browser executables. Also run
-  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new
-  or reset environment. A skipped browser install is not full browser readiness. Output is
-  limited to approved mode values, presence booleans, repository identity, and MCP
-  server/command/environment-variable names; never print credential values.
+- In a fresh Cloud agent shell, run `npm run check:codex-cloud` directly, without manually
+  sourcing a profile or entering a login shell; it must report the static-and-environment PASS
+  line. Then run `npm run check:codex-cloud -- --runtime`; it must report the static,
+  environment, and runtime PASS line. The command shims load the generated profile for normal
+  `node`, `npm`, and `npx` work. Also run `npm run check:runtime` and
+  `npm run check:installed-lock-parity` before trusting a new or reset environment. A skipped
+  browser install is not full browser readiness. Output is limited to approved mode values,
+  presence booleans, repository identity, and MCP server/command/environment-variable names;
+  never print credential values.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
-  agent phase; do not copy them into files to bypass that boundary.
+  agent phase unless the platform explicitly exposes a secret to the named task phase; do not
+  copy them into files to bypass that boundary.
 - Provider-backed checks, hosted CI mutations, deployment, production data access, and
   Git publishing still require the explicit authorization defined above.
 - The ordinary offline Cloud profile intentionally cannot perform authenticated production or
@@ -900,22 +903,27 @@ Use `docs/codex-cloud.md` as the environment contract:
   credentials to the Codex Cloud agent shell.
 - Railway reads require both the pinned CLI and a dedicated `RAILWAY_API_TOKEN`. Never substitute
   `RAILWAY_TOKEN`. GitHub CLI authentication, the credential-free `origin` URL, and shell Git
-  authentication are separate capabilities; never add a PAT or token-bearing credential helper.
-- The Codex GitHub connection used to clone a repository is separate from agent-shell
-  `git push` or `gh` authentication. Reconnect the repository in Codex settings if a
-  controlled write test cannot publish; never add a PAT to Cloud variables or secrets.
+  authentication are separate capabilities.
 - For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
   tools as the default remote control plane. Use them for repository, PR, issue, review
   thread, and Actions work, including inline-thread replies/resolution, Actions
   run/job/log/artifact inspection, and approved branch, file, or PR mutations. Missing
   `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
-  capability and must not prompt a PAT workaround. The intended connection is `BigSimmo`
-  with administrator access to this repository. Use shell `git` or `gh` only for a
-  genuine connector gap and only when the task permits it.
-- Confirm the exact repository and PR/thread/job before a write, and verify the
-  connector result before treating the write as successful. If the connector lacks a
-  needed GitHub setting or organisation control, report that limit rather than attempting a
-  credential, secret, or shell-based bypass.
+  capability. The intended connection is `BigSimmo` with repository write access.
+  Reserve administrator access for separately approved operations.
+- A PAT is a connected-only, user-authorised exception for a genuine connector gap. Store a
+  short-lived, fine-grained `CODEX_CLOUD_GITHUB_PAT` only as a connected Cloud secret and
+  scope it to this repository and the named operation. Never make it an ordinary variable,
+  profile value, remote URL, or cached file. Use only
+  `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` for an exact
+  branch-deletion instruction; it verifies the profile, ref, and credential-free origin and
+  never prints the token. Remove or rotate the secret immediately afterwards. If secrets are
+  unavailable in that task phase, report the platform limit rather than bypassing it.
+- Confirm the exact repository and PR/thread/job before a write, and verify the connector
+  result before treating the write as successful. A repository cannot sanitize a variable
+  already inherited by the top-level task process; the tracked shims protect normal
+  `node`/`npm`/`npx` commands. Report raw-parent exposure as a Codex Cloud launcher defect
+  rather than weakening the provider-variable contract.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
   physical iPhone Safari/PWA acceptance.
 
@@ -933,7 +941,7 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
   connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
   support (including run/job/log/artifact inspection and review-thread replies/resolution).
   A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
-  workaround. The intended connection is `BigSimmo` with administrator access to this
-  repository. Verify the exact target and connector result before any write. Ordinary
+  workaround. The intended connection is `BigSimmo` with repository write access.
+  Reserve administrator access for separately approved operations. Verify the exact target and connector result before any write. Ordinary
   authorised shell `git` branch publication remains allowed; use shell `gh` only for a
   genuine connector gap and only when the task permits it.
