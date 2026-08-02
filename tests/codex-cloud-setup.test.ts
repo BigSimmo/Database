@@ -69,6 +69,9 @@ describe("Codex Cloud environment contract", () => {
     };
 
     expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY", "CROSS_TENANT_SERVICE_ROLE_KEY"]);
+    expect(configuredProviderCredentialNames({ CODEX_CLOUD_GITHUB_PAT: "never-print-this" })).toEqual([
+      "CODEX_CLOUD_GITHUB_PAT",
+    ]);
     expect(obsoleteNpmProxyVariables(env)).toEqual(["npm_config_https_proxy"]);
   });
 
@@ -210,6 +213,8 @@ describe("Codex Cloud environment contract", () => {
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
     const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
     const maintenance = readFileSync(new URL("../scripts/maintain-codex-cloud.sh", import.meta.url), "utf8");
+    const commandShims = readFileSync(new URL("../scripts/install-codex-cloud-command-shims.sh", import.meta.url), "utf8");
+    const patDelete = readFileSync(new URL("../scripts/delete-codex-cloud-branch-with-pat.sh", import.meta.url), "utf8");
     expect(setup).toContain("if ! grep -Fq '.clinical-kb-codex-cloud.sh'");
     expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
     expect(setup).toContain('"$HOME/.bash_profile"');
@@ -218,6 +223,11 @@ describe("Codex Cloud environment contract", () => {
       setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]'),
     );
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
+    expect(commandShims).toContain('nvm which "$expected_node_major"');
+    expect(commandShims).toContain('. "$runtime_profile"');
+    expect(patDelete).toContain('CODEX_CLOUD_ACCESS_PROFILE:-offline');
+    expect(patDelete).toContain("git check-ref-format --branch");
+    expect(patDelete).toContain("GIT_ASKPASS");
   });
 
   it("accepts a task-only HEAD only inside Codex Cloud", () => {
