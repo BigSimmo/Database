@@ -86,6 +86,7 @@ jobs:
             -e NEXT_PUBLIC_DEMO_MODE=false \
             -e NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co \
             -e SUPABASE_SERVICE_ROLE_KEY=smoke-test-placeholder \
+            -e RAG_QUERY_HASH_SECRET=smoke-test-hash-secret \
             -e RAG_PROVIDER_MODE=offline \
             -e NEXT_TELEMETRY_DISABLED=1 \
             clinical-kb-app:ci \

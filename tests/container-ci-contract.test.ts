@@ -79,4 +79,11 @@ describe("container delivery contract", () => {
     expect(read(".github/workflows/docker-image.yml")).toContain("check-image-content-contract");
     expect(read(".github/workflows/docker-image.yml")).toContain("app-container-smoke");
   });
+
+  it("supplies RAG_QUERY_HASH_SECRET so production instrumentation can boot in smoke", () => {
+    const smoke = read("scripts/app-container-smoke.mjs");
+    const workflow = read(".github/workflows/docker-image.yml");
+    expect(smoke).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
+    expect(workflow).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
+  });
 });

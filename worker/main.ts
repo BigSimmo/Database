@@ -1913,6 +1913,7 @@ async function main() {
       backoff: workerBackoffMs,
       controller,
       log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
+      captureException: captureWorkerException,
     });
     console.log("Clinical KB worker stopped gracefully");
     process.exit(0);

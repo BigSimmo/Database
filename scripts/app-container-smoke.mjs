@@ -73,6 +73,10 @@ async function main() {
     "SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy",
     "-e",
     "SUPABASE_PROJECT_NAME=Clinical KB Database",
+    // Production instrumentation refuses to boot without a keyed query-hash
+    // secret (min 16 chars). Placeholder is provider-free and CI-only.
+    "-e",
+    "RAG_QUERY_HASH_SECRET=smoke-test-hash-secret",
     "-e",
     "RAG_PROVIDER_MODE=offline",
     "-e",
@@ -88,6 +92,9 @@ async function main() {
   const health = await waitForHealth();
   if (!health) {
     console.error("App health endpoint did not become ready in time");
+    const logs = run(["docker", "logs", "--tail", "80", CONTAINER_NAME]);
+    if (logs.stdout) console.error(logs.stdout);
+    if (logs.stderr) console.error(logs.stderr);
     cleanContainer();
     process.exit(1);
   }
