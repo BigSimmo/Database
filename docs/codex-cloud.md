@@ -149,9 +149,14 @@ Suggested GitHub acceptance task:
 
 ```text
 Read AGENTS.md and docs/codex-cloud.md. Create a task-specific branch, add one harmless
-documentation-only line, and offer a draft pull request through the Codex GitHub workflow.
-Do not merge. Report whether repository clone, branch publication, and draft PR creation
-each succeeded. Remove the draft branch/PR only after I approve cleanup.
+documentation-only line, commit it, and record its branch name and full 40-character HEAD SHA.
+Use the Codex GitHub workflow to publish that exact existing branch and create a draft pull
+request. Do not recreate, rename, amend, rebase, or rebuild the branch or commit. Do not merge.
+Report whether repository clone, branch publication, and draft PR creation each succeeded, then
+report the expected and published branch names and full HEAD SHAs and whether they match exactly.
+If branch publication or draft PR creation succeeds, include its link. For each failed write,
+report the failure and state that no link is available. Remove the draft branch/PR only after I
+approve cleanup.
 ```
 
 ## Setup and maintenance
