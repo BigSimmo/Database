@@ -8,10 +8,17 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+import {
+  assertLockTarget,
+  pythonMajorMinor,
+  requestedLockTarget,
+  workerPythonLockTargets,
+} from "./worker-python-lock-config.mjs";
+
 const PYTHON = process.env.PYTHON_BIN?.trim() || (process.platform === "win32" ? "python" : "python3");
 const PIP_TOOLS_VERSION = "7.6.0";
 const IN_FILE = "worker/python/requirements.in";
-const OUT_FILE = "worker/python/requirements.txt";
+const target = requestedLockTarget();
 
 function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, { encoding: "utf8", stdio: "pipe", ...opts });
@@ -37,8 +44,10 @@ function ensureVenv(venvDir) {
 
 function pipCompile(venvDir, outputFile) {
   const python = venvPython(venvDir);
-  run(python, ["-m", "piptools", "compile", "--generate-hashes", "--output-file", outputFile, IN_FILE], {
-    env: { ...process.env, CUSTOM_COMPILE_COMMAND: "npm run generate:worker-python-lock" },
+  const args = ["-m", "piptools", "compile", "--generate-hashes", "--output-file", outputFile, IN_FILE];
+  if (target.includeUnsafe) args.splice(3, 0, "--allow-unsafe");
+  run(python, args, {
+    env: { ...process.env, CUSTOM_COMPILE_COMMAND: target.generateCommand },
   });
 }
 
@@ -49,26 +58,31 @@ function normalize(contents) {
     .join("\n");
 }
 
-function assertHashedLockfile(contents) {
-  const lines = contents.split(/\r?\n/);
-  const hasPinned = lines.some((line) => /==/.test(line));
-  const hasHash = lines.some((line) => /--hash=sha256:/.test(line));
-  if (!hasPinned) throw new Error("requirements.txt does not contain pinned (==) versions");
-  if (!hasHash) throw new Error("requirements.txt does not contain --hash=sha256 entries");
-}
-
 function main() {
   if (!existsSync(IN_FILE)) throw new Error(`Missing ${IN_FILE}`);
-  if (!existsSync(OUT_FILE)) throw new Error(`Missing ${OUT_FILE}`);
+  for (const lockTarget of Object.values(workerPythonLockTargets)) {
+    if (!existsSync(lockTarget.outputFile)) throw new Error(`Missing ${lockTarget.outputFile}`);
+    assertLockTarget(lockTarget);
+  }
+  if (process.argv.includes("--static")) {
+    console.log("Worker Python lock headers, pins, and hashes are valid for production and Cloud targets.");
+    return;
+  }
 
-  const committed = readFileSync(OUT_FILE, "utf8");
-  assertHashedLockfile(committed);
+  const actualPythonVersion = pythonMajorMinor(PYTHON);
+  if (actualPythonVersion !== target.pythonVersion) {
+    throw new Error(
+      `${target.name} lock verification requires Python ${target.pythonVersion}; ${PYTHON} is Python ${actualPythonVersion}. Set PYTHON_BIN to the matching interpreter.`,
+    );
+  }
+
+  const committed = readFileSync(target.outputFile, "utf8");
 
   const venvDir = mkdtempSync(path.join(tmpdir(), "pip-tools-check-"));
   let generated;
   try {
     ensureVenv(venvDir);
-    const tempOut = path.join(venvDir, "requirements.txt");
+    const tempOut = path.join(venvDir, path.basename(target.outputFile));
     pipCompile(venvDir, tempOut);
     generated = readFileSync(tempOut, "utf8");
   } finally {
@@ -81,10 +95,10 @@ function main() {
       "tmp/requirements-generated-diff.txt",
       `--- committed\n+++ generated\n${committed}\n---\n${generated}`,
     );
-    throw new Error(`${OUT_FILE} is out of sync with ${IN_FILE}. Regenerate with: npm run generate:worker-python-lock`);
+    throw new Error(`${target.outputFile} is out of sync with ${IN_FILE}. Regenerate with: ${target.generateCommand}`);
   }
 
-  console.log(`${OUT_FILE} is in sync with ${IN_FILE}`);
+  console.log(`${target.outputFile} is in sync with ${IN_FILE} for Python ${target.pythonVersion}`);
 }
 
 main();
