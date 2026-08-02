@@ -22,7 +22,7 @@ enabled = false
 default_tools_approval_mode = "auto"
 
 [mcp_servers.railway_cloud]
-url = "https://mcp.railway.com/"
+url = "https://mcp.railway.com"
 enabled = false
 default_tools_approval_mode = "auto"
 

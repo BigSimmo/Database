@@ -259,13 +259,19 @@ and storage mutations require a separately configured non-production project or 
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
-Project `.codex/config.toml` may also list Figma, Railway, read-only Supabase, and Sentry MCP
-URLs for trusted Codex hosts, but those entries stay `enabled = false` in the repository so
-ordinary/offline sessions do not initialize third-party providers. When a connected Cloud or host
-environment enables a server for a task, `default_tools_approval_mode = "auto"` lets the agent
-use it without per-tool permission prompts. Paid API canaries still require explicit confirmation.
-`npm run check:codex-cloud` validates both `.mcp.json` (runtime Cloud allowlist) and the disabled
-project template in `.codex/config.toml`.
+Project `.codex/config.toml` is a second, project-scoped MCP template that trusted Codex
+hosts load in addition to `$CODEX_HOME/config.toml` (where `setup-codex-cloud.sh` writes the
+shell-environment policy). It is not inert documentation: Codex applies project-local
+`.codex/config.toml` when the project is trusted. The tracked template lists Figma
+(`https://mcp.figma.com/mcp`), Railway, read-only Supabase, and Sentry
+(`https://mcp.sentry.dev/mcp`) as URL-only registrations with `enabled = false` and
+`default_tools_approval_mode = "auto"`. Ordinary/offline sessions therefore do not initialize
+those providers. When a connected Cloud or host layer enables a server for a task, tools are
+auto-approved so agents avoid per-tool permission prompts; paid API canaries, Railway
+mutations/deploys, and other cost-or-write provider actions still require explicit confirmation
+per AGENTS.md. Figma and Sentry OAuth credentials stay in the host credential store — never in
+the tracked file. Runtime Cloud MCP allowlist remains `.mcp.json` (Railway + read-only Supabase
+only). `npm run check:codex-cloud` validates both files.
 
 In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
 provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every

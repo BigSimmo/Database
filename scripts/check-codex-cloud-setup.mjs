@@ -20,7 +20,8 @@ export const expectedCloudCliVersions = Object.freeze({
 });
 
 export const expectedMcpConfiguration = Object.freeze({
-  railwayUrl: "https://mcp.railway.com/",
+  // Canonical form matches `.mcp.json` (no trailing slash).
+  railwayUrl: "https://mcp.railway.com",
   supabaseUrl: "https://mcp.supabase.com/mcp",
   supabaseProjectRef: "sjrfecxgysukkwxsowpy",
   supabaseFeatures: Object.freeze(["database", "debugging", "development", "docs"]),
