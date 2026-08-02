@@ -28,7 +28,9 @@ the Cloud-only Bash setup script.
 
 For Codex Cloud, use the tracked environment setup and acceptance contract in
 [`docs/codex-cloud.md`](docs/codex-cloud.md). It installs the complete repository
-toolchain and distinguishes safe offline tasks from explicitly connected provider tasks.
+toolchain, installs the profile-loading Node command shims, and distinguishes safe offline
+tasks from explicitly connected provider tasks. Fresh Cloud validation runs the direct
+`npm run check:codex-cloud` commands without manually sourcing a profile.
 
 3. Copy the full `.env.example` to `.env.local` and fill in Supabase and OpenAI
    values. Copy the worker and upload defaults too — they are conservative
