@@ -3120,7 +3120,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
  *   1) Global print reset + chrome hide
  *   2) Factsheet export isolation (html.factsheets-printing)
  *   3) Safety-plan tool ([data-print-hide] / [data-safety-plan-copy])
- *   4) Therapy Compass isolation (@page therapy-compass-sheet)
+ *   4) Therapy Compass isolation (named @page + data-therapy-root)
  * Chrome must prefer [data-print-hide]; element-name selectors below are
  * transitional back-compat until every chrome owner is attribute-marked.
  * ========================================================================= */
