@@ -152,7 +152,8 @@ The only tracked PAT helper is
 `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>`. It refuses offline
 mode, protected/invalid refs, and any origin other than the credential-free
 `https://github.com/BigSimmo/Database.git`; it uses a temporary askpass program and deletes
-only the specified branch. Use it only for the exact user-authorised cleanup, then remove or
+only the specified branch and disables Git hooks for its PAT-bearing push. Use it only for the exact
+user-authorised cleanup, then remove or
 rotate the secret. If Cloud does not expose secrets to the requested task phase, the PAT is not a
 usable workaround—report that platform limit rather than copying the token anywhere.
 
