@@ -47,8 +47,8 @@ If migrations are still outstanding, stop here and apply them first.
 
 The worker image build is validated in CI by
 [`.github/workflows/docker-image.yml`](../.github/workflows/docker-image.yml)
-→ the **`worker-image`** job. It runs `docker build -f Dockerfile.worker`
-(`push: false`) on:
+→ the **`build-and-verify`** job. It runs `docker build -f Dockerfile.worker`
+(`load: true`, `push: false`) on:
 
 - every push to `main` / `release/**`,
 - pull requests and merge-queue commits whose CI change classifier detects a
@@ -68,7 +68,9 @@ Status: ✅ **CI covers the worker image build.** All build inputs referenced by
 `Dockerfile.worker` are present in the tree (`package-lock.json`, `.npmrc`,
 `scripts/check-node-engine.cjs`, `scripts/build-worker.mjs`,
 `worker/python/requirements.txt`, `worker/index.ts`) and the `server-only`
-bundle path is guarded by `tests/tsx-server-only-runner.test.ts` plus
+bundle path is guarded by `tests/tsx-server-only-runner.test.ts`,
+`tests/worker-runtime-control.test.ts`, `tests/worker-run-loop.test.ts`,
+`tests/worker-runtime-validation.test.ts` plus
 `tests/worker-bundle.test.ts` (resolve-checks every bundle external against
 plain-`node` ESM resolution and the `--omit=dev` prune). The image also compiles
 all committed Python helpers and runs `worker/python/test_*.py` before removing
@@ -89,10 +91,17 @@ docker build -f Dockerfile.worker -t clinical-kb-worker .
   `scripts/build-worker.mjs`), so tsx and the rest of the dev toolchain never
   reach the image.
 - **Tesseract OCR** (Debian package; bundles English language data).
-- A **Python venv** at `/opt/ocr-venv` with `worker/python/requirements.txt`
-  (PyMuPDF, Pillow, pytesseract). The venv is first on `PATH`, so the default
+- A **Python venv** at `/opt/ocr-venv` with a pinned, hashed
+  `worker/python/requirements.txt` generated from `worker/python/requirements.in`
+  via `pip-tools` (`npm run generate:worker-python-lock`). `pip check` runs
+  before the image is promoted. The venv is first on `PATH`, so the default
   `PYTHON_BIN=python` resolves to it — no override needed in-container.
 - Runtime is the non-root `node` user. No secret is baked into any layer.
+- `STOPSIGNAL SIGTERM` is set; the worker drains the active batch and exits `0`
+  on `SIGTERM`/`SIGINT`. Fatal errors still exit `1` and fire the webhook.
+- `dist/worker/validate-runtime.mjs` runs during the image build and again in
+  CI with `--network=none` to prove Node, module resolution, Python, Tesseract,
+  PyMuPDF, Pillow and pytesseract are present without calling Supabase/OpenAI.
 - `CMD` runs the bundle under plain `node`. The build aliases `server-only`
   to the standalone stub (what `scripts/run-tsx.mjs` did at runtime), so
   `worker/index.ts`'s `import "server-only"` resolves outside the Next

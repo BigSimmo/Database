@@ -54,4 +54,77 @@ describe("container delivery contract", () => {
       expect(dockerignore, `missing Docker exclusion: ${entry}`).toContain(entry);
     }
   });
+
+  it("pins the Node base image to a multi-platform digest", () => {
+    const dockerfile = read("Dockerfile");
+    const worker = read("Dockerfile.worker");
+    const digest = /sha256:[a-f0-9]{64}/;
+
+    expect(dockerfile).toMatch(digest);
+    expect(dockerfile).toContain("FROM node-base");
+    expect(worker).toMatch(digest);
+    expect(worker).toContain("FROM node-base");
+  });
+
+  it("requires both images to stop on SIGTERM", () => {
+    expect(read("Dockerfile")).toContain("STOPSIGNAL SIGTERM");
+    expect(read("Dockerfile.worker")).toContain("STOPSIGNAL SIGTERM");
+  });
+
+  it("runs a provider-free runtime validator inside the worker image", () => {
+    expect(read("Dockerfile.worker")).toContain("dist/worker/validate-runtime.mjs");
+  });
+
+  it("includes the new Docker hardening scripts", () => {
+    expect(read(".github/workflows/docker-image.yml")).toContain("check-image-content-contract");
+    expect(read(".github/workflows/docker-image.yml")).toContain("app-container-smoke");
+  });
+
+  it("supplies RAG_QUERY_HASH_SECRET so production instrumentation can boot in smoke", () => {
+    const smoke = read("scripts/app-container-smoke.mjs");
+    const workflow = read(".github/workflows/docker-image.yml");
+    expect(smoke).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
+    expect(workflow).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
+  });
+
+  it("accepts Next 16 next-server PID 1 in app container smoke", () => {
+    const smoke = read("scripts/app-container-smoke.mjs");
+    expect(smoke).toContain("next start");
+    expect(smoke).toContain("next-server");
+    expect(smoke).toContain("pid1LooksLikeNextServer");
+  });
+
+  it("avoids Docker-socket mounts and creates tmp/ before lock-diff diagnostics", () => {
+    const trivy = read("scripts/trivy-image-scan.mjs");
+    const pythonLock = read("scripts/check-worker-python-lock.mjs");
+    const runtime = read("worker/validate-runtime.ts");
+    const sleep = read("worker/runtime-control.ts");
+
+    expect(trivy).not.toContain("/var/run/docker.sock");
+    expect(trivy).toContain("docker save");
+    expect(trivy).toContain("optionValue");
+    expect(pythonLock).toContain('mkdirSync("tmp", { recursive: true })');
+    expect(runtime).toContain("pathToFileURL(options.externalsPath)");
+    expect(runtime).not.toContain("file://${options.externalsPath}");
+    expect(runtime).toContain("builtinModules");
+    // Single settle path — no stray Promise.race timer that outlives stop().
+    expect(sleep).not.toMatch(/Promise\.race\(\[\s*new Promise/);
+  });
+
+  it("fails closed on missing Cmd, shell listing errors, and SIGKILL smoke exits", () => {
+    const contract = read("scripts/check-image-content-contract.mjs");
+    const smoke = read("scripts/app-container-smoke.mjs");
+    expect(contract).toContain('cmd === "null"');
+    expect(contract).toContain("assertShellListingClean");
+    expect(contract).toContain("/app/worker/python/test_*.py");
+    expect(smoke).toContain('exitCode === "137"');
+    expect(smoke).toContain("State.Running");
+  });
+
+  it("keeps Trivy SBOM and vulnerability steps non-blocking in CI", () => {
+    const workflow = read(".github/workflows/docker-image.yml");
+    expect(workflow).toMatch(/Generate SBOMs[\s\S]*?continue-on-error:\s*true/);
+    expect(workflow).toMatch(/Vulnerability scan \(HIGH,CRITICAL\)[\s\S]*?continue-on-error:\s*true/);
+    expect(workflow).toContain("if-no-files-found: warn");
+  });
 });
