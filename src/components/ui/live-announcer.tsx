@@ -125,6 +125,9 @@ export function LiveAnnouncer() {
         throw new Error("LiveAnnouncer is a singleton — mount exactly one instance at the app root.");
       }
       console.warn(JSON.stringify({ level: "warn", message: "live-announcer: duplicate instance mounted" }));
+      // Ownership cannot be decided during render without tripping immutability/
+      // refs lint; suppress after mount so the duplicate never registers.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- singleton ownership gate
       setSuppressed(true);
       return () => {
         store.mounted = Math.max(0, store.mounted - 1);
