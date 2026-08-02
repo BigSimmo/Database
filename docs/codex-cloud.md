@@ -100,8 +100,11 @@ PLAYWRIGHT_OFFLINE_MODE=true
 Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
 tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
 environment. The generated agent profile removes the complete provider-variable inventory in
-both access profiles. Connected access means the scoped OAuth MCP servers and GitHub connector
-are available; it does not mean raw credentials are exposed to the shell.
+both access profiles. Connected access configures the repository profile for scoped OAuth MCP
+servers and GitHub connector tooling, but it does not prove that Codex has attached those tools
+to a particular Cloud task or expose raw credentials to the shell. Before a provider or GitHub
+write, confirm the actual authenticated tool inventory. If a required server is absent, treat it
+as a Codex platform capability gap and do not use shell credentials as a workaround.
 
 Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
 properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
