@@ -245,7 +245,10 @@ function ToolSearch({
         onSubmit();
       }}
       className={cn(
-        "grid min-h-13 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        // The leading track holds a tap-sized glyph and the row has no gap, so it
+        // reads the tap knob rather than a copy of its value — a literal here
+        // overlaps the input the moment `--spacing-tap` moves.
+        "grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
         className,
       )}
     >

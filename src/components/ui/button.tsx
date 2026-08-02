@@ -26,7 +26,7 @@ const VARIANT: Record<ButtonVariant, string> = {
     "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)] shadow-[var(--shadow-tight)] hover:brightness-110 active:brightness-95",
 };
 
-// Height is the tap target and never drops below 44px; `size` moves the optical
+// Height is the tap target and never drops below `--spacing-tap` (48px); `size` moves the optical
 // padding and label step, not the hit area (register #7/#18).
 const SIZE: Record<ButtonSize, string> = {
   sm: "px-3 text-xs",

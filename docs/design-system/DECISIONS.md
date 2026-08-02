@@ -42,9 +42,17 @@ anything that cannot be verified is listed as blocked rather than guessed.
 `globals.css` — the token the `min-h-tap` / `h-tap` / `size-tap` utilities compile against.
 `--tap-min` in the v2 layer becomes a pure alias (`var(--spacing-tap)`), and the v2 layer
 never declares `--spacing-tap`. What moves with it, in the same change: the contract-test
-pin (`ckb-v2-token-contract.test.ts:181-185`), the `Button` comment that still claims 44px,
-and a dedicated visual-QA pass — it is a 407-call-site geometry change and ships as its own
-PR (5b). No existing 48px target (`min-h-12`, 53 sites) is touched.
+pins, the component comments that still claim 44px, and a dedicated visual-QA pass — it is a
+426-call-site geometry change and ships as its own commit (5b). No existing 48px target
+(`min-h-12`) is touched.
+
+**Landed (PR 5b).** Two follow-through rules came out of doing it, both now in SPEC §4.10.
+A grid track sized to hold a tap-sized child reads `var(--spacing-tap)` instead of copying
+its value, or the track and its child desync on the next move — seven hardcoded `2.75rem`
+tracks were audited, and the one with no gap between columns (the launcher search row) was
+rebound; the other six absorb the extra 4px into an existing gap or the row's own padding.
+And the phone composer keeps a written 44px exception below 431px, because its height is
+part of the search-chrome contract and 44px already clears WCAG 2.5.5.
 
 **Rejected.** Declaring the value in the v2 layer. In the design side's `:root`-structural
 copy it silently **loses** a same-specificity cascade tie to `@theme` (later wins), leaving

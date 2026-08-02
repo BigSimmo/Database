@@ -796,8 +796,10 @@ test.describe("Clinical KB tools launcher", () => {
         headingFontSize,
         subtitleFontSize,
       };
-      expect(metrics.iconWidth).toBe(44);
-      expect(metrics.iconHeight).toBe(44);
+      // The hero tile is `h-tap w-tap` on phones, so it tracks `--spacing-tap`
+      // (48px since PR 5b), not a standalone pixel choice.
+      expect(metrics.iconWidth).toBe(48);
+      expect(metrics.iconHeight).toBe(48);
       expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
       expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
 

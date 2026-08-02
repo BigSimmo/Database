@@ -39,13 +39,19 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
 
-  /* Minimum interactive target (WCAG 2.5.5 / 2.5.8). Named spacing token so the
-     44px tap-target minimum is a single source of truth instead of copy-pasted
-     `min-h-11` / `h-[44px]` magic numbers. Generates min-h-tap, h-tap, w-tap,
-     min-w-tap, size-tap. Semantic intent: "this is a touch target", not "44px".
-     NB: controls that flake the ui-smoke sub-pixel tap-target check when scrolled
-     deep in sheets stay on min-h-12 (48px) — do not downgrade those to the token. */
-  --spacing-tap: 2.75rem;
+  /* Minimum interactive target (WCAG 2.5.5 / 2.5.8) — 48px, and the design
+     system's ONE tap knob (SPEC §4.10, DECISIONS §C2). It is declared here in
+     @theme because this is the layer that generates min-h-tap / h-tap / w-tap /
+     min-w-tap / size-tap; the v2 layer's --tap-min is a pure alias of it and
+     never carries its own value, so the app can never render a 44/48 split.
+     Semantic intent: "this is a touch target", not a pixel count.
+     NB: the min-h-12 sites now match the token rather than exceeding it — leave
+     them alone; no production target is ever reduced. A grid track sized to hold
+     a tap target uses var(--spacing-tap), never a copy of the number, or the
+     track and its child desync the next time this value moves. The one
+     deliberate exception is the phone composer, pinned to 44px below 431px so
+     the edge-to-edge dock keeps its height (see the max-width: 430px block). */
+  --spacing-tap: 3rem;
 
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
      scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
@@ -1426,11 +1432,15 @@ summary::-webkit-details-marker {
   opacity: 0.5;
 }
 
-/* Small-phone pin for the composer icon buttons: hold the 44px tap target and a
-   1.1rem glyph below 431px (the ≥640px block grows them to 48px/3rem). Single
-   source of truth — do not re-add a second max-width:430px block for these.
-   The mode-action popover only renders ≥1024px, so this holds no .mode-action-*
-   overrides. */
+/* Small-phone pin for the composer icon buttons: hold a 44px tap target and a
+   1.1rem glyph below 431px, where the base rule above would otherwise apply the
+   48px --spacing-tap knob. This is the design system's one sanctioned exception
+   to the 48px floor (SPEC §4.10): the phone composer is an edge-to-edge dock
+   whose height is part of the search-chrome contract, and growing three buttons
+   by 4px each re-tunes the dock reserve and the phone CLS budget for no
+   accessibility gain — 44px already clears WCAG 2.5.5. Single source of truth —
+   do not re-add a second max-width:430px block for these. The mode-action
+   popover only renders ≥1024px, so this holds no .mode-action-* overrides. */
 @media (max-width: 430px) {
   .chat-composer-icon-button,
   .chat-send-button {
@@ -1798,7 +1808,7 @@ summary::-webkit-details-marker {
 
 /* Touch devices: suggestion/follow-up chips are primary tap targets (the
    follow-ups sit directly under the composer and each fires a new search).
-   Meet the 44px tap floor and widen the gap so neighbouring chips in the
+   Meet the --spacing-tap floor and widen the gap so neighbouring chips in the
    horizontal scroll row don't invite mis-taps. Fine-pointer (mouse) users keep
    the compact 32px chip — no desktop visual change. */
 @media (pointer: coarse) {
@@ -2787,7 +2797,7 @@ td,
     box-shadow: none !important;
   }
 
-  /* Source capsule: a compact visible face inside an invisible 44px tap target.
+  /* Source capsule: a compact visible face inside an invisible tap-sized target.
      Border/shadow/transform live here (component layer) so the face reads small
      while the hover, expanded, and focus chrome stay premium. Border colour is
      owned here — the face carries no border-colour utility — so these rules win

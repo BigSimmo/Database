@@ -28,7 +28,7 @@ export type ModeNavItem = {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--focus)]";
 
-/** 48px hit area — clear of `expectMinTouchTarget`'s 44px and its rounding flake. */
+/** 48px hit area — matches `--spacing-tap`, clear of the `expectMinTouchTarget` rounding flake. */
 const slotBase =
   "mode-nav__slot relative flex min-h-12 min-w-0 items-center justify-center px-3 no-underline transition-colors";
 

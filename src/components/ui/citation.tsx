@@ -30,7 +30,7 @@ export type CitationProps = CitationBase &
  * class strings (`sourceCapsuleHit`, `sourceCapsule`, `sourceCapsuleCountBadge`)
  * plus unlayered CSS, so a designer could not place one and nothing tested it.
  *
- * Structure: an invisible 44px hit target wrapping a compact visible face. The
+ * Structure: an invisible tap-sized hit target wrapping a compact visible face. The
  * chip reads small and light without shrinking the tap area — the same trick the
  * old recipes used, kept because it is correct.
  *
