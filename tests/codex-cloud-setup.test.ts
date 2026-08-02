@@ -317,10 +317,17 @@ describe("Codex Cloud environment contract", () => {
     );
     expect(
       validateCodexProjectMcpConfiguration(
-        tracked.replaceAll('default_tools_approval_mode = "auto"', 'default_tools_approval_mode = "prompt"'),
+        tracked.replace('default_tools_approval_mode = "writes"', 'default_tools_approval_mode = "auto"'),
       ),
     ).toContain(
-      `.codex/config.toml figma_cloud must set default_tools_approval_mode = "auto" so connected Cloud tasks avoid per-tool prompts.`,
+      `.codex/config.toml figma_cloud must set default_tools_approval_mode = "writes" because write-capable tools require explicit approval.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace('default_tools_approval_mode = "auto"', 'default_tools_approval_mode = "writes"'),
+      ),
+    ).toContain(
+      `.codex/config.toml supabase_cloud must set default_tools_approval_mode = "auto" because the production server is constrained read-only.`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
@@ -331,6 +338,52 @@ describe("Codex Cloud environment contract", () => {
       ),
     ).toContain(
       `.codex/config.toml figma_cloud must not embed bearer_token_env_var; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\nhttp_headers.Authorization = "Bearer redacted-test"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed http_headers; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\nscopes = ["files:write"]',
+        ),
+      ),
+    ).toContain(`.codex/config.toml figma_cloud must be URL-only; unsupported key scopes.`);
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\n__anything = "secret"',
+        ),
+      ),
+    ).toContain(`.codex/config.toml figma_cloud must be URL-only; unsupported key __anything.`);
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.supabase_cloud]",
+          "[mcp_servers.figma_cloud.tools]\n__hasNestedTables = false\n\n[mcp_servers.supabase_cloud]",
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not declare nested tool override tables in the shared project config.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.figma_cloud]",
+          'mcp_servers.figma_cloud.http_headers.Authorization = "Bearer redacted-test"\n\n[mcp_servers.figma_cloud]',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed http_headers; keep OAuth credentials in the host store.`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
