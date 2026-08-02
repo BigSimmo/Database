@@ -53,7 +53,13 @@ export function diagnoseCodexCloud({
       fix: `Regenerate it with Python ${expectedPython}: ${workerPythonLockTargets.cloud.generateCommand}.`,
     });
   }
-  if (pythonVersion && !pythonVersion.startsWith(`${expectedPython}.`) && pythonVersion !== expectedPython) {
+  if (!pythonVersion) {
+    issues.push({
+      code: "CLOUD_PYTHON_RUNTIME",
+      issue: `The Cloud OCR Python interpreter could not be executed; Python ${expectedPython} is required.`,
+      fix: `Rerun Cloud setup so it creates the Python ${expectedPython} OCR environment, or select Python ${expectedPython} in the Cloud environment.`,
+    });
+  } else if (!pythonVersion.startsWith(`${expectedPython}.`) && pythonVersion !== expectedPython) {
     issues.push({
       code: "CLOUD_PYTHON_RUNTIME",
       issue: `Cloud OCR uses Python ${pythonVersion}; the Cloud lock targets Python ${expectedPython}.`,

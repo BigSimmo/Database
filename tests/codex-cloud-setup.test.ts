@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -374,7 +374,7 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(setup).toContain("DATABASE_URL");
     expect(setup).toContain("CODEX_CLOUD_SETUP_STOP_AFTER_POLICY");
-    expect(setup).toContain("CODEX_CLOUD_SETUP_TEST_FAIL_MKTEMP");
+    expect(setup).toContain("CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE");
     expect(setup).toContain("worker/python/requirements-cloud.txt");
     expect(setup).toContain("diagnose-codex-cloud.mjs");
     expect(setup).toContain("trap diagnose_setup_failure ERR");
@@ -503,10 +503,11 @@ describe("Codex Cloud environment contract", () => {
     writeFileSync(atomicPath, atomicConfig);
     const atomic = runSetupPolicyOnly(atomicHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "offline",
-      CODEX_CLOUD_SETUP_TEST_FAIL_MKTEMP: "1",
+      CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE: "1",
     });
     expect(atomic.status).not.toBe(0);
     expect(readFileSync(atomicPath, "utf8")).toBe(atomicConfig);
+    expect(readdirSync(path.dirname(atomicPath)).filter((name) => name.startsWith(".config.toml."))).toEqual([]);
 
     const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
     mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });

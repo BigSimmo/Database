@@ -190,10 +190,6 @@ fi
 
 # Write beside the destination then rename it atomically. If setup is
 # interrupted or output fails, the existing Codex configuration remains intact.
-if [[ "${CODEX_CLOUD_SETUP_TEST_FAIL_MKTEMP:-0}" = "1" ]]; then
-  log "Forcing the atomic-write failure path (test harness)."
-  false
-fi
 codex_config_candidate="$(mktemp "$codex_config_dir/.config.toml.XXXXXX")"
 trap 'rm -f "$codex_config_candidate"' EXIT
 {
@@ -207,6 +203,10 @@ trap 'rm -f "$codex_config_candidate"' EXIT
   printf 'exclude = [%s]\n' "$codex_exclude_toml"
   printf '%s\n' "$codex_policy_end"
 } > "$codex_config_candidate"
+if [[ "${CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE:-0}" = "1" ]]; then
+  log "Forcing failure after writing the atomic candidate (test harness)."
+  false
+fi
 mv -f "$codex_config_candidate" "$codex_config_file"
 trap - EXIT
 
