@@ -1,0 +1,230 @@
+"use client";
+
+import { FileWarning, Info, TriangleAlert } from "lucide-react";
+
+import { cn, toneInfo, toneWarning } from "@/components/ui-primitives";
+import type { DegradedAnswerState, OverdueSource, SourceRef } from "@/components/ui/answer-state";
+import { DateDisplay } from "@/components/ui/date-display";
+
+/**
+ * COMPONENTS §2. The banner that sits above the prose whenever the answer is
+ * anything other than `ready`.
+ *
+ * It is caution, never a gate (DECISIONS §Q1): the answer stays readable and
+ * every affected source keeps a one-click route to the cited page, because the
+ * clinician's next act after "this might be stale" is re-verification, not
+ * abandonment.
+ *
+ * It is deliberately NOT a live region — announcements go through
+ * `LiveAnnouncer` once on settle, so a screen-reader user hears the caveat with
+ * the answer rather than as a second interruption.
+ */
+
+export type RetrievalStateBannerProps = {
+  state: DegradedAnswerState;
+  /** Q1: the clinician's next act is re-verification — one click to the cited page. */
+  onOpenSource: (sourceId: string, locator?: string) => void;
+  className?: string;
+};
+
+const loggedEmptyPartialStates = new Set<string>();
+
+function noteEmptyPartialState(key: string) {
+  if (loggedEmptyPartialStates.has(key)) return;
+  loggedEmptyPartialStates.add(key);
+  console.warn(
+    JSON.stringify({
+      level: "warn",
+      message: "retrieval-state-banner: partial_retrieval carried no named missing sources",
+      field: "missing",
+      value: key,
+    }),
+  );
+}
+
+function OpenSourceButton({
+  sourceId,
+  title,
+  locator,
+  onOpenSource,
+}: SourceRef & { onOpenSource: RetrievalStateBannerProps["onOpenSource"] }) {
+  const destination = locator ? `${title}, ${locator}` : title;
+  return (
+    <button
+      type="button"
+      data-testid="retrieval-state-open-source"
+      onClick={() => onOpenSource(sourceId, locator)}
+      aria-label={`Open ${destination}`}
+      className="inline-flex min-h-tap items-center rounded-md px-2 text-sm font-semibold underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+    >
+      Open source
+    </button>
+  );
+}
+
+function StaleEvidenceBody({
+  overdue,
+  sourceCount,
+  onOpenSource,
+}: {
+  overdue: OverdueSource[];
+  sourceCount: number;
+  onOpenSource: RetrievalStateBannerProps["onOpenSource"];
+}) {
+  // Totality is its own sentence. "3 sources are past review" reads very
+  // differently when 3 is also the total.
+  const everySourceOverdue = sourceCount > 0 && overdue.length >= sourceCount;
+  const headline = everySourceOverdue
+    ? "Every source for this answer is past its review date."
+    : `${overdue.length} of ${sourceCount} sources for this answer are past their review date.`;
+
+  return (
+    <>
+      <p data-testid="retrieval-state-headline" className="font-semibold">
+        {headline}
+      </p>
+      <ul className="mt-2 space-y-1">
+        {overdue.map((source) => (
+          <li
+            key={source.sourceId}
+            data-testid="retrieval-state-overdue-row"
+            className="flex flex-wrap items-center gap-x-2 gap-y-1"
+          >
+            <span className="min-w-0 font-medium">{source.title}</span>
+            {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
+            <span className="text-[color:var(--text-muted)]">
+              {"Review due "}
+              <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
+            </span>
+            <OpenSourceButton
+              sourceId={source.sourceId}
+              title={source.title}
+              locator={source.locator}
+              onOpenSource={onOpenSource}
+            />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function PartialRetrievalBody({
+  retrieved,
+  requested,
+  missing,
+  onOpenSource,
+}: {
+  retrieved: number;
+  requested: number;
+  missing: SourceRef[];
+  onOpenSource: RetrievalStateBannerProps["onOpenSource"];
+}) {
+  const gap = Math.max(0, requested - retrieved);
+  return (
+    <>
+      <p data-testid="retrieval-state-headline" className="font-semibold">
+        {missing.length > 0
+          ? `${gap} of ${requested} sources unavailable.`
+          : "Some sources for this answer were unavailable."}
+      </p>
+      {missing.length > 0 ? (
+        <ul className="mt-2 space-y-1">
+          {missing.map((source) => (
+            <li
+              key={source.sourceId}
+              data-testid="retrieval-state-missing-row"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1"
+            >
+              <span className="min-w-0 font-medium">{source.title}</span>
+              {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
+              <span className="text-[color:var(--text-muted)]">Unavailable</span>
+              <OpenSourceButton
+                sourceId={source.sourceId}
+                title={source.title}
+                locator={source.locator}
+                onOpenSource={onOpenSource}
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
+function SourceOnlyBody({ reason }: { reason: "generation_failed" | "quality_gate" }) {
+  return (
+    <>
+      <p data-testid="retrieval-state-headline" className="font-semibold">
+        {reason === "generation_failed"
+          ? "Answer assembled from the sources directly — summarisation was unavailable."
+          : "Answer assembled from the sources directly — the summary did not meet the quality checks."}
+      </p>
+      {/* Expected product behaviour, not an apology: state why the fallback is
+          the safe outcome rather than hedging about it. */}
+      <p className="mt-1">
+        Every passage below is quoted from a real, cited source. Nothing has been paraphrased, so read the passages
+        rather than a summary of them.
+      </p>
+    </>
+  );
+}
+
+export function RetrievalStateBanner({ state, onOpenSource, className }: RetrievalStateBannerProps) {
+  if (state.kind === "partial_retrieval" && state.missing.length === 0) {
+    // A named gap with no named sources is a data defect upstream. Failing loudly
+    // in development is how it gets fixed; in production the banner still tells
+    // the truth about the gap rather than inventing "0 sources unavailable".
+    if (process.env.NODE_ENV !== "production") {
+      throw new Error(
+        "RetrievalStateBanner: partial_retrieval requires a non-empty `missing` list. An unnamed gap is a data defect, not a render state.",
+      );
+    }
+    noteEmptyPartialState(`${state.retrieved}/${state.requested}`);
+  }
+
+  const caution = state.kind === "stale_evidence";
+  const Icon = caution ? TriangleAlert : state.kind === "partial_retrieval" ? FileWarning : Info;
+  const label =
+    state.kind === "stale_evidence"
+      ? "Source review status"
+      : state.kind === "partial_retrieval"
+        ? "Source availability"
+        : "How this answer was produced";
+
+  return (
+    <div
+      // `group`, not `region`: a labelled region would add a landmark to every
+      // degraded answer and clutter the landmark list on a page that already has
+      // main, navigation and search.
+      role="group"
+      aria-label={label}
+      data-testid="retrieval-state-banner"
+      data-state={state.kind}
+      className={cn(
+        "flex items-start gap-2 rounded-[var(--radius-md)] border p-[var(--pad-card)] text-sm",
+        // Source currency is the amber channel (SPEC §11). Operational severity
+        // is not: a fallback answer is not a clinical hazard.
+        caution ? toneWarning : toneInfo,
+        className,
+      )}
+    >
+      <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
+      <div className="min-w-0 flex-1">
+        {state.kind === "stale_evidence" ? (
+          <StaleEvidenceBody overdue={state.overdue} sourceCount={state.sourceCount} onOpenSource={onOpenSource} />
+        ) : state.kind === "partial_retrieval" ? (
+          <PartialRetrievalBody
+            retrieved={state.retrieved}
+            requested={state.requested}
+            missing={state.missing}
+            onOpenSource={onOpenSource}
+          />
+        ) : (
+          <SourceOnlyBody reason={state.reason} />
+        )}
+      </div>
+    </div>
+  );
+}
