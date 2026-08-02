@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AnswerCard, AnswerFooter, DoseLine, answerClipboardText, type DoseRow } from "@/components/ui/answer-card";
 import type { AnswerState, OverdueSource } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
-import { MissingValue } from "@/components/ui/missing-value";
+import { MissingValue, type MissingValueReason } from "@/components/ui/missing-value";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { VerificationNotice } from "@/components/ui/verification-notice";
 import { formatClinicalDate } from "@/lib/source-metadata";
@@ -50,6 +50,12 @@ describe("MissingValue", () => {
     // Enum resilience (SPEC §7): an off-vocabulary reason arriving from data must
     // degrade, not unmount the tree.
     const reason = "withheld" as unknown as "unknown";
+    expect(() => render(<MissingValue reason={reason} />)).not.toThrow();
+    expect(screen.getByTestId("missing-value")).toHaveTextContent("Unknown");
+  });
+
+  it("rejects inherited object keys so toString cannot render as a React child", () => {
+    const reason = "toString" as unknown as MissingValueReason;
     expect(() => render(<MissingValue reason={reason} />)).not.toThrow();
     expect(screen.getByTestId("missing-value")).toHaveTextContent("Unknown");
   });
@@ -194,6 +200,12 @@ describe("RetrievalStateBanner", () => {
     expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent(
       "Every source for this answer is past its review date.",
     );
+  });
+
+  it("states totality rather than 'N of 0' when sourceCount underflows the overdue list", () => {
+    render(<RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 0 }} onOpenSource={vi.fn()} />);
+    expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent("Every source for this answer");
+    expect(screen.getByTestId("retrieval-state-headline")).not.toHaveTextContent("of 0");
   });
 
   it("gives every overdue source a one-click route back to the cited page", async () => {
@@ -426,8 +438,20 @@ describe("answerClipboardText", () => {
     expect(text).toContain("- WA Clozapine Protocol, p. 12 — /documents/doc-1");
   });
 
-  it("appends provenance through the single audit-line implementation", () => {
+  it("omits provenance when no metadata was supplied", () => {
+    // Synthesising an all-Unknown audit line would assert a governance read
+    // that never happened.
     const text = answerClipboardText({ body: "Start at 12.5 mg.", state: readyState });
+    expect(text).not.toContain("Designation:");
+    expect(text).not.toContain("Review status:");
+  });
+
+  it("appends provenance through the single audit-line implementation when metadata is supplied", () => {
+    const text = answerClipboardText({
+      body: "Start at 12.5 mg.",
+      state: readyState,
+      metadata: { document_status: "current", review_date: "2026-01-01" },
+    });
     // clipboardProvenanceLine() stays the one implementation of the audit line.
     expect(text).toContain("Designation:");
     expect(text).toContain("Review status:");
@@ -439,6 +463,7 @@ describe("answerClipboardText", () => {
     const text = answerClipboardText({
       body: "Start at 12.5 mg.",
       state: { kind: "stale_evidence", sourceCount: 6, overdue: [overdue[0] as OverdueSource] },
+      metadata: { document_status: "current", review_date: "2026-01-01" },
     });
 
     expect(text).toContain("1 of 6 cited sources are past their review date");

@@ -138,6 +138,7 @@ export function ErrorSummary({
   className,
 }: ErrorSummaryProps) {
   const container = useRef<HTMLDivElement>(null);
+  const headingId = `${useId()}-error-summary-heading`;
   const errorKey = errors.map((entry) => entry.fieldId).join("|");
 
   useEffect(() => {
@@ -152,6 +153,8 @@ export function ErrorSummary({
     <div
       ref={container}
       tabIndex={-1}
+      role="group"
+      aria-labelledby={headingId}
       data-testid="error-summary"
       className={cn(
         "rounded-[var(--radius-md)] border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-[var(--pad-card)] text-sm text-[color:var(--danger)]",
@@ -159,10 +162,10 @@ export function ErrorSummary({
         className,
       )}
     >
-      <p className="flex items-center gap-2 font-semibold">
+      <h2 id={headingId} className="flex items-center gap-2 text-sm font-semibold">
         <TriangleAlert aria-hidden="true" className="size-icon-sm shrink-0" />
         {heading}
-      </p>
+      </h2>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         {errors.map((entry) => (
           <li key={entry.fieldId}>

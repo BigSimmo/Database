@@ -182,10 +182,10 @@ export function answerClipboardText({
   // Suppressed on a multi-source stale answer: `metadata` describes one
   // document, so "1 of 6 cited sources are past their review date" followed by
   // "Review status: Current" would read as a correction of the caveat.
-  const provenanceApplies = !(state.kind === "stale_evidence" && state.sourceCount > 1);
-  const provenance = provenanceApplies
-    ? clipboardProvenanceLine(metadata ? normalizeSourceMetadata(metadata) : null)
-    : null;
+  // Only emitted when the caller actually supplied a record. Synthesising an
+  // all-`Unknown` line would assert a governance read that never happened.
+  const provenanceApplies = metadata != null && !(state.kind === "stale_evidence" && state.sourceCount > 1);
+  const provenance = provenanceApplies ? clipboardProvenanceLine(normalizeSourceMetadata(metadata)) : null;
 
   return [body.trim(), `${attribution} ${verify}`, caveat, sourceList, provenance].filter(Boolean).join("\n");
 }

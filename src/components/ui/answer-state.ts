@@ -123,9 +123,9 @@ function noteOnce(key: string, message: string, detail: Record<string, string | 
 function documentKeyFor(source: AnswerStateSource, index: number): string {
   const key = source.document_id?.trim() || source.id?.trim();
   if (key) return key;
-  // Unidentifiable source: it still exists, so it still counts. It can never be
-  // reported overdue (there is nothing to open), so this only ever widens the
-  // denominator honestly rather than hiding a cited source.
+  // Unidentifiable source: it still exists, so it still counts. The synthetic
+  // key cannot drive `onOpenSource`, but overdue status must still raise
+  // `stale_evidence` — dropping governance here would under-warn to `ready`.
   noteOnce("source-without-identifier", "answer-state: cited source has no document_id or id", {
     field: "document_id",
   });
@@ -137,7 +137,6 @@ function overdueSourceFrom(source: AnswerStateSource, key: string): OverdueSourc
   // Only the two governance-set overdue states. `unknown` is not overdue — it is
   // unknown, and the source badges say so in their own vocabulary.
   if (status !== "review_due" && status !== "outdated") return null;
-  if (key.startsWith("__unidentified_")) return null;
   return {
     sourceId: key,
     title: source.title?.trim() || "Untitled source",

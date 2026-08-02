@@ -67,8 +67,9 @@ function StaleEvidenceBody({
   onOpenSource: RetrievalStateBannerProps["onOpenSource"];
 }) {
   // Totality is its own sentence. "3 sources are past review" reads very
-  // differently when 3 is also the total.
-  const everySourceOverdue = sourceCount > 0 && overdue.length === sourceCount;
+  // differently when 3 is also the total. Treat sourceCount below the overdue
+  // count (including 0) as totality so we never print "2 of 0 sources…".
+  const everySourceOverdue = overdue.length > 0 && overdue.length >= sourceCount;
   const scope = everySourceOverdue
     ? "Every source for this answer"
     : `${overdue.length} of ${sourceCount} sources for this answer`;
@@ -106,12 +107,14 @@ function StaleEvidenceBody({
               {source.status === "outdated" ? "Superseded — was due " : "Review due "}
               <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
             </span>
-            <OpenSourceButton
-              sourceId={source.sourceId}
-              title={source.title}
-              locator={source.locator}
-              onOpenSource={onOpenSource}
-            />
+            {source.sourceId.startsWith("__unidentified_") ? null : (
+              <OpenSourceButton
+                sourceId={source.sourceId}
+                title={source.title}
+                locator={source.locator}
+                onOpenSource={onOpenSource}
+              />
+            )}
           </li>
         ))}
       </ul>

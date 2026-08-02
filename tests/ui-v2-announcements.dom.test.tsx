@@ -134,6 +134,33 @@ describe("LiveAnnouncer", () => {
       resetAnnouncerForTests();
     }
   });
+
+  it("promotes a surviving duplicate to active when the owner unmounts", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const first = render(<LiveAnnouncer />);
+      render(<LiveAnnouncer />);
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("live-announcer-polite")).toHaveLength(1);
+      });
+
+      first.unmount();
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("live-announcer-polite")).toHaveLength(1);
+      });
+
+      act(() => announce("Recovered"));
+      expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("Recovered");
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+      resetAnnouncerForTests();
+    }
+  });
 });
 
 describe("RouteAnnouncer", () => {

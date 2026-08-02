@@ -239,4 +239,23 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     expect(state.overdue).toHaveLength(1);
     expect(state.overdue[0]?.sourceId).toBe("doc-stale");
   });
+
+  it("keeps unidentified overdue sources as stale_evidence rather than ready", () => {
+    // No document_id/id must not drop the governance status: under-warning to
+    // ready is the clinical failure. The synthetic key cannot open a source.
+    const state = answerStateFromRetrieval({
+      sources: [
+        source({
+          id: "",
+          document_id: "",
+          metadata: { document_status: "outdated", review_date: "2024-02-02" },
+        }),
+      ],
+    });
+
+    expect(state.kind).toBe("stale_evidence");
+    if (state.kind !== "stale_evidence") return;
+    expect(state.overdue).toHaveLength(1);
+    expect(state.overdue[0]?.sourceId.startsWith("__unidentified_")).toBe(true);
+  });
 });

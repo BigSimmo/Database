@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * COMPONENTS §5. A 13-mode app with no focus management or route announcement
@@ -26,6 +26,8 @@ const repeatClearMs = 50;
 
 type Listener = (state: { polite: string; assertive: string }) => void;
 
+type AnnouncerInstance = { id: number };
+
 const store = {
   polite: "",
   assertive: "",
@@ -34,12 +36,38 @@ const store = {
   recent: new Map<string, number>(),
   draining: false,
   timer: null as ReturnType<typeof setTimeout> | null,
-  mounted: 0,
+  /** Mount order — the first entry owns the live regions. */
+  instances: [] as AnnouncerInstance[],
+  activeId: 0,
+  nextId: 1,
+  ownershipListeners: new Set<() => void>(),
 };
 
 function emit() {
   const snapshot = { polite: store.polite, assertive: store.assertive };
   for (const listener of store.listeners) listener(snapshot);
+}
+
+function emitOwnership() {
+  for (const listener of store.ownershipListeners) listener();
+}
+
+function recomputeActive() {
+  const next = store.instances[0]?.id ?? 0;
+  if (store.activeId === next) return;
+  store.activeId = next;
+  emitOwnership();
+}
+
+function subscribeOwnership(onStoreChange: () => void) {
+  store.ownershipListeners.add(onStoreChange);
+  return () => {
+    store.ownershipListeners.delete(onStoreChange);
+  };
+}
+
+function getActiveId() {
+  return store.activeId;
 }
 
 function setRegion(priority: Priority, message: string) {
@@ -108,41 +136,58 @@ export function resetAnnouncerForTests() {
   store.draining = false;
   store.polite = "";
   store.assertive = "";
-  store.mounted = 0;
+  store.instances.length = 0;
+  store.activeId = 0;
+  store.nextId = 1;
+  store.listeners.clear();
+  store.ownershipListeners.clear();
   emit();
 }
 
 export function LiveAnnouncer() {
+  // Stable per mount; allocated here so render can compare against activeId
+  // without reading a ref (react-hooks/refs).
+  const [instanceId] = useState(() => {
+    const id = store.nextId;
+    store.nextId += 1;
+    return id;
+  });
   const [state, setState] = useState({ polite: store.polite, assertive: store.assertive });
-  const [suppressed, setSuppressed] = useState(false);
 
   useEffect(() => {
-    store.mounted += 1;
-    if (store.mounted > 1) {
+    if (store.instances.length > 0) {
       // Two announcers means every message is read twice. Loud in development;
-      // in production the duplicate is a true no-op — no listener, no regions.
+      // in production the duplicate stays mounted but inactive until (if ever)
+      // it becomes first in the ownership queue.
       if (process.env.NODE_ENV !== "production") {
         throw new Error("LiveAnnouncer is a singleton — mount exactly one instance at the app root.");
       }
       console.warn(JSON.stringify({ level: "warn", message: "live-announcer: duplicate instance mounted" }));
-      // Ownership cannot be decided during render without tripping immutability/
-      // refs lint; suppress after mount so the duplicate never registers.
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- singleton ownership gate
-      setSuppressed(true);
-      return () => {
-        store.mounted = Math.max(0, store.mounted - 1);
-      };
     }
+
+    store.instances.push({ id: instanceId });
+    recomputeActive();
+
+    return () => {
+      store.instances = store.instances.filter((entry) => entry.id !== instanceId);
+      recomputeActive();
+    };
+  }, [instanceId]);
+
+  const activeId = useSyncExternalStore(subscribeOwnership, getActiveId, getActiveId);
+  const isActive = activeId === instanceId;
+
+  useEffect(() => {
+    if (!isActive) return;
     const listener: Listener = (next) => setState(next);
     store.listeners.add(listener);
     listener({ polite: store.polite, assertive: store.assertive });
     return () => {
       store.listeners.delete(listener);
-      store.mounted = Math.max(0, store.mounted - 1);
     };
-  }, []);
+  }, [isActive]);
 
-  if (suppressed) return null;
+  if (!isActive) return null;
 
   return (
     <>

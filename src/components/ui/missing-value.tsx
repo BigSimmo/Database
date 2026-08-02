@@ -28,8 +28,8 @@ const loggedUnknownReasons = new Set<string>();
 
 /** Enum resilience per SPEC §7: an unrecognised reason renders `Unknown` and never throws. */
 export function missingValuePhrase(reason: MissingValueReason): string {
-  const phrase = PHRASES[reason];
-  if (phrase) return phrase;
+  const phrase = Object.hasOwn(PHRASES, reason) ? PHRASES[reason] : undefined;
+  if (typeof phrase === "string") return phrase;
   const key = String(reason);
   if (!loggedUnknownReasons.has(key)) {
     loggedUnknownReasons.add(key);

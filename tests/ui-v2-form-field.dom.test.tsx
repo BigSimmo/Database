@@ -105,6 +105,11 @@ describe("ErrorSummary", () => {
     expect(summary).toHaveFocus();
     // Focus movement is the announcement; a live region as well would read twice.
     expect(summary).not.toHaveAttribute("aria-live");
+    expect(summary).toHaveAttribute("role", "group");
+    expect(summary).toHaveAttribute("aria-labelledby");
+    const headingId = summary.getAttribute("aria-labelledby");
+    expect(headingId).toBeTruthy();
+    expect(document.getElementById(headingId as string)?.tagName).toBe("H2");
   });
 
   it("moves focus into the field its entry names", async () => {

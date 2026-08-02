@@ -207,7 +207,6 @@ type SourceRef = { sourceId: string; title: string; locator?: string };
  * from the banner to satisfy the narrower type would hide the most alarming case
  * — known past review, with no review commitment recorded at all. `DateDisplay`
  * renders the absence as `Not recorded` rather than inventing a date.
- */
  *
  * `status` was added when this was built (PR 6). Collapsing `outdated`
  * (superseded) into the `review_due` vocabulary tells a clinician a withdrawn
