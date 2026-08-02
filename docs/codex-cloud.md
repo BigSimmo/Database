@@ -151,7 +151,9 @@ Suggested GitHub acceptance task:
 Read AGENTS.md and docs/codex-cloud.md. Create a task-specific branch, add one harmless
 documentation-only line, and offer a draft pull request through the Codex GitHub workflow.
 Do not merge. Report whether repository clone, branch publication, and draft PR creation
-each succeeded. Include the published branch and draft PR links as write-verification evidence.
+each succeeded. If branch publication succeeds, include the published branch link. If draft PR
+creation succeeds, include the draft PR link. For each failed write, report the
+failure and state that no link is available.
 Remove the draft branch/PR only after I approve cleanup.
 ```
 
