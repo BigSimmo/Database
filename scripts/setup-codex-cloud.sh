@@ -8,8 +8,27 @@ log() {
 
 fail() {
   printf '[codex-cloud:setup] ERROR: %s\n' "$*" >&2
-  exit 1
+  return 1
 }
+
+setup_step="initialization"
+diagnostic_python_bin=""
+diagnose_setup_failure() {
+  local status="$?"
+  trap - ERR
+  printf '[codex-cloud:setup] Setup failed during %s (exit %s). Running local diagnostics.\n' "$setup_step" "$status" >&2
+  if command -v node >/dev/null 2>&1 && [[ -f scripts/diagnose-codex-cloud.mjs ]]; then
+    diagnostic_args=(--setup-step "$setup_step" --exit-code "$status")
+    if [[ -n "$diagnostic_python_bin" ]]; then
+      diagnostic_args+=(--python-bin "$diagnostic_python_bin")
+    fi
+    node scripts/diagnose-codex-cloud.mjs "${diagnostic_args[@]}" || true
+  else
+    printf '[codex-cloud:setup] FIX: review the first error above, then retry setup.\n' >&2
+  fi
+  exit "$status"
+}
+trap diagnose_setup_failure ERR
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || fail "Run this script from the Database repository."
 cd "$repo_root"
@@ -18,6 +37,7 @@ expected_node_major="$(tr -cd '0-9' < .node-version)"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
 railway_cli_version="5.30.1"
 codex_cli_version="0.146.0"
+expected_cloud_python="3.12"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
 [[ -n "$expected_npm_version" ]] || fail "Could not read the npm version from package.json."
 
@@ -40,6 +60,7 @@ install_npm_cli() {
   [[ "$actual_version" = "$expected_version" ]] || fail "${command_name} ${expected_version} is required; detected ${actual_version:-unavailable}."
 }
 
+setup_step="node-runtime"
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 actual_node_major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)"
 if [[ "$actual_node_major" != "$expected_node_major" ]]; then
@@ -58,6 +79,7 @@ if [[ "$(npm --version)" != "$expected_npm_version" ]]; then
   hash -r
 fi
 
+setup_step="runtime-profile"
 access_profile="${CODEX_CLOUD_ACCESS_PROFILE:-offline}"
 case "$access_profile" in
   offline|connected) ;;
@@ -86,8 +108,8 @@ if [ -s "\$NVM_DIR/nvm.sh" ]; then
   . "\$NVM_DIR/nvm.sh"
   nvm use --silent ${expected_node_major} >/dev/null 2>&1 || true
 fi
-export PATH="\$HOME/.local/bin:\$HOME/.deno/bin:\$HOME/.cache/clinical-kb-codex/ocr-venv/bin:\$PATH"
-export CODEX_CLOUD_OCR_PYTHON="\$HOME/.cache/clinical-kb-codex/ocr-venv/bin/python"
+export PATH="\$HOME/.local/bin:\$HOME/.deno/bin:\$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_cloud_python}/bin:\$PATH"
+export CODEX_CLOUD_OCR_PYTHON="\$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_cloud_python}/bin/python"
 export CODEX_CLOUD=1
 export CODEX_CLOUD_ACCESS_PROFILE="${access_profile}"
 export NEXT_PUBLIC_DEMO_MODE="\${NEXT_PUBLIC_DEMO_MODE:-true}"
@@ -168,6 +190,10 @@ fi
 
 # Write beside the destination then rename it atomically. If setup is
 # interrupted or output fails, the existing Codex configuration remains intact.
+if [[ "${CODEX_CLOUD_SETUP_TEST_FAIL_MKTEMP:-0}" = "1" ]]; then
+  log "Forcing the atomic-write failure path (test harness)."
+  false
+fi
 codex_config_candidate="$(mktemp "$codex_config_dir/.config.toml.XXXXXX")"
 trap 'rm -f "$codex_config_candidate"' EXIT
 {
@@ -203,6 +229,7 @@ done
 source "$runtime_profile"
 
 log "Installing locked Node dependencies."
+setup_step="node-dependencies"
 npm ci --include=dev
 
 install_npm_cli "@railway/cli" "$railway_cli_version" "railway"
@@ -216,6 +243,7 @@ if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -
   hash -r
 fi
 
+setup_step="system-packages"
 python_bin="$(command -v python3 || command -v python || true)"
 system_packages=()
 if ! command -v tesseract >/dev/null 2>&1; then
@@ -243,24 +271,34 @@ fi
 
 python_bin="$(command -v python3 || command -v python || true)"
 [[ -n "$python_bin" ]] || fail "Python 3 is unavailable."
-ocr_venv="$HOME/.cache/clinical-kb-codex/ocr-venv"
+actual_python_version="$($python_bin -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+[[ "$actual_python_version" = "$expected_cloud_python" ]] || fail "Python ${expected_cloud_python} is required for the Cloud worker lock; detected ${actual_python_version}. Select Python ${expected_cloud_python} in the Cloud environment."
+ocr_venv="$HOME/.cache/clinical-kb-codex/ocr-venv-${expected_cloud_python}"
 if [[ ! -x "$ocr_venv/bin/python" ]]; then
   log "Creating the cached Python OCR environment."
   "$python_bin" -m venv "$ocr_venv"
 fi
+diagnostic_python_bin="$ocr_venv/bin/python"
 log "Installing Python worker requirements."
-"$ocr_venv/bin/python" -m pip install --disable-pip-version-check -r worker/python/requirements.txt
+setup_step="python-worker-requirements"
+"$ocr_venv/bin/python" -m pip install --disable-pip-version-check --require-hashes -r worker/python/requirements-cloud.txt
+"$ocr_venv/bin/python" -m pip check
 export CODEX_CLOUD_OCR_PYTHON="$ocr_venv/bin/python"
 
 if [[ "${CODEX_CLOUD_SKIP_BROWSER_INSTALL:-0}" = "1" ]]; then
   log "Browser installation explicitly skipped; browser checks will be unavailable."
 else
   log "Installing the Playwright Chromium, Firefox, and WebKit matrix."
+  setup_step="playwright-browsers"
   ./node_modules/.bin/playwright install --with-deps chromium firefox webkit
 fi
 
+setup_step="final-validation"
 npm run check:runtime
 npm run check:installed-lock-parity
+npm run check:worker-python-locks:static
 npm run check:codex-cloud
 npm run check:codex-cloud -- --runtime
+npm run diagnose:codex-cloud
+trap - ERR
 log "Setup complete with ${CODEX_CLOUD_ACCESS_PROFILE} access profile."

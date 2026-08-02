@@ -1,5 +1,7 @@
 # Direct Python dependencies for the worker OCR stack.
-# Run `npm run generate:worker-python-lock` to regenerate `requirements.txt`.
+# Generate both runtime-specific locks after changing direct dependencies:
+# - Python 3.11 production: `npm run generate:worker-python-lock`
+# - Python 3.12 Cloud: `npm run generate:worker-python-cloud-lock`
 
 PyMuPDF>=1.24.0
 pillow>=10.0.0
