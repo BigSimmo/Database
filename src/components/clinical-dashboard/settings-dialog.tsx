@@ -135,6 +135,10 @@ export function SettingsDialog({
   const savedCount = Object.values(accountData.favourites).reduce((total, items) => total + items.length, 0);
   const [settingsEmail, setSettingsEmail] = useState("");
   const [emailEntryOpen, setEmailEntryOpen] = useState(false);
+  // Create-account vs sign-in share the same magic-link path; the mode only
+  // drives the segmented control selection so "Sign in" is not a dead twin of
+  // "Create account" when the email form is already open.
+  const [accountEntryMode, setAccountEntryMode] = useState<"create" | "sign-in">("create");
   const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
   const [dataCounts, setDataCounts] = useState<{ recent: number; saved: number }>(() => readDataCounts());
@@ -219,7 +223,8 @@ export function SettingsDialog({
     await auth.signInWithEmail(settingsEmail.trim());
   }
 
-  function openSettingsEmailEntry() {
+  function openSettingsEmailEntry(mode: "create" | "sign-in" = accountEntryMode) {
+    setAccountEntryMode(mode);
     setEmailEntryOpen(true);
     setAccountNotice(null);
   }
@@ -252,7 +257,7 @@ export function SettingsDialog({
       settingsEmailInputRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(focusFrame);
-  }, [emailEntryOpen]);
+  }, [emailEntryOpen, accountEntryMode]);
 
   const closeButton = (
     <button
@@ -374,18 +379,30 @@ export function SettingsDialog({
                     </p>
                   </div>
                   {signedOutAccount ? (
-                    <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
+                    <div
+                      className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid"
+                      role="group"
+                      aria-label="Account entry"
+                    >
                       <button
                         type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                        onClick={() => openSettingsEmailEntry("create")}
+                        aria-pressed={accountEntryMode === "create"}
+                        className={cn(
+                          accountEntryMode === "create" ? primaryControl : floatingControl,
+                          "min-h-10 whitespace-nowrap px-3 text-sm leading-none",
+                        )}
                       >
                         Create account
                       </button>
                       <button
                         type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                        onClick={() => openSettingsEmailEntry("sign-in")}
+                        aria-pressed={accountEntryMode === "sign-in"}
+                        className={cn(
+                          accountEntryMode === "sign-in" ? primaryControl : floatingControl,
+                          "min-h-10 whitespace-nowrap px-3 text-sm leading-none",
+                        )}
                       >
                         Sign in
                       </button>
@@ -400,18 +417,26 @@ export function SettingsDialog({
 
                 {signedOutAccount ? (
                   <div className="mt-4 grid gap-3">
-                    <div className="grid grid-cols-2 gap-2 lg:hidden">
+                    <div className="grid grid-cols-2 gap-2 lg:hidden" role="group" aria-label="Account entry">
                       <button
                         type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                        onClick={() => openSettingsEmailEntry("create")}
+                        aria-pressed={accountEntryMode === "create"}
+                        className={cn(
+                          accountEntryMode === "create" ? primaryControl : floatingControl,
+                          "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none",
+                        )}
                       >
                         Create account
                       </button>
                       <button
                         type="button"
-                        onClick={openSettingsEmailEntry}
-                        className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                        onClick={() => openSettingsEmailEntry("sign-in")}
+                        aria-pressed={accountEntryMode === "sign-in"}
+                        className={cn(
+                          accountEntryMode === "sign-in" ? primaryControl : floatingControl,
+                          "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none",
+                        )}
                       >
                         Sign in
                       </button>
@@ -476,7 +501,7 @@ export function SettingsDialog({
                         provider="Microsoft"
                         onClick={() => void chooseSettingsProvider("Microsoft")}
                       />
-                      <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
+                      <SettingsProviderRow provider="email" onClick={() => openSettingsEmailEntry()} />
                     </div>
 
                     <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">

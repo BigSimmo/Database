@@ -127,8 +127,15 @@ describe("SettingsDialog — destructive and account actions", () => {
   it("signs in with an entered email address", () => {
     renderDialog({ signedIn: false });
     // "Sign in" (rendered in both the desktop and mobile button sets) opens the
-    // email entry form.
+    // email entry form and selects the sign-in mode.
     fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
+
+    for (const button of screen.getAllByRole("button", { name: "Sign in" })) {
+      expect(button).toHaveAttribute("aria-pressed", "true");
+    }
+    for (const button of screen.getAllByRole("button", { name: "Create account" })) {
+      expect(button).toHaveAttribute("aria-pressed", "false");
+    }
 
     fireEvent.change(screen.getByLabelText("Email address"), {
       target: { value: "clinician@clinic.example" },
@@ -138,6 +145,26 @@ describe("SettingsDialog — destructive and account actions", () => {
     fireEvent.click(submit);
 
     expect(signInWithEmail).toHaveBeenCalledWith("clinician@clinic.example");
+  });
+
+  it("switches the account entry mode when Sign in is pressed after Create account", () => {
+    renderDialog({ signedIn: false });
+    fireEvent.click(screen.getAllByRole("button", { name: "Create account" })[0]);
+    expect(screen.getByLabelText("Email address")).toBeVisible();
+    for (const button of screen.getAllByRole("button", { name: "Create account" })) {
+      expect(button).toHaveAttribute("aria-pressed", "true");
+    }
+
+    // With the form already open, Sign in must still update selection — previously
+    // both controls called the same opener and Sign in looked dead.
+    fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
+    for (const button of screen.getAllByRole("button", { name: "Sign in" })) {
+      expect(button).toHaveAttribute("aria-pressed", "true");
+    }
+    for (const button of screen.getAllByRole("button", { name: "Create account" })) {
+      expect(button).toHaveAttribute("aria-pressed", "false");
+    }
+    expect(screen.getByLabelText("Email address")).toBeVisible();
   });
 
   it("clearly disables unavailable Apple sign-in", () => {
