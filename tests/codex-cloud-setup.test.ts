@@ -60,12 +60,18 @@ function git(directory: string, ...args: string[]) {
 }
 
 function runSetupPolicyOnly(home: string, env: Record<string, string | undefined> = {}) {
+  // The test redirects HOME to isolate the generated Codex config. Put the
+  // running test process's Node binary first so version-manager launchers that
+  // resolve their runtime through HOME remain usable until setup reaches the
+  // policy-only stop.
+  const nodeBin = path.dirname(process.execPath);
   return spawnSync("bash", [setupScript], {
     cwd: repoRoot,
     encoding: "utf8",
     env: {
       ...process.env,
       HOME: home,
+      PATH: [nodeBin, process.env.PATH].filter(Boolean).join(path.delimiter),
       CODEX_CLOUD_SETUP_STOP_AFTER_POLICY: "1",
       ...env,
     },
@@ -338,6 +344,24 @@ describe("Codex Cloud environment contract", () => {
     expect(unmanaged.status).not.toBe(0);
     expect(unmanaged.stderr).toContain("Unmanaged [shell_environment_policy] table found");
     expect(readFileSync(unmanagedPath, "utf8")).toBe(unmanagedConfig);
+
+    for (const tableHeader of [
+      "  [shell_environment_policy] # valid TOML",
+      '[ "shell_environment_policy" ]',
+      "['shell_environment_policy'] # valid TOML",
+    ]) {
+      const formattedHome = temporaryDirectory("codex-cloud-formatted-");
+      mkdirSync(path.join(formattedHome, ".codex"), { recursive: true });
+      const formattedConfig = [tableHeader, 'inherit = "all"', "exclude = []", ""].join("\n");
+      const formattedPath = path.join(formattedHome, ".codex/config.toml");
+      writeFileSync(formattedPath, formattedConfig);
+      const formatted = runSetupPolicyOnly(formattedHome, {
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      });
+      expect(formatted.status).not.toBe(0);
+      expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
+      expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
+    }
 
     const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
     mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });
