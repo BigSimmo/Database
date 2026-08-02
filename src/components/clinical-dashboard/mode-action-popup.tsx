@@ -708,7 +708,7 @@ export function ModeActionPopup({
                 onKeyDown={(event) => handleItemKeyDown(event, index)}
                 onClick={() => runActionAndClose(item.id)}
                 className={cn(
-                  "group flex w-full items-center gap-3 rounded-xl border px-3 text-left transition motion-safe:duration-150",
+                  "group flex w-full items-center gap-3 rounded-xl border px-3 text-left transition motion-safe:duration-[var(--duration-quick)]",
                   useSheet ? "min-h-14 py-2" : "min-h-12 py-1.5",
                   item.primary
                     ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 hover:bg-[color:var(--clinical-accent-soft)]/60"
@@ -875,7 +875,7 @@ export function ModeActionPopup({
         data-placement={placement}
         style={surfaceStyle}
         className={cn(
-          "mode-action-surface z-50 text-[color:var(--text)]",
+          "mode-action-surface z-[60] text-[color:var(--text)]",
           integrated && integratedSurfaceLayout ? "fixed" : "absolute",
           integrated && integratedSurfaceLayout
             ? null

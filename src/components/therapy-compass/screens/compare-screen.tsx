@@ -341,7 +341,7 @@ function AddPicker() {
             <button
               key={t.slug}
               type="button"
-              className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex items-center gap-2.5 w-full py-[11px] px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer`}
+              className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex items-center gap-2.5 w-full py-[11px] px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer`}
               onClick={() => {
                 b.addCompare(t.slug);
                 setQ("");

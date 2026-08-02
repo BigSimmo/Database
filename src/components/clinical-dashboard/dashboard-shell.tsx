@@ -128,7 +128,7 @@ export function UtilityDrawer({
   const inlineDrawerClassName =
     sheetBreakpoint === "all" ? "hidden" : sheetBreakpoint === "lg" ? "hidden lg:block" : "hidden sm:block";
   const triggerClassName = cn(
-    "flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]",
+    "flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-[var(--duration-quick)] hover:bg-[color:var(--surface-subtle)]",
     className,
   );
   const setOpen = useCallback(
@@ -170,7 +170,7 @@ export function UtilityDrawer({
         </span>
         <ChevronDown
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-150"
+          className="h-4 w-4 shrink-0 -rotate-90 text-[color:var(--text-muted)] transition motion-safe:duration-[var(--duration-quick)]"
         />
       </button>
 
@@ -211,7 +211,7 @@ export function UtilityDrawer({
           </span>
           <ChevronDown
             aria-hidden="true"
-            className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-150 group-open:rotate-180"
+            className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition motion-safe:duration-[var(--duration-quick)] group-open:rotate-180"
           />
         </summary>
         {open && (!usesSheet || mobileInline) && <div className={cn(clinicalDivider, "p-4")}>{children}</div>}
