@@ -154,16 +154,22 @@ if [[ -f "$codex_config_file" ]]; then
     fail "Incomplete managed shell policy block in $codex_config_file; remove the incomplete BEGIN marker before re-running setup."
   fi
   codex_config_preserved="$(sed "/^${codex_policy_begin}\$/,/^${codex_policy_end}\$/d" "$codex_config_file")"
-  # After stripping the managed block, any remaining shell_environment_policy
-  # table is unmanaged. Accept TOML's bare or quoted key spellings, leading
-  # whitespace, and an optional trailing comment; appending our managed table
-  # would otherwise create a duplicate header that Codex cannot load.
-  if printf '%s\n' "$codex_config_preserved" | grep -Eq '^[[:space:]]*\[[[:space:]]*(shell_environment_policy|"shell_environment_policy"|'"'"'shell_environment_policy'"'"')[[:space:]]*\][[:space:]]*(#.*)?$'; then
+  # After stripping the managed block, reject every supported TOML declaration
+  # of shell_environment_policy before appending ours. This covers bare or
+  # quoted table headers, dotted keys, and inline tables, while full-line
+  # comments are ignored.
+  if printf '%s\n' "$codex_config_preserved" | sed '/^[[:space:]]*#/d' | grep -Eq \
+    '^[[:space:]]*\[[^]]*shell_environment_policy[^]]*\]|^[[:space:]]*[^[:space:]]*shell_environment_policy[^[:space:]]*[[:space:]]*\.|^[[:space:]]*[^[:space:]]*shell_environment_policy[^[:space:]]*[[:space:]]*=[[:space:]]*\{'; then
     fail "Unmanaged [shell_environment_policy] table found in $codex_config_file; remove it before re-running setup."
   fi
 else
   codex_config_preserved=""
 fi
+
+# Write beside the destination then rename it atomically. If setup is
+# interrupted or output fails, the existing Codex configuration remains intact.
+codex_config_candidate="$(mktemp "$codex_config_dir/.config.toml.XXXXXX")"
+trap 'rm -f "$codex_config_candidate"' EXIT
 {
   if [[ -n "$codex_config_preserved" ]]; then
     printf '%s\n' "$codex_config_preserved"
@@ -174,7 +180,9 @@ fi
   printf 'ignore_default_excludes = false\n'
   printf 'exclude = [%s]\n' "$codex_exclude_toml"
   printf '%s\n' "$codex_policy_end"
-} > "$codex_config_file"
+} > "$codex_config_candidate"
+mv -f "$codex_config_candidate" "$codex_config_file"
+trap - EXIT
 
 # Test harness only: write the runtime profile + shell policy, then stop before
 # toolchain installs so unit tests can exercise config merge without npm/Playwright.
