@@ -124,10 +124,28 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
+  it("switches the guest account entry mode when Sign in is pressed", () => {
+    renderDialog({ signedIn: false });
+    // Desktop + mobile button sets share the same mode state.
+    const signInButtons = screen.getAllByRole("button", { name: "Sign in" });
+    const createButtons = screen.getAllByRole("button", { name: "Create account" });
+
+    expect(createButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(signInButtons[0]).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(signInButtons[0]);
+
+    expect(signInButtons[0]).toHaveAttribute("aria-pressed", "true");
+    expect(createButtons[0]).toHaveAttribute("aria-pressed", "false");
+    expect(signInButtons[1]).toHaveAttribute("aria-pressed", "true");
+    expect(createButtons[1]).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("Email address")).toBeVisible();
+  });
+
   it("signs in with an entered email address", () => {
     renderDialog({ signedIn: false });
     // "Sign in" (rendered in both the desktop and mobile button sets) opens the
-    // email entry form.
+    // email entry form and selects the sign-in mode.
     fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
 
     fireEvent.change(screen.getByLabelText("Email address"), {
