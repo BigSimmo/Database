@@ -102,6 +102,12 @@ describe("mobile interaction regressions", () => {
     expect(tools).not.toContain("hasMenu");
     expect(tools).toContain('label: "Saved", desktopLabel: "Favourites"');
     expect(tools).toMatch(/effectiveFilter === "more"\s*\?\s*app\.area === "coordination" \|\| app\.area === "saved"/);
+    // Tools local search submit is an interactive control: both end tracks and
+    // the submit face must read the tap knob (not a leftover h-10 / 2.75rem).
+    expect(tools).toContain("grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)]");
+    expect(tools).toMatch(
+      /data-testid="tools-local-search-submit"[\s\S]{0,120}?className=\{cn\(\s*"grid h-tap w-tap place-items-center/,
+    );
 
     expect(header).toContain('router.push("/dsm/compare")');
     expect(header).toContain('router.push("/specifiers/builder")');

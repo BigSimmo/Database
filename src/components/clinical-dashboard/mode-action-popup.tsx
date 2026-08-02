@@ -896,7 +896,7 @@ export function ModeActionPopup({
           className={cn(
             glassOverlaySurface,
             "mode-action-panel overflow-hidden bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]",
-            integrated ? "rounded-[1.35rem] shadow-[var(--shadow-elevated)]" : "rounded-[1rem]",
+            integrated ? "rounded-2xl shadow-[var(--shadow-elevated)]" : "rounded-xl",
           )}
         >
           {renderPopoverHeader()}

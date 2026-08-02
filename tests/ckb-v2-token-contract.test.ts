@@ -20,6 +20,15 @@ import { describe, expect, it } from "vitest";
  */
 
 const stylesheet = readFileSync(new URL("../src/app/ckb-v2-tokens.css", import.meta.url), "utf8");
+const globalsStylesheet = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+
+// The tap knob lives in the globals `@theme` block, not here (C2), so density
+// relationships have to be checked across both files.
+const tapKnobRem = Number.parseFloat(/^\s*--spacing-tap:\s*([\d.]+)rem;/m.exec(globalsStylesheet)?.[1] ?? "0");
+
+function remOf(value: string | undefined) {
+  return value?.endsWith("rem") ? Number.parseFloat(value) : Number.NaN;
+}
 
 function block(selector: string) {
   // After the cascade port there are two top-level `.ckb-v2` blocks (structural
@@ -257,9 +266,24 @@ describe("ckb-v2 structure", () => {
   });
 
   it("separates the tap-target floor from the static chip height (#7, #18)", () => {
-    expect(structural.get("--tap-min")).toBe("2.75rem");
+    expect(structural.get("--tap-min")).toBe("var(--spacing-tap)");
     expect(structural.get("--chip-height")).toBe("1.75rem");
     expect(structural.get("--row-compact")).not.toBe(structural.get("--tap-min"));
+    // Resolved, not just textually different: --tap-min is an alias now, so a
+    // string comparison alone would pass even if the knob were retuned onto the
+    // compact row height.
+    expect(tapKnobRem).not.toBe(remOf(structural.get("--row-compact")));
+    expect(tapKnobRem).not.toBe(remOf(structural.get("--chip-height")));
+  });
+
+  it("keeps the tap knob in @theme at 48px, and never redeclares it in the v2 layer (C2)", () => {
+    // One knob. Declaring --spacing-tap here would lose a same-specificity tie in
+    // a :root-structural copy and win inside opted-in subtrees in this
+    // class-scoped one — a 44/48 split app either way (DECISIONS §C2).
+    expect(structural.has("--spacing-tap")).toBe(false);
+    expect(stylesheet.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/^\s*--spacing-tap\s*:/m);
+    expect(tapKnobRem, "--spacing-tap must be declared in the globals @theme block").toBeGreaterThan(0);
+    expect(tapKnobRem * 16).toBeGreaterThanOrEqual(48);
   });
 
   it("zeroes motion durations under prefers-reduced-motion", () => {

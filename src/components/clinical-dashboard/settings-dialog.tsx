@@ -706,7 +706,7 @@ export function SettingsDialog({
 
             {/* Keyboard shortcuts */}
             <SettingsSection id="keyboard" title="Keyboard shortcuts">
-              <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+              <div className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
                 <ShortcutRow label="Focus search" keys={["/"]} />
                 <ShortcutRow label="Open command menu" keys={["Ctrl", "K"]} />
                 <ShortcutRow label="New question" keys={["Ctrl", "Shift", "O"]} />
@@ -717,7 +717,7 @@ export function SettingsDialog({
 
             {/* Help & About */}
             <SettingsSection id="help" title="Help & About">
-              <div className="rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+              <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
                 <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                   Clinical Knowledge Base
                 </p>

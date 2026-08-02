@@ -112,7 +112,7 @@ export function AccountSetupDialog({
       closeLabel="Close account setup"
       initialFocusRef={emailInputRef}
       bodyClassName="p-0 sm:p-0"
-      contentClassName="account-setup-dialog max-h-[calc(100dvh-0.75rem)] rounded-t-[1.35rem] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[32rem] sm:rounded-xl"
+      contentClassName="account-setup-dialog max-h-[calc(100dvh-0.75rem)] rounded-t-2xl border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[32rem] sm:rounded-xl"
       portal
     >
       <form onSubmit={submit} className="relative">
@@ -121,7 +121,7 @@ export function AccountSetupDialog({
           onClick={onClose}
           className={cn(
             toolbarButton,
-            "absolute right-3 top-3 z-10 h-10 w-10 border-transparent bg-transparent shadow-none hover:bg-[color:var(--surface-subtle)] sm:right-4 sm:top-4",
+            "absolute right-3 top-3 z-10 border-transparent bg-transparent shadow-none hover:bg-[color:var(--surface-subtle)] sm:right-4 sm:top-4",
           )}
           aria-label="Close account setup"
         >

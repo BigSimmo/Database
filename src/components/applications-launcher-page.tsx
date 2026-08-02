@@ -245,7 +245,11 @@ function ToolSearch({
         onSubmit();
       }}
       className={cn(
-        "grid min-h-13 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        // Both end tracks hold tap-sized children and the row has no gap, so they
+        // read the tap knob rather than a copy of its value — a literal here
+        // overlaps the input (or undersizes the submit control) the moment
+        // `--spacing-tap` moves.
+        "grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
         className,
       )}
     >
@@ -265,8 +269,9 @@ function ToolSearch({
       <button
         type="submit"
         aria-label={copy.openSelectedAriaLabel}
+        data-testid="tools-local-search-submit"
         className={cn(
-          "mr-1 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
           focusRing,
         )}
       >

@@ -236,9 +236,14 @@ convention:** a panel's first child is its heading and carries no top margin; th
 padding provides the space. _A compensating margin is always a symptom of a missing padding
 token._
 
-Radius: one step per surface role. ⚠️ Live `--radius-md` and v2 `--radius-md` differ (8px vs
-10px) — adoption moves **every** `rounded-md`, so it ships as its own PR with its own visual
-diff (PR 5c).
+Radius: one step per surface role. The live and v2 control rungs agreed at 10px in PR 5c,
+which moved **every** `rounded-md` in the app at once — 243 call sites across 81 files — as
+its own commit with its own visual diff, and pinned the two layers to each other so they
+cannot drift apart again. The ladder now carries two deliberate half-steps, `sm` at 6px and
+`md` at 10px; everything else is on the 4px grid, and a third half-step fails the contract
+test. An arbitrary radius literal in markup goes to its **nearest** rung, ties to the smaller
+one; the only sanctioned exception is a hairline below the 4px floor, where the nearest rung
+would be a visible change rather than a rounding of it.
 
 ### 4.7 Elevation, borders, rings
 
@@ -283,22 +288,35 @@ translates its arrow, `ToggleSwitch` translates its knob. Wiring + lint is PR 9 
 ### 4.10 Density and tap targets (C2 resolved)
 
 **48px, one knob.** The knob is `--spacing-tap` in the `@theme` block of `globals.css` — it is
-what `min-h-tap` / `h-tap` / `size-tap` compile against. `--tap-min` in the v2 layer becomes a
+what `min-h-tap` / `h-tap` / `size-tap` compile against. `--tap-min` in the v2 layer is a
 **pure alias** reading `var(--spacing-tap)`; the two are never set independently.
 
-**The 44→48 change lands in `@theme`, never in the v2 layer.** In the design side's
+**The 44→48 change landed in `@theme`, never in the v2 layer** (PR 5b). In the design side's
 `:root`-structural copy the v2 declaration silently loses a same-specificity cascade tie to
 `@theme`; in the repo's class-scoped copy it would win _inside_ opted-in subtrees and produce
-a 44/48 split app. Either failure mode is worse than the current wrong value. It is a 407-site
-geometry change (all `*-tap` utilities), so it ships as its own PR with its own visual QA
-(PR 5b), and it must update the contract test's `--tap-min` pin (`:181-185`) in the same
-commit. Full reasoning: DECISIONS §C2.
+a 44/48 split app. Either failure mode is worse than a single honest value. It moved 426
+`*-tap` call sites at once, which is why it shipped as its own commit with its own visual QA
+and flipped its pins in the same commit: the `--tap-min` alias and 48px floor assertions in
+`tests/ckb-v2-token-contract.test.ts`, the rendered floor in `tests/ui-style-contract.spec.ts`,
+and the mode-home hero tile in `tests/ui-tools.spec.ts`. Full reasoning: DECISIONS §C2.
+
+**A grid track that holds a tap-sized child reads the knob, never a copy of its value.** A
+literal `2.75rem`/`3rem` track desyncs from its child the next time the knob moves; the
+launcher search row is the case where that overlaps rather than merely tightening a gap.
+
+**The phone composer is the one sanctioned exception to the floor.** Below 431px the composer
+input and icon/send buttons stay 44px (`globals.css`, `max-width: 430px`): the phone composer
+is an edge-to-edge dock whose height is part of the search-chrome contract, and 4px on the
+input plus buttons re-tunes the dock reserve and the phone CLS budget for no accessibility
+gain — 44px already clears WCAG 2.5.5. Any further exception needs the same kind of written
+reason.
 
 Three concepts stay separate: visible glyph size · visible control face · interactive hit
 target. Dense clinical UI keeps compact faces with padded or pseudo-element targets, and row
 hit-areas may overlap padding where density matters. Static chips are text, not targets —
-exempt under WCAG 2.5.8's inline exception. **No existing 48px production target may be
-reduced** (`min-h-12` sites stay; 44px is a known `ui-smoke` flake).
+exempt under WCAG 2.5.8's inline exception. **No production target may be reduced**
+(`min-h-12` sites now match the knob rather than exceeding it — leave them; 44px is a known
+`ui-smoke` flake).
 
 ### 4.11 Transitional architecture (C3 resolved)
 
@@ -640,11 +658,20 @@ and adoption.** Status keys as in the header; "done" entries cite their commit.
 
 ### Phase 2 — values, split three ways
 
-| PR                                | Contents                                                                                              | Status                                                                                                                                                                                        |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR 5a · Token values, no geometry | Colour, elevation, ink roles                                                                          | **partially done** — `59e4c3dfc` landed the `--shadow-well` rename, the spine and status-mark families, and the dark `--clinical-chat-document` fix; the remaining colour/ink deltas are open |
-| PR 5b · Tap 44→48 in `@theme`     | The 407-site geometry change; contract-test pin update; visual QA pass; `--tap-min` becomes the alias | open                                                                                                                                                                                          |
-| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                         | open                                                                                                                                                                                          |
+| PR                                | Contents                                                                                                      | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR 5a · Token values, no geometry | Colour, elevation, ink roles                                                                                  | **done** — `59e4c3dfc` landed the `--shadow-well` rename, the spine and status-mark families, and the dark `--clinical-chat-document` fix; the remaining ink-role deltas landed with PR 3 (`--text-placeholder`, eyebrows and placeholders off the decoration tier, the disabled encoding). The v2 light and dark blocks now declare the same colour roles, and the only raw colour literals left in `src/` are the two `#0f766e` accent defaults, which are **not** design tokens — see the note below |
+| PR 5b · Tap 44→48 in `@theme`     | The 426-site tap-call-site migration; contract-test pin update; visual QA pass; `--tap-min` becomes the alias | **done** — `--spacing-tap: 3rem` in `@theme`; `--tap-min` reduced to `var(--spacing-tap)`; 426 `*-tap` call sites moved; three pins flipped in the same commit; the phone composer keeps a written 44px exception below 431px (§4.10)                                                                                                                                                                                                                                                                   |
+| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                                 | **done** — live `@theme --radius-md` 8px → 10px, matching the v2 control rung and moving 243 `rounded-md` call sites; the 4px-grid pin now names both half-steps and asserts the two layers agree; 14 arbitrary radius literals absorbed onto the ladder (§4.6)                                                                                                                                                                                                                                         |
+
+**`#0f766e` is data, not a token.** The two remaining raw colour literals
+(`src/lib/medications.ts`, `src/lib/medication-records.ts`) restate a Postgres column
+default (`accent text not null default '#0f766e'`) for a per-record, user-chosen accent
+colour. Changing the application default without migrating the database default would
+diverge the two, so both stay. The raw-colour ratchet in
+`scripts/design-system-contract-baseline.json` is a **ceiling, not a target**: it exists to
+stop new literals appearing, and a value that is persisted data rather than design intent
+is outside the token system entirely.
 
 ### Phase 3 — safety structure
 

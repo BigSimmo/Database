@@ -102,7 +102,7 @@ test.describe("unlayered style rules render their effect", () => {
         `${element.tagName.toLowerCase()}.${(element.className || "").toString().split(/\s+/).slice(0, 3).join(".")}`;
       const tapToken = getComputedStyle(document.documentElement).getPropertyValue("--spacing-tap").trim();
       const probe = document.createElement("div");
-      probe.style.height = tapToken || "2.75rem";
+      probe.style.height = tapToken || "3rem";
       document.body.appendChild(probe);
       const tapFloor = probe.getBoundingClientRect().height;
       probe.remove();
@@ -130,7 +130,9 @@ test.describe("unlayered style rules render their effect", () => {
       return { tapFloor, measuredCount, inlineCarriers, undersized };
     });
 
-    expect(audit.tapFloor, "--spacing-tap must resolve to a real pixel floor").toBeGreaterThanOrEqual(44);
+    // 48px since PR 5b: the knob is the design system's single tap floor
+    // (SPEC §4.10) and no production target is ever reduced below it.
+    expect(audit.tapFloor, "--spacing-tap must resolve to a real pixel floor").toBeGreaterThanOrEqual(48);
     expect(audit.measuredCount, "expected at least one rendered tap-sized control").toBeGreaterThan(0);
     expect(audit.inlineCarriers, "tap-sized min-height is inert on inline boxes").toEqual([]);
     expect(audit.undersized, "controls rendered below their declared min-height").toEqual([]);

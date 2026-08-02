@@ -121,22 +121,27 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
   a few roles (nav, composer, hero, panel headings); most icons stay one fixed size.
 - **Not** for container tiles (`iconTilePremium` / panel-heading tile h-9, empty-state tile h-10)
   or non-icon boxes (the `ToggleSwitch` knob, status dots) — those keep the integer spacing
-  scale. Icon glyph size is independent of the 44px tap target (§3), which stays on
+  scale. Icon glyph size is independent of the tap target (§3), which stays on
   `--spacing-tap`.
 
 ## 3. Spacing & tap targets
 
 - 4px grid via Tailwind spacing; safe-area env paddings on shell edges.
-- Interactive targets use the `--spacing-tap` token (44px): `min-h-tap` / `min-w-tap` /
-  `size-tap`. Do **not** hand-write `min-h-11` / `h-[44px]` for tap semantics.
-- Exception (documented in `globals.css`): controls scrolled deep inside sheets stay on
-  `min-h-12` (48px) to satisfy the ui-smoke sub-pixel tap check — do not "fix" them down.
+- Interactive targets use the `--spacing-tap` token (48px): `min-h-tap` / `min-w-tap` /
+  `size-tap`. Do **not** hand-write `min-h-11` / `h-[44px]` for tap semantics, and size a grid
+  track that holds a tap target with `var(--spacing-tap)` rather than a copy of the number.
+- `min-h-12` sites now match the token instead of exceeding it — leave them; never "fix" a tap
+  target down.
+- Exception (documented in `globals.css`): the phone composer icon buttons stay 44px below
+  431px, because the dock height is part of the search-chrome contract.
 
 ## 4. Radius & shadows
 
-- Radii come from `@theme` and run on the 4px grid — `xs` 4 · `sm` 6 · `md` 8 · `lg` 12 ·
-  `xl` 16 · `2xl` 20 (px). `sm` is the one deliberate half-step, for chips and pills that read
-  as too heavy at 8. Roles are unchanged: `rounded-md` chips/pills · `rounded-lg`
+- Radii come from `@theme` — `xs` 4 · `sm` 6 · `md` 10 · `lg` 12 · `xl` 16 · `2xl` 20 (px).
+  Two deliberate half-steps off the 4px grid: `sm` at 6, for chips and pills that read as too
+  heavy at 8, and `md` at 10, which is the control radius the v2 layer also declares. A third
+  half-step fails `tests/design-token-contract.test.ts`. Roles are unchanged: `rounded-md`
+  chips/pills · `rounded-lg`
   controls/cards/panels · `rounded-xl`+ sheets/dialogs. Never pass a radius token through an
   arbitrary value (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the
   same token.
@@ -172,7 +177,7 @@ rung — never a new number.
   the applications-launcher DetailDialog migration is the template for converting one.
 - Empty and loading states use `EmptyState` / `LoadingPanel`, not bespoke markup.
 - **Icon-only buttons use `IconButton`** (`ui-primitives.tsx`): its `label` prop is required and
-  renders `aria-label` + an `aria-hidden` glyph + a 44px tap target, so an unlabeled icon button
+  renders `aria-label` + an `aria-hidden` glyph + a `--spacing-tap` hit area, so an unlabeled icon button
   cannot be written by accident. Pass a recipe (`toolbarButton`, …) via `className` for chrome.
 - Composer-chrome caveat: the `answer-footer-search-*` / `desktop-home-search-*` classes are
   intentionally **unlayered** and beat Tailwind utilities on the same element — check the class

@@ -257,6 +257,8 @@ describe("radius ladder", () => {
     // --radius-lg sat at 10px and broke the rhythm. Moving it to 12 collided
     // with --radius-xl, so the upper ladder shifted a rung — two names must
     // never share one value, or the lg/xl role split stops meaning anything.
+    // Two half-steps are sanctioned: `sm` at 6px, and `md` at 10px since PR 5c,
+    // where the live control radius met the v2 one (SPEC §4.6).
     const rungs = ["xs", "sm", "md", "lg", "xl", "2xl"].map((step) => {
       const value = new RegExp(`--radius-${step}:\\s*([\\d.]+)rem;`, "i").exec(themeConfigBlock);
       expect(value, `--radius-${step} is not defined in @theme`).toBeTruthy();
@@ -265,10 +267,18 @@ describe("radius ladder", () => {
 
     expect(rungs, "radius ladder must ascend").toEqual([...rungs].sort((a, b) => a - b));
     expect(new Set(rungs).size, "two radius names share one value").toBe(rungs.length);
-    // 6px `sm` is the one sanctioned half-step; everything else is a multiple of 4.
-    for (const rung of rungs.filter((value) => value !== 6)) {
+    // 6px `sm` and 10px `md` are the two sanctioned half-steps; everything else
+    // is a multiple of 4. Both are named here so a third one cannot slip in.
+    const halfSteps = new Set([6, 10]);
+    for (const rung of rungs.filter((value) => !halfSteps.has(value))) {
       expect(rung % 4, `${rung}px is off the 4px grid`).toBe(0);
     }
+    // The control rung is the one the v2 layer also declares; they must agree or
+    // adopting a surface reshapes every control on it.
+    const v2 = readFileSync(new URL("../src/app/ckb-v2-tokens.css", import.meta.url), "utf8");
+    const v2ControlRadius = /^\s*--radius-md:\s*([\d.]+)rem;/m.exec(v2)?.[1];
+    expect(v2ControlRadius, "--radius-md is not declared in the v2 layer").toBeTruthy();
+    expect(Math.round(Number.parseFloat(v2ControlRadius!) * 16)).toBe(rungs[2]);
   });
 });
 

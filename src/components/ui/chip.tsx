@@ -38,7 +38,7 @@ type ChipBase = {
 export type ChipProps = ChipBase &
   ({ onRemove: () => void; removeLabel: string } | { onRemove?: never; removeLabel?: never });
 
-// A chip is static text at 28px (`--chip-height`), NOT a 44px tap target — that
+// A chip is static text at 28px (`--chip-height`), NOT a tap target — that
 // floor is for interactive controls (register #7/#18). The remove control inside
 // a removable chip is interactive and keeps its own hit area.
 export function Chip({

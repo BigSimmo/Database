@@ -100,7 +100,11 @@
   --icon-lg: 1.25rem; /* 20 - empty states, tiles */
 
   /* Density - tap target is not row height */
-  --tap-min: 2.75rem; /* 44 - interactive only */
+  /* Pure alias of the @theme knob (C2). The value lives in globals.css because
+     that is where the *-tap utilities are generated; declaring it here would
+     either lose a same-specificity tie (design-side :root copy) or win inside
+     opted-in subtrees and split the app 44/48. Never set independently. */
+  --tap-min: var(--spacing-tap); /* interactive only */
   --chip-height: 1.75rem; /* 28 - static chips */
   --row-comfortable: 2.75rem;
   --row-compact: 2.25rem;

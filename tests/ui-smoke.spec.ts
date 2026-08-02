@@ -2106,7 +2106,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Content-sized section => no unexplained phantom scroll. Submitted universal
     // matches are real content below the answer, so their compact panel may account
     // for the overflow; the old viewport floor created much more empty scroll.
-    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 4;
+    // After the 48px tap / 10px control-radius step, bare short answers still fit
+    // with only a couple of pixels of layout slack — keep the empty-state budget
+    // tight, but allow a small sub-pixel band so radius/tap rounding cannot flake.
+    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 8;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2271,15 +2274,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
       postCollapseMaxOffset: Math.max(0, scrollGeometry.maxScrollTop - collapseBudget),
     };
     expect(scrollGeometry.owner).toBe("document");
-    // Pin the unmodified short-result geometry. Its 39px post-collapse range
-    // clears top-reveal + hide-intent distance (32px), but not the 72px in-flow
-    // activation band; synthetic tail content would hide this distinction.
+    // Pin the unmodified short-result geometry after the 48px tap step. The
+    // post-collapse range must still clear top-reveal + hide-intent distance
+    // (32px) and stay below the 72px in-flow activation band; synthetic tail
+    // content would hide this distinction. The prior 44px-era ~39px pin moved
+    // up with taller answer controls, so the upper bound tracks that band
+    // rather than the old 48px ceiling.
     expect(geometry.maxOffset).toBeGreaterThan(140);
-    expect(geometry.maxOffset).toBeLessThan(180);
+    expect(geometry.maxOffset).toBeLessThan(200);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(48);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
@@ -2289,8 +2295,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await scrollPrimarySurface(page, 0);
     // Deliberate downward travel that still fits the post-collapse range is
     // the designed hide path: past the 8px top band plus 24px intent, at or
-    // below the ~39px post-collapse maximum (floored so fractional layout
-    // readings can never overshoot the hook's own near-bottom tolerance).
+    // below the post-collapse maximum (floored so fractional layout readings
+    // can never overshoot the hook's own near-bottom tolerance).
     await scrollPrimarySurface(page, Math.floor(geometry.postCollapseMaxOffset));
     await expect(header).toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");

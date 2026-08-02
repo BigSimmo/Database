@@ -95,7 +95,7 @@ export const chatAnswerText =
 export const chatActionRow =
   "flex min-h-tap flex-wrap items-center gap-1.5 text-xs font-semibold text-[color:var(--text-heading)] sm:min-h-8";
 export const chatMicroAction = `inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
-// Answer "Sources" capsule. `sourceCapsuleHit` is an invisible 44px WCAG touch
+// Answer "Sources" capsule. `sourceCapsuleHit` is an invisible tap-sized WCAG touch
 // target that wraps the compact visible pill `sourceCapsule` (`.source-capsule-face`),
 // so the control reads smaller and lighter without shrinking the tap area. Hover,
 // expanded, and focus chrome are driven from the hit target's :hover /
@@ -200,7 +200,7 @@ type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label
 
 /**
  * Accessible icon-only button. Guarantees the accessible name (`aria-label`), an
- * `aria-hidden` icon glyph, a 44px tap target, and the shared focus ring. Pass a
+ * `aria-hidden` icon glyph, a `--spacing-tap` hit area, and the shared focus ring. Pass a
  * recipe like `toolbarButton`/`floatingControl` via `className` for chrome; the
  * base stays colour-neutral so the glyph inherits `currentColor` from context.
  */

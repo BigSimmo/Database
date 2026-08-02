@@ -21,7 +21,7 @@ import { cn, textMuted } from "@/components/ui-primitives";
  */
 
 const boxBase =
-  "grid size-[1.125rem] shrink-0 place-items-center rounded-[0.3125rem] border transition motion-reduce:transition-none";
+  "grid size-[1.125rem] shrink-0 place-items-center rounded-xs border transition motion-reduce:transition-none";
 
 const rowBase =
   "group flex min-h-tap w-full cursor-pointer items-start gap-3 rounded-md px-1 py-1.5 transition hover:bg-[color:var(--surface-subtle)] has-[:disabled]:cursor-not-allowed has-[:disabled]:hover:bg-transparent";
@@ -87,7 +87,7 @@ export function Checkbox({ label, description, indeterminate, disabled, classNam
           ref={(node) => {
             if (node) node.indeterminate = Boolean(indeterminate);
           }}
-          className="peer absolute inset-0 size-full cursor-pointer appearance-none rounded-[0.3125rem] disabled:cursor-not-allowed"
+          className="peer absolute inset-0 size-full cursor-pointer appearance-none rounded-xs disabled:cursor-not-allowed"
         />
         <span
           aria-hidden

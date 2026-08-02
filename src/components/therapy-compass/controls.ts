@@ -19,7 +19,7 @@ export const therapyBtn = cn(
 );
 
 const controlBase = cn(
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-[11px] text-sm-minus font-semibold",
+  "inline-flex min-h-tap items-center justify-center gap-2 rounded-md text-sm-minus font-semibold",
   therapyBtn,
 );
 
@@ -52,7 +52,7 @@ export const softControl = cn(
 
 export const iconControl = cn(
   therapyBtn,
-  "inline-flex h-tap w-tap items-center justify-center rounded-[9px] border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
+  "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
   "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
 );
 
