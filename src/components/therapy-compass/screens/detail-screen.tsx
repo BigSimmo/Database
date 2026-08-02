@@ -270,7 +270,7 @@ function Tile({
 }) {
   return (
     <div
-      className={`rounded-[14px] border border-[color:var(--border)] bg-[color:var(--surface)] px-[17px] py-4 text-[color:var(--text-muted)] [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-inherit ${tone === "accent" ? "border-[color:var(--clinical-accent-border)]" : tone === "warning" ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : tone === "info" ? "border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]" : ""}`}
+      className={`rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-[17px] py-4 text-[color:var(--text-muted)] [&_p]:m-0 [&_p]:text-sm-minus [&_p]:leading-normal [&_p]:text-inherit ${tone === "accent" ? "border-[color:var(--clinical-accent-border)]" : tone === "warning" ? "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]" : tone === "info" ? "border-[color:var(--info-border)] bg-[color:var(--info-bg)] text-[color:var(--info-text)]" : ""}`}
     >
       <div className="mb-2 flex items-center gap-[7px]">
         <Icon size={15} strokeWidth={1.9} />

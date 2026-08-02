@@ -137,9 +137,11 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 
 ## 4. Radius & shadows
 
-- Radii come from `@theme` and run on the 4px grid — `xs` 4 · `sm` 6 · `md` 8 · `lg` 12 ·
-  `xl` 16 · `2xl` 20 (px). `sm` is the one deliberate half-step, for chips and pills that read
-  as too heavy at 8. Roles are unchanged: `rounded-md` chips/pills · `rounded-lg`
+- Radii come from `@theme` — `xs` 4 · `sm` 6 · `md` 10 · `lg` 12 · `xl` 16 · `2xl` 20 (px).
+  Two deliberate half-steps off the 4px grid: `sm` at 6, for chips and pills that read as too
+  heavy at 8, and `md` at 10, which is the control radius the v2 layer also declares. A third
+  half-step fails `tests/design-token-contract.test.ts`. Roles are unchanged: `rounded-md`
+  chips/pills · `rounded-lg`
   controls/cards/panels · `rounded-xl`+ sheets/dialogs. Never pass a radius token through an
   arbitrary value (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the
   same token.

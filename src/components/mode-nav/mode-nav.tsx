@@ -86,7 +86,10 @@ function SlotInk({
       {trailing ? <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-55" /> : null}
       {/* The rule hangs off the ink, so it is exactly as wide as icon plus word:
           short under "Search", long under "Recommend". A rule sized to the
-          padding box always looks a few pixels wrong. */}
+          padding box always looks a few pixels wrong.
+          The 2px cap stays a literal: it is a hairline on a 2px-tall bar, below
+          the radius ladder's 4px floor, and rounding it to `rounded-t-xs` would
+          double it into a visible dome. */}
       <span
         aria-hidden="true"
         className={cn(

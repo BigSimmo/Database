@@ -66,7 +66,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         <div className="flex gap-1">
           <button
             type="button"
-            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-[9px] border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65`}
+            className={`${therapyBtn} inline-flex h-tap w-tap cursor-not-allowed items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)] opacity-65`}
             disabled
             title="Favourite saving is not available yet"
             aria-label="Favourite saving is not available yet"

@@ -187,7 +187,7 @@ const TcContext = createContext<TcBindings | null>(null);
 
 function navStyle(active: boolean): string {
   return [
-    "inline-flex min-h-tap flex-none items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-transparent bg-transparent px-[13px] py-2 text-sm-minus font-medium text-[color:var(--text-muted)] no-underline",
+    "inline-flex min-h-tap flex-none items-center justify-center gap-2 whitespace-nowrap rounded-md border border-transparent bg-transparent px-[13px] py-2 text-sm-minus font-medium text-[color:var(--text-muted)] no-underline",
     "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
     active
       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-semibold text-[color:var(--clinical-accent-hover)]"
@@ -216,7 +216,7 @@ function segStyle(active: boolean): string {
 }
 function chipStyle(active: boolean): string {
   return [
-    "inline-flex min-h-tap items-center justify-center rounded-[10px] border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
+    "inline-flex min-h-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-2 text-sm-minus font-semibold text-[color:var(--text-muted)]",
     "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
     active
       ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] font-semibold text-[color:var(--clinical-accent-hover)]"

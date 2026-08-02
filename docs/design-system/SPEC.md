@@ -236,9 +236,14 @@ convention:** a panel's first child is its heading and carries no top margin; th
 padding provides the space. _A compensating margin is always a symptom of a missing padding
 token._
 
-Radius: one step per surface role. ⚠️ Live `--radius-md` and v2 `--radius-md` differ (8px vs
-10px) — adoption moves **every** `rounded-md`, so it ships as its own PR with its own visual
-diff (PR 5c).
+Radius: one step per surface role. The live and v2 control rungs agreed at 10px in PR 5c,
+which moved **every** `rounded-md` in the app at once — 243 call sites across 81 files — as
+its own commit with its own visual diff, and pinned the two layers to each other so they
+cannot drift apart again. The ladder now carries two deliberate half-steps, `sm` at 6px and
+`md` at 10px; everything else is on the 4px grid, and a third half-step fails the contract
+test. An arbitrary radius literal in markup goes to its **nearest** rung, ties to the smaller
+one; the only sanctioned exception is a hairline below the 4px floor, where the nearest rung
+would be a visible change rather than a rounding of it.
 
 ### 4.7 Elevation, borders, rings
 
@@ -656,7 +661,7 @@ and adoption.** Status keys as in the header; "done" entries cite their commit.
 | --------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | PR 5a · Token values, no geometry | Colour, elevation, ink roles                                                                          | **done** — `59e4c3dfc` landed the `--shadow-well` rename, the spine and status-mark families, and the dark `--clinical-chat-document` fix; the remaining ink-role deltas landed with PR 3 (`--text-placeholder`, eyebrows and placeholders off the decoration tier, the disabled encoding). The v2 light and dark blocks now declare the same colour roles, and the only raw colour literals left in `src/` are the two `#0f766e` accent defaults, which are **not** design tokens — see the note below |
 | PR 5b · Tap 44→48 in `@theme`     | The 407-site geometry change; contract-test pin update; visual QA pass; `--tap-min` becomes the alias | **done** — `--spacing-tap: 3rem` in `@theme`; `--tap-min` reduced to `var(--spacing-tap)`; 426 `*-tap` call sites moved; three pins flipped in the same commit; the phone composer keeps a written 44px exception below 431px (§4.10)                                                                                                                                                                                                                                                                   |
-| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                         | open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| PR 5c · Radius step               | Every `rounded-md` moves; its own visual diff                                                         | **done** — live `@theme --radius-md` 8px → 10px, matching the v2 control rung and moving 243 `rounded-md` call sites; the 4px-grid pin now names both half-steps and asserts the two layers agree; 14 arbitrary radius literals absorbed onto the ladder (§4.6)                                                                                                                                                                                                                                         |
 
 **`#0f766e` is data, not a token.** The two remaining raw colour literals
 (`src/lib/medications.ts`, `src/lib/medication-records.ts`) restate a Postgres column
