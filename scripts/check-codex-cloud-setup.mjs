@@ -459,6 +459,30 @@ export function validateCodexCloudSetup() {
       /check:codex-cloud -- --runtime/,
       "Cloud setup must run runtime acceptance.",
     ],
+    [
+      /BEGIN clinical-kb-codex-cloud shell policy/,
+      "Cloud setup must write the Codex shell policy inside a managed marker block.",
+    ],
+    [
+      /Unmanaged \[shell_environment_policy\] table found/,
+      "Cloud setup must reject unmanaged shell_environment_policy tables before rewriting config.toml.",
+    ],
+    [
+      /Incomplete managed shell policy block/,
+      "Cloud setup must reject incomplete managed shell policy marker blocks.",
+    ],
+    [
+      /export RAG_PROVIDER_MODE="\$\{rag_provider_mode\}"/,
+      "Cloud setup must pin the connected-mode retrieval value at setup time.",
+    ],
+    [
+      /inherit = "all"/,
+      "Cloud setup must configure Codex shell_environment_policy inheritance.",
+    ],
+    [
+      /CODEX_CLOUD_SETUP_STOP_AFTER_POLICY/,
+      "Cloud setup must expose a policy-only stop for behavior-level tests.",
+    ],
   ]) {
     requireMatch(errors, setup, pattern, message);
   }
