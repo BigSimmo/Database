@@ -36,8 +36,6 @@ env:
   # Evals use the service-role admin client; the publishable key only needs to
   # satisfy env validation (same placeholder approach as ci.yml).
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   # Pace golden retrieval so forced-vector probes do not trip transient 429s
   # after a long text-fast-path run (see vector-ptsd history in eval-canary).
   RAG_EVAL_CASE_DELAY_MS: 2000
@@ -65,6 +63,9 @@ jobs:
           persist-credentials: false
 
       - name: Preflight required secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           missing=""
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
@@ -85,14 +86,21 @@ jobs:
         run: npm ci
 
       - name: Guard Supabase project identity
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run check:supabase-project
 
       - name: Golden retrieval eval (live corpus)
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: npm run eval:retrieval:quality -- --fail-on-threshold
 
       - name: Answer-quality subset (live generation)
         env:
           ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # Canary-only latency allowance: cross-region runner -> Sydney Supabase
           # + OpenAI. Release/local eval:quality keeps the strict default gates.
           EVAL_LATENCY_CONTEXT: cross-region-runner
