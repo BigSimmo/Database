@@ -30,14 +30,14 @@ In Codex environment settings, create an environment for `BigSimmo/Database` usi
 official [Cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environment)
 contract:
 
-| Setting               | Value                                  |
-| --------------------- | -------------------------------------- |
-| Repository            | `BigSimmo/Database`                    |
-| Base image            | Default universal image                |
-| Node version          | `24`                                   |
-| Setup command         | `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`       |
-| Maintenance command   | `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`    |
-| Environment variables | Use the complete profile below                                                           |
+| Setting               | Value                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| Repository            | `BigSimmo/Database`                                                                         |
+| Base image            | Default universal image                                                                     |
+| Node version          | `24`                                                                                        |
+| Setup command         | `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`    |
+| Maintenance command   | `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh` |
+| Environment variables | Use the complete profile below                                                              |
 
 Keep agent internet access off for this repository's ordinary Cloud environments. Package
 installation happens during setup; ordinary structure-only work, including the RAG
