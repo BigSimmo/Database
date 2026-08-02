@@ -33,10 +33,39 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const setupScript = path.join(repoRoot, "scripts/setup-codex-cloud.sh");
 const requiredPolicyExcludes = [
   "OPENAI_API_KEY",
-  "SUPABASE_URL",
-  "SUPABASE_PROJECT_REF",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT_ID",
+  "OPENAI_BASE_URL",
   "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "SUPABASE_SECRET_KEY",
+  "SUPABASE_PROJECT_REF",
+  "SUPABASE_PROJECT_NAME",
+  "SUPABASE_STAGING_PROJECT_REF",
+  "SUPABASE_STAGING_PROJECT_NAME",
+  "SUPABASE_ACCESS_TOKEN",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_DB_URL",
   "DATABASE_URL",
+  "POSTGRES_PASSWORD",
+  "CROSS_TENANT_SERVICE_ROLE_KEY",
+  "RAILWAY_API_TOKEN",
+  "RAILWAY_TOKEN",
+  "GH_TOKEN",
+  "GITHUB_TOKEN",
+  "GITLAB_TOKEN",
+  "GLAB_TOKEN",
+  "CODEX_TRIGGER_TOKEN",
+  "HEALTH_DEEP_PROBE_SECRET",
+  "INDEXING_V3_AGENT_SECRET",
+  "E2E_AUTH_ENABLED",
+  "E2E_USER_EMAIL",
+  "E2E_USER_PASSWORD",
+  "ALLOW_PROVIDER_TESTS",
 ] as const;
 
 afterEach(() => {
@@ -362,6 +391,37 @@ describe("Codex Cloud environment contract", () => {
       expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
       expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
     }
+
+    for (const formattedConfig of [
+      'shell_environment_policy.inherit = "all"\n',
+      'shell_environment_policy = { inherit = "all", exclude = [] }\n',
+    ]) {
+      const formattedHome = temporaryDirectory("codex-cloud-formatted-");
+      mkdirSync(path.join(formattedHome, ".codex"), { recursive: true });
+      const formattedPath = path.join(formattedHome, ".codex/config.toml");
+      writeFileSync(formattedPath, formattedConfig);
+      const formatted = runSetupPolicyOnly(formattedHome, {
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      });
+      expect(formatted.status).not.toBe(0);
+      expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
+      expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
+    }
+
+    const atomicHome = temporaryDirectory("codex-cloud-atomic-");
+    const atomicTools = temporaryDirectory("codex-cloud-tools-");
+    mkdirSync(path.join(atomicHome, ".codex"), { recursive: true });
+    const atomicConfig = ['[mcp_servers.keep]', 'command = "echo"', ""].join("\n");
+    const atomicPath = path.join(atomicHome, ".codex/config.toml");
+    writeFileSync(atomicPath, atomicConfig);
+    const failingMktemp = path.join(atomicTools, "mktemp");
+    writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", { mode: 0o755 });
+    const atomic = runSetupPolicyOnly(atomicHome, {
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter),
+    });
+    expect(atomic.status).not.toBe(0);
+    expect(readFileSync(atomicPath, "utf8")).toBe(atomicConfig);
 
     const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
     mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });
