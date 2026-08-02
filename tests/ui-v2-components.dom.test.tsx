@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Info } from "lucide-react";
-import { useState } from "react";
+import { createRef, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AnswerFooter, DoseLine } from "@/components/ui/answer-card";
@@ -81,6 +81,19 @@ describe("TextField / SearchField", () => {
   it("honours an externally supplied id so an error summary can link to the field", () => {
     render(<TextField id="publisher" label="Publisher" />);
     expect(screen.getByLabelText(/Publisher/)).toHaveAttribute("id", "publisher");
+  });
+
+  it("reaches the input with a caller ref after the fold onto FormField", () => {
+    // The fold moved the input inside a render-prop child, so `ref` now travels
+    // through the props spread rather than sitting on the component's own
+    // element. The settings email field focuses itself through exactly this ref,
+    // and a dropped ref is invisible in a diff and in a typecheck.
+    const ref = createRef<HTMLInputElement>();
+    render(<TextField label="Publisher" ref={ref} />);
+
+    expect(ref.current).toBe(screen.getByLabelText(/Publisher/));
+    ref.current?.focus();
+    expect(document.activeElement).toBe(screen.getByLabelText(/Publisher/));
   });
 
   it("only offers the clear control once the search field has a value", async () => {
@@ -168,6 +181,17 @@ describe("Checkbox", () => {
     const ids = (screen.getByRole("checkbox").getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
     expect(ids[0]).toBe("outdated-note");
     expect(ids).toHaveLength(2);
+  });
+
+  it("forwards a caller ref even though the component owns the ref for indeterminate", () => {
+    // The component's own ref callback sets `indeterminate`, which exists only on
+    // the node. Before this was forwarded by hand, the declared `ref` prop
+    // typechecked and then did nothing at all.
+    const ref = createRef<HTMLInputElement>();
+    render(<Checkbox label="Include outdated sources" indeterminate ref={ref} />);
+
+    expect(ref.current).toBe(screen.getByRole("checkbox"));
+    expect(ref.current?.indeterminate).toBe(true);
   });
 });
 

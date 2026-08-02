@@ -99,6 +99,7 @@ export function Checkbox({
   indeterminate,
   disabled,
   className,
+  ref,
   "aria-describedby": callerDescribedBy,
   ...props
 }: CheckboxProps) {
@@ -118,8 +119,15 @@ export function Checkbox({
           // component used to lose that description the moment it passed one in.
           aria-describedby={mergeDescribedBy(callerDescribedBy, descId)}
           aria-checked={indeterminate ? "mixed" : undefined}
+          // The component owns this ref to drive `indeterminate`, which has no
+          // HTML attribute and can only be set on the node. A caller ref must
+          // therefore be forwarded by hand: spreading it through `...props`
+          // would be overwritten here, silently, while the prop type kept
+          // promising it worked.
           ref={(node) => {
             if (node) node.indeterminate = Boolean(indeterminate);
+            if (typeof ref === "function") ref(node);
+            else if (ref) ref.current = node;
           }}
           className="peer absolute inset-0 size-full cursor-pointer appearance-none rounded-xs disabled:cursor-not-allowed"
         />
