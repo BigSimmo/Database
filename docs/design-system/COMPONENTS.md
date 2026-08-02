@@ -781,8 +781,11 @@ wording. Never `bg-transparent`; prose at `--text-md`/`--leading-prose`/`--measu
 **Clipboard.** `answerClipboardText()` carries attribution and the verify instruction on
 **every** state including `ready` — a copied answer loses the banner, the notice and the
 links, and unattributed clinical prose in a record reads as clinician-endorsed. It is
-**not** a replacement for `formatAnswerRenderCopyText()`; see SPEC §13 for the PR 13
-constraint. **Open defects → PR.** unrestricted slots, no required safety props → PR 6;
+**not** a replacement for `formatAnswerRenderCopyText()`: the product path composes the
+two through `composeAnswerClipboardText()` (`src/lib/answer-clipboard.ts`, ledger `#208`),
+which keeps the render-policy string primary and adds attribution, the `AnswerState`
+caveat and the provenance line. Both callers share one implementation of each of those
+three rules. See SPEC §13 blocker 1 for the decision. **Open defects → PR.** unrestricted slots, no required safety props → PR 6;
 ungrounded-answer channel → **fixed** in PR 13 Phase 1 as the fifth `AnswerState` kind
 (ledger `#207`, SPEC §13 blocker 2).
 

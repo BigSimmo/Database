@@ -3,14 +3,18 @@
 import type { ReactNode } from "react";
 
 import { cn, type SourceMetadataInput } from "@/components/ui-primitives";
-import type { AnswerState, DegradedAnswerState, UngroundedReason } from "@/components/ui/answer-state";
+import type { AnswerState, DegradedAnswerState } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
 import { MissingValue } from "@/components/ui/missing-value";
 import { Quantity } from "@/components/ui/quantity";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { StatusMark } from "@/components/ui/status-mark";
 import { VerificationNotice, type VerificationNoticeProps } from "@/components/ui/verification-notice";
-import { clipboardProvenanceLine, normalizeSourceMetadata } from "@/lib/source-metadata";
+import {
+  answerClipboardCaveatLine,
+  answerClipboardProvenanceLine,
+  answerStateAttribution,
+} from "@/lib/answer-clipboard";
 
 /*
  * The answer surface. `answerSurface` was `"rounded-lg bg-transparent"` — the
@@ -134,17 +138,6 @@ export type ClipboardSourceRef = {
   href?: string;
 };
 
-const UNGROUNDED_CLIPBOARD_CAVEAT: Record<UngroundedReason, string> = {
-  grounded_false:
-    "this answer could not be matched to the sources it cites. Verify every clinical claim in the cited passages before relying on it.",
-  confidence_unsupported:
-    "this answer is reported as unsupported by the sources it cites. Verify every clinical claim in the cited passages before relying on it.",
-  unverified_numeric:
-    "some clinical values in this answer were not found in the cited sources. Verify every number, dose, route, timing and threshold in the cited passages before relying on it.",
-  weak_evidence:
-    "the evidence supporting this answer is weak. Verify every clinical claim in the cited passages before relying on it.",
-};
-
 export function answerClipboardText({
   body,
   state,
@@ -166,44 +159,25 @@ export function answerClipboardText({
   // clinical prose with nothing attached reads in a record as though a clinician
   // wrote and endorsed it. This deliberately exceeds SPEC §13 slice 8, which
   // scoped the copied caveat to non-ready states; see docs/design-system/SPEC.md.
-  const attribution =
-    state.kind === "source_only"
-      ? "Assembled directly from the cited sources without model synthesis."
-      : "AI-generated from the cited sources.";
+  //
+  // Attribution, the degraded caveat and the provenance suppression rule live in
+  // `@/lib/answer-clipboard` so this primitive and the product composer (#208)
+  // cannot drift apart — one implementation of each rule, two callers.
   const verify = "Verify against the linked source documents before clinical use.";
-
-  const caveat =
-    state.kind === "stale_evidence"
-      ? state.overdue.length > 0
-        ? `Caveat: ${state.overdue.length} of ${state.sourceCount} cited sources are past their review date.`
-        : // Defensive: the banner guards this state, and a count of zero would
-          // argue against the caution it is attached to.
-          "Caveat: some cited sources are past their review date."
-      : state.kind === "partial_retrieval"
-        ? `Caveat: only ${state.retrieved} of ${state.requested} sources were available for this answer.`
-        : // An ungrounded answer pasted into a record with no caveat is the exact
-          // medico-legal hazard #207 exists to close: the prose reads as endorsed
-          // clinical text once it leaves the app, and the banner does not travel.
-          state.kind === "ungrounded"
-          ? `Caveat: ${UNGROUNDED_CLIPBOARD_CAVEAT[state.reason]}`
-          : null;
 
   const sourceList = sources?.length
     ? ["Sources for review:", ...sources.map((source) => `- ${clipboardSourceLine(source)}`)].join("\n")
     : null;
 
-  // Normalised first so a partial metadata record produces the same fully
-  // explicit audit line as a complete one — the clipboard line never abbreviates.
-  //
-  // Suppressed on a multi-source stale answer: `metadata` describes one
-  // document, so "1 of 6 cited sources are past their review date" followed by
-  // "Review status: Current" would read as a correction of the caveat.
-  // Only emitted when the caller actually supplied a record. Synthesising an
-  // all-`Unknown` line would assert a governance read that never happened.
-  const provenanceApplies = metadata != null && !(state.kind === "stale_evidence" && state.sourceCount > 1);
-  const provenance = provenanceApplies ? clipboardProvenanceLine(normalizeSourceMetadata(metadata)) : null;
-
-  return [body.trim(), `${attribution} ${verify}`, caveat, sourceList, provenance].filter(Boolean).join("\n");
+  return [
+    body.trim(),
+    `${answerStateAttribution(state)} ${verify}`,
+    answerClipboardCaveatLine(state),
+    sourceList,
+    answerClipboardProvenanceLine(state, metadata),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function clipboardSourceLine({ title, locator, href }: ClipboardSourceRef) {

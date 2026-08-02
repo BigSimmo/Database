@@ -714,6 +714,29 @@ constraints below are **adoption blockers**, recorded here so PR 13 cannot read
    policy's own warnings. **PR 13 must not swap `formatAnswerRenderCopyText` out
    for `answerClipboardText`**; either compose the two or extend this one first,
    with the clinical owner's review.
+
+   **RESOLVED in PR 13 Phase 1 (ledger `#208`) — compose, do not replace.**
+   `formatAnswerRenderCopyText()` / `buildAnswerRenderModel().copyText` stays the
+   **primary** product clipboard payload; `src/lib/answer-clipboard.ts`
+   (`composeAnswerClipboardText`) wraps it with the three things it lacks —
+   unconditional attribution, the `AnswerState` caveat (including `ungrounded`
+   from blocker 2), and the single-document provenance line under the
+   multi-source-stale suppression rule. The render string passes through
+   byte-for-byte: warnings, render trust, numbered sources with match strength,
+   clinical tables and displayed table evidence are the render policy's to decide,
+   and the composer neither edits nor re-derives them. Attribution and the caveat
+   sit **above** the render block, because a truncated or quoted paste keeps its
+   head more reliably than its tail. `answerClipboardText()` remains the
+   design-system primitive for `AnswerCard` demos and unit contracts, and now
+   shares one implementation of each rule with the composer rather than carrying a
+   second copy. Rejected: switching product `onCopy` to `answerClipboardText`
+   alone; maintaining two divergent product copy paths.
+   `tests/answer-clipboard-composition.test.ts` pins pass-through, every warning,
+   caveat placement, suppression, and the shared-rule identity. Adoption wires the
+   answer surface's `onCopy` to the composer when that surface is adopted
+   (controller-owned, last); the clinical owner confirms the composed payload
+   reads correctly in an EMR paste at the PR 13 glance.
+
 2. **`AnswerState` has no channel for an ungrounded answer.** `RagAnswer` carries
    `grounded`, `confidence: "unsupported"` and `unverifiedNumericTokens`, and the
    live product already gates on them (`evidence-panels.tsx`,
