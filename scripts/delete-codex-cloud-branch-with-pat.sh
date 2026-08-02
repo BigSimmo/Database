@@ -45,5 +45,6 @@ esac
 EOF
 chmod 0700 "$askpass"
 
-GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git -c credential.helper= push origin --delete "$branch"
+GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+  git -c credential.helper= -c core.hooksPath=/dev/null push origin --delete "$branch"
 printf '[codex-cloud:github-pat] PASS: deleted %s.\n' "$branch"
