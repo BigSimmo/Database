@@ -35,13 +35,16 @@ contract:
 | Repository            | `BigSimmo/Database`                    |
 | Base image            | Default universal image                |
 | Node version          | `24`                                   |
-| Setup command         | `bash scripts/setup-codex-cloud.sh`    |
-| Maintenance command   | `bash scripts/maintain-codex-cloud.sh` |
-| Environment variables | Use the complete profile below         |
+| Setup command         | `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`       |
+| Maintenance command   | `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`    |
+| Environment variables | Use the complete profile below                                                           |
 
-Enable agent internet access only when a task needs it. Prefer a domain allowlist and the
-minimum HTTP methods for the task. Package installation happens during setup; ordinary
-structure-only work, including the RAG decomposition prompt below, should remain offline.
+Keep agent internet access off for this repository's ordinary Cloud environments. Package
+installation happens during setup; ordinary structure-only work, including the RAG
+decomposition prompt below, remains offline. The appended command-shim installer is required:
+it makes every normal `node`, `npm`, and `npx` invocation load the generated sanitized
+profile before starting Node. It is idempotent and uses `nvm which` rather than
+`command -v node`, so maintenance cannot accidentally wrap an earlier wrapper.
 
 The setup command fails if the complete toolchain cannot be installed. It pins Railway CLI
 `5.30.1` and Codex CLI `0.146.0`, both stable npm releases as reviewed on 2026-07-30. Railway's
@@ -69,14 +72,17 @@ PLAYWRIGHT_OFFLINE_MODE=true
 ```
 
 The generated shell profile removes known OpenAI, Supabase, Railway, GitHub/GitLab,
-database, CI-trigger, and test-user credential variables. This prevents an unrelated Cloud
-task from silently becoming provider-backed.
+database, CI-trigger, test-user, and emergency-PAT variables. This prevents an unrelated
+Cloud task from silently becoming provider-backed.
 
 Set all five offline values in the environment UI. The setup also writes the generated
 profile to `.bashrc`, `.profile`, and `.bash_profile`. Covering `.bash_profile` is required:
 Bash stops login-profile discovery at the first matching file, so an existing `.bash_profile`
 can otherwise prevent `.profile` from running. Offline mode values are forced after inherited
 platform values so stale `auto`/`false` settings cannot outrank the repository contract.
+Do not manually source the profile as an acceptance workaround: start a fresh task and invoke
+the direct `npm run check:codex-cloud` commands below. The tracked command shims make those
+ordinary Node commands load the profile themselves.
 
 ### Connected (explicit opt-in)
 
@@ -128,14 +134,22 @@ direct shell access are absent. The intended connection is `BigSimmo` with admin
 access to this repository. Use shell `git` or `gh` only for a genuine connector gap and
 only when the task permits it.
 
-GitHub connector permission is separate from credentials inside the agent shell. Do
-not add a personal access token to Cloud secrets or environment variables to make
-`git push` or `gh` work. If a Cloud task cannot publish a branch, reconnect the
-repository in Codex settings and run a controlled branch/PR write test. Confirm the
-exact repository and PR/thread/job before a write, and verify the connector result
-before treating the write as successful. If the connector does not expose a required
-repository/organisation setting, report the limit rather than attempting a credential or
-secret workaround.
+GitHub connector permission is separate from credentials inside the agent shell. The connector
+remains the default for repository, PR, review, and Actions work. For an explicitly authorised
+connector gap, a fine-grained GitHub PAT may be stored only as the connected environment secret
+`CODEX_CLOUD_GITHUB_PAT`. Scope it to the `BigSimmo/Database` repository, give it only the
+least privilege needed for the named operation (for stale-branch deletion, **Contents: write**),
+and set a short expiry. Never add it as an ordinary environment variable, print it, put it in a
+remote URL, cache, profile, or repository file, or use it for provider access. The default and
+ordinary connected profiles both scrub the name before Node work begins.
+
+The only tracked PAT helper is
+`bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>`. It refuses offline
+mode, protected/invalid refs, and any origin other than the credential-free
+`https://github.com/BigSimmo/Database.git`; it uses a temporary askpass program and deletes
+only the specified branch. Use it only for the exact user-authorised cleanup, then remove or
+rotate the secret. If Cloud does not expose secrets to the requested task phase, the PAT is not a
+usable workaround—report that platform limit rather than copying the token anywhere.
 
 Setup restores a missing `origin` to the credential-free URL
 `https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
@@ -161,22 +175,21 @@ approve cleanup.
 
 ## Setup and maintenance
 
-Setup:
+Configure the following complete commands in the environment UI:
 
 ```bash
-bash scripts/setup-codex-cloud.sh
+bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh
 ```
 
-Maintenance:
-
 ```bash
-bash scripts/maintain-codex-cloud.sh
+bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh
 ```
 
 The maintenance command reasserts the safe `origin`, runs static/effective environment
-acceptance, then runtime acceptance. Any runtime, dependency, CLI, Deno, Python/OCR, or browser
-drift reruns the full setup instead of repairing only `node_modules`. All profile insertions,
-CLI installs, and remote repair are idempotent.
+acceptance, then runtime acceptance. The shim installer runs after either lifecycle command and
+repairs the normal Node command boundary. Any runtime, dependency, CLI, Deno, Python/OCR, or
+browser drift reruns the full setup instead of repairing only `node_modules`. All profile
+insertions, command shims, CLI installs, and remote repair are idempotent.
 
 ## Acceptance
 
@@ -206,6 +219,12 @@ Tesseract, browser executables, local `main`/`origin/main`, the `BigSimmo/Databa
 identity, offline credential absence when applicable, and obsolete npm proxy variable names
 without reading or printing their values. MCP inspection emits server names, commands, and
 environment variable names only.
+
+A repository cannot remove a variable already inherited by the top-level task process. The
+command shims protect normal Node work, which is what the acceptance commands exercise. If a
+fresh task still exposes a provider variable to a direct raw `/bin/bash`, Python, or another
+native child before the generated profile is loaded, treat that as a Codex Cloud launcher defect
+and report the variable name only; do not weaken the profile or reintroduce provider variables.
 
 `npm run check:production-readiness` remains useful in the offline profile for local safeguards.
 Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
