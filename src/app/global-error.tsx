@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useCopyDiagnostics } from "@/lib/use-copy-diagnostics";
 
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces
@@ -12,6 +13,8 @@ import { useEffect, useRef } from "react";
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
+
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
     headingRef.current?.focus({ preventScroll: true });
@@ -22,7 +25,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body
         style={{
           margin: 0,
-          minHeight: "100vh",
+          // dvh (not vh) matches the app-wide convention so the centred card
+          // stays within the visible viewport on mobile browsers with dynamic
+          // toolbars, rather than being pushed partly below the fold.
+          minHeight: "100dvh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -112,6 +118,26 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               }}
             >
               Reload page
+            </button>
+            <button
+              type="button"
+              onClick={copyDiagnostics}
+              style={{
+                cursor: "pointer",
+                borderRadius: "0.5rem",
+                border: "1px solid ButtonText",
+                backgroundColor: "ButtonFace",
+                color: "ButtonText",
+                padding: "0.625rem 1rem",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+              }}
+            >
+              {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
             </button>
           </div>
         </div>

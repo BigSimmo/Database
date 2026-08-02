@@ -1,0 +1,57 @@
+import { readFileSync } from "node:fs";
+
+import { describe, expect, it } from "vitest";
+
+const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+
+describe("container delivery contract", () => {
+  it("routes container-affecting pull requests through the required CI aggregate", () => {
+    const ci = read(".github/workflows/ci.yml");
+    const imageWorkflow = read(".github/workflows/docker-image.yml");
+
+    expect(imageWorkflow).toMatch(/^\s*workflow_call:\s*$/m);
+    expect(imageWorkflow).not.toMatch(/^\s*pull_request:\s*$/m);
+    expect(imageWorkflow).toContain("group: docker-image-${{ github.ref }}");
+    expect(imageWorkflow).not.toContain("group: ${{ github.workflow }}-${{ github.ref }}");
+    expect(ci).toContain("container-images:");
+    expect(ci).toContain("uses: ./.github/workflows/docker-image.yml");
+    expect(ci).toMatch(/needs:\s*\[[^\]]*container-images[^\]]*\]/);
+    expect(ci).toContain("CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}");
+    expect(ci).toContain("CONTAINER_RESULT: ${{ needs.container-images.result }}");
+  });
+
+  it("validates Python syntax and unit behavior while building the worker image", () => {
+    const dockerfile = read("Dockerfile.worker");
+
+    expect(dockerfile).toContain("python -m compileall -q worker/python");
+    expect(dockerfile).toContain('python -m unittest discover -s worker/python -p "test_*.py"');
+  });
+
+  it("forwards termination signals to the app process", () => {
+    expect(read("Dockerfile")).toContain("exec node node_modules/next/dist/bin/next start");
+  });
+
+  it("lets CI Docker app builds opt out of the local low-RAM hard-fail", () => {
+    // Hosted buildx runners often report ~7–8 GiB; local Docker Desktop keeps the hard-fail.
+    expect(read("Dockerfile")).toMatch(/ARG ALLOW_LOW_RAM_BUILD=0/);
+    expect(read(".github/workflows/docker-image.yml")).toMatch(/ALLOW_LOW_RAM_BUILD=1/);
+  });
+
+  it("keeps sensitive and machine-local files out of Docker build contexts", () => {
+    const dockerignore = read(".dockerignore").split(/\r?\n/);
+
+    for (const entry of [
+      "*.pem",
+      "*.key",
+      ".local",
+      ".codex",
+      ".mcp.json",
+      "supabase/.temp",
+      "tmp",
+      "artifacts",
+      ".next-playwright",
+    ]) {
+      expect(dockerignore, `missing Docker exclusion: ${entry}`).toContain(entry);
+    }
+  });
+});

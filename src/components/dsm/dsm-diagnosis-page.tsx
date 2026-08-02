@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { DsmHeaderActions, DsmPageHeader } from "@/components/dsm/dsm-page-header";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import { dsmCriteria, resolveDsmDifferential, type DsmDiagnosis, type DsmLabeledText } from "@/lib/dsm";
 
@@ -22,7 +23,7 @@ function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: n
         {criterion.label || index + 1}
       </span>
       <div className="min-w-0 pt-0.5">
-        <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+        <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
           Core criterion {criterion.label || index + 1}
         </p>
         <p className="mt-1 text-sm font-medium leading-6 text-[color:var(--text-heading)]">{criterion.text}</p>
@@ -36,7 +37,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
   const compareHref = `/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)}`;
 
   return (
-    <article data-testid="dsm-diagnosis-page" className="min-h-full bg-[color:var(--background)] pb-8">
+    <InformationPageShell testId="dsm-diagnosis-page" width="bleed" className="pb-8">
       <DsmPageHeader
         eyebrow="Diagnosis information"
         title={diagnosis.title}
@@ -53,7 +54,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
               key={`${criterion.label}-${criterion.text}`}
               className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
             >
-              <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+              <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 Criterion {criterion.label || index + 1}
               </p>
               <p className="mt-1.5 line-clamp-4 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm-minus">
@@ -270,6 +271,6 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
           <span className={metadataPill}>Supplied local catalogue</span>
         </div>
       </div>
-    </article>
+    </InformationPageShell>
   );
 }

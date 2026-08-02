@@ -29,6 +29,7 @@ import {
   useFavouritesNavCollapsed,
   type FavouritesViewMode,
 } from "@/components/clinical-dashboard/favourites-library-nav";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -42,10 +43,11 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
-import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { useAuthSession } from "@/lib/supabase/client";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FavouriteType =
@@ -309,6 +311,7 @@ function ActiveFilterChips({
   onClearType,
   onClearSet,
   onClearViewMode,
+  includeSearch = true,
 }: {
   searchTerm: string;
   selectedTypeId: string;
@@ -318,11 +321,14 @@ function ActiveFilterChips({
   onClearType: () => void;
   onClearSet: () => void;
   onClearViewMode: () => void;
+  includeSearch?: boolean;
 }) {
   const typeLabel = favouriteTabs.find((tab) => tab.id === selectedTypeId)?.label;
   const chips: { key: string; label: string; onClear: () => void }[] = [];
 
-  if (searchTerm.trim()) chips.push({ key: "search", label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch });
+  if (includeSearch && searchTerm.trim()) {
+    chips.push({ key: "search", label: `Search: ${searchTerm.trim()}`, onClear: onClearSearch });
+  }
   if (selectedSet) chips.push({ key: "set", label: selectedSet.title, onClear: onClearSet });
   if (selectedTypeId !== "all" && typeLabel) chips.push({ key: "type", label: typeLabel, onClear: onClearType });
   if (viewMode === "source-backed") chips.push({ key: "view", label: "Source-backed", onClear: onClearViewMode });
@@ -366,7 +372,7 @@ function ContinueStrip({ item }: { item: FavouriteItem }) {
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
             <Link href={item.href} className={cn("min-w-0 flex-1 text-left", focusRing)}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--success)]">
+                <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--success)]">
                   Continue
                 </p>
                 <p className="min-w-0 text-sm-minus font-bold leading-snug text-[color:var(--text-heading)]">
@@ -598,7 +604,6 @@ function FavouritesTable({
   viewMode,
   sortMode,
   selectedItemId,
-  commandScopes = [],
   onSortModeChange,
   onSelectItem,
 }: {
@@ -609,7 +614,6 @@ function FavouritesTable({
   viewMode: ViewMode;
   sortMode: SortMode;
   selectedItemId: string | null;
-  commandScopes?: string[];
   onSortModeChange: (value: SortMode) => void;
   onSelectItem: (id: string) => void;
 }) {
@@ -621,9 +625,8 @@ function FavouritesTable({
       viewMode,
       sortMode,
     });
-    if (!commandScopes.length) return rows;
-    return rows.filter((item) => favouriteMatchesCommandScopes(item, commandScopes));
-  }, [commandScopes, items, searchTerm, selectedSet, selectedTypeId, viewMode, sortMode]);
+    return rows;
+  }, [items, searchTerm, selectedSet, selectedTypeId, viewMode, sortMode]);
 
   // With the item workspace open (only at 2xl), the middle column narrows sharply.
   // Drop the leading icon and the secondary Evidence column there so titles keep
@@ -667,7 +670,7 @@ function FavouritesTable({
       <div className="hidden overflow-x-auto sm:block">
         <table aria-label="Saved favourites" className="w-full min-w-[34rem] table-fixed border-collapse text-left">
           <thead>
-            <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               <th scope="col" className="min-w-[11rem] px-3.5">
                 Item
               </th>
@@ -697,8 +700,7 @@ function FavouritesTable({
                   data-testid={`favourite-row-${item.id}`}
                   className={cn(
                     "relative h-14 transition hover:bg-[color:var(--surface-subtle)]",
-                    selected &&
-                      "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]",
+                    selected && "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[var(--shadow-rail-active)]",
                   )}
                 >
                   <td className="px-3.5 align-middle">
@@ -905,7 +907,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
       <div className="mt-4 grid gap-5">
         {activeTab === "summary" ? (
           <section className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 p-3">
-            <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+            <p className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
               Next action
             </p>
             <p className="mt-2 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">{item.description}</p>
@@ -926,7 +928,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 
         {activeTab === "evidence" ? (
           <section>
-            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               Evidence
             </h3>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
@@ -948,7 +950,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 
         {activeTab === "notes" ? (
           <section>
-            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               Personal note
             </h3>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
@@ -960,7 +962,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
         ) : null}
 
         <section className="border-t border-[color:var(--border)] pt-4">
-          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             More
           </h3>
           <div className="grid gap-2">
@@ -1015,13 +1017,34 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
-  const command = useSearchCommand();
+  const auth = useAuthSession();
+  const favouritesAccessible = canAccessFavouritesMode({
+    authenticated: auth.status === "authenticated",
+    demoMode,
+  });
+  const authSettled = auth.status !== "loading";
+  const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
+  const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
-  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const {
+    items: savedRegistryFavourites,
+    status: favouritesHookStatus,
+    refetch: refetchFavouritesRegistry,
+  } = useSavedRegistryFavourites();
   const items = useMemo(
     () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
     [demoMode, savedRegistryFavourites],
   );
+  // Demo prototypes live outside the hook. If they are the only items while a
+  // registry/account read failed, keep their honest nonzero count but mark it
+  // partial so it cannot be mistaken for the complete saved library.
+  const favouritesRegistryStatus =
+    items.length > 0 &&
+    (favouritesHookStatus === "partial" || favouritesHookStatus === "error" || favouritesHookStatus === "unauthorized")
+      ? "partial"
+      : items.length > 0
+        ? "ready"
+        : favouritesHookStatus;
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -1043,15 +1066,9 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
       }),
     [items, query, selectedTypeId, selectedSet, viewMode, sortMode],
   );
-  const scopedItems = useMemo(() => {
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return filteredItems;
-    return filteredItems.filter((item) => favouriteMatchesCommandScopes(item, scopes));
-  }, [command?.commandScopes, filteredItems]);
-
   const continueItem = useMemo(() => getMostRecentlyUsedItem(items), [items]);
   const showContinueStrip =
-    continueItem !== null && scopedItems.some((item) => item.id === continueItem.id) && scopedItems.length > 0;
+    continueItem !== null && filteredItems.some((item) => item.id === continueItem.id) && filteredItems.length > 0;
 
   const selectedItem = selectedItemId ? (items.find((item) => item.id === selectedItemId) ?? null) : null;
 
@@ -1059,17 +1076,72 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     router.push("/favourites");
   }
 
+  if (!favouritesAccessible) {
+    return (
+      <main
+        data-testid="favourites-hub"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
+      >
+        <span data-testid="favourites-command-library" className="sr-only">
+          Favourites command library
+        </span>
+        <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
+          <header>
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Heart className="size-icon-lg" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                  Favourites command library
+                </h1>
+                <p className="mt-1 text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
+                  Sign up to save favourites and access them across devices.
+                </p>
+              </div>
+            </div>
+          </header>
+          <div
+            role="status"
+            className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-4 text-sm font-semibold text-[color:var(--text)]"
+          >
+            <p>
+              {authSettled
+                ? "Favourites are tied to your account. Sign in or create an account to continue."
+                : "Checking your account…"}
+            </p>
+            {authSettled ? (
+              <button
+                type="button"
+                data-testid="favourites-open-account-setup"
+                onClick={() => setAccountSetupDismissed(false)}
+                className="mt-3 inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                Sign up to save favourites
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <AccountSetupDialog
+          open={accountSetupOpen}
+          onClose={() => setAccountSetupDismissed(true)}
+          intent="favourites"
+        />
+      </main>
+    );
+  }
+
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
     >
       <span data-testid="favourites-command-library" className="sr-only">
         Favourites command library
       </span>
       <div
         className={cn(
-          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-4rem)]",
+          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]",
           navCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[17.5rem_minmax(0,1fr)]",
           selectedItem &&
             (navCollapsed
@@ -1107,14 +1179,52 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               </div>
             </header>
 
-            <div
+            {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
+              <p
+                role="status"
+                className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3 text-sm font-semibold text-[color:var(--text)]"
+              >
+                Sign in or create an account from Account settings to save favourites and access them across devices.
+              </p>
+            ) : null}
+
+            <DesktopComposerPortalSlot
               id={modeHomeDesktopComposerSlotId}
               className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
             />
 
-            <div className="hidden lg:block">
-              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
-            </div>
+            <SearchResultsHeaderBand
+              modeId="favourites"
+              query={query}
+              matchCount={filteredItems.length}
+              // Without this a failed registry read renders as "0 matches", which
+              // reads as "you have no saved favourites" rather than "we could not
+              // load them". `partial` keeps unaffected items (local
+              // differentials, etc.) visible without presenting their nonzero
+              // count as the complete library.
+              status={favouritesRegistryStatus}
+              onRetry={
+                favouritesRegistryStatus === "error" || favouritesRegistryStatus === "partial"
+                  ? refetchFavouritesRegistry
+                  : undefined
+              }
+              filterLabel="Active favourites filters"
+              filterControls={
+                selectedTypeId !== "all" || selectedSet || viewMode !== "all" ? (
+                  <ActiveFilterChips
+                    searchTerm={query}
+                    selectedTypeId={selectedTypeId}
+                    selectedSet={selectedSet}
+                    viewMode={viewMode}
+                    onClearSearch={clearSearch}
+                    onClearType={() => setSelectedTypeId("all")}
+                    onClearSet={() => setSelectedSetId(null)}
+                    onClearViewMode={() => setViewMode("all")}
+                    includeSearch={false}
+                  />
+                ) : null
+              }
+            />
 
             <FavouritesMobileQuickViews
               items={items}
@@ -1134,21 +1244,13 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               onSelectViewMode={setViewMode}
             />
 
-            <ActiveFilterChips
-              searchTerm={query}
-              selectedTypeId={selectedTypeId}
-              selectedSet={selectedSet}
-              viewMode={viewMode}
-              onClearSearch={clearSearch}
-              onClearType={() => setSelectedTypeId("all")}
-              onClearSet={() => setSelectedSetId(null)}
-              onClearViewMode={() => setViewMode("all")}
-            />
-
             {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
 
-            {query.trim() && scopedItems.length === 0 ? (
-              <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
+            {/* Only a successful read can say "no matches". While loading or
+                faulted an empty list means we could not look, not that the
+                library is empty; the band's fault panel reports that. */}
+            {query.trim() && filteredItems.length === 0 && favouritesRegistryStatus === "ready" ? (
+              <SearchResultsEmptyState modeId="favourites" query={query} />
             ) : (
               <FavouritesTable
                 items={items}
@@ -1158,7 +1260,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 viewMode={viewMode}
                 sortMode={sortMode}
                 selectedItemId={selectedItemId}
-                commandScopes={command?.commandScopes}
                 onSortModeChange={setSortMode}
                 onSelectItem={setSelectedItemId}
               />

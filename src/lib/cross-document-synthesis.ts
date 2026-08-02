@@ -1,5 +1,5 @@
 import type { RagQueryClass, SearchResult } from "@/lib/types";
-import { compactEvidenceText, neutralizeIdentityField } from "@/lib/rag-source-block";
+import { compactEvidenceText, neutralizeIdentityField } from "@/lib/rag/rag-source-block";
 import { fenceSourceEvidence } from "@/lib/source-text-sanitizer";
 
 export type CrossDocumentSynthesisPlan = {

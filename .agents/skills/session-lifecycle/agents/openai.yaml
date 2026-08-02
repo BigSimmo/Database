@@ -1,4 +1,6 @@
 interface:
-  display_name: "Session Lifecycle"
-  short_description: "Manage safe task start through cleanup"
-  default_prompt: "Use $session-lifecycle to inspect and advance this Database task through start, verification, handoff, merge proof, or safe cleanup."
+  display_name: "Task Alias"
+  short_description: "Compatibility alias for Database task lifecycle"
+  default_prompt: "Use $session-lifecycle only as a compatibility alias for $task."
+policy:
+  allow_implicit_invocation: false

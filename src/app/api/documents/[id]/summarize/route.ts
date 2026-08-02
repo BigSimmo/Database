@@ -4,12 +4,13 @@ import { z } from "zod";
 import { demoSummary, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
-import { summarizeDocument } from "@/lib/rag";
+import { summarizeDocument } from "@/lib/rag/rag";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 import { jsonError } from "@/lib/http";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
+import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRouteParams } from "@/lib/validation/params";
@@ -35,11 +36,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "document_summarize" });
     if (rateLimit.limited)
       return rateLimitJsonResponse("Too many document summary requests. Retry shortly.", rateLimit);
-    const answer = await summarizeDocument(id, user.id);
+    // Group this request's LLM calls into one Sentry agent-monitoring conversation
+    // before any OpenAI work starts. Synthetic UUID only — never document/query text.
+    const interactionId = randomUUID();
+    setAgentConversationId(interactionId);
+    const answer = await summarizeDocument(id, user.id, { signal: request.signal });
     const governedResponse = buildGovernedAnswerClientResponse(answer);
     logAnswerDiagnostics({
       supabase,
@@ -47,7 +52,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       ownerId: user.id,
       answer: governedResponse.telemetryAnswer,
     });
-    const interactionId = randomUUID();
     return NextResponse.json({
       ...governedResponse.payload,
       ...answerFeedbackMetadata(interactionId, governedResponse.payload.answer),

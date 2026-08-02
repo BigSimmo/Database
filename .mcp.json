@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "railway": {
+      "type": "http",
+      "url": "https://mcp.railway.com"
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+    }
+  }
+}

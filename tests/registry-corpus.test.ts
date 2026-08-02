@@ -395,12 +395,12 @@ describe("registry corpus", () => {
 
     expect(
       registryCorpusDetailHref({
-        kind: metadata.registry_record_kind,
-        slug: metadata.registry_record_slug,
-        subkind: metadata.registry_record_subkind,
-        recordId: metadata.registry_record_id,
+        kind: metadata.registry_record_kind as string | undefined,
+        slug: metadata.registry_record_slug as string | undefined,
+        subkind: metadata.registry_record_subkind as string | undefined,
+        recordId: metadata.registry_record_id as string | undefined,
       }),
     ).toBe("/forms/adult-adhd-screen");
-    expect(registryCorpusDetailHref({ kind: "service", slug: 42 })).toBeNull();
+    expect(registryCorpusDetailHref({ kind: "service", slug: 42 as unknown as string })).toBeNull();
   });
 });

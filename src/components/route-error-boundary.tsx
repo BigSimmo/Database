@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { TriangleAlert, RefreshCw } from "lucide-react";
+import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
+import { useCopyDiagnostics } from "@/lib/use-copy-diagnostics";
 
 export type RouteErrorBoundaryProps = {
   /** The error thrown by the segment, forwarded by Next.js. */
@@ -39,6 +40,8 @@ export function RouteErrorBoundary({
   minHeightClass = "min-h-[50vh]",
 }: RouteErrorBoundaryProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { copied, copyFailed, copyDiagnostics } = useCopyDiagnostics(error);
+
   useEffect(() => {
     console.error(logLabel, error);
     headingRef.current?.focus({ preventScroll: true });
@@ -59,7 +62,7 @@ export function RouteErrorBoundary({
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring,Highlight)]"
+          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           {title}
         </h1>
@@ -93,6 +96,19 @@ export function RouteErrorBoundary({
               Reload page
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={copyDiagnostics}
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            {copied ? (
+              <Check aria-hidden="true" className="h-4 w-4 text-green-600" />
+            ) : (
+              <ClipboardCopy aria-hidden="true" className="h-4 w-4" />
+            )}
+            {copied ? "Copied Diagnostics" : copyFailed ? "Copy failed — try again" : "Copy Diagnostics"}
+          </button>
         </div>
       </div>
     </div>

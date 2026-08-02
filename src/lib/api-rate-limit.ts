@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isLocalNoAuthMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
 import type { RateLimitSubject } from "@/lib/public-api-access";
+import { SENTRY_LOG_MESSAGES, sentryLog } from "@/lib/observability/sentry-logging";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 /** Prefer durable RPC rate limits; fall back to per-instance memory when the DB function is unavailable. */
@@ -13,15 +14,24 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
 // when the durable limiter is unavailable. A per-process Map gives N× the intended limit across N
 // horizontally-scaled instances during a limiter outage — unacceptable for expensive/abusable
 // paths: `answer` (paid provider generation) and `document_upload` (storage writes + ingestion
-// cost). Local-no-auth dev keeps the in-memory fallback for single-instance usability.
+// cost).
 function failsClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
   return bucket === "answer" || bucket === "document_upload";
+}
+
+/** Production multi-instance deploys fail closed for expensive buckets. Single-instance
+ *  local/dev (including secret-backed cloud agents) keeps the in-memory fallback so Answer
+ *  remains usable when the durable rate-limit RPC is misconfigured or unavailable. */
+function mustFailClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
+  if (!failsClosedOnLimiterUnavailable(bucket)) return false;
+  if (isLocalNoAuthMode() || process.env.NODE_ENV !== "production") return false;
+  return true;
 }
 
 function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemoryFallbackOnUnavailable?: boolean) {
   // Fail-closed buckets must not fall back to a per-instance limiter in a distributed production
   // runtime. If the durable limiter is unavailable, fail closed before any expensive work starts.
-  if (failsClosedOnLimiterUnavailable(bucket) && !isLocalNoAuthMode()) return false;
+  if (mustFailClosedOnLimiterUnavailable(bucket)) return false;
   if (allowInMemoryFallbackOnUnavailable) return true;
 
   // Anonymous public read/search paths must stay reachable if the durable limiter
@@ -100,13 +110,88 @@ type InMemoryRateLimitWindow = {
   resetAtMs: number;
 };
 
+/**
+ * Short-lived negative cache for subjects already limited by durable storage.
+ * Never caches allow decisions — that would under-count across instances.
+ * Only skips RPC RTT while a recent durable consume already returned limited=true.
+ */
+type DurableRateLimitDenyCacheEntry = {
+  limit: number;
+  remaining: number;
+  retryAfterSeconds: number;
+  resetAtMs: number;
+};
+
 type GlobalWithRateLimitFallback = typeof globalThis & {
   __clinicalKbInMemoryApiRateLimits?: Map<string, InMemoryRateLimitWindow>;
+  __clinicalKbDurableApiRateLimitDenyCache?: Map<string, DurableRateLimitDenyCacheEntry>;
 };
 
 const inMemoryApiRateLimits = ((globalThis as GlobalWithRateLimitFallback).__clinicalKbInMemoryApiRateLimits ??=
   new Map<string, InMemoryRateLimitWindow>());
 
+const durableApiRateLimitDenyCache = ((
+  globalThis as GlobalWithRateLimitFallback
+).__clinicalKbDurableApiRateLimitDenyCache ??= new Map<string, DurableRateLimitDenyCacheEntry>());
+
+function durableDenyCacheKey(identity: string, bucket: ApiRateLimitBucket) {
+  return `${identity}:${bucket}`;
+}
+
+function durableDenyCacheEnabled() {
+  // Vitest workers share process-global Maps across unrelated route suites; keep the
+  // cache off unless a focused unit test explicitly opts in.
+  if (process.env.VITEST === "true" && process.env.ALLOW_DURABLE_RATE_LIMIT_DENY_CACHE_IN_TESTS !== "1") {
+    return false;
+  }
+  return true;
+}
+
+function tryReadDurableRateLimitDenyCache(identity: string, bucket: ApiRateLimitBucket): ApiRateLimitResult | null {
+  if (!durableDenyCacheEnabled()) return null;
+  const key = durableDenyCacheKey(identity, bucket);
+  const entry = durableApiRateLimitDenyCache.get(key);
+  if (!entry) return null;
+  const now = Date.now();
+  if (now >= entry.resetAtMs) {
+    durableApiRateLimitDenyCache.delete(key);
+    return null;
+  }
+  return {
+    limited: true,
+    limit: entry.limit,
+    remaining: entry.remaining,
+    retryAfterSeconds: Math.max(1, Math.ceil((entry.resetAtMs - now) / 1000)),
+    resetAt: new Date(entry.resetAtMs).toISOString(),
+  };
+}
+
+function rememberDurableRateLimitDenyCache(identity: string, bucket: ApiRateLimitBucket, result: ApiRateLimitResult) {
+  if (!durableDenyCacheEnabled()) return;
+  const key = durableDenyCacheKey(identity, bucket);
+  if (!result.limited) {
+    durableApiRateLimitDenyCache.delete(key);
+    return;
+  }
+  const resetAtMs = Date.parse(result.resetAt);
+  if (!Number.isFinite(resetAtMs) || resetAtMs <= Date.now()) return;
+  durableApiRateLimitDenyCache.set(key, {
+    limit: result.limit,
+    remaining: result.remaining,
+    retryAfterSeconds: result.retryAfterSeconds,
+    resetAtMs,
+  });
+}
+
+/** Test helper: clear durable deny-cache entries between cases. */
+export function resetDurableRateLimitDenyCacheForTests() {
+  durableApiRateLimitDenyCache.clear();
+}
+
+/** @deprecated Use resetDurableRateLimitDenyCacheForTests — name kept for older test imports. */
+export function resetDurableRateLimitLeasesForTests() {
+  resetDurableRateLimitDenyCacheForTests();
+}
 export class ApiRateLimitUnavailableError extends PublicApiError {
   constructor() {
     super("Rate limit check is temporarily unavailable.", 503, { code: "rate_limit_unavailable" });
@@ -130,6 +215,9 @@ export async function consumeApiRateLimit(args: {
   const defaults = apiRateLimitDefaults[args.bucket];
   const limit = args.limit ?? defaults.limit;
   const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
+  const denied = tryReadDurableRateLimitDenyCache(args.ownerId, args.bucket);
+  if (denied) return denied;
+
   const { data, error } = await args.supabase.rpc("consume_api_rate_limit", {
     p_owner_id: args.ownerId,
     p_bucket: args.bucket,
@@ -139,10 +227,12 @@ export async function consumeApiRateLimit(args: {
 
   if (error) {
     if (args.allowInMemoryFallbackOnUnavailable) {
-      console.warn("Durable API rate limit check unavailable; using local in-memory fallback.", {
+      // Wide-event log: static message + operational attributes only (no owner id / PII).
+      sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
         bucket: args.bucket,
         code: error.code,
-        message: error.message,
+        backend: "in_memory",
+        fallback: true,
       });
       return consumeInMemoryApiRateLimit({ ownerId: args.ownerId, bucket: args.bucket, limit, windowSeconds });
     }
@@ -151,21 +241,25 @@ export async function consumeApiRateLimit(args: {
   const row = parseRateLimitRow(data);
   if (!row || typeof row.limited !== "boolean") {
     if (args.allowInMemoryFallbackOnUnavailable) {
-      console.warn("Durable API rate limit check returned an invalid payload; using local in-memory fallback.", {
+      sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_INVALID_PAYLOAD, {
         bucket: args.bucket,
+        backend: "in_memory",
+        fallback: true,
       });
       return consumeInMemoryApiRateLimit({ ownerId: args.ownerId, bucket: args.bucket, limit, windowSeconds });
     }
     throw new ApiRateLimitUnavailableError();
   }
 
-  return {
+  const result: ApiRateLimitResult = {
     limited: row.limited,
     limit: Number(row.limit_value ?? limit),
     remaining: Number(row.remaining ?? 0),
     retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? windowSeconds)),
     resetAt: String(row.reset_at ?? new Date(Date.now() + windowSeconds * 1000).toISOString()),
   };
+  rememberDurableRateLimitDenyCache(args.ownerId, args.bucket, result);
+  return result;
 }
 
 /**
@@ -191,10 +285,9 @@ export async function consumeSubjectApiRateLimit(args: {
   windowSeconds?: number;
   allowInMemoryFallbackOnUnavailable?: boolean;
 }): Promise<ApiRateLimitResult> {
-  const allowInMemoryFallbackOnUnavailable =
-    failsClosedOnLimiterUnavailable(args.bucket) && !isLocalNoAuthMode()
-      ? false
-      : args.allowInMemoryFallbackOnUnavailable;
+  const allowInMemoryFallbackOnUnavailable = mustFailClosedOnLimiterUnavailable(args.bucket)
+    ? false
+    : args.allowInMemoryFallbackOnUnavailable;
 
   if (args.subject.kind === "owner") {
     return consumeApiRateLimit({
@@ -211,6 +304,9 @@ export async function consumeSubjectApiRateLimit(args: {
   const limit = args.limit ?? defaults.limit;
   const windowSeconds = args.windowSeconds ?? defaults.windowSeconds;
   const consumeAnonymousLimit = async (subjectKey: string, requestedLimit: number, requestedWindowSeconds: number) => {
+    const denied = tryReadDurableRateLimitDenyCache(subjectKey, args.bucket);
+    if (denied) return denied;
+
     const { data, error } = await args.supabase.rpc("consume_api_subject_rate_limit", {
       p_subject_key: subjectKey,
       p_bucket: args.bucket,
@@ -220,10 +316,12 @@ export async function consumeSubjectApiRateLimit(args: {
 
     if (error) {
       if (allowAnonymousRateLimitFallback(args.bucket, allowInMemoryFallbackOnUnavailable)) {
-        console.warn("Durable anonymous API rate limit check unavailable; using local in-memory fallback.", {
+        sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_FALLBACK, {
           bucket: args.bucket,
           code: error.code,
-          message: error.message,
+          backend: "in_memory",
+          fallback: true,
+          event: "anonymous",
         });
         return consumeInMemoryApiRateLimit({
           ownerId: subjectKey,
@@ -238,6 +336,12 @@ export async function consumeSubjectApiRateLimit(args: {
     const row = parseRateLimitRow(data);
     if (!row || typeof row.limited !== "boolean") {
       if (allowAnonymousRateLimitFallback(args.bucket, allowInMemoryFallbackOnUnavailable)) {
+        sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMIT_INVALID_PAYLOAD, {
+          bucket: args.bucket,
+          backend: "in_memory",
+          fallback: true,
+          event: "anonymous",
+        });
         return consumeInMemoryApiRateLimit({
           ownerId: subjectKey,
           bucket: args.bucket,
@@ -248,13 +352,15 @@ export async function consumeSubjectApiRateLimit(args: {
       throw new ApiRateLimitUnavailableError();
     }
 
-    return {
+    const result = {
       limited: row.limited,
       limit: Number(row.limit_value ?? requestedLimit),
       remaining: Number(row.remaining ?? 0),
       retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? requestedWindowSeconds)),
       resetAt: String(row.reset_at ?? new Date(Date.now() + requestedWindowSeconds * 1000).toISOString()),
     } satisfies ApiRateLimitResult;
+    rememberDurableRateLimitDenyCache(subjectKey, args.bucket, result);
+    return result;
   };
 
   if (args.bucket !== "answer" && args.bucket !== "document_upload") {
@@ -349,10 +455,17 @@ function consumeInMemoryApiRateLimit({
   const windowMs = windowSeconds * 1000;
   const key = `${ownerId}:${bucket}`;
 
-  // Evict expired entries to prevent memory leak
-  for (const [k, v] of inMemoryApiRateLimits.entries()) {
-    if (now >= v.resetAtMs) {
-      inMemoryApiRateLimits.delete(k);
+  // Lazy per-key eviction: the most common path touches only the accessed entry.
+  // A full-map sweep runs only when the map exceeds a size ceiling so stale entries
+  // don't accumulate indefinitely, without scanning on every request.
+  const EVICTION_SIZE_CEILING = 2000;
+  const stale = inMemoryApiRateLimits.get(key);
+  if (stale && now >= stale.resetAtMs) {
+    inMemoryApiRateLimits.delete(key);
+  }
+  if (inMemoryApiRateLimits.size > EVICTION_SIZE_CEILING) {
+    for (const [k, v] of inMemoryApiRateLimits.entries()) {
+      if (now >= v.resetAtMs) inMemoryApiRateLimits.delete(k);
     }
   }
 
@@ -372,7 +485,20 @@ function consumeInMemoryApiRateLimit({
   };
 }
 
-export function rateLimitJsonResponse(message: string, rateLimit: ApiRateLimitResult) {
+export function rateLimitJsonResponse(
+  message: string,
+  rateLimit: ApiRateLimitResult,
+  meta?: { bucket?: ApiRateLimitBucket },
+) {
+  // Example wide event: denial counts by bucket without subject identifiers.
+  sentryLog.warn(SENTRY_LOG_MESSAGES.API_RATE_LIMITED, {
+    code: "rate_limited",
+    status: 429,
+    bucket: meta?.bucket,
+    retry_after_seconds: rateLimit.retryAfterSeconds,
+    limit: rateLimit.limit,
+    remaining: rateLimit.remaining,
+  });
   return NextResponse.json(
     {
       error: message,

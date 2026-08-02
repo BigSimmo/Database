@@ -1,21 +1,34 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   BookOpen,
   Clock3,
+  Copy,
   ExternalLink,
   FileImage,
   FileText,
-  Filter,
-  FolderOpen,
+  Funnel,
+  Link2,
   ListChecks,
   Loader2,
+  MessageSquareText,
+  MoreHorizontal,
   Pill,
   Route,
   Shield,
   ShieldAlert,
-  ShieldCheck,
   Sparkles,
   Tag,
   Target,
@@ -27,18 +40,18 @@ import {
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
-import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { ResultSortControl, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
+import { Sheet } from "@/components/ui/sheet";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
-import { SafeBoldText } from "@/components/SafeBoldText";
 import {
   DocumentActionButton,
   DocumentActionLink,
   DocumentBadge,
-  DocumentFileTile,
-  documentFileKind,
-  documentTileTone,
+  documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
 import {
   cn,
@@ -49,23 +62,30 @@ import {
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
+import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
+  projectSmartTagFacetGroups,
   smartDocumentFacetGroups,
   type SmartDocumentTag,
   type SmartDocumentTagFacet,
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
+import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
-import type { ClinicalDocument, DocumentMatch, SearchResult } from "@/lib/types";
+import type { ClinicalDocument, DocumentMatch, SearchResult, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
-import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
+import { sortResultItems } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
+
+/** Initial DOM budget for document result cards; further rows reveal on demand. */
+const DOCUMENT_RESULTS_INITIAL_WINDOW = 25;
+const DOCUMENT_RESULTS_PAGE_SIZE = 25;
 export type SearchFacets = {
   status?: SearchFacet[];
   validation?: SearchFacet[];
@@ -87,6 +107,8 @@ export type SearchFacets = {
 
 type SearchRecordMode = "services" | "forms";
 type SearchRecordMatch = ServiceSearchMatch | FormSearchMatch;
+
+const EMPTY_SOURCE_GOVERNANCE_WARNINGS: SourceGovernanceWarning[] = [];
 
 const searchRecordConfig: Record<
   SearchRecordMode,
@@ -134,34 +156,141 @@ const documentFacetIcons: Record<SmartDocumentTagGroup, LucideIcon> = {
   Manual: Sparkles,
 };
 
-function DocumentTagFacetRail({
+const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
+  all: BookOpen,
+  tables: ListChecks,
+  images: FileImage,
+  pdfs: FileText,
+};
+
+/**
+ * The single filtering surface for document results.
+ *
+ * It replaces two separate ones. Source type (All/Tables/Images/PDFs) used to be
+ * a chip row inside the ribbon on desktop and a native `<select>` on phones,
+ * while the smart-tag facets were a rail below it — and that rail was mounted
+ * only when a facet was already selected, which nothing could do, so the facets
+ * were unreachable in production. Both now live here, behind one trigger, so
+ * "what is narrowing this list" has one answer and one place to undo it.
+ *
+ * Source type is single-select and the tag facets are multi-select (OR within a
+ * group, AND across groups, per `filterDocumentsBySmartTagFacetIndex`), so the
+ * two carry different affordances deliberately: `aria-pressed` toggles for the
+ * facets, `role="radiogroup"` for the mutually exclusive source type.
+ */
+function DocumentFilterPanel({
+  open,
+  panelId,
   groups,
   activeKeys,
+  resultTabs,
+  activeResultType,
+  onResultTypeChange,
   onToggle,
   onClear,
+  resultCount,
+  onDone,
 }: {
+  open: boolean;
+  panelId: string;
   groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
   activeKeys: string[];
+  resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
+  activeResultType: ResultTypeFilter;
+  onResultTypeChange: (value: ResultTypeFilter) => void;
   onToggle: (facet: SmartDocumentTagFacet) => void;
   onClear: () => void;
+  resultCount: number;
+  onDone: () => void;
 }) {
-  if (groups.length === 0) return null;
   const active = new Set(activeKeys);
+  const showSourceType = resultTabs.length > 1;
+  if (groups.length === 0 && !showSourceType) return null;
 
   return (
-    <aside
-      aria-label="Document tag filters"
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
-        {activeKeys.length > 0 ? (
-          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
+    <Sheet
+      open={open}
+      onClose={onDone}
+      title="Filter documents"
+      portal
+      id={panelId}
+      testId="document-filter-panel"
+      headerActions={
+        activeKeys.length > 0 || activeResultType !== "all" ? (
+          <button
+            type="button"
+            onClick={onClear}
+            data-testid="document-filter-clear"
+            className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}
+          >
             <X aria-hidden="true" className="h-3.5 w-3.5" />
-            Clear
+            Clear all
           </button>
-        ) : null}
-      </div>
+        ) : null
+      }
+      footer={
+        // The count is the point of the panel: it tells the reader whether the
+        // combination they have built still returns anything before they dismiss
+        // it. `aria-live` is deliberate — the number changes under them as they
+        // toggle, and the sheet covers the results it describes.
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <span aria-live="polite" className={cn("nums mr-auto text-2xs font-semibold", textMuted)}>
+            {resultCount} document{resultCount === 1 ? "" : "s"}
+          </span>
+          <button
+            type="button"
+            onClick={onDone}
+            data-testid="document-filter-done"
+            className={cn(
+              "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            )}
+          >
+            Show {resultCount} document{resultCount === 1 ? "" : "s"}
+          </button>
+        </div>
+      }
+    >
+      {showSourceType ? (
+        <section className="min-w-0">
+          <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+            <BookOpen aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+            Source type
+          </h3>
+          {/* Radio semantics, not toggles: picking one source type replaces the
+              last, so `aria-pressed` on four buttons would describe a state the
+              filter cannot be in. */}
+          <div role="radiogroup" aria-label="Source type" className="mt-2 flex flex-wrap gap-1.5">
+            {resultTabs.map((tab) => {
+              const selected = tab.key === activeResultType;
+              const Icon = resultTypeIcons[tab.key];
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => onResultTypeChange(tab.key)}
+                  className={cn(
+                    "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    selected
+                      ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{tab.label}</span>
+                  <span className="nums rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {smartDocumentFacetGroups
           .map((group) => groups.find((item) => item.group === group))
@@ -170,28 +299,57 @@ function DocumentTagFacetRail({
             const Icon = documentFacetIcons[group];
             return (
               <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
                   {group}
                 </h3>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {facets.map((facet) => {
                     const selected = active.has(facet.key);
+                    // Zero-count unselected facets stay visible so the list does not
+                    // jump, but they are disabled: selecting them would empty the set.
+                    const deadEnd = !selected && facet.count === 0;
+                    // Facet keys can contain spaces (e.g. "Medication:Mood stabilizer");
+                    // HTML ids must not, or aria-describedby cannot resolve them.
+                    const deadEndDescId = `facet-dead-end-${facet.key.replace(/[^A-Za-z0-9_-]/g, "-")}`;
                     return (
                       <button
                         key={facet.key}
                         type="button"
-                        onClick={() => onToggle(facet)}
+                        // `aria-disabled` rather than `disabled`: a real disabled
+                        // button leaves the tab order, so a keyboard or screen-reader
+                        // user loses the row entirely and never learns why it went
+                        // quiet — and a `title` on a disabled control is not reliably
+                        // announced. Kept focusable and explained, with the click
+                        // guarded instead. Matches the disabled-affordance pattern in
+                        // docs/wiring-conventions.md.
+                        onClick={() => {
+                          if (deadEnd) return;
+                          onToggle(facet);
+                        }}
                         aria-pressed={selected}
-                        title={`Filter to ${facet.label}`}
+                        aria-disabled={deadEnd || undefined}
+                        aria-describedby={deadEnd ? deadEndDescId : undefined}
+                        title={
+                          deadEnd
+                            ? `${facet.label} — no documents with the current filters`
+                            : `Filter to ${facet.label}`
+                        }
                         className={cn(
                           "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
                           selected
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                          deadEnd &&
+                            "cursor-default opacity-50 hover:border-[color:var(--border-lux)] hover:text-[color:var(--text-muted)]",
                         )}
                       >
                         <span className="truncate">{facet.label}</span>
+                        {deadEnd ? (
+                          <span id={deadEndDescId} className="sr-only">
+                            No documents match this with the current filters.
+                          </span>
+                        ) : null}
                         <span className="rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
                           {facet.count}
                         </span>
@@ -203,23 +361,72 @@ function DocumentTagFacetRail({
             );
           })}
       </div>
-    </aside>
+    </Sheet>
   );
 }
 
-function documentKindLabel(document: DocumentMatch) {
-  const fileName = document.file_name.toLowerCase();
-  if (document.imageCount > 0 && document.tableCount > 0) return "Guideline";
-  if (document.tableCount > 0) return "Table source";
-  if (fileName.endsWith(".pdf")) return "PDF";
-  return "Document";
+/**
+ * Opens the filter panel and reports how many filters are active.
+ *
+ * Rendered into both of the ribbon's page-control slots — `filterControls` (the
+ * full-width row, `sm` and up) and `mobileControls` (the utility row, below
+ * `sm`) — because the ribbon hides one or the other by breakpoint and only ever
+ * shows one at a time.
+ */
+function DocumentFilterTrigger({
+  panelId,
+  testId,
+  open,
+  activeCount,
+  onToggle,
+}: {
+  panelId: string;
+  /** Distinct per slot: both copies are in the DOM, so a shared id would make
+      every `getByTestId` lookup ambiguous under Playwright strict mode even
+      though only one is ever displayed. */
+  testId: string;
+  open: boolean;
+  activeCount: number;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-haspopup="dialog"
+      aria-controls={open ? panelId : undefined}
+      data-testid={testId}
+      title="Filter documents"
+      className={cn(
+        floatingControl,
+        "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
+        activeCount > 0 &&
+          "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+      )}
+    >
+      <Funnel aria-hidden="true" className="size-icon-md shrink-0" />
+      <span>Filter</span>
+      {activeCount > 0 ? (
+        <span className="nums rounded bg-[color:var(--clinical-accent)] px-1 text-2xs font-bold text-[color:var(--surface)]">
+          {activeCount}
+        </span>
+      ) : null}
+      <span className="sr-only">
+        {activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "No filters active"}
+      </span>
+    </button>
+  );
 }
 
 function documentPageLabel(document: DocumentMatch) {
   const pages = document.bestPages.filter((page) => Number.isFinite(page));
-  if (pages.length === 0) return "Page n/a";
-  if (pages.length === 1) return `p.${pages[0]}`;
-  return `p.${pages[0]} +${pages.length - 1}`;
+  if (pages.length === 0) return "Page unavailable";
+  if (pages.length === 1) return `Page ${pages[0]}`;
+
+  const consecutive = pages.every((page, index) => index === 0 || page === pages[index - 1]! + 1);
+  if (consecutive) return `Pages ${pages[0]}–${pages.at(-1)}`;
+  return `Page ${pages[0]} +${pages.length - 1}`;
 }
 
 function resultTypeTabs(matches: DocumentMatch[]) {
@@ -244,25 +451,6 @@ function filterMatchesByResultType(matches: DocumentMatch[], filter: ResultTypeF
   return matches;
 }
 
-function compactMatchReason(document: DocumentMatch) {
-  const relevance = document.relevance;
-  if (relevance?.verdict === "direct") {
-    if (document.tableCount > 0) return `Table match - ${documentPageLabel(document)}`;
-    if (document.imageCount > 0) return `Image match - ${documentPageLabel(document)}`;
-    return `Source match - ${documentPageLabel(document)}`;
-  }
-  if (relevance?.verdict === "partial") return `Related source - ${documentPageLabel(document)}`;
-  if (document.matchReason) return document.matchReason;
-  return `${documentKindLabel(document)} - ${documentPageLabel(document)}`;
-}
-
-function cleanDocumentCardSummary(value: string) {
-  if (/source-backed review/i.test(value)) {
-    return "Indexed source text is available for this document.";
-  }
-  return value;
-}
-
 function relevanceTone(document: DocumentMatch) {
   const verdict = document.relevance?.verdict as string | undefined;
   const percent = documentRelevancePercent(document);
@@ -275,27 +463,280 @@ function relevanceTone(document: DocumentMatch) {
   return { label: "Related", short: "Related", detail: `${percent}% nearby` };
 }
 
-function sourceSupportLabel(document: DocumentMatch) {
-  const verdict = document.relevance?.verdict as string | undefined;
-  if (verdict === "direct") return "Direct source support";
-  if (verdict === "partial") return "Partial source support";
-  if (verdict === "nearby") return "Nearby source support";
-  return "Source match";
-}
-
-function contextualOpenLabel(document: DocumentMatch) {
-  if (document.tableCount > 0) return "Open table";
-  if (document.imageCount > 0) return "Open image";
-  if (document.file_name.toLowerCase().endsWith(".pdf")) return "Open PDF";
-  return "Open source";
-}
-
 function documentOpenHref(document: DocumentMatch) {
   const params = new URLSearchParams();
   params.set("page", String(document.bestPages[0] ?? 1));
   const chunkId = document.bestChunkIds[0];
   if (chunkId) params.set("chunk", chunkId);
   return `/documents/${document.document_id}?${params.toString()}`;
+}
+
+const resultMenuItemClass =
+  "flex min-h-12 w-full items-center gap-2.5 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]";
+
+function DocumentPagePreview({ document, href }: { document: DocumentMatch; href: string }) {
+  const pageNumber = document.bestPages[0] ?? 1;
+  const lineWidths = [74, 88, 63, 79, 56];
+
+  return (
+    <Link
+      href={href}
+      aria-label={`Preview page ${pageNumber} of ${document.title}`}
+      data-testid="document-page-preview"
+      className="group relative flex h-28 w-20 shrink-0 flex-col overflow-hidden rounded-lg border border-t-[3px] border-[color:var(--border-lux)] border-t-[color:var(--clinical-accent)] bg-[color:var(--surface)] p-2 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transform-none motion-reduce:transition-none sm:h-32 sm:w-24 sm:p-2.5"
+    >
+      <span className="flex items-center justify-between text-[color:var(--clinical-accent)]" aria-hidden="true">
+        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="h-1.5 w-5 rounded-full bg-[color:var(--clinical-accent-soft)]" />
+      </span>
+      <span className="mt-3 space-y-1.5" aria-hidden="true">
+        {lineWidths.map((width, index) => (
+          <span
+            key={`${document.document_id}-preview-line-${index}`}
+            className={cn(
+              "block h-1 rounded-full bg-[color:var(--border-strong)]",
+              index < 2 && "bg-[color:var(--clinical-accent)]",
+            )}
+            style={{ width: `${width}%` }}
+          />
+        ))}
+      </span>
+      <span className="mt-auto grid grid-cols-3 gap-1 opacity-80 transition group-hover:opacity-100" aria-hidden="true">
+        <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
+        <span className="h-3 rounded-sm bg-[color:var(--surface-subtle)]" />
+        <span className="h-3 rounded-sm bg-[color:var(--clinical-accent-soft)]" />
+      </span>
+      <span className="absolute bottom-1.5 right-1.5 rounded bg-[color:var(--surface-raised)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+        {pageNumber}
+      </span>
+    </Link>
+  );
+}
+
+type ResultCopyStatus = "idle" | "citation-copied" | "citation-failed" | "link-copied" | "link-failed";
+
+function DocumentResultMoreMenu({
+  document,
+  openHref,
+  onScopeDocument,
+}: {
+  document: DocumentMatch;
+  openHref: string;
+  onScopeDocument: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<ResultCopyStatus>("idle");
+  const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const triggerId = useId();
+  const menuId = useId();
+
+  const updateMenuPosition = useCallback(() => {
+    const trigger = buttonRef.current;
+    if (!trigger) return;
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportPadding = 16;
+    const gap = 8;
+    const menuWidth = Math.min(272, window.innerWidth - viewportPadding * 2);
+    const menuHeight = menuRef.current?.getBoundingClientRect().height ?? (document.imageCount > 0 ? 204 : 156);
+    const left = Math.min(
+      Math.max(viewportPadding, triggerRect.right - menuWidth),
+      window.innerWidth - viewportPadding - menuWidth,
+    );
+    const top =
+      triggerRect.top - gap - menuHeight >= viewportPadding
+        ? triggerRect.top - gap - menuHeight
+        : Math.min(triggerRect.bottom + gap, window.innerHeight - viewportPadding - menuHeight);
+    setMenuPosition({ left, top: Math.max(viewportPadding, top) });
+  }, [document.imageCount]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function closeOutside(event: PointerEvent) {
+      if (menuRef.current?.contains(event.target as Node) || buttonRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      buttonRef.current?.focus({ preventScroll: true });
+    }
+
+    window.document.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    updateMenuPosition();
+    return () => {
+      window.document.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, updateMenuPosition]);
+
+  function focusMenuItem(position: "first" | "last" = "first") {
+    window.requestAnimationFrame(() => {
+      updateMenuPosition();
+      const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+      const target = position === "first" ? items[0] : items.at(-1);
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  function openMenu(position: "first" | "last" = "first") {
+    updateMenuPosition();
+    setOpen(true);
+    setCopyStatus("idle");
+    focusMenuItem(position);
+  }
+
+  function handleMenuKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const currentIndex = items.findIndex((item) => item === window.document.activeElement);
+
+    if (event.key === "Tab") {
+      setOpen(false);
+      return;
+    }
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
+    if (event.key === "ArrowUp")
+      nextIndex = currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = items.length - 1;
+
+    if (nextIndex !== null && items[nextIndex]) {
+      event.preventDefault();
+      items[nextIndex].focus({ preventScroll: true });
+    }
+  }
+
+  async function copyValue(value: string, action: "citation" | "link") {
+    const restoreFocusTarget =
+      window.document.activeElement instanceof HTMLElement && menuRef.current?.contains(window.document.activeElement)
+        ? window.document.activeElement
+        : null;
+    try {
+      await copyTextToClipboard(value);
+      setCopyStatus(action === "citation" ? "citation-copied" : "link-copied");
+    } catch {
+      setCopyStatus(action === "citation" ? "citation-failed" : "link-failed");
+    } finally {
+      window.requestAnimationFrame(() => {
+        if (restoreFocusTarget?.isConnected && menuRef.current?.contains(restoreFocusTarget)) {
+          restoreFocusTarget.focus({ preventScroll: true });
+        }
+      });
+    }
+  }
+
+  const citation = `${documentDisplayTitle(document)}. ${documentPageLabel(document)}.`;
+
+  return (
+    <div className="relative min-w-0">
+      <button
+        ref={buttonRef}
+        id={triggerId}
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls={open ? menuId : undefined}
+        aria-label={`More actions for ${document.title}`}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          openMenu(event.key === "ArrowUp" ? "last" : "first");
+        }}
+        className={cn(
+          documentActionClass,
+          "min-h-12 w-full min-w-0 rounded-br-xl px-2 !text-sm font-bold text-[color:var(--text-heading)]",
+        )}
+      >
+        <MoreHorizontal className="h-5 w-5" aria-hidden="true" />
+        More
+      </button>
+      {open && menuPosition
+        ? createPortal(
+            <div
+              ref={menuRef}
+              id={menuId}
+              data-testid="document-result-more-menu"
+              role="menu"
+              aria-labelledby={triggerId}
+              onKeyDown={handleMenuKeyDown}
+              style={menuPosition}
+              className="fixed z-80 w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] py-1.5 shadow-[var(--shadow-lift)]"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                className={resultMenuItemClass}
+                onClick={() => {
+                  onScopeDocument();
+                  setOpen(false);
+                }}
+              >
+                <Target className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                Search only this source
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={resultMenuItemClass}
+                onClick={() => void copyValue(citation, "citation")}
+              >
+                <Copy className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                {copyStatus === "citation-copied"
+                  ? "Citation copied"
+                  : copyStatus === "citation-failed"
+                    ? "Copy failed"
+                    : "Copy citation"}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className={resultMenuItemClass}
+                onClick={() => void copyValue(new URL(openHref, window.location.origin).toString(), "link")}
+              >
+                <Link2 className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                {copyStatus === "link-copied"
+                  ? "Link copied"
+                  : copyStatus === "link-failed"
+                    ? "Copy failed"
+                    : "Copy link"}
+              </button>
+              {document.imageCount > 0 ? (
+                <Link
+                  href={`${openHref}#source-images`}
+                  role="menuitem"
+                  className={resultMenuItemClass}
+                  onClick={() => setOpen(false)}
+                >
+                  <FileImage className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+                  View images ({document.imageCount})
+                </Link>
+              ) : null}
+            </div>,
+            window.document.body,
+          )
+        : null}
+      <span className="sr-only" role="status" aria-live="polite">
+        {copyStatus === "citation-copied"
+          ? `${document.title} citation copied`
+          : copyStatus === "link-copied"
+            ? `${document.title} link copied`
+            : copyStatus === "citation-failed" || copyStatus === "link-failed"
+              ? "Unable to copy"
+              : ""}
+      </span>
+    </div>
+  );
 }
 
 function DocumentSearchHome({
@@ -320,8 +761,8 @@ function DocumentSearchHome({
     },
     {
       label: "Browse library",
-      description: "All indexed sources.",
-      icon: FolderOpen,
+      description: "Open any indexed source.",
+      icon: BookOpen,
       action: onOpenLibrary,
     },
     {
@@ -349,11 +790,6 @@ function DocumentSearchHome({
       }))}
       footer={
         <div className="grid w-full gap-3">
-          <ModeHomeVerificationFooter
-            icon={ShieldCheck}
-            label="Searches indexed clinical sources"
-            body="Clinical document library"
-          />
           {documentCount > 0 ? (
             <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
@@ -362,214 +798,6 @@ function DocumentSearchHome({
         </div>
       }
     />
-  );
-}
-
-function SearchResultsHeader({
-  resultLabel,
-  trimmedQuery,
-  sortValue,
-  onSortChange,
-}: {
-  resultLabel: string;
-  trimmedQuery: string;
-  sortValue: ResultSortValue;
-  onSortChange: (value: ResultSortValue) => void;
-}) {
-  return (
-    <section className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-            <FileText aria-hidden="true" className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{resultLabel}</h3>
-            {trimmedQuery ? (
-              <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:truncate">
-                <span className="block sm:inline">Results for</span>{" "}
-                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-accent)] sm:inline sm:line-clamp-none">
-                  {trimmedQuery}
-                </span>
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0 lg:hidden" />
-    </section>
-  );
-}
-
-function DocumentResultsOverview({
-  documentCount,
-  displayedCount,
-  matchCount,
-  activeFacetCount,
-  trimmedQuery,
-  onOpenLibrary,
-}: {
-  documentCount: number;
-  displayedCount: number;
-  matchCount: number;
-  activeFacetCount: number;
-  trimmedQuery: string;
-  onOpenLibrary: () => void;
-}) {
-  return (
-    <section
-      aria-label="Documents overview"
-      className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-    >
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-[color:var(--text-heading)]">Documents overview</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <DocumentBadge variant="best" icon={FileText} className="min-h-7 rounded-lg px-2.5 text-2xs">
-            {documentCount.toLocaleString()} indexed
-          </DocumentBadge>
-          <DocumentBadge variant="neutral" icon={Target} className="min-h-7 rounded-lg px-2.5 text-2xs">
-            {matchCount.toLocaleString()} match{matchCount === 1 ? "" : "es"}
-          </DocumentBadge>
-          {activeFacetCount > 0 ? (
-            <DocumentBadge variant="relevant" icon={Filter} className="min-h-7 rounded-lg px-2.5 text-2xs">
-              {displayedCount.toLocaleString()} after filters
-            </DocumentBadge>
-          ) : null}
-          {trimmedQuery ? (
-            <DocumentBadge variant="neutral" icon={BookOpen} className="min-h-7 max-w-full rounded-lg px-2.5 text-2xs">
-              <span className="truncate">{trimmedQuery}</span>
-            </DocumentBadge>
-          ) : null}
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onOpenLibrary}
-        className={cn(floatingControl, "min-h-9 w-full rounded-lg px-3 text-xs sm:w-auto")}
-      >
-        <FolderOpen aria-hidden="true" className="h-4 w-4" />
-        Browse library
-      </button>
-    </section>
-  );
-}
-
-function metadataBadgeLabel(document: DocumentMatch) {
-  const kind = documentKindLabel(document);
-  const page = documentPageLabel(document);
-  return `${kind} - ${page}`;
-}
-
-function cautionBadgeLabel(document: DocumentMatch) {
-  if (document.tableCount > 0) return `${document.tableCount} table${document.tableCount === 1 ? "" : "s"}`;
-  if (document.imageCount > 0) return `${document.imageCount} image${document.imageCount === 1 ? "" : "s"}`;
-  const missingTerms = document.relevance?.missingTerms?.length ?? 0;
-  if (missingTerms > 0) return `${missingTerms} term${missingTerms === 1 ? "" : "s"} nearby`;
-  return contextualOpenLabel(document);
-}
-
-function EvidencePanelRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
-      <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
-    </div>
-  );
-}
-
-function SelectedDocumentEvidencePanel({
-  document,
-  query,
-  onScopeDocument,
-  onAnswerFromDocument,
-}: {
-  document: DocumentMatch;
-  query: string;
-  onScopeDocument: (documentId: string) => void;
-  onAnswerFromDocument: (documentId: string) => void;
-}) {
-  const openHref = documentOpenHref(document);
-  const relevanceDisplay = relevanceTone(document);
-  const matchedTerms = document.relevance?.matchedTerms?.slice(0, 5) ?? [];
-  const missingTerms = document.relevance?.missingTerms?.slice(0, 4) ?? [];
-  const evidence = [
-    document.tableCount > 0 ? `${document.tableCount} table${document.tableCount === 1 ? "" : "s"}` : "",
-    document.imageCount > 0 ? `${document.imageCount} image${document.imageCount === 1 ? "" : "s"}` : "",
-    document.file_name.toLowerCase().endsWith(".pdf") ? "PDF text" : documentFileKind(document.file_name, "DOC"),
-  ].filter(Boolean);
-
-  return (
-    <aside
-      aria-label="Selected document evidence"
-      className="sticky top-3 grid gap-3 self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-3 shadow-[var(--shadow-soft)]"
-    >
-      <div className="flex items-start gap-2">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-          <Sparkles className="size-icon-lg" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-            Selected evidence
-          </p>
-          <h3 className="mt-1 line-clamp-2 text-base font-extrabold leading-5 text-[color:var(--text-heading)]">
-            {documentDisplayTitle(document)}
-          </h3>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/65 p-3">
-        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-          Why this result
-        </p>
-        <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
-          {sourceSupportLabel(document)}. {compactMatchReason(document)}
-        </p>
-        {query.trim() ? (
-          <p className="mt-2 line-clamp-2 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
-            Search: {query.trim()}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="grid gap-2">
-        <EvidencePanelRow
-          label="Open target"
-          value={document.bestChunkIds[0] ? `${documentPageLabel(document)} with chunk` : documentPageLabel(document)}
-        />
-        <EvidencePanelRow label="Relevance" value={`${relevanceDisplay.short} - ${relevanceDisplay.detail}`} />
-        <EvidencePanelRow label="Evidence type" value={evidence.length ? evidence.join(", ") : "Indexed text"} />
-        {matchedTerms.length ? <EvidencePanelRow label="Matched terms" value={matchedTerms.join(", ")} /> : null}
-        {missingTerms.length ? <EvidencePanelRow label="Nearby terms" value={missingTerms.join(", ")} /> : null}
-      </div>
-
-      <div className="grid gap-2">
-        <DocumentActionLink
-          href={openHref}
-          className="min-h-tap rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
-          aria-label={`Open exact evidence for ${document.title}`}
-        >
-          Open exact evidence
-        </DocumentActionLink>
-        <div className="grid grid-cols-2 gap-2">
-          <DocumentActionButton
-            onClick={() => onScopeDocument(document.document_id)}
-            icon={Filter}
-            className="min-h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs"
-            aria-label={`Scope search to ${document.title}`}
-          >
-            Scope
-          </DocumentActionButton>
-          <DocumentActionButton
-            onClick={() => onAnswerFromDocument(document.document_id)}
-            icon={Sparkles}
-            className="min-h-tap rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs text-[color:var(--clinical-accent)]"
-            aria-label={`Answer from ${document.title}`}
-          >
-            Answer
-          </DocumentActionButton>
-        </div>
-      </div>
-    </aside>
   );
 }
 
@@ -656,6 +884,7 @@ function SearchRecordResults({
               data-testid={`${copy.testIdPrefix}-result-${service.slug}`}
               className={cn(
                 sourceCard,
+                "content-auto",
                 "grid gap-3 p-3 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] sm:p-4",
                 index === 0 && "ring-1 ring-[color:var(--clinical-accent)]/15",
               )}
@@ -665,17 +894,17 @@ function SearchRecordResults({
                   <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                     {service.catalogueLabel ?? "Source-backed record"}
                   </p>
-                  <a
+                  <Link
                     href={recordRoute(service.slug)}
                     className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
                   >
                     <span className="line-clamp-2">{service.title}</span>
-                  </a>
+                  </Link>
                   <p className={cn("mt-1 line-clamp-2 text-sm leading-6", textMuted)}>
                     {service.subtitle ?? service.bestUse ?? service.route ?? "Open the source-backed record."}
                   </p>
                 </div>
-                <a
+                <Link
                   href={recordRoute(service.slug)}
                   className={cn(
                     floatingControl,
@@ -685,7 +914,7 @@ function SearchRecordResults({
                 >
                   <ExternalLink className="h-4 w-4" aria-hidden="true" />
                   Open
-                </a>
+                </Link>
               </div>
 
               {chips.length ? (
@@ -733,7 +962,7 @@ function SearchRecordResults({
 }
 
 function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus; mode: SearchRecordMode }) {
-  if (status === "ready") return null;
+  if (status === "ready" || status === "refetching") return null;
   const noun = mode === "forms" ? "forms" : "services";
   const config =
     status === "loading"
@@ -782,6 +1011,8 @@ function DocumentSearchResultsPanelImpl({
   apiUnavailable,
   setupWarning,
   facets: _facets,
+  searchScope = null,
+  sourceGovernanceWarnings = EMPTY_SOURCE_GOVERNANCE_WARNINGS,
   onScopeDocument,
   onAnswerFromDocument,
   onOpenRecentDocuments,
@@ -805,6 +1036,8 @@ function DocumentSearchResultsPanelImpl({
   apiUnavailable: boolean;
   setupWarning: string | null;
   facets?: SearchFacets | null;
+  searchScope?: SearchScopeSummary | null;
+  sourceGovernanceWarnings?: SourceGovernanceWarning[];
   onScopeDocument: (documentId: string) => void;
   onAnswerFromDocument: (documentId: string) => void;
   onOpenRecentDocuments: () => void;
@@ -819,13 +1052,28 @@ function DocumentSearchResultsPanelImpl({
   const trimmedQuery = query.trim();
   const [activeFacetState, setActiveFacetState] = useState<{ query: string; keys: string[] }>({ query: "", keys: [] });
   const [activeResultType, setActiveResultType] = useState<ResultTypeFilter>("all");
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const filterPanelId = useId();
+  // Query-scope the open flag the same way facets are scoped: a new search must
+  // not leave the panel covering a different result set (especially on phones).
+  // Do not reset via useEffect+setState — react-hooks/set-state-in-effect fails CI.
+  const [filterPanelState, setFilterPanelState] = useState<{ query: string; open: boolean }>({
+    query: "",
+    open: false,
+  });
+  const filterPanelOpen = filterPanelState.query === query && filterPanelState.open;
   const activeFacetKeys = useMemo(
     () => (activeFacetState.query === query ? activeFacetState.keys : []),
     [activeFacetState, query],
   );
   const tagFacetIndex = useMemo(() => buildSmartDocumentTagFacetIndex(matches, { query }), [matches, query]);
-  const tagFacetGroups = tagFacetIndex.groups;
+  // Counts must describe the set the reader is looking at. `tagFacetIndex.groups`
+  // counts against the whole match set, so once a facet is selected the rest of
+  // the panel reports numbers for a set that no longer exists — several of them
+  // pointing at AND-combinations that return nothing.
+  const tagFacetGroups = useMemo(
+    () => projectSmartTagFacetGroups(tagFacetIndex, activeFacetKeys),
+    [tagFacetIndex, activeFacetKeys],
+  );
   const visibleMatches = useMemo(
     () => filterDocumentsBySmartTagFacetIndex(tagFacetIndex, activeFacetKeys),
     [tagFacetIndex, activeFacetKeys],
@@ -840,10 +1088,26 @@ function DocumentSearchResultsPanelImpl({
     () => sortResultItems(displayedMatches, sortValue, documentDisplayTitle),
     [displayedMatches, sortValue],
   );
-  const selectedDocument =
-    sortedMatches.find((document) => document.document_id === selectedDocumentId) ?? sortedMatches[0] ?? null;
+  // Progressive reveal so large libraries do not mount every card on first paint.
+  // Reset the window whenever the sorted result set identity changes (query/filter/sort).
+  const resultsSignature = [
+    trimmedQuery,
+    sortValue,
+    effectiveResultType,
+    activeFacetKeys.join(","),
+    sortedMatches.map((document) => document.document_id).join(","),
+  ].join("\0");
+  const [visibleCountState, setVisibleCountState] = useState({
+    signature: resultsSignature,
+    count: DOCUMENT_RESULTS_INITIAL_WINDOW,
+  });
+  if (visibleCountState.signature !== resultsSignature) {
+    setVisibleCountState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
+  }
+  const visibleCount = Math.min(visibleCountState.count, sortedMatches.length);
+  const renderedMatches = sortedMatches.slice(0, visibleCount);
+  const hasMoreMatches = visibleCount < sortedMatches.length;
   const recordMatchCount = recordMatches.length;
-  const recordCopy = searchRecordConfig[recordMode];
   const shouldShowHome = showHome || !trimmedQuery;
 
   function toggleTagFacet(facet: SmartDocumentTagFacet) {
@@ -856,62 +1120,152 @@ function DocumentSearchResultsPanelImpl({
     });
   }
 
-  const unavailableMessage = apiUnavailable
-    ? isDeployedClinicalKb()
-      ? "Clinical KB could not be reached. Check your connection and try again shortly."
-      : "The local API is unavailable. Check the app server before searching documents."
-    : authUnavailable
-      ? "Your session expired. Sign in again to view private indexed documents."
-      : !realDataReady
-        ? setupWarning || "Complete the search setup before using Documents mode."
-        : null;
-  const resultLabel = (() => {
-    if (loading) {
-      return showRecordMatches
-        ? `Finding matching ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`
-        : "Finding matching documents";
+  const unavailable = deriveDocumentSearchUnavailable({
+    apiUnavailable,
+    authUnavailable,
+    realDataReady,
+    setupWarning,
+    deployedClinicalKb: isDeployedClinicalKb(),
+  });
+  const unavailableMessage = unavailable?.message ?? null;
+  // On the record path the band's fault panel now reports a failed registry, so
+  // RecordRegistryNotice would repeat that verbatim two lines below — the same
+  // double-reporting removed from the standalone services/forms pages. Loading
+  // is still the notice's to own: the band only says "Searching…" there.
+  const recordBandOwnsFault =
+    showRecordMatches && (recordStatus === "error" || recordStatus === "not_found" || recordStatus === "unauthorized");
+  const showResultsControls = matches.length > 0 && !loading;
+  const activeFilterCount = activeFacetKeys.length + (effectiveResultType === "all" ? 0 : 1);
+  // Both the source-type tabs and the tag facets are derived from the current
+  // match set, so a query that yields one uniform kind of document has nothing
+  // to offer. Advertising Filter there would open an empty panel.
+  const hasFilters = resultTabs.length > 1 || tagFacetGroups.length > 0;
+  const showFilterControl = showResultsControls && hasFilters;
+  const renderFilterTrigger = (testId: string) =>
+    showFilterControl ? (
+      <DocumentFilterTrigger
+        panelId={filterPanelId}
+        testId={testId}
+        open={filterPanelOpen}
+        activeCount={activeFilterCount}
+        onToggle={() =>
+          setFilterPanelState((current) => ({
+            query,
+            open: current.query === query ? !current.open : true,
+          }))
+        }
+      />
+    ) : null;
+  // The shelf's contents. Facet chips carry their group's own label so a bare
+  // "Policy" is not ambiguous across ten groups, and the source-type chip joins
+  // them because it narrows the same list by the same act.
+  const appliedFilters = useMemo(() => {
+    const selected = new Set(activeFacetKeys);
+    const chips = tagFacetGroups.flatMap((group) =>
+      group.facets
+        .filter((facet) => selected.has(facet.key))
+        .map((facet) => ({
+          id: facet.key,
+          label: facet.label,
+          onRemove: () => toggleTagFacet(facet),
+        })),
+    );
+    if (effectiveResultType !== "all") {
+      const tab = resultTabs.find((entry) => entry.key === effectiveResultType);
+      if (tab) {
+        chips.push({
+          id: `result-type-${tab.key}`,
+          label: tab.label,
+          onRemove: () => setActiveResultType("all"),
+        });
+      }
     }
-    if (recordMatchCount > 0 && matches.length > 0) {
-      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"} and ${
-        sortedMatches.length
-      } document${sortedMatches.length === 1 ? "" : "s"}`;
-    }
-    if (recordMatchCount > 0)
-      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
-    if (matches.length) return `${sortedMatches.length} document${sortedMatches.length === 1 ? "" : "s"}`;
-    if (trimmedQuery) return "No matching documents";
-    return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
-  })();
+    return chips;
+    // `toggleTagFacet` is a stable closure over `query`, which is already a
+    // dependency of `activeFacetKeys`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs]);
+  const clearAllFilters = () => {
+    setActiveFacetState({ query, keys: [] });
+    setActiveResultType("all");
+  };
+  const showIdentityHeader =
+    recordMatchCount > 0 ||
+    matches.length > 0 ||
+    (trimmedQuery && !shouldShowHome) ||
+    loading ||
+    (unavailableMessage && !shouldShowHome);
+
   return (
-    <div data-testid="document-search-workspace" className="w-full space-y-3">
-      {trimmedQuery && !shouldShowHome ? (
-        <>
-          <div className="hidden lg:block">
-            <SearchResultsHeaderBand
-              modeId="documents"
-              query={trimmedQuery}
-              matchCount={sortedMatches.length}
-              loading={loading}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-            />
-          </div>
-        </>
-      ) : null}
-      {recordMatchCount > 0 ||
-      matches.length > 0 ||
-      (trimmedQuery && !shouldShowHome) ||
-      loading ||
-      (unavailableMessage && !shouldShowHome) ? (
-        <SearchResultsHeader
-          resultLabel={resultLabel}
-          trimmedQuery={trimmedQuery}
+    <div data-testid="document-search-workspace" className="w-full space-y-2.5 sm:space-y-3">
+      {showIdentityHeader ? (
+        <SearchResultsHeaderBand
+          modeId={showRecordMatches ? recordMode : "documents"}
+          query={trimmedQuery}
+          matchCount={recordMatchCount + sortedMatches.length}
+          // Derive the fault from whichever source this ribbon is actually
+          // counting. On the services/forms path the registry has its own status
+          // and can be perfectly healthy while the unrelated document API is
+          // down; letting that invalidate the ribbon would announce "Couldn't
+          // search" and hide a valid recordMatchCount while SearchRecordResults
+          // renders those very matches below.
+          status={
+            showRecordMatches
+              ? recordStatus === "unauthorized"
+                ? "unauthorized"
+                : recordStatus === "error" || recordStatus === "not_found"
+                  ? "error"
+                  : recordStatus === "loading"
+                    ? "loading"
+                    : recordStatus === "refetching"
+                      ? "refetching"
+                      : "ready"
+              : (unavailable?.status ?? (loading ? "loading" : "ready"))
+          }
+          faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
-          onSortChange={setSortValue}
+          onSortChange={matches.length > 0 ? setSortValue : undefined}
+          // Kept in the ribbon rather than deferred to the documents action
+          // menu: that menu item routes through `onSearchModeChange`, which
+          // clears the query and the submitted flag, so reaching the library
+          // that way would discard the search the reader is looking at. This is
+          // the only in-context route to it. Its old name ("Open source
+          // filters" / "Filter and browse sources") is what made it read as a
+          // second filter next to Filter — browsing is not refining.
+          utilityControls={
+            !loading && !shouldShowHome ? (
+              <button
+                type="button"
+                onClick={onOpenLibrary}
+                aria-label="Open source library"
+                title="Browse all indexed sources"
+                className={cn(
+                  floatingControl,
+                  "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
+                )}
+              >
+                <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+                <span>Library</span>
+              </button>
+            ) : null
+          }
+          appliedFilters={appliedFilters}
+          onClearFilters={clearAllFilters}
+          filterLabel="Filter documents"
+          // The same trigger goes in both slots: the ribbon shows `mobileControls`
+          // below `sm` and `filterControls` from `sm` up, never both at once.
+          mobileControls={renderFilterTrigger("document-filter-trigger-phone")}
+          filterControls={renderFilterTrigger("document-filter-trigger-wide")}
         />
       ) : null}
 
-      {unavailableMessage ? (
+      {/* When the ribbon is shown it owns this message in its fault panel. This
+          standalone alert remains for the routes that render no ribbon, so the
+          message is never lost. */}
+      {/* The ribbon only carries this message on the documents path; in record
+          mode its fault comes from the registry, so the notice must still
+          render or an auth/API/setup warning is reported nowhere. */}
+      {unavailableMessage && (showRecordMatches || !showIdentityHeader) ? (
         <div
           role="alert"
           className="rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/45 p-4 text-sm font-semibold leading-6 text-[color:var(--warning)]"
@@ -920,9 +1274,13 @@ function DocumentSearchResultsPanelImpl({
         </div>
       ) : null}
 
+      {!showRecordMatches && trimmedQuery && !shouldShowHome ? (
+        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
+      ) : null}
+
       {showRecordMatches ? (
         <>
-          <RecordRegistryNotice status={recordStatus} mode={recordMode} />
+          {recordBandOwnsFault ? null : <RecordRegistryNotice status={recordStatus} mode={recordMode} />}
           <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} />
         </>
       ) : null}
@@ -932,7 +1290,7 @@ function DocumentSearchResultsPanelImpl({
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
           <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
-            <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <span className="mx-auto grid h-tap w-tap place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
               <FileText aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>
@@ -953,189 +1311,180 @@ function DocumentSearchResultsPanelImpl({
         )
       ) : (
         <>
-          <DocumentResultsOverview
-            documentCount={Math.max(documentCount, matches.length)}
-            displayedCount={sortedMatches.length}
-            matchCount={matches.length}
-            activeFacetCount={activeFacetKeys.length}
-            trimmedQuery={trimmedQuery}
-            onOpenLibrary={onOpenLibrary}
-          />
-          {resultTabs.length > 1 ? (
-            <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]">
-              {resultTabs.map((tab) => {
-                const active = tab.key === effectiveResultType;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setActiveResultType(tab.key)}
-                    className={cn(
-                      "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition",
-                      active
-                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                        : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                    )}
-                  >
-                    {tab.label}
-                    <span className="nums opacity-75">{tab.count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-          {activeFacetKeys.length > 0 ? (
-            <DocumentTagFacetRail
+          {/* Opened by the ribbon's Filter trigger. Previously this was gated on
+              `activeFacetKeys.length > 0`, which nothing else could satisfy —
+              the only writers of that state lived inside the gated subtree — so
+              the facets were unreachable. The trigger is now the way in.
+              Mounted unconditionally: `Sheet` returns null while closed and owns
+              its own open/close transition, so gating the mount here would cut
+              the dismiss animation off mid-flight. */}
+          {showFilterControl ? (
+            <DocumentFilterPanel
+              open={filterPanelOpen}
+              panelId={filterPanelId}
               groups={tagFacetGroups}
               activeKeys={activeFacetKeys}
+              resultTabs={resultTabs}
+              activeResultType={effectiveResultType}
+              onResultTypeChange={setActiveResultType}
               onToggle={toggleTagFacet}
-              onClear={() => setActiveFacetState({ query, keys: [] })}
+              onClear={clearAllFilters}
+              resultCount={sortedMatches.length}
+              onDone={() => setFilterPanelState({ query, open: false })}
             />
           ) : null}
-          {activeFacetKeys.length > 0 ? (
+          {/* With the panel closed the active filters are otherwise invisible
+              apart from the trigger's badge, so the reader needs the count to
+              explain why the list is shorter than the ribbon's total. */}
+          {activeFilterCount > 0 && !filterPanelOpen ? (
             <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="min-w-0 space-y-3">
+          <div className="grid gap-3 sm:gap-4">
+            <div className="min-w-0 space-y-2.5 sm:space-y-3">
               {sortedMatches.length === 0 ? (
                 <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
                   No document matches include all selected filters.
                 </div>
               ) : null}
-              {sortedMatches.map((document, index) => {
-                const relevanceDisplay = relevanceTone(document);
-                const fileKind = documentFileKind(document.file_name, "DOC");
-                const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
-                const summaryText = cleanDocumentCardSummary(document.summarySnippet || compactMatchReason(document));
-                const openHref = documentOpenHref(document);
-                const selected = selectedDocument?.document_id === document.document_id;
-                return (
-                  <article
-                    key={document.document_id}
-                    className={cn(
-                      sourceCard,
-                      "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)]",
-                      selected &&
-                        "border-[color:var(--clinical-accent-border)] ring-1 ring-[color:var(--clinical-accent)]/20",
-                    )}
-                  >
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 px-3 py-3 sm:px-4">
-                      <DocumentFileTile kind={fileKind} tone={documentTileTone(fileKind)} compact />
-                      <div className="min-w-0">
-                        <div className="flex min-w-0 items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="flex flex-wrap items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
-                              <span>{documentKindLabel(document)}</span>
-                              {index === 0 ? (
-                                <>
-                                  <span
-                                    className="h-1 w-1 rounded-full bg-[color:var(--border-strong)]"
-                                    aria-hidden="true"
-                                  />
-                                  <span className="text-[color:var(--clinical-accent)]">Best match</span>
-                                </>
-                              ) : null}
-                            </p>
-                            <a
-                              href={openHref}
-                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+              <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+                {renderedMatches.map((document, index) => {
+                  const relevanceDisplay = relevanceTone(document);
+                  const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
+                  const openHref = documentOpenHref(document);
+                  return (
+                    <article
+                      key={document.document_id}
+                      data-testid="document-result-card"
+                      className={cn(
+                        sourceCard,
+                        "content-auto",
+                        "relative overflow-visible p-0 shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-hover)] motion-reduce:transition-none",
+                        index === 0 && "border-t-[3px] border-t-[color:var(--clinical-accent)]",
+                      )}
+                    >
+                      <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-start gap-3 p-3 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-4 sm:p-4">
+                        <DocumentPagePreview document={document} href={openHref} />
+                        <div className="min-w-0">
+                          <h3 className="flex min-w-0 items-start gap-2">
+                            <span
+                              data-testid="document-result-rank"
+                              className="nums mt-2 grid h-8 min-w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                              aria-hidden="true"
                             >
+                              {index + 1}
+                            </span>
+                            <Link
+                              href={openHref}
+                              className="inline-flex min-h-12 min-w-0 items-center rounded-md text-base font-extrabold leading-5 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-lg sm:leading-6"
+                            >
+                              <span className="sr-only">Result {index + 1}: </span>
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
-                            </a>
+                            </Link>
+                          </h3>
+                          <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-2.5">
+                            {index === 0 ? (
+                              <DocumentBadge
+                                variant="best"
+                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:700]"
+                              >
+                                Best match
+                              </DocumentBadge>
+                            ) : null}
+                            <DocumentBadge
+                              variant={relevanceVariant}
+                              icon={Target}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                            >
+                              {relevanceDisplay.short}
+                              <span className="sr-only">, {relevanceDisplay.detail}</span>
+                            </DocumentBadge>
+                            <DocumentBadge
+                              variant="neutral"
+                              icon={BookOpen}
+                              className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                            >
+                              {documentPageLabel(document)}
+                            </DocumentBadge>
+                            {document.tableCount > 0 ? (
+                              <DocumentBadge
+                                variant="relevant"
+                                icon={ListChecks}
+                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                              >
+                                {document.tableCount} table{document.tableCount === 1 ? "" : "s"}
+                              </DocumentBadge>
+                            ) : null}
+                            {document.imageCount > 0 ? (
+                              <DocumentBadge
+                                variant="relevant"
+                                icon={FileImage}
+                                className="min-h-7 rounded-lg px-2.5 text-2xs [font-weight:600]"
+                              >
+                                {document.imageCount} image{document.imageCount === 1 ? "" : "s"}
+                              </DocumentBadge>
+                            ) : null}
                           </div>
+                          <DocumentTagCloud
+                            labels={document.labels}
+                            query={query}
+                            limit={2}
+                            compact
+                            className="mt-2.5"
+                            onTagClick={onTagSearch}
+                          />
                         </div>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          <DocumentBadge
-                            variant={relevanceVariant}
-                            icon={Target}
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {relevanceDisplay.short}
-                            <span className="sr-only">, {relevanceDisplay.detail}</span>
-                          </DocumentBadge>
-                          <DocumentBadge
-                            variant="neutral"
-                            icon={BookOpen}
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {metadataBadgeLabel(document)}
-                          </DocumentBadge>
-                          <DocumentBadge
-                            variant={document.tableCount > 0 || document.imageCount > 0 ? "relevant" : "neutral"}
-                            icon={
-                              document.tableCount > 0 ? ListChecks : document.imageCount > 0 ? FileImage : ExternalLink
-                            }
-                            className="min-h-7 rounded-lg px-2.5 text-2xs"
-                          >
-                            {cautionBadgeLabel(document)}
-                          </DocumentBadge>
-                        </div>
-                        <p className={cn("mt-1.5 line-clamp-2 text-sm leading-6", textMuted)}>
-                          <SafeBoldText text={summaryText} />
-                        </p>
-                        <DocumentTagCloud
-                          labels={document.labels}
-                          query={query}
-                          limit={2}
-                          compact
-                          className="mt-2"
-                          onTagClick={onTagSearch}
+                      </div>
+                      <div
+                        data-testid="document-result-actions"
+                        className="grid grid-cols-3 items-stretch divide-x divide-[color:var(--border)] rounded-b-xl border-t border-[color:var(--border)] bg-[color:var(--surface)]"
+                      >
+                        <DocumentActionLink
+                          href={openHref}
+                          icon={FileText}
+                          className="min-h-12 min-w-0 rounded-bl-xl bg-[color:var(--clinical-accent-soft)] px-2 !text-sm !font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-border)] [&_svg]:h-5 [&_svg]:w-5"
+                          aria-label={`Open ${document.title}`}
+                        >
+                          Open
+                        </DocumentActionLink>
+                        <DocumentActionButton
+                          onClick={() => onAnswerFromDocument(document.document_id)}
+                          icon={MessageSquareText}
+                          className="min-h-12 min-w-0 px-2 !text-sm font-bold text-[color:var(--text-heading)] [&_svg]:h-5 [&_svg]:w-5"
+                          aria-label={`Ask about ${document.title}`}
+                        >
+                          Ask
+                        </DocumentActionButton>
+                        <DocumentResultMoreMenu
+                          document={document}
+                          openHref={openHref}
+                          onScopeDocument={() => onScopeDocument(document.document_id)}
                         />
                       </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 sm:px-3">
-                      <DocumentActionButton
-                        onClick={() => setSelectedDocumentId(document.document_id)}
-                        icon={Sparkles}
-                        className={cn(
-                          "min-h-tap rounded-lg px-2.5 text-xs",
-                          selected
-                            ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "text-[color:var(--text)]",
-                        )}
-                        aria-label={`Preview evidence for ${document.title}`}
-                      >
-                        Preview
-                      </DocumentActionButton>
-                      <DocumentActionLink
-                        href={openHref}
-                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
-                        aria-label={`Open ${document.title}`}
-                      >
-                        {contextualOpenLabel(document)}
-                      </DocumentActionLink>
-                      <DocumentActionButton
-                        onClick={() => onScopeDocument(document.document_id)}
-                        icon={Filter}
-                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
-                        aria-label={`Scope search to ${document.title}`}
-                      >
-                        Scope
-                      </DocumentActionButton>
-                      <DocumentActionButton
-                        onClick={() => onAnswerFromDocument(document.document_id)}
-                        icon={Sparkles}
-                        className="ml-auto min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
-                        aria-label={`Answer from ${document.title}`}
-                      >
-                        Answer
-                      </DocumentActionButton>
-                    </div>
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
+              </div>
+              {hasMoreMatches ? (
+                <button
+                  type="button"
+                  className={cn(
+                    floatingControl,
+                    "min-h-tap w-full justify-center rounded-xl px-4 text-sm font-semibold",
+                  )}
+                  onClick={() =>
+                    setVisibleCountState((current) => ({
+                      signature: resultsSignature,
+                      count: Math.min(current.count + DOCUMENT_RESULTS_PAGE_SIZE, sortedMatches.length),
+                    }))
+                  }
+                  data-testid="document-search-show-more"
+                >
+                  Show more ({sortedMatches.length - visibleCount} remaining)
+                </button>
+              ) : null}
             </div>
-            {selectedDocument ? (
-              <SelectedDocumentEvidencePanel
-                document={selectedDocument}
-                query={query}
-                onScopeDocument={onScopeDocument}
-                onAnswerFromDocument={onAnswerFromDocument}
-              />
-            ) : null}
           </div>
         </>
       )}

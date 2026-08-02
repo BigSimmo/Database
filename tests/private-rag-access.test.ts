@@ -38,6 +38,9 @@ function createSupabaseMock() {
       }),
       order: vi.fn(() => builder),
       range: vi.fn(() => builder),
+      // Real PostgREST builders expose this; resolveSearchScope calls it whenever
+      // the caller threads an AbortSignal, so the mock must model it.
+      abortSignal: vi.fn(() => builder),
       insert: vi.fn(async (payload: unknown) => {
         inserts.push({ table, payload });
         return { data: null, error: null };
@@ -185,7 +188,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     };
   });
   vi.doMock("@/lib/demo-data", () => ({ demoAnswer, demoSearch }));
-  vi.doMock("@/lib/rag", () => ({ answerQuestionWithScope, searchChunksWithTelemetry }));
+  vi.doMock("@/lib/rag/rag", () => ({ answerQuestionWithScope, searchChunksWithTelemetry }));
   vi.doMock("@/lib/document-enrichment", () => ({
     fetchRelatedDocuments,
     toDocumentMatch: vi.fn((document: unknown) => document),
@@ -394,6 +397,97 @@ describe("private RAG API access", () => {
     expect(mocks.createAdminClient).not.toHaveBeenCalled();
     expect(mocks.answerQuestionWithScope).not.toHaveBeenCalled();
     expect(mocks.demoAnswer).toHaveBeenCalledWith("demo question", undefined, undefined);
+  });
+
+  it("does not dispatch resolveSearchScope before a rate-limit denial on /api/answer", async () => {
+    vi.resetModules();
+
+    class MockAuthenticationError extends Error {
+      constructor() {
+        super("Authentication required.");
+        this.name = "AuthenticationError";
+      }
+    }
+
+    const resolveSearchScope = vi.fn(async () => ({
+      documentIds: [documentId],
+      activeFilterCount: 1,
+    }));
+    let releaseRateLimit: (() => void) | undefined;
+    const rateLimitGate = new Promise<void>((resolve) => {
+      releaseRateLimit = resolve;
+    });
+    let markLimiterStarted: (() => void) | undefined;
+    const limiterStarted = new Promise<void>((resolve) => {
+      markLimiterStarted = resolve;
+    });
+    const consumeSubjectApiRateLimit = vi.fn(async () => {
+      markLimiterStarted?.();
+      await rateLimitGate;
+      return {
+        limited: true,
+        limit: 30,
+        remaining: 0,
+        retryAfterSeconds: 60,
+        resetAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+    });
+
+    vi.doMock("@/lib/env", () => ({
+      env: {},
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: vi.fn(() => createSupabaseMock()),
+    }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: MockAuthenticationError,
+      getOptionalAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
+      requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
+      unauthorizedResponse: vi.fn(() => Response.json({ error: "Authentication required." }, { status: 401 })),
+    }));
+    vi.doMock("@/lib/api-rate-limit", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/api-rate-limit")>("@/lib/api-rate-limit");
+      return {
+        ...actual,
+        consumeSubjectApiRateLimit,
+      };
+    });
+    vi.doMock("@/lib/search-scope", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/search-scope")>("@/lib/search-scope");
+      return {
+        ...actual,
+        resolveSearchScope,
+      };
+    });
+    vi.doMock("@/lib/rag/rag", () => ({
+      answerQuestionWithScope: vi.fn(async () => {
+        throw new Error("answer should not run after rate-limit denial");
+      }),
+    }));
+
+    const { POST } = await import("../src/app/api/answer/route");
+    const pending = POST(
+      jsonRequest(
+        "/api/answer",
+        {
+          query: "clozapine monitoring",
+          filters: { labels: ["monitoring"] },
+        },
+        true,
+      ),
+    );
+
+    // Wait until the handler has entered the limiter before asserting scope stayed idle.
+    await limiterStarted;
+    expect(resolveSearchScope).not.toHaveBeenCalled();
+
+    releaseRateLimit?.();
+    const response = await pending;
+    expect(response.status).toBe(429);
+    expect(resolveSearchScope).not.toHaveBeenCalled();
+    expect(consumeSubjectApiRateLimit).toHaveBeenCalled();
   });
 
   it("allows unauthenticated real answer streams with anonymous scope", async () => {

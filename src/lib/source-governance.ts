@@ -1,32 +1,51 @@
-import type { EvidenceRelevance, SearchResult } from "@/lib/types";
+import type {
+  EvidenceRelevance,
+  SearchResult,
+  SourceGovernanceWarning,
+  SourceGovernanceCode,
+  SourceGovernanceUiToken,
+} from "@/lib/types";
+import { SOURCE_GOVERNANCE_CODES } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 
-export type SourceGovernanceWarning = {
-  code:
-    | "outdated_source"
-    | "review_due_source"
-    | "non_local_source"
-    | "unverified_source"
-    | "poor_extraction"
-    | "partial_extraction"
-    | "low_index_quality"
-    | "weak_evidence"
-    | "weak_table_extraction"
-    | "registry_record_source";
-  severity: "info" | "warning" | "danger";
-  message: string;
-  document_id?: string;
-  title?: string;
-};
+export type { SourceGovernanceWarning } from "@/lib/types";
 
 export type GroupedSourceGovernanceWarning = {
   code: SourceGovernanceWarning["code"];
   severity: SourceGovernanceWarning["severity"];
   message: string;
   count: number;
+  uiToken?: SourceGovernanceUiToken;
   documentIds: string[];
   titles: string[];
 };
+
+export const GOVERNANCE_SEVERITY_MATRIX: Record<SourceGovernanceCode, SourceGovernanceWarning["severity"] | "dynamic"> =
+  {
+    [SOURCE_GOVERNANCE_CODES.OUTDATED]: "danger",
+    [SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION]: "danger",
+    [SOURCE_GOVERNANCE_CODES.REVIEW_DUE]: "warning",
+    [SOURCE_GOVERNANCE_CODES.UNVERIFIED]: "warning",
+    [SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION]: "warning",
+    [SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY]: "warning",
+    [SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION]: "warning",
+    [SOURCE_GOVERNANCE_CODES.NON_LOCAL]: "info",
+    [SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD]: "info",
+    [SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE]: "dynamic",
+  } as const;
+
+export const GOVERNANCE_UI_TOKEN_MATRIX: Record<SourceGovernanceCode, SourceGovernanceUiToken | "dynamic"> = {
+  [SOURCE_GOVERNANCE_CODES.OUTDATED]: "destructive",
+  [SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION]: "destructive",
+  [SOURCE_GOVERNANCE_CODES.REVIEW_DUE]: "warning",
+  [SOURCE_GOVERNANCE_CODES.UNVERIFIED]: "warning",
+  [SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION]: "caution",
+  [SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY]: "caution",
+  [SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION]: "caution",
+  [SOURCE_GOVERNANCE_CODES.NON_LOCAL]: "neutral",
+  [SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD]: "muted",
+  [SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE]: "dynamic",
+} as const;
 
 export const sourceGovernanceRefusalAnswer =
   "I cannot provide a clinical answer because one or more matched documents are not suitable for clinical use yet. Try a narrower clinical term or scope the search to a current approved document.";
@@ -35,16 +54,15 @@ export const sourceGovernanceRefusalAnswer =
 // strings emitted by sourceGovernanceWarnings below AND the strings persisted by
 // UI captures (ClinicalDashboard submits warning.message to /api/eval-cases,
 // which drops the severity), so a consumer can recover danger severity from a
-// persisted message via isDangerSourceGovernanceMessage. weak_evidence danger is
-// intentionally excluded: its message is dynamic (relevance.supportReason) and
-// its fallback text is shared with the non-danger partial-verdict variant, so it
-// cannot be recovered from a message string without false positives.
+// persisted message via isDangerSourceGovernanceMessage.
 export const OUTDATED_SOURCE_WARNING_MESSAGE = "One or more supporting sources are marked outdated.";
 export const POOR_EXTRACTION_WARNING_MESSAGE = "One or more supporting sources have poor extraction quality.";
+export const WEAK_EVIDENCE_DANGER_MESSAGE = "The retrieved evidence is completely unbacked by the source.";
 
 const dangerSourceGovernanceMessages = new Set<string>([
   OUTDATED_SOURCE_WARNING_MESSAGE,
   POOR_EXTRACTION_WARNING_MESSAGE,
+  WEAK_EVIDENCE_DANGER_MESSAGE,
 ]);
 
 export function isDangerSourceGovernanceMessage(message: string) {
@@ -52,14 +70,19 @@ export function isDangerSourceGovernanceMessage(message: string) {
 }
 
 const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
-  "outdated_source",
-  "poor_extraction",
-  "weak_evidence",
+  SOURCE_GOVERNANCE_CODES.OUTDATED,
+  SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION,
+  SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE,
   // Since the public-corpus promotion (all indexed documents are anonymously
   // searchable regardless of clinical_validation_status), "not locally
   // validated" is a clinically material caveat, not routine review metadata.
-  "unverified_source",
-  "registry_record_source",
+  SOURCE_GOVERNANCE_CODES.UNVERIFIED,
+  SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD,
+  // A source past its review date is a material currency caveat: guidance may have
+  // moved on. Surfacing the badge keeps the governance notice consistent with the
+  // review-due language already emitted in the render-policy copy text
+  // (answer-render-policy.buildWarnings), which the badge list previously suppressed.
+  SOURCE_GOVERNANCE_CODES.REVIEW_DUE,
 ]);
 
 function isLocalMetadataText(value: string) {
@@ -82,10 +105,14 @@ export function sourceGovernanceWarnings(args: {
   const warnings: SourceGovernanceWarning[] = [];
 
   if (args.relevance && !args.relevance.isSourceBacked) {
+    const isDanger = args.relevance.verdict === "none";
     pushUnique(warnings, {
-      code: "weak_evidence",
-      severity: args.relevance.verdict === "none" ? "danger" : "warning",
-      message: args.relevance.supportReason || "The retrieved evidence is weak or nearby-only.",
+      code: SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE,
+      severity: isDanger ? "danger" : "warning",
+      uiToken: isDanger ? "destructive" : "warning",
+      message: isDanger
+        ? WEAK_EVIDENCE_DANGER_MESSAGE
+        : args.relevance.supportReason || "The retrieved evidence is weak or nearby-only.",
     });
   }
 
@@ -96,16 +123,18 @@ export function sourceGovernanceWarnings(args: {
 
     if (source.document_status === "outdated") {
       pushUnique(warnings, {
-        code: "outdated_source",
-        severity: "danger",
+        code: SOURCE_GOVERNANCE_CODES.OUTDATED,
+        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.OUTDATED] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.OUTDATED] as SourceGovernanceUiToken,
         message: OUTDATED_SOURCE_WARNING_MESSAGE,
         document_id,
         title,
       });
     } else if (source.document_status === "review_due") {
       pushUnique(warnings, {
-        code: "review_due_source",
-        severity: "warning",
+        code: SOURCE_GOVERNANCE_CODES.REVIEW_DUE,
+        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.REVIEW_DUE] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.REVIEW_DUE] as SourceGovernanceUiToken,
         message: "One or more supporting sources are due for review.",
         document_id,
         title,
@@ -114,8 +143,9 @@ export function sourceGovernanceWarnings(args: {
 
     if (source.clinical_validation_status === "unverified") {
       pushUnique(warnings, {
-        code: "unverified_source",
-        severity: "warning",
+        code: SOURCE_GOVERNANCE_CODES.UNVERIFIED,
+        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.UNVERIFIED] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.UNVERIFIED] as SourceGovernanceUiToken,
         message: "One or more supporting sources have not been locally validated.",
         document_id,
         title,
@@ -124,16 +154,22 @@ export function sourceGovernanceWarnings(args: {
 
     if (source.extraction_quality === "poor" || result.indexing_quality?.extraction_quality === "poor") {
       pushUnique(warnings, {
-        code: "poor_extraction",
-        severity: "danger",
+        code: SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION,
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION
+        ] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION] as SourceGovernanceUiToken,
         message: POOR_EXTRACTION_WARNING_MESSAGE,
         document_id,
         title,
       });
     } else if (source.extraction_quality === "partial" || result.indexing_quality?.extraction_quality === "partial") {
       pushUnique(warnings, {
-        code: "partial_extraction",
-        severity: "warning",
+        code: SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION,
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION
+        ] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION] as SourceGovernanceUiToken,
         message: "One or more supporting sources have partial extraction quality.",
         document_id,
         title,
@@ -142,8 +178,11 @@ export function sourceGovernanceWarnings(args: {
 
     if (typeof result.indexing_quality?.quality_score === "number" && result.indexing_quality.quality_score < 0.45) {
       pushUnique(warnings, {
-        code: "low_index_quality",
-        severity: "warning",
+        code: SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY,
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY
+        ] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY] as SourceGovernanceUiToken,
         message: "One or more supporting sources have a low indexing quality score.",
         document_id,
         title,
@@ -153,8 +192,9 @@ export function sourceGovernanceWarnings(args: {
     const localityText = [source.jurisdiction, source.publisher].filter(Boolean).join(" ");
     if (localityText && !isLocalMetadataText(localityText)) {
       pushUnique(warnings, {
-        code: "non_local_source",
-        severity: "info",
+        code: SOURCE_GOVERNANCE_CODES.NON_LOCAL,
+        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.NON_LOCAL] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.NON_LOCAL] as SourceGovernanceUiToken,
         message: "One or more supporting sources do not appear to be local WA/Perth guidance.",
         document_id,
         title,
@@ -167,8 +207,11 @@ export function sourceGovernanceWarnings(args: {
       )
     ) {
       pushUnique(warnings, {
-        code: "weak_table_extraction",
-        severity: "warning",
+        code: SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION,
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION
+        ] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION] as SourceGovernanceUiToken,
         message: "Some matched table evidence has been reviewed as administrative, unrelated, or poor extraction.",
         document_id,
         title,
@@ -177,8 +220,11 @@ export function sourceGovernanceWarnings(args: {
 
     if (source.source_kind === "registry_record") {
       pushUnique(warnings, {
-        code: "registry_record_source",
-        severity: "info",
+        code: SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD,
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD
+        ] as SourceGovernanceWarning["severity"],
+        uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD] as SourceGovernanceUiToken,
         message:
           "One or more supporting sources are curated registry summaries, not source documents; verify against linked source documents for clinical decisions.",
         document_id,
@@ -198,20 +244,21 @@ function plural(count: number, singular: string, pluralValue = `${singular}s`) {
 }
 
 function groupedMessage(warning: SourceGovernanceWarning, count: number) {
-  if (warning.code === "outdated_source") return `${plural(count, "source")} marked outdated.`;
-  if (warning.code === "review_due_source") return `${plural(count, "source")} due for review.`;
-  if (warning.code === "non_local_source") return `${plural(count, "source")} may not be local WA/Perth guidance.`;
-  if (warning.code === "unverified_source")
+  if (warning.code === SOURCE_GOVERNANCE_CODES.OUTDATED) return `${plural(count, "source")} marked outdated.`;
+  if (warning.code === SOURCE_GOVERNANCE_CODES.REVIEW_DUE) return `${plural(count, "source")} due for review.`;
+  if (warning.code === SOURCE_GOVERNANCE_CODES.NON_LOCAL)
+    return `${plural(count, "source")} may not be local WA/Perth guidance.`;
+  if (warning.code === SOURCE_GOVERNANCE_CODES.UNVERIFIED)
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} not been locally validated.`;
-  if (warning.code === "poor_extraction")
+  if (warning.code === SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION)
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} poor extraction quality.`;
-  if (warning.code === "partial_extraction")
+  if (warning.code === SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION)
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} partial extraction quality.`;
-  if (warning.code === "low_index_quality")
+  if (warning.code === SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY)
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} low indexing quality.`;
-  if (warning.code === "weak_table_extraction")
+  if (warning.code === SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION)
     return `${plural(count, "table evidence item")} reviewed as administrative, unrelated, or poor extraction.`;
-  if (warning.code === "registry_record_source")
+  if (warning.code === SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD)
     return `${plural(count, "registry summary", "registry summaries")} used as supporting evidence.`;
   return warning.message;
 }
@@ -234,6 +281,7 @@ export function groupSourceGovernanceWarnings(warnings: SourceGovernanceWarning[
     grouped.set(key, {
       code: warning.code,
       severity: warning.severity,
+      uiToken: warning.uiToken,
       message: groupedMessage(warning, 1),
       count: 1,
       documentIds: warning.document_id ? [warning.document_id] : [],

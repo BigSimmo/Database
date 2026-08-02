@@ -13,7 +13,7 @@ npm run sitemap:check
 
 ## Design tokens
 
-Mockups use the Clinical White / Aegean Graphite role tokens (`--command`, `--clinical-accent`, `--success`) from [`docs/redesign/02-design-direction.md`](../docs/redesign/02-design-direction.md). Older design-exploration mockups were removed in July 2026 so stale palettes do not mislead future design review.
+Mockups use the Clinical White / Sky Graphite role tokens (`--command`, `--clinical-accent`, `--success`) from [`docs/redesign/02-design-direction.md`](../docs/redesign/02-design-direction.md). Older design-exploration mockups were removed in July 2026 so stale palettes do not mislead future design review.
 
 ## Global search shell
 
@@ -36,3 +36,17 @@ Runnable mockups under `src/app/mockups/*` inherit the shared Clinical KB header
 The document-search mockups use generated non-patient bitmap assets in `public/mockups/document-search/`. These images are abstract UI/document textures only: they must not be treated as source screenshots, hospital-branded material, or clinical content.
 
 Some document-search mockups include live handoff routes (for example `document-search/source-overlays`) that resolve into the real document viewer with a selected page and chunk when indexed data is available locally.
+
+## Mode-page redesign comps (2026-07-31)
+
+Static desktop/phone comps for the pages that need redesign (not ModeHome mockups for Favourites) live under [`public/mockups/mode-page-redesign-2026-07/`](../public/mockups/mode-page-redesign-2026-07/README.md):
+
+| Page                                                | Recommended direction             | Issue  |
+| --------------------------------------------------- | --------------------------------- | ------ |
+| Tools search                                        | A — Compact Results Instrument    | `#162` |
+| Services search                                     | B — Progressive Referral Workflow | `#163` |
+| Favourites (hybrid dashboard + search, no ModeHome) | B — Search-Led Workspace          | `#164` |
+
+These are PNGs for design review only. Runnable `/mockups/*` routes are a separate implementation step.
+
+**Perfected combined comps** (desktop + phone in one image, recommended directions only) live in [`public/mockups/mode-page-redesign-2026-07/perfected-combined/`](../public/mockups/mode-page-redesign-2026-07/perfected-combined/README.md).

@@ -3,8 +3,8 @@ import {
   buildRagEvaluationDiagnostics,
   evaluateAustralianRagExpectation,
   type RagEvalProgressDiagnosticEvent,
-} from "@/lib/rag-eval-diagnostics";
-import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag-eval-cases";
+} from "@/lib/rag/rag-eval-diagnostics";
+import { selectRagEvalCases, type RagEvalCase } from "@/lib/rag/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
 import {
   estimateCostUsd,
@@ -219,7 +219,7 @@ async function main() {
 
   const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
     import("@/lib/env"),
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadAdminClient(),
   ]);
 

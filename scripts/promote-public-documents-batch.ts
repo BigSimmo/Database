@@ -35,6 +35,16 @@ async function main() {
     if (!document) validationErrors.push(`${entry.documentId}: not found`);
     else if (document.owner_id !== entry.expectedOwnerId) validationErrors.push(`${entry.documentId}: owner changed`);
     else if (document.status !== "indexed") validationErrors.push(`${entry.documentId}: status is ${document.status}`);
+    else {
+      const { data: currentStateDigest, error: digestError } = await supabase.rpc("document_publication_state_digest", {
+        p_document_id: entry.documentId,
+        p_expected_owner_id: entry.expectedOwnerId,
+      });
+      if (digestError) throw new Error(digestError.message);
+      if (currentStateDigest !== entry.expectedStateDigest) {
+        validationErrors.push(`${entry.documentId}: reviewed content/state digest changed`);
+      }
+    }
   }
   if (validationErrors.length > 0) {
     throw new Error(`Publication manifest validation failed:\n${validationErrors.join("\n")}`);
@@ -67,19 +77,22 @@ async function main() {
 
   const { data: existingApprovals, error: existingApprovalError } = await supabase
     .from("document_publication_approvals")
-    .select("document_id, expected_prior_owner_id, decision, manifest_digest")
+    .select("document_id, expected_prior_owner_id, decision, manifest_digest, reviewed_state_digest")
     .eq("manifest_digest", digest)
     .in("document_id", ids);
   if (existingApprovalError) throw new Error(existingApprovalError.message);
   const existing = new Set(
     (existingApprovals ?? []).map(
       (approval) =>
-        `${approval.document_id}:${approval.expected_prior_owner_id}:${approval.decision}:${approval.manifest_digest}`,
+        `${approval.document_id}:${approval.expected_prior_owner_id}:${approval.decision}:${approval.manifest_digest}:${approval.reviewed_state_digest}`,
     ),
   );
   const approvals = manifest.documents
     .filter(
-      (document) => !existing.has(`${document.documentId}:${document.expectedOwnerId}:${document.decision}:${digest}`),
+      (document) =>
+        !existing.has(
+          `${document.documentId}:${document.expectedOwnerId}:${document.decision}:${digest}:${document.expectedStateDigest}`,
+        ),
     )
     .map((document) => ({
       document_id: document.documentId,
@@ -89,6 +102,7 @@ async function main() {
       reason: manifest.reason,
       evidence_references: manifest.evidenceReferences,
       manifest_digest: digest,
+      reviewed_state_digest: document.expectedStateDigest,
     }));
   if (approvals.length > 0) {
     const { error: approvalError } = await supabase.from("document_publication_approvals").insert(approvals);
@@ -97,7 +111,11 @@ async function main() {
 
   const approvedDocuments = manifest.documents
     .filter((document) => document.decision === "approved")
-    .map((document) => ({ document_id: document.documentId, expected_owner_id: document.expectedOwnerId }));
+    .map((document) => ({
+      document_id: document.documentId,
+      expected_owner_id: document.expectedOwnerId,
+      expected_state_digest: document.expectedStateDigest,
+    }));
   if (approvedDocuments.length === 0) {
     console.log("[public-documents:promote] decisions recorded; no documents were approved for publication.");
     return;

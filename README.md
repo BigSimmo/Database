@@ -13,8 +13,22 @@ questions with source citations that link back to the original PDF/document.
 2. Install dependencies:
 
 ```bash
-npm install
+npm ci --include=dev
 ```
+
+This is the clean-checkout and validation install contract. Use `npm install`
+only when intentionally changing dependencies and regenerating
+`package-lock.json`.
+
+Codex Desktop worktrees use `npm run setup:codex-worktree`. The local bootstrap
+reuses dependencies only from a complete worktree with a byte-identical lockfile,
+then validates the installed metadata. It falls back to the locked install above
+when no safe local donor exists. Do not configure Windows Desktop worktrees to run
+the Cloud-only Bash setup script.
+
+For Codex Cloud, use the tracked environment setup and acceptance contract in
+[`docs/codex-cloud.md`](docs/codex-cloud.md). It installs the complete repository
+toolchain and distinguishes safe offline tasks from explicitly connected provider tasks.
 
 3. Copy the full `.env.example` to `.env.local` and fill in Supabase and OpenAI
    values. Copy the worker and upload defaults too — they are conservative
@@ -100,6 +114,13 @@ heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
 It uses the conservative worker defaults from `.env.example` when those vars are
 set in `.env.local`.
 
+### Codex Cloud
+
+For isolated provider-free Cloud work, create the environment with the exact values in
+[`docs/codex-cloud.md`](docs/codex-cloud.md). Its checked-in setup and maintenance
+scripts match the Node/npm, Deno, Python/OCR, and Playwright toolchain without copying
+local credentials or enabling live provider access.
+
 ## Environment Notes
 
 - `SUPABASE_SERVICE_ROLE_KEY` is server-only. Never expose it in the browser.
@@ -127,7 +148,9 @@ set in `.env.local`.
   and TGA Software as a Medical Device screening where applicable.
 - See `docs/clinical-governance.md` for the deployment governance checklist.
 
-## Cursor Supabase MCP
+## Cursor MCP
+
+### Supabase
 
 This repo ships workspace Supabase MCP config in `.cursor/mcp.json` and agent
 skills under `.cursor/skills/supabase*`. Use them for database inspection,
@@ -160,15 +183,29 @@ a fresh agent session.
 Never put `SUPABASE_SERVICE_ROLE_KEY` or other secrets into MCP config. The
 hosted Supabase MCP server uses OAuth, not repo secrets.
 
+### Context7
+
+Workspace config in `.cursor/mcp.json` points at `https://mcp.context7.com/mcp`;
+`.cursor/settings.json` enables the `context7-plugin`. Use Context7 for
+versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest** — not for
+Next.js 16: read `node_modules/next/dist/docs/` locally and do not invent App
+Router APIs from Context7 or training data.
+
+Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://context7.com/dashboard)
+raises rate limits. Set it as a user/OS env var or in Cursor MCP env (`.env.local`
+alone does not feed MCP). Context7 works without a key at lower limits. Full setup
+notes: `docs/agents-guide.md`. Never commit the API key.
+
 ## Documentation
 
 Full categorized index: `docs/README.md` (maintained docs vs point-in-time
 records vs archive). The most load-bearing entries:
 
 - `docs/codebase-index.md` — architecture and module map (start here)
-- `docs/site-map.md` — generated route map (`npm run sitemap:update`)
+- `docs/site-map.md` — generated route map (`npm run docs:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
 - `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
+- `docs/codex-cloud.md` — reproducible provider-free Codex Cloud setup and acceptance check
 - `docs/clinical-governance.md` — deployment and source governance checklist
 - `docs/deployment-architecture.md` — app/worker/Supabase deployment topology
 - `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
@@ -201,13 +238,15 @@ changed paths, `static-pr` always runs runtime, action-pin, CI-scope, format,
 lint, and typecheck checks, and `pr-required` is the single
 always-reporting required aggregate (required PR checks are Gitleaks plus that
 aggregate). One full unit run with coverage, build, safety/config checks, the
-production Chromium gate, and the repo-owned Supabase `db-reset-verify`
-migration replay run only when their file scopes apply; UI PRs also get one
-non-blocking advisory Chromium invocation. The full Playwright browser matrix
+production Chromium gate, the repo-owned Supabase `db-reset-verify` migration
+replay, and both Docker image builds run only when their file scopes apply; a
+failed applicable container build therefore fails `pr-required`. UI PRs also
+get one non-blocking advisory Chromium invocation. The full Playwright browser matrix
 (`release-browser-matrix`) runs on `main`, `release/*`, manual dispatch, and a
-weekly schedule. Docker image builds, live drift, and live eval canary checks
-are path-filtered, scheduled, or manual rather than required checks for every
-source-only PR.
+weekly schedule. Live drift and live eval canary checks remain provider-gated;
+Docker image builds also run independently on main/release pushes, schedule,
+and manual dispatch. They are not required for source-only PRs outside the
+container scope.
 
 ```bash
 npm run dev       # Next.js UI/API on this project's stable localhost port
@@ -269,3 +308,15 @@ synthetic and must not be used as clinical guidance.
 by Git. The smaller `public/demo-documents/` set is tracked because the app uses
 it for demo-mode source and image rendering when live Supabase setup is
 unavailable.
+
+## Security
+
+Report vulnerabilities privately — see `SECURITY.md`. Do not open a public issue for
+a security problem. Threat models and the privacy assessment live under `docs/`
+(`rag-injection-threat-model.md`, `tenancy-defense-in-depth-review.md`,
+`privacy-impact-assessment.md`).
+
+## License
+
+Proprietary — all rights reserved. This repository is private and is not licensed for
+redistribution or reuse (`package.json` declares `"license": "UNLICENSED"`).

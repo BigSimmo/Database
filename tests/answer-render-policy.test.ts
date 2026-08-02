@@ -120,6 +120,17 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
       image_count: 1,
       viewer_href: "/documents/doc-1?page=4&chunk=chunk-1",
     } satisfies BestSourceRecommendation,
+    relevance: {
+      verdict: "direct",
+      label: "Direct source support",
+      matchedTerms: ["clozapine", "withhold"],
+      missingTerms: [],
+      directSourceCount: 1,
+      weakSourceCount: 0,
+      score: 1,
+      supportReason: "Direct source support.",
+      isSourceBacked: true,
+    },
     ...overrides,
   };
 }
@@ -276,6 +287,23 @@ describe("answer render policy", () => {
     );
     expect(model.warnings).toContain("A retrieved source is due for review.");
     expect(model.warnings).not.toContain("A supporting source is due for review.");
+  });
+
+  it("fails closed when answer relevance metadata is absent", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        relevance: undefined,
+        smartPanel: undefined,
+      }),
+    );
+
+    expect(model.trust).toBe("low");
+    expect(model.allowedBlocks).not.toContain("quoteCards");
+    expect(model.allowedBlocks).not.toContain("visualEvidence");
+    expect(model.allowedBlocks).not.toContain("relatedDocuments");
+    expect(model.visualEvidence).toEqual([]);
+    expect(model.tables).toEqual([]);
+    expect(model.copyText).not.toContain("Displayed table evidence");
   });
 
   it("does not render high trust for high-risk claims supported only by unverified evidence", () => {
@@ -452,6 +480,21 @@ describe("answer render policy", () => {
     expect(model.copyText).not.toContain("**");
     expect(model.copyText).toContain("withhold clozapine");
     expect(model.copyText).toContain("within 24 hours");
+  });
+
+  it("caps missing relevance metadata below source-backed trust", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        relevance: undefined,
+        smartPanel: undefined,
+      }),
+    );
+
+    expect(model.trust).toBe("low");
+    expect(model.allowedBlocks).toEqual(expect.arrayContaining(["sourceStatus", "reviewSources"]));
+    expect(model.allowedBlocks).not.toContain("evidenceMap");
+    expect(model.allowedBlocks).not.toContain("quoteCards");
+    expect(model.allowedBlocks).not.toContain("relatedDocuments");
   });
 
   it("limits unsupported answers to source review and warnings even when raw extras are present", () => {

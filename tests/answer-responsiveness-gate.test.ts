@@ -6,8 +6,8 @@ import {
   isBareDefinitionQuestion,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
-} from "../src/lib/rag";
-import { hasClinicalAnswerQualityIssue } from "../src/lib/rag-answer-text";
+} from "../src/lib/rag/rag";
+import { hasClinicalAnswerQualityIssue } from "../src/lib/rag/rag-answer-text";
 import type { RagAnswer, RagQueryClass } from "../src/lib/types";
 
 function modelAnswer(overrides: Partial<RagAnswer> = {}): RagAnswer {
@@ -133,6 +133,14 @@ describe("generation-timeout fallback wording (P2)", () => {
   it("does not trip the source-inventory quality detector", () => {
     const text = sourceBackedGenerationTimeoutAnswer("How is agitation managed in the ED?");
     expect(hasClinicalAnswerQualityIssue(text)).toBe(false);
+  });
+
+  it("uses canonical clinical terms instead of echoing query typos", () => {
+    const text = sourceBackedGenerationTimeoutAnswer(
+      "What agitaton and arousl dosing guidance applies to psychiatric inpatients?",
+    );
+    expect(text).toMatch(/agitation and arousal/i);
+    expect(text).not.toMatch(/agitaton|arousl/i);
   });
 });
 

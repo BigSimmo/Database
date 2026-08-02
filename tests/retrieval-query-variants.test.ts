@@ -18,8 +18,8 @@ import {
   textCandidateBudgetForQueryClass,
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
-} from "../src/lib/rag";
-import { firstVariantPoolIsStrong, maxTextRpcQueryVariants } from "../src/lib/rag-retrieval-variants";
+} from "../src/lib/rag/rag";
+import { firstVariantPoolIsStrong, maxTextRpcQueryVariants } from "../src/lib/rag/rag-retrieval-variants";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult> = {}): SearchResult {

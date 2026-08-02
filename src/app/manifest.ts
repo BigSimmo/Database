@@ -1,10 +1,10 @@
 import type { MetadataRoute } from "next";
-import { APP_THEME_COLORS, DEFAULT_THEME } from "@/lib/theme";
 
 // PWA manifest — makes the app installable with a proper icon. Icons derive from
 // the single brand-mark source: the SVG for modern browsers, plus generated PNG
-// "any" and "maskable" sets from app/icons/[variant]. Colours match the light
-// default of viewport.themeColor in app/layout.tsx.
+// "any" and "maskable" sets from app/icons/[variant]. Theme colours stay on
+// viewport.themeColor / meta theme-color (see app/layout.tsx and use-theme.ts)
+// so light/dark can update without a static PWA manifest colour lock.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Clinical KB",
@@ -22,8 +22,6 @@ export default function manifest(): MetadataRoute.Manifest {
     // Focus the already-open app window on launch instead of spawning a second
     // instance; "auto" lets platforms without the capability use their default.
     launch_handler: { client_mode: ["navigate-existing", "auto"] },
-    background_color: APP_THEME_COLORS[DEFAULT_THEME],
-    theme_color: APP_THEME_COLORS[DEFAULT_THEME],
     categories: ["medical", "productivity", "utilities"],
     prefer_related_applications: false,
     icons: [

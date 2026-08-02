@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -221,6 +221,13 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
     data: { signedUrl: `https://signed.local/${path}` },
     error: null,
   }));
+  // Batch sibling of `createSignedUrl`, used by /api/images/signed-urls. Supabase
+  // returns one entry per requested path, so the route matches results back to
+  // images by path rather than by index.
+  const createSignedUrls = vi.fn(async (paths: string[]) => ({
+    data: paths.map((path) => ({ path, signedUrl: `https://signed.local/${path}`, error: null })),
+    error: null,
+  }));
   const remove = vi.fn(
     async (
       ...args: [string[]]
@@ -232,10 +239,10 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
       return { data: [], error: null };
     },
   );
-  const storageFrom = vi.fn(() => ({ upload, createSignedUrl, remove }));
+  const storageFrom = vi.fn(() => ({ upload, createSignedUrl, createSignedUrls, remove }));
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
-      ? { data: { user: { id: userId } }, error: null }
+      ? { data: { user: { id: userId, app_metadata: { site_role: "administrator" } } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
   const subjectRateLimitCounts = new Map<string, number>();
@@ -269,6 +276,67 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
         error: null,
       };
     }
+    if (name === "create_uploaded_document_with_ingestion_job") {
+      const document = (args?.p_document ?? {}) as Record<string, unknown>;
+      const documentCall: QueryCall = {
+        table: "documents",
+        operation: "insert",
+        orFilters: [],
+        filters: [],
+        inFilters: [],
+        overlapsFilters: [],
+        insertPayload: document,
+        maybeSingle: false,
+        single: true,
+      };
+      calls.push(documentCall);
+      const documentResult = resolveWithDefaultScope(documentCall);
+      if (documentResult.error) return documentResult;
+
+      const insertedDocument = {
+        ...document,
+        ...(typeof documentResult.data === "object" && documentResult.data ? documentResult.data : {}),
+        status: "queued",
+        page_count: 0,
+        chunk_count: 0,
+        image_count: 0,
+        created_at: "2026-07-24T00:00:00.000Z",
+      };
+      const jobPayload = {
+        document_id: document.id,
+        batch_id: null,
+        status: "pending",
+        stage: "queued",
+        progress: 0,
+        max_attempts: args?.p_max_attempts,
+      };
+      const jobCall: QueryCall = {
+        table: "ingestion_jobs",
+        operation: "insert",
+        orFilters: [],
+        filters: [],
+        inFilters: [],
+        overlapsFilters: [],
+        insertPayload: jobPayload,
+        maybeSingle: false,
+        single: true,
+      };
+      calls.push(jobCall);
+      const jobResult = resolveWithDefaultScope(jobCall);
+      if (jobResult.error) return jobResult;
+
+      return ok({
+        document: insertedDocument,
+        job: {
+          id: "job-1",
+          ...jobPayload,
+          ...(typeof jobResult.data === "object" && jobResult.data ? jobResult.data : {}),
+        },
+      });
+    }
+    if (name === "request_ingestion_reindex_if_agent_idle") {
+      return ok({ outcome: "queued", job: { id: "reindex-job" } });
+    }
     return ok([]);
   });
   const client = {
@@ -290,10 +358,21 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
     }),
     rpc,
     storage: { from: storageFrom },
-    storageMocks: { upload, createSignedUrl, remove, storageFrom },
+    storageMocks: { upload, createSignedUrl, createSignedUrls, remove, storageFrom },
   };
 
   return client;
+}
+
+function mockAtomicReindexRpc(
+  client: ReturnType<typeof createSupabaseMock>,
+  resolve: (args: Record<string, unknown>) => QueryResult | Promise<QueryResult>,
+) {
+  client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+    if (name === "consume_api_rate_limit") return ok([rateLimitRow()]);
+    if (name === "request_ingestion_reindex_if_agent_idle") return resolve(args ?? {});
+    return ok([]);
+  });
 }
 
 function mockRuntime(
@@ -304,26 +383,26 @@ function mockRuntime(
     localOwnerEmail?: string;
     providerMode?: string;
     openAiKey?: string;
-    publicUploadsEnabled?: boolean;
-    publicWorkspaceOwnerId?: string;
     maxConcurrentUploads?: number;
     maxInFlightUploadMb?: number;
     demoMode?: boolean;
   } = {},
 ) {
   vi.resetModules();
-  vi.doUnmock("@/lib/rag");
+  vi.doUnmock("@/lib/rag/rag");
   vi.doUnmock("@/lib/openai");
   vi.doUnmock("@/lib/document-enrichment");
   vi.doUnmock("@/lib/deep-memory");
   vi.doUnmock("@/lib/demo-data");
   vi.doMock("@/lib/env", () => ({
     env: {
+      NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
       MAX_UPLOAD_MB: 150,
       MAX_CONCURRENT_UPLOADS: options.maxConcurrentUploads ?? 1,
       MAX_IN_FLIGHT_UPLOAD_MB: options.maxInFlightUploadMb ?? 151,
       SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
       SUPABASE_IMAGE_BUCKET: "clinical-images",
+      DOCUMENT_SIGNED_URL_TTL_SECONDS: 600,
       RAG_SEARCH_CACHE_TTL_MS: 0,
       RAG_SEARCH_CACHE_SIZE: 0,
       RAG_ANSWER_CACHE_TTL_MS: 0,
@@ -335,15 +414,11 @@ function mockRuntime(
       OPENAI_API_KEY: options.openAiKey ?? "sk-test",
       RAG_PROVIDER_MODE: options.providerMode ?? "auto",
       LOCAL_NO_AUTH_OWNER_EMAIL: options.localOwnerEmail,
-      PUBLIC_WORKSPACE_OWNER_ID: options.publicWorkspaceOwnerId,
-      NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: options.publicUploadsEnabled ? "true" : undefined,
       WORKER_STALE_AFTER_MINUTES: 10,
       WORKER_MAX_ATTEMPTS: 3,
     },
     isDemoMode: () => Boolean(options.demoMode),
     isLocalNoAuthMode: () => Boolean(options.localNoAuth),
-    publicWorkspaceOwnerId: () => options.publicWorkspaceOwnerId ?? null,
-    publicUploadsEnabled: () => Boolean(options.publicUploadsEnabled),
     requireOpenAIEnv: () => undefined,
     requireServerEnv: () => undefined,
   }));
@@ -351,7 +426,7 @@ function mockRuntime(
     createAdminClient: () => client,
   }));
   if (ragMock) {
-    vi.doMock("@/lib/rag", () => ragMock);
+    vi.doMock("@/lib/rag/rag", () => ragMock);
   }
 }
 
@@ -396,7 +471,7 @@ function authenticatedAuthTokenCookieRequest(path: string, init?: RequestInit) {
   return request(path, {
     ...init,
     headers: {
-      cookie: `sb-random-project-ref-auth-token=${encodeURIComponent(
+      cookie: `sb-sjrfecxgysukkwxsowpy-auth-token=${encodeURIComponent(
         JSON.stringify({
           access_token: token,
           refresh_token: "refresh-token",
@@ -446,7 +521,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual([{ id: documentId, title: "Public guideline" }]);
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
@@ -462,7 +537,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledTimes(1);
   });
-  it("rejects local no-auth upload calls from unmanaged localhost ports before Supabase access", async () => {
+  it("does not let local no-auth bypass administrator upload authentication", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
     const { POST } = await import("../src/app/api/upload/route");
@@ -476,13 +551,13 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("rejects managed-port upload calls with stale localhost referers before Supabase access", async () => {
+  it("does not let a localhost referer bypass administrator upload authentication", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
     const { POST } = await import("../src/app/api/upload/route");
@@ -499,8 +574,8 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -515,7 +590,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual([{ id: documentId, title: "Public guideline", status: "indexed" }]);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.calls[0].filters).not.toContainEqual({ column: "owner_id", value: userId });
@@ -847,7 +922,7 @@ describe("private document API access", () => {
     expect((await payload(response)).url).toContain("public/documents/guideline.pdf");
   });
 
-  it("recovers valid cookie auth when a stale bearer header is also present", async () => {
+  it("rejects an invalid bearer header even when a valid cookie is also present", async () => {
     const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client);
@@ -863,13 +938,14 @@ describe("private document API access", () => {
     );
     const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.auth.getUser).toHaveBeenCalledWith(token);
+    expect(response.status).toBe(401);
+    expect(body).toMatchObject({ code: "authentication_required" });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("expired-token");
   });
 
   it("omits internal document list fields for anonymous callers", async () => {
-    const documents = [{ id: documentId, owner_id: null, title: "Public guideline", status: "indexed" }];
+    const documents = [{ id: documentId, title: "Public guideline", status: "indexed" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/route");
@@ -1158,7 +1234,197 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
-  it("rejects anonymous upload with setup guidance when public uploads are not configured", async () => {
+  /*
+   * Batch sibling of the five `/api/images/[id]/signed-url` cases above.
+   * `/api/images/signed-urls` mints up to 100 signed URLs per call and carries its
+   * OWN owner-scope and committed-generation implementation. `check:owner-scope-api`
+   * cannot cover the real protection here: `document_images` has no `owner_id`
+   * column, so the only thing keeping another owner's image out of the response is
+   * the `documentMap` join filter in the handler. These cases pin that filter.
+   */
+  const otherImageId = "44444444-4444-4444-8444-444444444444";
+
+  function signedUrlsRequest(imageIds: string[], authenticated = true) {
+    const init: RequestInit = {
+      method: "POST",
+      body: JSON.stringify({ imageIds }),
+      headers: { "content-type": "application/json" },
+    };
+    return authenticated
+      ? authenticatedRequest("/api/images/signed-urls", init)
+      : request("/api/images/signed-urls", init);
+  }
+
+  /** Two images on two documents with different owners, plus owner-scoped document reads. */
+  function createBatchImageMock(options: { imageGeneration?: string; documentGeneration?: string } = {}) {
+    const imageGeneration = options.imageGeneration ?? "generation-a";
+    const documentGeneration = options.documentGeneration ?? "generation-a";
+    return createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        const requested = call.inFilters.find((filter) => filter.column === "id")?.values ?? [];
+        return ok(
+          [
+            {
+              id: imageId,
+              document_id: documentId,
+              storage_path: `${userId}/images/${imageId}.png`,
+              mime_type: "image/png",
+              caption: "Owned image",
+              metadata: { index_generation_id: imageGeneration },
+            },
+            {
+              id: otherImageId,
+              document_id: otherDocumentId,
+              storage_path: `${otherUserId}/images/${otherImageId}.png`,
+              mime_type: "image/png",
+              caption: "Other owner's image",
+              metadata: { index_generation_id: imageGeneration },
+            },
+          ].filter((image) => requested.includes(image.id)),
+        );
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        // Only the caller's own document comes back from an owner-scoped read.
+        return ok([{ id: documentId, metadata: { index_generation_id: documentGeneration } }]);
+      }
+      return ok([]);
+    });
+  }
+
+  it("signs a batch of images whose parent documents are owned", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.urls).toMatchObject({
+      [imageId]: { url: `https://signed.local/${userId}/images/${imageId}.png`, mimeType: "image/png" },
+    });
+    expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("omits images whose parent document belongs to another user", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([otherImageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.urls).toEqual({});
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("signs only the owned image when a batch mixes owners", async () => {
+    // The batch-specific leak: one unowned id riding along with an owned one must
+    // not inherit the owned document's access.
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId, otherImageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(Object.keys(body.urls as Record<string, unknown>)).toEqual([imageId]);
+    expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("scopes the batch document read to the caller", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    await POST(signedUrlsRequest([imageId]));
+
+    const documentReads = client.calls.filter((call) => call.table === "documents");
+    expect(documentReads.length).toBeGreaterThan(0);
+    expect(documentReads.every((call) => matchesOwnerReadScope(call, userId))).toBe(true);
+  });
+
+  it("restricts an anonymous batch to public documents", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok([
+          {
+            id: imageId,
+            document_id: documentId,
+            storage_path: `${userId}/images/${imageId}.png`,
+            mime_type: "image/png",
+            caption: "Owned image",
+            metadata: { index_generation_id: "generation-a" },
+          },
+        ]);
+      }
+      // No public document matches, so an anonymous caller gets nothing.
+      if (call.table === "documents" && matchesOwnerReadScope(call)) return ok([]);
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId], false));
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({ urls: {} });
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("omits batch images from an uncommitted replacement generation", async () => {
+    const client = createBatchImageMock({ imageGeneration: "generation-new", documentGeneration: "generation-old" });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({ urls: {} });
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty map for an empty batch without touching storage", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([]));
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({ urls: {} });
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("rejects a batch of non-uuid image ids before querying", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest(["not-a-uuid"]));
+
+    expect(response.status).toBe(400);
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("rejects a batch larger than the documented maximum", async () => {
+    const client = createBatchImageMock();
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const tooMany = Array.from(
+      { length: 101 },
+      (_, index) => `55555555-5555-4555-8555-${String(index).padStart(12, "0")}`,
+    );
+    const response = await POST(signedUrlsRequest(tooMany));
+
+    expect(response.status).toBe(400);
+    expect(client.storageMocks.createSignedUrls).not.toHaveBeenCalled();
+  });
+
+  it("rejects anonymous uploads without touching storage", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
@@ -1172,58 +1438,47 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
-  it("uploads anonymous documents to the configured public workspace owner", async () => {
-    const publicOwnerId = "99999999-9999-4999-8999-999999999999";
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
-      if (call.table === "documents" && call.operation === "insert") {
-        const inserted = call.insertPayload as { id: string; owner_id: string; storage_path: string };
-        return ok({ id: inserted.id, owner_id: inserted.owner_id, storage_path: inserted.storage_path });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "insert")
-        return ok({ id: "job-1", document_id: documentId });
-      return ok([]);
+  it("rejects an authenticated non-administrator upload", async () => {
+    const client = createSupabaseMock();
+    client.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: userId, app_metadata: { site_role: "user" } } },
+      error: null,
     });
-    mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
+    mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      request("/api/upload", {
+      authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
     );
 
-    expect(response.status).toBe(201);
-    expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(
-      client.calls.find((call) => call.table === "documents" && call.operation === "insert")?.insertPayload,
-    ).toMatchObject({
-      owner_id: publicOwnerId,
-    });
+    expect(response.status).toBe(403);
+    expect(await payload(response)).toMatchObject({ code: "administrator_required" });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
-  it("fails closed for anonymous uploads when the durable anonymous limiter is unavailable", async () => {
-    const publicOwnerId = "99999999-9999-4999-8999-999999999999";
+  it("fails closed for administrator uploads when the durable limiter is unavailable", async () => {
     const client = createSupabaseMock();
     client.rpc.mockImplementation(async (name: string) =>
       name === "consume_api_subject_rate_limit" ? fail("anonymous limiter table unavailable") : ok([]),
     );
-    mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
+    mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      request("/api/upload", {
+      authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -1453,7 +1708,7 @@ describe("private document API access", () => {
     expect(client.storageMocks.upload).toHaveBeenCalledTimes(1);
   });
 
-  it("cleans up document and storage when aborted after document insert", async () => {
+  it("cleans up document and storage when aborted after the atomic upload enqueue", async () => {
     const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
@@ -1474,7 +1729,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(499);
     expect(client.calls.filter((call) => call.table === "documents" && call.operation === "insert")).toHaveLength(1);
-    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(true);
     expect(client.calls.filter((call) => call.table === "documents" && call.operation === "delete")).toHaveLength(1);
     expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
   });
@@ -1511,6 +1766,46 @@ describe("private document API access", () => {
     expect(inserted.storage_path).toBe(uploadPath);
     expect(uploadPath).toMatch(new RegExp(`^${userId}/documents/[0-9a-f-]+/guideline\\.pdf$`));
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
+  });
+
+  it("does not mint Official/Trusted publisher_code from a spoofable upload filename", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "insert") {
+        const inserted = call.insertPayload as {
+          id: string;
+          file_name: string;
+          metadata: Record<string, unknown>;
+        };
+        return ok({ id: inserted.id, file_name: inserted.file_name, metadata: inserted.metadata });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        return ok({ id: "job-1", document_id: documentId });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "WACHS-anything.pdf", { type: "application/pdf" }));
+    formData.set("title", "WACHS lithium spoof");
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    const documentInsert = client.calls.find((call) => call.table === "documents" && call.operation === "insert");
+    const inserted = documentInsert?.insertPayload as {
+      file_name: string;
+      metadata: Record<string, unknown>;
+    };
+
+    expect(response.status).toBe(201);
+    expect(inserted.file_name).toBe("WACHS-anything.pdf");
+    expect(inserted.metadata.publisher_code).toBeNull();
+    expect(inserted.metadata.publisher).toBeNull();
+    expect(inserted.metadata.jurisdiction).toBe("Australia/WA");
   });
 
   it("assigns a smart unique title when a different document has the same upload name", async () => {
@@ -1662,10 +1957,23 @@ describe("private document API access", () => {
             chunk_index: 0,
             section_heading: "Management",
             content: "Agitation management table text.",
-            image_ids: [],
+            image_ids: ["private-search-image"],
             similarity: 0.9,
             hybrid_score: 0.92,
-            images: [],
+            images: [
+              {
+                id: "private-search-image",
+                page_number: 3,
+                storage_path: `${otherUserId}/images/private-search-image.png`,
+                source_kind: "table_crop",
+                sourceKind: "table_crop",
+                image_type: "clinical_table",
+                clinicalUseClass: "clinical_evidence",
+                searchable: true,
+                clinical_relevance_score: 0.9,
+                caption: "Agitation management table.",
+              },
+            ],
           },
         ],
         telemetry: {
@@ -1702,6 +2010,9 @@ describe("private document API access", () => {
       }),
     ]);
     expect(body.relatedDocuments).toHaveLength(1);
+    const resultRows = body.results as Array<{ images: Array<Record<string, unknown>> }>;
+    expect(resultRows[0].images[0]).not.toHaveProperty("storage_path");
+    expect(JSON.stringify(resultRows)).not.toContain(otherUserId);
   });
 
   it("accepts differentials as a standalone source-library search mode", async () => {
@@ -1937,6 +2248,16 @@ describe("private document API access", () => {
     ];
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([
+          {
+            document_id: documentId,
+            status: "processing",
+            locked_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+      }
       if (call.table === "document_chunks") return ok(chunks);
       if (call.table === "document_images") return ok(images);
       return ok([]);
@@ -1970,6 +2291,7 @@ describe("private document API access", () => {
     expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
     expect(client.calls[0].selected).toContain("metadata");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(client.calls.some((call) => call.table === "indexing_v3_agent_jobs")).toBe(false);
     expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
@@ -2150,6 +2472,100 @@ describe("private document API access", () => {
     expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
+  it("blocks full reindex while a fresh agent-enrichment lease is processing", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Agent-Enriched Protocol",
+      file_name: "agent-enriched.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "indexed",
+      error_message: null,
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const now = new Date().toISOString();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([{ document_id: documentId, status: "processing", locked_at: now, updated_at: now }]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Document has an active agent-enrichment pass. Wait for it to finish before reindexing.",
+    });
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+  });
+
+  it("allows full reindex after an agent-enrichment lease becomes stale", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Stale Agent Protocol",
+      file_name: "stale-agent.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "indexed",
+      error_message: null,
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const stale = new Date(Date.now() - 11 * 60_000).toISOString();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([{ document_id: documentId, status: "processing", locked_at: stale, updated_at: stale }]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(client.rpc).toHaveBeenCalledWith(
+      "request_ingestion_reindex_if_agent_idle",
+      expect.objectContaining({
+        p_document_id: documentId,
+        p_owner_id: userId,
+        p_stale_before: expect.any(String),
+        p_max_attempts: 3,
+      }),
+    );
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+  });
+
   it("blocks full reindex when the selected document already has active indexing work", async () => {
     const document = {
       id: documentId,
@@ -2302,7 +2718,7 @@ describe("private document API access", () => {
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
   });
 
-  it("rolls back single-document queue mutation when full reindex job enqueue fails", async () => {
+  it("leaves queue mutation to the atomic RPC when full reindex enqueue fails", async () => {
     const document = {
       id: documentId,
       owner_id: userId,
@@ -2321,10 +2737,9 @@ describe("private document API access", () => {
       if (call.table === "documents" && call.operation === "select") return ok(document);
       if (call.table === "import_batches") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("job insert failed");
-      if (call.table === "documents" && call.operation === "update") return ok([]);
       return ok([]);
     });
+    mockAtomicReindexRpc(client, () => fail("transaction rolled back"));
     mockRuntime(client);
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
@@ -2336,31 +2751,10 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
     const body = await payload(response);
-    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(500);
     expect(body).toMatchObject({ error: "Request failed." });
-    expect(documentUpdates).toHaveLength(2);
-    expect(documentUpdates[0]?.updatePayload).toEqual({
-      status: "queued",
-      error_message: null,
-      page_count: 0,
-      chunk_count: 0,
-      image_count: 0,
-      updated_at: expect.any(String),
-    });
-    expect(documentUpdates[1]?.updatePayload).toEqual({
-      status: "failed",
-      error_message: "older failure",
-      page_count: 12,
-      chunk_count: 34,
-      image_count: 2,
-    });
-    // Rollback fence: the rollback must be conditional on the updated_at
-    // stamp the queue-state write set, so it is a single atomic UPDATE that
-    // cannot revert a newer queue state written by an overlapping request.
-    const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
-    expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
+    expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
 
   it("returns 409 without rollback when deletion wins the single-document reindex race", async () => {
@@ -2382,12 +2776,9 @@ describe("private document API access", () => {
       if (call.table === "documents" && call.operation === "select") return ok(document);
       if (call.table === "import_batches") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
-      if (call.table === "documents" && call.operation === "update") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        return fail("ingestion_jobs_document_id_fkey", "23503");
-      }
       return ok([]);
     });
+    mockAtomicReindexRpc(client, () => ok({ outcome: "not_found" }));
     mockRuntime(client);
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
@@ -2403,10 +2794,10 @@ describe("private document API access", () => {
     expect(await payload(response)).toMatchObject({
       error: "Document was deleted while reindexing. Refresh the document list and retry.",
     });
-    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "update")).toHaveLength(1);
+    expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
 
-  it("skips single-document rollback when a competing active job appears after the safety check", async () => {
+  it("returns the atomic RPC conflict when active ingestion appears after the safety check", async () => {
     const document = {
       id: documentId,
       owner_id: userId,
@@ -2421,17 +2812,31 @@ describe("private document API access", () => {
       image_count: 2,
       metadata: {},
     };
+    let ingestionReads = 0;
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") return ok(document);
       if (call.table === "import_batches") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "select" && call.limitCount === 1) {
-        return ok([{ id: "competing-job" }]);
+      if (call.table === "ingestion_jobs" && call.operation === "select" && call.selected?.includes("locked_at")) {
+        ingestionReads += 1;
+        if (ingestionReads === 1) return ok([]);
+        return ok([
+          {
+            id: "competing-job",
+            document_id: documentId,
+            status: "pending",
+            stage: "queued",
+            locked_at: null,
+            updated_at: new Date().toISOString(),
+            error_message: null,
+            attempt_count: 0,
+            max_attempts: 3,
+          },
+        ]);
       }
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("job insert failed");
-      if (call.table === "documents" && call.operation === "update") return ok([]);
       return ok([]);
     });
+    mockAtomicReindexRpc(client, () => ok({ outcome: "ingestion_active" }));
     mockRuntime(client);
     const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
 
@@ -2443,22 +2848,16 @@ describe("private document API access", () => {
       { params: Promise.resolve({ id: documentId }) },
     );
     const body = await payload(response);
-    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
-    expect(response.status).toBe(500);
-    expect(body).toMatchObject({ error: "Request failed." });
-    expect(documentUpdates).toHaveLength(1);
-    expect(documentUpdates[0]?.updatePayload).toEqual({
-      status: "queued",
-      error_message: null,
-      page_count: 0,
-      chunk_count: 0,
-      image_count: 0,
-      updated_at: expect.any(String),
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({
+      error: "Document already has pending or processing indexing work.",
+      safety: { reason: "active_jobs", activeJobCount: 1 },
     });
+    expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
 
-  it("rolls back per-document queue mutation when bulk full reindex enqueue fails", async () => {
+  it("reports an atomic RPC failure without direct bulk queue mutation", async () => {
     const document = {
       id: documentId,
       owner_id: userId,
@@ -2477,10 +2876,9 @@ describe("private document API access", () => {
       if (call.table === "documents" && call.operation === "select") return ok([document]);
       if (call.table === "import_batches") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
-      if (call.table === "documents" && call.operation === "update") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("bulk job insert failed");
       return ok([]);
     });
+    mockAtomicReindexRpc(client, () => fail("transaction rolled back"));
     mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
     const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
 
@@ -2491,7 +2889,6 @@ describe("private document API access", () => {
       }),
     );
     const body = await payload(response);
-    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
@@ -2501,34 +2898,67 @@ describe("private document API access", () => {
           documentId,
           mode: "full",
           ok: false,
-          error: "bulk job insert failed",
+          error: "transaction rolled back",
         },
       ],
     });
-    expect(documentUpdates).toHaveLength(2);
-    expect(documentUpdates[0]?.updatePayload).toEqual({
-      status: "queued",
-      error_message: null,
-      page_count: 0,
-      chunk_count: 0,
-      image_count: 0,
-      updated_at: expect.any(String),
-    });
-    expect(documentUpdates[1]?.updatePayload).toEqual({
+    expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
+  });
+
+  it("returns a per-document failure while a selected document has fresh agent enrichment", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Agent-Enriched Protocol",
+      file_name: "bulk-agent-enriched.pdf",
+      source_path: null,
+      import_batch_id: null,
       status: "failed",
-      error_message: "older failure",
+      error_message: "earlier failure",
       page_count: 3,
       chunk_count: 8,
       image_count: 1,
+      metadata: {},
+    };
+    const now = new Date().toISOString();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([{ document_id: documentId, status: "processing", locked_at: now, updated_at: now }]);
+      }
+      return ok([]);
     });
-    // Rollback fence: same atomic-conditional guard as the single-document
-    // reindex route — the rollback matches on the stamp this request wrote.
-    const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
-    expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId], mode: "retry_failed" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toEqual({
+      ok: false,
+      results: [
+        {
+          documentId,
+          mode: "retry_failed",
+          ok: false,
+          error: "Reindex paused while enrichment is active.",
+        },
+      ],
+      missingDocumentIds: [],
+    });
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
   });
 
-  it("returns 409 without rollback when deletion wins a bulk reindex race", async () => {
-    const document = {
+  it("returns a successful partial-result response when deletion wins one bulk reindex race", async () => {
+    const deletedDocument = {
       id: documentId,
       owner_id: userId,
       title: "Bulk Deleted During Reindex",
@@ -2542,27 +2972,36 @@ describe("private document API access", () => {
       image_count: 0,
       metadata: {},
     };
+    const queuedDocument = {
+      ...deletedDocument,
+      id: otherDocumentId,
+      title: "Bulk Reindex Survivor",
+      file_name: "bulk-survivor.pdf",
+    };
     const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "documents" && call.operation === "select") return ok([deletedDocument, queuedDocument]);
       if (call.table === "import_batches") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
-      if (call.table === "documents" && call.operation === "update") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        return fail("ingestion_jobs_document_id_fkey", "23503");
-      }
       return ok([]);
     });
+    mockAtomicReindexRpc(client, (args) =>
+      ok(
+        args.p_document_id === documentId
+          ? { outcome: "not_found" }
+          : { outcome: "queued", job: { id: "surviving-job" } },
+      ),
+    );
     mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
     const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
 
     const response = await POST(
       authenticatedRequest("/api/documents/bulk/reindex", {
         method: "POST",
-        body: JSON.stringify({ documentIds: [documentId], mode: "full" }),
+        body: JSON.stringify({ documentIds: [documentId, otherDocumentId], mode: "full" }),
       }),
     );
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(200);
     expect(await payload(response)).toMatchObject({
       ok: false,
       results: [
@@ -2571,12 +3010,58 @@ describe("private document API access", () => {
           ok: false,
           error: "Document was deleted while reindexing. Refresh the document list and retry.",
         },
+        {
+          documentId: otherDocumentId,
+          ok: true,
+          jobId: "surviving-job",
+        },
       ],
+      missingDocumentIds: [],
     });
-    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "update")).toHaveLength(1);
+    expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
 
-  it("skips bulk rollback when a competing active job appears after the safety check", async () => {
+  it("returns missing document ids as a completed partial batch", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Reindex Available Document",
+      file_name: "bulk-available.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 2,
+      chunk_count: 4,
+      image_count: 0,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      return ok([]);
+    });
+    mockAtomicReindexRpc(client, () => ok({ outcome: "queued", job: { id: "available-job" } }));
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId, otherDocumentId], mode: "full" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toMatchObject({
+      ok: false,
+      results: [{ documentId, ok: true, jobId: "available-job" }],
+      missingDocumentIds: [otherDocumentId],
+    });
+  });
+
+  it("reports an atomic bulk conflict when active ingestion appears after the safety check", async () => {
     const document = {
       id: documentId,
       owner_id: userId,
@@ -2594,14 +3079,10 @@ describe("private document API access", () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") return ok([document]);
       if (call.table === "import_batches") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "select" && call.limitCount === 1) {
-        return ok([{ id: "competing-job" }]);
-      }
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
-      if (call.table === "documents" && call.operation === "update") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") return fail("bulk job insert failed");
       return ok([]);
     });
+    mockAtomicReindexRpc(client, () => ok({ outcome: "ingestion_active" }));
     mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
     const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
 
@@ -2612,7 +3093,6 @@ describe("private document API access", () => {
       }),
     );
     const body = await payload(response);
-    const documentUpdates = client.calls.filter((call) => call.table === "documents" && call.operation === "update");
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
@@ -2622,19 +3102,11 @@ describe("private document API access", () => {
           documentId,
           mode: "full",
           ok: false,
-          error: "bulk job insert failed",
+          error: "Document already has pending or processing indexing work.",
         },
       ],
     });
-    expect(documentUpdates).toHaveLength(1);
-    expect(documentUpdates[0]?.updatePayload).toEqual({
-      status: "queued",
-      error_message: null,
-      page_count: 0,
-      chunk_count: 0,
-      image_count: 0,
-      updated_at: expect.any(String),
-    });
+    expect(client.calls.some((call) => call.operation === "update" || call.operation === "insert")).toBe(false);
   });
 
   it("cleans up uploaded storage when document insert fails", async () => {
@@ -2661,14 +3133,29 @@ describe("private document API access", () => {
   it("cleans up uploaded storage when job insert fails", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
-        return ok({ id: documentId });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "insert") {
         return fail("job insert failed");
       }
       return ok([]);
     });
     mockRuntime(client);
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "create_uploaded_document_with_ingestion_job") {
+        return fail("job insert failed");
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return {
+          data: [
+            rateLimitRow({
+              limited: false,
+              limit_value: Number(args?.p_limit ?? 60),
+              remaining: Number(args?.p_limit ?? 60) - 1,
+            }),
+          ],
+          error: null,
+        };
+      }
+      return ok([]);
+    });
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
@@ -2683,24 +3170,18 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
-    expect(
-      client.calls.some(
-        (call) =>
-          call.table === "documents" &&
-          call.operation === "delete" &&
-          call.filters.some((filter) => filter.column === "id" && typeof filter.value === "string") &&
-          call.filters.some((filter) => filter.column === "owner_id" && filter.value === userId),
-      ),
-    ).toBe(true);
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
   });
 
-  it("still runs catch cleanup when upload cleanup calls return non-throwing errors", async () => {
+  it("still runs catch cleanup when post-enqueue cleanup calls return non-throwing errors", async () => {
+    const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
+        controller.abort();
         return ok({ id: documentId });
       }
       if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        return fail("job insert failed");
+        return ok({ id: "job-1", document_id: documentId });
       }
       if (call.table === "documents" && call.operation === "delete") {
         return fail("document cleanup returned error");
@@ -2720,13 +3201,14 @@ describe("private document API access", () => {
       authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       }),
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
     const documentDeletes = client.calls.filter((call) => call.table === "documents" && call.operation === "delete");
 
-    expect(response.status).toBe(500);
-    expect(documentDeletes.length).toBeGreaterThanOrEqual(2);
+    expect(response.status).toBe(499);
+    expect(documentDeletes).toHaveLength(1);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -2828,7 +3310,11 @@ describe("private document API access", () => {
     const replacementGeneration = "22222222-2222-4222-8222-222222222222";
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
-        return ok({ id: documentId, metadata: { index_generation_id: committedGeneration } });
+        return ok({
+          id: documentId,
+          status: "indexed",
+          metadata: { index_generation_id: committedGeneration },
+        });
       }
       if (call.table === "document_chunks") {
         return ok([
@@ -2876,6 +3362,95 @@ describe("private document API access", () => {
     expect(body.results.map((result: { id: string }) => result.id)).toEqual(["chunk-old"]);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
+  });
+
+  it("does not treat a query term embedded inside another word as a document-search hit", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, status: "indexed", metadata: {} });
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === "search_document_chunks") {
+        return ok([
+          {
+            id: "embedded-term",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Endocrine",
+            content: "Adrenal monitoring only.",
+            image_ids: [],
+            text_rank: 0.8,
+          },
+          {
+            id: "word-boundary-term",
+            page_number: 2,
+            chunk_index: 1,
+            section_heading: "Renal monitoring",
+            content: "Check renal function before treatment.",
+            image_ids: [],
+            text_rank: 0.7,
+          },
+        ]);
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/search/route");
+
+    const response = await GET(request(`/api/documents/${documentId}/search?q=renal`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { results: Array<{ id: string; matched_terms: string[] }> };
+
+    expect(response.status).toBe(200);
+    expect(body.results).toEqual([expect.objectContaining({ id: "word-boundary-term", matched_terms: ["renal"] })]);
+  });
+
+  it("returns no hits for non-indexed documents even when the search RPC is unavailable", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select" && matchesOwnerReadScope(call)) {
+        return ok({ id: documentId, status: "processing", metadata: {} });
+      }
+      if (call.table === "document_chunks") {
+        return ok([
+          {
+            id: "chunk-staged",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: "Staging",
+            content: "lithium monitoring staged row",
+            image_ids: [],
+            metadata: {},
+          },
+        ]);
+      }
+      return ok([]);
+    });
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === "search_document_chunks") return fail("missing rpc");
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return { data: [rateLimitRow()], error: null };
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/search/route");
+
+    const response = await GET(request(`/api/documents/${documentId}/search?q=lithium`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = (await payload(response)) as { strategy: string; results: unknown[]; hitCount: number };
+
+    expect(response.status).toBe(200);
+    expect(body.strategy).toBe("document_not_indexed");
+    expect(body.results).toEqual([]);
+    expect(body.hitCount).toBe(0);
+    expect(client.from).not.toHaveBeenCalledWith("document_chunks");
   });
 
   it("filters table fact review rows to the committed index generation", async () => {
@@ -3542,7 +4117,7 @@ describe("private document API access", () => {
     );
   });
 
-  it("degrades invalid bearer tokens to anonymous search scope", async () => {
+  it("rejects invalid bearer tokens instead of using anonymous search scope", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -3571,10 +4146,9 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
-    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
-    );
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
   it("rate limits anonymous answer bursts before generation", async () => {
@@ -3865,6 +4439,45 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
+  it("logs failed search telemetry against the parsed query instead of an unknown placeholder", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Clozapine monitoring",
+          includeRelatedDocuments: false,
+          filters: { sourceStatuses: ["current"] },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await vi.waitFor(() => {
+      const insert = client.calls.find((call) => call.table === "rag_queries" && call.operation === "insert");
+      expect(insert).toBeTruthy();
+      const payload = insert?.insertPayload as Record<string, unknown>;
+      const expectedHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("clozapine monitoring")
+        .digest("hex");
+      const unknownHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("unknown")
+        .digest("hex");
+      expect(payload.query).toBe(`redacted-query:${expectedHash}`);
+      expect(payload.query).not.toBe(`redacted-query:${unknownHash}`);
+    });
+  });
+
   it("falls back to visible demo answers only outside production when Supabase rejects the API key", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Live answer",
@@ -4068,6 +4681,110 @@ describe("private document API access", () => {
     expect(secondResponse.status).toBe(200);
     expect(firstPayload.telemetry).toMatchObject({ coalesced: false });
     expect(secondPayload.telemetry).toMatchObject({ coalesced: true });
+  });
+
+  it("cancels shared search work only after every coalesced caller disconnects", async () => {
+    let providerSignal: AbortSignal | undefined;
+    const searchChunksWithTelemetry = vi.fn(async (args: { signal?: AbortSignal }) => {
+      providerSignal = args.signal;
+      return new Promise<never>((_resolve, reject) => {
+        args.signal?.addEventListener(
+          "abort",
+          () => reject(args.signal?.reason ?? new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const searchRequest = (signal: AbortSignal) =>
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({ query: "cancel shared monitoring search", includeRelatedDocuments: false }),
+      });
+
+    const first = searchRoute.POST(searchRequest(firstController.signal));
+    const second = searchRoute.POST(searchRequest(secondController.signal));
+    for (let index = 0; index < 10 && !providerSignal; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(1);
+
+    firstController.abort(new DOMException("first caller left", "AbortError"));
+    await first;
+    expect(providerSignal?.aborted).toBe(false);
+
+    secondController.abort(new DOMException("second caller left", "AbortError"));
+    await second;
+    expect(providerSignal?.aborted).toBe(true);
+  });
+
+  it("does not poison a new healthy search caller after the last coalesced waiter disconnects", async () => {
+    let searchCalls = 0;
+    const searchChunksWithTelemetry = vi.fn(async (args: { signal?: AbortSignal }) => {
+      searchCalls += 1;
+      const signal = args.signal;
+      if (searchCalls === 1) {
+        return new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason ?? new DOMException("aborted", "AbortError")), {
+            once: true,
+          });
+          if (signal?.aborted) {
+            reject(signal.reason ?? new DOMException("aborted", "AbortError"));
+          }
+        });
+      }
+      return {
+        results: [],
+        telemetry: {
+          search_cache_hit: false,
+          text_fast_path_latency_ms: 0,
+          embedding_skipped: true,
+          embedding_latency_ms: 0,
+          embedding_cache_hit: false,
+          supabase_rpc_latency_ms: 0,
+          rerank_latency_ms: 0,
+          retrieval_strategy: "text_fast_path",
+          weighted_top_score: 0,
+          rrf_top_score: 0,
+        },
+      };
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const firstController = new AbortController();
+    const searchRequest = (signal: AbortSignal) =>
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({
+          query: "poison race monitoring search",
+          includeRelatedDocuments: false,
+        }),
+      });
+
+    const first = searchRoute.POST(searchRequest(firstController.signal));
+    for (let index = 0; index < 10 && searchCalls === 0; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchCalls).toBe(1);
+
+    firstController.abort(new DOMException("sole search waiter left", "AbortError"));
+    const firstResponse = await first;
+    expect(firstResponse.status).toBeGreaterThanOrEqual(400);
+
+    const healthyController = new AbortController();
+    const healthyResponse = await searchRoute.POST(searchRequest(healthyController.signal));
+    const healthyPayload = await payload(healthyResponse);
+    expect(healthyResponse.status).toBe(200);
+    expect(healthyController.signal.aborted).toBe(false);
+    expect(searchCalls).toBe(2);
+    expect(healthyPayload.telemetry).toMatchObject({ coalesced: false });
   });
 
   it("streams only public progress details and exactly one completion before the final answer", async () => {
@@ -4293,6 +5010,58 @@ describe("private document API access", () => {
       }),
     );
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("rejects document summary mode on the non-streaming answer endpoint", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toMatchObject({
+      code: "summary_mode_stream_required",
+      error: "Document summaries require the streaming answer endpoint.",
+    });
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects document summary mode when documentIds selects a different document", async () => {
+    const summarizeDocument = vi.fn();
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { summarizeDocument, answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          documentIds: [otherDocumentId],
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toMatchObject({ code: "invalid_body" });
+    expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   it("rate limits streamed document summaries before provider work", async () => {
@@ -4707,6 +5476,34 @@ describe("private document API access", () => {
     expectFeedbackTokenBoundToAnswer(body);
   });
 
+  it("rejects non-stream document summaries before RAG/provider work", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(payload(response)).resolves.toMatchObject({
+      error: "Document summaries require the streaming answer endpoint.",
+      code: "summary_mode_stream_required",
+    });
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
   it("rate limits document summarization before OpenAI work", async () => {
     const summarizeDocument = vi.fn(async () => ({ summary: "Expensive summary" }));
     const client = createSupabaseMock();
@@ -4787,7 +5584,9 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(404);
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
-    expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
+    expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("applies the shared danger-governance refusal to the legacy document summary endpoint", async () => {
@@ -4859,7 +5658,7 @@ describe("private document API access", () => {
       generateStructuredTextResponse: vi.fn(),
       generateStructuredTextResult: vi.fn(),
     }));
-    const { searchChunks } = await import("../src/lib/rag");
+    const { searchChunks } = await import("../src/lib/rag/rag");
 
     const results = await searchChunks({
       query: "monitoring",
@@ -4889,7 +5688,7 @@ describe("private document API access", () => {
       generateStructuredTextResponse: vi.fn(),
       generateStructuredTextResult: vi.fn(),
     }));
-    const { searchChunks } = await import("../src/lib/rag");
+    const { searchChunks } = await import("../src/lib/rag/rag");
 
     await searchChunks({ query: "monitoring", documentId: otherDocumentId, ownerId: userId });
 
@@ -4907,7 +5706,7 @@ describe("private document API access", () => {
       generateStructuredTextResponse: vi.fn(),
       generateStructuredTextResult: vi.fn(),
     }));
-    const { searchChunks } = await import("../src/lib/rag");
+    const { searchChunks } = await import("../src/lib/rag/rag");
 
     await searchChunks({
       query: "Find the NOCC document",

@@ -21,12 +21,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
 import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import {
@@ -36,7 +38,6 @@ import {
   type ClinicalBadgeTone,
 } from "@/components/clinical-dashboard/clinical-badge";
 import { medicationIdentityBadges, type MedicationRecord } from "@/lib/medications";
-import { medicationMatchesCommandScopes } from "@/lib/search-command-surface";
 import { SEMANTIC_TONE_META } from "@/lib/semantic-tone";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, EmptyState, pageContainer } from "@/components/ui-primitives";
@@ -196,15 +197,6 @@ function StatusNotice({
   );
 }
 
-function QueryChip({ query }: { query: string }) {
-  return (
-    <span className="inline-flex min-h-tap max-w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-      <Pill className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-      <span className="min-w-0 truncate">{query}</span>
-    </span>
-  );
-}
-
 function MedicationHome({
   loading,
   realDataReady,
@@ -217,8 +209,8 @@ function MedicationHome({
   return (
     <ModeHomeTemplate
       testId="medication-home"
-      title="Medication prescribing"
-      subtitle="Search a medication or prescribing question."
+      title="Medication"
+      subtitle="Medication dosing and safety."
       icon={Pill}
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
@@ -245,7 +237,7 @@ function MedicationHome({
             apiUnavailable={apiUnavailable}
             setupWarning={setupWarning}
           />
-          <ModeHomeVerificationFooter icon={ShieldCheck} label="Prescribing support" body="Confirm against source" />
+          <ModeHomeVerificationFooter label="Prescribing support" body="Confirm against source" />
         </div>
       }
     />
@@ -405,7 +397,10 @@ function MedicationResults({
   MedicationPrescribingWorkspaceProps,
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
-  const command = useSearchCommand();
+  // Debounced + aborted fetches (see useMedicationCatalog) stop keystroke storms.
+  // Keep the full catalogue payload here: Safety/Monitoring chips and patient
+  // alerts need sections/stats/quick that `fields=index` strips. Cross-mode
+  // identity consumers still use `fields=index`.
   const catalog = useMedicationCatalog(query);
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
@@ -442,10 +437,7 @@ function MedicationResults({
           record,
         ),
       );
-    const scopes = command?.commandScopes ?? [];
-    const scoped = scopes.length
-      ? sourceRows.filter((row) => medicationMatchesCommandScopes(row.result, scopes))
-      : sourceRows;
+    const scoped = sourceRows;
     const filterCounts: Record<MedicationResultFilter, number> = { best: 0, indication: 0, safety: 0, monitoring: 0 };
     for (const row of scoped) {
       for (const filter of medicationResultFilters) {
@@ -457,47 +449,53 @@ function MedicationResults({
       counts: filterCounts,
       totalAvailable: scoped.length,
     };
-  }, [activeFilter, catalog.data, command?.commandScopes, profile, profileEmpty]);
+  }, [activeFilter, catalog.data, profile, profileEmpty]);
   const resultCount = rows.length;
   // The match-quality badge only earns its slot when it differentiates: hide it on
   // "Exact clinical fit" rows when every visible row says the same thing.
   const showMatchBadge = useMemo(() => new Set(rows.map((row) => row.result.match)).size > 1, [rows]);
   const activeFilterLabel = medicationResultFilters.find((filter) => filter.id === activeFilter)?.label ?? "filtered";
+  const initialCatalogLoading = catalog.loading && !catalog.data;
+  const catalogRefetching = catalog.loading && Boolean(catalog.data);
 
   return (
     <div className={cn(pageContainer, "medication-results-workspace space-y-3 py-0 sm:py-2")}>
-      <div className="hidden lg:block">
-        <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
-      </div>
-      <div className="medication-results-inset min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
-          <h3 className="text-2xl font-semibold leading-tight text-[color:var(--text-heading)] sm:text-3xl-minus">
-            {resultCount} prescribing matches
-          </h3>
-        </div>
-        <div className="min-w-0 sm:pb-0.5">
-          <QueryChip query={query} />
-        </div>
-      </div>
+      <SearchResultsHeaderBand
+        modeId="prescribing"
+        query={query}
+        matchCount={resultCount}
+        status={
+          catalog.error ? "error" : initialCatalogLoading ? "loading" : catalogRefetching ? "refetching" : "ready"
+        }
+        faultBody={catalog.error ?? undefined}
+        filterLabel="Filter medication results"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter medication results"
+            testId="medication-result-filter-select"
+            value={activeFilter}
+            options={medicationResultFilters.map((filter) => ({
+              value: filter.id,
+              label: `${filter.label} (${counts[filter.id]})`,
+            }))}
+            onChange={setActiveFilter}
+          />
+        }
+        filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
+      />
 
       <PatientProfilePanel variant="compact" className="medication-patient-strip" />
 
-      <FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />
-
-      {catalog.loading || catalog.error ? (
+      {/* The error branch moved into the band's fault panel, which carries the
+          same message and announces it once. Loading copy stays here. */}
+      {initialCatalogLoading ? (
         <div className="medication-results-inset">
-          {catalog.loading ? (
-            <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
-          ) : (
-            <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
-              {catalog.error}
-            </p>
-          )}
+          <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
         </div>
       ) : null}
 
-      {!catalog.loading && !catalog.error && resultCount === 0 ? (
+      {!initialCatalogLoading && !catalog.error && resultCount === 0 ? (
         totalAvailable > 0 ? (
           <div className="medication-results-inset space-y-2">
             <EmptyState
@@ -524,9 +522,9 @@ function MedicationResults({
         )
       ) : null}
 
-      {!catalog.loading && !catalog.error && resultCount > 0 ? (
+      {!initialCatalogLoading && !catalog.error && resultCount > 0 ? (
         <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
-          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+          <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Dose</span>
             <span>Ceiling</span>
@@ -540,7 +538,7 @@ function MedicationResults({
               const rowClassName = cn(
                 "group grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
-                  ? "bg-[color:var(--clinical-accent-soft)]/35 shadow-[inset_2px_0_0_var(--clinical-accent)] ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
+                  ? "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)] ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
                   : result.href
                     ? "hover:bg-[color:var(--surface-subtle)]"
                     : "cursor-default opacity-80",
@@ -570,7 +568,7 @@ function MedicationResults({
                     {result.dose}
                   </span>
                   <DoseCeiling value={result.ceiling} />
-                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
+                  <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-snug text-[color:var(--text-heading)]">
                     <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
                     <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
@@ -580,7 +578,7 @@ function MedicationResults({
                       aria-hidden="true"
                     />
                   ) : (
-                    <span className="justify-self-end text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                    <span className="justify-self-end text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                       Soon
                     </span>
                   )}
@@ -650,7 +648,7 @@ function MedicationResults({
                   <span className="nums line-clamp-2 break-words">{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
                 </div>
-                <p className="line-clamp-2 break-words text-pretty text-xs leading-[1.45] text-[color:var(--text-muted)]">
+                <p className="line-clamp-2 break-words text-pretty text-xs leading-normal text-[color:var(--text-muted)]">
                   <ActionToneIcon tone={result.actionTone} className="mr-1 inline-block h-3.5 w-3.5 align-[-0.15em]" />
                   {result.action}
                 </p>
@@ -658,7 +656,7 @@ function MedicationResults({
               {result.href ? (
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
               ) : (
-                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <span className="mt-1 shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Soon
                 </span>
               )}

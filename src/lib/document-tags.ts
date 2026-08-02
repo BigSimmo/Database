@@ -839,6 +839,55 @@ export function buildSmartDocumentTagFacetIndex<T extends ClinicalTagSource>(
   return { entries, groups };
 }
 
+/**
+ * Re-count an already-built facet index against the facets currently selected.
+ *
+ * `buildSmartDocumentTagFacetIndex` counts every facet across the whole match
+ * set, which is correct only while nothing is selected. Selections AND together
+ * (see `filterDocumentsBySmartTagFacetIndex`), so the moment one is applied the
+ * built-in counts describe a set the reader is no longer looking at — and some
+ * of them point at combinations that yield nothing, which reads as a live option
+ * and behaves as a dead end.
+ *
+ * Each count here answers the question the row actually poses: *how many
+ * documents would I have if I ticked this as well?* A facet that is already
+ * selected reports the current result count, because that is what it is
+ * currently giving you.
+ *
+ * Membership and order are deliberately left alone. Re-sorting by the new counts
+ * would make rows jump under the pointer as you select, and re-slicing to the
+ * top N could drop a facet you have already ticked. A facet whose count falls to
+ * zero stays in place at zero so the caller can disable it: removing it makes
+ * the list jump and hides the reason it went away.
+ */
+export function projectSmartTagFacetGroups<T extends ClinicalTagSource>(
+  index: SmartDocumentTagFacetIndex<T>,
+  selectedTagKeys: string[],
+): SmartDocumentTagFacetGroup[] {
+  const selected = [...new Set(selectedTagKeys)];
+  if (selected.length === 0) return index.groups;
+
+  const selectedKeys = new Set(selected);
+  const keyGroups = facetKeyGroups(index);
+  const byGroup = partitionSelectionByGroup(selected, keyGroups);
+  const selectionCount = index.entries.filter((entry) => entryMatchesSelection(entry.tagKeys, byGroup)).length;
+
+  // The count must be produced by the same predicate as the filter, or the two
+  // drift apart the moment the combination rules change. Adding a key to a group
+  // that is already selected *widens* under OR-within-group, so this cannot be
+  // computed by narrowing an already-filtered subset.
+  const countWith = (key: string) => {
+    if (selectedKeys.has(key)) return selectionCount;
+    const probe = partitionSelectionByGroup([...selected, key], keyGroups);
+    return index.entries.filter((entry) => entryMatchesSelection(entry.tagKeys, probe)).length;
+  };
+
+  return index.groups.map((group) => ({
+    group: group.group,
+    facets: group.facets.map((facet) => ({ ...facet, count: countWith(facet.key) })),
+  }));
+}
+
 export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(
   documents: T[],
   selectedTagKeys: string[],
@@ -846,15 +895,67 @@ export function filterDocumentsBySmartTagFacets<T extends ClinicalTagSource>(
   return filterDocumentsBySmartTagFacetIndex(buildSmartDocumentTagFacetIndex(documents), selectedTagKeys);
 }
 
+/**
+ * Which group each selectable key belongs to, read off the tags the index already
+ * carries. `index.groups` is not a safe source: it is sliced to `limitPerGroup`,
+ * so a key that is selected but outside the top N of its group would be missing.
+ */
+function facetKeyGroups<T extends ClinicalTagSource>(index: SmartDocumentTagFacetIndex<T>) {
+  const groups = new Map<string, SmartDocumentTagGroup>();
+  for (const entry of index.entries) {
+    for (const tag of entry.tags) {
+      if (!groups.has(tag.key)) groups.set(tag.key, tag.group);
+    }
+  }
+  return groups;
+}
+
+/**
+ * Group the selection so it can be combined the way a reader means it.
+ *
+ * Two values from the *same* group are alternatives — "Lithium or Clozapine",
+ * "renal or thyroid risk" — so they widen. Values from *different* groups are
+ * constraints that stack — "lithium documents, about renal risk" — so they
+ * narrow. That is OR within a group, AND across groups.
+ *
+ * Before this, everything ANDed: picking two medications asked for a document
+ * about both and returned nothing almost every time, which made multi-select
+ * within a group a dead affordance rather than a feature.
+ */
+function partitionSelectionByGroup(selectedTagKeys: string[], keyGroups: Map<string, SmartDocumentTagGroup>) {
+  const byGroup = new Map<string, Set<string>>();
+  for (const key of new Set(selectedTagKeys)) {
+    // A key whose group cannot be resolved is kept under its own identity, so it
+    // still constrains rather than being silently dropped from the filter.
+    const group = keyGroups.get(key) ?? `\u0000${key}`;
+    const bucket = byGroup.get(group);
+    if (bucket) bucket.add(key);
+    else byGroup.set(group, new Set([key]));
+  }
+  return byGroup;
+}
+
+function entryMatchesSelection(tagKeys: Set<string>, byGroup: Map<string, Set<string>>) {
+  for (const keys of byGroup.values()) {
+    let hit = false;
+    for (const key of keys) {
+      if (tagKeys.has(key)) {
+        hit = true;
+        break;
+      }
+    }
+    if (!hit) return false;
+  }
+  return true;
+}
+
 export function filterDocumentsBySmartTagFacetIndex<T extends ClinicalTagSource>(
   index: SmartDocumentTagFacetIndex<T>,
   selectedTagKeys: string[],
 ) {
   if (selectedTagKeys.length === 0) return index.entries.map((entry) => entry.document);
-  const selected = [...new Set(selectedTagKeys)];
-  return index.entries
-    .filter((entry) => selected.every((key) => entry.tagKeys.has(key)))
-    .map((entry) => entry.document);
+  const byGroup = partitionSelectionByGroup(selectedTagKeys, facetKeyGroups(index));
+  return index.entries.filter((entry) => entryMatchesSelection(entry.tagKeys, byGroup)).map((entry) => entry.document);
 }
 
 type ClinicalTagSource = {

@@ -6,6 +6,7 @@ import type { ServiceChipTone, ServiceRecord } from "@/lib/services";
 
 export { formCatalogDetails } from "@/lib/form-ranker";
 export type { FormAvailability, FormCatalogDetails } from "@/lib/form-ranker";
+export type FormRecord = ServiceRecord;
 
 export const officialFormsRegisterUrl =
   "https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legislation/mental-health-act-2014-forms/";
@@ -418,6 +419,11 @@ function toFormRecord(details: FormCatalogDetails): ServiceRecord {
     },
     catalogPayload: details,
   };
+}
+
+export function formTitleForCode(code: string) {
+  const normalized = normalizeCode(code);
+  return officialForms.find((form) => normalizeCode(form.code) === normalized)?.title ?? null;
 }
 
 export function loadFormCatalogDetails(): FormCatalogDetails[] {

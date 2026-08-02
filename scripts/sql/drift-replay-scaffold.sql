@@ -14,11 +14,11 @@
 -- has the real storage schema, and every statement here is create-if-missing,
 -- but there is no reason for it to touch live).
 --
--- Run as `supabase_admin` (the image's superuser): the bare image ships the
--- `storage` schema owned by supabase_admin, and `postgres` cannot create in
--- it. Ownership of the scaffold tables is handed to `postgres` afterwards so
--- schema.sql (applied as `postgres`, matching how live is administered) can
--- insert bucket rows and create the storage.objects policies.
+-- The Docker wrapper discovers the bare image's storage-schema owner at
+-- runtime and uses it only for this local scaffold. Hosted migrations never
+-- assume a platform-reserved role. Ownership of the scaffold tables is handed
+-- to `postgres` afterwards so schema.sql (applied as `postgres`, matching
+-- how live is administered) can insert bucket rows and create policies.
 
 create schema if not exists storage;
 

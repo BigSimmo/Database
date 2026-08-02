@@ -1,12 +1,14 @@
 # Ingestion autopilot. Probes the live ingestion queue (reindex-health) and, when
 # a stuck-queue signal is present, runs the existing recovery path. Alerts (opens/
-# updates an issue) only when Supabase is unreachable or recovery fails.
+# updates an issue) when recoverable work is detected, Supabase is unreachable,
+# or an explicitly requested recovery fails.
 #
 # ENABLED IN DRY-RUN: the 6-hourly schedule is active, but recovery only APPLIES when
 # BOTH the dispatch input `apply=true` AND repo variable INGESTION_AUTOPILOT_APPLY ==
 # "true". The variable is intentionally unset, so scheduled runs are read-only probes
-# that alert on unreachable Supabase or (with apply) failed recovery. To allow real
-# recovery after observing a clean dry-run cycle, set INGESTION_AUTOPILOT_APPLY=true.
+# that alert on detected stuck/stranded work, unreachable Supabase, or (with apply)
+# failed recovery. To allow real recovery after reviewing a dry-run, set
+# INGESTION_AUTOPILOT_APPLY=true and dispatch with apply=true.
 name: Ingestion Autopilot
 
 on:
@@ -41,7 +43,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Manual dispatch can select a same-repository branch; always execute the
           # trusted default-branch code before exposing production credentials.
@@ -58,14 +60,14 @@ jobs:
           fi
 
       - name: Setup Node.js
-        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: ".nvmrc"
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --include=dev
 
       - name: Guard Supabase project identity
         run: npm run check:supabase-project
@@ -81,6 +83,9 @@ jobs:
           if [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then
             echo "Applying recovery when stuck."
             npm run ingestion:autopilot -- --apply
+          elif [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Scheduled dry-run; alert if recoverable work is detected."
+            npm run ingestion:autopilot -- --alert-on-stuck
           else
             echo "Dry-run (set repo var INGESTION_AUTOPILOT_APPLY=true and dispatch apply=true to recover)."
             npm run ingestion:autopilot
@@ -98,9 +103,10 @@ jobs:
               "",
               `Run: ${runUrl}`,
               "",
-              "Either Supabase was unreachable or recovery failed. Triage:",
-              "`npm run reindex:health`, then `npm run recover:ingestion -- --apply` if a stuck",
-              "queue is confirmed. Do not assume corruption — a transient outage looks the same.",
+              "Either recoverable work was detected, Supabase was unreachable, or recovery failed. Triage:",
+              "`npm run reindex:health`, then `npm run recover:ingestion -- --include-stranded-queued --apply`",
+              "if a stuck queue or aged queued-without-job document is confirmed. Do not assume corruption —",
+              "a transient outage looks the same.",
             ].join("\n");
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,

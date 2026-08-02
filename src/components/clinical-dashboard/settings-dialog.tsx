@@ -1,7 +1,8 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Check,
@@ -32,6 +33,7 @@ import {
 } from "lucide-react";
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
+import { useAccountData } from "@/components/account-data-provider";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   ANSWER_STYLE_OPTIONS,
@@ -41,23 +43,19 @@ import {
   POPULATION_OPTIONS,
   useAppPreferences,
 } from "@/components/clinical-dashboard/use-app-preferences";
-import { clearRecentQueries, countRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
+import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
 import {
   cn,
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
+  InlineNotice,
   primaryControl,
   toggleThumbSurface,
 } from "@/components/ui-primitives";
+import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Sheet } from "@/components/ui/sheet";
-import {
-  readSavedRegistrySlugs,
-  savedDifferentialsStorageKey,
-  savedFormsStorageKey,
-  savedServicesStorageKey,
-  writeSavedRegistrySlugs,
-} from "@/lib/saved-registry-storage";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
 
@@ -95,11 +93,7 @@ function sectionDomId(id: SettingsSectionId) {
 function readDataCounts(): { recent: number; saved: number } {
   if (typeof window === "undefined") return { recent: 0, saved: 0 };
   const recent = countRecentQueries();
-  const saved =
-    readSavedRegistrySlugs(savedServicesStorageKey).length +
-    readSavedRegistrySlugs(savedFormsStorageKey).length +
-    readSavedRegistrySlugs(savedDifferentialsStorageKey).length;
-  return { recent, saved };
+  return { recent, saved: 0 };
 }
 
 function settingsRowTestId(label: string) {
@@ -115,24 +109,32 @@ export function SettingsDialog({
   identity,
   onSignOut,
   onOpenGuide,
+  initialFocus = "close",
 }: {
   open: boolean;
   onClose: () => void;
   identity: SidebarIdentity;
   onSignOut: () => void;
   onOpenGuide: () => void;
+  initialFocus?: "close" | "guide";
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
   const { theme, preference: themePreference, setPreference: setThemePreference } = useTheme();
   const { preferences, setPreference, resetPreferences } = useAppPreferences();
+  // Hide-on-scroll for the mobile glass header (phone-gated inside the hook), so
+  // the top goes fully edge-to-edge while scrolling — the same behaviour as the
+  // app's search bar. Desktop keeps a static in-panel header.
+  const { hidden: headerHidden, reportScroll } = useScrollHideReporter();
 
   const auth = useAuthSession();
+  const accountData = useAccountData();
+  const savedCount = Object.values(accountData.favourites).reduce((total, items) => total + items.length, 0);
   const [settingsEmail, setSettingsEmail] = useState("");
   const [emailEntryOpen, setEmailEntryOpen] = useState(false);
-  const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
   const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
   const [dataCounts, setDataCounts] = useState<{ recent: number; saved: number }>(() => readDataCounts());
@@ -161,15 +163,6 @@ export function SettingsDialog({
       preferences.jurisdiction,
     [preferences.jurisdiction],
   );
-  const populationLabel = useMemo(
-    () => POPULATION_OPTIONS.find((option) => option.value === preferences.population)?.label ?? preferences.population,
-    [preferences.population],
-  );
-  const jurisdictionShort = useMemo(
-    () => (preferences.jurisdiction === "national" ? "National" : preferences.jurisdiction.toUpperCase()),
-    [preferences.jurisdiction],
-  );
-
   const refreshDataCounts = useCallback(() => {
     setDataCounts(readDataCounts());
   }, []);
@@ -211,11 +204,18 @@ export function SettingsDialog({
     [preferences.motion],
   );
 
+  const handleScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      const el = event.currentTarget;
+      reportScroll({ offset: el.scrollTop, maxOffset: el.scrollHeight - el.clientHeight, source: el });
+    },
+    [reportScroll],
+  );
+
   async function submitSettingsEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!settingsEmail.trim()) return;
     setAccountNotice(null);
-    setSettingsEmailAttempted(true);
     await auth.signInWithEmail(settingsEmail.trim());
   }
 
@@ -224,8 +224,9 @@ export function SettingsDialog({
     setAccountNotice(null);
   }
 
-  function chooseSettingsProvider(provider: string) {
-    setAccountNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
+  async function chooseSettingsProvider(provider: "Google" | "Microsoft") {
+    setAccountNotice(null);
+    await auth.signInWithOAuth(provider === "Google" ? "google" : "azure");
   }
 
   function handleClearRecent() {
@@ -234,12 +235,9 @@ export function SettingsDialog({
     setPrivacyNotice("Recent searches cleared.");
   }
 
-  function handleClearSaved() {
-    writeSavedRegistrySlugs(savedServicesStorageKey, []);
-    writeSavedRegistrySlugs(savedFormsStorageKey, []);
-    writeSavedRegistrySlugs(savedDifferentialsStorageKey, []);
-    refreshDataCounts();
-    setPrivacyNotice("Saved items cleared.");
+  async function handleClearSaved() {
+    const cleared = await accountData.clearFavourites();
+    setPrivacyNotice(cleared ? "Saved items cleared." : "Sign in to clear account favourites.");
   }
 
   function handleResetPreferences() {
@@ -262,9 +260,10 @@ export function SettingsDialog({
       type="button"
       onClick={onClose}
       aria-label="Close settings"
-      className="absolute right-2.5 top-[max(0.45rem,env(safe-area-inset-top))] z-10 grid h-9 w-9 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:left-4 lg:right-auto lg:top-4 lg:h-10 lg:w-10"
+      className="order-first grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:order-last lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
     >
-      <X aria-hidden="true" className="size-icon-lg" />
+      <ArrowLeft aria-hidden="true" className="size-icon-lg lg:hidden" />
+      <X aria-hidden="true" className="hidden size-icon-lg lg:block" />
     </button>
   );
 
@@ -274,14 +273,13 @@ export function SettingsDialog({
       onClose={onClose}
       closeLabel="Close settings"
       labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
+      initialFocusRef={initialFocus === "guide" ? guideButtonRef : closeButtonRef}
       mobilePlacement="fullscreen"
-      contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
+      contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
     >
       <div className="relative grid h-full max-h-full min-h-0 overflow-hidden lg:h-auto lg:max-h-[min(88dvh,840px)] lg:grid-cols-[248px_minmax(0,1fr)]">
-        {closeButton}
-        <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-16 lg:flex lg:flex-col">
+        <aside className="hidden border-r border-[color:var(--border-lux)] bg-[color:var(--surface)]/72 px-4 pb-5 pt-6 lg:flex lg:flex-col">
           <nav aria-label="Settings sections" className="grid gap-1">
             {SETTINGS_SECTIONS.map((item) => {
               const Icon = item.icon;
@@ -307,444 +305,461 @@ export function SettingsDialog({
           </nav>
           <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
             <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-            Preferences stay on this device. No PHI.
+            Stored on this device. No PHI.
           </p>
         </aside>
 
         <div
           ref={scrollRef}
-          className="relative mx-auto min-h-0 w-full max-w-[520px] overflow-y-auto scroll-smooth bg-[color:var(--background)] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-[max(2.45rem,calc(0.7rem+env(safe-area-inset-top)))] polished-scroll sm:px-5 lg:mx-0 lg:max-w-none lg:bg-transparent lg:px-7 lg:pb-8 lg:pt-6"
+          onScroll={handleScroll}
+          className="relative min-h-0 w-full overflow-y-auto scroll-smooth bg-[color:var(--background)] polished-scroll lg:bg-transparent lg:px-7"
         >
-          <div className="mb-3 flex items-center justify-between gap-4 lg:mb-5">
-            <div className="min-w-0">
-              <h2
-                id="account-settings-title"
-                className="truncate text-lg leading-normal font-semibold tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-2xl lg:leading-8"
-              >
-                Account &amp; app
-              </h2>
-              <p className="mt-0.5 truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                Tune your workspace, clinical defaults, and privacy.
-              </p>
-            </div>
-            <span className="hidden min-h-7 shrink-0 items-center rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-xs font-semibold leading-none text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
-              Clinician account
-            </span>
-          </div>
-
-          {/* Account */}
-          <SettingsSection id="account" title="Account">
-            <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
-              <div className="flex items-center gap-3">
-                <span
-                  className={cn(
-                    "relative grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold leading-none ring-1",
-                    signedOutAccount
-                      ? "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-[color:var(--border)]"
-                      : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
-                  )}
+          {/* Edge-to-edge glass header: full-bleed scrim covers the notch/status-bar
+              band, and it slides away on scroll-down (mobile only) so the top runs
+              edge-to-edge. On lg it reverts to a static in-panel title bar. */}
+          <header
+            className={cn(
+              // No permanent `will-change-transform`: it keeps a compositor layer
+              // alive at rest for a header that only transforms during scroll-hide.
+              // `transition-transform` already hints the browser for the animation.
+              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-300 motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
+              headerHidden ? "-translate-y-full" : "translate-y-0",
+            )}
+          >
+            <div className="edge-glass-header-backdrop lg:hidden" aria-hidden="true" />
+            <div className="relative mx-auto flex w-full max-w-[520px] items-center justify-between gap-3 lg:max-w-none">
+              {closeButton}
+              <div className="order-last min-w-0 flex-1 lg:order-first">
+                <h2
+                  id="account-settings-title"
+                  aria-label="Account & app"
+                  className="truncate text-xl font-semibold leading-tight tracking-[-0.01em] text-[color:var(--text-heading)] lg:text-2xl lg:leading-8"
                 >
-                  {signedOutAccount ? <UserRound aria-hidden="true" className="h-5 w-5" /> : identity.initials}
-                  {identity.signedIn ? (
-                    <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
-                  ) : null}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
-                    {identity.displayName}
-                  </p>
-                  <p className="truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    {signedOutAccount
-                      ? "Sign in or create an account"
-                      : `Consultant psychiatrist, ${jurisdictionLabel}`}
-                  </p>
+                  <span className="lg:hidden">Settings</span>
+                  <span className="hidden lg:inline">Account &amp; app</span>
+                </h2>
+              </div>
+            </div>
+          </header>
+
+          <div className="mx-auto w-full max-w-[520px] px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2 lg:max-w-none lg:px-0 lg:pb-8 lg:pt-2">
+            {/* Account */}
+            <SettingsSection id="account" title="Account">
+              <section
+                data-testid="settings-account-card"
+                className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[var(--shadow-inset)] lg:bg-[color:var(--surface)] lg:p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "relative grid h-12 w-12 shrink-0 place-items-center rounded-full text-sm font-bold leading-none ring-1",
+                      signedOutAccount
+                        ? "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-[color:var(--border)]"
+                        : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] ring-[color:var(--clinical-accent)]/10",
+                    )}
+                  >
+                    {signedOutAccount ? <UserRound aria-hidden="true" className="h-5 w-5" /> : identity.initials}
+                    {identity.signedIn ? (
+                      <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--success)]" />
+                    ) : null}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
+                      {identity.displayName}
+                    </p>
+                    <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                      {signedOutAccount
+                        ? "Sign in or create an account"
+                        : `Consultant psychiatrist · ${jurisdictionLabel}`}
+                    </p>
+                  </div>
+                  {signedOutAccount ? (
+                    <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
+                      <button
+                        type="button"
+                        onClick={openSettingsEmailEntry}
+                        className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                      >
+                        Create account
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openSettingsEmailEntry}
+                        className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
+                      >
+                        Sign in
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                      <SettingsChip label="Private" />
+                      <SettingsChip label="No PHI" />
+                    </div>
+                  )}
                 </div>
+
                 {signedOutAccount ? (
-                  <div className="hidden w-[220px] shrink-0 grid-cols-1 gap-2 lg:grid">
-                    <button
-                      type="button"
-                      onClick={openSettingsEmailEntry}
-                      className={cn(primaryControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                    >
-                      Create account
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openSettingsEmailEntry}
-                      className={cn(floatingControl, "min-h-10 whitespace-nowrap px-3 text-sm leading-none")}
-                    >
-                      Sign in
-                    </button>
+                  <div className="mt-4 grid gap-3">
+                    <div className="grid grid-cols-2 gap-2 lg:hidden">
+                      <button
+                        type="button"
+                        onClick={openSettingsEmailEntry}
+                        className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                      >
+                        Create account
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openSettingsEmailEntry}
+                        className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
+                      >
+                        Sign in
+                      </button>
+                    </div>
+
+                    {emailEntryOpen ? (
+                      <form
+                        onSubmit={submitSettingsEmail}
+                        className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
+                      >
+                        <label className="block">
+                          <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
+                            Email address
+                          </span>
+                          <div className="relative">
+                            <Mail aria-hidden="true" className={fieldIcon} />
+                            <input
+                              ref={settingsEmailInputRef}
+                              type="email"
+                              inputMode="email"
+                              autoComplete="email"
+                              enterKeyHint="go"
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              required
+                              value={settingsEmail}
+                              onChange={(event) => setSettingsEmail(event.target.value)}
+                              placeholder="you@clinic.example"
+                              className={fieldControlWithIcon}
+                            />
+                          </div>
+                        </label>
+                        <button
+                          type="submit"
+                          disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
+                          className={cn(primaryControl, "w-full")}
+                        >
+                          {settingsAuthBusy ? (
+                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Mail aria-hidden="true" className="h-4 w-4" />
+                          )}
+                          Continue with email
+                        </button>
+                      </form>
+                    ) : null}
+
+                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                      <span className="h-px flex-1 bg-[color:var(--border)]" />
+                      <span>or continue with</span>
+                      <span className="h-px flex-1 bg-[color:var(--border)]" />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <SettingsProviderRow
+                        provider="Apple"
+                        disabledReason="Apple sign-in is unavailable. Continue with email, Google, or Microsoft."
+                      />
+                      <SettingsProviderRow provider="Google" onClick={() => void chooseSettingsProvider("Google")} />
+                      <SettingsProviderRow
+                        provider="Microsoft"
+                        onClick={() => void chooseSettingsProvider("Microsoft")}
+                      />
+                      <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
+                    </div>
+
+                    <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                      <LockKeyhole
+                        aria-hidden="true"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
+                      />
+                      Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
+                    </p>
+
+                    {auth.notice ? (
+                      // The auth context sets `notice` on a successful email submit
+                      // ("check your email…"); surface it as a success status so the
+                      // happy path is confirmed instead of the form sitting silent.
+                      <InlineNotice tone="success">{auth.notice}</InlineNotice>
+                    ) : null}
+                    {accountNotice || auth.error || !auth.isConfigured ? (
+                      // Show auth.error whenever present — not only after an email
+                      // attempt — so an OAuth sign-in failure is announced instead of
+                      // leaving the provider button looking dead.
+                      <InlineNotice tone={auth.error ? "danger" : "neutral"}>
+                        {accountNotice ??
+                          auth.error ??
+                          "Supabase browser authentication is not configured for account sign-in."}
+                      </InlineNotice>
+                    ) : null}
                   </div>
                 ) : (
-                  <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                    <SettingsChip label="Private" />
-                    <SettingsChip label="No PHI" />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSignOut();
+                      onClose();
+                    }}
+                    className={cn(
+                      floatingControl,
+                      "mt-3 min-h-10 w-full justify-center gap-2 rounded-lg text-sm lg:w-auto lg:px-4",
+                    )}
+                  >
+                    <LogOut aria-hidden="true" className="h-4 w-4" />
+                    Sign out
+                  </button>
                 )}
-              </div>
+              </section>
+            </SettingsSection>
 
-              {signedOutAccount ? (
-                <div className="mt-4 grid gap-3">
-                  <div className="grid grid-cols-2 gap-2 lg:hidden">
-                    <button
-                      type="button"
-                      onClick={openSettingsEmailEntry}
-                      className={cn(primaryControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                    >
-                      Create account
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openSettingsEmailEntry}
-                      className={cn(floatingControl, "min-h-10 whitespace-nowrap px-2.5 text-sm leading-none")}
-                    >
-                      Sign in
-                    </button>
-                  </div>
-
-                  {emailEntryOpen ? (
-                    <form
-                      onSubmit={submitSettingsEmail}
-                      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-inset)]"
-                    >
-                      <label className="block">
-                        <span className="mb-1.5 block text-xs font-semibold text-[color:var(--text-muted)]">
-                          Email address
-                        </span>
-                        <div className="relative">
-                          <Mail aria-hidden="true" className={fieldIcon} />
-                          <input
-                            ref={settingsEmailInputRef}
-                            type="email"
-                            value={settingsEmail}
-                            onChange={(event) => setSettingsEmail(event.target.value)}
-                            placeholder="you@clinic.example"
-                            className={fieldControlWithIcon}
-                          />
-                        </div>
-                      </label>
-                      <button
-                        type="submit"
-                        disabled={settingsAuthBusy || !settingsEmail.trim() || !auth.isConfigured}
-                        className={cn(primaryControl, "w-full")}
-                      >
-                        {settingsAuthBusy ? (
-                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Mail aria-hidden="true" className="h-4 w-4" />
-                        )}
-                        Continue with email
-                      </button>
-                    </form>
-                  ) : null}
-
-                  <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
-                    <span className="h-px flex-1 bg-[color:var(--border)]" />
-                    <span>or continue with</span>
-                    <span className="h-px flex-1 bg-[color:var(--border)]" />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <SettingsProviderRow provider="Apple" onClick={() => chooseSettingsProvider("Apple")} />
-                    <SettingsProviderRow provider="Google" onClick={() => chooseSettingsProvider("Google")} />
-                    <SettingsProviderRow provider="Microsoft" onClick={() => chooseSettingsProvider("Microsoft")} />
-                    <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
-                  </div>
-
-                  <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                    <LockKeyhole
-                      aria-hidden="true"
-                      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
-                    />
-                    Accounts save preferences and search history. Do not enter PHI.
-                  </p>
-
-                  {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
-                    <p
-                      role="alert"
-                      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
-                    >
-                      {accountNotice ??
-                        (settingsEmailAttempted ? auth.error : null) ??
-                        "Supabase browser authentication is not configured for account sign-in."}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <SettingsClinicalContextStrip jurisdictionShort={jurisdictionShort} />
-              )}
-            </section>
-
-            {!signedOutAccount ? (
-              <div className="mt-3.5 hidden lg:grid lg:grid-cols-3 lg:gap-3">
-                <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
-                <SettingsSummaryTile
-                  icon={Stethoscope}
-                  label="Clinical setup"
-                  value={`${jurisdictionShort}, ${populationLabel.toLowerCase()}`}
-                  emphasized
-                />
-                <SettingsSummaryTile
-                  icon={PanelTop}
-                  label="Default view"
-                  value={LANDING_OPTIONS.find((option) => option.value === preferences.landing)?.label ?? "Ask"}
-                />
-              </div>
-            ) : null}
-
-            <SettingsGroup>
-              <SettingsField icon={UserRound} label="Profile" valueText={identity.displayName} />
-              <SettingsField icon={Stethoscope} label="Clinical role" valueText="Consultant psychiatrist" />
-              {identity.signedIn ? (
-                <SettingsActionRow
-                  icon={LogOut}
-                  label="Sign out"
-                  actionLabel="Sign out"
-                  onClick={() => {
-                    onSignOut();
-                    onClose();
-                  }}
-                />
-              ) : null}
-            </SettingsGroup>
-          </SettingsSection>
-
-          {/* Clinical defaults */}
-          <SettingsSection id="clinical-defaults" title="Clinical defaults">
-            <SettingsGroup>
-              <SettingsField
-                icon={Globe2}
-                label="Jurisdiction"
-                description="Prioritises guidance relevant to your region."
-                htmlFor="settings-jurisdiction"
-              >
-                <SettingsSelect
-                  id="settings-jurisdiction"
-                  value={preferences.jurisdiction}
-                  onChange={(value) => setPreference("jurisdiction", value)}
-                  options={JURISDICTION_OPTIONS}
-                />
-              </SettingsField>
-              <SettingsField
-                icon={CircleUserRound}
-                label="Default population"
-                description="Frames answers for your usual patient group."
-                htmlFor="settings-population"
-              >
-                <SettingsSelect
-                  id="settings-population"
-                  value={preferences.population}
-                  onChange={(value) => setPreference("population", value)}
-                  options={POPULATION_OPTIONS}
-                />
-              </SettingsField>
-              <SettingsField
-                icon={SlidersHorizontal}
-                label="Answer style"
-                description={
-                  ANSWER_STYLE_OPTIONS.find((option) => option.value === preferences.answerStyle)?.description
-                }
-                labelId="settings-answer-style-label"
-                stacked
-              >
-                <SegmentedControl
-                  ariaLabelledBy="settings-answer-style-label"
-                  value={preferences.answerStyle}
-                  onChange={(value) => setPreference("answerStyle", value)}
-                  options={ANSWER_STYLE_OPTIONS}
-                />
-              </SettingsField>
-            </SettingsGroup>
-          </SettingsSection>
-
-          {/* App preferences */}
-          <SettingsSection id="app-preferences" title="App preferences">
-            <SettingsGroup>
-              <SettingsField
-                icon={Palette}
-                label="Appearance"
-                description={`Following ${themePreference === "system" ? `your device (${theme})` : themePreference}.`}
-                labelId="settings-appearance-label"
-                stacked
-              >
-                <SegmentedControl
-                  ariaLabelledBy="settings-appearance-label"
-                  value={themePreference}
-                  onChange={setThemePreference}
-                  options={APPEARANCE_OPTIONS}
-                />
-              </SettingsField>
-              <SettingsField
-                icon={SettingsIcon}
-                label="Interface density"
-                description="Adjusts spacing across the app."
-                labelId="settings-density-label"
-                stacked
-              >
-                <SegmentedControl
-                  ariaLabelledBy="settings-density-label"
-                  value={preferences.density}
-                  onChange={(value) => setPreference("density", value)}
-                  options={DENSITY_OPTIONS}
-                />
-              </SettingsField>
-              <SettingsField
-                icon={PanelTop}
-                label="Default landing view"
-                description="The mode shown when you open the app."
-                labelId="settings-landing-label"
-                stacked
-              >
-                <SegmentedControl
-                  ariaLabelledBy="settings-landing-label"
-                  value={preferences.landing}
-                  onChange={(value) => setPreference("landing", value)}
-                  options={LANDING_OPTIONS}
-                />
-              </SettingsField>
-              <SettingsToggleField
-                icon={Sparkles}
-                label="Reduce motion"
-                description="Minimise animations and transitions."
-                checked={preferences.motion === "reduced"}
-                onChange={(checked) => setPreference("motion", checked ? "reduced" : "system")}
-              />
-            </SettingsGroup>
-          </SettingsSection>
-
-          {/* Personalisation */}
-          <SettingsSection id="personalisation" title="Personalisation">
-            <SettingsGroup>
-              <SettingsToggleField
-                icon={PanelTop}
-                label="Recent searches on home"
-                description="Surface your latest questions when you land."
-                checked={preferences.showRecentOnHome}
-                onChange={(checked) => setPreference("showRecentOnHome", checked)}
-              />
-              <SettingsToggleField
-                icon={Sparkles}
-                label="Saved protocols on home"
-                description="Keep pinned protocols within easy reach."
-                checked={preferences.showProtocolsOnHome}
-                onChange={(checked) => setPreference("showProtocolsOnHome", checked)}
-              />
-              <SettingsToggleField
-                icon={BookOpen}
-                label="Compact citations"
-                description="Show tighter inline source references."
-                checked={preferences.compactCitations}
-                onChange={(checked) => setPreference("compactCitations", checked)}
-              />
-            </SettingsGroup>
-          </SettingsSection>
-
-          {/* Notifications */}
-          <SettingsSection id="notifications" title="Notifications">
-            <SettingsGroup>
-              <SettingsToggleField
-                icon={Stethoscope}
-                label="Guideline updates"
-                description="When source guidance you rely on changes."
-                checked={preferences.notifyGuidelineUpdates}
-                onChange={(checked) => setPreference("notifyGuidelineUpdates", checked)}
-              />
-              <SettingsToggleField
-                icon={Sparkles}
-                label="Product news"
-                description="Occasional updates about new features."
-                checked={preferences.notifyProductNews}
-                onChange={(checked) => setPreference("notifyProductNews", checked)}
-              />
-              <SettingsToggleField
-                icon={Bell}
-                label="Saved item changes"
-                description="Alerts about items you have saved."
-                checked={preferences.notifySavedChanges}
-                onChange={(checked) => setPreference("notifySavedChanges", checked)}
-              />
-            </SettingsGroup>
-          </SettingsSection>
-
-          {/* Privacy */}
-          <SettingsSection id="privacy" title="Privacy & security">
-            <SettingsGroup>
-              <SettingsActionRow
-                icon={Trash2}
-                label="Clear recent searches"
-                meta={dataCounts.recent > 0 ? `${dataCounts.recent} saved` : "None"}
-                actionLabel="Clear recent searches"
-                onClick={handleClearRecent}
-                disabled={dataCounts.recent === 0}
-              />
-              <SettingsActionRow
-                icon={Trash2}
-                label="Clear saved items"
-                meta={dataCounts.saved > 0 ? `${dataCounts.saved} saved` : "None"}
-                actionLabel="Clear saved items"
-                onClick={handleClearSaved}
-                disabled={dataCounts.saved === 0}
-              />
-              <SettingsActionRow
-                icon={RotateCcw}
-                label="Reset preferences"
-                meta="Defaults"
-                actionLabel="Reset preferences to defaults"
-                onClick={handleResetPreferences}
-              />
-            </SettingsGroup>
-            <p
-              role={privacyNotice ? "status" : undefined}
-              className="mt-2 flex items-center gap-2 px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
+            {/* Clinical defaults */}
+            <SettingsSection
+              id="clinical-defaults"
+              title="Clinical defaults"
+              note="Saved on this device; not yet used in answers."
+              noteId="settings-clinical-defaults-note"
             >
-              <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
-              {privacyNotice ?? "Recent searches may be stored in this browser session. Do not enter PHI."}
-            </p>
-          </SettingsSection>
+              <SettingsGroup>
+                <SettingsField icon={Globe2} label="Jurisdiction" htmlFor="settings-jurisdiction">
+                  <SettingsSelect
+                    id="settings-jurisdiction"
+                    describedBy="settings-clinical-defaults-note"
+                    value={preferences.jurisdiction}
+                    onChange={(value) => setPreference("jurisdiction", value)}
+                    options={JURISDICTION_OPTIONS}
+                  />
+                </SettingsField>
+                <SettingsField icon={CircleUserRound} label="Default population" htmlFor="settings-population">
+                  <SettingsSelect
+                    id="settings-population"
+                    describedBy="settings-clinical-defaults-note"
+                    value={preferences.population}
+                    onChange={(value) => setPreference("population", value)}
+                    options={POPULATION_OPTIONS}
+                  />
+                </SettingsField>
+                <SettingsField
+                  icon={SlidersHorizontal}
+                  label="Answer style"
+                  description={
+                    ANSWER_STYLE_OPTIONS.find((option) => option.value === preferences.answerStyle)?.description
+                  }
+                  labelId="settings-answer-style-label"
+                  stacked
+                >
+                  <SegmentedControl
+                    ariaLabelledBy="settings-answer-style-label"
+                    ariaDescribedBy="settings-clinical-defaults-note"
+                    value={preferences.answerStyle}
+                    onChange={(value) => setPreference("answerStyle", value)}
+                    options={ANSWER_STYLE_OPTIONS}
+                  />
+                </SettingsField>
+              </SettingsGroup>
+            </SettingsSection>
 
-          {/* Keyboard shortcuts */}
-          <SettingsSection id="keyboard" title="Keyboard shortcuts">
-            <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
-              <ShortcutRow label="Focus search" keys={["/"]} />
-              <ShortcutRow label="Open command menu" keys={["Ctrl", "K"]} />
-              <ShortcutRow label="New question" keys={["Ctrl", "Shift", "O"]} />
-              <ShortcutRow label="Toggle appearance" keys={["Ctrl", "Shift", "L"]} />
-              <ShortcutRow label="Close dialog" keys={["Esc"]} />
-            </div>
-          </SettingsSection>
+            {/* App preferences */}
+            <SettingsSection id="app-preferences" title="App preferences">
+              <SettingsGroup>
+                <SettingsField
+                  icon={Palette}
+                  label="Appearance"
+                  description={`Following ${themePreference === "system" ? `your device (${theme})` : themePreference}.`}
+                  labelId="settings-appearance-label"
+                  stacked
+                >
+                  <SegmentedControl
+                    ariaLabelledBy="settings-appearance-label"
+                    value={themePreference}
+                    onChange={setThemePreference}
+                    options={APPEARANCE_OPTIONS}
+                  />
+                </SettingsField>
+                <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
+                  <SegmentedControl
+                    ariaLabelledBy="settings-density-label"
+                    value={preferences.density}
+                    onChange={(value) => setPreference("density", value)}
+                    options={DENSITY_OPTIONS}
+                  />
+                </SettingsField>
+                <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
+                  <SegmentedControl
+                    ariaLabelledBy="settings-landing-label"
+                    value={preferences.landing}
+                    onChange={(value) => setPreference("landing", value)}
+                    options={LANDING_OPTIONS}
+                  />
+                </SettingsField>
+                <SettingsToggleField
+                  icon={Sparkles}
+                  label="Reduce motion"
+                  checked={preferences.motion === "reduced"}
+                  onChange={(checked) => setPreference("motion", checked ? "reduced" : "system")}
+                />
+              </SettingsGroup>
+            </SettingsSection>
 
-          {/* Help & About */}
-          <SettingsSection id="help" title="Help & About">
-            <div className="rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
-              <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                Clinical Knowledge Base
-              </p>
-              <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                A grounded clinical reference. Every answer cites the source it came from — always confirm against the
-                primary guideline before acting.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenGuide();
-                }}
-                className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
-                data-testid="settings-row-guide-help"
+            {/* Personalisation */}
+            <SettingsSection id="personalisation" title="Personalisation">
+              <SettingsGroup>
+                <SettingsToggleField
+                  icon={PanelTop}
+                  label="Recent searches on home"
+                  checked={preferences.showRecentOnHome}
+                  onChange={(checked) => setPreference("showRecentOnHome", checked)}
+                />
+                <SettingsToggleField
+                  icon={Sparkles}
+                  notYetActive
+                  label="Saved protocols on home"
+                  checked={preferences.showProtocolsOnHome}
+                  onChange={(checked) => setPreference("showProtocolsOnHome", checked)}
+                />
+                <SettingsToggleField
+                  icon={BookOpen}
+                  label="Compact citations"
+                  checked={preferences.compactCitations}
+                  onChange={(checked) => setPreference("compactCitations", checked)}
+                />
+              </SettingsGroup>
+            </SettingsSection>
+
+            {/* Notifications */}
+            <SettingsSection
+              id="notifications"
+              title="Notifications"
+              note="Saved on this device; notifications are not available yet."
+              noteId="settings-notifications-note"
+            >
+              <SettingsGroup>
+                <SettingsToggleField
+                  icon={Stethoscope}
+                  label="Guideline updates"
+                  checked={preferences.notifyGuidelineUpdates}
+                  onChange={(checked) => setPreference("notifyGuidelineUpdates", checked)}
+                  describedBy="settings-notifications-note"
+                />
+                <SettingsToggleField
+                  icon={Sparkles}
+                  label="Product news"
+                  checked={preferences.notifyProductNews}
+                  onChange={(checked) => setPreference("notifyProductNews", checked)}
+                  describedBy="settings-notifications-note"
+                />
+                <SettingsToggleField
+                  icon={Bell}
+                  label="Saved item changes"
+                  checked={preferences.notifySavedChanges}
+                  onChange={(checked) => setPreference("notifySavedChanges", checked)}
+                  describedBy="settings-notifications-note"
+                />
+              </SettingsGroup>
+            </SettingsSection>
+
+            {/* Privacy */}
+            <SettingsSection id="privacy" title="Privacy & security">
+              <SettingsGroup>
+                <SettingsActionRow
+                  icon={Trash2}
+                  label="Clear recent searches"
+                  meta={dataCounts.recent > 0 ? `${dataCounts.recent} saved` : "None"}
+                  actionLabel="Clear recent searches"
+                  onClick={handleClearRecent}
+                  disabled={dataCounts.recent === 0}
+                />
+                <SettingsActionRow
+                  icon={Trash2}
+                  label="Clear saved items"
+                  meta={savedCount > 0 ? `${savedCount} saved` : "None"}
+                  actionLabel="Clear saved items"
+                  onClick={handleClearSaved}
+                  disabled={savedCount === 0}
+                />
+                <SettingsActionRow
+                  icon={RotateCcw}
+                  label="Reset preferences"
+                  meta="Defaults"
+                  actionLabel="Reset preferences to defaults"
+                  onClick={handleResetPreferences}
+                />
+              </SettingsGroup>
+              <p
+                role={privacyNotice ? "status" : undefined}
+                className="mt-2 flex items-center gap-2 px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
               >
-                <BookOpen aria-hidden="true" className="h-4 w-4" />
-                Open the clinical guide
-              </button>
-            </div>
-          </SettingsSection>
+                <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
+                {privacyNotice ?? "Recent searches stay in this browser. Do not enter PHI."}
+              </p>
+            </SettingsSection>
+
+            {/* Keyboard shortcuts */}
+            <SettingsSection id="keyboard" title="Keyboard shortcuts">
+              <div className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+                <ShortcutRow label="Focus search" keys={["/"]} />
+                <ShortcutRow label="Open command menu" keys={["Ctrl", "K"]} />
+                <ShortcutRow label="New question" keys={["Ctrl", "Shift", "O"]} />
+                <ShortcutRow label="Toggle appearance" keys={["Ctrl", "Shift", "L"]} />
+                <ShortcutRow label="Close dialog" keys={["Esc"]} />
+              </div>
+            </SettingsSection>
+
+            {/* Help & About */}
+            <SettingsSection id="help" title="Help & About">
+              <div className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+                <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                  Clinical Knowledge Base
+                </p>
+                <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  Source-linked clinical reference. Verify primary guidance before acting.
+                </p>
+                <button
+                  ref={guideButtonRef}
+                  type="button"
+                  data-settings-guide-trigger
+                  onClick={() => {
+                    onClose();
+                    onOpenGuide();
+                  }}
+                  className={cn(floatingControl, "mt-3 min-h-10 w-full gap-2 text-sm")}
+                  data-testid="settings-row-guide-help"
+                >
+                  <BookOpen aria-hidden="true" className="h-4 w-4" />
+                  Guide & help
+                </button>
+              </div>
+            </SettingsSection>
+          </div>
         </div>
       </div>
     </Sheet>
   );
 }
 
-function SettingsSection({ id, title, children }: { id: SettingsSectionId; title: string; children: ReactNode }) {
+function SettingsSection({
+  id,
+  title,
+  note,
+  noteId,
+  children,
+}: {
+  id: SettingsSectionId;
+  title: string;
+  note?: string;
+  noteId?: string;
+  children: ReactNode;
+}) {
   const headingId = `${sectionDomId(id)}-heading`;
   return (
     <section
@@ -755,10 +770,15 @@ function SettingsSection({ id, title, children }: { id: SettingsSectionId; title
     >
       <h3
         id={headingId}
-        className="mb-2 px-1 text-sm font-semibold leading-5 tracking-normal text-[color:var(--text-heading)]"
+        className={cn("px-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]", !note && "mb-2")}
       >
         {title}
       </h3>
+      {note ? (
+        <p id={noteId} className="mb-2 mt-0.5 px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+          {note}
+        </p>
+      ) : null}
       {children}
     </section>
   );
@@ -766,7 +786,7 @@ function SettingsSection({ id, title, children }: { id: SettingsSectionId; title
 
 function SettingsGroup({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+    <div className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)] lg:bg-[color:var(--surface)]">
       {children}
     </div>
   );
@@ -774,8 +794,32 @@ function SettingsGroup({ children }: { children: ReactNode }) {
 
 function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
       <Icon aria-hidden="true" className="h-4 w-4" />
+    </span>
+  );
+}
+
+/**
+ * Honesty marker for preference controls that persist a choice but are not yet
+ * consumed anywhere in the app (audit 2026-07-19 P2: inert settings presented as
+ * live). Remove the marker from a control only when something actually reads its
+ * preference and changes behavior. The badge carries an id so the control it
+ * describes can reference it via `aria-describedby` — the marker must be
+ * announced to assistive tech, not just rendered visually.
+ */
+function notYetActiveId(anchor: string) {
+  return `${anchor}-not-yet-active`;
+}
+
+function NotYetActiveBadge({ id }: { id?: string }) {
+  return (
+    <span
+      id={id}
+      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-soft)]"
+    >
+      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--text-soft)]" />
+      Not active yet
     </span>
   );
 }
@@ -804,8 +848,8 @@ function SettingsField({
     <div
       data-testid={settingsRowTestId(label)}
       className={cn(
-        "flex gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 last:border-b-0",
-        stacked ? "flex-col" : "flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between",
+        "flex gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0",
+        stacked ? "flex-col" : "flex-col lg:flex-row lg:items-center lg:justify-between",
       )}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -824,9 +868,9 @@ function SettingsField({
         </div>
       </div>
       {children ? (
-        <div className={cn(stacked ? "w-full pt-0.5" : "shrink-0")}>{children}</div>
+        <div className={cn(stacked ? "w-full pt-0.5" : "w-full lg:w-auto lg:shrink-0")}>{children}</div>
       ) : valueText ? (
-        <span className="shrink-0 pl-11 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[420px]:pl-0 min-[420px]:text-right">
+        <span className="shrink-0 pl-12 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] lg:pl-0 lg:text-right">
           {valueText}
         </span>
       ) : null}
@@ -839,16 +883,19 @@ function SegmentedControl<T extends string>({
   onChange,
   options,
   ariaLabelledBy,
+  ariaDescribedBy,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
   ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
 }) {
   return (
     <div
       role="radiogroup"
       aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
       // Segments size to their content and wrap onto a second row on narrow
       // screens rather than truncating long labels ("Comprehensive"); each row's
       // items grow to fill the width so the control still reads as a unit.
@@ -865,7 +912,7 @@ function SegmentedControl<T extends string>({
             aria-checked={checked}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex min-h-8 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
+              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
               checked
                 ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
@@ -885,17 +932,20 @@ function SettingsSelect<T extends string>({
   value,
   onChange,
   options,
+  describedBy,
 }: {
   id: string;
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string }>;
+  describedBy?: string;
 }) {
   return (
-    <div className="relative min-[420px]:w-56">
+    <div className="relative w-full lg:w-56">
       <select
         id={id}
         value={value}
+        aria-describedby={describedBy}
         onChange={(event) => onChange(event.target.value as T)}
         className="w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-2 pl-3 pr-9 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
       >
@@ -919,17 +969,21 @@ function SettingsToggleField({
   description,
   checked,
   onChange,
+  notYetActive = false,
+  describedBy,
 }: {
   icon: LucideIcon;
   label: string;
   description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  notYetActive?: boolean;
+  describedBy?: string;
 }) {
   return (
     <div
       data-testid={settingsRowTestId(label)}
-      className="flex items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 last:border-b-0"
+      className="flex items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0"
     >
       <div className="flex min-w-0 items-start gap-3">
         <IconBadge icon={icon} />
@@ -938,9 +992,15 @@ function SettingsToggleField({
           {description ? (
             <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
           ) : null}
+          {notYetActive ? <NotYetActiveBadge id={notYetActiveId(settingsRowTestId(label))} /> : null}
         </div>
       </div>
-      <Switch checked={checked} onChange={onChange} ariaLabel={label} />
+      <Switch
+        checked={checked}
+        onChange={onChange}
+        ariaLabel={label}
+        describedBy={describedBy ?? (notYetActive ? notYetActiveId(settingsRowTestId(label)) : undefined)}
+      />
     </div>
   );
 }
@@ -949,10 +1009,12 @@ function Switch({
   checked,
   onChange,
   ariaLabel,
+  describedBy,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   ariaLabel: string;
+  describedBy?: string;
 }) {
   return (
     <button
@@ -960,6 +1022,7 @@ function Switch({
       role="switch"
       aria-checked={checked}
       aria-label={ariaLabel}
+      aria-describedby={describedBy}
       onClick={() => onChange(!checked)}
       className={cn(
         "relative inline-flex h-6 w-tap shrink-0 items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
@@ -1046,110 +1109,42 @@ function SettingsChip({ label }: { label: string }) {
 function SettingsProviderRow({
   provider,
   onClick,
+  disabledReason,
 }: {
   provider: "Apple" | "Google" | "Microsoft" | "email";
-  onClick: () => void;
+  onClick?: () => void;
+  disabledReason?: string;
 }) {
-  const label = provider === "email" ? "Use email instead" : provider;
+  const label =
+    provider === "email" ? "Use email instead" : disabledReason ? `${provider} sign-in unavailable` : provider;
+  const descriptionId = disabledReason ? `settings-provider-${provider.toLowerCase()}-unavailable` : undefined;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      disabled={Boolean(disabledReason)}
+      title={disabledReason ? `${disabledReason.replace(/\.$/, "")} — coming soon` : undefined}
+      aria-label={label}
+      aria-describedby={descriptionId}
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"
     >
       {provider === "email" ? (
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
           <Mail aria-hidden="true" className="h-4 w-4" />
         </span>
       ) : (
-        <SettingsProviderMark provider={provider} />
+        <ProviderBrandMark provider={provider} />
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      {disabledReason ? (
+        <span id={descriptionId} className="sr-only">
+          {disabledReason}
+        </span>
+      ) : null}
+      {!disabledReason ? (
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      ) : null}
     </button>
-  );
-}
-
-function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
-  if (provider === "Microsoft") {
-    return (
-      <span
-        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
-        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
-      )}
-    >
-      {provider === "Apple" ? "A" : "G"}
-    </span>
-  );
-}
-
-function SettingsClinicalContextStrip({ jurisdictionShort }: { jurisdictionShort: string }) {
-  return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
-      <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">
-        Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> {jurisdictionShort}{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> No PHI
-      </span>
-    </div>
-  );
-}
-
-function SettingsSummaryTile({
-  icon: Icon,
-  label,
-  value,
-  emphasized = false,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  emphasized?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-xl border p-3 shadow-[var(--shadow-inset)]",
-        emphasized
-          ? "border-[color:var(--clinical-accent)]/26 bg-[color:var(--clinical-accent-soft)]/72"
-          : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
-      )}
-    >
-      <div className="flex min-h-[44px] min-w-0 items-center gap-2.5">
-        <span
-          className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
-            emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <Icon aria-hidden="true" className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-muted)]">{label}</span>
-          <span className="block truncate text-sm-minus font-semibold leading-4 text-[color:var(--text-heading)]">
-            {value}
-          </span>
-        </span>
-      </div>
-    </div>
   );
 }

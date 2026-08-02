@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRagSourceBlock } from "../src/lib/rag";
+import { buildRagSourceBlock } from "../src/lib/rag/rag";
 import {
   escapeEvidenceFenceSentinels,
   fenceSourceEvidence,

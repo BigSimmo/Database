@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review"
+  short_description: "Review Database changes for concrete high-risk defects"
+  default_prompt: "Use $review to inspect this Database change and report high-confidence findings with exact evidence."

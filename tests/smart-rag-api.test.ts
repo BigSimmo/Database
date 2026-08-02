@@ -143,6 +143,33 @@ describe("smart RAG API plan", () => {
     expect(plan.coreSourceLinks.map((link) => link.document_id)).toEqual(["doc-a", "doc-b"]);
   });
 
+  it("describes a preferred extractive comparison as clinical synthesis with deterministic assembly", () => {
+    const plan = buildSmartRagApiPlan({
+      query: "Compare admission and discharge requirements",
+      queryClass: "comparison",
+      results: [
+        source({ id: "admission", document_id: "admission-doc", title: "Admission requirements" }),
+        source({ id: "discharge", document_id: "discharge-doc", title: "Discharge requirements" }),
+      ],
+      routeMode: "extractive",
+      preferredResponseMode: "multi_document_synthesis",
+      retrievalStrategy: "text_fast_path",
+    });
+
+    expect(plan).toMatchObject({
+      intent: "compare_sources",
+      responseMode: "multi_document_synthesis",
+      answerPlan: {
+        intent: "clinical_synthesis",
+        routeMode: "extractive",
+        modelStrategy: "extractive_lookup",
+        fallbackBehavior: "extractive_lookup_only",
+        sourcePolicy: "required_citations",
+      },
+    });
+    expect(plan.answerPlan.qualityCriteria).not.toContain("do_not_generate_clinical_advice");
+  });
+
   it("can be forced into document lookup mode for document-search API calls", () => {
     const plan = buildSmartRagApiPlan({
       query: "agitation guideline",

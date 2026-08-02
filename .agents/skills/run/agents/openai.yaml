@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run"
+  short_description: "Start the identity-checked local Database app"
+  default_prompt: "Use $run to start or verify the local Database app and return its confirmed URL."

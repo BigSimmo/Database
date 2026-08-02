@@ -15,7 +15,9 @@
 
 The app is a **clinical knowledge base** — it indexes clinical reference material (guidelines,
 drug monographs, protocols) and answers clinician questions over that corpus with retrieval-augmented
-generation. It is **not** a patient record system and, by design, does not ask for patient data.
+generation. It is **not** a patient record system. Provider-backed features do not ask for patient
+identifiers. The Safety Plan Generator accepts sensitive identifier-free working content and support
+contacts, but keeps them in the current browser tab rather than transmitting or persisting them.
 
 The dominant privacy risk is therefore **incidental PHI**: a clinician will inevitably type patient
 details into a free-text query ("42yo F on clozapine 400mg with rising WCC, next step?"). That query
@@ -64,12 +66,13 @@ material.
 | Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
 | Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                           |
 | Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
+| Safety-plan working content                                               | React memory in the current browser tab; user-directed clipboard, print, or PDF output                                                                 | **High (sensitive health information)**    | No patient-identifier field; not sent to the application service or stored by Clinical KB. Exported copies leave this boundary.    |
 | User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
 | Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
 | Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Low–Medium                                 | Redacted query text; per-owner.                                                                                                    |
 
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
-experienced psychiatrist in Perth"_ ([src/lib/rag.ts:7053](src/lib/rag.ts)) — i.e. a **WA psychiatry**
+experienced psychiatrist in Perth"_ ([src/lib/rag/rag.ts:7053](src/lib/rag/rag.ts)) — i.e. a **WA psychiatry**
 use case. Psychiatric context raises the sensitivity ceiling: mental-health information is squarely
 "sensitive information" and "health information" under the _Privacy Act 1988_ (Cth).
 
@@ -88,7 +91,7 @@ Clinician browser
    │  • rate-limit bucket "answer"                                       :83
    │  • resolveSearchScope() → owner-scoped candidate document set       :93
    ▼
-[RAG pipeline]  answerQuestionWithScope()  src/lib/rag.ts
+[RAG pipeline]  answerQuestionWithScope()  src/lib/rag/rag.ts
    │
    ├──►(A) QUERY EMBEDDING ─────────────────────────────────────────────┐
    │      raw query text → OpenAI embeddings (text-embedding-3-small)    │
@@ -128,6 +131,15 @@ model egress points (A) and (C) then carry query/evidence content to OpenAI in t
 data remains in Sydney. Governance must assess both overseas processing paths rather than treating
 OpenAI as the only cross-border flow.
 
+The `/safety-plan` route has a separate local-only flow: form inputs update React state in the current
+browser tab, with no API request or browser-storage write. Clearing the plan, unmounting the component,
+or closing the tab discards that working state. Copy, print, and save-as-PDF are explicit user-directed
+exports; the exported copy is outside Clinical KB and must be handled under the organisation's approved
+clinical-record process. The tool provides no patient name, date-of-birth, or record-number field and
+warns against putting patient identifiers into free text; any patient identifier must be added after
+export if local policy permits it. Support-contact names and phone details are accepted as sensitive
+working content within the same local-only boundary.
+
 ---
 
 ## 4. What reaches OpenAI, and under what terms
@@ -137,9 +149,9 @@ OpenAI as the only cross-border flow.
 | Payload         | Content                                                                                                                                       | Reference                                                      |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Embedding input | **Raw query text**, verbatim (normalized whitespace/case only)                                                                                | [src/lib/openai.ts:498](src/lib/openai.ts) → `embedTexts` :423 |
-| Answer input    | **Raw query verbatim** (`Question:\n${args.query}`)                                                                                           | [src/lib/rag.ts:7144](src/lib/rag.ts)                          |
-| Answer input    | **Retrieved chunk text** (content, capped ~1800 chars, plus title/page/section/table-facts/captions)                                          | [src/lib/rag.ts:6306-6325](src/lib/rag.ts)                     |
-| Instructions    | Static system prompt ("experienced psychiatrist in Perth…")                                                                                   | [src/lib/rag.ts:7053](src/lib/rag.ts)                          |
+| Answer input    | **Raw query verbatim** (`Question:\n${args.query}`)                                                                                           | [src/lib/rag/rag.ts:7144](src/lib/rag/rag.ts)                  |
+| Answer input    | **Retrieved chunk text** (content, capped ~1800 chars, plus title/page/section/table-facts/captions)                                          | [src/lib/rag/rag.ts:6306-6325](src/lib/rag/rag.ts)             |
+| Instructions    | Static system prompt ("experienced psychiatrist in Perth…")                                                                                   | [src/lib/rag/rag.ts:7053](src/lib/rag/rag.ts)                  |
 | Metadata        | `{ operation }`; when configured, `safety_identifier` is an HMAC-SHA256 pseudonym of the authenticated owner. The raw owner id is never sent. | [src/lib/openai.ts](src/lib/openai.ts)                         |
 
 The app never _adds_ patient identifiers, but it does not scrub them either: **any PHI the clinician
@@ -402,7 +414,7 @@ remaining items are compliance-posture and PHI-minimisation gaps.
   cross-tenant) and purged at 30 days, but it was un-redacted PHI-derived content at rest.
 - **Fix (shipped):** Answer-text persistence in the durable log is gated behind a dedicated
   `RAG_PERSIST_ANSWER_TEXT` flag (default **off**), applied centrally in `insertRagQuery` via
-  `answerTextForStorage` ([query-privacy.ts](src/lib/query-privacy.ts), [rag.ts](src/lib/rag.ts)) so
+  `answerTextForStorage` ([query-privacy.ts](src/lib/query-privacy.ts), [rag.ts](src/lib/rag/rag.ts)) so
   every `logRagQuery` caller is covered, and at the promoted-eval-case write in
   [eval-cases/route.ts](src/app/api/eval-cases/route.ts). With the flag off the column is written as
   `null` and each row records `metadata.answer_retained = false`. The offline eval/quality pipeline
@@ -412,7 +424,7 @@ remaining items are compliance-posture and PHI-minimisation gaps.
   affect eval — confirming the pipeline has no real dependency on stored answer text. The flag is
   additionally blocked in a production-like environment by `npm run check:production-readiness`.
 - **Residual cache copy:** The answer also lands in `rag_response_cache.payload`
-  ([rag-cache.ts](src/lib/rag-cache.ts)). Its `expires_at` TTL (`RAG_ANSWER_CACHE_TTL_MS`, default
+  ([rag-cache.ts](src/lib/rag/rag-cache.ts)). Its `expires_at` TTL (`RAG_ANSWER_CACHE_TTL_MS`, default
   5 min) only gates **reads** — `sharedCacheSelector` filters on `expires_at`, while
   `replaceSharedCacheRow` deletes only the _same_ cache key before inserting. Migration
   `20260713201542_consolidate_rag_response_cache_retention.sql` unschedules the duplicate unbounded

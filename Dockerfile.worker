@@ -24,7 +24,12 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
-RUN npm ci
+# Same install-retry contract as the app Dockerfile (registry ECONNRESET flakes).
+RUN for attempt in 1 2 3; do \
+      npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
+      if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+      sleep $((attempt * 10)); \
+    done
 COPY . .
 RUN node scripts/build-worker.mjs
 
@@ -35,7 +40,11 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
-RUN npm ci --omit=dev
+RUN for attempt in 1 2 3; do \
+      npm ci --omit=dev --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
+      if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+      sleep $((attempt * 10)); \
+    done
 
 FROM node:24-bookworm-slim AS runner
 RUN apt-get update \
@@ -46,10 +55,19 @@ COPY worker/python/requirements.txt worker/python/requirements.txt
 RUN python3 -m venv /opt/ocr-venv \
   && /opt/ocr-venv/bin/pip install --no-cache-dir -r worker/python/requirements.txt
 ENV PATH="/opt/ocr-venv/bin:${PATH}"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY worker/python worker/python
+# Python is outside the TypeScript/Vitest toolchain. Fail the image build on a
+# syntax error or a broken extraction-budget contract instead of discovering it
+# only when the deployed worker processes its first PDF.
+RUN python -m compileall -q worker/python \
+  && python -m unittest discover -s worker/python -p "test_*.py" \
+  && find worker/python -type d -name __pycache__ -prune -exec rm -rf '{}' + \
+  && rm -f worker/python/test_*.py
 COPY package.json ./package.json
 USER node
 # Long-poll worker; WORKER_* env vars control claim batch size, concurrency,

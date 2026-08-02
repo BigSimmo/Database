@@ -24,7 +24,10 @@ import {
 } from "lucide-react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
@@ -113,10 +116,8 @@ const candidateIconBySlug: Array<[string, LucideIcon]> = [
 ];
 
 /**
- * Mobile/tablet floating compare action. Portals into the search composer's
- * addon slot so it stays anchored beside the active result controls, but
- * renders as a self-contained floating pill so it reads as a batch-selection
- * action rather than composer chrome.
+ * Mobile/tablet compare action. Portals into the search composer's addon slot
+ * so it sits above the search pill as dock chrome and hides/reveals with it.
  */
 function DifferentialsMobileCompareBar({
   selectedCount,
@@ -324,10 +325,27 @@ function MatchBadge({ label }: { label: string }) {
   );
 }
 
-function Chip({ children }: { children: string }) {
+function Chip({
+  children,
+  className,
+  density = "default",
+}: {
+  children: string;
+  className?: string;
+  /** Comfortable chips use a single exclusive type scale — never dual text-* via cn(). */
+  density?: "default" | "comfortable";
+}) {
   return (
-    <span className="inline-flex min-h-6 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]">
-      <span className="truncate">{children}</span>
+    <span
+      className={cn(
+        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+        density === "comfortable"
+          ? "px-2.5 py-1 text-xs font-semibold leading-snug"
+          : "px-2 text-2xs font-bold leading-none",
+        className,
+      )}
+    >
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }
@@ -453,42 +471,46 @@ function MobileResultCard({
   selected: boolean;
   onToggle?: () => void;
 }) {
-  const Icon = result.icon;
-
   return (
-    <article className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <div className="grid grid-cols-[2rem_2.75rem_minmax(0,1fr)_2.75rem] items-start gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
+    <article
+      data-testid="differential-mobile-result-card"
+      className="grid gap-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+    >
+      <div className="grid grid-cols-[2rem_minmax(0,1fr)_2.75rem] items-start gap-2.5">
+        <span
+          data-testid="differential-mobile-result-rank"
+          className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]"
+        >
           {index + 1}
         </span>
-        <Link
-          href={result.href}
-          aria-label={`Open ${result.title}`}
-          className="grid size-tap place-items-center rounded-md text-[color:var(--text-muted)]"
-        >
-          <Icon className="h-6 w-6 stroke-[1.75]" aria-hidden />
-        </Link>
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <Link
-              href={result.href}
-              className="inline-flex min-h-tap min-w-0 items-center text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
-            >
-              <span className="line-clamp-2">{result.title}</span>
-            </Link>
+          <Link
+            href={result.href}
+            className="block min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
+          >
+            <span className="line-clamp-2">{result.title}</span>
+          </Link>
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
             <StatusBadge status={result.status} />
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
             <MatchBadge label={result.matchLabel} />
           </div>
+          {result.subtitle ? (
+            <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+              {result.subtitle}
+            </p>
+          ) : null}
         </div>
         {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
       </div>
-      <div className="flex max-w-full flex-wrap gap-1.5">
+      <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
-          <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
+          <Chip key={`${result.id}-${tag}`} density="comfortable" className="max-w-full">
+            {tag}
+          </Chip>
         ))}
-        {result.tags.length > 2 ? <Chip>{`+${result.tags.length - 2}`}</Chip> : null}
+        {result.tags.length > 2 ? (
+          <Chip density="comfortable" className="shrink-0">{`+${result.tags.length - 2}`}</Chip>
+        ) : null}
       </div>
     </article>
   );
@@ -519,6 +541,7 @@ function BestAnswerCard({
 
   return (
     <section
+      data-testid={compact ? "differential-best-answer" : undefined}
       className={cn("rounded-lg border shadow-[var(--shadow-inset)]", compact ? "p-3.5" : "p-4")}
       style={{
         borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,
@@ -541,12 +564,12 @@ function BestAnswerCard({
           </span>
           <div className="min-w-0">
             <p className="text-2xs font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
-            <h2 className="mt-1 text-lg font-extrabold leading-6">
+            <h2 className={cn("mt-1 font-extrabold leading-6", compact ? "text-base" : "text-lg")}>
               <Link
                 href={best.href}
                 className="text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]"
               >
-                {best.title}
+                <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
               </Link>
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -563,14 +586,25 @@ function BestAnswerCard({
         </div>
         {onToggle ? <SelectionToggle selected={Boolean(selected)} onClick={onToggle} label={best.title} /> : null}
       </div>
-      <p className={cn("text-sm font-medium leading-6 text-[color:var(--text-muted)]", compact ? "mt-2.5" : "mt-3")}>
+      <p
+        className={cn(
+          "min-w-0 text-sm font-medium leading-6 text-[color:var(--text-muted)]",
+          compact ? "mt-2.5 line-clamp-3" : "mt-3",
+        )}
+      >
         {best.subtitle}
       </p>
-      <div className={cn("flex flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
+      <div className={cn("flex min-w-0 max-w-full flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
         {visibleTags.map((tag) => (
-          <Chip key={tag}>{tag}</Chip>
+          <Chip key={tag} density={compact ? "comfortable" : "default"} className={compact ? "max-w-full" : undefined}>
+            {tag}
+          </Chip>
         ))}
-        {hiddenTagCount > 0 ? <Chip>{`+${hiddenTagCount}`}</Chip> : null}
+        {hiddenTagCount > 0 ? (
+          <Chip density={compact ? "comfortable" : "default"} className={compact ? "shrink-0" : undefined}>
+            {`+${hiddenTagCount}`}
+          </Chip>
+        ) : null}
       </div>
     </section>
   );
@@ -608,7 +642,7 @@ function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Likely presentation
       </h2>
       <ul className="mt-3 grid gap-2 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
@@ -628,7 +662,7 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Highest urgency
       </h2>
       <div className="mt-3 grid gap-2">
@@ -665,7 +699,7 @@ function SourceStatusCard({
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Source status
       </h2>
       <div className="mt-3 grid gap-2 text-sm font-bold">
@@ -865,7 +899,7 @@ function SearchResultsView({
       // this results canvas into a nested phone scrollport, stealing scroll from
       // #main-content. The fixed compare FAB and shell hide-on-scroll both assume
       // #main-content owns vertical scroll.
-      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
+      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-4 pb-4 min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
     >
       {/* Query context lives here on every breakpoint — on phones this is the
           only place the submitted query is visible above the fold. */}
@@ -873,9 +907,79 @@ function SearchResultsView({
         modeId="differentials"
         query={query}
         matchCount={results.length}
-        loading={loading || catalogLoading}
+        status={
+          catalogFailed
+            ? catalog.status === "unauthorized"
+              ? "unauthorized"
+              : "error"
+            : loading || catalogLoading
+              ? "loading"
+              : catalog.status === "refetching"
+                ? "refetching"
+                : "ready"
+        }
+        faultTitle={
+          catalog.status === "unauthorized"
+            ? "Sign in again to search the differentials catalogue"
+            : "The differentials catalogue could not be searched"
+        }
+        faultBody={
+          catalog.status === "unauthorized"
+            ? "Sign in again to search, or browse the catalogue pages directly."
+            : "Retry the search shortly, or browse the catalogue pages directly."
+        }
+        // The fault copy promises two recoveries, so both have to exist: rerun the
+        // search, and the catalogue links that the removed error section used to
+        // carry. Without these the failed view tells the reader to act and gives
+        // them nothing to act with. Unauthorized omits Retry because a refetch
+        // cannot mint a session — the body must not promise one either.
+        // Retry the request that actually failed. `rerunSearch` only re-runs the
+        // parent document-evidence search; the catalogue hook keys on query + auth
+        // identity, neither of which changes when the reader asks to try again, so
+        // routing Retry through it left the band permanently faulted.
+        onRetry={catalog.status === "unauthorized" ? undefined : catalog.refetch}
+        faultAction={
+          <>
+            <Link
+              href={differentialRouteWithQuery("/differentials/presentations", query)}
+              className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+            >
+              Browse presentations
+            </Link>
+            <Link
+              href={differentialRouteWithQuery("/differentials/diagnoses", query)}
+              className="inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+            >
+              Browse diagnoses
+            </Link>
+          </>
+        }
         sortValue={sortValue}
         onSortChange={setSortValue}
+        filterLabel="Filter differential result type"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter by result type"
+            testId="differential-result-type-select"
+            value={kindFilter}
+            options={[
+              { value: "all", label: `All (${results.length})` },
+              { value: "presentation", label: `Presentations (${presentationCount})` },
+              { value: "diagnosis", label: `Diagnoses (${diagnosisCount})` },
+            ]}
+            onChange={setKindFilter}
+          />
+        }
+        filterControls={
+          <ResultTypeTabs
+            activeFilter={kindFilter}
+            onFilterChange={setKindFilter}
+            allCount={results.length}
+            presentationCount={presentationCount}
+            diagnosisCount={diagnosisCount}
+          />
+        }
       />
       <p
         data-testid="differentials-catalogue-notice"
@@ -896,30 +1000,27 @@ function SearchResultsView({
             />
           ))}
         </div>
-      ) : !best ? (
+      ) : /* A failed catalogue search is reported by the band's fault panel, which
+              also owns the retry copy, so the whole body is suppressed here.
+              `catalogFailed` must short-circuit BEFORE the `!best` test: `best` is
+              `results[0] ?? null`, and a faulted search with no results would
+              otherwise fall through to the results grid, which dereferences
+              `best.id` / `best.kind` unconditionally and throws — on exactly the
+              state this component is meant to report truthfully. */
+      catalogFailed ? null : !best ? (
         <section
-          data-testid={catalogFailed ? "differentials-catalogue-error" : "differentials-empty-results"}
-          role={catalogFailed ? "alert" : undefined}
-          className={cn(
-            "grid gap-3 rounded-lg border bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]",
-            catalogFailed ? "border-[color:var(--warning-border)]" : "border-[color:var(--border)]",
-          )}
+          data-testid="differentials-empty-results"
+          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
         >
           <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">
-            {catalogFailed
-              ? catalog.status === "unauthorized"
-                ? "Sign in again to search the differentials catalogue"
-                : "The differentials catalogue could not be searched"
-              : `No catalogue matches for “${query}”`}
+            {`No catalogue matches for “${query}”`}
           </h2>
           <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            {catalogFailed
-              ? "Retry the search shortly, or browse the catalogue pages directly."
-              : hasSourceEvidence
-                ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
-                    reviewedSourceCount === 1 ? "match is" : "matches are"
-                  } available in the library.`
-                : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
+            {hasSourceEvidence
+              ? `No imported differential matched this search, but ${reviewedSourceCount.toLocaleString()} indexed source ${
+                  reviewedSourceCount === 1 ? "match is" : "matches are"
+                } available in the library.`
+              : "Try a symptom, presentation, or diagnosis name — or browse the catalogue directly."}
           </p>
           <div className="flex flex-wrap gap-2">
             <Link
@@ -1005,13 +1106,6 @@ function SearchResultsView({
                   </span>
                 </p>
               ) : null}
-              <ResultTypeTabs
-                activeFilter={kindFilter}
-                onFilterChange={setKindFilter}
-                allCount={results.length}
-                presentationCount={presentationCount}
-                diagnosisCount={diagnosisCount}
-              />
               <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
                 <span className="min-w-0 truncate">
                   <strong className="text-[color:var(--text-heading)]">
@@ -1061,6 +1155,11 @@ function SearchResultsView({
                 // Best-match styling remains tied to relevance while the row
                 // number follows the user's chosen presentation order.
                 const isBest = result.kind === best.kind && result.id === best.id;
+                // Phone list hides the best-answer duplicate, so ranks must
+                // skip that row or the first visible card starts at 2/3.
+                const mobileIndex = visibleResults
+                  .slice(0, displayIndex)
+                  .filter((candidate) => !(candidate.kind === best.kind && candidate.id === best.id)).length;
                 return (
                   // The best answer is already featured above the phone list,
                   // so its ranked duplicate only renders from the desktop
@@ -1079,7 +1178,7 @@ function SearchResultsView({
                       <div className="lg:hidden">
                         <MobileResultCard
                           result={result}
-                          index={displayIndex}
+                          index={mobileIndex}
                           selected={selectedIds.has(result.id)}
                           onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                         />
@@ -1231,7 +1330,7 @@ export function DifferentialsHome({
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
-        subtitle="Match your catalogue against your indexed library."
+        subtitle="Match your catalogue to your library."
         icon={BrainCircuit}
         headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}
@@ -1267,7 +1366,7 @@ export function DifferentialsHome({
                 onClick: () => handleSuggestedSearch(item.query),
               }))
         }
-        footer={<ModeHomeVerificationFooter icon={ShieldCheck} label="Decision support" body="Review before use" />}
+        footer={<ModeHomeVerificationFooter label="Decision support" body="Review before use" />}
       />
     </div>
   );

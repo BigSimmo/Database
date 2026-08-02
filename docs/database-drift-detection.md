@@ -55,9 +55,13 @@ storage bucket rows + storage.objects policies.
 ### Workflow
 
 - Change `supabase/schema.sql` → run `npm run drift:manifest` (Docker) in the
-  same PR. The freshness test fails otherwise. This also continuously proves
-  schema.sql replays from scratch — which it did **not** before 2026-07-07
-  (`document_index_units` was declared after its first validating reference).
+  same PR. The freshness test fails otherwise. The helper uses a digest-pinned,
+  already-cached image (`--pull=never`), an ephemeral loopback-only port, and a
+  worktree ownership label before it removes any same-named container. Pulling
+  a missing image is a separate, explicit registry operation. This also
+  continuously proves schema.sql replays from scratch — which it did **not**
+  before 2026-07-07 (`document_index_units` was declared after its first
+  validating reference).
 - Live drifts (check:drift red) → either codify live state (migration +
   schema.sql + manifest regen) or fix live **through an approved migration**.
   Never raw SQL against live; that is how this incident class started.
@@ -177,6 +181,6 @@ live project need explicit operator approval.
    GUC pattern (`20260702160000` precedent).
 10. **Migration-chain fidelity** (affects Supabase Preview/branches, not
     live): 13 keys where the chain diverges from schema.sql — buckets are only
-    created by schema.sql, `documents`/`ingestion_jobs` updated_at trigger
+    created by schema.sql, `documents`/`ingestion_jobs` updated*at trigger
     variants, post-legacy-drop embedding-fields index set,
-    `document_chunks_content_trgm_idx` shape, `rag_visual_eval_*` shapes.
+    `document_chunks_content_trgm_idx` shape, `rag_visual_eval*\*` shapes.

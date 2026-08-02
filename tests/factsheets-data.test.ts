@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FACTSHEET_DEMO_NOTICE,
   factsheetCategories,
   factsheets,
   factsheetSlugs,
@@ -18,6 +19,13 @@ describe("factsheet library", () => {
   it("only resolves the explicitly supplied factsheet slugs", () => {
     expect(findFactsheet(factsheets[0]!.slug)).toEqual(factsheets[0]!);
     expect(findFactsheet("unknown-factsheet")).toBeUndefined();
+  });
+
+  it("exposes a demo/governance notice for on-screen and printed take-aways", () => {
+    // The exported handout must never read as approved local patient information.
+    expect(FACTSHEET_DEMO_NOTICE).toMatch(/demonstration/i);
+    expect(FACTSHEET_DEMO_NOTICE).toMatch(/not clinician-approved/i);
+    expect(FACTSHEET_DEMO_NOTICE).toMatch(/before any clinical use/i);
   });
 
   it("has unique slugs and complete governance metadata on every sheet", () => {
@@ -82,5 +90,16 @@ describe("factsheet library", () => {
       expect(blocks.at(-1)?.kind).toBe("sources");
       expect(tocFor(sheet)).toContain("Sources");
     }
+  });
+
+  it("prints the selected reading level for medicine-rich factsheets", () => {
+    const sheet = factsheets.find((candidate) => candidate.kind === "medRich");
+    if (!sheet || sheet.kind !== "medRich") throw new Error("Expected a medicine-rich factsheet fixture");
+
+    const easyBlock = printBlocks(sheet, "easy").find((block) => block.heading === "What is this medicine?");
+    const standardBlock = printBlocks(sheet, "standard").find((block) => block.heading === "What is this medicine?");
+
+    expect(easyBlock).toMatchObject({ kind: "prose", body: sheet.whatEasy });
+    expect(standardBlock).toMatchObject({ kind: "prose", body: sheet.whatStandard });
   });
 });

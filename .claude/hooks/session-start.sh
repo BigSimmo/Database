@@ -31,11 +31,22 @@ echo "[session-start] Using node $(node -v) / npm $(npm -v)"
 
 cd "$CLAUDE_PROJECT_DIR"
 # npm ci keeps the lockfile untouched (npm install rewrites peer/optional
-# metadata and dirties the worktree); skip entirely when the cached container
-# already has node_modules.
+# metadata and dirties the worktree). A bare "node_modules exists" check is not
+# enough: a cached container keeps stale node_modules after dependency-bumping
+# merges, which surfaces as fake typecheck/test regressions (2026-07-19 audit).
+# Stamp the lockfile hash after a successful install and reinstall whenever the
+# lockfile no longer matches the stamp.
+LOCK_STAMP="node_modules/.session-start-lock-hash"
+lock_hash="$(sha256sum package-lock.json | cut -d' ' -f1)"
 if [ ! -d node_modules ]; then
   npm ci --no-audit --no-fund
+  echo "$lock_hash" > "$LOCK_STAMP"
   echo "[session-start] Dependencies installed"
+elif [ ! -f "$LOCK_STAMP" ] || [ "$(cat "$LOCK_STAMP")" != "$lock_hash" ]; then
+  echo "[session-start] node_modules is stale for the current lockfile, reinstalling"
+  npm ci --no-audit --no-fund
+  echo "$lock_hash" > "$LOCK_STAMP"
+  echo "[session-start] Dependencies reinstalled"
 else
-  echo "[session-start] node_modules already present, skipping install"
+  echo "[session-start] node_modules matches the lockfile, skipping install"
 fi

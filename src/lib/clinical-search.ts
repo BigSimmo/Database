@@ -1,6 +1,11 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
 import { clinicalResultEvidenceHaystack } from "@/lib/clinical-evidence-haystack";
 import { expandClinicalVocabularyText } from "@/lib/clinical-vocabulary";
+import {
+  hasForeignMedicationClinicalValueBinding,
+  medicationAliasesForEntity,
+  medicationSafetyEntitiesInText,
+} from "@/lib/medication-entities";
 import { freshnessDecayPenalty, rankingConfig } from "@/lib/ranking-config";
 import type {
   ClinicalQueryAnalysis,
@@ -346,7 +351,7 @@ const intentPatterns: Array<{
 const comparisonPattern =
   /\b(compare|compared|versus|vs|between|difference\w*|conflict\w*)\b|\bcombine\b.{0,100}\bwith\b/i;
 const tableThresholdPattern =
-  /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b/i;
+  /\b(table|chart|matrix|threshold|cut[\s-]?off|cutoff|level|range|score|scale|criteria|criterion|anc|fbc|neutrophil|white cell|when to withhold|withhold|cease|stop|maximum|minimum|baseline)\b|\b(?:therapeutic|target|trough)\s+(?:level|range|concentration)\b/i;
 // Note (8a): bare generic risk/workflow words (`risk`, `urgent`, `escalat*`) were removed from this
 // pattern. On their own — with no medication/dose/pharmacology signal — they mis-classified topical
 // queries like "suicide risk mitigation" or "urgent clinical escalation" as medication-dosing
@@ -1178,9 +1183,200 @@ const genericMedicationDoseQueryTokens = new Set([
   "sl",
 ]);
 
-/** Require dose evidence to carry the medication question's clinical subject. */
+/** Require medication evidence to carry the medication question's clinical subject. */
 export function medicationDoseQuerySubjectTokens(query: string) {
   return normalizedClinicalSearchTokens(query).filter((token) => !genericMedicationDoseQueryTokens.has(token));
+}
+
+/** Canonical medication subjects named by a monitoring query. */
+export function medicationMonitoringQuerySubjects(query: string) {
+  return unique([...medicationTerms(normalizeAnalysisText(query)), ...medicationSafetyEntitiesInText(query)], 12);
+}
+
+/** Alias phrases for the canonical medication subjects named by a monitoring query. */
+export function medicationMonitoringSubjectAliases(query: string) {
+  return unique(medicationMonitoringQuerySubjects(query).flatMap(medicationAliasesForEntity), 48);
+}
+
+const neutralThresholdLabelHeads = new Set([
+  "acceptable",
+  "action",
+  "amber",
+  "blood",
+  "count",
+  "desired",
+  "green",
+  "maintenance",
+  "monitoring",
+  "normal",
+  "peak",
+  "plasma",
+  "recommended",
+  "red",
+  "reference",
+  "range",
+  "require",
+  "requires",
+  "result",
+  "results",
+  "serum",
+  "target",
+  "the",
+  "threshold",
+  "therapeutic",
+  "trough",
+  "usual",
+  "value",
+  "values",
+]);
+const thresholdLabelPattern =
+  /\b([a-z][a-z0-9-]{2,})(?:\s+(?:maintenance|therapeutic|target|reference|trough|peak|serum|plasma|red|amber|green|desired|recommended|usual|normal|acceptable))*\s+(?:levels?|ranges?|concentrations?|thresholds?)\b/gi;
+const thresholdAssignmentLabelPattern =
+  /\b((?:(?:blood|serum|plasma|thyroid)\s+)?(?:tsh|thyroid|sodium|potassium|calcium|glucose|hba1c|anc|fbc|wbc|wcc|neutrophils?|qtc|lithium))\s+(?:levels?\s+)?(?:is|are|=)\s*(?=(?:between\s+)?(?:[<>≤≥]\s*)?\d)/gi;
+const thresholdAnalyteAliasGroups = [
+  ["lithium"],
+  ["anc", "fbc", "wbc", "wcc", "white blood cell", "neutrophil", "neutrophils", "blood count"],
+  ["blood glucose", "bgl", "glucose", "hba1c"],
+  ["qtc", "corrected qt interval"],
+  ["sodium"],
+  ["potassium"],
+  ["calcium"],
+  ["creatinine", "egfr", "renal function"],
+  ["blood pressure", "systolic", "diastolic"],
+  ["temperature"],
+  ["oxygen saturation", "spo2"],
+  ["prolactin"],
+  ["thyroid", "tsh", "thyroid stimulating hormone"],
+] as const;
+
+/** Whether a threshold phrase is labelled by a subject not named in the query. */
+export function hasForeignThresholdLabel(query: string, evidenceText: string) {
+  const expandedQueryTerms = expandClinicalVocabularyText(query);
+  const queryTokens = new Set(
+    normalizedClinicalSearchTokens(
+      `${query} ${medicationMonitoringQuerySubjects(query).join(" ")} ${expandedQueryTerms.join(" ")}`,
+    ),
+  );
+  const allowedAnalyteTokens = thresholdAnalyteAliasGroups
+    .filter((group) =>
+      group.some((alias) => normalizedClinicalSearchTokens(alias).every((token) => queryTokens.has(token))),
+    )
+    .flatMap((group) => group.flatMap((alias) => normalizedClinicalSearchTokens(alias)));
+  const allowedLabels = new Set([
+    ...normalizedClinicalSearchTokens(query),
+    ...medicationMonitoringSubjectAliases(query).flatMap((alias) => normalizedClinicalSearchTokens(alias)),
+    ...expandedQueryTerms.flatMap((term) => normalizedClinicalSearchTokens(term)),
+    ...allowedAnalyteTokens,
+  ]);
+  const labels = [
+    ...Array.from(evidenceText.matchAll(new RegExp(thresholdLabelPattern.source, "gi")), (match) => match[1]),
+    ...Array.from(evidenceText.matchAll(new RegExp(thresholdAssignmentLabelPattern.source, "gi")), (match) => match[1]),
+  ];
+  return labels.some((label) =>
+    normalizedClinicalSearchTokens(label).some(
+      (token) => !allowedLabels.has(token) && !neutralThresholdLabelHeads.has(token),
+    ),
+  );
+}
+
+/** Normalized tokens for canonical medication subjects named by a monitoring query. */
+export function medicationMonitoringQuerySubjectTokens(query: string) {
+  return unique(
+    medicationMonitoringQuerySubjects(query).flatMap((term) => normalizedClinicalSearchTokens(term)),
+    12,
+  );
+}
+
+/** Whether one evidence atom names the same canonical medication subject as the query. */
+export function hasMedicationMonitoringSubjectText(query: string, evidenceText: string) {
+  const querySubjects = medicationMonitoringQuerySubjects(query);
+  if (querySubjects.length === 0) return true;
+
+  const evidenceSubjects = new Set(medicationMonitoringQuerySubjects(evidenceText));
+  return querySubjects.some((subject) => evidenceSubjects.has(subject));
+}
+
+function medicationMonitoringEvidenceSegments(value: string | null | undefined) {
+  return (value ?? "")
+    .split(/\r?\n+|(?<=[.!?;])\s+|\s+[•]\s+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+const medicationMonitoringAtomEvidencePattern =
+  /\b(?:monitor\w*|baseline|follow[-\s]?up|checks?|tests?|levels?|ranges?|concentrations?|thresholds?|serum|plasma|renal|thyroid|calcium|glucose|lipids?|cholesterol|triglycerides|blood pressure|pulse|weight|bmi|fbcs?|ancs?|wbcs?|wccs?|ecgs?|lfts?|weekly|monthly|annual(?:ly)?|yearly|every)\b|\d+(?:\.\d+)?\s*(?:mmol|mol|mg|mcg|ng|[x×]\s*10)/i;
+const medicationMonitoringContinuationPattern =
+  /^(?:(?:the\s+)?patient\s+(?:should|must|needs?\s+to|is\s+to)\s+(?:have|undergo|receive|complete)\s+)?(?:monitor\w*|check\w*|review\w*|measure\w*|obtain\w*|repeat\w*|perform\w*|arrange\w*|test\w*|screen\w*|follow[-\s]?up|baseline|serum|plasma|renal|thyroid|calcium|blood|fbcs?|ancs?|wbcs?|wccs?|ecgs?|lfts?|glucose|lipids?|cholesterol|triglycerides|pressure|pulse|weight|bmi|levels?|ranges?|concentrations?|thresholds?|maintenance|therapeutic|target|trough|weekly|monthly|annual(?:ly)?|yearly|every)\b/i;
+const bloodCountMonitoringParameterPattern =
+  /\b(?:fbc|full blood count|blood count|anc|wbc|wcc|white (?:blood )?cells?|neutrophils?)\b/i;
+const medicationWithholdActionPattern =
+  /\b(?:withhold|withheld|withholding|hold|held|cease|stop|stopped|discontinue|discontinued)\b/i;
+
+/** Whether one result carries the canonical medication subject named by a monitoring query. */
+export function hasMedicationMonitoringSubjectEvidence(query: string, result: SearchResult) {
+  const querySubjects = new Set(medicationMonitoringQuerySubjects(query));
+  const evidenceSegments = [
+    ...medicationMonitoringEvidenceSegments(result.retrieval_synopsis),
+    ...medicationMonitoringEvidenceSegments(result.content),
+    ...(result.table_facts ?? []).map((fact) =>
+      [fact.table_title, fact.row_label, fact.clinical_parameter, fact.threshold_value, fact.action]
+        .filter(Boolean)
+        .join(" "),
+    ),
+    ...(result.index_unit
+      ? [
+          [
+            result.index_unit.title,
+            ...(result.index_unit.heading_path ?? []),
+            result.index_unit.content,
+            ...(result.index_unit.normalized_terms ?? []),
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ]
+      : []),
+    ...(result.images ?? []).flatMap((image) => [
+      ...medicationMonitoringEvidenceSegments(
+        [image.caption, image.tableTitle, image.tableLabel, image.tableTextSnippet, image.accessibleTableMarkdown]
+          .filter(Boolean)
+          .join(" "),
+      ),
+      ...(image.tableRows ?? []).map((row) => [...(image.tableColumns ?? []), ...row].join(" ")),
+    ]),
+    ...(result.memory_cards ?? []).map((card) => `${card.title} ${card.content}`),
+  ];
+
+  const candidateSupportsSubject = (candidate: string) => {
+    if (hasForeignMedicationClinicalValueBinding(query, candidate)) return false;
+    if (hasForeignThresholdLabel(query, candidate)) return false;
+    if (!medicationMonitoringAtomEvidencePattern.test(candidate)) return false;
+    const evidenceSubjects = medicationMonitoringQuerySubjects(candidate);
+    return evidenceSubjects.some((subject) => querySubjects.has(subject));
+  };
+
+  if (evidenceSegments.some(candidateSupportsSubject)) return true;
+
+  return evidenceSegments.some((segment, index) => {
+    const nextSegment = evidenceSegments[index + 1];
+    if (!nextSegment) return false;
+    const segmentSubjects = medicationMonitoringQuerySubjects(segment);
+    const nextSubjects = medicationMonitoringQuerySubjects(nextSegment);
+    const subjectThenMonitoring =
+      segmentSubjects.some((subject) => querySubjects.has(subject)) &&
+      segmentSubjects.every((subject) => querySubjects.has(subject)) &&
+      nextSubjects.length === 0 &&
+      medicationMonitoringContinuationPattern.test(nextSegment);
+    const bloodCountThenMedicationAction =
+      bloodCountMonitoringParameterPattern.test(query) &&
+      bloodCountMonitoringParameterPattern.test(segment) &&
+      medicationWithholdActionPattern.test(query) &&
+      medicationWithholdActionPattern.test(nextSegment) &&
+      nextSubjects.some((subject) => querySubjects.has(subject)) &&
+      nextSubjects.every((subject) => querySubjects.has(subject));
+    return (
+      (subjectThenMonitoring || bloodCountThenMedicationAction) && candidateSupportsSubject(`${segment} ${nextSegment}`)
+    );
+  });
 }
 
 const medicationDoseAmountQueryPattern =
@@ -1263,6 +1459,11 @@ export function buildClinicalTextSearchQuery(query: string) {
     /\b(?:blood|bloods|fbc|wcc|full blood count|white cell|observation|observations|monitor|monitoring)\b/i.test(
       correctedQueryText,
     );
+  const wantsClozapineBloodActionThreshold =
+    wantsClozapineBloodMonitoring &&
+    /\b(?:threshold|withhold|withheld|withholding|cease|stop|stopped|discontinue|discontinued)\b/i.test(
+      correctedQueryText,
+    );
   const wantsClozapineMissedDose =
     /\bclozapine\b/i.test(correctedQueryText) &&
     /\bmissed\b/i.test(correctedQueryText) &&
@@ -1297,6 +1498,13 @@ export function buildClinicalTextSearchQuery(query: string) {
     if (/\b(?:anc|neutrophil)\b/i.test(query)) visualTokens.unshift("anc", "neutrophil");
     if (/\b(?:fbc|full blood count)\b/i.test(query)) visualTokens.unshift("fbc", "blood");
     normalizedTokens.unshift(...visualTokens);
+  } else if (wantsClozapineBloodActionThreshold) {
+    // Preserve the blood-count/action subject for threshold questions. Collapsing
+    // this measured shape to the generic `clozapine monitoring` primary query
+    // produces a deep, high-ranked but irrelevant pool, which then legitimately
+    // suppresses the more precise sibling variants. Ordinary monitoring questions
+    // retain the established broad query below.
+    normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "wbc", "neutrophils", "red", "range", "stop");
   } else if (wantsClozapineBloodMonitoring) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationMedicationChart) {

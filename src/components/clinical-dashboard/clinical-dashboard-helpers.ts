@@ -7,6 +7,7 @@
 import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
 import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
+import { canAccessFavouritesMode } from "@/lib/app-modes";
 import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer, RelatedDocument } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 
@@ -54,6 +55,22 @@ export function hasNonProductionSupabaseApiKeyFallback(checks: SetupCheck[]) {
 /** True when an error originates from an AbortController (user pressed Stop / component unmounted). */
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
+}
+
+/** Abort any in-flight controller and install a fresh one owned by `ref`. */
+export function replaceOwnedAbortController(ref: { current: AbortController | null }): AbortController {
+  ref.current?.abort();
+  const next = new AbortController();
+  ref.current = next;
+  return next;
+}
+
+/** Clear `ref` only when it still points at `controller` (avoids clobbering a newer owner). */
+export function releaseOwnedAbortController(
+  ref: { current: AbortController | null },
+  controller: AbortController,
+): void {
+  if (ref.current === controller) ref.current = null;
 }
 
 export function normalizeNavigationHash(hash: string) {
@@ -156,4 +173,8 @@ export function mergeDocumentRefresh(current: ClinicalDocument[], updates: Clini
       summary: document.summary ?? existing.summary,
     };
   });
+}
+
+export function sessionFavouritesAccessible(authStatus: string, demoMode: boolean) {
+  return canAccessFavouritesMode({ authenticated: authStatus === "authenticated", demoMode });
 }

@@ -11,12 +11,13 @@ import {
   type ApiRateLimitResult,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import {
   answerDegradedModeSignal,
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "@/lib/answer-response";
-import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag";
+import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
@@ -30,6 +31,7 @@ import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackRe
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
@@ -47,7 +49,7 @@ function encodeSse(event: string, data: unknown) {
 }
 
 function rateLimitStream(rateLimit: ApiRateLimitResult) {
-  return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+  return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit, { bucket: "answer" });
 }
 
 function documentSummaryRateLimitStream(rateLimit: ApiRateLimitResult) {
@@ -152,10 +154,14 @@ function streamAnswer(
   accessScope: RetrievalAccessScope,
   signal?: AbortSignal,
   streamAbortController?: AbortController,
+  serverTiming?: string | null,
 ) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
+  // Group this request's LLM calls into one Sentry agent-monitoring
+  // conversation keyed by the synthetic interaction UUID — never by query text.
+  setAgentConversationId(interactionId);
 
   return new Response(
     new ReadableStream({
@@ -195,8 +201,12 @@ function streamAnswer(
             : await resolveSearchScope({
                 supabase: createAdminClient(),
                 accessScope,
-                documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
+                documentIds:
+                  body.summaryMode && body.documentId
+                    ? [body.documentId]
+                    : (body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
                 filters: body.filters,
+                signal,
               });
           sendProgress({ stage: "retrieving" });
           if (scope?.documentIds?.length === 0) {
@@ -287,6 +297,9 @@ function streamAnswer(
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
+        // Only the pre-stream preamble stages can appear here — headers flush
+        // before the first frame, so in-stream durations are not yet known.
+        ...(serverTiming ? { "Server-Timing": serverTiming } : {}),
       },
     },
   );
@@ -300,8 +313,11 @@ export async function POST(request: Request) {
     if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), streamSignal, streamAbortController);
 
     const supabase = createAdminClient();
+    const authStartedAt = Date.now();
     const access = await publicAccessContext(request, supabase);
+    const authMs = Date.now() - authStartedAt;
 
+    const rateLimitStartedAt = Date.now();
     if (body.summaryMode) {
       const decision = await consumeSummaryRateLimits({
         supabase,
@@ -321,8 +337,15 @@ export async function POST(request: Request) {
       });
       if (rateLimit.limited) return rateLimitStream(rateLimit);
     }
+    const rateLimitMs = Date.now() - rateLimitStartedAt;
 
-    return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), streamSignal, streamAbortController);
+    return streamAnswer(
+      body,
+      resolveRetrievalAccessScope(access.ownerId),
+      streamSignal,
+      streamAbortController,
+      buildServerTimingHeader(preambleServerTimingEntries({ authMs, rateLimitMs })),
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

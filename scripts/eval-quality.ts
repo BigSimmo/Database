@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 
@@ -22,14 +22,16 @@ import {
 import {
   loadCapturedRagEvalCases,
   mergeRagEvalCases,
+  ragEvalCases,
   selectRagEvalCases,
   type RagEvalCase,
   type SupabaseEvalCaseClient,
-} from "@/lib/rag-eval-cases";
+} from "@/lib/rag/rag-eval-cases";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
-import { answerRouteBudgetMs } from "@/lib/rag-route-budget";
-import type { AnswerRouteMode } from "@/lib/rag-routing";
+import { answerRouteBudgetMs } from "@/lib/rag/rag-route-budget";
+import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
 import type { RagAnswer } from "@/lib/types";
+import { buildRagDiagnosticDumpRecord, resolveLocalDiagnosticOutputPath } from "./eval-answer-quality";
 
 loadEnvConfig(process.cwd());
 
@@ -37,11 +39,13 @@ export type EvalQualityProviderMode = "openai" | "offline";
 
 type EvalQualityArgs = {
   fixture: string;
+  sourceGovernanceResults?: string;
   ownerEmail?: string;
   ownerId?: string;
   limit?: number;
   query?: string;
   question?: string;
+  dumpRagCases?: string;
   outputDir: string;
   sourceMetadataDebt?: string;
   json: boolean;
@@ -89,8 +93,10 @@ export type RagQualityResult = {
     totalMs: number;
     routeBudgetMs: number;
     routeDeadlineExceeded: boolean;
+    budgetExhaustedByRetrieval?: boolean;
   };
   routeCeilingExceeded?: boolean;
+  executionType: "cached" | "api" | "rule-based";
   estimatedCostUsd: number | null;
   openAIRequestIds?: string[];
   openAIUsage?: {
@@ -115,6 +121,22 @@ export type QualityFailureCategory =
   | "other";
 
 export type EvalQualityReport = ReturnType<typeof buildEvalQualityReport>;
+
+export type EvalQualityRunContext = {
+  git_sha: string | null;
+  github_run_id: string | null;
+  github_run_attempt: string | null;
+  latency_context: string;
+};
+
+export function evalQualityRunContext(env: Record<string, string | undefined> = process.env): EvalQualityRunContext {
+  return {
+    git_sha: env.EVAL_GIT_SHA?.trim() || env.GITHUB_SHA?.trim() || null,
+    github_run_id: env.GITHUB_RUN_ID?.trim() || null,
+    github_run_attempt: env.GITHUB_RUN_ATTEMPT?.trim() || null,
+    latency_context: env.EVAL_LATENCY_CONTEXT?.trim() || "default",
+  };
+}
 
 export type SourceMetadataDebtAcceptance = {
   path?: string;
@@ -150,7 +172,10 @@ export function deliveredGroundedAfterSourceGovernancePolicy(
 
 const crossRegionRunnerLatencyContext = process.env.EVAL_LATENCY_CONTEXT === "cross-region-runner";
 
-export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimings" | "routingMode">) {
+export function ragAnswerTimingDiagnostics(
+  answer: Pick<RagAnswer, "latencyTimings" | "routingMode">,
+  options?: { crossRegionRunner?: boolean },
+) {
   const latencyTimings = answer.latencyTimings;
   const answerRoute = answer.routingMode ?? "unsupported";
   const defaultRouteBudgetMs = answerRouteBudgetMs[answerRoute as AnswerRouteMode] ?? 0;
@@ -158,6 +183,14 @@ export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimin
   const totalMs = latencyTimings?.total_latency_ms ?? 0;
   const generationMs = latencyTimings?.generation_latency_ms ?? 0;
   const routeDeadlineExceeded = latencyTimings?.route_deadline_exceeded ?? false;
+  const budgetExhaustedByRetrieval = latencyTimings?.route_budget_exhausted_by_retrieval ?? false;
+  const crossRegionRunner = options?.crossRegionRunner ?? crossRegionRunnerLatencyContext;
+  // Cross-region carve-out (E-3b): when GitHub's US runner spends the whole route budget on
+  // retrieval alone and the runtime then behaves optimally (zero generation), the ceiling is
+  // runner geography, not a runtime regression. Requires ALL THREE: the sanctioned cross-region
+  // context, the runtime's own authoritative flag, and no generation time. Local/release
+  // contexts (EVAL_LATENCY_CONTEXT unset) are unaffected — the gate is not weakened there.
+  const ceilingExcusedByCrossRegionRetrieval = crossRegionRunner && budgetExhaustedByRetrieval && generationMs === 0;
   return {
     timings: {
       retrievalMs: latencyTimings?.retrieval_latency_ms ?? latencyTimings?.search_latency_ms ?? 0,
@@ -167,8 +200,11 @@ export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimin
       totalMs,
       routeBudgetMs,
       routeDeadlineExceeded,
+      budgetExhaustedByRetrieval,
     },
-    routeCeilingExceeded: routeDeadlineExceeded || (routeBudgetMs === 0 ? generationMs > 0 : totalMs > routeBudgetMs),
+    routeCeilingExceeded: ceilingExcusedByCrossRegionRetrieval
+      ? false
+      : routeDeadlineExceeded || (routeBudgetMs === 0 ? generationMs > 0 : totalMs > routeBudgetMs),
   };
 }
 
@@ -179,6 +215,7 @@ const qualityThresholds = {
   ragGroundedSupportedRate: 0.9,
   ragUnsupportedCorrectRate: 1,
   ragCitationFailureRate: 0,
+  ragSourceBackedReviewFallbackCount: 0,
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
@@ -212,7 +249,7 @@ const qualityThresholds = {
   } as Record<string, number>,
 };
 
-function parseArgs(argv: string[]): EvalQualityArgs {
+export function parseEvalQualityArgs(argv: string[]): EvalQualityArgs {
   const args: EvalQualityArgs = {
     fixture: join(process.cwd(), "scripts", "fixtures", "rag-retrieval-golden.json"),
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
@@ -261,11 +298,13 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     index += 1;
 
     if (token === "--fixture") args.fixture = value;
+    if (token === "--source-governance-results") args.sourceGovernanceResults = value;
     if (token === "--owner-email") args.ownerEmail = value;
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
     if (token === "--question") args.question = value;
+    if (token === "--dump-rag-cases") args.dumpRagCases = value;
     if (token === "--output-dir") args.outputDir = value;
     if (token === "--source-metadata-debt") args.sourceMetadataDebt = value;
     if (token === "--provider-mode") {
@@ -280,8 +319,18 @@ function parseArgs(argv: string[]): EvalQualityArgs {
   if (args.limit !== undefined && (!Number.isInteger(args.limit) || args.limit <= 0)) {
     throw new Error("--limit must be a positive integer.");
   }
+  if (args.dumpRagCases && !args.ragOnly) {
+    throw new Error("--dump-rag-cases requires --rag-only.");
+  }
+  if (args.dumpRagCases) resolveLocalDiagnosticOutputPath(args.dumpRagCases);
 
   return args;
+}
+
+export function selectRagQualityCasesForQuestion(question?: string) {
+  if (!question) return selectRagEvalCases({});
+  const exactCase = ragEvalCases.find((testCase) => testCase.id === question.trim());
+  return exactCase ? [exactCase] : selectRagEvalCases({ question });
 }
 
 export function configureEvalProviderEnvironment(providerMode: EvalQualityProviderMode) {
@@ -355,6 +404,12 @@ export function sourceGovernanceDangerFailuresForAnswer(args: {
 
 function rate(numerator: number, denominator: number) {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(4));
+}
+
+function isSourceBackedReviewFallback(routingReason: string | undefined) {
+  return (routingReason ?? "")
+    .split(";")
+    .some((reason) => reason.trim().toLowerCase() === "source_backed_review_fallback");
 }
 
 function failureCategoryCounts(results: Array<{ failures: string[] }>) {
@@ -524,6 +579,18 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
     result.failures.includes("expected danger source governance warning missing"),
   ).length;
   const routeCeilingFailures = results.filter((result) => result.routeCeilingExceeded).length;
+  const generationFallbacks = results.filter((result) =>
+    /(?:^|;\s*)generation_fallback:/i.test(result.routingReason ?? ""),
+  ).length;
+  const sourceBackedReviewFallbacks = results.filter((result) =>
+    isSourceBackedReviewFallback(result.routingReason),
+  ).length;
+  const substantiveGrounded = supported.filter(
+    (result) => result.grounded === true && !isSourceBackedReviewFallback(result.routingReason),
+  ).length;
+  const comparisonSourceExtractiveFallbacks = results.filter((result) =>
+    /(?:^|;\s*)comparison_source_extractive_fallback(?:;|$)/i.test(result.routingReason ?? ""),
+  ).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -553,6 +620,12 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     expected_danger_warning_missing_count: expectedDangerWarningMissing,
     route_ceiling_failure_count: routeCeilingFailures,
+    generation_fallback_count: generationFallbacks,
+    source_backed_review_fallback_count: sourceBackedReviewFallbacks,
+    source_backed_review_fallback_rate: rate(sourceBackedReviewFallbacks, results.length),
+    substantive_grounded_count: substantiveGrounded,
+    substantive_grounded_rate: rate(substantiveGrounded, supported.length),
+    comparison_source_extractive_fallback_count: comparisonSourceExtractiveFallbacks,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -565,6 +638,7 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
 export function buildEvalQualityReport(args: {
   generatedAt?: string;
   retrievalResults: GoldenRetrievalResult[];
+  sourceGovernanceResults?: GoldenRetrievalResult[];
   ragResults: RagQualityResult[];
   sourceMetadataDebtAcceptance?: SourceMetadataDebtAcceptance;
   providerMode?: EvalQualityProviderMode;
@@ -572,7 +646,11 @@ export function buildEvalQualityReport(args: {
   const providerMode = args.providerMode ?? "openai";
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
   const ragSummary = summarizeRagQualityResults(args.ragResults, providerMode);
-  const governance = topResultGovernanceCounts(args.retrievalResults);
+  // `--rag-only` intentionally leaves retrieval metrics and gates empty. The
+  // canary can still supply the preceding golden-retrieval artifact so this
+  // report renders its source-governance metadata without rerunning retrieval
+  // or changing the answer gate's pass/fail contract.
+  const governance = topResultGovernanceCounts(args.sourceGovernanceResults ?? args.retrievalResults);
   const thresholdFailures: string[] = [];
   const providerEvidence = {
     mode: providerMode,
@@ -628,7 +706,10 @@ export function buildEvalQualityReport(args: {
   }
 
   if (args.ragResults.length > 0) {
-    if (ragSummary.grounded_supported_rate < qualityThresholds.ragGroundedSupportedRate) {
+    if (
+      ragSummary.supported_count > 0 &&
+      ragSummary.grounded_supported_rate < qualityThresholds.ragGroundedSupportedRate
+    ) {
       thresholdFailures.push(
         `RAG grounded_supported_rate ${ragSummary.grounded_supported_rate} below ${qualityThresholds.ragGroundedSupportedRate}`,
       );
@@ -643,6 +724,11 @@ export function buildEvalQualityReport(args: {
     }
     if (ragSummary.citation_failure_rate > qualityThresholds.ragCitationFailureRate) {
       thresholdFailures.push(`RAG citation_failure_rate ${ragSummary.citation_failure_rate} above 0`);
+    }
+    if (ragSummary.source_backed_review_fallback_count > qualityThresholds.ragSourceBackedReviewFallbackCount) {
+      thresholdFailures.push(
+        `RAG source_backed_review_fallback_count ${ragSummary.source_backed_review_fallback_count} above ${qualityThresholds.ragSourceBackedReviewFallbackCount}`,
+      );
     }
     if (ragSummary.numeric_grounding_failure_rate > qualityThresholds.numericGroundingFailureRate) {
       thresholdFailures.push(`RAG numeric_grounding_failure_rate ${ragSummary.numeric_grounding_failure_rate} above 0`);
@@ -687,6 +773,7 @@ export function buildEvalQualityReport(args: {
 
   return {
     generated_at: args.generatedAt ?? new Date().toISOString(),
+    run_context: evalQualityRunContext(),
     provider: {
       ...providerEvidence,
       passed:
@@ -744,7 +831,13 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
         result.rpcLatencyMs,
         result.embeddingLatencyMs,
         result.timings?.routeBudgetMs,
-        result.timings?.routeDeadlineExceeded ? "yes" : "no",
+        // "retrieval-exhausted" keeps cross-region-suppressed ceilings auditable in
+        // run-over-run comparisons even though they no longer fail the gate.
+        result.timings?.routeDeadlineExceeded
+          ? result.timings?.budgetExhaustedByRetrieval
+            ? "retrieval-exhausted"
+            : "yes"
+          : "no",
         result.model,
         result.failures.length > 0 ? `failed (${result.failures.length})` : "passed",
       ]
@@ -841,9 +934,13 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           item.timings?.generationMs ?? "n/a"
         }ms verification=${item.timings?.verificationMs ?? "n/a"}ms total=${
           item.timings?.totalMs ?? item.latencyMs
-        }ms budget=${
-          item.timings?.routeBudgetMs ?? "n/a"
-        }ms deadline=${item.timings?.routeDeadlineExceeded ? "yes" : "no"}`,
+        }ms budget=${item.timings?.routeBudgetMs ?? "n/a"}ms deadline=${
+          item.timings?.routeDeadlineExceeded
+            ? item.timings?.budgetExhaustedByRetrieval
+              ? "retrieval-exhausted"
+              : "yes"
+            : "no"
+        }`,
     )
     .join("\n");
   return `# Retrieval Quality Report
@@ -934,6 +1031,8 @@ Policy: ${governance.metadata_policy}
 ${markdownTable([
   ["Cases", rag.case_count],
   ["Grounded supported rate", rag.grounded_supported_rate],
+  ["Substantive grounded answers", rag.substantive_grounded_count],
+  ["Substantive grounded rate", rag.substantive_grounded_rate],
   ["Unsupported correct rate", rag.unsupported_correct_rate],
   ["Expected source hit rate", rag.expected_hit_rate],
   ["Citation failure rate", rag.citation_failure_rate],
@@ -941,6 +1040,10 @@ ${markdownTable([
   ["Source governance warning rate", rag.source_governance_warning_rate],
   ["Source governance danger failure rate", rag.source_governance_danger_failure_rate],
   ["Route ceiling failures", rag.route_ceiling_failure_count],
+  ["Generation fallbacks", rag.generation_fallback_count],
+  ["Source-backed review fallbacks", rag.source_backed_review_fallback_count],
+  ["Source-backed review fallback rate", rag.source_backed_review_fallback_rate],
+  ["Comparison extractive fallbacks", rag.comparison_source_extractive_fallback_count],
   ["P95 latency ms", rag.p95_latency_ms],
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}
@@ -977,7 +1080,7 @@ async function runRetrievalQualityCases(args: {
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ searchChunksWithTelemetry }, capturedCases] = await Promise.all([
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadCapturedRagEvalCases({
       supabase: args.supabase as unknown as SupabaseEvalCaseClient,
       ownerId: args.ownerId,
@@ -1030,21 +1133,23 @@ async function runRagQualityCases(args: {
   ownerId?: string;
   limit?: number;
   question?: string;
+  captureDiagnostics?: boolean;
   providerMode: EvalQualityProviderMode;
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ answerQuestionWithScope }, capturedCases] = await Promise.all([
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadCapturedRagEvalCases({
       supabase: args.supabase as unknown as SupabaseEvalCaseClient,
       ownerId: args.ownerId,
       limit: args.limit,
     }),
   ]);
-  const baseCases = selectRagEvalCases({ question: args.question });
+  const baseCases = selectRagQualityCasesForQuestion(args.question);
   const allCases = args.question ? baseCases : mergeRagEvalCases(baseCases, capturedCases);
   const cases = allCases.slice(0, args.limit ?? allCases.length);
   const results: RagQualityResult[] = [];
+  const diagnosticCases: Array<ReturnType<typeof buildRagDiagnosticDumpRecord>> = [];
 
   for (const testCase of cases) {
     const answer = (await withProviderBackoff(`quality-rag:${testCase.id}`, () =>
@@ -1055,6 +1160,9 @@ async function runRagQualityCases(args: {
         skipCache: true,
       }),
     )) as RagAnswer;
+    if (args.captureDiagnostics) {
+      diagnosticCases.push(buildRagDiagnosticDumpRecord(testCase.id, testCase.question, answer));
+    }
     const validation = validateRagAnswer(testCase, answer);
     const failures = [...validation.failures];
     const sourceWarnings = sourceWarningsForRagQualityAnswer(answer);
@@ -1112,13 +1220,26 @@ async function runRagQualityCases(args: {
       routingReason: answer.routingReason,
       timings,
       routeCeilingExceeded,
-      estimatedCostUsd: hasOpenAIUsage ? estimateCostUsd(openAIUsage) : null,
+      executionType:
+        hasOpenAIUsage || openAIRequestIds.length > 0 || answer.modelUsed || generationLatencyMs > 0
+          ? "api"
+          : answer.routingMode === "unsupported"
+            ? "rule-based"
+            : "cached",
+      // A case that never touched the provider costs exactly $0.
+      // null stays reserved for "cannot estimate" — either
+      // rates unconfigured, or a provider call was attempted without usage metadata.
+      estimatedCostUsd: hasOpenAIUsage
+        ? estimateCostUsd(openAIUsage)
+        : openAIRequestIds.length > 0 || answer.modelUsed || generationLatencyMs > 0
+          ? null
+          : 0,
       openAIRequestIds: openAIRequestIds.length > 0 ? openAIRequestIds : undefined,
       openAIUsage: hasOpenAIUsage ? openAIUsage : undefined,
     });
   }
 
-  return results;
+  return { results, diagnosticCases };
 }
 
 async function writeReports(report: EvalQualityReport, outputDir: string) {
@@ -1138,6 +1259,32 @@ function asRecord(value: unknown, label: string) {
     throw new Error(`${label} must be an object.`);
   }
   return value as Record<string, unknown>;
+}
+
+export function sourceGovernanceResultsFromArtifact(value: unknown): GoldenRetrievalResult[] {
+  const artifact = asRecord(value, "source governance results artifact");
+  if (!Array.isArray(artifact.results)) {
+    throw new Error("source governance results artifact results must be an array.");
+  }
+
+  return artifact.results.map((result, resultIndex) => {
+    const record = asRecord(result, `source governance results[${resultIndex}]`);
+    if (typeof record.id !== "string" || !record.id.trim()) {
+      throw new Error(`source governance results[${resultIndex}] id must be a non-empty string.`);
+    }
+    if (!Array.isArray(record.topResults)) {
+      throw new Error(`source governance results[${resultIndex}] topResults must be an array.`);
+    }
+    record.topResults.forEach((topResult, topResultIndex) => {
+      asRecord(topResult, `source governance results[${resultIndex}].topResults[${topResultIndex}]`);
+    });
+    return record as unknown as GoldenRetrievalResult;
+  });
+}
+
+async function loadSourceGovernanceResults(path: string) {
+  const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+  return sourceGovernanceResultsFromArtifact(parsed);
 }
 
 function requiredString(record: Record<string, unknown>, key: string) {
@@ -1185,7 +1332,7 @@ async function loadSourceMetadataDebtAcceptance(path: string): Promise<SourceMet
 }
 
 async function main() {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseEvalQualityArgs(process.argv.slice(2));
   if (args.providerMode === "offline" && args.forceEmbedding) {
     throw new Error("--force-embedding cannot be used with --provider-mode offline.");
   }
@@ -1201,17 +1348,46 @@ async function main() {
   const sourceMetadataDebtAcceptance = args.sourceMetadataDebt
     ? await loadSourceMetadataDebtAcceptance(args.sourceMetadataDebt)
     : undefined;
+  const sourceGovernanceResults = args.sourceGovernanceResults
+    ? await loadSourceGovernanceResults(args.sourceGovernanceResults)
+    : undefined;
 
   const ownerId = await resolveEvalOwnerId(supabase, args);
   const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
-  const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
+  const ragRun = args.retrievalOnly
+    ? { results: [] as RagQualityResult[], diagnosticCases: [] }
+    : await runRagQualityCases({
+        ...args,
+        ownerId,
+        supabase,
+        captureDiagnostics: Boolean(args.dumpRagCases),
+      });
+  const ragResults = ragRun.results;
   const report = buildEvalQualityReport({
     retrievalResults,
+    sourceGovernanceResults,
     ragResults,
     sourceMetadataDebtAcceptance,
     providerMode: args.providerMode,
   });
   const paths = await writeReports(report, args.outputDir);
+  if (args.dumpRagCases) {
+    const dumpPath = resolveLocalDiagnosticOutputPath(args.dumpRagCases);
+    await mkdir(dirname(dumpPath), { recursive: true });
+    await writeFile(
+      dumpPath,
+      `${JSON.stringify(
+        {
+          generated_at: new Date().toISOString(),
+          case_count: ragRun.diagnosticCases.length,
+          cases: ragRun.diagnosticCases,
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+  }
 
   if (args.json) {
     console.log(JSON.stringify({ ...report, output: paths }, null, 2));

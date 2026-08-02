@@ -39,10 +39,10 @@ The code-side controls cannot _by themselves_ discharge APP 8 — the "reasonabl
 
 ## 2. What actually crosses the border
 
-| Egress    | Payload                                                          | Endpoint                                                      | Reference                                                                           |
-| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Embedding | Raw query text (normalized)                                      | `POST /v1/embeddings` (`text-embedding-3-small`)              | [openai.ts embedText](../src/lib/openai.ts)                                         |
-| Answer    | Raw query verbatim + retrieved chunk text + static system prompt | `POST /v1/responses` (Terra fast / Sol strong, `store:false`) | [rag.ts](../src/lib/rag.ts) · [rag-source-block.ts](../src/lib/rag-source-block.ts) |
+| Egress    | Payload                                                          | Endpoint                                                      | Reference                                                                                   |
+| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Embedding | Raw query text (normalized)                                      | `POST /v1/embeddings` (`text-embedding-3-small`)              | [openai.ts embedText](../src/lib/openai.ts)                                                 |
+| Answer    | Raw query verbatim + retrieved chunk text + static system prompt | `POST /v1/responses` (Terra fast / Sol strong, `store:false`) | [rag.ts](../src/lib/rag/rag.ts) · [rag-source-block.ts](../src/lib/rag/rag-source-block.ts) |
 
 The app **adds no raw patient or owner identifiers** and stores queries only as a keyed hash locally.
 When configured, authenticated Responses requests include a stable HMAC-SHA256

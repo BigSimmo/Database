@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {
   Brain,
-  ChevronDown,
+  Calculator,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -24,13 +24,21 @@ import {
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
-import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
+import { ModeHomeHero } from "@/components/mode-home-template";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { useAuthSession } from "@/lib/supabase/client";
 import {
-  toolCatalogRecords,
+  toolCatalogRecordsForSession,
   type ToolCatalogArea,
   type ToolCatalogRecord,
   type ToolCatalogStatus,
@@ -88,18 +96,25 @@ const launcherIconById: Record<string, LucideIcon> = {
   services: Users,
   forms: FileCheck2,
   "care-plans": ClipboardCheck,
+  "safety-plan": ClipboardList,
+  calculators: Calculator,
   monitoring: Waves,
   favourites: Star,
 };
 
-const launcherApps: LauncherApp[] = toolCatalogRecords.map((record) => ({
-  ...record,
-  icon: launcherIconById[record.id] ?? Sparkles,
-}));
+function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
+  return toolCatalogRecordsForSession({
+    authenticated: canAccessFavourites,
+    demoMode: false,
+  }).map((record) => ({
+    ...record,
+    icon: launcherIconById[record.id] ?? Sparkles,
+  }));
+}
 
 const toolsLauncherCopy = {
   heading: "Tools",
-  description: "Assessment, prescribing, documents, and saved work.",
+  description: "Assessment, prescribing, workflows.",
   allSectionLabel: "All tools",
   countNoun: "tools",
   emptyTitle: "No tools match",
@@ -109,7 +124,7 @@ const toolsLauncherCopy = {
   openSelectedAriaLabel: "Open selected tool",
 };
 
-const quickActions = [
+const quickActionsBase = [
   { label: "Ask", desktopLabel: "Ask evidence", icon: Search, id: "clinical-kb-search" },
   { label: "Compare", desktopLabel: "Compare", icon: Brain, id: "differentials" },
   { label: "Prescribe", desktopLabel: "Prescribe", icon: Pill, id: "medication-prescribing" },
@@ -117,10 +132,10 @@ const quickActions = [
   { label: "Docs", desktopLabel: "Documents", icon: FileText, id: "documents" },
   { label: "Refer", desktopLabel: "Refer", icon: Users, id: "services" },
   { label: "Forms", desktopLabel: "Forms", icon: FileCheck2, id: "forms" },
-  { label: "More", desktopLabel: "More", icon: Sparkles, id: "favourites" },
+  { label: "Saved", desktopLabel: "Favourites", icon: Star, id: "favourites" },
 ] as const;
 
-const desktopFilters: Array<{ id: LauncherFilter; label: string }> = [
+const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
   { id: "assessment", label: "Assess" },
   { id: "reference", label: "Evidence" },
@@ -129,25 +144,26 @@ const desktopFilters: Array<{ id: LauncherFilter; label: string }> = [
   { id: "saved", label: "Saved" },
 ];
 
-const mobileFilters: Array<{ id: LauncherFilter; label: string; hasMenu?: boolean }> = [
+const mobileFilters: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
   { id: "assessment", label: "Assess" },
   { id: "reference", label: "Evidence" },
   { id: "care", label: "Treat" },
-  { id: "more", label: "More", hasMenu: true },
+  { id: "more", label: "More" },
 ];
 
-export const applicationsLauncherItemCount = launcherApps.length;
+/** Full catalog length (includes Favourites). Prefer session-filtered lists in UI. */
+export const applicationsLauncherItemCount = launcherAppsForSession(true).length;
 
-function appById(id: string) {
-  return launcherApps.find((app) => app.id === id) ?? launcherApps[0];
+function appById(id: string, apps: LauncherApp[]) {
+  return apps.find((app) => app.id === id) ?? apps[0];
 }
 
-function initialToolId(query: string | undefined) {
+function initialToolId(query: string | undefined, apps: LauncherApp[]) {
   const normalized = query?.trim().toLowerCase();
   if (!normalized) return "risk-safety";
   return (
-    launcherApps.find((app) =>
+    apps.find((app) =>
       [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, app.area, ...app.keywords]
         .filter(Boolean)
         .join(" ")
@@ -155,6 +171,14 @@ function initialToolId(query: string | undefined) {
         .includes(normalized),
     )?.id ?? "risk-safety"
   );
+}
+
+function quickActionsForSession(canAccessFavourites: boolean) {
+  return canAccessFavourites ? quickActionsBase : quickActionsBase.filter((action) => action.id !== "favourites");
+}
+
+function desktopFiltersForSession(canAccessFavourites: boolean) {
+  return canAccessFavourites ? desktopFiltersBase : desktopFiltersBase.filter((filter) => filter.id !== "saved");
 }
 
 function appIconTone(app: LauncherApp) {
@@ -221,11 +245,15 @@ function ToolSearch({
         onSubmit();
       }}
       className={cn(
-        "grid min-h-13 grid-cols-[2.75rem_minmax(0,1fr)_2.75rem] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
+        // Both end tracks hold tap-sized children and the row has no gap, so they
+        // read the tap knob rather than a copy of its value — a literal here
+        // overlaps the input (or undersizes the submit control) the moment
+        // `--spacing-tap` moves.
+        "grid min-h-13 grid-cols-[var(--spacing-tap)_minmax(0,1fr)_var(--spacing-tap)] items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-left shadow-[var(--shadow-card)]",
         className,
       )}
     >
-      <span className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent)]">
+      <span className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--clinical-accent)]">
         <Plus className="size-icon-lg" aria-hidden />
       </span>
       <label className="min-w-0">
@@ -235,14 +263,15 @@ function ToolSearch({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={copy.searchPlaceholder}
-          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+          className="w-full min-w-0 bg-transparent text-sm font-medium text-[color:var(--text)] placeholder:text-[color:var(--text-placeholder)] focus:outline-none"
         />
       </label>
       <button
         type="submit"
         aria-label={copy.openSelectedAriaLabel}
+        data-testid="tools-local-search-submit"
         className={cn(
-          "mr-1 grid h-10 w-10 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
+          "grid h-tap w-tap place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)]",
           focusRing,
         )}
       >
@@ -266,14 +295,25 @@ function ToolChips({ app, includeStatus = false }: { app: LauncherApp; includeSt
   );
 }
 
-function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mobile?: boolean }) {
+function QuickActions({
+  onSelect,
+  mobile,
+  apps,
+  canAccessFavourites,
+}: {
+  onSelect: (id: string) => void;
+  mobile?: boolean;
+  apps: LauncherApp[];
+  canAccessFavourites: boolean;
+}) {
+  const quickActions = quickActionsForSession(canAccessFavourites);
   return (
     <section
       aria-label="Quick tool shortcuts"
       className={cn(mobile ? "grid grid-cols-4 gap-2" : "grid w-full grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6")}
     >
       {quickActions.slice(0, mobile ? 8 : 6).map((action) => {
-        const app = appById(action.id);
+        const app = appById(action.id, apps);
         const Icon = action.icon;
         return (
           <button
@@ -330,10 +370,13 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
 function FilterTabs({
   activeFilter,
   onFilterChange,
+  canAccessFavourites,
 }: {
   activeFilter: LauncherFilter;
   onFilterChange: (filter: LauncherFilter) => void;
+  canAccessFavourites: boolean;
 }) {
+  const desktopFilters = desktopFiltersForSession(canAccessFavourites);
   return (
     <>
       <div className="hidden flex-wrap items-center gap-2 sm:flex" role="group" aria-label="Filter by tool category">
@@ -360,35 +403,15 @@ function FilterTabs({
           );
         })}
       </div>
-      <div
-        className="flex min-w-0 gap-1 overflow-x-auto pb-1 sm:hidden"
-        role="group"
-        aria-label="Filter by tool category"
-      >
-        {mobileFilters.map((filter) => {
-          const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "saved");
-          return (
-            <button
-              key={filter.id}
-              type="button"
-              id={`launcher-filter-mobile-${filter.id}`}
-              aria-pressed={active}
-              aria-controls="launcher-results-panel"
-              onClick={() => onFilterChange(filter.id)}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center gap-0.5 whitespace-nowrap rounded-lg border px-2 text-2xs font-bold transition",
-                active
-                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-                focusRing,
-              )}
-            >
-              {filter.label}
-              {filter.hasMenu ? <ChevronDown className="h-3 w-3" aria-hidden /> : null}
-            </button>
-          );
-        })}
-      </div>
+      <MobileResultFilterControl
+        label="Category"
+        ariaLabel="Filter by tool category"
+        testId="tool-category-select"
+        className="sm:hidden"
+        value={activeFilter === "more" ? "all" : activeFilter}
+        options={desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }))}
+        onChange={onFilterChange}
+      />
     </>
   );
 }
@@ -663,33 +686,51 @@ type ApplicationsLauncherWorkspaceProps = {
   query?: string;
   desktopComposerSlotId?: string;
   className?: string;
+  /** Optional override; defaults to the current auth/demo Favourites session gate. */
+  canAccessFavourites?: boolean;
 };
 
 export function ApplicationsLauncherWorkspace({
   query: controlledQuery,
   desktopComposerSlotId,
   className,
+  canAccessFavourites: canAccessFavouritesProp,
 }: ApplicationsLauncherWorkspaceProps) {
+  const auth = useAuthSession();
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+    authUnavailableFallback: !auth.isConfigured,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
+  const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
+  const canAccessFavourites = canAccessFavouritesProp ?? favouritesAccessible;
   const searchCommand = useSearchCommand();
   const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
+  const launcherApps = useMemo(() => launcherAppsForSession(canAccessFavourites), [canAccessFavourites]);
+  const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
   const query = controlledQuery ?? searchCommand?.query ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
-  const queryDerivedId = useMemo(() => initialToolId(query), [query]);
+  const queryDerivedId = useMemo(() => initialToolId(query, launcherApps), [launcherApps, query]);
   const [selection, setSelection] = useState(() => ({
     queryKey: (controlledQuery ?? "").trim().toLowerCase(),
-    id: initialToolId(controlledQuery),
+    id: initialToolId(controlledQuery, launcherAppsForSession(canAccessFavourites)),
   }));
   const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
+  const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
       const matchesFilter =
-        activeFilter === "all" ||
-        activeFilter === "more" ||
-        (activeFilter === "saved" ? app.area === "saved" : app.area === activeFilter);
+        effectiveFilter === "all"
+          ? true
+          : effectiveFilter === "more"
+            ? app.area === "coordination" || app.area === "saved"
+            : effectiveFilter === "saved"
+              ? app.area === "saved"
+              : app.area === effectiveFilter;
       const matchesQuery =
         !normalizedQuery ||
         [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
@@ -699,17 +740,17 @@ export function ApplicationsLauncherWorkspace({
           .includes(normalizedQuery);
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, normalizedQuery]);
+  }, [effectiveFilter, launcherApps, normalizedQuery]);
 
   const effectiveSelectedId = filteredApps.some((app) => app.id === selectedId)
     ? selectedId
     : (filteredApps[0]?.id ?? selectedId);
-  const selectedApp = appById(effectiveSelectedId);
+  const selectedApp = appById(effectiveSelectedId, launcherApps);
   // Label the results by the selected filter's visible label (mobile-only filters
   // like "More" included) so assistive tech hears which result set is active.
   const activeFilterLabel =
-    desktopFilters.find((filter) => filter.id === activeFilter)?.label ??
-    mobileFilters.find((filter) => filter.id === activeFilter)?.label;
+    desktopFilters.find((filter) => filter.id === effectiveFilter)?.label ??
+    mobileFilters.find((filter) => filter.id === effectiveFilter)?.label;
   const resultsPanelLabel =
     activeFilterLabel && activeFilterLabel !== copy.allSectionLabel
       ? `${activeFilterLabel} tools`
@@ -734,7 +775,6 @@ export function ApplicationsLauncherWorkspace({
       aria-labelledby="tools-home-title"
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
-        "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
         "pt-5 sm:pt-8 lg:pt-10",
         className,
       )}
@@ -753,7 +793,7 @@ export function ApplicationsLauncherWorkspace({
         />
 
         {desktopComposerSlotId ? (
-          <div
+          <DesktopComposerPortalSlot
             id={desktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
           />
@@ -769,10 +809,10 @@ export function ApplicationsLauncherWorkspace({
 
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
           <div className="hidden sm:block">
-            <QuickActions onSelect={openTool} />
+            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} />
           </div>
           <div className="sm:hidden">
-            <QuickActions onSelect={openTool} mobile />
+            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} mobile />
           </div>
         </div>
       </section>
@@ -782,19 +822,37 @@ export function ApplicationsLauncherWorkspace({
         data-testid="tools-all-tools"
         className="mx-auto mt-8 grid max-w-[86rem] grid-cols-1 gap-4 sm:mt-10"
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="text-left">
-            <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
-            <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
-              Sort by
-              <span className="text-[color:var(--text-heading)]">A to Z</span>
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+        {normalizedQuery ? (
+          <SearchResultsHeaderBand
+            modeId="tools"
+            query={query}
+            matchCount={filteredApps.length}
+            filterLabel="Filter tools by category"
+            filterControls={
+              <FilterTabs
+                activeFilter={effectiveFilter}
+                onFilterChange={setActiveFilter}
+                canAccessFavourites={canAccessFavourites}
+              />
+            }
+          />
+        ) : (
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="text-left">
+              <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <FilterTabs
+                activeFilter={effectiveFilter}
+                onFilterChange={setActiveFilter}
+                canAccessFavourites={canAccessFavourites}
+              />
+              <p className="hidden min-h-10 items-center rounded-lg px-1 text-xs font-bold text-[color:var(--text-muted)] lg:inline-flex">
+                Sorted A to Z
+              </p>
             </div>
           </div>
-        </div>
+        )}
 
         <div id="launcher-results-panel" role="group" aria-label={resultsPanelLabel} className="grid grid-cols-1 gap-4">
           {filteredApps.length === 0 ? (
@@ -836,8 +894,6 @@ export function ApplicationsLauncherWorkspace({
           Colour coding reference
         </Link>
       </div>
-
-      <ModeHomeVerificationFooter icon={ShieldCheck} label="Clinical tools" body="Source-backed workflows" />
 
       <DetailDialog app={selectedApp} open={detailOpen} onClose={() => setDetailOpen(false)} />
     </main>

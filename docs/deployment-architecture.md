@@ -11,16 +11,55 @@ ingestion worker run on Railway (Singapore) from the committed `Dockerfile` and
 Host provisioning, staging setup, and secret placement remain operator actions
 and are specified here.
 
+## Topology at a glance
+
+```mermaid
+flowchart TB
+    user["Clinician (browser / PWA)"]
+    subgraph railway["Railway — Southeast Asia (Singapore)"]
+        app["app tier: Next.js 16 (Dockerfile)<br/>service Database → psychiatry.tools"]
+        worker["ingestion worker (Dockerfile.worker)<br/>parse · OCR · chunk · embed"]
+    end
+    subgraph supabase["Supabase — ap-southeast-2 (Sydney)"]
+        pg[("Postgres 17 + pgvector<br/>RLS · retrieval RPCs")]
+        storage["Storage: clinical-documents /<br/>clinical-images (private)"]
+        auth["Auth: sessions · owner scope"]
+        edge["Edge Function<br/>indexing-v3-agent (cron gate)"]
+    end
+    openai["OpenAI<br/>embeddings · captions · answers"]
+
+    user -->|HTTPS| app
+    app -->|"upload → Storage + queue ingestion_jobs"| storage
+    app -->|"retrieval RPCs · session refresh"| pg
+    app --> auth
+    app -->|grounded answers| openai
+    worker -->|poll ingestion_jobs| pg
+    worker -->|"read/write artifacts"| storage
+    worker -->|"embeddings / captions"| openai
+    edge --> pg
+```
+
+The app↔Supabase path is public internet fronted by Supabase's CDN (Supabase is not on
+Railway's private network — see §2.1). Both Railway services deploy from
+`BigSimmo/Database` on pushes to `main`.
+
 ## 1. Current state (what runs today)
 
-- **Live on Railway.** Project `clinical-kb`, environment `production`, region
+- **Live on Railway.** Project **`Database`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
+  environment `production` (`6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4`), region
   **Southeast Asia (`asia-southeast1-eqsg3a`, Singapore)** — the closest Railway
-  region to the Supabase project. Two services from this one repo:
-  - **`app`** — the Next.js app tier (`Dockerfile`), reachable at its Railway
-    service domain (e.g. `https://app-production-68ebf.up.railway.app`), one warm
-    replica, `/api/health` healthcheck, restart-on-failure.
+  region to the Supabase project. Two services from this one repo, both connected
+  to the `BigSimmo/Database` GitHub repo and auto-deploying on pushes to `main`:
+  - **`Database`** — the Next.js app tier (`Dockerfile`), serving the custom domain
+    **`https://psychiatry.tools`**, one warm replica, Railway healthcheck path
+    `/api/health/ready`, restart-on-failure.
   - **`worker`** — the ingestion worker (`Dockerfile.worker`), one always-on
     replica, long-polling the ingestion queue.
+- **Superseded project.** An earlier Railway project named `clinical-kb`
+  (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) still exists with `app`/`worker`/`staging-app`
+  services, but has **zero active deployments** (last activity 2026-07-14, all
+  `REMOVED`) and its generated domain `app-production-68ebf.up.railway.app` returns 404. It is not production. Do not `railway link` a worktree to it — deploys sent
+  there go nowhere. Retiring it is an open operator decision.
 - **Database/auth/storage:** live Supabase project `Clinical KB Database`
   (`sjrfecxgysukkwxsowpy`), region **ap-southeast-2 (Sydney)**, Postgres 17,
   ~2,000 indexed documents / ~69k chunks. RLS is service-role-only; the app
@@ -73,7 +112,7 @@ one.
 
 - **In-memory coalescing and caches are load-bearing.** The answer pipeline
   coalesces identical in-flight questions (`answer_inflight_coalesced` in
-  `src/lib/rag.ts`) and holds LRU answer/search caches
+  `src/lib/rag/rag.ts`) and holds LRU answer/search caches
   (`RAG_ANSWER_CACHE_TTL_MS`/`RAG_ANSWER_CACHE_SIZE`). Serverless isolates get
   one request each, so coalescing never fires and every duplicate ward-round
   question pays the full ~6-RPC fan-out plus an OpenAI generation.
@@ -183,6 +222,17 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
   setting them as service variables inlines the real values. The publishable key
   is public by design; the placeholder default exists so CI can build without
   secrets. **Production images must be built with the real publishable key.**
+- `NEXT_PUBLIC_MAX_UPLOAD_MB` is also a build-time public variable (Docker
+  `ARG`/`ENV` before `npm run build`). When operators lower server-side
+  `MAX_UPLOAD_MB`, mirror the same value in `NEXT_PUBLIC_MAX_UPLOAD_MB` before
+  building the production image so the browser precheck rejects over-limit
+  files without a full transfer. Runtime-only Railway variables are not enough
+  for this value because Next inlines `NEXT_PUBLIC_*` at build time. Docker also
+  accepts `MAX_UPLOAD_MB` as a build arg solely for this parity check; it is not
+  copied into the final runtime image, where Railway remains authoritative. The
+  checker loads Next's production dotenv precedence, and the local, static-PR,
+  and production-build guard fails when the effective client and server values
+  differ.
 - Runtime is a non-root `node` user, prod-only `node_modules`, direct
   `next start -H 0.0.0.0 -p $PORT` (Railway injects `$PORT`; the local
   port-picker script is deliberately bypassed), and a `HEALTHCHECK` against
@@ -232,7 +282,9 @@ check and watch patterns rather than relying on dashboard defaults.
 Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + a
 prebuilt esbuild bundle over production-only `node_modules` +
 Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
-always-on worker instance** co-located in Railway Singapore (`worker` service).
+always-on worker instance** co-located in Railway Singapore (`worker` service),
+using Railway's `ALWAYS` restart policy so repeated bootstrap failures cannot
+exhaust a finite retry allowance and leave the queue undrained.
 The `indexing-v3-agent` Edge Function **stays** in its current role as the
 cron-triggered completion/repair gate — the two are complementary, not
 alternatives. The worker service selects its Dockerfile via the
@@ -301,7 +353,7 @@ Operational rules that follow:
 - **Worker death costs at most one stale window of latency** for the in-flight
   job and zero data loss: all artifact writes are idempotent per
   generation/chunk-key, and completion is gated by the strict completion RPCs
-  plus the edge agent. Railway's restart-on-failure brings the worker back and
+  plus the edge agent. Railway's always-restart policy brings the worker back and
   it reclaims stale jobs automatically.
 - **Backlog improvement (not in this change):** a heartbeat that refreshes
   `locked_at` could ride the existing throttled progress updates
@@ -342,7 +394,8 @@ Rules:
 ## 5. Staging environment
 
 - **A second, dedicated Supabase project** (same org, ap-southeast-2) — not a
-  branch of production. Rationale: staging must absorb soak tests, destructive
+  branch of production. `Clinical KB Staging` was provisioned and migrated on
+  2026-07-19. Rationale: staging must absorb soak tests, destructive
   ingestion experiments, and migration rehearsal without any shared compute,
   pooling, or the production auth 10-connection cap; per-environment keys fall
   out naturally.
@@ -351,11 +404,12 @@ Rules:
   synthetic/public corpus. `public/demo-documents/` plus generated samples
   (`npm run samples`) are sufficient for load-shape realism; do not copy
   clinical production documents into staging.
-- One staging `app` container + one staging `worker` container from the _same_
-  images, different env. On Railway this is naturally a **second environment in
-  the `clinical-kb` project** (e.g. a `staging` environment) or a separate
-  project, with `RAG_PROVIDER_MODE=auto` and the staging OpenAI key. See
-  `docs/staging-setup.md` for the turnkey runbook.
+- One staging `app` container and **no staging worker**. The active Railway
+  `Database` project has a `staging` environment pinned to Singapore with
+  `RAG_PROVIDER_MODE=offline`, isolated Supabase credentials, and no OpenAI key.
+  This keeps release proofs deterministic and prevents staging ingestion from
+  draining or mutating production data. See `docs/staging-setup.md` for the
+  turnkey runbook.
 - `src/lib/supabase/project.ts` is staging-aware only when both
   `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME` are set.
   The declared staging ref must differ from production and every stale project;
@@ -366,8 +420,10 @@ Rules:
 ## 6. Rollout and rollback
 
 - `.github/workflows/docker-image.yml` validates both container builds on
-  `main`, release branches, a weekly schedule, and container-affecting pull
-  requests. It deliberately does not push to a registry; Railway builds the
+  `main`, release branches, a weekly schedule, and manual dispatch. For
+  container-affecting pull requests and merge-queue commits, CI calls the same
+  workflow and folds both builds into the required `pr-required` aggregate. It
+  deliberately does not push to a registry; Railway builds the
   deployable image itself from the tree on deploy, after the standard gates
   (`verify` + `ui-smoke` + the clinical governance preflight where relevant).
 - **Deploy:** `railway up --service Database` / `--service worker` (or the

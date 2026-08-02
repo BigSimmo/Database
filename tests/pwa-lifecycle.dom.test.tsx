@@ -142,6 +142,24 @@ describe("PwaLifecycle", () => {
     expect(await screen.findByText("Connection restored")).toBeInTheDocument();
   });
 
+  it("dismisses the offline notice per episode and re-surfaces it on the next connectivity drop", async () => {
+    const user = userEvent.setup();
+    render(<PwaLifecycle />);
+
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    fireEvent.offline(window);
+    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Dismiss offline notice" }));
+    expect(screen.queryByRole("region", { name: "You appear to be offline" })).not.toBeInTheDocument();
+
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: true });
+    fireEvent.online(window);
+    Object.defineProperty(navigator, "onLine", { configurable: true, value: false });
+    fireEvent.offline(window);
+    expect(await screen.findByRole("region", { name: "You appear to be offline" })).toBeInTheDocument();
+  });
+
   it("shows install UI only after browser eligibility and invokes the deferred prompt from a user action", async () => {
     const user = userEvent.setup();
     render(<PwaLifecycle />);

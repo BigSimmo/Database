@@ -1,7 +1,7 @@
 "use client";
 
-import { Maximize2 } from "lucide-react";
-import { type ReactNode, useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Maximize2, TriangleAlert } from "lucide-react";
+import { type ReactNode, useCallback, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
@@ -44,6 +44,51 @@ function isMetadataHeader(value: string) {
   return metadataHeaderPattern.test(value.trim());
 }
 
+export type AccessibleTableColumnAlign = "start" | "end" | "auto";
+
+// Register #48: dose columns were left-aligned as text, so `tabular-nums` had
+// nothing to stack against — "12.5 mg" and "5 mg" still started at different
+// optical positions. A numeric column is one whose every non-empty cell starts
+// with a number (optionally signed/decimal, optionally followed by a unit,
+// range, or comparator). The test is deliberately strict: a single prose cell
+// disqualifies the column, so a "Notes" column that happens to open with a
+// figure is never flipped to the right.
+const numericCellPattern = /^[<>~≤≥±+-]?\s*\d[\d\s,.'’/×x*-]*(?:\s*[^\s\d]{0,12})?$/u;
+
+function isNumericCell(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "-" || trimmed === "—") return false;
+  return numericCellPattern.test(trimmed);
+}
+
+function detectNumericColumns(header: string[], body: string[][]): boolean[] {
+  return header.map((_, index) => {
+    const cells = body.map((row) => (row[index] ?? "").trim()).filter((cell) => cell && cell !== "-" && cell !== "—");
+    // A single-cell column is not enough evidence to right-align a whole column.
+    if (cells.length < 2) return false;
+    return cells.every(isNumericCell);
+  });
+}
+
+function resolveColumnAlign(
+  header: string[],
+  body: string[][],
+  columnAlign: AccessibleTableColumnAlign[] | undefined,
+  numericColumns: number[] | undefined,
+): boolean[] {
+  if (numericColumns) {
+    const explicit = new Set(numericColumns);
+    return header.map((_, index) => explicit.has(index));
+  }
+  const detected = detectNumericColumns(header, body);
+  return header.map((_, index) => {
+    const requested = columnAlign?.[index];
+    if (requested === "end") return true;
+    if (requested === "start") return false;
+    return detected[index];
+  });
+}
+
 function clinicalOnlyTable(table: NormalizedAccessibleTable) {
   const keptIndexes = table.header
     .map((header, index) => ({ header, index }))
@@ -74,6 +119,7 @@ function AccessibleTableMarkup({
   densePreview = false,
   rowActions,
   actionsHeader = "Actions",
+  alignEnd,
 }: {
   caption?: string | null;
   header: string[];
@@ -86,6 +132,7 @@ function AccessibleTableMarkup({
   densePreview?: boolean;
   rowActions?: Array<ReactNode | null>;
   actionsHeader?: string;
+  alignEnd?: boolean[];
 }) {
   const defaultPreviewRows = compact ? 6 : 20;
   const visibleBody = expanded ? body : body.slice(0, previewRows ?? defaultPreviewRows);
@@ -98,8 +145,8 @@ function AccessibleTableMarkup({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
-        expanded && "max-h-[calc(100dvh-8.5rem)] rounded-none border-0 sm:rounded-lg sm:border",
+        "@container overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
+        expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
       {caption && !(hidePreviewCaption && !expanded) ? (
@@ -112,7 +159,7 @@ function AccessibleTableMarkup({
           {caption}
         </div>
       ) : null}
-      <div className="overflow-x-auto">
+      <div className={cn("overflow-x-auto", expanded && "flex-1 min-h-0")}>
         <table
           aria-label={caption ?? undefined}
           className={cn(
@@ -140,10 +187,16 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-[color:var(--border)] align-top font-semibold leading-5 text-[color:var(--text)]",
+                    // Sticky only in the expanded/full-screen view, where the table
+                    // owns a scroll container tall enough to lose its header.
+                    expanded && "sticky top-0 z-10 bg-[color:var(--surface-subtle)]",
                     renderDensePreview
                       ? "overflow-hidden text-ellipsis whitespace-nowrap"
                       : "whitespace-normal break-words",
                     index > 0 && "border-l border-[color:var(--border)]/70",
+                    // A numeric column's header right-aligns with its values so the
+                    // column reads as one block rather than a split label/value pair.
+                    alignEnd?.[index] && "text-right",
                     renderDensePreview
                       ? "px-2 py-1.5 text-2xs uppercase tracking-[0.06em]"
                       : expanded
@@ -159,6 +212,7 @@ function AccessibleTableMarkup({
                   scope="col"
                   className={cn(
                     "nums border-b border-l border-[color:var(--border)]/70 align-top font-semibold leading-5 text-[color:var(--text)]",
+                    expanded && "sticky top-0 z-10 bg-[color:var(--surface-subtle)]",
                     renderDensePreview
                       ? "overflow-hidden text-ellipsis whitespace-nowrap"
                       : "whitespace-normal break-words",
@@ -207,6 +261,10 @@ function AccessibleTableMarkup({
                             (renderDensePreview
                               ? "border-l border-[color:var(--border)]/60"
                               : "md:border-l md:border-[color:var(--border)]/60"),
+                          // Stacked phone cards keep every value left-aligned under
+                          // its own label; the right-align only applies once the
+                          // cells actually form a column.
+                          alignEnd?.[cellIndex] && (renderDensePreview ? "text-right" : "md:text-right"),
                           !renderDensePreview &&
                             (expanded ? "md:px-4 md:py-3 md:leading-6" : "md:px-3 md:py-2 md:leading-5"),
                           !renderDensePreview && cellIndex > 0 && "pt-2 md:pt-0",
@@ -216,7 +274,7 @@ function AccessibleTableMarkup({
                           className={cn(
                             renderDensePreview
                               ? "sr-only"
-                              : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                              : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                             textMuted,
                           )}
                         >
@@ -250,7 +308,7 @@ function AccessibleTableMarkup({
                         className={cn(
                           renderDensePreview
                             ? "sr-only"
-                            : "mb-1 block text-2xs font-bold uppercase tracking-[0.08em] md:hidden",
+                            : "mb-1 block text-2xs font-bold uppercase tracking-eyebrow md:hidden",
                           textMuted,
                         )}
                       >
@@ -270,6 +328,33 @@ function AccessibleTableMarkup({
           Showing {visibleBody.length} of {body.length} rows.
         </p>
       ) : null}
+    </div>
+  );
+}
+
+// An unverified extraction is a clinical-governance signal, not a caption: a
+// muted grey line under a confident-looking grid reads as decoration. Give it the
+// warning treatment the rest of the system uses for "do not trust this at face
+// value" — warning rule, warning icon, and an explicit heading — so the caveat
+// survives fast scanning. `role="status"` (not alert) because it is present from
+// first paint rather than interrupting.
+function UnverifiedExtractionNotice({ showingFallback }: { showingFallback: boolean }) {
+  return (
+    <div
+      data-testid="table-low-confidence-note"
+      role="status"
+      className={cn(
+        "mb-2 flex items-start gap-2 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]",
+        "px-3 py-2 text-xs text-[color:var(--warning-text)] shadow-[var(--rule-warning)]",
+      )}
+    >
+      <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span>
+        <strong className="font-semibold">Unverified extraction.</strong>{" "}
+        {showingFallback
+          ? "Table structure could not be confidently reconstructed — showing the source document image instead."
+          : "Table structure could not be confidently reconstructed — verify values against the source document."}
+      </span>
     </div>
   );
 }
@@ -335,6 +420,8 @@ export function AccessibleTable({
   rowActions,
   actionsHeader,
   lowConfidenceFallback,
+  columnAlign,
+  numericColumns,
 }: {
   caption?: string | null;
   markdown?: string | null;
@@ -356,8 +443,15 @@ export function AccessibleTable({
   // Callers that have the cropped source image (e.g. the visual-evidence cards)
   // can pass it here to show the real table screenshot instead of that grid.
   lowConfidenceFallback?: ReactNode;
+  // Per-column horizontal alignment. Default is "auto": columns whose every
+  // non-empty cell is numeric right-align so their digits stack, everything else
+  // stays left. Pass "start"/"end" to pin a column, or `numericColumns` to state
+  // the numeric indexes outright and skip detection entirely.
+  columnAlign?: AccessibleTableColumnAlign[];
+  numericColumns?: number[];
 }) {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const dialogId = useId();
   const [open, setOpen] = useState(false);
   const canExpand = useMobileTableExpansion(expandOnMobile);
   const hasExplicitRows = Boolean(rows?.length);
@@ -379,6 +473,11 @@ export function AccessibleTable({
     return clinicalOnly ? clinicalOnlyTable(table) : table;
   }, [clinicalOnly, columns, hasExplicitRows, normalizedTable, parsed]);
 
+  const alignEnd = useMemo(() => {
+    if (!normalized) return undefined;
+    return resolveColumnAlign(normalized.header, normalized.body, columnAlign, numericColumns);
+  }, [normalized, columnAlign, numericColumns]);
+
   const dialogOpen = open;
 
   if (!normalized) return null;
@@ -390,13 +489,7 @@ export function AccessibleTable({
   const showFallback = lowConfidence && Boolean(lowConfidenceFallback);
   const table = (
     <>
-      {lowConfidence ? (
-        <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
-          {showFallback
-            ? "Table structure could not be confidently reconstructed — showing the source document image instead."
-            : "Table structure could not be confidently reconstructed — verify values against the source document."}
-        </p>
-      ) : null}
+      {lowConfidence ? <UnverifiedExtractionNotice showingFallback={showFallback} /> : null}
       {showFallback ? (
         <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
       ) : (
@@ -411,6 +504,7 @@ export function AccessibleTable({
           densePreview={densePreview}
           rowActions={rowActions}
           actionsHeader={actionsHeader}
+          alignEnd={alignEnd}
         />
       )}
     </>
@@ -436,6 +530,10 @@ export function AccessibleTable({
             aria-label={`Open ${title} full screen`}
             aria-haspopup="dialog"
             aria-expanded={dialogOpen}
+            // `aria-expanded` alone says something opened but never what. Point at
+            // the dialog it controls; the id is only advertised while the dialog is
+            // actually in the DOM, since aria-controls must resolve to a real node.
+            aria-controls={dialogOpen ? dialogId : undefined}
             onClick={(event) => {
               event.stopPropagation();
               openDialog(event.currentTarget);
@@ -448,6 +546,7 @@ export function AccessibleTable({
         ) : null}
       </div>
       <Sheet
+        id={dialogId}
         open={dialogOpen}
         onClose={() => setOpen(false)}
         title={title}
@@ -458,16 +557,10 @@ export function AccessibleTable({
         portal
         testId="table-fullscreen-dialog"
         contentClassName="sm:max-w-none"
-        bodyClassName="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-3"
+        bodyClassName="py-3 pb-[max(1rem,env(safe-area-inset-bottom))] modal-landscape-container sm:p-3"
       >
-        <div>
-          {lowConfidence ? (
-            <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
-              {showFallback
-                ? "Table structure could not be confidently reconstructed — showing the source document image instead."
-                : "Table structure could not be confidently reconstructed — verify values against the source document."}
-            </p>
-          ) : null}
+        <div className="flex flex-col h-full">
+          {lowConfidence ? <UnverifiedExtractionNotice showingFallback={showFallback} /> : null}
           {showFallback ? (
             <div data-testid="table-source-image-fallback">{lowConfidenceFallback}</div>
           ) : (
@@ -479,6 +572,7 @@ export function AccessibleTable({
               expanded
               rowActions={rowActions}
               actionsHeader={actionsHeader}
+              alignEnd={alignEnd}
             />
           )}
         </div>

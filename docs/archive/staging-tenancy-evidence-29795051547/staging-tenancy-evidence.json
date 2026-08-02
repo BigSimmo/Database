@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "check": "cross-tenant-staging",
+  "status": "passed",
+  "runId": "d5469e73-0f48-4f4e-925c-1eb965e7bc84",
+  "startedAt": "2026-07-21T02:09:14.264Z",
+  "completedAt": "2026-07-21T02:09:48.986Z",
+  "projectRef": "ikoiolksxqxfxgiyqpnu",
+  "projectRefSha256": "84133097192cb7e71de965452c6a64308b774d5c56d4d80218b8d185aaf3a054",
+  "appOrigin": "https://app-staging-6a78.up.railway.app",
+  "commitSha": "578e94aed26c86832f1d6f15cbf67730ba690670",
+  "workflowRunUrl": "https://github.com/BigSimmo/Database/actions/runs/29795051547",
+  "checkpoints": [
+    "configuration-safety",
+    "distinct-users",
+    "private-fixtures",
+    "list",
+    "detail",
+    "signed-url",
+    "labels",
+    "mutation",
+    "universal-search",
+    "offline-retrieval",
+    "source-only-answer",
+    "reindex"
+  ],
+  "cleanup": "passed",
+  "cleanupErrors": [],
+  "error": null
+}

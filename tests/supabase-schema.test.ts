@@ -26,6 +26,14 @@ const indexingV3AgentWorkerHardeningMigration = readFileSync(
   new URL("../supabase/migrations/20260625000000_indexing_v3_agent_worker_hardening.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const documentChangeWebhookMigration = readFileSync(
+  new URL("../supabase/migrations/20260723150000_document_change_ingestion_webhook.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const atomicReindexAgentGuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260724060000_atomic_reindex_agent_guard.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const dropStageJobIdFkMigration = readFileSync(
   new URL("../supabase/migrations/20260708140000_drop_ingestion_job_stages_job_id_fk.sql", import.meta.url),
   "utf8",
@@ -116,12 +124,12 @@ const pinOwnerMatchesV2SearchPathMigration = readFileSync(
   new URL("../supabase/migrations/20260713101000_pin_retrieval_owner_matches_v2_search_path.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
-const supabaseAdminDefaultPrivilegesMigration = readFileSync(
-  new URL("../supabase/migrations/20260713102000_revoke_supabase_admin_default_privileges.sql", import.meta.url),
-  "utf8",
-).replace(/\s+/g, " ");
 const publicationApprovalMigration = readFileSync(
   new URL("../supabase/migrations/20260717131000_guard_document_publication_approval.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const publicationReviewedStateMigration = readFileSync(
+  new URL("../supabase/migrations/20260722190000_bind_publication_approval_to_reviewed_state.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const deleteDocumentIfIdleMigration = readFileSync(
@@ -129,7 +137,11 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717173000_reassert_supabase_admin_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717161000_assert_postgres_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const defaultAclRepairMigration = readFileSync(
+  new URL("../supabase/migrations/20260719053532_repair_postgres_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
@@ -216,11 +228,23 @@ const hardenRagScalabilityPatchMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const documentTitleWordScopeMigration = readFileSync(
-  new URL("../supabase/migrations/20260718223000_enforce_public_title_word_scope.sql", import.meta.url),
+  new URL("../supabase/migrations/20260719053533_enforce_public_title_word_scope.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const documentTitleWordsBackendPolicyMigration = readFileSync(
+  new URL("../supabase/migrations/20260722110000_explicit_document_title_words_backend_policy.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const publicTitleCorrectorMigration = readFileSync(
   new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const baseMatchRpcExecuteGrantsMigration = readFileSync(
+  new URL("../supabase/migrations/20260724130000_explicit_base_match_rpc_execute_grants.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const invokeIngestionWorkerGucMigration = readFileSync(
+  new URL("../supabase/migrations/20260724130100_fix_invoke_ingestion_worker_url_to_guc.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -490,6 +514,39 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("grant execute on function public.invoke_indexing_v3_agent(integer) to service_role");
   });
 
+  it("keeps the document-change ingestion webhook update-only, minimal, and fail-safe", () => {
+    for (const sql of [schema, documentChangeWebhookMigration]) {
+      const start = sql.indexOf("create or replace function public.notify_document_change_ingestion_webhook");
+      const end = sql.indexOf("$$;", start);
+      const body = sql.slice(start, end);
+
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      expect(body).toContain("returns trigger");
+      expect(body).toContain("security definer");
+      expect(body).toContain("set search_path = public, extensions, vault, pg_temp");
+      expect(body).toContain("new.metadata->'reindex_requested' = 'true'::jsonb");
+      expect(body).toContain("new.metadata->'reindex_requested' is distinct from old.metadata->'reindex_requested'");
+      expect(body).toContain("where name = 'ingestion_webhook_secret'");
+      expect(body).toContain("current_setting('app.ingestion_webhook_base_url', true)");
+      expect(body).toContain("rtrim(v_base_url, '/') || '/api/webhooks/supabase/document-change'");
+      expect(body).toContain("'id', new.id");
+      expect(body).toContain("'owner_id', new.owner_id");
+      expect(body).toContain("'status', new.status");
+      expect(body).toContain("timeout_milliseconds := 5000");
+      expect(body).toContain("when others then");
+      expect(body).not.toContain("to_jsonb(new)");
+      expect(body).not.toContain("old_record");
+      expect(body).not.toContain("psychiatry.tools");
+
+      expect(sql).toContain(
+        "revoke execute on function public.notify_document_change_ingestion_webhook() from public, anon, authenticated",
+      );
+      expect(sql).toContain("create trigger documents_ingestion_webhook after update of metadata on public.documents");
+      expect(sql).not.toContain("create trigger documents_ingestion_webhook after insert");
+    }
+  });
+
   it("keeps enrichment requests conflict-safe with job-first locking and complete reset metadata", () => {
     for (const sql of [schema, routeEnrichmentThroughAgentMigration]) {
       const start = sql.indexOf("create or replace function public.request_indexing_v3_enrichment");
@@ -506,6 +563,37 @@ describe("Supabase schema Data API grants", () => {
         body.lastIndexOf("from public.documents"),
       );
       expect(body).toContain("'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts'");
+    }
+  });
+
+  it("serializes agent claims with transactional reindex enqueue", () => {
+    for (const sql of [schema, atomicReindexAgentGuardMigration]) {
+      const claimStart = sql.indexOf("create or replace function public.claim_indexing_v3_agent_jobs(");
+      const claimBody = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
+      const reindexStart = sql.indexOf("create or replace function public.request_ingestion_reindex_if_agent_idle(");
+      const reindexBody = sql.slice(reindexStart, sql.indexOf("$$;", reindexStart));
+
+      expect(claimStart).toBeGreaterThanOrEqual(0);
+      expect(claimBody).toContain("on conflict do nothing");
+      expect(claimBody).toContain("for update of j, d skip locked");
+      expect(reindexStart).toBeGreaterThanOrEqual(0);
+      expect(reindexBody).toContain("and d.owner_id = p_owner_id for update;");
+      expect(reindexBody.indexOf("for update;")).toBeLessThan(
+        reindexBody.indexOf("from public.indexing_v3_agent_jobs a"),
+      );
+      expect(reindexBody.indexOf("from public.indexing_v3_agent_jobs a")).toBeLessThan(
+        reindexBody.indexOf("update public.documents"),
+      );
+      expect(reindexBody.indexOf("update public.documents")).toBeLessThan(
+        reindexBody.indexOf("insert into public.ingestion_jobs"),
+      );
+      expect(reindexBody).toContain("exception when unique_violation then");
+      expect(sql).toContain(
+        "revoke all on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer) from public, anon, authenticated;",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer) to service_role;",
+      );
     }
   });
 
@@ -583,6 +671,9 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("primary key (subject_key, bucket)");
     expect(schema).toContain("create or replace function public.consume_api_rate_limit");
     expect(schema).toContain("create or replace function public.consume_api_subject_rate_limit");
+    expect(schema).toContain("on conflict (owner_id, bucket) do update");
+    expect(schema).toContain("on conflict (subject_key, bucket) do update");
+    expect(schema).toContain("document_images_searchable_doc_page_relevance_idx");
     expect(schema).toContain("returns table ( limited boolean, limit_value integer, remaining integer");
     expect(schema).toContain("grant select, insert, update, delete on table");
     expect(schema).toContain("public.api_rate_limits,");
@@ -609,11 +700,16 @@ describe("Supabase schema Data API grants", () => {
   it("does not introduce new duplicate migration stems", () => {
     const duplicateStemAllowlist = new Map<string, number>([
       ["api_rate_limits", 2],
+      ["assert_postgres_default_privileges", 2],
       ["audit_logs", 2],
       ["audit_logs_service_role_policy", 2],
+      ["enforce_public_title_word_scope", 2],
+      ["historical_version_placeholder", 6],
       ["indexing_reliability_recovery", 2],
       ["ingestion_jobs_one_open_per_document", 2],
       ["rag_queries_retention", 2],
+      ["reassert_postgres_default_privileges", 2],
+      ["repair_postgres_default_privileges", 2],
     ]);
     const stemCounts = new Map<string, number>();
 
@@ -1131,39 +1227,23 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
-  it("locks down supabase_admin future-object default privileges", () => {
-    // 2026-07-13 audit finding 7: the 20260528007000 hardening covered role
-    // postgres only; default privileges are keyed to the creating role.
-    for (const sql of [schema, supabaseAdminDefaultPrivilegesMigration]) {
+  it("locks down postgres future-object default privileges", () => {
+    for (const sql of [schema, defaultAclRepairMigration]) {
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public revoke all privileges on tables from anon, authenticated;",
+        "alter default privileges for role postgres in schema public revoke all privileges on tables from public, anon, authenticated, service_role;",
       );
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public revoke usage, select on sequences from anon, authenticated;",
+        "alter default privileges for role postgres in schema public revoke all privileges on sequences from public, anon, authenticated, service_role;",
       );
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public revoke execute on functions from public, anon, authenticated;",
+        "alter default privileges for role postgres in schema public revoke execute on functions from public, anon, authenticated, service_role;",
       );
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+        "alter default privileges for role postgres in schema public grant execute on functions to service_role;",
       );
-      // Guarded: only a superuser or member of supabase_admin may alter its
-      // defaults. The guard must DEGRADE to a warning, never re-raise — a
-      // re-raise would abort the whole migration chain on hosted Supabase.
-      expect(sql).toContain("when insufficient_privilege then");
-      expect(sql).not.toContain("raise;");
+      expect(sql).not.toContain("set local role");
+      expect(sql).toContain("public.default_privileges_status('postgres', 'public')");
     }
-    // The migration also proves the lockdown with future-object probes.
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain("_defacl_probe_table");
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
-      "has_table_privilege('anon', 'public._defacl_probe_table', 'select')",
-    );
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
-      "has_function_privilege('anon', 'public._defacl_probe_fn()', 'execute')",
-    );
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
-      "has_sequence_privilege('anon', probe_seq, 'usage, select')",
-    );
   });
 
   it("requires append-only operator evidence for owned-to-public transitions", () => {
@@ -1181,6 +1261,66 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("for update;");
       expect(sql).toContain(
         "grant execute on function public.publish_approved_documents(jsonb, text, integer) to service_role;",
+      );
+    }
+  });
+
+  it("binds publication approval to canonical reviewed content under the document lock", () => {
+    for (const sql of [schema, publicationReviewedStateMigration]) {
+      expect(sql).toContain("reviewed_state_digest");
+      expect(sql).toContain("create or replace function public.document_publication_state_digest(");
+      expect(sql).toContain("publication approval requires a reviewed content/state digest");
+      expect(sql).toContain("v_current_state_digest := public.document_publication_state_digest(");
+      expect(sql).toContain("publication document % changed after review");
+      expect(sql).toContain("'publication_reviewed_state_digest', v_expected_state_digest");
+
+      const digestStart = sql.indexOf("create or replace function public.document_publication_state_digest(");
+      const digestBody = sql.slice(digestStart, sql.indexOf("$$;", digestStart));
+      for (const tableAlias of ["i", "s", "m", "f", "u"]) {
+        expect(digestBody).toContain(`public.is_committed_artifact_generation(${tableAlias}.metadata, d.metadata)`);
+      }
+      expect(digestBody).toContain(
+        "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+      );
+      expect(digestBody).toContain("public.is_committed_artifact_generation(c.metadata, d.metadata)");
+      expect(digestBody).not.toContain(
+        "public.is_committed_document_generation(f.index_generation_id, d.index_generation_id)",
+      );
+
+      const functionStart = sql.indexOf("create or replace function public.publish_approved_documents(");
+      const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+      for (const table of [
+        "document_pages",
+        "document_images",
+        "document_labels",
+        "document_summaries",
+        "document_sections",
+        "document_memory_cards",
+        "document_chunks",
+        "document_table_facts",
+        "document_embedding_fields",
+        "document_index_quality",
+        "document_index_units",
+      ]) {
+        expect(functionBody).toContain(`perform 1 from public.${table} where document_id = v_document_id for update;`);
+      }
+      for (const table of ["ingestion_jobs", "indexing_v3_agent_jobs"]) {
+        expect(functionBody).toContain(
+          `perform 1 from public.${table} where document_id = v_document_id for update nowait;`,
+        );
+      }
+      expect(functionBody).toContain("publication document % has active ingestion work");
+      expect(functionBody.indexOf("for update;")).toBeLessThan(
+        functionBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
+      );
+
+      const guardStart = sql.indexOf("create or replace function public.guard_document_publication_transition(");
+      const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+      expect(guardBody).toContain("perform 1 from public.document_chunks where document_id = old.id for update;");
+      expect(guardBody).toContain("perform 1 from public.ingestion_jobs where document_id = old.id for update nowait;");
+      expect(guardBody).toContain("public document transition has active ingestion work");
+      expect(guardBody.indexOf("for update;")).toBeLessThan(
+        guardBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
       );
     }
   });
@@ -1211,51 +1351,52 @@ describe("Supabase Preview replay guards", () => {
     }
   });
 
-  it("fails closed on effective supabase_admin default ACLs", () => {
-    for (const sql of [schema, defaultAclAssertionMigration]) {
+  it("fails closed on effective postgres default ACLs", () => {
+    for (const sql of [schema, defaultAclAssertionMigration, defaultAclRepairMigration]) {
       expect(sql).toContain("create or replace function public.default_privileges_status(");
       expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
       expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
-      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'postgres', 'service_role'))");
+      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'service_role'))");
+      expect(sql).toContain("bool_or(is_grantable)");
       expect(sql).toContain("entry like 'table:PUBLIC:%'");
       expect(sql).toContain("entry like 'sequence:PUBLIC:%'");
       expect(sql).toContain("entry = 'function:PUBLIC:execute'");
-      expect(sql).toContain("message = 'Unsafe supabase_admin default privileges; migration blocked.'");
-      expect(sql).toContain("Run these six statements as supabase_admin, then retry the migration:");
+      expect(sql).toContain("public.default_privileges_status('postgres', 'public')");
+      expect(sql).toContain("Unsafe postgres default privileges in schema public");
     }
 
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260718223000_enforce_public_title_word_scope.sql");
+    expect(migrationFiles).toContain("20260720170000_add_documents_owner_updated_at_indexed_idx.sql");
     expect(documentTitleWordScopeMigration).toContain(
-      "v_status := public.default_privileges_status('supabase_admin', 'public')",
+      "v_status := public.default_privileges_status('postgres', 'public')",
     );
     expect(documentTitleWordScopeMigration).toContain(
-      "message = 'Unsafe supabase_admin default privileges; title-word privacy migration blocked.'",
+      "message = 'Unsafe postgres default privileges in schema public; title-word privacy migration blocked.'",
     );
   });
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke all privileges on tables from public, anon, authenticated, service_role;",
+      "alter default privileges for role postgres revoke all privileges on tables from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke all privileges on sequences from public, anon, authenticated, service_role;",
+      "alter default privileges for role postgres revoke all privileges on sequences from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke execute on functions from public, anon, authenticated, service_role;",
+      "alter default privileges for role postgres revoke execute on functions from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin in schema public grant select, insert, update, delete on tables to service_role;",
+      "alter default privileges for role postgres in schema public grant select, insert, update, delete on tables to service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin in schema public grant usage, select on sequences to service_role;",
+      "alter default privileges for role postgres in schema public grant usage, select on sequences to service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+      "alter default privileges for role postgres in schema public grant execute on functions to service_role;",
     );
-    expect(defaultAclRoleBootstrap).toContain("bool_or(grantee not in ('supabase_admin', 'postgres', 'service_role'))");
+    expect(defaultAclRoleBootstrap).toContain("bool_or(grantee not in ('postgres', 'service_role'))");
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {
@@ -1454,6 +1595,41 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
+  it("keeps document title words backend-only with an explicit service-role policy", () => {
+    for (const sql of [schema, documentTitleWordsBackendPolicyMigration]) {
+      expect(sql).toContain("alter table public.document_title_words enable row level security");
+      expect(sql).toContain("revoke all on table public.document_title_words from public, anon, authenticated");
+      expect(sql).toContain(
+        "grant select, insert, update, delete on table public.document_title_words to service_role",
+      );
+      expect(sql).toContain(
+        'drop policy if exists "document title words service role all" on public.document_title_words',
+      );
+      expect(sql).toContain(
+        'create policy "document title words service role all" on public.document_title_words for all to service_role using (true) with check (true)',
+      );
+    }
+
+    // For schema, extract just the document_title_words ACL/policy block.
+    // For the migration, the whole file is already scoped to this table.
+    const schemaSegment = finalSqlSegment(
+      schema,
+      "alter table public.document_title_words enable row level security",
+      "create or replace function public.sync_document_title_words()",
+    );
+    const migrationSegment = documentTitleWordsBackendPolicyMigration.toLowerCase();
+
+    for (const scopedSql of [schemaSegment, migrationSegment]) {
+      const policies = scopedSql.match(/create policy [^;]+ on public\.document_title_words[^;]*;/g);
+      expect(policies).toHaveLength(1);
+      expect(policies![0]).toContain(" to service_role ");
+      expect(scopedSql).not.toMatch(/create policy [^;]+ to (?:public|anon|authenticated)\b/i);
+      expect(scopedSql).not.toMatch(
+        /grant [^;]+ on table public\.document_title_words[^;]+ to (?:public|anon|authenticated)\b/i,
+      );
+    }
+  });
+
   it("hardens registry cleanup without UUID casts or cross-registry collisions", () => {
     for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
       const cleanup = finalSqlSegment(
@@ -1519,6 +1695,26 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(tableFactsRpc).toContain(`${rpcExpression} % q.normalized`);
   });
+
+  it("plans table-facts text matching via plpgsql EXECUTE for per-call custom plans", () => {
+    const tableFactsMigration = readFileSync(
+      new URL("../supabase/migrations/20260724120000_table_facts_plpgsql_execute.sql", import.meta.url),
+      "utf8",
+    );
+    const tableFactsRpc = finalSqlSegment(
+      schema,
+      "create or replace function public.match_document_table_facts_text(",
+      "$function$;",
+    );
+    expect(tableFactsRpc).toContain("language plpgsql");
+    expect(tableFactsRpc).toContain("return query execute");
+    expect(tableFactsRpc).toContain("using query_text, match_count, document_filters, owner_filter");
+    expect(tableFactsMigration).toContain("language plpgsql");
+    expect(tableFactsMigration).toContain("return query execute");
+    expect(tableFactsMigration).toContain(
+      "revoke execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid)",
+    );
+  });
 });
 
 describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () => {
@@ -1570,5 +1766,65 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     expect(correctorPublicTitlesMigration).toContain(
       "grant execute on function public.correct_clinical_query_terms(text, real) to service_role;",
     );
+  });
+
+  it("defines correct_clinical_query_terms exactly once with owner-scoped rag_aliases probes", () => {
+    // Schema hygiene: a superseded unscoped duplicate previously lived earlier in
+    // schema.sql and only lost because CREATE OR REPLACE order favored the later
+    // definition. Pin a single authoritative body so reorder/extract cannot revive
+    // the cross-tenant alias side-channel.
+    const definitionMatches = schema.match(/create or replace function public\.correct_clinical_query_terms/gi);
+    expect(definitionMatches).toHaveLength(1);
+
+    const corrector = finalSqlSegment(
+      schema,
+      "create or replace function public.correct_clinical_query_terms",
+      "revoke execute on function public.correct_clinical_query_terms",
+    );
+    const aliasProbeBlocks = corrector.match(/from public\.rag_aliases[\s\S]*?limit 32/gi) ?? [];
+    expect(aliasProbeBlocks.length).toBeGreaterThanOrEqual(2);
+    for (const block of aliasProbeBlocks) {
+      expect(block).toMatch(/owner_id\s+is\s+null/i);
+    }
+    expect(corrector).not.toContain("array_agg(distinct term)");
+    expect(corrector).not.toContain("unnest(vocab)");
+  });
+
+  it("keeps base match RPC execute grants explicit in schema and the forward migration", () => {
+    // 2026-07-24 interface audit P3: do not rely solely on roles.sql / default
+    // privilege churn for the live match_* signatures.
+    for (const sql of [schema, baseMatchRpcExecuteGrantsMigration]) {
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)",
+      );
+      expect(sql).toContain("revoke execute on function public.match_documents_for_query(text, integer, uuid)");
+      expect(sql).toContain("grant execute on function public.match_documents_for_query(text, integer, uuid)");
+    }
+  });
+
+  it("moves invoke_ingestion_worker to the GUC base-URL pattern with service-role-only execute", () => {
+    for (const sql of [schema, invokeIngestionWorkerGucMigration]) {
+      expect(sql).toContain("alter database %I set app.ingestion_worker_base_url = %L");
+      expect(sql).toContain("when insufficient_privilege then");
+      expect(sql).toContain("nullif(current_setting('app.ingestion_worker_base_url', true), '')");
+      expect(sql).toContain("v_base_url || '/functions/v1/ingestion-worker?limit='");
+      expect(sql).not.toContain("[REDACTED]/functions/v1/ingestion-worker");
+      expect(sql).toContain(
+        "revoke execute on function public.invoke_ingestion_worker(integer) from public, anon, authenticated",
+      );
+      expect(sql).toContain("grant execute on function public.invoke_ingestion_worker(integer) to service_role");
+    }
   });
 });

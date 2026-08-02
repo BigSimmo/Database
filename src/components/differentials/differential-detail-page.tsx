@@ -47,11 +47,8 @@ import {
   type DifferentialSafetyFact,
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
-import {
-  readSavedRegistrySlugs,
-  savedDifferentialsStorageKey,
-  writeSavedRegistrySlugs,
-} from "@/lib/saved-registry-storage";
+import { useAccountData } from "@/components/account-data-provider";
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
   fit: CircleCheck,
@@ -174,7 +171,7 @@ function SectionItems({
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                 </Link>
               ) : (
-                <span className="inline-flex min-h-11 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                <span className="inline-flex min-h-tap items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
                   {item}
                 </span>
               )}
@@ -456,7 +453,7 @@ function RelatedDiagnoses({ record, knownRelatedSlugs }: { record: DifferentialR
   const known = new Set(knownRelatedSlugs);
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Related diagnoses
       </h2>
       <ul className="mt-2 grid gap-1">
@@ -523,7 +520,7 @@ function CurrentPresentation({ record }: { record: DifferentialRecord }) {
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Current presentation
       </h2>
       {view.kind === "grouped" ? (
@@ -573,7 +570,7 @@ function ComparePanel({
 
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
-      <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Compare with related diagnoses
       </h2>
       <p className="mt-2 text-xs leading-5 text-[color:var(--text-muted)]">
@@ -701,7 +698,7 @@ function FooterStatus({
           key={card.title}
           className="min-w-0 sm:border-l sm:border-[color:var(--border)] sm:pl-4 first:sm:border-l-0 first:sm:pl-0"
         >
-          <p className="font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{card.title}</p>
+          <p className="font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">{card.title}</p>
           <p className={cn("mt-3 font-bold", card.lineClassName)}>{card.line}</p>
           <p className="mt-2 leading-5 text-[color:var(--text-muted)]">{card.detail}</p>
         </div>
@@ -816,28 +813,33 @@ function IconForDiagnosis({ record }: { record: DifferentialRecord }) {
 
 function HeaderChrome() {
   return (
-    <header className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 sm:px-6 lg:px-8">
-      <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/differentials"
-            aria-label="Back to differentials"
-            className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-          >
-            <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
-          </Link>
+    <PhoneHeaderCollapsePortal>
+      <header
+        data-testid="differential-detail-header"
+        className="z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 max-sm:static sm:sticky sm:top-0 sm:px-6 lg:px-8"
+      >
+        <div className={cn(pageContainer, "flex items-center justify-between gap-3")}>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/differentials"
+              aria-label="Back to differentials"
+              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            >
+              <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
+            </Link>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={appModeHomeHref("differentials", { focus: true })}
+              aria-label="New differentials search"
+              className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            >
+              <Plus className="h-5 w-5" aria-hidden />
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={appModeHomeHref("differentials", { focus: true })}
-            aria-label="New differentials search"
-            className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
-          >
-            <Plus className="h-5 w-5" aria-hidden />
-          </Link>
-        </div>
-      </div>
-    </header>
+      </header>
+    </PhoneHeaderCollapsePortal>
   );
 }
 
@@ -933,7 +935,9 @@ export function DifferentialDetailPage({
 }) {
   const [activeTab, setActiveTab] = useState<DifferentialDetailTabId>("overview");
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set<string>());
-  const [saved, setSaved] = useState(false);
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("differential", record.slug);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const expandableSectionIds = useMemo(
     () =>
@@ -951,13 +955,6 @@ export function DifferentialDetailPage({
       setActiveTab(param);
     }
   }, []);
-
-  useEffect(() => {
-    // Hydrate the saved flag from localStorage after mount (SSR-safe: the
-    // server always renders the unsaved state).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSaved(readSavedRegistrySlugs(savedDifferentialsStorageKey).includes(record.slug));
-  }, [record.slug]);
 
   const changeTab = useCallback((id: DifferentialDetailTabId) => {
     setActiveTab(id);
@@ -981,10 +978,20 @@ export function DifferentialDetailPage({
     setOpenSections(allOpen ? new Set() : new Set(expandableSectionIds));
   }
 
-  function toggleSaved() {
-    const slugs = readSavedRegistrySlugs(savedDifferentialsStorageKey);
-    const next = saved ? slugs.filter((slug) => slug !== record.slug) : [...new Set([record.slug, ...slugs])];
-    if (writeSavedRegistrySlugs(savedDifferentialsStorageKey, next)) setSaved(!saved);
+  async function toggleSaved() {
+    try {
+      const nowSaved = !saved;
+      const updated = await accountData.setFavourite("differential", record.slug, nowSaved);
+      if (!updated) {
+        setSaveNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save diagnoses.",
+        );
+        return;
+      }
+      setSaveNotice(nowSaved ? "Diagnosis saved." : "Diagnosis removed from saved items.");
+    } catch {
+      setSaveNotice("Save failed.");
+    }
   }
 
   const hasMustNotMiss = record.sections.some((section) => section.id === "must-not-miss");
@@ -1041,6 +1048,12 @@ export function DifferentialDetailPage({
           <TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
         </div>
 
+        {saveNotice ? (
+          <p role="status" aria-live="polite" className="text-sm text-[color:var(--text-muted)]">
+            {saveNotice}
+          </p>
+        ) : null}
+
         <Tabs active={activeTab} onChange={changeTab} />
 
         <div
@@ -1054,7 +1067,7 @@ export function DifferentialDetailPage({
               <SafetySnapshot record={record} onReviewMustNotMiss={reviewMustNotMiss} />
               <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                 <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
-                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                     Clinical review
                   </p>
                   {expandableSectionIds.length > 0 ? (

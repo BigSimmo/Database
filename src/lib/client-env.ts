@@ -33,7 +33,3 @@ export function resolveUploadReadOnlyMode({
     environment,
   });
 }
-
-export function publicUploadsEnabled() {
-  return process.env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
-}

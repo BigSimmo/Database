@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { recentQueryStorageKey } from "@/components/clinical-dashboard/dashboard-contracts";
 import {
   clearLegacyRecentQueries,
   clearRecentQueries,
   demoRecentQueryOwnerId,
   loadRecentQueries,
-} from "@/components/clinical-dashboard/recent-query-storage";
+  recentQueryStorageKey,
+} from "@/lib/recent-query-storage";
 
 describe("recent query storage", () => {
   let localStore: Map<string, string>;

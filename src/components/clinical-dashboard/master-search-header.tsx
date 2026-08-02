@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import {
   Check,
@@ -35,6 +36,7 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import {
   ModeActionPopup,
@@ -60,14 +62,18 @@ import { Sheet } from "@/components/ui/sheet";
 import {
   appModeDefinition,
   appModeDefinitions,
+  appModeHomeHref,
   appModeSearchConfig,
   isSearchableAppMode,
-  visibleAppModeDefinitions,
+  visibleAppModeDefinitionsForSession,
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
+import { desktopComposerSlotReadyAttr, isDesktopComposerSlotReady } from "@/lib/mode-home-composer";
 import { tagSearchText } from "@/lib/document-tags";
 
 // Shared between the composer input's aria-describedby and the rendered
@@ -76,9 +82,9 @@ const composerPrivacyWarningId = "answer-composer-privacy-warning";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
-const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
+const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
-const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
+const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
 
 function splitFilterText(value: string) {
   return value
@@ -168,8 +174,6 @@ export function MasterSearchHeader({
   queryInputAutoFocus = false,
   composerPlaceholder,
   recentQueries = [],
-  commandScopes = [],
-  onCommandScopesChange,
   onPickRecent,
   onCrossModeSearch,
   composerFollowUpSuggestions,
@@ -181,11 +185,15 @@ export function MasterSearchHeader({
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
+  desktopPageComposerSlotId,
+  heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
+  canAccessFavourites = false,
+  onRequestAccountSetup,
 }: {
   demoMode: boolean;
   documents: ClinicalDocument[];
@@ -219,8 +227,6 @@ export function MasterSearchHeader({
   /** Overrides the mode's default input placeholder (e.g. "Ask a follow-up..." mid-thread). */
   composerPlaceholder?: string;
   recentQueries?: string[];
-  commandScopes?: string[];
-  onCommandScopesChange?: (scopes: string[]) => void;
   onPickRecent?: (query: string) => void;
   onCrossModeSearch?: (modeId: AppModeId, query: string) => void;
   composerFollowUpSuggestions?: string[];
@@ -228,16 +234,23 @@ export function MasterSearchHeader({
   composerFollowUpSuggestionsDisabled?: boolean;
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
-  /** "compact" drops the phone footer chip row and hugs the bottom edge —
-   *  used by search/result views so results keep maximum screen space.
-   *  Mode homes keep the default chip-row layout. */
+  /** "compact" drops the phone footer chip row and hugs the bottom edge so
+   *  content keeps maximum screen space. Every phone dock uses it now; the
+   *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
-  /** Mode-home slot the composer portals into at every viewport width, so the
-   *  search pill sits in the middle of the hero on phones as well as desktop
-   *  instead of docking to the bottom edge. */
+  /** Mode-home slot the composer portals into so the search pill sits in the
+   *  middle of the hero instead of docking to the bottom edge. Which widths the
+   *  hero owns is controlled by `heroComposerBreakpoint`. */
   desktopHomeComposerSlotId?: string;
+  /** Normal-flow page slot used by submitted/search views from tablet widths up.
+   * Phones keep the bottom dock. */
+  desktopPageComposerSlotId?: string;
+  /** Widths where the mode-home hero slot hosts the composer. "all" keeps the
+   *  hero pill on phones too (the answer home); "sm-up" reserves the hero for
+   *  sm+ widths and hands phones the compact bottom dock instead. */
+  heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
@@ -252,21 +265,60 @@ export function MasterSearchHeader({
   hideOnScroll?: {
     strategy: "overlay" | "collapse";
     /**
+     * Phone-only motion for collapse-strategy hosts. "collapse" releases the
+     * row's layout height; "overlay" keeps the complete phone stack stable and
+     * translates it over page content. Defaults to "collapse".
+     */
+    phoneMotion?: "collapse" | "overlay";
+    /**
      * Overlay-only: apply the hide/reveal (and the out-of-flow absolute header)
      * at every breakpoint instead of phones only. The host must reserve
      * matching top padding on its scroll container.
      */
     allBreakpoints?: boolean;
+    /**
+     * Collapse-only: how the chrome hides above the phone breakpoint. Omitting
+     * it keeps the hide/reveal phone-only.
+     *
+     * "collapse" releases the top bar's layout row at every width — for hosts
+     * whose scrollport is an internal element at every width (ClinicalDashboard's
+     * `<main>`), where the released strip goes straight to the content.
+     *
+     * "sticky" pins an outer stack to the viewport top above phones and still
+     * collapses only the top-bar row inside that stack — for hosts that hand
+     * scrolling back to the document (GlobalSearchShell). Tablet and desktop
+     * result search portal into page flow, leaving the stack to own only the
+     * top bar.
+     */
+    wide?: "collapse" | "sticky";
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
   /** Notify hosts when the phone bottom composer is actually hidden (not merely scrolled). */
   onBottomComposerHiddenChange?: (hidden: boolean) => void;
+  /**
+   * Favourites are account-scoped. When false, omit Favourites from the mode menu
+   * and route favourites actions to account setup instead of switching mode.
+   * Defaults to false (fail closed) so guests never see Favourites unless the host
+   * explicitly grants access from the current session / demo mode.
+   */
+  canAccessFavourites?: boolean;
+  /** Invoked when the user tries to open Favourites without access. */
+  onRequestAccountSetup?: () => void;
 }) {
-  const visibleAppModeOptions = defaultVisibleAppModeOptions;
+  // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
+  // Do not OR demoMode again here — that would reopen Favourites when props diverge.
+  const router = useRouter();
+  const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
+    authenticated: canAccessFavourites,
+    demoMode: false,
+  });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
-  const selectedAppMode = appModeDefinition(searchMode);
+  // Guests on /favourites keep the route gate, but the mode trigger must not claim
+  // Favourites is a selectable guest mode when it is omitted from the menu.
+  const modeTriggerId = searchMode === "favourites" && !canAccessFavourites ? "answer" : searchMode;
+  const selectedAppMode = appModeDefinition(modeTriggerId);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
@@ -298,44 +350,112 @@ export function MasterSearchHeader({
   const [commandListboxId, setCommandListboxId] = useState<string>();
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  // Which menuitemradio should receive initial focus when the mode menu opens
+  // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
+  // popover and the phone bottom sheet.
+  const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(0);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
+  // SSR and the first client hydration paint must agree (phone matchMedia is
+  // unavailable on the server). Sync from matchMedia after mount; Mode open
+  // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
-  const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
-  // True once the hero portal is conclusively unavailable — the media query
-  // does not match, or the slot never appeared after the retry budget. While a
-  // slot id is present and this is false the inline composer stays suppressed
-  // (no flash while the portal mounts); once it flips true the inline composer
-  // renders, so the search can never vanish from the page at any width.
-  const [desktopHomeComposerFallback, setDesktopHomeComposerFallback] = useState(false);
+  const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
+  // The default/inline composer stays mounted until the portal host is attached.
+  // Dual composers may coexist briefly during handoff; search never vanishes.
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
+  const [phoneHeaderCollapseAddonHost, setPhoneHeaderCollapseAddonHost] = useState<HTMLDivElement | null>(null);
+  const setPhoneHeaderCollapseAddonRef = useCallback((node: HTMLDivElement | null) => {
+    setPhoneHeaderCollapseAddonHost(node);
+  }, []);
   const internalScrollHidden = useHideOnScroll({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
-  const headerChromeHidden =
-    scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
-  // Mode homes portal the composer into the hero slot at every width, so the
-  // phone bottom dock only exists when no hero slot is provided.
+  const headerCollapseOwnsPhoneAddonFocus = hideOnScroll?.strategy === "collapse";
+  // Mode homes portal the composer into the hero slot. With "all" the hero owns
+  // every width (the answer home keeps its in-flow pill on phones); "sm-up"
+  // hero hosts hand phones the bottom dock instead.
+  const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const phoneBottomSearchDockActive =
     usesPhoneSearchLayout &&
     searchComposerVisible &&
-    !desktopHomeComposerSlotId &&
+    !heroComposerOwnsPhones &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(
-    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
-  );
-  const bottomComposerHidden =
-    bottomComposerScrollHiddenActive &&
-    scrollHidden &&
-    !actionMenuOpen &&
-    !commandDropdownOpen &&
-    !scopeOpen &&
-    !scopeSheetOpen &&
-    !composerChromeFocused;
+  const hideOnScrollEnabled = Boolean(hideOnScroll);
+  // Focus-capture pins can survive dock teardown when React skips blur (portal
+  // swap, hero reclaim, breakpoint change). Ignore latched focus unless that
+  // surface is still the active hide/reveal owner, then clear the latch async
+  // (repo pattern — avoids react-hooks/set-state-in-effect).
+  const composerFocusPinsChrome = composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled;
+  const headerFocusPinsChrome = headerChromeFocused && hideOnScrollEnabled;
+  // Header and composer share one scroll signal, so any active surface or
+  // focus inside either edge pins both edges. This preserves keyboard focus
+  // safety without letting the unfocused header disappear above a still-
+  // focused composer (or vice versa).
+  const sharedChromePinned =
+    modeMenuOpen ||
+    actionMenuOpen ||
+    commandDropdownOpen ||
+    scopeOpen ||
+    scopeSheetOpen ||
+    headerFocusPinsChrome ||
+    composerFocusPinsChrome;
+  const headerChromeHidden = scrollHidden && !sharedChromePinned;
+  // Compare addon chrome lives inside the phone dock; hide/reveal with it so
+  // the search pill and Compare selected bar reclaim space together.
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
+  const bottomComposerHidden = bottomComposerScrollHiddenActive && scrollHidden && !sharedChromePinned;
+
+  useEffect(() => {
+    if (phoneBottomSearchDockActive && hideOnScrollEnabled) return;
+    queueMicrotask(() => {
+      if (!phoneBottomSearchDockActive || !hideOnScrollEnabled) setComposerChromeFocused(false);
+      if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
+    });
+  }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
+
+  useEffect(() => {
+    const addonHost = phoneHeaderCollapseAddonHost;
+    const clearHeaderFocus = () => setHeaderChromeFocused(false);
+    if (!addonHost || !hideOnScrollEnabled || !headerCollapseOwnsPhoneAddonFocus) {
+      queueMicrotask(clearHeaderFocus);
+      return undefined;
+    }
+
+    // React portal focus events follow the source React tree, not the portal
+    // host's synthetic-event ancestry. Listen at the real DOM host so focused
+    // page-owned controls pin the same collapse track as the universal bar.
+    const hostContainsActiveElement = () => {
+      const activeElement = document.activeElement;
+      return activeElement instanceof Node && addonHost.contains(activeElement);
+    };
+    const clearIfFocusLeftHost = () => {
+      if (!hostContainsActiveElement()) setHeaderChromeFocused(false);
+    };
+    const handleFocusIn = () => setHeaderChromeFocused(true);
+    const handleFocusOut = (event: FocusEvent) => {
+      const nextTarget = event.relatedTarget;
+      if (!(nextTarget instanceof Node) || !addonHost.contains(nextTarget)) {
+        setHeaderChromeFocused(false);
+      }
+    };
+    queueMicrotask(() => setHeaderChromeFocused(hostContainsActiveElement()));
+    const observer = new MutationObserver(clearIfFocusLeftHost);
+    observer.observe(addonHost, { childList: true, subtree: true });
+
+    addonHost.addEventListener("focusin", handleFocusIn);
+    addonHost.addEventListener("focusout", handleFocusOut);
+    return () => {
+      addonHost.removeEventListener("focusin", handleFocusIn);
+      addonHost.removeEventListener("focusout", handleFocusOut);
+      observer.disconnect();
+      queueMicrotask(clearHeaderFocus);
+    };
+  }, [headerCollapseOwnsPhoneAddonFocus, hideOnScrollEnabled, phoneHeaderCollapseAddonHost]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
@@ -349,13 +469,15 @@ export function MasterSearchHeader({
 
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
-  const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
+  const [desktopComposerPortalHost, setDesktopComposerPortalHost] = useState<HTMLDivElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
   const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
   const selectedDocuments = useMemo(
@@ -459,7 +581,9 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : "answer";
+                        : searchMode === "factsheets"
+                          ? "factsheets"
+                          : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -553,6 +677,15 @@ export function MasterSearchHeader({
       onOpenSourcePdf?.();
       return;
     }
+    if (actionId === "factsheets-search") {
+      onSearchModeChange("factsheets");
+      return;
+    }
+    if (actionId === "factsheets-browse") {
+      onSearchModeChange("factsheets");
+      onQueryChange("");
+      return;
+    }
     if (actionId === "services-search") {
       onSearchModeChange("services");
       return;
@@ -583,11 +716,19 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "favourites-browse") {
+      if (!canAccessFavourites) {
+        onRequestAccountSetup?.();
+        return;
+      }
       onSearchModeChange("favourites");
       onQueryChange("");
       return;
     }
     if (actionId === "favourites-sets") {
+      if (!canAccessFavourites) {
+        onRequestAccountSetup?.();
+        return;
+      }
       onSearchModeChange("favourites");
       onQueryChange("set");
       return;
@@ -625,7 +766,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "dsm-compare") {
-      window.location.assign("/dsm/compare");
+      router.push("/dsm/compare");
       return;
     }
     if (actionId === "dsm-criteria") {
@@ -638,15 +779,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "specifiers-builder") {
-      window.location.assign("/specifiers/builder");
+      router.push("/specifiers/builder");
       return;
     }
     if (actionId === "specifiers-compare") {
-      window.location.assign("/specifiers/compare");
+      router.push("/specifiers/compare");
       return;
     }
     if (actionId === "specifiers-map") {
-      window.location.assign("/specifiers/map");
+      router.push("/specifiers/map");
       return;
     }
     if (actionId === "formulation-search") {
@@ -654,15 +795,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "formulation-builder") {
-      window.location.assign("/formulation/builder");
+      router.push("/formulation/builder");
       return;
     }
     if (actionId === "formulation-compare") {
-      window.location.assign("/formulation/compare");
+      router.push("/formulation/compare");
       return;
     }
     if (actionId === "formulation-map") {
-      window.location.assign("/formulation/map");
+      router.push("/formulation/map");
       return;
     }
   }
@@ -673,7 +814,7 @@ export function MasterSearchHeader({
       onSearchModeChange(mode.id);
       return;
     }
-    if ("href" in mode && mode.href) window.location.assign(mode.href);
+    if ("href" in mode && mode.href) router.push(mode.href);
   }
 
   function selectAppModeById(modeId: string) {
@@ -704,14 +845,54 @@ export function MasterSearchHeader({
 
   function focusModeOption(index: number) {
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    setModeMenuFocusIndex(nextIndex);
     modeOptionRefs.current[nextIndex]?.focus();
   }
 
-  function openModeMenuWithFocus(index: number) {
+  function closeModeSurfaces() {
     setActionMenuOpen(false);
     closeScope(false);
+    setScopeSheetOpen(false);
+  }
+
+  // Mode options are buttons (not Links), so Next cannot discover destinations.
+  // Prefetch only the mode the user is about to choose — the highlighted option
+  // on open, then whichever option receives focus/pointer while scanning.
+  function prefetchModeHome(modeId: AppModeId) {
+    if (modeId === searchMode) return;
+    const href = appModeHomeHref(modeId);
+    if (prefetchedModeHrefsRef.current.has(href)) return;
+    prefetchedModeHrefsRef.current.add(href);
+    router.prefetch(href);
+  }
+
+  function openModeMenuWithFocus(index: number) {
+    closeModeSurfaces();
+    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    const highlighted = visibleAppModeOptions[nextIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
+    const phoneLayout = currentUsesPhoneSearchLayout();
+    setUsesPhoneSearchLayout(phoneLayout);
+    setModeMenuFocusIndex(nextIndex);
     setModeMenuOpen(true);
-    window.requestAnimationFrame(() => focusModeOption(index));
+    // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
+    // needs an rAF focus into the absolute menu after it mounts.
+    if (!phoneLayout) {
+      window.requestAnimationFrame(() => focusModeOption(nextIndex));
+    }
+  }
+
+  function toggleModeMenu() {
+    closeModeSurfaces();
+    if (modeMenuOpen) {
+      setModeMenuOpen(false);
+      return;
+    }
+    const highlighted = visibleAppModeOptions[selectedModeIndex];
+    if (highlighted) prefetchModeHome(highlighted.id);
+    setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
+    setModeMenuFocusIndex(selectedModeIndex);
+    setModeMenuOpen(true);
   }
 
   function handleModeTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -721,6 +902,14 @@ export function MasterSearchHeader({
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       openModeMenuWithFocus(selectedModeIndex - 1);
+    } else if (event.key === "Tab" && modeMenuOpen && !usesPhoneSearchLayout) {
+      // Desktop: Tab/Shift+Tab is leaving the trigger — close without trapping (APG
+      // menu-button pattern; arrow keys are the entry into the menu). WebKit's
+      // sequential focus navigation may never deliver a wrapper-escaping focusout
+      // (links are excluded from its Tab order, and backward navigation can wrap
+      // into the open menu), so keydown is the reliable dismiss signal; the wrapper
+      // onBlur remains the net for pointer and programmatic focus moves.
+      setModeMenuOpen(false);
     }
   }
 
@@ -738,14 +927,69 @@ export function MasterSearchHeader({
       event.preventDefault();
       focusModeOption(visibleAppModeOptions.length - 1);
     } else if (event.key === "Escape") {
+      // Phone Sheet owns Escape + return-focus; handling here races its cleanup.
+      if (usesPhoneSearchLayout) return;
       event.preventDefault();
       setModeMenuOpen(false);
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     } else if (event.key === "Tab") {
-      // Let the browser advance focus normally, but do not leave an abandoned
-      // menu open after keyboard focus moves into the surrounding header.
-      setModeMenuOpen(false);
+      // Desktop: let focus leave the absolute menu and close it. Phone sheet
+      // traps Tab itself — closing here would fight the dialog focus cycle.
+      if (!usesPhoneSearchLayout) {
+        setModeMenuOpen(false);
+      }
     }
+  }
+
+  function renderModeMenuOptions() {
+    return visibleAppModeOptions.map((mode, index) => {
+      const Icon = appModeIcons[mode.id];
+      const active = mode.id === searchMode;
+      return (
+        <button
+          key={mode.id}
+          ref={(element) => {
+            modeOptionRefs.current[index] = element;
+          }}
+          type="button"
+          role="menuitemradio"
+          aria-checked={active}
+          tabIndex={active ? 0 : -1}
+          data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
+          onFocus={() => prefetchModeHome(mode.id)}
+          onPointerEnter={() => prefetchModeHome(mode.id)}
+          onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+          onClick={() => {
+            selectAppMode(mode);
+            window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+          }}
+          className={cn(
+            "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            active
+              ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
+              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+          )}
+        >
+          <span
+            className={cn(
+              "grid h-8 w-8 place-items-center rounded-lg border",
+              active
+                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+            )}
+          >
+            <Icon aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{mode.label}</span>
+            <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+              {mode.description}
+            </span>
+          </span>
+          {active ? <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+        </button>
+      );
+    });
   }
 
   const restoreActionMenuFocusRef = useRef(false);
@@ -769,12 +1013,20 @@ export function MasterSearchHeader({
     });
   }, []);
 
+  const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
     const scopeMediaQuery = window.matchMedia(scopeSheetMediaQuery);
     const phoneMediaQuery = window.matchMedia(phoneSearchLayoutMediaQuery);
     const sync = () => {
       setUsesScopeSheet(scopeMediaQuery.matches);
-      setUsesPhoneSearchLayout(phoneMediaQuery.matches);
+      const nextPhoneLayout = phoneMediaQuery.matches;
+      // Crossing the phone gate while open would swap Sheet ↔ absolute menu
+      // under the user's finger/keyboard; close instead of mutating surface.
+      if (phoneLayoutGateRef.current !== null && phoneLayoutGateRef.current !== nextPhoneLayout) {
+        setModeMenuOpen(false);
+      }
+      phoneLayoutGateRef.current = nextPhoneLayout;
+      setUsesPhoneSearchLayout(nextPhoneLayout);
     };
     sync();
     scopeMediaQuery.addEventListener("change", sync);
@@ -790,16 +1042,21 @@ export function MasterSearchHeader({
   }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
 
   useEffect(() => {
-    if (!desktopHomeComposerSlotId) {
-      // No hero slot at this route: reset the portal state. Deferred to a
+    // A mode-home hero always takes precedence over the generic desktop page
+    // slot. Hosts normally pass only one, but this keeps ownership deterministic
+    // during route transitions where both slots can briefly coexist.
+    const composerSlotId = desktopHomeComposerSlotId ?? desktopPageComposerSlotId;
+    const composerSlotKind = desktopHomeComposerSlotId ? "home" : "page";
+
+    if (!composerSlotId) {
+      // No page-owned slot at this route: reset the portal state. Deferred to a
       // microtask (not requestAnimationFrame) so it stays off the synchronous
       // effect body without being frame-gated — headless CI can starve rAF.
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
-        setDesktopHomeComposerActive(false);
-        setDesktopHomeComposerFallback(false);
-        setDesktopHomeComposerHost(null);
+        setDesktopComposerPortalActive(false);
+        setDesktopComposerPortalHost(null);
       });
       return () => {
         cancelled = true;
@@ -808,19 +1065,23 @@ export function MasterSearchHeader({
 
     // The composer is portaled into a stable host we own, and we move that host
     // in and out of the page-owned slot as it appears/disappears. The slot is
-    // rendered by mode-home pages and unmounts on navigation; portaling directly
+    // rendered by page content and unmounts on navigation; portaling directly
     // into it made React reconcile the portal against a container that another
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
-    // The slot is used at every viewport width — phones included — so mode
-    // homes keep the composer in the middle of the hero instead of docking it
-    // to the bottom edge.
+    // Hero slots retain their existing all/sm-up ownership. Generic page slots
+    // start at sm so tablets and desktops share normal-flow search behaviour,
+    // while phone docks remain unchanged.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      desktopHomeComposerSlotId ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+      composerSlotKind === "home"
+        ? heroComposerBreakpoint === "sm-up"
+          ? modeHomeComposerSmUpMediaQuery
+          : modeHomeComposerMediaQuery
+        : desktopPageComposerMediaQuery,
     );
 
     let retryTimeout: number | null = null;
@@ -831,36 +1092,38 @@ export function MasterSearchHeader({
     // compositing, which stalled portal activation for seconds and made the
     // hero composer flake out of the mode-home slot. A microtask-driven sync
     // settles the portal on the same tick the slot mounts, no frame required.
+    //
+    // Ready-gate: page-owned slots mark `data-composer-slot-ready` only after
+    // their React segment hydrates. Adopting the slot before that injects a
+    // display:contents host into still-unhydrated RSC HTML (React #418).
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
-      const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
-      if (slot) {
+      const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
+      if (slot && isDesktopComposerSlotReady(slot)) {
         portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
-        setDesktopHomeComposerHost(host);
-        setDesktopHomeComposerActive(true);
-        setDesktopHomeComposerFallback(false);
+        setDesktopComposerPortalHost(host);
+        setDesktopComposerPortalActive(true);
       } else {
         host.parentNode?.removeChild(host);
-        setDesktopHomeComposerActive(false);
+        setDesktopComposerPortalActive(false);
         if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
-        } else {
-          // The composer belongs inline at this width, or the slot never
-          // appeared within the retry budget: release the inline fallback so
-          // the search cannot vanish. The MutationObserver keeps watching, so
-          // a slot that shows up later still reclaims the portal.
-          setDesktopHomeComposerFallback(true);
         }
       }
     };
 
     const observer = new MutationObserver(syncTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [desktopComposerSlotReadyAttr],
+    });
     syncTarget();
     mediaQuery.addEventListener("change", syncTarget);
     return () => {
@@ -868,11 +1131,10 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
-      setDesktopHomeComposerActive(false);
-      setDesktopHomeComposerFallback(false);
-      setDesktopHomeComposerHost(null);
+      setDesktopComposerPortalActive(false);
+      setDesktopComposerPortalHost(null);
     };
-  }, [desktopHomeComposerSlotId]);
+  }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -880,7 +1142,9 @@ export function MasterSearchHeader({
   }
 
   useDismissableLayer({
-    enabled: modeMenuOpen,
+    // Phone Mode uses Sheet (backdrop / Escape / focus trap). Keep the
+    // dismissable-layer contract on the desktop absolute menu only.
+    enabled: modeMenuOpen && !usesPhoneSearchLayout,
     refs: [modeMenuRef],
     restoreFocusRef: modeButtonRef,
     onDismiss: dismissModeMenu,
@@ -909,14 +1173,14 @@ export function MasterSearchHeader({
       <div className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3")}>
         {labelScopeFilterFields.map((field) => (
           <label key={field.key} className="grid min-w-0 gap-1">
-            <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <span className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               {field.label}
             </span>
             <input
               value={filterText(scopeFilters[field.key])}
               onChange={(event) => updateTextScopeFilter(field.key, event.target.value)}
               placeholder={field.placeholder}
-              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap min-w-0 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
         ))}
@@ -956,7 +1220,7 @@ export function MasterSearchHeader({
               data-testid="document-scope-filter"
               aria-label="Filter document scope"
               placeholder="Filter documents by title or file"
-              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -1076,7 +1340,7 @@ export function MasterSearchHeader({
           </summary>
           <div className="grid gap-2.5 border-t border-[color:var(--border-lux)] p-3">
             <label className="grid gap-1">
-              <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <span className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 Search intent
               </span>
               <select
@@ -1094,7 +1358,7 @@ export function MasterSearchHeader({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="grid gap-1">
-                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <span className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Status
                 </span>
                 <select
@@ -1118,7 +1382,7 @@ export function MasterSearchHeader({
                 </select>
               </label>
               <label className="grid gap-1">
-                <span className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                <span className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                   Locality
                 </span>
                 <select
@@ -1184,11 +1448,30 @@ export function MasterSearchHeader({
     );
   }
 
-  function renderSearchComposer(placement: "default" | "desktop-home") {
+  const hideStrategy = hideOnScroll?.strategy;
+  const phoneMotion = hideOnScroll?.phoneMotion ?? "collapse";
+  const phoneOverlayMotion = hideStrategy === "collapse" && phoneMotion === "overlay";
+  // Outer-scope mirror of `renderSearchComposer`'s local `usesPhoneFooterDock`
+  // for the "default" placement, where `isDesktopHomeComposer` is false. Needed
+  // at the stack render site to decide whether the composer must portal out of
+  // the transformed overlay layer; keep the two in step.
+  const usesPhoneBottomDock = usesPhoneSearchLayout && (isAnswerFooterComposer || isMobileBottomComposer);
+  // Overlay hosts that opt into all breakpoints take the header fully out of
+  // flow (absolute over the scrolling <main>, which reserves matching top
+  // padding) so content frosts under the glass bar at every width.
+  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
+  const wideCollapseBehaviour = hideStrategy === "collapse" ? hideOnScroll?.wide : undefined;
+  // Collapse hosts whose scrollport is internal at every width release the
+  // header row at every width too; hosts that hand scrolling back to the
+  // document above the phone breakpoint stick and translate there instead.
+  const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
+  const sticksAbovePhones = wideCollapseBehaviour === "sticky";
+
+  function renderSearchComposer(placement: "default" | "desktop-home" | "desktop-page") {
     const isDesktopHomeComposer = placement === "desktop-home";
+    const isDesktopPageComposer = placement === "desktop-page";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
-    const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     // Sticky-top result composers (tablet+) share the footer chip layout so the
     // pill + chip row looks identical across homes, results, and the answer dock.
@@ -1200,24 +1483,65 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    // A differential comparison is a persistent batch action: hiding its host
-    // dock on downward scroll makes the CTA slide under mobile browser chrome
-    // and disables pointer events just when users finish reviewing the list.
-    // Keep that dock pinned while the header can still collapse independently.
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
-    // Phone submitted non-answer result docks reserve pill-only scroll
-    // clearance (ClinicalDashboard <main> margins / global-search-shell
-    // mobileComposerReserve), so an extra notice line would push the fixed
-    // dock over the last result. Those flows already showed the notice on
-    // their entry composer; answer docks keep it (their reserves were sized
-    // for the old taller notice-above-pill stack).
-    const showsComposerPrivacyNotice = searchMode === "answer" || !usesPhoneFooterDock;
+    const showsAnswerFollowUpRow = Boolean(
+      usesPhoneFooterDock &&
+      searchMode === "answer" &&
+      composerFollowUpSuggestions?.length &&
+      onPickComposerFollowUpSuggestion,
+    );
+    // Every phone dock is the compact single-row pill; the answer dock only
+    // keeps the taller default treatment while its follow-up chip row renders
+    // above the pill (the compact scrim would be too short for it).
+    const usesCompactMobileBottomStyle =
+      (usesMobileBottomStyle && mobileBottomSearchVariant === "compact") ||
+      (usesAnswerFooterStyle && usesPhoneFooterDock && !showsAnswerFollowUpRow);
+    // Differentials compare addon is dock chrome (search pill + Compare bar).
+    // Hide/reveal the whole dock together; do not pin for the addon slot.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+    // Phones show the APP-5 notice only on the home hero (the answer mode
+    // home's in-flow composer); every phone bottom dock is a compact
+    // result/entry pill without it, so content keeps maximum screen space.
+    // Tablet/desktop composers keep the site-wide notice everywhere.
+    const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    // Search sits outside the collapsing top-bar row. Sticky hosts pin an outer
+    // top-bar stack; result composers portal into page flow at sm+, so this
+    // relative fallback only covers the brief pre-portal default placement (a
+    // second sticky + top offset would overlay page controls). Collapse-
+    // everywhere hosts have no outer stack, so their non-portaled composer
+    // keeps its own sticky and drops the top-bar clearance while the bar is
+    // hidden.
+    const stickySearchOwnedByOuterStack = sticksAbovePhones;
+    const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
+    const stickySearchTopClass = stickySearchClearsTopBar
+      ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
+      : "top-0 sm:top-0";
+    const stickySearchPositionClass = cn("sm:sticky", stickySearchTopClass);
 
     return (
       <form
         onSubmit={submit}
+        data-composer-placement={placement}
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          if (touchStartY.current === null) return;
+          // Ignore swipes that originate inside a scrollable container
+          if (e.target instanceof Element && e.target.closest(".overflow-y-auto, .overflow-auto, .overflow-x-auto")) {
+            touchStartY.current = null;
+            return;
+          }
+          const currentY = e.touches[0].clientY;
+          const diff = currentY - touchStartY.current;
+          if (diff > 50) {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            touchStartY.current = null;
+          }
+        }}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={
@@ -1230,27 +1554,37 @@ export function MasterSearchHeader({
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
-            : usesAnswerFooterStyle
-              ? "floating-composer-edge dashboard-composer-edge fixed bottom-0 z-40 mx-auto max-w-3xl lg:max-w-4xl"
-              : usesMobileBottomStyle
-                ? cn(
-                    usesPhoneFooterDock
-                      ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
-                      : cn(
-                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          isHeroDesktopComposer
-                            ? "sm:hidden"
-                            : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
-                        ),
-                  )
-                : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+            : isDesktopPageComposer
+              ? "document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"
+              : usesAnswerFooterStyle
+                ? "phone-footer-layer floating-composer-edge dashboard-composer-edge bottom-0 z-40 mx-auto max-w-3xl sm:fixed lg:max-w-4xl"
+                : usesMobileBottomStyle
+                  ? cn(
+                      usesPhoneFooterDock
+                        ? "phone-footer-layer document-mobile-search-edge universal-top-search-edge z-40 w-full sm:fixed"
+                        : cn(
+                            "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                            // Sticky-stack hosts pin the top bar; result search
+                            // portals out at sm+. Never leave a fixed/sticky
+                            // default composer in that stack — it overlays page
+                            // controls (Services decision rail).
+                            stickySearchOwnedByOuterStack
+                              ? "relative"
+                              : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
+                            stickySearchOwnedByOuterStack && isHeroDesktopComposer && "sm:hidden",
+                          ),
+                    )
+                  : cn(
+                      "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
+                      stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
+                    ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
           showFooterSearchChips && "flex flex-col items-center gap-2.5",
           shouldHideBottomOnScroll &&
             cn(
-              "max-sm:transition-transform motion-reduce:transition-none",
+              "max-sm:transition-[transform,opacity] motion-reduce:transition-none",
               bottomComposerHidden
                 ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
                 : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
@@ -1264,10 +1598,7 @@ export function MasterSearchHeader({
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
           />
         ) : null}
-        {usesPhoneFooterDock &&
-        searchMode === "answer" &&
-        composerFollowUpSuggestions?.length &&
-        onPickComposerFollowUpSuggestion ? (
+        {showsAnswerFollowUpRow && composerFollowUpSuggestions?.length && onPickComposerFollowUpSuggestion ? (
           <AnswerFollowUpSuggestions
             suggestions={composerFollowUpSuggestions}
             onPick={onPickComposerFollowUpSuggestion}
@@ -1279,10 +1610,10 @@ export function MasterSearchHeader({
         ) : null}
         <UniversalSearchCommandSurface
           demoMode={demoMode}
+          canAccessFavourites={canAccessFavourites}
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
-          commandScopes={commandScopes}
           placement={commandSurfacePlacement}
           dropdownOpen={commandDropdownOpen}
           onDropdownOpenChange={setCommandDropdownOpen}
@@ -1297,6 +1628,10 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onCrossMode={(targetMode, crossQuery) => {
+            if (targetMode === "favourites" && !canAccessFavourites) {
+              onRequestAccountSetup?.();
+              return;
+            }
             if (onCrossModeSearch) {
               onCrossModeSearch(targetMode, crossQuery);
               return;
@@ -1306,7 +1641,6 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onRunModeAction={runModeAction}
-          onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={() => queryInputRef?.current?.focus()}
@@ -1334,6 +1668,7 @@ export function MasterSearchHeader({
                 setUsesScopeSheet(currentUsesScopeSheet());
                 setModeMenuOpen(false);
                 setScopeOpen(false);
+                setScopeSheetOpen(false);
               }}
               onAction={runModeAction}
               onModeSelect={selectAppModeById}
@@ -1354,6 +1689,9 @@ export function MasterSearchHeader({
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
+                onFocus={(e) => {
+                  e.target.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
+                }}
                 value={query}
                 enterKeyHint="search"
                 inputMode="search"
@@ -1378,7 +1716,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onClearQuery}
-                  className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
+                  className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
                   aria-label="Clear search question"
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
@@ -1412,15 +1750,16 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {/* Single site-wide APP-5 privacy line: every composer variant (home
-            hero, answer dock, sticky search) renders exactly one compact
-            notice below the pill; no other surface may duplicate it. Phone
-            non-answer result docks skip it — see showsComposerPrivacyNotice. */}
+        {/* Single site-wide APP-5 privacy line: every tablet/desktop composer
+            variant renders exactly one compact notice below the pill; no other
+            surface may duplicate it. Phones show it only on the home hero —
+            see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
           <PrivacyInputNotice
             id={composerPrivacyWarningId}
             testId={composerPrivacyWarningId}
             className="mt-1.5 justify-center px-3 text-center"
+            returnMode={searchMode === "answer" ? undefined : searchMode}
           />
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can
@@ -1481,11 +1820,6 @@ export function MasterSearchHeader({
     );
   }
 
-  const hideStrategy = hideOnScroll?.strategy;
-  // Overlay hosts that opt into all breakpoints take the header fully out of
-  // flow (absolute over the scrolling <main>, which reserves matching top
-  // padding) so content frosts under the glass bar at every width.
-  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
@@ -1503,297 +1837,426 @@ export function MasterSearchHeader({
       }
     : undefined;
 
-  const headerAndComposer = (
-    <>
-      <header
-        id="search"
-        data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
+  // Top bar only (mode / new chat / menu). The search composer is intentionally
+  // NOT part of this node: on tablet/desktop hide-on-scroll must reclaim the top
+  // bar without taking the search field with it. Phone bottom docks are fixed and
+  // escape any collapse wrapper; hero composers portal out of this tree.
+  const topBar = (
+    <header
+      id="search"
+      data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
+      className={cn(
+        // No backdrop-filter on the header itself: it would form a backdrop
+        // root and starve the .edge-glass-header-backdrop scrim (the single
+        // source of the bar's frost) of the real page behind it.
+        // Collapse hosts own the OS top inset via `chrome-safe-area-top`, so
+        // this bar only needs its aesthetic 0.5rem pad. On phones that spacer
+        // releases with hidden chrome; wider sticky hosts keep it pinned.
+        // Overlay hosts still paint the inset themselves (answer mode keeps an
+        // equivalent reserve on <main>).
+        "edge-glass-header universal-header z-30 py-2 text-[color:var(--text)]",
+        hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]",
+        // Collapse hosts keep the top bar above an internally scrolling <main>,
+        // so sticky is unnecessary wherever the row collapses and fights the
+        // 0fr grid by pinning the bar inside the viewport. Sticky hosts pin an
+        // outer stack (top bar + search) instead; this <header> stays relative
+        // inside that stack. All-breakpoints overlay hosts take the bar out of
+        // flow entirely (absolute over the padded <main>). Legacy overlay hosts
+        // keep sticky (they ride document scroll) and translate away with no
+        // layout shift.
+        hideStrategy === "collapse"
+          ? sticksAbovePhones || collapsesAtEveryWidth
+            ? "relative"
+            : "max-sm:relative sm:sticky sm:top-0"
+          : overlayAllBreakpoints
+            ? "phone-overlay-header sm:absolute sm:inset-x-0 sm:top-0"
+            : "sticky top-0",
+        // Overlay hide-on-scroll: a plain translate reveals the content already
+        // flowing beneath it. No transform is applied while visible so the
+        // fixed-position mobile mode menu keeps the viewport as its containing block.
+        hideStrategy === "overlay" &&
+          (overlayAllBreakpoints
+            ? cn(
+                "transition-transform motion-reduce:transition-none",
+                headerChromeHidden
+                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              )
+            : cn(
+                "max-sm:transition-transform motion-reduce:transition-none",
+                headerChromeHidden
+                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+              )),
+        hideStrategy === "overlay" &&
+          headerChromeHidden &&
+          (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
+      )}
+      {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
+    >
+      <div className="edge-glass-header-backdrop" aria-hidden="true" />
+      <div
         className={cn(
-          // No backdrop-filter on the header itself: it would form a backdrop
-          // root and starve the .edge-glass-header-backdrop scrim (the single
-          // source of the bar's frost) of the real page behind it.
-          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
-          // Collapse hosts keep the header above an internally scrolling <main>, so
-          // sticky is unnecessary on phones and fights the 0fr grid collapse by
-          // pinning the bar inside the viewport. All-breakpoints overlay hosts take
-          // the header out of flow entirely (absolute over the padded <main>) —
-          // sticky would be inert there because the scroll container is <main>, not
-          // an ancestor of the header. Legacy overlay hosts keep sticky (they ride
-          // document scroll) and can translate away with zero layout shift.
-          hideStrategy === "collapse"
-            ? "max-sm:relative sm:sticky sm:top-0"
-            : overlayAllBreakpoints
-              ? "absolute inset-x-0 top-0"
-              : "sticky top-0",
-          // Overlay hide-on-scroll: a plain translate reveals the content already
-          // flowing beneath it. No transform is applied while visible so the
-          // fixed-position mobile mode menu keeps the viewport as its containing block.
-          hideStrategy === "overlay" &&
-            (overlayAllBreakpoints
-              ? cn(
-                  "transition-transform motion-reduce:transition-none",
-                  headerChromeHidden
-                    ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                )
-              : cn(
-                  "max-sm:transition-transform motion-reduce:transition-none",
-                  headerChromeHidden
-                    ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                )),
-          hideStrategy === "overlay" &&
-            headerChromeHidden &&
-            (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
+          "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
+          isWorkflowHeader
+            ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
+            : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
         )}
-        {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
       >
-        <div className="edge-glass-header-backdrop" aria-hidden="true" />
-        <div
-          className={cn(
-            "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
-            isWorkflowHeader
-              ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
-              : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
-              className={cn(
-                "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                // From md the desktop icon rail owns navigation, so the drawer
-                // trigger is phone-only outside workflow headers.
-                isWorkflowHeader ? "grid" : "grid md:hidden",
-              )}
-              aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
-            >
-              {useMobileBackControl ? (
-                <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-              ) : (
-                <Menu aria-hidden="true" className="h-5 w-5" />
-              )}
-            </button>
-            {isServicesMode ? (
-              <div className="hidden min-w-0 items-center gap-3 lg:flex">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                  <ShieldCheck className="h-5 w-5" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
-                    Services Navigator
-                  </span>
-                  <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                    Psychiatry referral directory
-                  </span>
-                </span>
-              </div>
-            ) : null}
-          </div>
-
-          <div
-            ref={modeMenuRef}
-            onBlur={(event) => {
-              const nextFocusedElement = event.relatedTarget;
-              if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
-              setModeMenuOpen(false);
-            }}
-            className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
+            className={cn(
+              "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              // From md the desktop icon rail owns navigation, so the drawer
+              // trigger is phone-only outside workflow headers.
+              isWorkflowHeader || useMobileBackControl ? "grid" : "grid md:hidden",
+            )}
+            aria-label={useMobileBackControl ? "Go back" : "Open Clinical Guide menu"}
           >
-            <button
-              ref={modeButtonRef}
-              type="button"
-              onClick={() => {
-                setActionMenuOpen(false);
-                closeScope(false);
-                setModeMenuOpen((open) => !open);
-              }}
-              onKeyDown={handleModeTriggerKeyDown}
-              className={cn(
-                // Size utilities live in the per-variant branch, never the shared
-                // base: cn() is plain concat (no tailwind-merge), so keeping the
-                // default h-/w-/min-w- here too made the workflow overrides dead —
-                // Tailwind v4 emits same-property utilities in canonical order and
-                // the base won at every breakpoint but lg:.
-                "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                isWorkflowHeader
-                  ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
-                  : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
-              )}
-              aria-haspopup="menu"
-              aria-expanded={modeMenuOpen}
-              aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
-              aria-label={`Mode ${selectedAppMode.label}`}
-            >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            {useMobileBackControl ? (
+              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+            ) : (
+              <Menu aria-hidden="true" className="h-5 w-5" />
+            )}
+          </button>
+          {isServicesMode ? (
+            <div className="hidden min-w-0 items-center gap-3 lg:flex">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+                <ShieldCheck className="h-5 w-5" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
-                  Mode
+                <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  Services Navigator
                 </span>
-                <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
-                  {selectedAppMode.label}
+                <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                  Psychiatry referral directory
                 </span>
               </span>
-              <ChevronDown
-                aria-hidden="true"
-                className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
-                  modeMenuOpen && "rotate-180",
-                )}
-              />
-            </button>
+            </div>
+          ) : null}
+        </div>
 
-            {modeMenuOpen ? (
-              <div
-                id="app-mode-menu"
-                role="menu"
-                aria-label="Choose app mode"
-                className={cn(
-                  glassOverlaySurface,
-                  "polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]",
-                )}
+        <div
+          ref={modeMenuRef}
+          onBlur={(event) => {
+            // Phone Mode menu is portaled into Sheet; blur-leave on this wrapper
+            // would close the sheet as soon as focus moved into the dialog.
+            if (usesPhoneSearchLayout) return;
+            const nextFocusedElement = event.relatedTarget;
+            if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
+            setModeMenuOpen(false);
+          }}
+          className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+        >
+          <button
+            ref={modeButtonRef}
+            type="button"
+            onClick={toggleModeMenu}
+            onKeyDown={handleModeTriggerKeyDown}
+            className={cn(
+              // Size utilities live in the per-variant branch, never the shared
+              // base: cn() is plain concat (no tailwind-merge), so keeping the
+              // default h-/w-/min-w- here too made the workflow overrides dead —
+              // Tailwind v4 emits same-property utilities in canonical order and
+              // the base won at every breakpoint but lg:.
+              "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              isWorkflowHeader
+                ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
+                : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+            )}
+            aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
+            aria-expanded={modeMenuOpen}
+            aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
+            aria-label={`Mode ${selectedAppMode.label}`}
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+              <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+            <span className="min-w-0">
+              <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
+                Mode
+              </span>
+              <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                {selectedAppMode.label}
+              </span>
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                modeMenuOpen && "rotate-180",
+              )}
+            />
+          </button>
+
+          {!usesPhoneSearchLayout && modeMenuOpen ? (
+            <div
+              id="app-mode-menu"
+              role="menu"
+              aria-label="Choose app mode"
+              className={cn(
+                glassOverlaySurface,
+                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
+              )}
+            >
+              {renderModeMenuOptions()}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+          {isWorkflowHeader ? (
+            <>
+              <button
+                type="button"
+                aria-disabled="true"
+                aria-describedby="workflow-language-region-unavailable"
+                className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                aria-label="Language and region settings (coming soon)"
+                title="Language and region — coming soon"
               >
-                {visibleAppModeOptions.map((mode, index) => {
-                  const Icon = appModeIcons[mode.id];
-                  const active = mode.id === searchMode;
-                  return (
-                    <button
-                      key={mode.id}
-                      ref={(element) => {
-                        modeOptionRefs.current[index] = element;
-                      }}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      tabIndex={active ? 0 : -1}
-                      onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-                      onClick={() => {
-                        selectAppMode(mode);
-                        window.requestAnimationFrame(() => modeButtonRef.current?.focus());
-                      }}
-                      className={cn(
-                        "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        active
-                          ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
-                          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-8 w-8 place-items-center rounded-lg border",
-                          active
-                            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
-                        )}
-                      >
-                        <Icon aria-hidden="true" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{mode.label}</span>
-                        <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
-                          {mode.description}
-                        </span>
-                      </span>
-                      {active ? (
-                        <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
-            {isWorkflowHeader ? (
-              <>
-                <button
-                  type="button"
-                  className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Open language and region settings"
-                  title="Language and region"
-                >
-                  <Globe2 className="h-5 w-5" aria-hidden />
-                </button>
-                <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
-                <button
-                  type="button"
-                  onClick={onNewChat}
-                  className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Start a new comparison"
-                  title="New comparison"
-                >
-                  <Plus className="h-5 w-5" aria-hidden />
-                </button>
-              </>
-            ) : null}
-            {!isWorkflowHeader ? (
+                <Globe2 className="h-5 w-5" aria-hidden />
+              </button>
+              <span id="workflow-language-region-unavailable" className="sr-only">
+                Language and region settings are coming soon.
+              </span>
+              <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
               <button
                 type="button"
                 onClick={onNewChat}
-                className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
-                aria-label="Start a new chat"
-                title="New chat"
+                className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                aria-label="Start a new comparison"
+                title="New comparison"
               >
-                <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
-                <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+                <Plus className="h-5 w-5" aria-hidden />
               </button>
-            ) : null}
-          </div>
+            </>
+          ) : null}
+          {!isWorkflowHeader ? (
+            <button
+              type="button"
+              onClick={onNewChat}
+              className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+              aria-label="Start a new chat"
+              title="New chat"
+            >
+              <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
+              <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+            </button>
+          ) : null}
         </div>
-      </header>
+      </div>
 
-      {searchComposerVisible ? (
-        <>
-          {(desktopHomeComposerActive && desktopHomeComposerHost) ||
-          (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
-            ? null
-            : renderSearchComposer("default")}
-          {desktopHomeComposerActive && desktopHomeComposerHost
-            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
-            : null}
-        </>
+      {/* Portaled outside the 3-column header grid so a non-portal regression
+            cannot steal a grid track and shove trailing actions onto a new row. */}
+      {usesPhoneSearchLayout ? (
+        <Sheet
+          open={modeMenuOpen}
+          onClose={dismissModeMenu}
+          title="Choose mode"
+          description="Switch the clinical workspace mode."
+          closeLabel="Close mode menu"
+          returnFocusRef={modeButtonRef}
+          portal
+          mobilePlacement="bottom"
+          mobileSize="content"
+          testId="app-mode-menu-sheet"
+          contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
+          bodyClassName="p-2"
+          headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+        >
+          <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
+            {renderModeMenuOptions()}
+          </div>
+        </Sheet>
       ) : null}
-    </>
+    </header>
   );
 
+  const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
+  const searchComposer = searchComposerVisible ? (
+    <>
+      {/* Keep the default composer visible until the portal host is actually
+          attached. Suppressing on slotId alone left a null gap while the
+          mode-home/page slot remounted or MutationObserver rebound. */}
+      {desktopComposerPortalActive && desktopComposerPortalHost ? null : renderSearchComposer("default")}
+      {desktopComposerPortalActive && desktopComposerPortalHost
+        ? createPortal(renderSearchComposer(portalPlacement), desktopComposerPortalHost)
+        : null}
+    </>
+  ) : null;
+
   if (hideStrategy === "collapse") {
-    // Collapse hide-on-scroll (phones): the host renders the header above an
-    // internally scrolling element, so hiding must also release the header's
-    // layout space. A 1fr -> 0fr grid row animates the collapse without any
-    // height measurement; the bottom-anchored inner track makes the chrome
-    // slide up out of the viewport top. Fixed-position composers (answer
-    // footer, mobile bottom search) escape the wrapper naturally because it
-    // never carries a transform, and everything is inert from sm up.
-    return (
+    // Collapse hide-on-scroll applies to the TOP BAR only (mode / new chat). The
+    // search composer stays a sibling so tablet/desktop keep a usable search
+    // field while the top bar hides. A 1fr -> 0fr grid row animates the collapse
+    // without height measurement; the bottom-anchored inner track slides the
+    // top bar up out of the viewport. Phone footer layers escape its geometry:
+    // viewport-fixed in browser tabs, shell-absolute in standalone; hero
+    // composers portal out.
+    //
+    // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
+    // so an outer sticky stack pins its chrome below the wide safe-area spacer.
+    // Tablet and desktop result search portal into page flow, so the stack
+    // contains only the top bar there. The host
+    // ancestor uses `display: contents`, allowing this semantic sticky owner to
+    // travel against the browser viewport and become static in standalone.
+    const collapsingTopBar = (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        // `data-scroll-hidden` is `scrollHidden && !sharedChromePinned`, so its absence has
+        // two causes a test cannot separate: this header's own scroll signal never arrived,
+        // or it did and a pin held the chrome open. Publishing the raw signal makes that
+        // observable. Nothing styles this attribute; it exists so a failing assertion can
+        // name its cause. The page-owned document composer is NOT a proxy for it —
+        // DocumentViewer runs its own reporters (use-document-viewer-chrome-scroll) while
+        // this header is driven by the shell's separate one (global-search-shell.tsx
+        // `chromeScrollHide`), and the two can legitimately disagree, notably where an
+        // inner scroller moves but `window.scrollY` does not, which the shell's
+        // document-only feed cannot see.
+        data-scroll-signal={scrollHidden ? "hidden" : "visible"}
+        data-phone-motion={phoneMotion}
         data-testid="universal-header-collapse"
         className={cn(
-          "max-sm:grid max-sm:transition-[grid-template-rows] motion-reduce:transition-none",
-          headerChromeHidden
-            ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-            : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-          headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+          "motion-reduce:transition-none",
+          collapsesAtEveryWidth || sticksAbovePhones
+            ? cn(
+                phoneOverlayMotion
+                  ? "sm:grid sm:transition-[grid-template-rows]"
+                  : "grid transition-[grid-template-rows]",
+                headerChromeHidden
+                  ? phoneOverlayMotion
+                    ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : phoneOverlayMotion
+                    ? "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden
+                  ? phoneOverlayMotion
+                    ? "sm:[grid-template-rows:0fr]"
+                    : "[grid-template-rows:0fr]"
+                  : phoneOverlayMotion
+                    ? "sm:[grid-template-rows:1fr]"
+                    : "[grid-template-rows:1fr]",
+              )
+            : cn(
+                "max-sm:grid max-sm:transition-[grid-template-rows]",
+                headerChromeHidden
+                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+              ),
         )}
         {...chromeFocusProps}
       >
         <div
           className={cn(
-            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            "w-full min-w-0 max-w-full max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            (collapsesAtEveryWidth || sticksAbovePhones) && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
             // Clip only while hiding so the edge-glass-header gradient that
             // extends below the header keeps painting when the chrome is shown.
-            headerChromeHidden && "max-sm:overflow-hidden",
+            !phoneOverlayMotion && headerChromeHidden && "max-sm:overflow-hidden",
+            (collapsesAtEveryWidth || sticksAbovePhones) && headerChromeHidden && "sm:overflow-hidden",
           )}
         >
-          {headerAndComposer}
+          {topBar}
+          <div
+            ref={setPhoneHeaderCollapseAddonRef}
+            id={phoneHeaderCollapseAddonSlotId}
+            data-testid="header-collapse-addon"
+            className="w-full min-w-0 max-w-full empty:hidden"
+          />
         </div>
+      </div>
+    );
+
+    const chromeSafeAreaTop = (
+      <div
+        aria-hidden="true"
+        data-testid="chrome-safe-area-top"
+        className={cn(
+          // Visible phone chrome owns the OS inset. Hidden phone chrome must
+          // release it so the scroll surface reaches the physical viewport
+          // edge instead of leaving an opaque status-bar band. Match the
+          // header row's timing to avoid a one-frame gap during hide/reveal.
+          // sm+ keeps its pinned inset because sticky top-bar chrome is a
+          // separate wide-layout contract from page-flow search.
+          //
+          // Paint the header's own surface, not the page background. While the
+          // spacer is visible it is the top of the header, so `--background`
+          // drew a page-coloured status-bar band above a `--surface` bar on
+          // every collapse-strategy mode — the seam answer mode never had,
+          // because its overlay header pads the inset itself and paints
+          // straight through. Opaque on purpose: the spacer must keep hiding
+          // scrolled content at the sm+ pinned inset.
+          "relative z-40 shrink-0 bg-[color:var(--surface)] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          phoneOverlayMotion
+            ? "max-sm:h-[var(--safe-area-top)]"
+            : cn(
+                "max-sm:transition-[height]",
+                headerChromeHidden
+                  ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+              ),
+          sticksAbovePhones && "sm:sticky sm:top-0",
+        )}
+      />
+    );
+
+    if (sticksAbovePhones) {
+      return (
+        <div
+          data-phone-motion={phoneMotion}
+          data-scroll-hidden={phoneOverlayMotion && headerChromeHidden ? "true" : undefined}
+          className={cn(
+            "phone-sticky-header-stack sm:contents",
+            phoneOverlayMotion &&
+              "phone-overlay-header max-sm:transition-[transform,opacity] motion-reduce:max-sm:transition-none",
+            phoneOverlayMotion &&
+              (headerChromeHidden
+                ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                : "max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
+          )}
+        >
+          {chromeSafeAreaTop}
+          <div className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30">
+            {collapsingTopBar}
+            {/*
+              The overlay hide translates this stack, and a non-none `transform`
+              makes an element a containing block for `position: fixed`
+              descendants. A phone bottom dock left in this subtree therefore
+              resolves `bottom: 0` against the ~72px header instead of the
+              viewport, landing near the top of the screen. Portal it to the
+              frame footer host on phones — the mechanism invariant 21 already
+              requires of every phone footer — while `sm+` keeps it inline in
+              this sticky stack; result composers have already portaled into
+              page flow at tablet and desktop widths.
+            */}
+            {phoneOverlayMotion && usesPhoneBottomDock ? (
+              <PhoneFooterLayerPortal>{searchComposer}</PhoneFooterLayerPortal>
+            ) : (
+              searchComposer
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="phone-sticky-header-stack sm:contents">
+        {chromeSafeAreaTop}
+        {collapsingTopBar}
+        {searchComposer}
       </div>
     );
   }
 
-  return headerAndComposer;
+  return (
+    <>
+      {topBar}
+      {searchComposer}
+    </>
+  );
 }

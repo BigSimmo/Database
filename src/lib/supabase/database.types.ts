@@ -900,6 +900,7 @@ export type Database = {
           id: string;
           manifest_digest: string;
           reason: string;
+          reviewed_state_digest: string | null;
         };
         Insert: {
           approved_at?: string;
@@ -911,6 +912,7 @@ export type Database = {
           id?: string;
           manifest_digest: string;
           reason: string;
+          reviewed_state_digest?: string | null;
         };
         Update: {
           approved_at?: string;
@@ -922,6 +924,7 @@ export type Database = {
           id?: string;
           manifest_digest?: string;
           reason?: string;
+          reviewed_state_digest?: string | null;
         };
         Relationships: [];
       };
@@ -2015,11 +2018,13 @@ export type Database = {
           id: string;
           new_document_status: string;
           new_validation_status: string;
+          policy_version: string | null;
           prior_document_status: string;
           prior_validation_status: string;
           reason: string;
           replacement_document_id: string | null;
           review_date: string | null;
+          reviewer_qualification: string | null;
           reviewer_id: string;
         };
         Insert: {
@@ -2030,11 +2035,13 @@ export type Database = {
           id?: string;
           new_document_status: string;
           new_validation_status: string;
+          policy_version?: string | null;
           prior_document_status: string;
           prior_validation_status: string;
           reason: string;
           replacement_document_id?: string | null;
           review_date?: string | null;
+          reviewer_qualification?: string | null;
           reviewer_id: string;
         };
         Update: {
@@ -2045,11 +2052,13 @@ export type Database = {
           id?: string;
           new_document_status?: string;
           new_validation_status?: string;
+          policy_version?: string | null;
           prior_document_status?: string;
           prior_validation_status?: string;
           reason?: string;
           replacement_document_id?: string | null;
           review_date?: string | null;
+          reviewer_qualification?: string | null;
           reviewer_id?: string;
         };
         Relationships: [];
@@ -2111,6 +2120,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_favourites: {
+        Row: {
+          content_key: string;
+          content_type: string;
+          created_at: string;
+          user_id: string;
+        };
+        Insert: {
+          content_key: string;
+          content_type: string;
+          created_at?: string;
+          user_id: string;
+        };
+        Update: {
+          content_key?: string;
+          content_type?: string;
+          created_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      user_preferences: {
+        Row: {
+          preferences: Json;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          preferences?: Json;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          preferences?: Json;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       document_strict_gate_status: {
@@ -2155,6 +2203,20 @@ export type Database = {
           p_replacement_document_id?: string | null;
           p_review_date?: string | null;
           p_reviewer_id: string;
+        };
+        Returns: Json;
+      };
+      record_source_review_v2: {
+        Args: {
+          p_decision: string;
+          p_document_id: string;
+          p_evidence_references?: string[];
+          p_policy_version?: string | null;
+          p_reason: string;
+          p_replacement_document_id?: string | null;
+          p_review_date?: string | null;
+          p_reviewer_id: string;
+          p_reviewer_qualification?: string | null;
         };
         Returns: Json;
       };
@@ -2264,6 +2326,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_uploaded_document_with_ingestion_job: {
+        Args: {
+          p_document: Json;
+          p_max_attempts: number;
+        };
+        Returns: Json;
+      };
       complete_strict_enrichment_job: {
         Args: {
           p_agent_version?: string;
@@ -2355,6 +2424,15 @@ export type Database = {
           p_job_id: string;
           p_max_attempts: number;
           p_next_run_at: string;
+          p_owner_id: string;
+          p_stale_before: string;
+        };
+        Returns: Json;
+      };
+      request_ingestion_reindex_if_agent_idle: {
+        Args: {
+          p_document_id: string;
+          p_max_attempts: number;
           p_owner_id: string;
           p_stale_before: string;
         };
@@ -2800,6 +2878,10 @@ export type Database = {
       retrieval_owner_matches_v2: {
         Args: { owner_filter: string; row_owner_id: string | null; include_public?: boolean };
         Returns: boolean;
+      };
+      document_publication_state_digest: {
+        Args: { p_document_id: string; p_expected_owner_id: string };
+        Returns: string;
       };
       publish_approved_documents: {
         Args: {

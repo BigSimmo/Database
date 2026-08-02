@@ -1,0 +1,264 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  privacySafeErrorEvent,
+  privacySafeTransactionEvent,
+  resolveTracesSampleRate,
+} from "@/lib/observability/error-tracking";
+
+describe("production error tracking privacy boundary", () => {
+  it("removes clinical text, identifiers, request data, breadcrumbs, and frame locals", () => {
+    const event = privacySafeErrorEvent({
+      type: undefined,
+      event_id: "event-1",
+      message: "Jane Doe MRN 123456 reported suicidal thoughts",
+      request: { url: "https://example.test/api/answer?q=Jane", headers: { authorization: "Bearer secret" } },
+      user: { id: "owner-id", email: "jane@example.test" },
+      breadcrumbs: [{ message: "patient query" }],
+      contexts: { clinical: { answer: "private answer" } },
+      extra: { prompt: "private prompt" },
+      exception: {
+        values: [
+          {
+            type: "JaneDoeMRN123456Error",
+            value: "Jane Doe MRN 123456 reported suicidal thoughts",
+            stacktrace: {
+              frames: [
+                {
+                  filename: "src/app/api/answer/route.ts",
+                  function: "POST",
+                  lineno: 42,
+                  colno: 7,
+                  in_app: true,
+                  vars: { query: "Jane Doe" },
+                },
+              ],
+            },
+          },
+        ],
+      },
+      tags: { route_path: "/api/answer", patient_id: "owner-id" },
+      fingerprint: ["Jane Doe", "123456"],
+    });
+
+    expect(JSON.stringify(event)).not.toMatch(/Jane|123456|suicidal|secret|owner-id|private prompt|private answer/);
+    expect(event).not.toHaveProperty("request");
+    expect(event).not.toHaveProperty("user");
+    expect(event).not.toHaveProperty("breadcrumbs");
+    expect(event.exception?.values?.[0]).toMatchObject({
+      type: "Error",
+      value: "Unhandled server request error",
+      stacktrace: { frames: [{ filename: "src/app/api/answer/route.ts", function: "POST", lineno: 42 }] },
+    });
+    expect(event.exception?.values?.[0].stacktrace?.frames?.[0]).not.toHaveProperty("vars");
+    expect(event.tags).toEqual({ route_path: "/api/answer" });
+    expect(event.fingerprint).toEqual(["/api/answer", "Error", "src/app/api/answer/route.ts", "POST"]);
+  });
+
+  it("initializeErrorTracking is a DSN/status probe and does not throw without Sentry", async () => {
+    const { initializeErrorTracking } = await import("@/lib/observability/error-tracking");
+    await expect(initializeErrorTracking()).resolves.toBeTypeOf("boolean");
+  });
+});
+
+describe("resolveTracesSampleRate", () => {
+  it("defaults to 0.1 and clamps invalid values", () => {
+    expect(resolveTracesSampleRate(undefined)).toBe(0.1);
+    expect(resolveTracesSampleRate("")).toBe(0.1);
+    expect(resolveTracesSampleRate("0")).toBe(0);
+    expect(resolveTracesSampleRate("0.25")).toBe(0.25);
+    expect(resolveTracesSampleRate("1")).toBe(1);
+    expect(resolveTracesSampleRate("2")).toBe(0.1);
+    expect(resolveTracesSampleRate("nope")).toBe(0.1);
+  });
+});
+
+describe("privacySafeTransactionEvent", () => {
+  it("keeps table/operation DB span metadata and strips query filters, bodies, and request data", () => {
+    const event = privacySafeTransactionEvent({
+      type: "transaction",
+      event_id: "txn-1",
+      transaction: "/api/answer",
+      request: { url: "https://example.test/api/answer?q=Jane%20Doe" },
+      user: { id: "owner-id", email: "jane@example.test" },
+      breadcrumbs: [{ message: "eq(owner_id, owner-id)", category: "db.select" }],
+      tags: { route_path: "/api/answer", patient_id: "owner-id" },
+      contexts: {
+        trace: {
+          trace_id: "trace-1",
+          span_id: "span-root",
+          op: "http.server",
+          data: { "http.query": "q=Jane Doe MRN 123456" },
+        },
+      },
+      spans: [
+        {
+          span_id: "span-db",
+          trace_id: "trace-1",
+          op: "db",
+          origin: "auto.db.supabase",
+          description: "select eq(owner_id, owner-secret) from(documents)",
+          start_timestamp: 1,
+          timestamp: 1.2,
+          data: {
+            "db.table": "documents",
+            "db.schema": "public",
+            "db.system": "postgresql",
+            "db.operation": "select",
+            "db.sdk": "supabase-js-node/2.0.0",
+            "db.url": "https://sjrfecxgysukkwxsowpy.supabase.co",
+            "db.query": ["eq(owner_id, owner-secret)", "ilike(title, %Jane Doe%)"],
+            // Cast: SDK may attach object bodies at runtime when sendOperationData is on.
+            "db.body": { title: "clinical note about Jane" } as unknown as string[],
+            "sentry.op": "db",
+            "sentry.origin": "auto.db.supabase",
+          },
+        },
+      ],
+    });
+
+    expect(JSON.stringify(event)).not.toMatch(/Jane|owner-secret|owner-id|clinical note|123456/);
+    expect(event).not.toHaveProperty("request");
+    expect(event).not.toHaveProperty("user");
+    expect(event).not.toHaveProperty("breadcrumbs");
+    expect(event.transaction).toBe("/api/answer");
+    expect(event.tags).toEqual({ route_path: "/api/answer" });
+    expect(event.spans?.[0]).toMatchObject({
+      description: "select from(documents)",
+      data: {
+        "db.table": "documents",
+        "db.schema": "public",
+        "db.system": "postgresql",
+        "db.operation": "select",
+        "db.sdk": "supabase-js-node/2.0.0",
+        "sentry.op": "db",
+        "sentry.origin": "auto.db.supabase",
+      },
+    });
+    expect(event.spans?.[0]?.data).not.toHaveProperty("db.query");
+    expect(event.spans?.[0]?.data).not.toHaveProperty("db.body");
+    expect(event.spans?.[0]?.data).not.toHaveProperty("db.url");
+    expect(event.contexts?.trace?.data).toBeUndefined();
+  });
+
+  it("keeps gen_ai agent-monitoring metadata and strips prompts, messages, outputs, and tool payloads", () => {
+    const event = privacySafeTransactionEvent({
+      type: "transaction",
+      event_id: "txn-2",
+      transaction: "/api/answer",
+      contexts: { trace: { trace_id: "trace-1", span_id: "span-root", op: "http.server" } },
+      spans: [
+        {
+          span_id: "span-ai",
+          trace_id: "trace-1",
+          op: "gen_ai.chat",
+          origin: "auto.ai.openai",
+          // Free-form SDK span names are never trusted; the description is
+          // rebuilt from allowlisted attributes only.
+          description: "chat gpt-5.2 for Jane Doe",
+          start_timestamp: 1,
+          timestamp: 2.5,
+          data: {
+            "gen_ai.system": "openai",
+            "gen_ai.operation.name": "chat",
+            "gen_ai.request.model": "gpt-5.2",
+            "gen_ai.response.model": "gpt-5.2",
+            "gen_ai.response.id": "resp_abc",
+            "gen_ai.conversation.id": "3e4f6a52-interaction-uuid",
+            "gen_ai.request.stream": false,
+            "gen_ai.usage.input_tokens": 1200,
+            "gen_ai.usage.output_tokens": 300,
+            "gen_ai.usage.total_tokens": 1500,
+            "gen_ai.request.messages": '[{"role":"user","content":"Jane Doe MRN 123456 lithium level"}]',
+            "gen_ai.input.messages": '[{"role":"user","content":"Jane Doe suicidal ideation"}]',
+            "gen_ai.output.messages": '[{"role":"assistant","content":"clinical output about Jane"}]',
+            "gen_ai.response.text": "clinical output about Jane Doe",
+            "gen_ai.system_instructions": "clinical synthesis prompt",
+            "gen_ai.prompt": "Jane Doe MRN 123456",
+            "gen_ai.embeddings.input": "Jane Doe query text",
+            "gen_ai.request.available_tools": '[{"name":"tool","description":"..."}]',
+            "gen_ai.response.tool_calls": '[{"name":"tool","arguments":"Jane"}]',
+            "gen_ai.tool.input": "Jane Doe",
+            "gen_ai.tool.output": "clinical output",
+          },
+        },
+      ],
+    });
+
+    expect(JSON.stringify(event)).not.toMatch(/Jane|123456|suicidal|clinical output|synthesis prompt|query text/);
+    expect(event.spans?.[0]).toMatchObject({
+      op: "gen_ai.chat",
+      origin: "auto.ai.openai",
+      description: "chat gpt-5.2",
+      data: {
+        "gen_ai.system": "openai",
+        "gen_ai.operation.name": "chat",
+        "gen_ai.request.model": "gpt-5.2",
+        "gen_ai.response.id": "resp_abc",
+        "gen_ai.conversation.id": "3e4f6a52-interaction-uuid",
+        "gen_ai.usage.input_tokens": 1200,
+        "gen_ai.usage.output_tokens": 300,
+        "gen_ai.usage.total_tokens": 1500,
+      },
+    });
+    for (const payloadKey of [
+      "gen_ai.request.messages",
+      "gen_ai.input.messages",
+      "gen_ai.output.messages",
+      "gen_ai.response.text",
+      "gen_ai.system_instructions",
+      "gen_ai.prompt",
+      "gen_ai.embeddings.input",
+      "gen_ai.request.available_tools",
+      "gen_ai.response.tool_calls",
+      "gen_ai.tool.input",
+      "gen_ai.tool.output",
+    ]) {
+      expect(event.spans?.[0]?.data).not.toHaveProperty(payloadKey);
+    }
+  });
+});
+
+describe("isSentryDbTracingEnabled", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("requires a DSN and a positive sample rate", async () => {
+    vi.stubEnv("SENTRY_DSN", "");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0.1");
+    const disabled = await import("@/lib/observability/error-tracking");
+    expect(disabled.isSentryDbTracingEnabled()).toBe(false);
+
+    vi.resetModules();
+    vi.stubEnv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0");
+    const rateZero = await import("@/lib/observability/error-tracking");
+    expect(rateZero.isSentryDbTracingEnabled()).toBe(false);
+
+    vi.resetModules();
+    vi.stubEnv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0.1");
+    const enabled = await import("@/lib/observability/error-tracking");
+    expect(enabled.isSentryDbTracingEnabled()).toBe(true);
+  });
+});
+
+describe("instrumentSupabaseClientForTracing", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("is a no-op when SENTRY_DSN is unset or tracing sample rate is 0", async () => {
+    vi.stubEnv("SENTRY_DSN", "");
+    const { instrumentSupabaseClientForTracing } = await import("@/lib/observability/supabase-tracing");
+    expect(() => instrumentSupabaseClientForTracing({})).not.toThrow();
+
+    vi.resetModules();
+    vi.stubEnv("SENTRY_DSN", "https://public@o0.ingest.sentry.io/1");
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "0");
+    const gated = await import("@/lib/observability/supabase-tracing");
+    expect(() => gated.instrumentSupabaseClientForTracing({})).not.toThrow();
+  });
+});

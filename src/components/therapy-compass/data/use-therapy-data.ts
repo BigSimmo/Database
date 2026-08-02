@@ -1,21 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
+import { THERAPY_CATALOGUE_ASSETS } from "./generated-assets";
 
 // Served as static public assets. Kept outside /mockups so the production
 // `/therapy-compass` route can load them — `proxy.ts` 404s every /mockups path
 // in production, which would otherwise starve the tool of its dataset.
 const BASE = "/therapy-compass-data";
 
-// Module-level cache so the ~2.6 MB dataset is fetched at most once per session,
-// shared across every screen.
-let cache: Promise<TherapyDataset> | null = null;
+type TherapyDataOptions = {
+  catalogue?: "home" | "index" | "full";
+  includePathways?: boolean;
+  includeReference?: boolean;
+};
+
+// Cache each route-sized payload once per session. Home uses the smallest catalogue,
+// pathways use the thin browse index, and search/detail/compare/recommend use full records.
+const cache = new Map<string, Promise<TherapyDataset>>();
 
 /** Test helper: drop the session-scoped dataset cache between cases. */
 export function clearTherapyDataCache() {
-  cache = null;
+  cache.clear();
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -24,11 +31,37 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function loadDataset(): Promise<TherapyDataset> {
+// Unversioned aliases. These names never change, always hold the current data,
+// and are served `max-age=0, must-revalidate` (see next.config.ts).
+const CATALOGUE_ALIASES = {
+  full: "therapies.json",
+  index: "therapies-index.json",
+  home: "therapies-home.json",
+} as const;
+
+/**
+ * Content-addressed URL first, unversioned alias as the fallback. A session that
+ * started before a deploy has the previous hashed filename compiled into its
+ * bundle; the generator retains that generation for one deploy, but a client
+ * older than that — or one that lands mid-rollout — would otherwise get a 404
+ * and an error screen on a route it had already loaded once. The alias is the
+ * standing answer to that, so use it rather than surfacing a dead catalogue.
+ */
+async function fetchCatalogue(catalogue: "home" | "index" | "full"): Promise<Therapy[]> {
+  try {
+    return await fetchJson<Therapy[]>(`${BASE}/${THERAPY_CATALOGUE_ASSETS[catalogue]}`);
+  } catch {
+    return fetchJson<Therapy[]>(`${BASE}/${CATALOGUE_ALIASES[catalogue]}`);
+  }
+}
+
+async function loadDataset(options: Required<TherapyDataOptions>): Promise<TherapyDataset> {
   const [therapies, pathways, reference] = await Promise.all([
-    fetchJson<Therapy[]>(`${BASE}/therapies.json`),
-    fetchJson<Pathway[]>(`${BASE}/pathways.json`),
-    fetchJson<ReferenceData>(`${BASE}/reference.json`),
+    fetchCatalogue(options.catalogue),
+    options.includePathways ? fetchJson<Pathway[]>(`${BASE}/pathways.json`) : Promise.resolve([]),
+    options.includeReference
+      ? fetchJson<ReferenceData>(`${BASE}/reference.json`)
+      : Promise.resolve({ categories: [], tags: [], measures: [] }),
   ]);
   return { therapies, pathways, reference };
 }
@@ -37,39 +70,87 @@ export type TherapyDataState = {
   data: TherapyDataset | null;
   loading: boolean;
   error: string | null;
-  retry: () => void;
+  /** Settles when the replacement request finishes so Retry can stay busy. */
+  retry: () => Promise<void>;
 };
 
-export function useTherapyData(): TherapyDataState {
-  const [state, setState] = useState<Omit<TherapyDataState, "retry">>({ data: null, loading: true, error: null });
+export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataState {
+  const resolved = useMemo<Required<TherapyDataOptions>>(
+    () => ({
+      catalogue: options.catalogue ?? "full",
+      includePathways: options.includePathways ?? true,
+      includeReference: options.includeReference ?? true,
+    }),
+    [options.catalogue, options.includePathways, options.includeReference],
+  );
+  const requestKey = `${resolved.catalogue}:${resolved.includePathways ? "pathways" : "none"}:${resolved.includeReference ? "reference" : "none"}`;
+  const [state, setState] = useState<
+    Omit<TherapyDataState, "retry"> & {
+      requestKey: string | null;
+    }
+  >({ requestKey: null, data: null, loading: true, error: null });
   const [attempt, setAttempt] = useState(0);
-  const retry = useCallback(() => {
-    cache = null;
+  const retryWaitersRef = useRef<Array<() => void>>([]);
+  const inFlightRetryRef = useRef<Promise<void> | null>(null);
+
+  const settleRetryWaiters = useCallback(() => {
+    const waiters = retryWaitersRef.current;
+    retryWaitersRef.current = [];
+    inFlightRetryRef.current = null;
+    for (const settle of waiters) settle();
+  }, []);
+
+  const retry = useCallback((): Promise<void> => {
+    // Coalesce repeated clicks onto the same in-flight reload.
+    if (inFlightRetryRef.current) return inFlightRetryRef.current;
+    cache.delete(requestKey);
     // Keep the prior error message mounted so Retry focus is not lost while the
     // next attempt is in flight; success/failure handlers replace it below.
     setState((prev) => ({ ...prev, loading: true }));
-    setAttempt((value) => value + 1);
-  }, []);
+    const promise = new Promise<void>((resolve) => {
+      retryWaitersRef.current.push(resolve);
+      setAttempt((value) => value + 1);
+    });
+    inFlightRetryRef.current = promise;
+    return promise;
+  }, [requestKey]);
 
   useEffect(() => {
     let active = true;
-    cache ??= loadDataset();
-    const request = cache;
+    if (!cache.has(requestKey)) cache.set(requestKey, loadDataset(resolved));
+    const request = cache.get(requestKey)!;
     request
       .then((data) => {
-        if (active) setState({ data, loading: false, error: null });
+        if (!active) return;
+        setState({ requestKey, data, loading: false, error: null });
+        // Only the active attempt may settle Retry; a superseded effect must not
+        // release waiters belonging to a newer reload.
+        settleRetryWaiters();
       })
       .catch((err: unknown) => {
         // Only clear the shared cache when this request is still the active one.
         // A newer retry may have already replaced `cache` with a fresh promise.
-        if (cache === request) cache = null;
-        if (active)
-          setState({ data: null, loading: false, error: err instanceof Error ? err.message : "Failed to load" });
+        if (cache.get(requestKey) === request) cache.delete(requestKey);
+        if (!active) return;
+        setState({
+          requestKey,
+          data: null,
+          loading: false,
+          error: err instanceof Error ? err.message : "Failed to load",
+        });
+        settleRetryWaiters();
       });
     return () => {
       active = false;
     };
-  }, [attempt]);
+  }, [attempt, requestKey, resolved, settleRetryWaiters]);
 
-  return { ...state, retry };
+  useEffect(() => {
+    return () => {
+      settleRetryWaiters();
+    };
+  }, [settleRetryWaiters]);
+
+  if (state.requestKey !== requestKey) return { data: null, loading: true, error: null, retry };
+  return { data: state.data, loading: state.loading, error: state.error, retry };
 }

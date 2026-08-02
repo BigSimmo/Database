@@ -8,11 +8,11 @@ import { annotateDocumentMatches, annotateSearchResults, buildEvidenceRelevance 
 import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichment";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
-import { searchChunksWithTelemetry } from "@/lib/rag";
-import { weakRetrievalTopScoreThreshold } from "@/lib/rag-routing";
+import { searchChunksWithTelemetry } from "@/lib/rag/rag";
+import { weakRetrievalTopScoreThreshold } from "@/lib/rag/rag-routing";
 import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
-import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
+import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag/rag-provider";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 import {
@@ -34,6 +34,7 @@ import {
   queryVocabularyAliasesForStorage,
 } from "@/lib/query-privacy";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import type { ChunkImage, ClinicalSourceMetadata, SearchResult } from "@/lib/types";
 
@@ -67,7 +68,13 @@ const searchSchema = z.object({
 
 type SearchRequestBody = z.infer<typeof searchSchema>;
 
-const scopedSearchInflight = new Map<string, Promise<unknown>>();
+type ScopedSearchInflight = {
+  promise: Promise<Record<string, unknown>>;
+  controller: AbortController;
+  waiters: number;
+  settled: boolean;
+};
+const scopedSearchInflight = new Map<string, ScopedSearchInflight>();
 
 function isSourceLibrarySearchMode(mode: SearchRequestBody["mode"]) {
   return mode === "documents" || mode === "differentials";
@@ -89,15 +96,72 @@ function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null, publi
   });
 }
 
-async function coalesceScopedSearch<T extends Record<string, unknown>>(key: string, producer: () => Promise<T>) {
-  const existing = scopedSearchInflight.get(key) as Promise<T> | undefined;
-  if (existing) return { payload: await existing, coalesced: true };
+function callerAbortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
 
-  const pending = producer().finally(() => {
-    scopedSearchInflight.delete(key);
+function awaitWithCallerSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(callerAbortReason(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(callerAbortReason(signal));
+    };
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
   });
-  scopedSearchInflight.set(key, pending);
-  return { payload: await pending, coalesced: false };
+}
+
+async function coalesceScopedSearch<T extends Record<string, unknown>>(
+  key: string,
+  producer: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal,
+) {
+  signal.throwIfAborted();
+  let entry = scopedSearchInflight.get(key);
+  // Skip a flight already aborted by its last waiter (owner-catalogue pattern).
+  if (entry?.controller.signal.aborted) {
+    if (scopedSearchInflight.get(key) === entry) scopedSearchInflight.delete(key);
+    entry = undefined;
+  }
+  const coalesced = Boolean(entry);
+  if (!entry) {
+    const controller = new AbortController();
+    const created: ScopedSearchInflight = {
+      promise: Promise.resolve({}),
+      controller,
+      waiters: 0,
+      settled: false,
+    };
+    created.promise = producer(controller.signal).finally(() => {
+      created.settled = true;
+      if (scopedSearchInflight.get(key) === created) scopedSearchInflight.delete(key);
+    });
+    scopedSearchInflight.set(key, created);
+    entry = created;
+  }
+  entry.waiters += 1;
+  try {
+    return { payload: (await awaitWithCallerSignal(entry.promise, signal)) as T, coalesced };
+  } finally {
+    entry.waiters -= 1;
+    // Drop the map entry immediately on last-waiter abort so a new healthy
+    // caller cannot join the dying promise before the producer's .finally runs.
+    if (entry.waiters === 0 && !entry.settled) {
+      entry.controller.abort();
+      if (scopedSearchInflight.get(key) === entry) scopedSearchInflight.delete(key);
+    }
+  }
 }
 
 function buildDocumentMatchesFromResults(results: SearchResult[], limit: number) {
@@ -190,7 +254,6 @@ function compactImage(image: ChunkImage) {
     image_type: image.image_type,
     clinicalUseClass: image.clinicalUseClass,
     caption: image.caption ? compactText(image.caption, 240) : "",
-    storage_path: image.storage_path,
     searchable: image.searchable,
     clinical_relevance_score: image.clinical_relevance_score,
     tableLabel: image.tableLabel,
@@ -686,7 +749,9 @@ async function buildScopedSearchPayload(
   body: SearchRequestBody,
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string | null,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass =
     queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
@@ -696,7 +761,9 @@ async function buildScopedSearchPayload(
     accessScope,
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
+    signal,
   });
+  signal?.throwIfAborted();
   if (scope.documentIds?.length === 0) {
     const relevance = buildEvidenceRelevance(searchFocusQuery, []);
     const payload = {
@@ -741,6 +808,7 @@ async function buildScopedSearchPayload(
     accessScope,
     allowGlobalSearch: !ownerId,
     queryMode: body.queryMode,
+    signal,
   });
   const resultLimit = isSourceLibrarySearchMode(body.mode)
     ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
@@ -760,6 +828,7 @@ async function buildScopedSearchPayload(
         query: searchFocusQuery,
         results,
         limit: isSourceLibrarySearchMode(body.mode) ? body.documentLimit : undefined,
+        signal,
       })
     : [];
   // Audit L10: compute relevance/visual evidence ONCE and share with the
@@ -903,6 +972,7 @@ export async function POST(request: Request) {
   let supabase: ReturnType<typeof createAdminClient> | null = null;
   let ownerId: string | null = null;
   let body: SearchRequestBody | null = null;
+  const routeStartedAt = Date.now();
 
   try {
     const searchBody = await parseJsonBody(request, searchSchema, "Invalid search request.");
@@ -912,16 +982,20 @@ export async function POST(request: Request) {
     }
 
     supabase = createAdminClient();
+    const authStartedAt = Date.now();
     const access = await publicAccessContext(request, supabase);
+    const authMs = Date.now() - authStartedAt;
     ownerId = access.ownerId ?? null;
     const publicOnly = !access.authenticated && !isLocalNoAuthMode();
 
+    const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "search",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
+    const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
       return rateLimitJsonResponse(
         "Search is temporarily rate limited because too many requests were received. Retry shortly.",
@@ -930,16 +1004,30 @@ export async function POST(request: Request) {
     }
 
     const key = scopedSearchKey(searchBody, ownerId, publicOnly);
-    const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-      buildScopedSearchPayload(searchBody, supabase!, ownerId),
+    const searchStartedAt = Date.now();
+    const { payload, coalesced } = await coalesceScopedSearch(
+      key,
+      (signal) => buildScopedSearchPayload(searchBody, supabase!, ownerId, signal),
+      request.signal,
     );
-    return NextResponse.json({
-      ...payload,
-      telemetry: {
-        ...payload.telemetry,
-        coalesced,
+    const searchMs = Date.now() - searchStartedAt;
+
+    // Durations only — see server-timing.ts for the trust-boundary constraint.
+    const serverTiming = buildServerTimingHeader([
+      ...preambleServerTimingEntries({ authMs, rateLimitMs }),
+      { name: "search", durMs: searchMs },
+      { name: "total", durMs: Date.now() - routeStartedAt },
+    ]);
+    return NextResponse.json(
+      {
+        ...payload,
+        telemetry: {
+          ...payload.telemetry,
+          coalesced,
+        },
       },
-    });
+      serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+    );
   } catch (error) {
     if (error instanceof serverAuth.AuthenticationError) {
       return serverAuth.unauthorizedResponse(error);
@@ -962,7 +1050,9 @@ export async function POST(request: Request) {
       const failurePayload = {
         results: [],
         telemetry: {
-          query_class: classifyRagQuery(error.message).queryClass,
+          query_class: fallbackBody
+            ? classifyRagQuery(fallbackBody.query).queryClass
+            : classifyRagQuery(error.message).queryClass,
           retrieval_strategy: null,
           failure_code: code,
         },
@@ -971,7 +1061,7 @@ export async function POST(request: Request) {
         logSearchObservation({
           supabase,
           ownerId,
-          query: "unknown",
+          query: fallbackBody?.query ?? "unknown",
           results: [],
           payload: failurePayload,
           failure: {

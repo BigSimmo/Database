@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clinical"
+  short_description: "Prove clinical safety and source governance"
+  default_prompt: "Use $clinical to build local clinical safety, privacy, source, rollback, and verification evidence for this change."

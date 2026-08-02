@@ -1,5 +1,5 @@
 import { expectedFileCoverage } from "@/lib/eval-document-matching";
-import type { RagEvalCase } from "@/lib/rag-eval-cases";
+import type { RagEvalCase } from "@/lib/rag/rag-eval-cases";
 import type { RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
 
 export { expectedFileCoverage, type ExpectedFileCoverage } from "@/lib/eval-document-matching";
@@ -179,6 +179,47 @@ export function hasInvalidVisualEvidence(cards: VisualEvidenceCard[] = []) {
   return cards.some((card) => card.image_type === "logo_decorative" || card.clinical_relevance_score === 0);
 }
 
+const directClaimClinicalTargetSource = String.raw`(?:the\s+)?(?:(?:treating|responsible|senior|on[-\s]?call)\s+(?:doctor|clinician|medical\s+officer|prescriber)|(?:treating|responsible|senior|on[-\s]?call|medical|clinical)\s+team|prescriber)`;
+const directClaimPrescriptiveEscalationPattern = new RegExp(
+  String.raw`(?:^|[,;:]\s*)(?:please\s+)?(?:escalate\b[^.!?]{0,180}\b(?:to|with)\s+${directClaimClinicalTargetSource}\b|(?:contact|notify|inform|consult)\s+${directClaimClinicalTargetSource}\b)|\b(?:must|should|needs?\s+to|is\s+to|are\s+to|required\s+to)\s+(?:(?:promptly|urgently|immediately|directly|also|then)\s+){0,2}(?:be\s+)?escalat(?:e|ed)\b[^.!?]{0,120}\b(?:to|with)\s+${directClaimClinicalTargetSource}\b`,
+  "i",
+);
+const directClaimMedicationEntityPattern = /\b(?:neuroleptic|antipsychotic)\b/i;
+const directClaimSideEffectPattern = /\b(?:side|adverse)\s+effects?\b/i;
+const directClaimDistressTriggerPattern =
+  /(?:\b(?:side|adverse)\s+effects?\b[^.!?]{0,70}\bcaus(?:e|es|ed|ing)\b[^.!?]{0,30}\bdistress\b|\bdistressing\b[^.!?]{0,50}\b(?:side|adverse)\s+effects?\b|\b(?:side|adverse)\s+effects?\b[^.!?]{0,35}\b(?:is|are|becomes?|became)\s+distressing\b)/i;
+const directClaimScoreIndependencePattern =
+  /(?:\b(?:irrespective|regardless|independent(?:ly)?)\s+of\s+(?:the\s+)?(?:lunsers\s+)?scores?\b|\bno\s+matter\s+(?:what|which)\s+(?:the\s+)?(?:lunsers\s+)?scores?\b|\bscor(?:e|es|ed|ing)\b[^.!?]{0,80}\bnot\s+essential\b[^.!?]{0,60}\bactions?\b)/i;
+const directClaimNegatedOrOppositeActionPattern =
+  /(?:\bde[-\s]?escalat\w*\b|\b(?:do|does|did|should|must|need)\s+not\b[^.!?]{0,60}\b(?:escalat\w*|contact|notify|inform|consult)\b|\bnot\s+to\s+(?:escalat\w*|contact|notify|inform|consult)\b|\b(?:no|without)\s+(?:need|requirement)\s+to\s+(?:escalat\w*|contact|notify|inform|consult)\b|\b(?:escalation|contact|notification|review)\b[^.!?]{0,25}\b(?:not\s+(?:required|indicated)|unnecessary|contraindicated)\b|\b(?:escalate|contact|notify|inform|consult)\s+(?:no|neither)\b|\b(?:no|neither)\s+(?:(?:neuroleptic|antipsychotic)\s+)?(?:side|adverse)\s+effects?\b|\b(?:do|does|did)\s+not\s+caus(?:e|es|ed|ing)\b|\b(?:without|not)\s+(?:(?:necessarily|always)\s+)?caus(?:e|es|ed|ing)\b[^.!?]{0,30}\bdistress\b|\bcaus(?:e|es|ed|ing)\b[^.!?]{0,20}\b(?:no|neither)\s+distress\b|\b(?:not|never)\s+distressing\b|\b(?:not|never)\s+(?:irrespective|regardless|independent(?:ly)?)\s+of\s+(?:the\s+)?(?:lunsers\s+)?scores?\b)/i;
+const directClaimHistoricalOrDescriptivePattern =
+  /(?:\b(?:audit|audited|retrospective|case\s+review|incident\s+report|minutes?|case\s+notes?|historical|study|survey)\b|\b(?:was|were|has\s+been|had\s+been)\s+(?:recorded|reported|documented|noted|found|observed|audited)\b|\b(?:previous|prior|earlier|former|superseded|obsolete|archived|withdrawn|legacy|retired|repealed|discontinued|outdated)\b)/i;
+const directClaimScoreDependentActionPattern =
+  /(?:\b(?:only|solely)\s+(?:when|if)\b[^.!?]{0,60}\b(?:score|scoring)\b|\b(?:score|scoring)\b[^.!?]{0,60}\b(?:must|should|needs?\s+to|has\s+to)\s+be\s+(?:high|elevated|above|over)\b)/i;
+
+function satisfiesDirectClaimSemanticContract(
+  text: string,
+  semanticContract: NonNullable<RagEvalCase["requiredDirectClaim"]>["semanticContract"],
+) {
+  if (!semanticContract) return true;
+  if (semanticContract !== "positive_prescriptive_score_independent_distress_escalation") return false;
+
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?:(?<=[.!?])\s+|\s*;\s*|\s*\b(?:but|whereas|while|however)\b\s*)/i)
+    .some(
+      (sentence) =>
+        !directClaimNegatedOrOppositeActionPattern.test(sentence) &&
+        !directClaimHistoricalOrDescriptivePattern.test(sentence) &&
+        !directClaimScoreDependentActionPattern.test(sentence) &&
+        directClaimMedicationEntityPattern.test(sentence) &&
+        directClaimSideEffectPattern.test(sentence) &&
+        directClaimPrescriptiveEscalationPattern.test(sentence) &&
+        directClaimDistressTriggerPattern.test(sentence) &&
+        directClaimScoreIndependencePattern.test(sentence),
+    );
+}
+
 export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   const failures: string[] = [];
   const expectedCoverage = expectedFileCoverage(
@@ -212,6 +253,33 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
     failures.push(`expected at least ${testCase.minCitations} citations`);
   if (testCase.requireExpectedFileCitation && !expectedCitationCoverage.allHit) {
     failures.push(`expected documents missing from citations: ${expectedCitationCoverage.missingFiles.join(", ")}`);
+  }
+  if (testCase.requiredDirectClaim) {
+    const requiredDirectClaim = testCase.requiredDirectClaim;
+    const normalizedConcept = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    const qualifyingClaim = (answer.supportedClaims ?? []).find((claim) => {
+      if (claim.riskClass !== requiredDirectClaim.riskClass || claim.supportStatus !== "direct") return false;
+      const claimText = normalizedConcept(claim.text);
+      return (
+        (requiredDirectClaim.conceptAlternatives ?? []).every((alternatives) =>
+          alternatives.some((alternative) => claimText.includes(normalizedConcept(alternative))),
+        ) && satisfiesDirectClaimSemanticContract(claim.text, requiredDirectClaim.semanticContract)
+      );
+    });
+    const supportingIds = new Set(qualifyingClaim?.supportingChunkIds ?? []);
+    const supportingCitations = answer.citations.filter((citation) => supportingIds.has(citation.chunk_id));
+    const supportingExpectedCoverage = expectedFileCoverage(
+      testCase.expectedFiles,
+      supportingCitations,
+      supportingCitations.length,
+    );
+    if (!qualifyingClaim || supportingCitations.length === 0 || !supportingExpectedCoverage.allHit) {
+      failures.push("required direct claim is not fully covered by an expected-file citation");
+    }
   }
   if (testCase.expectedFiles.length > 1 && !expectedCoverage.allHit) {
     failures.push(`expected documents missing from top 5: ${expectedCoverage.missingFiles.join(", ")}`);

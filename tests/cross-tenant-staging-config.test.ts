@@ -7,7 +7,7 @@ import {
   readCrossTenantStagingConfig,
 } from "../scripts/test-cross-tenant-staging";
 import { analyzeClinicalQuery } from "../src/lib/clinical-search";
-import { shouldApplyUnsupportedSearchShortCircuit } from "../src/lib/rag-retrieval-variants";
+import { shouldApplyUnsupportedSearchShortCircuit } from "../src/lib/rag/rag-retrieval-variants";
 
 const validConfig = {
   CROSS_TENANT_STAGING_APP_URL: "https://clinical-kb-staging.tests.invalid",

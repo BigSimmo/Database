@@ -1,14 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { rankToolRecords, toolCatalogRecordById, toolCatalogRecords } from "../src/lib/tools-catalog";
+import {
+  rankToolRecords,
+  toolCatalogRecordById,
+  toolCatalogRecords,
+  toolCatalogRecordsForSession,
+} from "../src/lib/tools-catalog";
 import { tools as mockupToolFixtures } from "../src/components/tools-page-mockups/tool-fixtures";
 
 describe("tools catalog", () => {
   it("has unique ids and the launcher staples", () => {
     const ids = toolCatalogRecords.map((tool) => tool.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const staple of ["clinical-kb-search", "documents", "medication-prescribing", "services", "forms"]) {
+    for (const staple of [
+      "clinical-kb-search",
+      "documents",
+      "medication-prescribing",
+      "services",
+      "forms",
+      "calculators",
+    ]) {
       expect(ids).toContain(staple);
     }
+  });
+
+  it("links calculators to the production calculators page", () => {
+    expect(toolCatalogRecordById("calculators").href).toBe("/calculators");
   });
 
   it("ranks title matches above keyword-only matches", () => {
@@ -24,6 +40,24 @@ describe("tools catalog", () => {
 
   it("returns nothing for an empty query", () => {
     expect(rankToolRecords("")).toEqual([]);
+  });
+
+  it("hides Saved workflows from guest sessions in ranking and catalog helpers", () => {
+    const guestCatalog = toolCatalogRecordsForSession({ authenticated: false, demoMode: false });
+    expect(guestCatalog.some((tool) => tool.id === "favourites")).toBe(false);
+    // Omitting session must fail closed (same as explicit guest).
+    expect(rankToolRecords("saved workflows", 10, []).map((m) => m.tool.id)).not.toContain("favourites");
+    expect(
+      rankToolRecords("saved workflows", 10, [], { authenticated: false, demoMode: false }).map((m) => m.tool.id),
+    ).not.toContain("favourites");
+    expect(
+      rankToolRecords("saved workflows", 10, [], { authenticated: true, demoMode: false }).some(
+        (match) => match.tool.id === "favourites",
+      ),
+    ).toBe(true);
+    expect(
+      toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((tool) => tool.id === "favourites"),
+    ).toBe(true);
   });
 
   it("keeps the mockup fixtures derived from catalog identity fields", () => {

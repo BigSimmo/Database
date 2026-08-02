@@ -11,7 +11,11 @@ const forbiddenMarkers = [
   "OPENAI_ORG_ID",
   "OPENAI_PROJECT_ID",
   "RAG_QUERY_HASH_SECRET",
-  "sb_secret_",
+  // Match an actual secret *value* (prefix + a long token), not the bare "sb_secret_"
+  // prefix string. @supabase/supabase-js's own browser client code legitimately ships
+  // that literal prefix (isNewApiKey()/checkApiKeyFormat() in its fetch helpers, used to
+  // detect new-format Supabase API keys) — that string alone is not a leaked secret.
+  /\bsb_secret_[A-Za-z0-9_-]{20,}\b/,
   "sk-proj-",
   "sk-svcacct-",
 ];
@@ -43,13 +47,27 @@ if (!existsSync(clientBuildRoot)) {
   process.exit(1);
 }
 
+// Mask a matched secret *value* so the full token never reaches CI logs. Keeps a
+// short, non-sensitive prefix for context and reveals only its length.
+function maskSecret(value) {
+  const visiblePrefix = value.slice(0, 10);
+  return `${visiblePrefix}…[redacted, ${value.length} chars]`;
+}
+
 const offenders = new Map();
 for (const file of [...textFiles(publicRoot), ...textFiles(clientBuildRoot)]) {
   const content = readFileSync(file, "utf8");
   for (const marker of forbiddenMarkers) {
-    if (content.includes(marker)) {
+    // For literal markers the matched text is the constant marker name (safe to log). For
+    // regex markers it is the actual matched secret value, which must be masked before logging.
+    const isRegexMarker = marker instanceof RegExp;
+    const matchedText = isRegexMarker ? content.match(marker)?.[0] : content.includes(marker) ? marker : null;
+    if (matchedText) {
       const relativePath = relative(projectRoot, file).replaceAll("\\", "/");
-      offenders.set(`${relativePath}\0${marker}`, { marker, relativePath });
+      const displayMarker = isRegexMarker ? maskSecret(matchedText) : matchedText;
+      // Dedupe on the raw matched value so distinct secrets in one file are all reported,
+      // but only ever store/log the masked placeholder.
+      offenders.set(`${relativePath}\0${matchedText}`, { marker: displayMarker, relativePath });
     }
   }
 }

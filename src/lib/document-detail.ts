@@ -4,12 +4,17 @@ import { z } from "zod";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
-import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import {
+  callerOwnsDocumentRow,
+  enforceDocumentReadRateLimit,
+  withOwnerReadScope,
+  redactNonOwnedDocumentFields,
+} from "@/lib/public-api-access";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
 import { parseRouteParams } from "@/lib/validation/params";
-import { optionalQueryString, queryInteger } from "@/lib/validation/query";
+import { optionalQueryString, optionalUuidQuery, queryInteger } from "@/lib/validation/query";
 import type { ApiRateLimitResult } from "@/lib/api-rate-limit";
 import type { ClinicalDocument } from "@/lib/types";
 import type {
@@ -31,7 +36,10 @@ const selectedChunkNeighborCount = 3;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const documentDetailProjection =
   "id,owner_id,title,description,file_name,file_type,file_size,storage_path,content_hash,source_path,import_batch_id,status,page_count,chunk_count,image_count,error_message,metadata,created_at,updated_at" as const;
-const tableFactDetailProjection =
+// Matches the TableFactRow DTO in components/document-viewer/types.ts field for
+// field. Selecting these explicitly keeps the generated `search_tsv` tsvector and
+// `owner_id` off the wire; the table-facts route shares it for the same reason.
+export const tableFactDetailProjection =
   "id,document_id,source_image_id,page_number,table_title,row_label,clinical_parameter,threshold_value,action,metadata" as const;
 const documentLabelDetailProjection =
   "id,document_id,owner_id,label,label_type,source,confidence,metadata,created_at,updated_at" as const;
@@ -49,6 +57,11 @@ export const documentDetailQuerySchema = z.object({
   chunkLimit: queryInteger({ fallback: defaultChunkWindow, min: 1, max: maxChunkWindow }),
   chunkOffset: queryInteger({ fallback: 0, min: 0, max: 1_000_000 }),
   assetScope: z.enum(["document", "window"]).default("document"),
+});
+
+/** API requests only accept persisted chunk UUIDs; the page schema remains broad for demo anchors. */
+export const documentDetailApiQuerySchema = documentDetailQuerySchema.extend({
+  chunk: optionalUuidQuery(),
 });
 
 export type DocumentDetailQuery = {
@@ -107,6 +120,17 @@ function metadataStringArray(metadata: Record<string, unknown>, key: string) {
   return items.length ? items : null;
 }
 
+function metadataNumber(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(number) ? number : null;
+}
+
+function metadataBoolean(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "boolean" ? value : null;
+}
+
 function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
   const metadata = safeMetadata(image.metadata);
   const rawTableText = metadataText(metadata, "table_text");
@@ -124,6 +148,14 @@ function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
     accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
     tableRows: metadataStringArrayRows(metadata, "table_rows"),
     tableColumns: metadataStringArray(metadata, "table_columns"),
+    rowCount: metadataNumber(metadata, "row_count"),
+    rowsTruncated: metadataBoolean(metadata, "rows_truncated"),
+    columnCount: metadataNumber(metadata, "column_count"),
+    cropCompleteness: metadataNumber(metadata, "crop_completeness"),
+    imageQualityScore: metadataNumber(metadata, "image_quality_score"),
+    ocrTextDensity: metadataNumber(metadata, "ocr_text_density"),
+    structuredExtractionConfidence: metadataNumber(metadata, "structured_extraction_confidence"),
+    retainedForDocumentView: metadataBoolean(metadata, "retained_for_document_view"),
   };
 }
 
@@ -177,9 +209,12 @@ function selectedImageIds(selectedChunk: DocumentDetailChunk | null) {
   );
 }
 
+const documentViewImageVisibility =
+  "or(searchable.eq.true,source_kind.eq.table_crop,metadata->>retained_for_document_view.eq.true)";
+
 function imageWindowFilter(pageWindow: { from: number; to: number }, imageIds: string[]) {
   const filters = [
-    `and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop),page_number.gte.${pageWindow.from},page_number.lte.${pageWindow.to})`,
+    `and(image_type.neq.logo_decorative,${documentViewImageVisibility},page_number.gte.${pageWindow.from},page_number.lte.${pageWindow.to})`,
   ];
   if (imageIds.length > 0) filters.push(`id.in.(${imageIds.join(",")})`);
   return filters.join(",");
@@ -317,22 +352,6 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
   };
 }
 
-function omitPublicInternalFields(row: Record<string, unknown>) {
-  const internalKeys = new Set([
-    "owner_id",
-    "storage_path",
-    "content_hash",
-    "source_path",
-    "import_batch_id",
-    "error_message",
-    "metadata",
-    "source_chunk_ids",
-    "source_image_ids",
-    "model",
-  ]);
-  return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
-}
-
 /**
  * Loads the minimal authorized document-detail DTO shared by the API route and
  * the Server Component page. The document authorization check is completed
@@ -425,9 +444,7 @@ export async function loadAuthorizedDocumentDetail(args: {
   if (query.assetScope === "window") {
     imagesRequest = imagesRequest.or(imageWindowFilter(pageRange, preservedImageIds));
   } else {
-    imagesRequest = imagesRequest
-      .neq("image_type", "logo_decorative")
-      .or("searchable.eq.true,source_kind.eq.table_crop");
+    imagesRequest = imagesRequest.neq("image_type", "logo_decorative").or(documentViewImageVisibility);
   }
   const imagesPending = imagesRequest.order("page_number", { ascending: true }).abortSignal(args.request.signal);
 
@@ -470,13 +487,13 @@ export async function loadAuthorizedDocumentDetail(args: {
   }
 
   const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
-    isOwner ? rows : rows.map(omitPublicInternalFields);
+    isOwner ? rows : rows.map((row) => redactNonOwnedDocumentFields(row, access.ownerId));
   const labels = (labelsResult.data ?? [])
     .filter((label) => !isHiddenDocumentLabel(label))
     .map(withDocumentLabelReviewMetadata);
   const responseDocument = isOwner
     ? document
-    : omitPublicInternalFields(document as unknown as Record<string, unknown>);
+    : redactNonOwnedDocumentFields(document as unknown as Record<string, unknown>, access.ownerId);
   const documentMetadata = safeMetadata(document.metadata);
   const metadata = windowMetadata({
     requestedPage,
@@ -498,7 +515,7 @@ export async function loadAuthorizedDocumentDetail(args: {
       summary:
         isOwner || !summaryResult.data
           ? (summaryResult.data ?? null)
-          : omitPublicInternalFields(summaryResult.data as Record<string, unknown>),
+          : redactNonOwnedDocumentFields(summaryResult.data as Record<string, unknown>, access.ownerId),
     } as unknown as ClinicalDocument,
     pages: publicRows(
       committedRows(document, pagesResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],

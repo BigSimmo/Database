@@ -24,23 +24,9 @@ describe("design-system contract helpers", () => {
     ).toEqual([]);
   });
 
-  it("masks raw colours only inside the two fixed-paper rendering scopes", () => {
+  it("masks raw colours only inside the fixed-paper factsheet rendering scope", () => {
     const reportFailure = vi.fn();
-    const therapySource = [
-      ".tc-app { color: #123456; }",
-      ".tc-paper { /* a closing brace here must be inert: } */ color: #ffffff; }",
-      ".tc-app-after-paper { color: #654321; }",
-      "@media print { /* an opening brace here must be inert: { */ body { background: #ffffff; } }",
-    ].join("\n");
-    const scopedTherapy = rawColorContractSource(
-      "src/components/therapy-compass/therapy-compass.css",
-      therapySource,
-      reportFailure,
-    );
-    expect(scopedTherapy).toContain("#123456");
-    expect(scopedTherapy).toContain("#654321");
-    expect(scopedTherapy).not.toContain("#ffffff");
-
+    // Therapy paper tokens now live in globals.css, which is whole-file exempt.
     const factsheetSource = [
       'const appChrome = "#123456";',
       'function FactsheetPrintSheet() { return <div style={{ color: "#ffffff" }} />; }',
@@ -55,13 +41,81 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).not.toHaveBeenCalled();
   });
 
-  it("fails closed when a fixed-paper boundary disappears", () => {
+  it("masks only the pre-paint theme-color constant, not the rest of theme.ts", () => {
     const reportFailure = vi.fn();
-    const source = ".tc-app { color: #123456; }";
+    const source = [
+      "export const APP_THEME_COLORS = {",
+      '  light: "#ffffff",',
+      '  dark: "#060708",',
+      "} as const satisfies Record<ResolvedTheme, string>;",
+      "",
+      "// A later, unrelated raw colour in this file must stay countable — the",
+      "// whole-file exemption this replaced would have hidden it.",
+      'export const UNRELATED_ACCENT = "#0f766e";',
+      'export const SCRIPT = `var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";`;',
+    ].join("\n");
 
-    expect(rawColorContractSource("src/components/therapy-compass/therapy-compass.css", source, reportFailure)).toBe(
+    const scoped = rawColorContractSource("src/lib/theme.ts", source, reportFailure);
+
+    expect(scoped).not.toContain("#ffffff");
+    expect(scoped).not.toContain("#060708");
+    expect(scoped).toContain("#0f766e");
+    // The interpolating bootstrap script holds no literals of its own and must
+    // survive masking intact.
+    expect(scoped).toContain("APP_THEME_COLORS.dark");
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
+  it("anchors the theme-color boundary on the declaration, not a passing mention", () => {
+    const reportFailure = vi.fn();
+    // A doc comment naming the constant sits ABOVE an unrelated raw colour. A
+    // bare "APP_THEME_COLORS" marker would anchor on that mention and mask
+    // everything from the comment through the block, silently swallowing the
+    // unrelated colour with no failure reported. Masking runs before comments
+    // are stripped, so comment-stripping does not rescue it.
+    const source = [
+      "// Pre-paint values live in APP_THEME_COLORS below.",
+      'export const UNRELATED_ACCENT = "#0f766e";',
+      "export const APP_THEME_COLORS = {",
+      '  light: "#ffffff",',
+      '  dark: "#060708",',
+      "} as const;",
+    ].join("\n");
+
+    const scoped = rawColorContractSource("src/lib/theme.ts", source, reportFailure);
+
+    expect(scoped).toContain("#0f766e");
+    expect(scoped).not.toContain("#ffffff");
+    expect(scoped).not.toContain("#060708");
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the pre-paint theme-color boundary disappears", () => {
+    const reportFailure = vi.fn();
+    // The constant was renamed/removed but the exemption still matches the path.
+    const source = 'export const THEME_COLORS = { light: "#ffffff" };';
+
+    // Unmasked, so both literals are counted and the ratcheted baseline goes red
+    // rather than silently exempting the file.
+    expect(rawColorContractSource("src/lib/theme.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
+  });
+
+  it("does not mistake a renamed/suffixed declaration for the real APP_THEME_COLORS boundary", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const APP_THEME_COLORS_V2 = { light: "#ffffff" };';
+
+    expect(rawColorContractSource("src/lib/theme.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
+  });
+
+  it("fails closed when a fixed-paper factsheet boundary disappears", () => {
+    const reportFailure = vi.fn();
+    const source = 'const appChrome = "#123456";';
+
+    expect(rawColorContractSource("src/components/factsheets/factsheet-detail-page.tsx", source, reportFailure)).toBe(
       source,
     );
-    expect(reportFailure).toHaveBeenCalledWith("printable Therapy paper raw-color boundaries are missing");
+    expect(reportFailure).toHaveBeenCalledWith("printable factsheet paper boundary is missing");
   });
 });

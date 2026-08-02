@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useRef, useState } from "react";
-import { Clock3, FileText, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { Clock3, Heart, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
@@ -19,8 +19,8 @@ import { useAuthSession } from "@/lib/supabase/client";
 
 const accountBenefits = [
   {
-    label: "Search history",
-    detail: "Pick up recent questions on any device.",
+    label: "Local recents",
+    detail: "Recent questions stay in this browser session.",
     icon: Clock3,
   },
   {
@@ -29,16 +29,34 @@ const accountBenefits = [
     icon: SlidersHorizontal,
   },
   {
-    label: "Saved sources",
-    detail: "Keep the guidelines you rely on close.",
-    icon: FileText,
+    label: "Saved favourites",
+    detail: "Reopen favourite clinical tools across signed-in devices.",
+    icon: Heart,
+  },
+] as const;
+
+const favouritesAccountBenefits = [
+  {
+    label: "Saved favourites",
+    detail: "Sign up to save favourites and reopen them on any device.",
+    icon: Heart,
+  },
+  {
+    label: "Local recents",
+    detail: "Recent questions stay in this browser session.",
+    icon: Clock3,
+  },
+  {
+    label: "Clinical defaults",
+    detail: "Jurisdiction and answer style, remembered.",
+    icon: SlidersHorizontal,
   },
 ] as const;
 
 const securitySummary = [
   {
-    label: "Private workspace",
-    detail: "Your data stays private and is never shared.",
+    label: "Account-scoped saves",
+    detail: "Favourites and preferences are stored with your account.",
     icon: ShieldCheck,
   },
   {
@@ -53,26 +71,37 @@ const securitySummary = [
   },
 ] as const;
 
-export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AccountSetupDialog({
+  open,
+  onClose,
+  intent = "default",
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** When opened from Favourites, lead with save-favourites messaging. */
+  intent?: "default" | "favourites";
+}) {
   const auth = useAuthSession();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
-  const [providerNotice, setProviderNotice] = useState<string | null>(null);
   const [emailAttempted, setEmailAttempted] = useState(false);
   const busy = auth.status === "loading";
-  const statusMessage = providerNotice ?? (emailAttempted ? auth.error : null);
+  const statusMessage = emailAttempted ? auth.error : null;
+  const emailHasError = Boolean(statusMessage);
+  const isFavouritesIntent = intent === "favourites";
+  const benefits = isFavouritesIntent ? favouritesAccountBenefits : accountBenefits;
+  const title = isFavouritesIntent ? "Sign up to save favourites" : "Set up your workspace";
+  const subtitle = isFavouritesIntent
+    ? "Create an account to save clinical favourites and access them across devices."
+    : "Sync favourites and clinical defaults across signed-in devices. Recent searches stay in this browser session.";
+  const benefitsHeading = isFavouritesIntent ? "Favourites stay with your account" : "What your account saves";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail) return;
-    setProviderNotice(null);
     setEmailAttempted(true);
     await auth.signInWithEmail(trimmedEmail);
-  }
-
-  function chooseProvider(provider: SsoProvider) {
-    setProviderNotice(`${provider} sign-in is not connected yet. Continue with email to set up this workspace.`);
   }
 
   return (
@@ -83,7 +112,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
       closeLabel="Close account setup"
       initialFocusRef={emailInputRef}
       bodyClassName="p-0 sm:p-0"
-      contentClassName="account-setup-dialog max-h-[calc(100dvh-0.75rem)] rounded-t-[1.35rem] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[32rem] sm:rounded-xl"
+      contentClassName="account-setup-dialog max-h-[calc(100dvh-0.75rem)] rounded-t-2xl border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[32rem] sm:rounded-xl"
       portal
     >
       <form onSubmit={submit} className="relative">
@@ -92,7 +121,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
           onClick={onClose}
           className={cn(
             toolbarButton,
-            "absolute right-3 top-3 z-10 h-10 w-10 border-transparent bg-transparent shadow-none hover:bg-[color:var(--surface-subtle)] sm:right-4 sm:top-4",
+            "absolute right-3 top-3 z-10 border-transparent bg-transparent shadow-none hover:bg-[color:var(--surface-subtle)] sm:right-4 sm:top-4",
           )}
           aria-label="Close account setup"
         >
@@ -109,11 +138,9 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                 id="account-setup-title"
                 className="mt-3.5 text-2xl-minus font-semibold leading-7 text-[color:var(--text-heading)] sm:mt-4 sm:text-2xl sm:leading-8"
               >
-                Set up your workspace
+                {title}
               </h2>
-              <p className={cn("mx-auto mt-2 max-w-[22rem] text-sm font-medium leading-6", textMuted)}>
-                Sync source preferences, search history, and clinical defaults across devices.
-              </p>
+              <p className={cn("mx-auto mt-2 max-w-[22rem] text-sm font-medium leading-6", textMuted)}>{subtitle}</p>
             </header>
 
             <label className="block">
@@ -133,6 +160,8 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   autoCorrect="off"
                   spellCheck={false}
                   required
+                  aria-invalid={emailHasError || undefined}
+                  aria-describedby={emailHasError ? "account-setup-status" : undefined}
                   className={cn(
                     fieldControlWithIcon,
                     "h-10.5 focus:ring-2 focus:ring-[color:var(--focus)]/20 sm:h-tap",
@@ -153,15 +182,18 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
             <div className="grid gap-3">
               <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
-                <span>or continue with</span>
+                <span>Social sign-in unavailable</span>
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 {(["Apple", "Google", "Microsoft"] as const).map((provider) => (
-                  <ProviderButton key={provider} provider={provider} onClick={() => chooseProvider(provider)} />
+                  <ProviderButton key={provider} provider={provider} />
                 ))}
               </div>
+              <p className={cn("text-center text-xs leading-5", textMuted)}>
+                Continue with email. Social sign-in is not available in this setup.
+              </p>
             </div>
 
             <section
@@ -172,10 +204,10 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                 id="account-benefits-title"
                 className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]"
               >
-                Everything syncs across your devices
+                {benefitsHeading}
               </h3>
               <ul className="grid gap-1.5 sm:grid-cols-3 sm:gap-2">
-                {accountBenefits.map((benefit) => {
+                {benefits.map((benefit) => {
                   const Icon = benefit.icon;
                   return (
                     <li
@@ -231,7 +263,8 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
 
             {statusMessage ? (
               <p
-                role={providerNotice ? "status" : "alert"}
+                id="account-setup-status"
+                role="alert"
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
               >
                 {statusMessage}
@@ -255,15 +288,23 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
   );
 }
 
-function ProviderButton({ provider, onClick }: { provider: SsoProvider; onClick: () => void }) {
+function ProviderButton({ provider }: { provider: SsoProvider }) {
+  const descriptionId = `account-${provider.toLowerCase()}-sign-in-unavailable`;
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
+      disabled
+      title={`${provider} sign-in is unavailable — coming soon`}
+      aria-label={`${provider} sign-in unavailable`}
+      aria-describedby={descriptionId}
+      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
       <ProviderBrandIcon provider={provider} className="h-5 w-5" />
       <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>
+      <span id={descriptionId} className="sr-only">
+        {provider} sign-in is unavailable. Continue with email.
+      </span>
     </button>
   );
 }

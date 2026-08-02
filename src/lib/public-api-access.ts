@@ -22,7 +22,22 @@ function trustedProxyIp(value: string | null) {
     ?.split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
-  return forwarded?.at(-1) ?? "";
+  const ip = forwarded?.at(-1) ?? "";
+
+  // Strip IPv6 brackets and any port (e.g. [2001:db8::1]:443 -> 2001:db8::1)
+  if (ip.startsWith("[")) {
+    const endPos = ip.indexOf("]");
+    if (endPos !== -1) return ip.slice(1, endPos);
+  }
+
+  // Strip IPv4 port (e.g. 192.0.2.1:8080 -> 192.0.2.1)
+  // Bare IPv6 addresses have multiple colons, so only split if there is exactly one colon
+  const colonIndex = ip.indexOf(":");
+  if (colonIndex !== -1 && colonIndex === ip.lastIndexOf(":")) {
+    return ip.slice(0, colonIndex);
+  }
+
+  return ip;
 }
 
 /**
@@ -55,6 +70,8 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
+const OWNER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 type OwnerScopedQuery<T> = {
   eq(column: string, value: unknown): T;
   is(column: string, value: null): T;
@@ -64,15 +81,16 @@ type OwnerScopedQuery<T> = {
 /**
  * Scope reads to public rows (owner_id IS NULL) and, when signed in, the caller's owned rows.
  *
- * Anonymous callers intentionally see ONLY the public corpus (owner_id IS NULL). Documents pooled
- * under PUBLIC_WORKSPACE_OWNER_ID by anonymous uploads (see upload/route.ts) are a deliberate
- * moderation quarantine: they stay out of anonymous viewing here — and out of RAG retrieval, which
- * is gated separately on owner_id IS NULL — until an operator reviews and promotes them to
- * owner_id IS NULL via scripts/promote-public-documents.ts (or the 20260706120000 promote
- * migration). Do not union the pool owner in here without making that content-moderation decision.
+ * Anonymous callers intentionally see ONLY the public corpus (owner_id IS NULL). Uploads are
+ * administrator-only; newly uploaded owner-scoped documents remain private until the existing
+ * publication-review workflow promotes them to the public corpus.
  */
 export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
-  if (ownerId) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
+  // The owner id is interpolated into a PostgREST `or=` filter string, where a comma,
+  // parenthesis, or dot is filter syntax rather than data. Supabase user ids are always
+  // UUIDs, so anything else is rejected and the read falls back to the public corpus
+  // instead of letting a crafted identity widen the filter.
+  if (ownerId && OWNER_ID_PATTERN.test(ownerId)) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
   return query.is("owner_id", null);
 }
 
@@ -84,12 +102,16 @@ export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, owne
 // titles, indexing internals), so — matching the anonymous list projection and the `[id]` detail
 // route — it is stripped for non-owners rather than surfaced as governance data.
 const NON_OWNER_INTERNAL_DOCUMENT_FIELDS = [
+  "owner_id",
   "storage_path",
   "content_hash",
   "source_path",
   "import_batch_id",
   "error_message",
   "metadata",
+  "source_chunk_ids",
+  "source_image_ids",
+  "model",
 ] as const;
 
 /** True when `viewerOwnerId` is set and owns the row (i.e. the caller's own document). */

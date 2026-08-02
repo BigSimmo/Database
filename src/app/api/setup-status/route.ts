@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
+import { PublicApiError } from "@/lib/http";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/auth";
@@ -67,6 +68,11 @@ async function readSupabaseAvailability(supabase: AdminClient | null) {
   try {
     const health = await probeSupabaseHealth(supabase);
     if (!health.ok) {
+      if (health.failureKind !== "unavailable") {
+        supabaseOutageBackoffUntil = 0;
+        supabaseOutageDetail = null;
+        return null;
+      }
       supabaseOutageBackoffUntil = Date.now() + SETUP_STATUS_OUTAGE_CACHE_MS;
       supabaseOutageDetail = health.message;
       return health.message;
@@ -106,11 +112,12 @@ async function readSchemaStatus(supabase: AdminClient | null) {
     if (!supabase) {
       throw new Error("Supabase admin client is unavailable.");
     }
-    const [documents, jobs, batches, buckets] = await Promise.all([
+    const [documents, jobs, batches, buckets, cleanupJobs] = await Promise.all([
       supabase.from("documents").select("id,content_hash,import_batch_id").limit(1),
       supabase.from("ingestion_jobs").select("id,attempt_count,max_attempts,locked_at").limit(1),
       supabase.from("import_batches").select("id").limit(1),
       supabase.storage.listBuckets(),
+      supabase.from("storage_cleanup_jobs").select("id", { count: "exact", head: true }).eq("status", "pending"),
     ]);
 
     const hasRequiredBuckets =
@@ -118,7 +125,7 @@ async function readSchemaStatus(supabase: AdminClient | null) {
       buckets.data?.some((bucket) => bucket.id === env.SUPABASE_DOCUMENT_BUCKET) &&
       buckets.data?.some((bucket) => bucket.id === env.SUPABASE_IMAGE_BUCKET);
 
-    if (documents.error || jobs.error || batches.error || !hasRequiredBuckets) {
+    if (documents.error || jobs.error || batches.error || cleanupJobs.error || !hasRequiredBuckets) {
       return check(
         "schema",
         "supabase/schema.sql applied",
@@ -127,11 +134,14 @@ async function readSchemaStatus(supabase: AdminClient | null) {
       );
     }
 
+    const pendingCleanup = cleanupJobs.count ?? 0;
+    const cleanupNote = pendingCleanup > 0 ? ` (${pendingCleanup} pending cleanup jobs)` : "";
+
     return check(
       "schema",
       "supabase/schema.sql applied",
       "ready",
-      "Required tables and storage buckets responded successfully.",
+      `Required tables and storage buckets responded successfully${cleanupNote}.`,
     );
   } catch {
     return check(
@@ -446,12 +456,16 @@ export async function GET(request: Request) {
 
   if (!authorizedForDetail && request.headers.has("authorization")) {
     try {
-      await requireAuthenticatedUser(request, createAdminClient());
+      await requireAuthenticatedUser(request, createAdminClient(), { administrator: true });
       authorizedForDetail = true;
     } catch (error) {
-      if (!(error instanceof AuthenticationError)) throw error;
-      // Invalid or expired credentials receive the same coarse posture as an
-      // anonymous caller; setup status is not an authentication oracle.
+      const expectedAuthorizationFailure =
+        error instanceof AuthenticationError || (error instanceof PublicApiError && error.status === 403);
+      if (!expectedAuthorizationFailure) {
+        console.error("setup-status: unexpected error checking administrator elevation", error);
+      }
+      // Invalid, expired, and non-administrator credentials receive the same
+      // coarse posture as an anonymous caller; setup status is not an auth or role oracle.
     }
   }
 

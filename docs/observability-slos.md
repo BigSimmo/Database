@@ -1,7 +1,7 @@
 # Observability & SLOs
 
 Service-level objectives for the Clinical KB answer pipeline, the alert
-thresholds attached to them, and the nightly production eval canary that turns
+thresholds attached to them, and the weekly production eval canary that turns
 the golden eval into a standing guard. Written 2026-07-06.
 
 Context: this repo's defining failure mode is **silent degradation** — hybrid
@@ -105,7 +105,7 @@ group by 1 order by 2 desc;
 ```
 
 Complementary standing checks: `search_schema_health()` via
-`npm run check:indexing` (fails closed on RPC regression) and the nightly eval
+`npm run check:indexing` (fails closed on RPC regression) and the weekly eval
 canary below (fails closed on quality regression).
 
 ### Reliability — degraded/source-only answer rate
@@ -125,53 +125,114 @@ recent pre-flag provider failures remain visible until they age out. Keep `degra
 the broader source-only UI state and `fallback_reason` as diagnostic detail;
 neither is narrow enough for provider health on its own.
 
-## 3. Nightly production eval canary
+## 3. Weekly production eval canary
 
-`.github/workflows/eval-canary.yml` — scheduled nightly (18:00 UTC = 02:00
-Australia/Perth) plus `workflow_dispatch` for on-demand runs.
+`.github/workflows/eval-canary.yml` — scheduled weekly on Sunday at 18:00 UTC
+(Monday 02:00 Australia/Perth) plus `workflow_dispatch` for on-demand runs.
 
 What it does, in order:
 
 1. `npm run check:supabase-project` — hard guard that the configured env
    points at `sjrfecxgysukkwxsowpy` and nothing else.
 2. `npm run eval:retrieval:quality -- --fail-on-threshold` — the golden
-   retrieval eval (34 cases incl. forced-vector probes) against the live
+   retrieval eval (36 committed cases plus any captured cases, including
+   forced-vector probes) against the live
    corpus. This is the eval CI never runs on PRs (it needs live Supabase +
-   OpenAI keys); the canary makes it a standing nightly guard instead of a
+   OpenAI keys); the canary makes it a standing weekly guard instead of a
    manual pre-merge step that can be skipped.
-3. `npm run eval:quality -- --rag-only --limit 8 --fail-on-threshold` — a
-   small answer-quality subset (grounding, citations, unsupported-correctness)
-   to bound OpenAI spend while still catching generation-side regressions.
+3. The answer-quality step runs `eval:quality` with `--rag-only --limit 44`,
+   supplies `.local/eval-canary/golden-retrieval.json` through
+   `--source-governance-results`, and enables `--fail-on-threshold`. The
+   separate retrieval artifact populates the Source Governance table without
+   rerunning retrieval or changing answer-gate thresholds. The workflow writes
+   the structured JSON and Markdown reports into the `eval-canary-output`
+   artifact with the tested Git SHA and run identity.
 
 Failing loudly:
 
-- Any threshold failure fails the workflow run (red nightly badge, email per
+- Any threshold failure fails the workflow run (red scheduled-run badge, email per
   GitHub notification settings).
 - On scheduled failures the workflow **opens a GitHub issue** labeled
   `eval-canary` (or comments on the existing open one), so a regression
   creates a durable, assignable artifact rather than a missed notification.
+- The failure comment records every step outcome plus a deterministic failure
+  class derived from the captured eval logs. A completed non-zero
+  `failed_cases` summary is classified as a probable regression; raw provider
+  failures and the all-cases/no-retrieval-layers signature are classified as
+  provider or live-configuration failures.
 
-Required repo secrets: `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`,
-`E2E_USER_EMAIL` (resolved to the eval owner via `RAG_EVAL_OWNER_EMAIL`).
-The workflow preflights these and fails with an explicit message when absent.
+Required repo secrets: `SUPABASE_SERVICE_ROLE_KEY` and `OPENAI_API_KEY`.
 The workflow preflights these and fails with an explicit message when absent.
 
 Operational notes:
 
 - The canary reads live shared corpus state; a pass is a snapshot, and a
   failure can be corpus-state-dependent (see the clozapine-wcc history).
-  Triage order: rerun via `workflow_dispatch` → check `hybrid_rpc_errors` and
-  `check:indexing` → only then bisect code.
+  Triage order: inspect the recorded failure class and failed step → resolve
+  provider/configuration failures or inspect `hybrid_rpc_errors` and
+  `check:indexing` → only then bisect code. A `workflow_dispatch` rerun and all
+  live checks require explicit provider approval.
 - Forced-vector golden cases (`forceEmbedding`) run after many text-fast-path
   cases; the workflow sets `RAG_EVAL_CASE_DELAY_MS` and
   `RAG_EVAL_FORCE_EMBEDDING_DELAY_MS` so embedding calls do not exhaust the
-  nightly OpenAI rate limit mid-run.
+  scheduled run's OpenAI rate limit mid-run.
 - Evals write telemetry rows (`rag_queries`) but mutate no content.
-- Cost bound: ~34 retrieval cases (embedding calls only on forced-vector
-  probes) + 8 generated answers per night.
+- Cost bound: 36 committed retrieval cases plus any captured cases (embedding
+  calls only on forced-vector probes) + 44 generated answers per week.
+- To compare two or more downloaded structured answer reports without treating
+  raw millisecond jitter as a content regression, run
+  `npm run eval:trend -- --answer-quality <oldest-report.json> <newest-report.json>`.
+  Add `--case <case-id>` for the per-run route, latency, and diagnostic
+  signature of one case. A `same_tree_content_variability` result means the
+  reports share a Git SHA but differ in content/citation outcomes; provider and
+  latency-threshold variability are reported separately.
 - **The schedule only runs from `main`.** After merging, trigger one
   `workflow_dispatch` run and confirm it goes green before trusting the
-  nightly cadence (repo gate for this workflow).
+  weekly cadence (repo gate for this workflow).
+
+### 3.1 Boundary-case and metric-interpretation policy (2026-07-20)
+
+Standing rules distilled from the ADDENDUM-4 eval/tuning cycle so the next
+regression triage does not relearn them:
+
+- **Top-5 boundary cases are a human decision, never a silent retry.** When a
+  golden case's expected document sits at the top-5 boundary among multiple
+  legitimate sources (the alcohol-ciwa history), the fix is alias coverage or
+  a deliberately widened gate — chosen by a human with the run artifact open,
+  not by rerunning until green or by ranking nudges aimed at one fixture.
+- **Fixture and snapshot move together.** The ranking snapshot's case count is
+  pinned to the golden fixture (tests/ranking-tuning.test.ts) and the snapshot
+  carries `generatedAt` provenance with a 30-day freshness gate. Regenerate
+  from the latest `eval-canary-output` artifact via
+  `npm run build:ranking-snapshot` — never hand-edit either file.
+- **mrr@10 has a baseline step at 2026-07-20.** The lithium case was the only
+  ungated case (its rr was a hardcoded 0); gating it lifted measured mrr@10 by
+  ~+0.028 with zero retrieval change. Trend readers must treat that date as a
+  baseline reset, not an improvement.
+- **`irrelevant_source_rate@10` is a labeling question before it is a ranking
+  question.** The rate is dominated by broad/vector cases whose extra top-10
+  documents are topically adjacent (e.g. sibling guidelines). Before treating
+  the metric as ranking debt, audit whether those documents are under-labeled
+  relevant (the alias-tier lesson) — widening sanctioned labels may be the
+  correct fix and ranking changes aimed at the raw number may be optimizing
+  against mislabeled ground truth.
+- **Ordering-headroom changes need a live pair, and two shapes are refuted.**
+  The residual rank-depth headroom on passing fast-path cases resisted both
+  per-class feature-weight tuning (live no-op, 2026-07-20 pair #53/#54) and a
+  saturation-tail spread of the primary/near-primary sort keys (live
+  regression, pair #54/#55 — spreading any comparator key ABOVE the
+  relevance score lets raw ts_rank override boost/title/subject-aware
+  ordering; see the branch-review ledger for the full post-mortems). Any third
+  attempt must (a) insert strictly BELOW the relevance key in the release
+  comparators, (b) carry a discriminating offline test that fails on the old
+  code with differently-relevant candidates (identical-content fixtures hide
+  this failure mode), and (c) run a dedicated before/after canary pair with
+  doc/content recall pinned at 1.0.
+- **Artifact-based trends.** Every canary run uploads `eval-canary-output`
+  (30-day retention). `npm run eval:trend -- <artifact.json...>` renders the
+  run-over-run metric table (and `--case <id>` a per-case rr trend) from
+  downloaded artifacts — the durable trend record without any new
+  infrastructure.
 
 ## 4. Degradation counters on `/api/health` (shipped)
 
@@ -189,7 +250,7 @@ header (same operator gate as the Supabase probe) — returns three counter bloc
 - **`cache`** — `cacheMetricsSnapshot` (`src/lib/observability/cache-metrics.ts`)
   reports `{ lookups, hits, misses, hitRate }` for the retrieval search cache,
   incremented in-process at the two-layer cache orchestration in
-  `searchChunksWithTelemetry` (`src/lib/rag.ts`). A request served by **either**
+  `searchChunksWithTelemetry` (`src/lib/rag/rag.ts`). A request served by **either**
   the process-local or the shared (`rag_response_cache`) layer counts as a hit,
   so a cold process falling through to a warm shared cache is not miscounted as a
   miss; disabled/skipped lookups are recorded as neither. These are **cumulative

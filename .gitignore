@@ -26,13 +26,62 @@
 !/.agents/plugins/marketplace.json
 !/.agents/plugins/api_marketplace.json
 !/.agents/skills/
-!/.agents/skills/**
+/.agents/skills/*
+!/.agents/skills/access/
+!/.agents/skills/api/
+!/.agents/skills/audit/
+!/.agents/skills/catalog.json
+!/.agents/skills/clinical-change-proof/
+!/.agents/skills/clinical/
+!/.agents/skills/data/
+!/.agents/skills/database-flightplan/
+!/.agents/skills/database-skills.md
+!/.agents/skills/dependencies/
+!/.agents/skills/deploy/
+!/.agents/skills/documents/
+!/.agents/skills/drift/
+!/.agents/skills/export/
+!/.agents/skills/fix/
+!/.agents/skills/handover/
+!/.agents/skills/health/
+!/.agents/skills/incident/
+!/.agents/skills/ingest/
+!/.agents/skills/ledger/
+!/.agents/skills/live-design-sweep/
+!/.agents/skills/migrate/
+!/.agents/skills/operations/
+!/.agents/skills/operator-closeout/
+!/.agents/skills/performance/
+!/.agents/skills/plan/
+!/.agents/skills/privacy/
+!/.agents/skills/prompt-perfector/
+!/.agents/skills/rag-change-lab/
+!/.agents/skills/rag/
+!/.agents/skills/recovery/
+!/.agents/skills/reindex/
+!/.agents/skills/release/
+!/.agents/skills/review/
+!/.agents/skills/run/
+!/.agents/skills/security/
+!/.agents/skills/session-lifecycle/
+!/.agents/skills/skills/
+!/.agents/skills/sources/
+!/.agents/skills/task/
+!/.agents/skills/test/
+!/.agents/skills/ui/
+!/.agents/skills/verify-triage-fix/
+!/.agents/skills/workflows/
 /skills-lock.json
 
 # next.js
 /.next/
 /.next-playwright/
 /out/
+
+# Lighthouse budget reports (scripts/run-lighthouse-budget.mjs). Regenerated per run;
+# the committed artefact is the baseline inside lighthouse-budget.json, not the JSON
+# reports. Visual baselines under tests/__screenshots__/ ARE tracked deliberately.
+/lighthouse/
 
 # production
 /build
@@ -49,6 +98,10 @@ yarn-error.log*
 .pnpm-debug.log*
 dev-server*.log
 worker-*.log
+# Codex Cloud CLI diagnostic; may contain account/session metadata.
+/error.log
+tmp-*.py
+test-output.txt
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -98,3 +151,5 @@ ds-bundle/
 
 # esbuild output for the worker image (scripts/build-worker.mjs)
 dist/
+test-output*.txt
+docs/archive/staging-tenancy-evidence-*

@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { citationFromResult } from "../src/lib/citations";
+import { answerRouteBudgetMs, generationRecoveryReserveMs } from "../src/lib/rag/rag-route-budget";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function retrievalRpcBaseName(name: string) {
@@ -86,8 +88,10 @@ async function answerFromTextSources(
   query: string,
   sources: SearchResult[],
   generatedAnswer?: GeneratedAnswerPayload | Error,
+  options: { sourceOnly?: boolean } = {},
 ) {
-  vi.stubEnv("OPENAI_API_KEY", "test-key");
+  vi.stubEnv("OPENAI_API_KEY", options.sourceOnly ? "" : "test-key");
+  if (options.sourceOnly) vi.stubEnv("RAG_PROVIDER_MODE", "offline");
   vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
@@ -130,7 +134,7 @@ async function answerFromTextSources(
     generateStructuredTextResult,
   }));
 
-  const { answerQuestionWithScope } = await import("../src/lib/rag");
+  const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
   return answerQuestionWithScope({
     query,
     ownerId: undefined,
@@ -152,6 +156,54 @@ afterEach(() => {
 });
 
 describe("RAG structured-output fallback", () => {
+  it("recovers a cited provider source gap instead of treating nearby citations as a grounded answer", async () => {
+    const dischargeSources = [
+      source({
+        id: "discharge-planning-start",
+        document_id: "discharge-guidance",
+        title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        section_heading: "Discharge planning",
+        content:
+          "Clinicians will actively plan effective and timely discharge from the beginning of admission and review the plan throughout the inpatient stay.",
+      }),
+      source({
+        id: "discharge-documentation",
+        document_id: "discharge-guidance",
+        title: "Admission to Discharge for Mental Health Inpatients (NMHS)",
+        file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        section_heading: "Discharge documentation",
+        content:
+          "The discharge plan must document ongoing care arrangements, communicate the plan with the consumer, and identify follow-up responsibilities.",
+      }),
+    ];
+    const answer = await answerFromTextSources("Summarize the discharge guidance", dischargeSources, {
+      answer: "No current source with directly relevant clinical guidance was found.",
+      grounded: false,
+      confidence: "low",
+      answerSections: [
+        {
+          heading: "Source gap",
+          kind: "source_gap",
+          supportLevel: "unsupported",
+          body: "The retrieved excerpts do not provide sufficient discharge guidance.",
+          citation_chunk_ids: ["discharge-planning-start"],
+        },
+      ],
+      citations: [{ chunk_id: "discharge-planning-start" }, { chunk_id: "discharge-documentation" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("generation_fallback:provider_source_gap");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.answer).not.toMatch(/^No current source/i);
+  });
+
   it("keeps provider-failed complex comparisons on the source-attributed comparison fallback", async () => {
     const comparisonFact = (documentId: string, chunkId: string, value: string) => ({
       id: `${documentId}-threshold`,
@@ -242,6 +294,1390 @@ describe("RAG structured-output fallback", () => {
     expect(answer.unverifiedNumericTokens).toBeUndefined();
   });
 
+  async function answerWithLiveAdmissionDischargeComparisonShape() {
+    // #019 reproducer: retrieval and deterministic comparison packing retain the admission
+    // and discharge documents, and the extractive fallback must keep the citations that
+    // support its delivered answer sections.
+    return answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "combined-policy",
+          document_id: "combined-policy-doc",
+          title: "Referral, Admission And Discharge - Mental Health Hospital In The Home",
+          file_name: "Referral, Admission and Discharge - MHHITH.pdf",
+          content: "Referral procedure, consultant acceptance and patient-flow allocation.",
+          hybrid_score: 0.2898,
+          lexical_score: 0.99,
+          score_explanation: { rankScore: 1.5365 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "discharge-community",
+          document_id: "discharge-community-doc",
+          title: "Discharge Planning For Community Patients",
+          file_name: "MHSP.Discharge.pdf",
+          content: [
+            "5. Discharge Planning",
+            "Discharge planning must be integral in the following stages of a consumer’s transition through a",
+            "community service:",
+          ].join("\n"),
+          hybrid_score: 0.3892,
+          lexical_score: 0.99,
+          score_explanation: { rankScore: 1.1365 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "discharge-community-sibling",
+          document_id: "discharge-community-doc",
+          title: "Discharge Planning For Community Patients",
+          file_name: "MHSP.Discharge.pdf",
+          content: "Community staff document the discharge plan and ongoing care arrangements.",
+          hybrid_score: 0.3882,
+          lexical_score: 0.95,
+          score_explanation: { rankScore: 1.0204 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "admission-community",
+          document_id: "admission-community-doc",
+          title: "Admission Of Community Patients",
+          file_name: "MHSP.AdmissionCommunityPts.pdf",
+          content: [
+            "admitted and managed on an open ward is",
+            "the responsibility of the accepting treating Consultant in discussion with the ANUM",
+            "responsible for that area or if afterhours the On-Call Consultant in discussion with the",
+            "Afterhours Mental Health CNS.",
+            "",
+            "Where there are indications of intoxication or physical health issues, the referring clinician will",
+            "provide a medical clearance or if the consumer is a being referred from AKG Community Mental",
+            "health team member then they are to be referred to the Armadale Health Service Emergency",
+            "Department (AHS-ED) to obtain medical clearance.",
+            "The Bed flow coordinator, in consultation with the Consultant Psychiatrist/On Call Consultant,",
+            "will arrange the prioritisation of beds.",
+            "When a bed is not available, the referring mental health clinician is to liaise with the EMHS",
+            "Patient Flow Coordinator Mental Health to locate a bed at an alternative health service, as per:",
+            "EMHS Mental Health Patient Flow and Bed Capacity Framework (Summary Sheet)",
+            "2.2 Admissions Accompanied by Police",
+          ].join("\n"),
+          hybrid_score: 0.376,
+          lexical_score: 0.95,
+          score_explanation: { rankScore: 1.3325 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "admission-community-sibling",
+          document_id: "admission-community-doc",
+          title: "Admission Of Community Patients",
+          file_name: "MHSP.AdmissionCommunityPts.pdf",
+          content: "Admissions policy document control metadata without a clinical requirement.",
+          hybrid_score: 0.3757,
+          lexical_score: 0.95,
+          score_explanation: { rankScore: 1.3082 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "patient-discharge",
+          document_id: "patient-discharge-doc",
+          title: "Patient Discharge Policy And Procedure",
+          file_name: "Patient Discharge Policy.pdf",
+          content: "Discharge requirements include clinical handover, referral and documented follow-up.",
+          hybrid_score: 0.2847,
+          lexical_score: 0.9,
+          score_explanation: { rankScore: 0.9318 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+        source({
+          id: "falls-distractor",
+          document_id: "falls-doc",
+          title: "Falls Prevention And Management",
+          file_name: "Falls Prevention.pdf",
+          content: "Rehabilitation discharge planning and progress notes are documented after medical review.",
+          hybrid_score: 0.2361,
+          lexical_score: 0.82,
+          score_explanation: { rankScore: 0.6534 } as NonNullable<SearchResult["score_explanation"]>,
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: comparison coverage"),
+    );
+  }
+
+  function currentLiveAdmissionDischargeRankShape() {
+    return [
+      source({
+        id: "live-discharge-planning",
+        document_id: "live-discharge-planning-doc",
+        title: "Discharge Planning For Community Patients(NMHS)",
+        file_name: "Discharge Planning for Community Patients (NMHS).pdf",
+        content: [
+          "The consumer must be consulted about information sharing before transition planning.",
+          "5. Discharge Planning",
+          "Discharge planning must be integral in the following stages of a consumer’s transition through a",
+          "community service:",
+        ].join("\n"),
+      }),
+      source({
+        id: "live-discharge-cover",
+        document_id: "live-discharge-planning-doc",
+        title: "Discharge Planning For Community Patients(NMHS)",
+        file_name: "Discharge Planning for Community Patients (NMHS).pdf",
+        content: "Procedure cover page and document-control metadata.",
+      }),
+      source({
+        id: "live-combined-policy",
+        document_id: "live-combined-policy-doc",
+        title:
+          "Referral, Admission And Discharge - Mental Health Hospital In The Home(MHHITH) Policy And Procedure(RKPG)",
+        file_name:
+          "Referral, Admission and Discharge - Mental Health Hospital in the Home (MHHITH) Policy and Procedure (RKPG).pdf",
+        content: "Referral procedure, consultant acceptance and patient-flow allocation.",
+      }),
+      source({
+        id: "live-patient-discharge",
+        document_id: "live-patient-discharge-doc",
+        title: "Patient Discharge Policy And Procedure(RKPG)",
+        file_name: "Patient Discharge Policy and Procedure (RKPG).pdf",
+        content: "Discharge requires a transfer-of-care summary and documented seven-day follow-up planning.",
+      }),
+      source({
+        id: "live-falls-distractor",
+        document_id: "live-falls-distractor-doc",
+        title: "Falls Prevention And Management(AKG)",
+        file_name: "Falls Prevention and Management (AKG).pdf",
+        content: "Community rehabilitation can facilitate early supported discharge after falls care.",
+      }),
+      source({
+        id: "live-follow-up-distractor",
+        document_id: "live-follow-up-distractor-doc",
+        title: "Discharge Follow - Up For Inpatients(FSH)",
+        file_name: "Discharge Follow-Up for Inpatients (FSH).pdf",
+        content: "Staff document post-discharge follow-up contacts in the clinical record.",
+      }),
+      source({
+        id: "live-admission-bed-flow",
+        document_id: "live-admission-community-doc",
+        title: "Admission Of Community Patients(AKG)",
+        file_name: "Admission of Community Patients (AKG).pdf",
+        content: "2.2 Admissions Accompanied by Police. Property and personal effects may be damaged during transfer.",
+      }),
+      source({
+        id: "live-admission-clearance",
+        document_id: "live-admission-community-doc",
+        title: "Admission Of Community Patients(AKG)",
+        file_name: "Admission of Community Patients (AKG).pdf",
+        content: [
+          "Where there are indications of",
+          "intoxication or physical health",
+          "issues, the referring clinician will",
+          "provide a medical clearance or if the",
+          "consumer is referred from the community team, they are to attend the emergency department to obtain medical clearance.",
+          "The bed flow coordinator will arrange the prioritisation of beds.",
+        ].join("\n"),
+      }),
+    ];
+  }
+
+  it("retains the live-shape route and both documents before comparison citation compaction", async () => {
+    const answer = await answerWithLiveAdmissionDischargeComparisonShape();
+
+    expect(answer.routingReason).toContain("comparison_source_extractive_fallback");
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.sources.some((item) => item.file_name === "MHSP.AdmissionCommunityPts.pdf")).toBe(true);
+    expect(answer.sources.some((item) => item.file_name === "MHSP.Discharge.pdf")).toBe(true);
+  });
+
+  it("retains the admission and discharge citations when the live comparison shape falls through generation", async () => {
+    const answer = await answerWithLiveAdmissionDischargeComparisonShape();
+
+    expect(answer.answer).toContain("medical clearance");
+    expect(answer.answer).toContain("Discharge planning must be integral");
+    expect(answer.answer).not.toContain("2.2 Admissions Accompanied by Police");
+    expect(answer.answer).not.toContain(":.");
+    expect(answer.answerSections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          heading: "Admission evidence",
+          citation_chunk_ids: ["admission-community"],
+        }),
+        expect.objectContaining({
+          heading: "Discharge evidence",
+          citation_chunk_ids: ["discharge-community"],
+        }),
+      ]),
+    );
+    expect(answer.citations.map((item) => item.file_name)).toEqual(
+      expect.arrayContaining(["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"]),
+    );
+  });
+
+  it("recovers the late-ranked admission source after a generated comparison fails final claim support", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      currentLiveAdmissionDischargeRankShape(),
+      {
+        answer:
+          "Admission requires a signed consultant order before transfer, while discharge requires a seven-day medicine supply before release.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: "live-admission-clearance" }, { chunk_id: "live-discharge-planning" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.routingReason).toContain("validated_admission_discharge_extractive_first");
+    expect(answer.routingReason).toContain("comparison_source_extractive_fallback");
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+    expect(answer.openAIRequestIds ?? []).toEqual([]);
+    expect(answer.latencyTimings?.generation_latency_ms).toBe(0);
+    expect(answer.responseMode).toBe("checklist");
+    expect(answer.smartApiPlan).toMatchObject({
+      intent: "compare_sources",
+      responseMode: "multi_document_synthesis",
+      displayMode: "checklist",
+      answerPlan: {
+        intent: "clinical_synthesis",
+        routeMode: "extractive",
+        modelStrategy: "extractive_lookup",
+        fallbackBehavior: "extractive_lookup_only",
+        sourcePolicy: "required_citations",
+      },
+    });
+    expect(answer.smartApiPlan?.answerPlan.qualityCriteria).not.toContain("do_not_generate_clinical_advice");
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([
+      "live-admission-clearance",
+      "live-discharge-planning",
+    ]);
+    expect(answer.sources.slice(0, 2).map((result) => result.id)).toEqual([
+      "live-admission-clearance",
+      "live-discharge-planning",
+    ]);
+    expect(answer.sources.slice(2).map((result) => result.id)).toEqual(
+      expect.arrayContaining([
+        "live-combined-policy",
+        "live-follow-up-distractor",
+        "live-discharge-cover",
+        "live-patient-discharge",
+        "live-admission-bed-flow",
+        "live-falls-distractor",
+      ]),
+    );
+  });
+
+  it("keeps non-requirement admission and discharge comparisons on the generic extractive path", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge medication reconciliation",
+      [
+        source({
+          id: "medication-reconciliation",
+          document_id: "medication-reconciliation-doc",
+          title: "Medication Reconciliation At Care Transitions",
+          content:
+            "Staff document admission and discharge medication reconciliation, including medicine histories and transfer changes.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.responseMode).not.toBe("evidence_gap");
+    expect(answer.answer).toContain("admission and discharge medication reconciliation");
+    expect(answer.answerSections).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ heading: "Admission evidence" }),
+        expect.objectContaining({ heading: "Discharge evidence" }),
+      ]),
+    );
+  });
+
+  const sourceBoundAdmissionDischargeScopeTrap = () => [
+    source({
+      id: "scope-trap-admission",
+      document_id: "scope-trap-admission-doc",
+      title: "Admission Of Community Patients",
+      content: "The referring clinician must provide medical clearance before transfer.",
+      table_facts: [
+        {
+          id: "scope-trap-admission-fact",
+          document_id: "scope-trap-admission-doc",
+          source_chunk_id: "scope-trap-admission",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "Admission requirements",
+          row_label: "Medical clearance",
+          clinical_parameter: "Medical clearance",
+          threshold_value: "Required before transfer",
+          action: "Provide medical clearance.",
+        },
+      ],
+    }),
+    source({
+      id: "scope-trap-discharge",
+      document_id: "scope-trap-discharge-doc",
+      title: "Discharge Planning For Community Patients",
+      content: "Discharge planning must include documented ongoing care arrangements.",
+      table_facts: [
+        {
+          id: "scope-trap-discharge-fact",
+          document_id: "scope-trap-discharge-doc",
+          source_chunk_id: "scope-trap-discharge",
+          source_image_id: null,
+          page_number: 1,
+          table_title: "Discharge requirements",
+          row_label: "Medical clearance",
+          clinical_parameter: "Medical clearance",
+          threshold_value: "Required before discharge",
+          action: "Complete medical clearance and care planning.",
+        },
+      ],
+    }),
+  ];
+
+  it.each([
+    "Compare admission and discharge requirements for medication reconciliation",
+    "Compare admission and discharge requirements that do not involve medical clearance or care planning",
+  ])("does not promote the source-bound comparison after provider failure for: %s", async (query) => {
+    const answer = await answerFromTextSources(
+      query,
+      sourceBoundAdmissionDischargeScopeTrap(),
+      new Error("mock provider unavailable"),
+    );
+
+    const delivered =
+      `${answer.answer} ${(answer.answerSections ?? []).map((section) => section.body).join(" ")}`.replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.routingReason).toContain("structured_comparison_matrix");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.routingReason).not.toContain("validated_admission_discharge_extractive_first");
+    expect(answer.routingReason).not.toContain("comparison_source_extractive_fallback");
+    expect(delivered).not.toMatch(/medical clearance|ongoing care arrangements/i);
+  });
+
+  it.each([
+    "Compare admission and discharge requirements for medication reconciliation",
+    "Compare admission and discharge requirements that do not involve medical clearance or care planning",
+  ])("does not promote the source-bound comparison in source-only mode for: %s", async (query) => {
+    const answer = await answerFromTextSources(query, sourceBoundAdmissionDischargeScopeTrap(), undefined, {
+      sourceOnly: true,
+    });
+
+    const delivered =
+      `${answer.answer} ${(answer.answerSections ?? []).map((section) => section.body).join(" ")}`.replace(/\*\*/g, "");
+    expect(answer.routingReason).toContain("source_only_offline_mode");
+    expect(answer.routingReason).not.toContain("comparison_source_extractive_fallback");
+    expect(answer.grounded).toBe(false);
+    expect(answer.confidence).toBe("unsupported");
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.routingReason).not.toContain("validated_admission_discharge_extractive_first");
+    expect(answer.latencyTimings?.generation_latency_ms).toBe(0);
+    expect(answer.openAIRequestIds ?? []).toEqual([]);
+    expect(delivered).not.toMatch(/medical clearance|ongoing care arrangements/i);
+  });
+
+  it("does not force unrelated admission or discharge mentions into a comparison", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "bed-capacity",
+          document_id: "bed-capacity-doc",
+          title: "High Observation Bed Capacity",
+          content: "Escorted admissions may require a high-observation bed.",
+        }),
+        source({
+          id: "falls-discharge",
+          document_id: "falls-doc",
+          title: "Falls Prevention And Management",
+          content: "Rehabilitation discharge planning follows medical review.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("returns an evidence gap when one requested comparison side lacks a source-bound claim", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "admission-title-only",
+          document_id: "admission-doc",
+          title: "Admission Of Community Patients",
+          content: "General service overview and contact information.",
+        }),
+        source({
+          id: "discharge-supported",
+          document_id: "discharge-doc",
+          title: "Discharge Planning For Community Patients",
+          content: "Staff document the discharge plan and ongoing care arrangements.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("does not let one dual-title policy fill the missing admission side of the live paraphrase", async () => {
+    const answer = await answerFromTextSources(
+      "Combine community admission steps with discharge documentation requirements.",
+      [
+        source({
+          id: "dual-title-community-policy",
+          document_id: "dual-title-community-policy-doc",
+          title: "Admission To Discharge For Community Mental Health(NMHS)",
+          file_name: "Admission to Discharge for Community Mental Health (NMHS).pdf",
+          content:
+            "The policy describes admission and discharge requirements for community mental health services, including standardised clinical documentation.",
+        }),
+        source({
+          id: "paraphrase-discharge-supported",
+          document_id: "paraphrase-discharge-doc",
+          title: "Discharge Planning For Community Patients(NMHS)",
+          file_name: "Discharge Planning for Community Patients (NMHS).pdf",
+          content: "Staff must document the discharge plan and ongoing care arrangements.",
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: comparison coverage"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("binds the live paraphrase to an admission-only fact and a distinct discharge source", async () => {
+    const answer = await answerFromTextSources(
+      "Combine community admission steps with discharge documentation requirements.",
+      [
+        source({
+          id: "live-mhhith-admission-criteria",
+          document_id: "live-mhhith-policy-doc",
+          title: "Referral, Admission And Discharge - Mental Health Hospital In The Home(MHHITH)",
+          file_name:
+            "Referral, Admission and Discharge - Mental Health Hospital in the Home (MHHITH) Policy and Procedure (RKPG).pdf",
+          content: [
+            "Inclusion and exclusion criteria",
+            "A patient will only be able to come to the service if they meet the identified inclusion criteria",
+            "for admission to MHHiTH. See Appendix B.",
+          ].join("\n"),
+        }),
+        source({
+          id: "live-community-discharge-aim",
+          document_id: "live-community-discharge-doc",
+          title: "Discharge Planning For Community Patients(NMHS)",
+          file_name: "Discharge Planning for Community Patients (NMHS).pdf",
+          content: [
+            "1. Aim",
+            "All North Metropolitan Health Service Mental Health (NMHS MH) clinicians will actively plan the",
+            "effective and timely discharge of consumers as per the Department of Health (DoH) Triage to",
+            "Discharge Mental Health Framework for State-wide Standardised Clinical Documentation, and",
+            "legislative requirements of the Mental Health Act (MHA) 2014.",
+          ].join("\n"),
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: comparison coverage"),
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.routingReason).toContain("comparison_source_extractive_fallback");
+    expect(answer.routingReason).not.toContain("final_quality_gate");
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+    expect(answer.answer).toContain("inclusion criteria for admission to MHHiTH");
+    expect(answer.answer).toContain("actively plan the effective and timely discharge");
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([
+      "live-mhhith-admission-criteria",
+      "live-community-discharge-aim",
+    ]);
+    expect(answer.answerSections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          heading: "Admission evidence",
+          citation_chunk_ids: ["live-mhhith-admission-criteria"],
+        }),
+        expect.objectContaining({
+          heading: "Discharge evidence",
+          citation_chunk_ids: ["live-community-discharge-aim"],
+        }),
+      ]),
+    );
+    expect(answer.supportedClaims).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          supportStatus: "direct",
+          supportingChunkIds: ["live-community-discharge-aim"],
+        }),
+      ]),
+    );
+  });
+
+  it("never uses one dual-title document for both admission and discharge facts", async () => {
+    const answer = await answerFromTextSources(
+      "Combine community admission steps with discharge documentation requirements.",
+      [
+        source({
+          id: "dual-title-both-facts",
+          document_id: "dual-title-both-facts-doc",
+          title: "Admission To Discharge For Community Mental Health(NMHS)",
+          file_name: "Admission to Discharge for Community Mental Health (NMHS).pdf",
+          content: [
+            "A patient will only be able to come to the service if they meet the identified inclusion criteria for admission.",
+            "Clinicians will actively plan the effective and timely discharge of consumers.",
+          ].join("\n"),
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: comparison coverage"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+  });
+
+  it("does not erase a clinical condition after an as-per clause", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "conditional-admission",
+          document_id: "conditional-admission-doc",
+          title: "Admission Of Community Patients",
+          content: "The referring clinician must provide medical clearance before transfer.",
+        }),
+        source({
+          id: "conditional-discharge",
+          document_id: "conditional-discharge-doc",
+          title: "Discharge Planning For Community Patients",
+          content:
+            "Clinicians will actively plan the effective and timely discharge as per the policy only after receiving consultant approval under the Mental Health Act (MHA) 2014.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answer).not.toContain("Clinicians will actively plan the effective and timely discharge.");
+  });
+
+  it("does not treat patient-address records as admission or discharge requirements", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "admission-addresses",
+          document_id: "admission-addresses-doc",
+          title: "Admission records",
+          content: "Admission records include patient addresses.",
+        }),
+        source({
+          id: "discharge-addresses",
+          document_id: "discharge-addresses-doc",
+          title: "Discharge records",
+          content: "Discharge records include patient addresses.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("does not join operational medical-clearance metrics to a following admission heading", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "admission-separated-markers",
+          document_id: "admission-separated-markers-doc",
+          title: "Admission Of Community Patients",
+          content: "Staff provide a medical clearance report monthly.\n2.2 Admissions Escorted by Police",
+        }),
+        source({
+          id: "admission-clearance-training",
+          document_id: "admission-clearance-training-doc",
+          title: "Admission Training Records",
+          content: "The education unit will provide medical clearance training annually.",
+        }),
+        source({
+          id: "admission-clearance-information",
+          document_id: "admission-clearance-information-doc",
+          title: "Admission Information Records",
+          content: "Staff provide medical clearance information and forms to referrers.",
+        }),
+        source({
+          id: "admission-bed-reporting",
+          document_id: "admission-bed-reporting-doc",
+          title: "Admission Bed Reporting",
+          content: "Staff arrange the prioritisation of beds reports monthly.",
+        }),
+        source({
+          id: "admission-bed-fragment",
+          document_id: "admission-bed-fragment-doc",
+          title: "Admission Bed Fragment",
+          content: "Patient Flow Coordinator Mental Health to locate a bed at an alternative health service.",
+        }),
+        source({
+          id: "admission-clearance-audit",
+          document_id: "admission-clearance-audit-doc",
+          title: "Admission Governance Audit",
+          content: "The governance team will provide medical clearance for annual audit of patient records.",
+        }),
+        source({
+          id: "admission-clearance-training-records",
+          document_id: "admission-clearance-training-records-doc",
+          title: "Admission Training Records",
+          content: "Staff provide medical clearance for clinician training records.",
+        }),
+        source({
+          id: "discharge-requirement",
+          document_id: "discharge-requirement-doc",
+          title: "Discharge Planning For Community Patients",
+          content: "Discharge planning must include documented ongoing care arrangements.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("keeps a following numbered admission heading out of a preceding bed directive", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "admission-bed-directive",
+          document_id: "admission-bed-directive-doc",
+          title: "Admission Of Community Patients",
+          content: [
+            "When a bed is not available, the referring mental health clinician is to liaise with the EMHS",
+            "Patient Flow Coordinator Mental Health to locate a bed at an alternative health service, as per:",
+            "EMHS Mental Health Patient Flow and Bed Capacity Framework (Summary Sheet)",
+            "2.2 Admissions Accompanied by Police",
+          ].join("\n"),
+        }),
+        source({
+          id: "discharge-bed-directive",
+          document_id: "discharge-bed-directive-doc",
+          title: "Discharge Planning For Community Patients",
+          content: "Discharge planning must include documented ongoing care arrangements.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer).toContain("locate a bed at an alternative health service");
+    expect(answer.answer).not.toContain("2.2 Admissions Accompanied by Police");
+    expect(answer.answer).not.toContain("as per:.");
+    expect(answer.citations.map((item) => item.chunk_id)).toEqual(
+      expect.arrayContaining(["admission-bed-directive", "discharge-bed-directive"]),
+    );
+  });
+
+  it("accepts ordinary clinical continuations after a medical-clearance requirement", async () => {
+    const admissionRequirements = [
+      "Clinicians provide medical clearance for admission.",
+      "Clinicians obtain medical clearance via the emergency department.",
+      "Clinicians provide medical clearance and arrange transfer.",
+      "Clinicians obtain medical clearance after physical assessment.",
+      "Clinicians provide medical clearance by the treating doctor.",
+    ];
+
+    for (const [index, content] of admissionRequirements.entries()) {
+      const admissionChunkId = `admission-clinical-continuation-${index}`;
+      vi.resetModules();
+      const answer = await answerFromTextSources(
+        "Compare admission and discharge requirements",
+        [
+          source({
+            id: admissionChunkId,
+            document_id: `admission-clinical-continuation-doc-${index}`,
+            title: "Admission Of Community Patients",
+            content,
+          }),
+          source({
+            id: `discharge-clinical-continuation-${index}`,
+            document_id: `discharge-clinical-continuation-doc-${index}`,
+            title: "Discharge Planning For Community Patients",
+            content: "Discharge planning must include documented ongoing care arrangements.",
+          }),
+        ],
+        new Error("mock provider unavailable"),
+      );
+
+      expect(answer.grounded).toBe(true);
+      expect(answer.answerSections).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ heading: "Admission evidence", citation_chunk_ids: [admissionChunkId] }),
+        ]),
+      );
+    }
+  });
+
+  it("accepts qualified clinical actors before an explicit locate-bed directive", async () => {
+    const admissionRequirements = [
+      "Patient Flow Coordinator Mental Health must locate a bed at an alternative health service.",
+      "The patient flow coordinator for mental health is required to locate a bed at an alternative health service.",
+      "The duty clinician on call must locate a bed within the service.",
+      "When a bed is not available, the referring clinician is to liaise with the patient flow coordinator to locate a bed at an alternative health service.",
+    ];
+
+    for (const [index, content] of admissionRequirements.entries()) {
+      const admissionChunkId = `admission-qualified-actor-${index}`;
+      vi.resetModules();
+      const answer = await answerFromTextSources(
+        "Compare admission and discharge requirements",
+        [
+          source({
+            id: admissionChunkId,
+            document_id: `admission-qualified-actor-doc-${index}`,
+            title: "Admission Of Community Patients",
+            content,
+          }),
+          source({
+            id: `discharge-qualified-actor-${index}`,
+            document_id: `discharge-qualified-actor-doc-${index}`,
+            title: "Discharge Planning For Community Patients",
+            content: "Discharge planning must include documented ongoing care arrangements.",
+          }),
+        ],
+        new Error("mock provider unavailable"),
+      );
+
+      expect(answer.grounded).toBe(true);
+      expect(answer.answerSections).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ heading: "Admission evidence", citation_chunk_ids: [admissionChunkId] }),
+        ]),
+      );
+    }
+  });
+
+  it("does not promote uncertainty or reporting about bed location to a direct admission requirement", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "admission-uncertain-bed-location",
+          document_id: "admission-uncertain-bed-location-doc",
+          title: "Admission Review Notes",
+          content:
+            "The clinician is uncertain whether the coordinator will locate a bed at an alternative health service.",
+        }),
+        source({
+          id: "admission-reviewing-bed-location",
+          document_id: "admission-reviewing-bed-location-doc",
+          title: "Admission Review Notes",
+          content: "The clinician is reviewing whether staff should locate a bed within the service.",
+        }),
+        source({
+          id: "admission-reporting-bed-location",
+          document_id: "admission-reporting-bed-location-doc",
+          title: "Admission Reporting Notes",
+          content: "The coordinator is responsible for reporting whether the team will locate a bed for admission.",
+        }),
+        source({
+          id: "discharge-requirement-after-uncertainty",
+          document_id: "discharge-requirement-after-uncertainty-doc",
+          title: "Discharge Planning For Community Patients",
+          content: "Discharge planning must include documented ongoing care arrangements.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("does not treat discharge-planning reporting metrics as a discharge requirement", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "admission-clearance-directive",
+          document_id: "admission-clearance-directive-doc",
+          title: "Admission Of Community Patients",
+          content: "The referring clinician must provide medical clearance before transfer.",
+        }),
+        source({
+          id: "discharge-reporting-metric",
+          document_id: "discharge-reporting-metric-doc",
+          title: "Discharge Planning For Community Patients",
+          content: "Discharge planning reports must include monthly performance metrics.",
+        }),
+        source({
+          id: "discharge-documentation-archive",
+          document_id: "discharge-documentation-archive-doc",
+          title: "Discharge Planning Records",
+          content: "Discharge planning documentation must include the current version number.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("rejects audit, report, archive, training, and historical wrappers around comparison obligations", async () => {
+    const admissionWrapped = [
+      "Audit observations: clinicians provide medical clearance.",
+      "The annual report states that clinicians provide medical clearance.",
+      "Archive records require staff to provide medical clearance.",
+      "Training requirements: clinicians provide medical clearance.",
+      "Historical audit findings: clinicians provide medical clearance.",
+    ];
+    for (const [index, content] of admissionWrapped.entries()) {
+      vi.resetModules();
+      const answer = await answerFromTextSources(
+        "Compare admission and discharge requirements",
+        [
+          source({
+            id: `wrapped-admission-${index}`,
+            document_id: `wrapped-admission-document-${index}`,
+            title: "Admission of Community Patients",
+            content,
+          }),
+          source({
+            id: `valid-discharge-${index}`,
+            document_id: `valid-discharge-document-${index}`,
+            title: "Discharge Planning for Community Patients",
+            content: "Community staff document the discharge plan and ongoing care arrangements.",
+          }),
+        ],
+        new Error("mock provider unavailable"),
+      );
+
+      expect(answer.grounded, `${content}: ${answer.routingReason} :: ${answer.answer}`).toBe(false);
+      expect(answer.routingReason).toContain("comparison_evidence_gap");
+    }
+
+    const dischargeWrapped = [
+      "The annual audit must include the discharge plan and ongoing care arrangements.",
+      "The monthly report must include the discharge plan and ongoing care arrangements.",
+      "Archive records must include the discharge plan and ongoing care arrangements.",
+      "Training materials must include the discharge plan and ongoing care arrangements.",
+      "Historical reports must include the discharge plan and ongoing care arrangements.",
+    ];
+    for (const [index, content] of dischargeWrapped.entries()) {
+      vi.resetModules();
+      const answer = await answerFromTextSources(
+        "Compare admission and discharge requirements",
+        [
+          source({
+            id: `valid-admission-${index}`,
+            document_id: `valid-admission-document-${index}`,
+            title: "Admission of Community Patients",
+            content: "The referring clinician must provide medical clearance before transfer.",
+          }),
+          source({
+            id: `wrapped-discharge-${index}`,
+            document_id: `wrapped-discharge-document-${index}`,
+            title: "Discharge Planning for Community Patients",
+            content,
+          }),
+        ],
+        new Error("mock provider unavailable"),
+      );
+
+      expect(answer.grounded, `${content}: ${answer.routingReason} :: ${answer.answer}`).toBe(false);
+      expect(answer.routingReason).toContain("comparison_evidence_gap");
+    }
+  });
+
+  it("keeps a direct source-only comparison evidence gap ungrounded", async () => {
+    const answer = await answerFromTextSources(
+      "Compare admission and discharge requirements",
+      [
+        source({
+          id: "source-only-admission-audit",
+          document_id: "source-only-admission-audit-document",
+          title: "Admission of Community Patients",
+          content: "Audit observations: clinicians provide medical clearance.",
+        }),
+        source({
+          id: "source-only-discharge-report",
+          document_id: "source-only-discharge-report-document",
+          title: "Discharge Planning for Community Patients",
+          content: "The annual report must include the discharge plan and ongoing care arrangements.",
+        }),
+      ],
+      undefined,
+      { sourceOnly: true },
+    );
+
+    expect(answer.routingReason).toContain("source_only_offline_mode");
+    expect(answer.routingReason).toContain("comparison_evidence_gap");
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.citations).toEqual([]);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("keeps prescriber review bound to an olanzapine dosing-guidance answer", async () => {
+    const answer = await answerFromTextSources(
+      "What olanzapine dosing guidance applies?",
+      [
+        source({
+          id: "olanzapine-dose-review",
+          document_id: "olanzapine-dose-review-document",
+          title: "Olanzapine prescribing guidance",
+          file_name: "Olanzapine prescribing guidance.pdf",
+          section_heading: "Dosing",
+          content:
+            "Dosing frequencies outside the recommended schedule require prescriber review before olanzapine is administered.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.answer.replace(/\*\*/g, "")).toContain(
+      "Dosing frequencies outside the recommended schedule require prescriber review before olanzapine is administered.",
+    );
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["olanzapine-dose-review"]);
+  });
+
+  it("keeps a genuine scheduled review classified as monitoring", async () => {
+    const answer = await answerFromTextSources(
+      "How often should olanzapine levels be monitored?",
+      [
+        source({
+          id: "olanzapine-monitoring-review",
+          document_id: "olanzapine-monitoring-review-document",
+          title: "Olanzapine monitoring guidance",
+          file_name: "Olanzapine monitoring guidance.pdf",
+          section_heading: "Monitoring",
+          content: "Olanzapine plasma levels should be reviewed weekly during dose adjustment.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain(
+      "Olanzapine plasma levels should be reviewed weekly during dose adjustment.",
+    );
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["olanzapine-monitoring-review"]);
+  });
+
+  it("does not turn scheduled monitoring review into dose guidance when dose prose is also present", async () => {
+    const answer = await answerFromTextSources(
+      "What olanzapine dosing guidance applies?",
+      [
+        source({
+          id: "olanzapine-dose-with-monitoring-review",
+          document_id: "olanzapine-dose-with-monitoring-review-document",
+          title: "Olanzapine prescribing guidance",
+          file_name: "Olanzapine prescribing guidance.pdf",
+          section_heading: "Dosing and monitoring",
+          content:
+            "Olanzapine plasma levels should be reviewed weekly during dose adjustment. Olanzapine dosing should follow the prescribed schedule.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    const delivered =
+      `${answer.answer} ${(answer.answerSections ?? []).map((section) => section.body).join(" ")}`.replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    expect(delivered).toContain("Olanzapine dosing should follow the prescribed schedule.");
+    expect(delivered).not.toContain("plasma levels should be reviewed weekly");
+  });
+
+  it("does not turn retrospective committee-review prose into dose guidance", async () => {
+    const answer = await answerFromTextSources(
+      "What olanzapine dosing guidance applies?",
+      [
+        source({
+          id: "olanzapine-retrospective-review",
+          document_id: "olanzapine-retrospective-review-document",
+          title: "Olanzapine documentation audit",
+          file_name: "Olanzapine documentation audit.pdf",
+          section_heading: "Audit findings",
+          content: "A committee review found that olanzapine dosing documentation was incomplete.",
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+
+    const delivered = `${answer.answer} ${(answer.answerSections ?? []).map((section) => section.body).join(" ")}`;
+    expect(answer.routingReason).toContain("source_backed_review_fallback");
+    expect(answer.answerSections).toEqual([]);
+    expect(delivered).not.toContain("committee review");
+    expect(delivered).not.toContain("dosing documentation was incomplete");
+  });
+
+  it("short-circuits the validated typo-query agitation dosing case without table fragments or unrelated medication", async () => {
+    const answer = await answerFromTextSources(
+      "What agitaton and arousl dosing guidance applies to psychiatric inpatients?",
+      [
+        source({
+          id: "fsh-pregnancy-table-fragment",
+          document_id: "fsh-agitation-guideline",
+          title: "Medication For Agitation And Arousal In Inpatients(FSH)",
+          file_name: "Medication for Agitation and Arousal in Inpatients (FSH).pdf",
+          page_number: 14,
+          section_heading: "OFFICIAL",
+          content:
+            "OFFICIAL Agitation, arousal Mental Health inpatients: medication management Appendix 6: Acute agitation and arousal pharmacological management for PREGNANT mental health inpatients aged 16 YEARS and above ORAL INTRAMUSCULAR USE ORAL MEDICATION FIRST WHENEVER POSSIBLE STEP 1 STEP 2 STEP 3 STEP 4 MILD TO MODERATE AROUSAL MODERATE TO SEVERE AROUSAL Medication Recommended Total maximum oral respiratory function.",
+          similarity: 0.99,
+          hybrid_score: 0.99,
+          text_rank: 1.2,
+        }),
+        source({
+          id: "emhs-repeat-dose-guidance",
+          document_id: "emhs-agitation-guideline",
+          title: "Mental Health Pharmacological Management Of Agitation And Arousal Guideline(EMHS)",
+          file_name: "Mental Health Pharmacological Management of Agitation and Arousal Guideline (EMHS).pdf",
+          page_number: 5,
+          section_heading:
+            "Agitation and arousal scores must be documented on the WA Agitation and Arousal PRN Medication Chart",
+          content: [
+            "Agitation and arousal scores must be documented before each PRN dose and reviewed after administration.",
+            "Repeating doses.",
+            "Where additional doses are required, administer at the frequency indicated until a score of 1 or maximum daily dosage is achieved.",
+            "Oral doses may be repeated hourly.",
+            "IM doses may be repeated after 30 minutes except olanzapine IM and clonazepam IM.",
+            "• Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the",
+            "first dose if required. Total of 3 doses or 30mg maximum in 24 hours (10mg",
+            "maximum in 24 hours for older adults over 65 years) whichever occurs first.",
+            "• Dosing frequencies outside the recommended guidelines require Consultant",
+            "Psychiatrist approval.",
+          ].join("\n"),
+          similarity: 0.98,
+          hybrid_score: 0.98,
+          text_rank: 1.1,
+        }),
+        source({
+          id: "fsh-interleaved-dose-table",
+          document_id: "fsh-agitation-guideline",
+          title: "Medication For Agitation And Arousal In Inpatients(FSH)",
+          file_name: "Medication for Agitation and Arousal in Inpatients (FSH).pdf",
+          page_number: 11,
+          section_heading: "DOSES",
+          content:
+            "DOSES: MONITOR: Review IM doses after 30 and 60 min and record arousal rating. Medication Recommended Total maximum oral respiratory function every 10 minutes. Dosing frequencies outside of recommended time and/or dose maximum AND IM daily dose hourly until the patient is ambulatory. Quetiapine is the only licensed medication for older adolescents.",
+          similarity: 0.97,
+          hybrid_score: 0.97,
+          text_rank: 1,
+        }),
+        source({
+          id: "akg-repeat-dose-guidance",
+          document_id: "akg-agitation-guideline",
+          title: "Agitation And Arousal Pharmacological Management(AKG)",
+          file_name: "Agitation and Arousal Pharmacological Management (AKG).pdf",
+          page_number: 3,
+          content:
+            "Agitation and arousal scores must be documented before each PRN dose. Olanzapine IM may be repeated after 2 hours and a third dose 6 hours after the first dose if required.",
+          similarity: 0.96,
+          hybrid_score: 0.96,
+          text_rank: 0.9,
+        }),
+        source({
+          id: "zuclopenthixol-adjacent-guidance",
+          document_id: "zuclopenthixol-guideline",
+          title: "Zuclopenthixol(AKG)",
+          file_name: "Zuclopenthixol (AKG).pdf",
+          page_number: 3,
+          content:
+            "After short acting medication has been given to manage agitation and arousal, allow 60 minutes after IM administration before considering zuclopenthixol acetate. Withhold other PRN sedatives for 24 hours when zuclopenthixol acetate is administered.",
+          similarity: 0.95,
+          hybrid_score: 0.95,
+          text_rank: 0.8,
+        }),
+      ],
+      new Error("OpenAI request timed out after 20000ms"),
+    );
+    const deliveredText = `${answer.answer} ${(answer.answerSections ?? [])
+      .map((section) => section.body)
+      .join(" ")}`.replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.routingReason).toContain("validated_agitation_arousal_typo_dosing_extractive_first");
+    expect(answer.routingReason).not.toContain("generation_fallback");
+    expect(answer.openAIRequestIds ?? []).toEqual([]);
+    expect(answer.latencyTimings?.generation_latency_ms).toBe(0);
+    expect(answer.routingReason).not.toContain("source_backed_review_fallback");
+    expect(deliveredText).toMatch(/agitation/i);
+    expect(deliveredText).toMatch(/arousal/i);
+    expect(deliveredText).toMatch(
+      /olanzapine im may be repeated after 2 hours and a third dose 6 hours after the first dose if required — total of 3 doses or 30mg maximum in 24 hours \(10mg maximum in 24 hours for older adults over 65 years\) whichever occurs first/i,
+    );
+    expect(deliveredText).not.toMatch(/consultant psychiatrist|psychiatrist approval/i);
+    expect(deliveredText).not.toMatch(/\(10mg\.|require consultant\./i);
+    expect(deliveredText).not.toMatch(/agitaton|arousl/i);
+    expect(deliveredText).not.toMatch(/total maximum oral respiratory function/i);
+    expect(deliveredText).not.toMatch(/oral doses may be repeated hourly|im doses may be repeated after 30 minutes/i);
+    expect(deliveredText).not.toMatch(/zuclopenthixol|clopixol/i);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["emhs-repeat-dose-guidance"]);
+    expect(answer.sources.map((result) => result.id)).toEqual(["emhs-repeat-dose-guidance"]);
+    const quoteText = (answer.quoteCards ?? []).map((quote) => quote.quote).join(" ");
+    expect(quoteText).not.toMatch(/oral doses may be repeated hourly|im doses may be repeated after 30 minutes/i);
+    expect(quoteText).not.toMatch(/zuclopenthixol|clopixol/i);
+  });
+
+  it("recovers a provider-failed escalation query from the nonnumeric rule in the conflicted source", async () => {
+    const answer = await answerFromTextSources(
+      "When should neuroleptic side effects be escalated?",
+      [
+        source({
+          id: "zuclopenthixol-contraindications",
+          document_id: "zuclopenthixol-document",
+          title: "Zuclopenthixol (AKG)",
+          file_name: "Zuclopenthixol (AKG).pdf",
+          section_heading: "Armadale Kalamunda Group",
+          content:
+            "Contraindications and precautions include agranulocytosis, blood dyscrasias, VTE risk, and a history of neuroleptic malignant syndrome. VTE risk should be assessed by the prescriber and documented.",
+          similarity: 0.99,
+          hybrid_score: 0.99,
+          text_rank: 1.2,
+        }),
+        source({
+          id: "lunsers-distress-rule",
+          document_id: "lunsers-document",
+          title: "Neuroleptic Side Effects (AKG)",
+          file_name: "Neuroleptic Side Effects (AKG).pdf",
+          section_heading: null,
+          content: [
+            "increased, or side",
+            "effects noted within the three-month period, LUNSERS is to be repeated within 28 days of",
+            "the change. Scores which fall into the medium (41-89), High (81-100) Very High (>101)",
+            "ranges are to be escalated to the treating doctor. The treating doctor will document a plan",
+            "within the health care record for management",
+            "• Side effects are noted as causing distress to the patient, the LUNSERS should be repeated",
+            "3-monthly. Any side effect which is causing distress irrespective of score should be escalated",
+            "to the treating doctor and reviewed.",
+          ].join("\n"),
+          similarity: 0.97,
+          hybrid_score: 0.97,
+          text_rank: 1.1,
+        }),
+        source({
+          id: "lunsers-score-independent-action",
+          document_id: "lunsers-document",
+          title: "Neuroleptic Side Effects (AKG)",
+          file_name: "Neuroleptic Side Effects (AKG).pdf",
+          section_heading: null,
+          content:
+            "The LUNSERS tool measures the side effects of neuroleptic medication. Scoring of the completed LUNSERS can ascertain severity of symptoms, however scoring is not essential for actions to be taken. Scores which fall into the medium (41-89), high (81-100), and very high (>101) ranges are to be escalated.",
+          similarity: 0.96,
+          hybrid_score: 0.96,
+          text_rank: 1,
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: labelled numeric band conflict"),
+    );
+    const deliveredText =
+      `${answer.answer} ${(answer.answerSections ?? []).map((section) => section.body).join(" ")}`.replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.routingReason).toContain("generation_fallback:generation_quality_failed");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(deliveredText).toMatch(
+      /any side effect which is causing distress irrespective of score should be escalated to the treating doctor and reviewed/i,
+    );
+    expect(deliveredText).not.toMatch(/\b(?:41|81|100|101)\b/);
+    expect(deliveredText).not.toMatch(/zuclopenthixol|malignant syndrome|agranulocytosis|vte/i);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["lunsers-distress-rule"]);
+    expect(answer.sources.map((result) => result.id)).toEqual(["lunsers-distress-rule"]);
+    expect(
+      new Set([
+        ...(answer.supportedClaims ?? []).flatMap((claim) => claim.supportingChunkIds),
+        ...(answer.quoteCards ?? []).map((quote) => quote.chunk_id),
+      ]),
+    ).toEqual(new Set(answer.citations.map((citation) => citation.chunk_id)));
+    expect(answer.conflictsOrGaps).toEqual(expect.arrayContaining([expect.objectContaining({ type: "conflict" })]));
+  });
+
+  it("fails closed when provider failure leaves a LUNSERS score band split across adjacent chunks", async () => {
+    const answer = await answerFromTextSources(
+      "What is the high LUNSERS score range for neuroleptic side-effect monitoring?",
+      [
+        source({
+          id: "lunsers-medium-band",
+          document_id: "lunsers-document",
+          title: "Neuroleptic Side Effects (AKG)",
+          file_name: "Neuroleptic Side Effects (AKG).pdf",
+          page_number: 7,
+          chunk_index: 10,
+          section_heading: "LUNSERS",
+          section_path: ["Outcome measures", "LUNSERS"],
+          content: "LUNSERS score bands are medium (41-89),",
+          similarity: 0.98,
+          hybrid_score: 0.98,
+          text_rank: 1.2,
+        }),
+        source({
+          id: "lunsers-high-and-very-high-bands",
+          document_id: "lunsers-document",
+          title: "Neuroleptic Side Effects (AKG)",
+          file_name: "Neuroleptic Side Effects (AKG).pdf",
+          page_number: 7,
+          chunk_index: 11,
+          section_heading: "LUNSERS",
+          section_path: ["Outcome measures", "LUNSERS"],
+          content: "high (81-100), and very high (>101).",
+          similarity: 0.97,
+          hybrid_score: 0.97,
+          text_rank: 1.1,
+        }),
+      ],
+      new Error("mock provider unavailable"),
+    );
+    const deliveredText = `${answer.answer} ${(answer.answerSections ?? [])
+      .map((section) => section.body)
+      .join(" ")}`.replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).not.toContain("source_backed_extractive_fallback");
+    expect(deliveredText).not.toMatch(/\b(?:41|89|81|100|101)\b/);
+    expect(answer.answerSections).toEqual([]);
+  });
+
+  it("fails closed when a provider-failed escalation query has only topical contraindication prose", async () => {
+    const answer = await answerFromTextSources(
+      "When should neuroleptic side effects be escalated?",
+      [
+        source({
+          id: "zuclopenthixol-only",
+          document_id: "zuclopenthixol-only-document",
+          title: "Zuclopenthixol (AKG)",
+          file_name: "Zuclopenthixol (AKG).pdf",
+          section_heading: "Armadale Kalamunda Group",
+          content:
+            "Contraindications and precautions include agranulocytosis, blood dyscrasias, VTE risk, and a history of neuroleptic malignant syndrome. VTE risk should be assessed by the prescriber and documented.",
+        }),
+      ],
+      new Error("OpenAI generation quality gate failed: escalation coverage"),
+    );
+
+    expect(answer.grounded).toBe(false);
+    expect(answer.responseMode).toBe("evidence_gap");
+    expect(answer.routingReason).not.toContain("source_backed_extractive_fallback");
+    expect(answer.answer).not.toMatch(/agranulocytosis|malignant syndrome|vte/i);
+  });
+
+  it("prioritizes late answer and section citations over ranked overflow without admitting unknown sources", async () => {
+    const { compactExtractiveCitations } = await import("../src/lib/rag/rag-extractive-answer");
+    const results = Array.from({ length: 7 }, (_, index) =>
+      source({
+        id: `candidate-${index + 1}`,
+        document_id: `document-${index + 1}`,
+        title: `Candidate ${index + 1}`,
+        file_name: `Candidate ${index + 1}.pdf`,
+      }),
+    );
+    const lateAnswerSupport = results.at(-1)!;
+    const sectionSupport = results.at(-2)!;
+    const answerSections = [
+      {
+        heading: "Late answer support",
+        body: "The delivered answer is supported by the late source.",
+        citation_chunk_ids: [sectionSupport.id],
+      },
+    ];
+    const rankedCitations = results.slice(0, 6).map((result) => citationFromResult(result, "deterministic_support"));
+    const citations = [
+      ...rankedCitations,
+      citationFromResult(lateAnswerSupport, "deterministic_support"),
+      citationFromResult(source({ id: "not-a-result" }), "deterministic_support"),
+    ];
+
+    const compacted = compactExtractiveCitations({
+      results,
+      citations,
+      rankedCitations,
+      citationChunkIds: ["not-a-result", lateAnswerSupport.id, lateAnswerSupport.id],
+      answerSections,
+    });
+    const finalCitationIds = new Set(compacted.map((citation) => citation.chunk_id));
+
+    expect(compacted.map((citation) => citation.chunk_id)).toEqual([
+      "candidate-6",
+      "candidate-7",
+      "candidate-1",
+      "candidate-2",
+      "candidate-3",
+    ]);
+    expect(
+      answerSections.flatMap((section) => section.citation_chunk_ids).every((id) => finalCitationIds.has(id)),
+    ).toBe(true);
+    expect(compacted.every((citation) => results.some((result) => result.id === citation.chunk_id))).toBe(true);
+  });
+
+  it("preserves consecutive comparison support chunks before ranked overflow", async () => {
+    const { compactExtractiveCitations } = await import("../src/lib/rag/rag-extractive-answer");
+    const results = [
+      source({ id: "doc-a-1", document_id: "doc-a" }),
+      source({ id: "doc-a-2", document_id: "doc-a" }),
+      source({ id: "doc-b-1", document_id: "doc-b" }),
+      source({ id: "ranked-c", document_id: "doc-c" }),
+      source({ id: "ranked-d", document_id: "doc-d" }),
+      source({ id: "ranked-e", document_id: "doc-e" }),
+    ];
+    const citations = results.map((result) => citationFromResult(result, "deterministic_support"));
+    const rankedCitations = results.slice(3).map((result) => citationFromResult(result, "deterministic_support"));
+
+    const compacted = compactExtractiveCitations({
+      results,
+      citations,
+      rankedCitations,
+      citationChunkIds: [],
+      answerSections: [
+        {
+          heading: "Comparison",
+          body: "Two consecutive claims from document A are followed by one claim from document B.",
+          citation_chunk_ids: ["doc-a-1", "doc-a-2", "doc-b-1"],
+        },
+      ],
+    });
+
+    expect(compacted.map((citation) => citation.chunk_id)).toEqual([
+      "doc-a-1",
+      "doc-a-2",
+      "doc-b-1",
+      "ranked-c",
+      "ranked-d",
+    ]);
+  });
+
   it("keeps table-threshold questions on fact synthesis instead of source lookup", async () => {
     const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
       source({
@@ -273,6 +1709,52 @@ describe("RAG structured-output fallback", () => {
     // Strip bold markers first: values-only bolding emphasises escalation verbs ("**withhold**").
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/withhold clozapine/i);
     expect(answer.answer).not.toContain("The relevant source is");
+  });
+
+  it("preserves the final governance marker when direct extraction becomes a review fallback", async () => {
+    const answer = await answerFromTextSources("What ANC threshold does the clozapine table show?", [
+      source({
+        id: "outdated-clozapine-threshold-chunk",
+        document_id: "outdated-clozapine-doc",
+        title: "Clozapine Monitoring",
+        file_name: "Clozapine Monitoring.pdf",
+        page_number: 4,
+        section_heading: "ANC thresholds",
+        content: "Clozapine ANC threshold table: below 1.5 x 10^9/L, withhold clozapine and repeat FBC.",
+        source_metadata: {
+          source_title: "Clozapine Monitoring",
+          publisher: "Local service",
+          jurisdiction: "Australia/WA",
+          version: "1",
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "outdated",
+          clinical_validation_status: "approved",
+          extraction_quality: "good",
+        },
+        table_facts: [
+          {
+            id: "outdated-fact-anc-threshold",
+            document_id: "outdated-clozapine-doc",
+            source_chunk_id: "outdated-clozapine-threshold-chunk",
+            source_image_id: null,
+            page_number: 4,
+            table_title: "Clozapine ANC thresholds",
+            row_label: "ANC below 1.5",
+            clinical_parameter: "ANC",
+            threshold_value: "below 1.5 x 10^9/L",
+            action: "Withhold clozapine and repeat FBC.",
+          },
+        ],
+      }),
+    ]);
+
+    expect(answer.routingReason).toContain("material_source_governance_gap");
+    expect(answer.routingReason).toContain("source_backed_review_fallback");
+    expect(answer.routingReason).toContain("extractive_quality_gate:");
   });
 
   it("does not answer FBC withhold-threshold lookups from generic monitoring timing facts", async () => {
@@ -391,7 +1873,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what monitoring is required for clozapine",
@@ -402,10 +1884,12 @@ describe("RAG structured-output fallback", () => {
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
     const answerCalls = generateStructuredTextResult.mock.calls as unknown as Array<
-      [string, unknown, { timeoutMs?: number }]
+      [string, unknown, { timeoutMs?: number; instructions?: string }]
     >;
     const answerInput = answerCalls[0]?.[0] ?? "";
     expect(answerCalls[0]?.[2]).toMatchObject({ timeoutMs: 4321 });
+    expect(answerCalls[0]?.[2].instructions).toContain("Within one named scale and source");
+    expect(answerCalls[0]?.[2].instructions).toContain("cite the smallest sufficient directly supporting chunk set");
     expect(answerInput).toContain("answer_plan.intent: clinical_synthesis");
     expect(answerInput).toContain("answer_plan.route_mode: fast");
     expect(answerInput).toContain("answer_plan.model_strategy: fast_model_then_quality_gate");
@@ -421,7 +1905,8 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer.replace(/\*\*/g, "")).toMatch(/clozapine Monitoring Form/i);
     expect(answer.answer).not.toContain("- Medication point");
     expect(answer.answer).not.toMatch(/Medication point:.*Medication point:/);
-    expect(answer.answerSections?.[0]?.heading).toBe("Monitoring documents");
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.routingReason).toContain("claim_support_unsupported_sections_withheld");
   });
 
   it("preserves grounded source-backed answers when only the overlap heuristic is recoverable", async () => {
@@ -754,7 +2239,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what monitoring is required for clozapine",
@@ -883,10 +2368,10 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
-      query: "what is bulimia nervosa",
+      query: "what is bulimia nervosa in adults",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,
@@ -1045,7 +2530,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Compare document monitoring pathways across two guides",
@@ -1060,6 +2545,9 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("fast_template_retry_strong");
     expect(answer.routingReason).toContain("strong_quality_retry");
     expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
+    const structuredCalls = generateStructuredTextResult.mock.calls as unknown as Array<[string]>;
+    expect(structuredCalls[2]?.[0]).toContain("Within one named scale and source");
+    expect(structuredCalls[2]?.[0]).toContain("cite the smallest sufficient directly supporting chunk set");
     expect(insert).toHaveBeenCalledTimes(1);
     const insertCalls = insert.mock.calls as unknown as Array<
       [{ answer?: unknown; metadata?: Record<string, unknown> }]
@@ -1163,7 +2651,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what clozapine monitoring action is needed for red range blood results",
@@ -1225,7 +2713,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope, machineReadableFallbackAnswer } = await import("../src/lib/rag");
+    const { answerQuestionWithScope, machineReadableFallbackAnswer } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Summarize inpatient approach",
@@ -1270,13 +2758,13 @@ describe("RAG structured-output fallback", () => {
     });
     const generateStructuredTextResult = vi.fn(async () => ({
       text: JSON.stringify({
-        answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+        answer: "The inpatient agitation and arousal approach is stepwise and based on rating and route.",
         grounded: true,
         confidence: "high",
         answerSections: [
           {
             heading: "Approach",
-            body: "Use a stepwise agitation and arousal approach based on rating and route.",
+            body: "The inpatient agitation and arousal approach is stepwise and based on rating and route.",
             citation_chunk_ids: ["agitation-chunk-1"],
           },
         ],
@@ -1308,7 +2796,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Summarize inpatient approach",
@@ -1317,7 +2805,9 @@ describe("RAG structured-output fallback", () => {
       skipCache: true,
     });
 
-    expect(answer.answer).toBe("Use a stepwise agitation and arousal approach based on rating and route.");
+    expect(answer.answer).toBe(
+      "The inpatient agitation and arousal approach is stepwise and based on rating and route.",
+    );
     expect(answer.routingMode).toBe("fast");
     expect(answer.routingReason).not.toContain("structured_output_fallback");
     expect(answer.openAIRequestIds).toEqual(["req_valid"]);
@@ -1524,7 +3014,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     // Originating request aborts before it can produce an answer; its shared in-flight promise rejects.
     const controller = new AbortController();
@@ -1555,6 +3045,80 @@ describe("RAG structured-output fallback", () => {
     expect(thirdAnswer.openAIRequestIds).toEqual(["req_independent"]);
     expect(secondAnswer.routingReason ?? "").not.toContain("answer_inflight_coalesced");
     // It ran its OWN pipeline (search + generation once) instead of cloning the failed one.
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
+  });
+
+  it("lets a coalesced answer waiter cancel without waiting for or duplicating the originating request", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+
+    const sources = [source()];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    let releaseGeneration!: () => void;
+    let markGenerationStarted!: () => void;
+    const generationStarted = new Promise<void>((resolve) => {
+      markGenerationStarted = resolve;
+    });
+    const generationGate = new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+    const generateStructuredTextResult = vi.fn(async () => {
+      markGenerationStarted();
+      await generationGate;
+      return {
+        text: JSON.stringify({
+          answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "agitation-chunk-1" }],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_origin",
+        usage: { input_tokens: 100, output_tokens: 120, total_tokens: 220 },
+      };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ rpc, from: vi.fn(() => new EmptyQuery()) }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const first = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-waiter-cancel",
+      logQuery: false,
+    });
+    await generationStarted;
+
+    const controller = new AbortController();
+    const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-waiter-cancel",
+      logQuery: false,
+      signal: controller.signal,
+    });
+    const reason = new DOMException("waiter left", "AbortError");
+    controller.abort(reason);
+    await expect(second).rejects.toBe(reason);
+
+    releaseGeneration();
+    await expect(first).resolves.toMatchObject({ openAIRequestIds: ["req_origin"] });
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
     expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
   });
@@ -1644,9 +3208,9 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const answer = await answerQuestionWithScope({
-      query: "what is bulimia nervosa",
+      query: "what is bulimia nervosa in adults",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,
@@ -1823,7 +3387,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
     const progressEvents: Array<{
       stage: string;
       selectedContextCount?: number;
@@ -1907,7 +3471,7 @@ describe("RAG structured-output fallback", () => {
       ],
       new Error("OpenAI generation incomplete: max_output_tokens"),
     );
-    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
 
     expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
     expect(answer.answer).toMatch(/source|guidance|support|evidence/i);
@@ -1917,8 +3481,50 @@ describe("RAG structured-output fallback", () => {
     expect(isCacheableGroundedGenerationFallback(answer)).toBe(false);
   });
 
+  it("prefers the safe single-chunk fallback candidate that carries the asked-for dose figure", async () => {
+    // E-3c PR-C: both chunks yield safe single-chunk extractive candidates, but
+    // only the lower-ranked one states the dose figure the query asks for. The
+    // first-safe-candidate rule used to ship the figure-less answer.
+    const answer = await answerFromTextSources(
+      "What is the usual quetiapine dose?",
+      [
+        source({
+          id: "quetiapine-advice-1",
+          document_id: "quetiapine-doc",
+          title: "Quetiapine Prescribing Guideline",
+          file_name: "quetiapine-prescribing-guideline.pdf",
+          section_heading: "Dose and administration",
+          content: "The usual quetiapine dose is taken once daily in the evening.",
+          similarity: 0.97,
+          hybrid_score: 0.97,
+          text_rank: 1.4,
+        }),
+        source({
+          id: "quetiapine-maximum-1",
+          document_id: "quetiapine-doc",
+          title: "Quetiapine Prescribing Guideline",
+          file_name: "quetiapine-prescribing-guideline.pdf",
+          section_heading: "Maximum dose",
+          content: "The maximum recommended quetiapine dose is 200 mg daily.",
+          similarity: 0.86,
+          hybrid_score: 0.86,
+          text_rank: 1.1,
+        }),
+      ],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("200 mg");
+    expect(new Set(answer.citations.map((citation) => citation.chunk_id))).toEqual(new Set(["quetiapine-maximum-1"]));
+  });
+
   it("never marks the generic source-review fallback as cacheable", async () => {
-    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
 
     expect(
       isCacheableGroundedGenerationFallback({
@@ -2000,7 +3606,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "How is discharge planning handled?",
@@ -2076,7 +3682,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const answer = await answerQuestionWithScope({
       query: "What should a patient safety plan include?",
       ownerId: undefined,
@@ -2140,6 +3746,203 @@ describe("RAG structured-output fallback", () => {
     expect(answer.grounded).toBe(true);
   });
 
+  // Pre-generation validated-extractive short-circuit (rag-extractive-first). The titles below
+  // deliberately share no topic token with the query so routing cannot take the existing
+  // title-supported extractive branch: the route must be fast/"strong_routine_retrieval" with a
+  // passed gate — the measured wasted-generation shape.
+  const proceduralFirstSources = () => [
+    source({
+      id: "procedural-first-reference",
+      document_id: "procedural-first-doc",
+      title: "Consumer Crisis Response Guideline",
+      file_name: "consumer-crisis-response.pdf",
+      section_heading: "Related procedures",
+      content:
+        "Related procedures and guidelines. Women's and Perinatal Mental Health Referral and Management Guideline.",
+      similarity: 0.9,
+      hybrid_score: 0.9,
+      text_rank: 0.12,
+    }),
+    source({
+      id: "procedural-first-requirements",
+      document_id: "procedural-first-doc",
+      title: "Consumer Crisis Response Guideline",
+      file_name: "consumer-crisis-response.pdf",
+      section_heading: "Safety planning for identified risks",
+      content:
+        "The Consumer Safety Plan must be developed in collaboration with the consumer, involve carers and family where appropriate, identify actions for a crisis and who is responsible, and be reviewed when clinical status changes.",
+      similarity: 0.9,
+      hybrid_score: 0.9,
+      text_rank: 0.11,
+    }),
+  ];
+
+  it("short-circuits a validated gate-passed routine procedural answer before model generation", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = proceduralFirstSources();
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_routine_extractive_first");
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "passed", topScore: 0.9 });
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+  });
+
+  it("keeps gate-passed 'How is…' document-content queries on model synthesis under the procedural short-circuit", async () => {
+    const answer = await answerFromTextSources("How is patient safety planning handled?", proceduralFirstSources(), {
+      answer:
+        "Patient safety planning is handled collaboratively with the consumer and reviewed when clinical status changes.",
+      grounded: true,
+      confidence: "medium",
+      answerSections: [],
+      citations: [{ chunk_id: "procedural-first-requirements" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    });
+
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingReason).toBe("strong_routine_retrieval");
+    expect(answer.routingReason).not.toContain("validated_routine_extractive_first");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+  });
+
+  it("keeps a procedural query on model synthesis when the only extractive candidate fails the final gates", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    // Only a bare cross-reference chunk is available: it redirects to another named document
+    // (see isBareCrossReferenceAnswer) and answers nothing itself, so the extractive candidate
+    // fails the final gates and the short-circuit must refuse — generation still runs.
+    const sources = [
+      source({
+        id: "procedural-first-cross-reference",
+        document_id: "procedural-first-doc",
+        title: "Consumer Crisis Response Guideline",
+        file_name: "consumer-crisis-response.pdf",
+        section_heading: "Related procedures",
+        content:
+          "Refer to the Women's and Perinatal Mental Health Referral and Management Guideline for further information about related procedures.",
+        similarity: 0.9,
+        hybrid_score: 0.9,
+        text_rank: 0.12,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer: "A patient safety plan should include collaboratively developed actions for identified risks.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "procedural-first-cross-reference" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_procedural_first_negative",
+      usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+    }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalled();
+    expect(answer.routingReason).not.toContain("validated_routine_extractive_first");
+  });
+
+  it("keeps dose-class procedural queries on model synthesis under the procedural short-circuit", async () => {
+    const query = "What is the maximum lithium dose process?";
+    const { classifyRagQuery } = await import("../src/lib/clinical-search");
+    // Pin the classification this negative depends on: dose-risk classes must never be
+    // eligible for the routine procedural short-circuit.
+    expect(classifyRagQuery(query).queryClass).toBe("medication_dose_risk");
+
+    const answer = await answerFromTextSources(
+      query,
+      [
+        source({
+          id: "lithium-dose-1",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy Guideline",
+          file_name: "lithium-therapy.pdf",
+          section_heading: "Dosing",
+          content:
+            "Lithium dosing follows the documented titration process with plasma level monitoring and clinical review before any dose change.",
+          similarity: 0.9,
+          hybrid_score: 0.9,
+          text_rank: 0.12,
+        }),
+      ],
+      {
+        answer: "The maximum lithium dose process is described in the cited dosing guidance.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "lithium-dose-1" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.routingReason).not.toContain("validated_routine_extractive_first");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+  });
+
   it("does not gate-block a moderate score clustered across several distinct documents", async () => {
     // Regression: a topic with rich coverage (e.g. clozapine) returns many relevant
     // documents whose scores cluster tightly at a moderate value. A tiny spread there
@@ -2179,7 +3982,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Show the clozapine missed-dose monitoring guidance.",
@@ -2241,7 +4044,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What does the metabolic screening document require?",
@@ -2305,7 +4108,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "How is discharge planning handled?",
@@ -2386,7 +4189,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What documents support lithium monitoring?",
@@ -2472,7 +4275,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What documents support outcome measures completion?",
@@ -2522,18 +4325,10 @@ describe("RAG structured-output fallback", () => {
     const generateStructuredTextResult = vi.fn(async () => ({
       text: JSON.stringify({
         answer:
-          "For lithium dosing, the retrieved guidance supports starting with **lithium carbonate 250 mg conventional tablets**, reducing doses in elderly patients or renal impairment, and using serum lithium targets to titrate.",
+          "Therapy with lithium should always begin with conventional tablets (**lithium carbonate 250 mg**). Doses should be reduced in elderly patients and patients with renal impairment. The guidance provides target serum lithium ranges for acute mania and prophylaxis.",
         grounded: true,
         confidence: "high",
-        answerSections: [
-          {
-            heading: "Dose and monitoring",
-            kind: "medication_dose",
-            supportLevel: "direct",
-            body: "The source gives acute mania and prophylaxis serum lithium target ranges and says dose adjustment is needed when clinically indicated.",
-            citation_chunk_ids: ["lithium-dose-1"],
-          },
-        ],
+        answerSections: [],
         citations: [{ chunk_id: "lithium-dose-1" }],
         quoteCards: [
           {
@@ -2556,7 +4351,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "lithium dosing for patients",
@@ -2593,7 +4388,7 @@ describe("RAG structured-output fallback", () => {
       ],
       {
         answer:
-          "The retrieved guidance gives a maximum **olanzapine** dose of **20 mg in 24 hours**, with repeat doses requiring sedation and blood pressure monitoring.",
+          "The maximum **olanzapine** dose is **20 mg in 24 hours**. For olanzapine, repeat doses require sedation and blood pressure monitoring.",
         grounded: true,
         confidence: "high",
         answerSections: [],
@@ -2786,7 +4581,7 @@ describe("RAG structured-output fallback", () => {
       })),
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What is the maximum sertraline dose?",
@@ -2800,6 +4595,47 @@ describe("RAG structured-output fallback", () => {
     expect(answer.confidence).toBe("unsupported");
     expect(answer.answer).not.toMatch(/fluoxetine|citalopram|escitalopram/i);
     expect(answer.answerSections ?? []).toEqual([]);
+  });
+
+  it("does not convert caller cancellation during embedding into lexical fallback", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+
+    const controller = new AbortController();
+    const reason = new DOMException("caller left during embedding", "AbortError");
+    const rpc = vi.fn(async (name: string) => {
+      void name;
+      return { data: [], error: null };
+    });
+    const embedTextWithTelemetry = vi.fn(async (_query: string, options?: { signal?: AbortSignal }) => {
+      controller.abort(reason);
+      options?.signal?.throwIfAborted();
+      return { embedding: Array(1536).fill(0.01), cacheHit: false };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
+
+    await expect(
+      searchChunksWithTelemetry({
+        query: "monitoring requirements",
+        topK: 4,
+        allowGlobalSearch: true,
+        signal: controller.signal,
+      }),
+    ).rejects.toBe(reason);
+    expect(embedTextWithTelemetry).toHaveBeenCalledOnce();
+    expect(rpc.mock.calls.some(([name]) => String(name).includes("_hybrid"))).toBe(false);
   });
 
   it("continues hybrid chunk retrieval when index-unit hybrid retrieval times out", async () => {
@@ -2838,7 +4674,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
 
     const search = await searchChunksWithTelemetry({
       query: "monitoring requirements",
@@ -2852,5 +4688,268 @@ describe("RAG structured-output fallback", () => {
     expect(search.telemetry.index_unit_count).toBe(0);
     expect(search.telemetry.index_unit_top_score).toBe(0);
     expect(search.telemetry.retrieval_strategy).toBe("hybrid");
+  });
+});
+
+describe("budget-aware generation deadlines", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Mirrors the "recovers lithium dosing" fixture above: a fast-routed dose query whose
+   * every generation attempt resolves truncated (max_output_tokens). The first attempt
+   * optionally burns fake wall-clock before resolving, so the remaining route budget can
+   * be pushed below the recovery reserve + retry viability floor. */
+  async function lithiumTruncatedGenerationAnswer(consumeFirstAttemptMs: number) {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const waSource = (overrides: Partial<SearchResult>, publisherCode: "FSH" | "EMHS") =>
+      source({
+        ...overrides,
+        source_metadata: {
+          source_title: overrides.title ?? "Lithium guideline",
+          publisher:
+            publisherCode === "FSH" ? "Fiona Stanley Fremantle Hospitals Group" : "East Metropolitan Health Service",
+          publisher_code: publisherCode,
+          jurisdiction: "Australia/WA",
+          version: "1",
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "locally_reviewed",
+          extraction_quality: "good",
+        },
+      });
+    const sources = [
+      waSource(
+        {
+          id: "fsh-lithium-1",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Initiation",
+          content:
+            "For lithium initiation in adults, start lithium carbonate at 250 mg at night and titrate according to the serum lithium concentration.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-1",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Target range",
+          content:
+            "The usual target serum lithium concentration is 0.6 to 0.8 mmol/L for maintenance treatment in adults.",
+        },
+        "EMHS",
+      ),
+      waSource(
+        {
+          id: "fsh-lithium-2",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Monitoring after dose changes",
+          content:
+            "Measure the serum lithium concentration 12 hours after the previous dose and repeat it 5 to 7 days after a dose change.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-2",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Dose adjustment",
+          content:
+            "Use a lower lithium starting dose in older adults and people with impaired renal function, with closer serum monitoring.",
+        },
+        "EMHS",
+      ),
+      source({
+        id: "bmj-paediatric-depression",
+        document_id: "bmj-paediatric-depression",
+        title: "Depression in children",
+        content: "Psychological therapy is considered for depression in children and young people.",
+        source_metadata: {
+          source_title: "Depression in children",
+          publisher: "BMJ Best Practice",
+          publisher_code: "BMJ",
+          jurisdiction: "International",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "unverified",
+          extraction_quality: "good",
+        },
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    let requestIndex = 0;
+    const generateStructuredTextResult = vi.fn(async () => {
+      requestIndex += 1;
+      if (requestIndex === 1 && consumeFirstAttemptMs > 0) {
+        vi.setSystemTime(new Date(Date.now() + consumeFirstAttemptMs));
+      }
+      return {
+        text: "",
+        model: "gpt-5.4-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: `req_truncated_${requestIndex}`,
+        usage: { input_tokens: 100, output_tokens: 650, total_tokens: 750 },
+        status: "incomplete",
+        truncated: true,
+        incompleteReason: "max_output_tokens",
+      };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "Lithium dosing",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+    return { answer, generateStructuredTextResult };
+  }
+
+  it("caps a generation attempt so source-backed recovery fits inside the route budget", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    // Stubbed far above the 25_000ms fast-route budget so the granted timeout can only
+    // come from the deadline: budget - 2_000ms recovery reserve = 23_000ms. Reverting the
+    // call site to the reserve-free requestTimeoutMs would grant the full 25_000ms.
+    vi.stubEnv("OPENAI_ANSWER_TIMEOUT_MS", "60000");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    // Same retrieval fixture as the model-synthesis test above, which routes fast.
+    const clozapineSource = source({
+      id: "clozapine-monitoring-1",
+      document_id: "clozapine-doc",
+      title: "Medication guideline",
+      file_name: "medication-guideline.pdf",
+      page_number: 11,
+      section_heading: "Monitoring",
+      content:
+        "Medication point: • Copy of the Consent to Clozapine Treatment Form EMR0270. Medication point: • Prescribe initiation of Clozapine on the WA Adult Clozapine Initiation and Titration form. Medication point: • Ensure consumers complete the Clozapine Monitoring Form on initiation.",
+      similarity: 0.94,
+      hybrid_score: 0.94,
+      text_rank: 0,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [clozapineSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    const grantedTimeoutsMs: number[] = [];
+    const generateStructuredTextResult = vi.fn(
+      async (_input: string, _schema: unknown, options?: { timeoutMs?: number }) => {
+        grantedTimeoutsMs.push(options?.timeoutMs ?? Number.NaN);
+        // Consume the entire granted window, then fail like a provider timeout. With the
+        // reserve subtracted this leaves 2_000ms of route budget for the recovery path;
+        // without it, recovery would start with the budget already fully spent.
+        vi.setSystemTime(new Date(Date.now() + (options?.timeoutMs ?? 0)));
+        throw new Error("OpenAI timed out. Trying source-only fallback response.");
+      },
+    );
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "what monitoring is required for clozapine",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    // Fake timers pin elapsed-at-call to exactly 0ms, so the received timeout must equal
+    // budget - reserve. This is the assertion that fails if generationRequestTimeoutMs is
+    // reverted to requestTimeoutMs at the generation call site.
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(grantedTimeoutsMs).toEqual([answerRouteBudgetMs.fast - generationRecoveryReserveMs]);
+    expect(answer.latencyTimings?.route_budget_ms).toBe(answerRouteBudgetMs.fast);
+    // The attempt used its whole window, yet the reserve kept the source-backed recovery
+    // inside the route budget.
+    expect(answer.latencyTimings?.route_deadline_exceeded).toBe(false);
+    expect(answer.latencyTimings?.total_latency_ms).toBeLessThan(answerRouteBudgetMs.fast);
+    expect(answer.routingReason).toContain("generation_fallback:provider_timeout");
+    expect(answer.sources.length).toBeGreaterThan(0);
+  });
+
+  it("skips the truncation self-heal when the budget reserve would be breached", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    // Burn 20_000ms of the 25_000ms fast budget inside the first attempt before it
+    // resolves truncated: the 5_000ms left is below generationRecoveryReserveMs +
+    // minimumGenerationRetryMs (7_000ms), so the strong self-heal must be skipped
+    // instead of spending the recovery reserve on a guaranteed-discard retry.
+    const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    // The skip is recorded without counting as a retry; the terminal truncation throw
+    // then lands on the existing source-backed recovery.
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "truncation_retry_skipped_budget_reserve:fast_max_output_tokens",
+      "generation_max_output_tokens",
+    ]);
+    expect(answer.latencyTimings?.answer_retry_count).toBe(1);
+    expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/lithium|250 mg/i);
+  });
+
+  it("keeps the truncation self-heal when the budget reserve still fits", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    // Identical truncated first attempt with no wall-clock consumed: the full budget
+    // remains, so the strong self-heal retry must still run.
+    const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(0);
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_max_output_tokens_retry_strong",
+      "strong_max_output_tokens",
+    ]);
+    expect(answer.latencyTimings?.answer_retry_count).toBe(2);
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
   });
 });

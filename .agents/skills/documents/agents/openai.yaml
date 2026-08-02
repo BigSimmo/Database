@@ -1,0 +1,4 @@
+interface:
+  display_name: "Documents"
+  short_description: "Verify Database document and storage behavior"
+  default_prompt: "Use $documents to trace and verify this document access, storage, signed image, or metadata behavior."

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { answerCacheAllowedForOwner } from "../src/lib/rag-cache";
+import { answerCacheAllowedForOwner } from "../src/lib/rag/rag-cache";
 
 describe("answer cache privacy policy", () => {
   it("requires a stable authenticated owner before answer caching or coalescing", () => {

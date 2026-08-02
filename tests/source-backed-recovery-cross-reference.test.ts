@@ -5,7 +5,7 @@ import {
   generatedAnswerQualityFailureReason,
   isBareCrossReferenceAnswer,
   sourceBackedGenerationTimeoutAnswer,
-} from "../src/lib/rag-extractive-answer";
+} from "../src/lib/rag/rag-extractive-answer";
 import type { Citation, RagAnswer, RagQueryClass, RetrievalSelectionSummary } from "../src/lib/types";
 
 // The exact off-topic extract observed live for "What should discharge documentation include?" —

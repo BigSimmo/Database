@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SearchResult } from "../src/lib/types";
-import { deriveConfidence, scoreValue } from "../src/lib/rag";
+import { deriveConfidence, scoreValue } from "../src/lib/rag/rag";
 
 describe("scoreValue", () => {
   const base: SearchResult = {

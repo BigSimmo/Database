@@ -12,26 +12,25 @@ import {
   DollarSign,
   ExternalLink,
   Phone,
-  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Users,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
-import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
+  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
 } from "@/components/clinical-dashboard/search-results-header-band";
-import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
@@ -40,7 +39,15 @@ import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
-const defaultQuery = "13YARN crisis support aboriginal phone";
+const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
+const serviceQuickFilters = [
+  { label: "Best fit", query: defaultQuery },
+  { label: "Crisis", query: "crisis" },
+  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
+  { label: "Phone referral", query: "phone referral" },
+  { label: "Free", query: "free" },
+  { label: "WA", query: "WA" },
+];
 
 function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -59,7 +66,9 @@ function chipTone(tone: ServiceStatusChip["tone"] | undefined | null) {
 
 function serviceChipLabel(chip: ServiceStatusChip) {
   const label = text(chip.label, "Status");
-  if (label.toLowerCase().includes("aboriginal and torres strait islander")) return "ATSI-specific";
+  if (label.toLowerCase().includes("aboriginal and torres strait islander")) {
+    return "Aboriginal and Torres Strait Islander-specific";
+  }
   return label;
 }
 
@@ -324,12 +333,16 @@ function RightRail({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
+      <section
+        data-testid="services-referral-decision"
+        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
           <button
             className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             type="button"
+            data-testid="services-clear-selected"
             onClick={clearSelectedServices}
             disabled={selected.length === 0}
             title={selected.length === 0 ? "No selected services to clear" : "Clear selected services"}
@@ -337,7 +350,9 @@ function RightRail({
             Clear
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">Selected services ({selected.length})</p>
+        <p data-testid="services-selected-count" className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">
+          Selected services ({selected.length})
+        </p>
         <div className="mt-3 grid gap-2">
           {selected.map((service, index) => (
             <button
@@ -380,7 +395,7 @@ function RightRail({
           ))}
         </div>
         <button
-          className="mt-4 inline-flex min-h-tap items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
+          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44 lg:scroll-mt-20"
           type="button"
           onClick={() => setShowChecklistDetails((current) => !current)}
           disabled={selected.length === 0}
@@ -477,8 +492,14 @@ function RightRail({
       <button
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
+        data-testid="services-compare-selected"
         disabled={!comparisonAvailable}
         title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
+        aria-label={
+          comparisonAvailable
+            ? `Compare selected services (${selected.length})`
+            : "Select at least two services before comparing"
+        }
         onClick={() => setShowComparison((current) => !current)}
         aria-expanded={comparisonExpanded}
         aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}
@@ -528,41 +549,40 @@ export function ServicesNavigatorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sortValue, setSortValue] = useResultSort();
-  const command = useSearchCommand();
   const urlQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
+  const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   // Demo mode is served by the registry API as status "ready" with fixture
   // records, so unauthorized/error must not silently fall back to fixtures —
   // the home and detail pages surface the same conditions as notices.
   const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
-  const searchableRecords = useMemo(
-    () => (registry.status === "ready" ? registry.records : []),
-    [registry.records, registry.status],
-  );
+  const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
   const matches = useMemo(() => {
-    const ranked = rankServiceRecords(searchableRecords, query);
-    return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
-  }, [query, searchableRecords]);
-  const scopedMatches = useMemo(() => {
-    const scopes = command?.commandScopes ?? [];
-    if (!scopes.length) return matches;
-    return matches.filter((service) => recordMatchesCommandScopes(service, scopes, "services"));
-  }, [command?.commandScopes, matches]);
+    // Cleared live query should restore the full catalogue immediately, even if
+    // deferredQuery still holds the previous term for a frame.
+    if (!query.trim()) return searchableRecords;
+    const ranked = rankServiceRecords(searchableRecords, deferredQuery);
+    if (ranked.length) return ranked.map((match) => match.service);
+    // Deferred empty while the live query has text means ranking is lagging —
+    // never dump the full catalogue as if the box were cleared.
+    return [];
+  }, [deferredQuery, query, searchableRecords]);
   const displayedMatches = useMemo(
-    () => sortResultItems(scopedMatches, sortValue, (service) => service.title),
-    [scopedMatches, sortValue],
+    () => sortResultItems(matches, sortValue, (service) => service.title),
+    [matches, sortValue],
   );
   const relevanceRankMap = useMemo(() => {
     const map = new Map<string, number>();
-    scopedMatches.forEach((service, index) => {
+    matches.forEach((service, index) => {
       map.set(service.slug, index + 1);
     });
     return map;
-  }, [scopedMatches]);
+  }, [matches]);
   const [selectedSlugs, setSelectedSlugs] = useState<string[] | null>(null);
   const effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2).map((service) => service.slug);
   const selected = searchableRecords.filter((service) => effectiveSelectedSlugs.includes(service.slug));
@@ -582,6 +602,10 @@ export function ServicesNavigatorPage() {
     }
   }
 
+  const activeQuickFilter = serviceQuickFilters.find(
+    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
+  );
+
   return (
     <SearchResultsLayout
       testId="services-navigator"
@@ -589,7 +613,7 @@ export function ServicesNavigatorPage() {
       resultsLabel="Referral services"
       header={
         <>
-          <div
+          <DesktopComposerPortalSlot
             id={modeHomeDesktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
@@ -598,9 +622,91 @@ export function ServicesNavigatorPage() {
             modeId="services"
             query={query}
             matchCount={displayedMatches.length}
-            loading={registryLoading}
+            // A blocked registry must not reach the band as "0 matches" — on this
+            // page that would assert there are no crisis services when the search
+            // never ran. The band renders no count while faulted.
+            status={
+              registryBlocked
+                ? registry.status === "unauthorized"
+                  ? "unauthorized"
+                  : "error"
+                : registryLoading
+                  ? "loading"
+                  : registry.status === "refetching"
+                    ? "refetching"
+                    : "ready"
+            }
+            faultTitle={registry.status === "unauthorized" ? "Session expired" : "Could not load services"}
+            faultBody={
+              registry.status === "unauthorized"
+                ? "Your session expired. Sign in again to search private service records and referral pathways."
+                : "The services registry could not be loaded. Try again shortly."
+            }
+            onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+            faultAction={
+              registry.status === "unauthorized" ? (
+                <Link
+                  href="/"
+                  className="inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10"
+                >
+                  Open account setup
+                </Link>
+              ) : undefined
+            }
             sortValue={sortValue}
             onSortChange={setSortValue}
+            filterLabel="Quick service filters"
+            mobileControls={
+              <MobileResultFilterControl
+                label="Filter"
+                ariaLabel="Apply a quick service filter"
+                testId="service-quick-filter-select"
+                value={activeQuickFilter?.query ?? "current"}
+                options={[
+                  ...(activeQuickFilter
+                    ? []
+                    : [{ value: "current", label: query.trim() ? "Current search" : "All services", disabled: true }]),
+                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
+                ]}
+                onChange={(value) => {
+                  if (value !== "current") applyServiceQuery(value);
+                }}
+              />
+            }
+            filterControls={
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline-flex">
+                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                  Quick filters
+                </span>
+                <div className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+                  {serviceQuickFilters.map((filter) => (
+                    <button
+                      key={filter.label}
+                      type="button"
+                      onClick={() => applyServiceQuery(filter.query)}
+                      aria-pressed={query.trim().toLowerCase() === filter.query.toLowerCase()}
+                      className={cn(
+                        "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
+                        query.trim().toLowerCase() === filter.query.toLowerCase()
+                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalQuery({ urlQuery, value: "" })}
+                  aria-label="Clear quick filters"
+                  className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-9"
+                >
+                  Clear
+                </button>
+              </div>
+            }
           />
         </>
       }
@@ -614,107 +720,40 @@ export function ServicesNavigatorPage() {
         />
       }
     >
+      {/* `registryBlocked` renders nothing here: the band above now reports the
+          fault and owns the retry/sign-in action, so repeating it would announce
+          the same failure twice. */}
       {registryLoading ? (
         <SearchResultsSkeleton />
-      ) : registryBlocked ? (
-        registry.status === "unauthorized" ? (
-          <ModeHomeStatusNotice
-            icon={ShieldAlert}
-            title="Session expired"
-            body="Your session expired. Sign in again to search private service records and referral pathways."
-            actionHref="/"
-            actionLabel="Open account setup"
-          />
-        ) : (
-          <ModeHomeStatusNotice
-            icon={ShieldAlert}
-            title="Could not load services"
-            body="The services registry could not be loaded. Try again shortly."
-          />
-        )
-      ) : query.trim() && displayedMatches.length === 0 ? (
+      ) : registryBlocked ? null : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
-          onClearScopes={command?.onClearScopes}
           onTryExample={(example) => applyServiceQuery(example)}
         />
       ) : (
         <>
-          <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
-            <div className="flex min-w-0 items-start justify-between gap-2 bg-[color:var(--surface-chrome)] p-3 sm:gap-3 sm:p-4">
-              <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
-                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
-                  <span className="text-lg font-extrabold leading-none sm:text-xl">{displayedMatches.length}</span>
+          <div className="overflow-hidden rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+            <div className="relative flex min-w-0 items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--surface-chrome),var(--surface)_62%,var(--clinical-accent-soft))] p-4 sm:p-5">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--clinical-accent),transparent)] opacity-55" />
+              <div className="grid min-w-0 flex-1 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-4">
+                <span className="grid size-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-14">
+                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="hidden text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] sm:block">
+                  <p className="text-2xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--clinical-accent)]">
                     Referral matches
                   </p>
-                  <h1 className="text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
+                  <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
                     {displayedMatches.length} referral {displayedMatches.length === 1 ? "match" : "matches"}
                   </h1>
-                  <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)] max-sm:max-w-[14rem]">
-                    <span className="sm:hidden">
-                      {sortValue === "alpha"
-                        ? "Sorted A–Z for quick known-service lookup."
-                        : "Best fit for crisis, ATSI-specific phone referral."}
-                    </span>
-                    <span className="hidden sm:inline">
-                      {sortValue === "alpha"
-                        ? "Sorted A–Z for quick known-service lookup."
-                        : "Ranked for crisis support, ATSI-specific access, and phone referral."}
-                    </span>
+                  <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[color:var(--text-muted)] max-sm:max-w-[15rem]">
+                    {sortValue === "alpha"
+                      ? "Sorted A–Z for quick known-service lookup."
+                      : "Prioritised for crisis support, culturally safe access, and phone referral."}
                   </p>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-tap sm:w-auto sm:px-4"
-                  type="button"
-                  aria-label="Open service filters"
-                  disabled
-                  title="Advanced filters are not available yet"
-                >
-                  <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                  <span className="hidden sm:inline">Filters</span>
-                </button>
-              </div>
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-[color:var(--border)] px-3 py-2 sm:px-4 sm:py-2.5">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
-                {["Best fit", "Crisis", "ATSI-specific", "Phone referral", "Free", "WA"].map((chip, index) => (
-                  <button
-                    key={chip}
-                    type="button"
-                    onClick={() =>
-                      applyServiceQuery(
-                        index === 0
-                          ? defaultQuery
-                          : chip === "ATSI-specific"
-                            ? "Aboriginal Torres Strait Islander"
-                            : chip,
-                      )
-                    }
-                    className={cn(
-                      "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      index > 2 ? "max-sm:hidden" : "",
-                      index === 0
-                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
-                    )}
-                  >
-                    {chip}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setLocalQuery({ urlQuery, value: "" })}
-                className="min-h-8 shrink-0 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent-hover)] max-sm:hidden"
-              >
-                Clear all
-              </button>
             </div>
           </div>
           <div data-testid="service-search-results" className="grid gap-3">

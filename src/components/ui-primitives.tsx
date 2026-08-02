@@ -1,83 +1,101 @@
-import { Ban, Loader2, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { Ban, Landmark, Loader2, ShieldCheck, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
   normalizeSourceMetadata,
+  sourceDesignationDescription,
+  sourceDesignationLabel,
   sourceStatusLabel,
   validationStatusLabel,
 } from "@/lib/source-metadata";
+import { classifySourceAuthority } from "@/lib/source-authority-registry";
+import type { ClinicalSourceMetadata } from "@/lib/types";
+
+/**
+ * What the source badges accept. Previously `unknown`, which meant the `.d.ts`
+ * published to the design system promised a typed shape TypeScript refused to
+ * enforce — so `{ validation_status: … }` (the wrong key; the real one is
+ * `clinical_validation_status`) compiled cleanly and silently fell back, and an
+ * off-vocabulary value reached the normalizer at runtime instead of at build
+ * time. `Partial` because every field is genuinely optional on legacy rows;
+ * `null` because that is what a missing join returns.
+ */
+export type SourceMetadataInput = Partial<ClinicalSourceMetadata> | null;
 
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
+export const transitionSurface = "transition-colors transition-shadow motion-reduce:transition-none";
+export const transitionTransform = "transition-transform motion-reduce:transform-none";
+
 export const textMuted = "text-[color:var(--text-muted)]";
 export const raisedCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]";
-export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
+const insetCard = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)]";
 export const appBackdrop = "app-edge-backdrop";
-export const glassPanel =
-  "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]";
 export const glassOverlaySurface =
   "border border-[color:var(--border-lux)] ring-1 ring-[color:var(--surface-highlight)] backdrop-blur-xl";
 export const toggleThumbSurface = "bg-[color:var(--surface-raised)]";
-export const quietPanel =
-  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
-export const sourceCard = `${quietPanel} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
+export const panelSubtle =
+  "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)] forced-colors:border";
+export const sourceCard = `${panelSubtle} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface = "rounded-lg bg-transparent";
-export const evidenceSurface =
-  "rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const panel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--border-strong)]/20 dark:ring-[color:var(--border-strong)]/10";
-export const panelSubtle = quietPanel;
-export const controlBase =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
+// Disabled is ENCODED, not faded. `opacity-50` dims the label and the fill
+// together, so a disabled primary stayed a large saturated block that still read
+// as available, and a disabled secondary's label dropped below 4.5:1. Instead:
+// flatten the fill to --surface-subtle, put the label on --disabled, drop the
+// shadow, and remove the press affordance. `!` is required because the variant
+// classes that follow this base would otherwise win on source order.
+export const controlDisabled =
+  "disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)]! disabled:text-[color:var(--disabled)]! disabled:shadow-none! disabled:active:translate-y-0 aria-disabled:cursor-not-allowed";
+export const controlBase = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
 export const primaryControl = `${controlBase} bg-[color:var(--command)] px-5 text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)]`;
-export const floatingControl =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
-export const toolbarButton =
-  "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
-export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]";
-export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
+export const floatingControl = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
+export const toolbarButton = `grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
+// Eyebrows are text (section kickers), so they sit on `--text-muted` (≥4.5:1),
+// never the decoration tier. Uppercase + tracking keep the kicker role.
+export const eyebrowText =
+  "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]";
+// A field label is a text node, so it cannot use `--text-soft` (3.07:1) or the
+// uppercase eyebrow treatment: weight said "important" while colour said
+// "secondary", and the label was quieter than the value it described. Sentence
+// case, label weight, full-strength ink.
+export const fieldLabel = "mb-1.5 block text-sm font-medium leading-5 text-[color:var(--text)]";
 export const fieldControl =
-  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none disabled:opacity-75 read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
+  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] forced-colors:border aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
   "pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]";
 export const shellChip =
   "inline-flex min-h-tap items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]";
-export const navPill =
-  "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
+export const navPill = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
 export const metadataPill =
   "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]";
 export const subtleStatusPill =
   "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-xs font-semibold text-[color:var(--text-muted)]";
 export const clinicalDivider = "border-t border-[color:var(--border)]/80";
-export const iconTile =
+const iconTile =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
 export const iconTilePremium =
   "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
-export const compactMetadataRow =
+const compactMetadataRow =
   "mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold tabular-nums text-[color:var(--text-muted)]";
-export const sheetSurface =
-  "rounded-t-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)] ring-1 ring-[color:var(--border-strong)]/20 backdrop-blur-xl dark:ring-[color:var(--border-strong)]/10 sm:rounded-lg";
-export const sheetHandle = "mx-auto block h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70 sm:hidden";
 // Comfortable reading measure for long-form prose (answers, source passages, document text).
 export const proseMeasure = "max-w-[68ch]";
 // Geist Mono for clinical codes and identifiers: citation/source indices, page and
 // chunk numbers, guideline versions, document IDs. Pairs with tabular figures.
 export const codeText = "font-mono tabular-nums tracking-tight";
-export const commandInput =
-  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] motion-safe:transition sm:text-base";
 
 export const chatAnswerText =
-  "max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)] sm:text-base sm:leading-[1.62]";
+  "max-w-[68ch] text-base-minus font-medium leading-prose text-[color:var(--text-heading)] sm:text-base";
 export const chatActionRow =
   "flex min-h-tap flex-wrap items-center gap-1.5 text-xs font-semibold text-[color:var(--text-heading)] sm:min-h-8";
-export const chatMicroAction =
-  "inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
-// Answer "Sources" capsule. `sourceCapsuleHit` is an invisible 44px WCAG touch
+export const chatMicroAction = `inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
+// Answer "Sources" capsule. `sourceCapsuleHit` is an invisible tap-sized WCAG touch
 // target that wraps the compact visible pill `sourceCapsule` (`.source-capsule-face`),
 // so the control reads smaller and lighter without shrinking the tap area. Hover,
 // expanded, and focus chrome are driven from the hit target's :hover /
@@ -88,15 +106,11 @@ export const sourceCapsule =
   "source-capsule-face inline-flex items-center gap-1.5 rounded-full border bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-2.5 py-1 text-2xs font-medium text-[color:var(--clinical-accent)]";
 export const sourceCapsuleCountBadge =
   "nums inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1 text-3xs font-semibold leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
-export const evidenceRow =
-  "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-export const clinicalNotesRow =
-  "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--clinical-chat-sand-border)] bg-[color:var(--clinical-chat-sand)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-sand-border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 /* Composer chrome has one owner: the unlayered classes in globals.css. These
  * exports are semantic handles only, so recipes and cascade rules cannot fight
  * over input/button dimensions, states, or paint. */
 export const chatComposerShellBase = "chat-composer-shell-base";
-export const chatComposerShellDelta = "chat-composer-shell-delta";
+const chatComposerShellDelta = "chat-composer-shell-delta";
 export const chatComposerShell = `${chatComposerShellBase} ${chatComposerShellDelta}`;
 export const chatComposerInput = "chat-composer-input";
 export const chatComposerIconButton = "chat-composer-icon-button";
@@ -107,11 +121,8 @@ export const tableCardHeader =
   "border-b border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-heading)]";
 export const tableMicroActionRow =
   "flex min-h-tap flex-wrap items-center gap-1 border-t border-[color:var(--border)] px-2 py-1.5 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-9";
-export const sidebarItem =
-  "flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
-export const sidebarToolTile =
-  "grid min-h-16 place-items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 py-2 text-center text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-export const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
+export const sidebarItem = `flex min-h-tap min-w-0 w-full items-center gap-2 overflow-hidden rounded-lg px-2.5 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] ${controlDisabled}`;
+const statusDotBase = "inline-block h-2 w-2 shrink-0 rounded-full";
 export const statusDotReady = `${statusDotBase} bg-[color:var(--success)]`;
 export const statusDotReview = `${statusDotBase} bg-[color:var(--warning)]`;
 export const statusDotMuted = `${statusDotBase} bg-[color:var(--text-soft)]`;
@@ -123,14 +134,17 @@ export const toneDanger =
 export const toneInfo = "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
 export const toneWarning =
   "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-export const toneWarningQuiet =
+const toneWarningQuiet =
   "border-[color:var(--warning-border)]/60 bg-[color:var(--warning-soft)]/45 text-[color:var(--warning)]";
 export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 
 export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--text)]";
+// Phone bottom-dock clearance lives on #main-content / dashboard <main> via
+// --mobile-composer-reserve so it can collapse when the dock hides. Do not bake
+// a second dock-sized safe-area pad into page shells.
 export const searchPageShell =
-  "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-[calc(12rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+  "min-h-0 overflow-x-clip px-3 py-3 pb-4 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
 export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
 // Canonical content-page width. Detail pages (service / form / differential),
 // medication record + prescribing workspace, and the forms results view converge
@@ -154,12 +168,55 @@ type AsyncButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"
   idleIcon?: ReactNode;
 };
 
-/** Shared busy-state contract for async actions: one label, spinner, disabled state, and announcement hook. */
-export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, ...props }: AsyncButtonProps) {
+/**
+ * Shared busy-state contract for async actions. Prefer `Button` with
+ * `busy`/`busyLabel` for new call sites — this helper remains for existing
+ * forms that pass a ReactNode idle icon. `type` is applied AFTER the spread so
+ * a missing type cannot open a surrounding form, while an explicit
+ * `type="submit"` still wins.
+ */
+export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, type, ...props }: AsyncButtonProps) {
   return (
-    <button {...props} disabled={busy || disabled} aria-busy={busy || undefined}>
+    <button {...props} type={type ?? "button"} disabled={busy || disabled} aria-busy={busy || undefined}>
       {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : idleIcon}
       <span>{busy ? busyLabel : children}</span>
+    </button>
+  );
+}
+
+type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children"> & {
+  /**
+   * Required accessible name. Icon-only buttons carry no visible text, so the
+   * label is the only thing assistive tech can announce — making it a required
+   * prop closes the "unlabeled icon button" hole structurally, rather than
+   * relying on convention + a runtime axe scan that only reaches a few routes.
+   */
+  label: string;
+  /** Lucide icon rendered decoratively (aria-hidden) inside the button. */
+  icon: LucideIcon;
+  /** Size utility for the icon glyph; defaults to the 16px `size-icon-md` step. */
+  iconClassName?: string;
+};
+
+/**
+ * Accessible icon-only button. Guarantees the accessible name (`aria-label`), an
+ * `aria-hidden` icon glyph, a `--spacing-tap` hit area, and the shared focus ring. Pass a
+ * recipe like `toolbarButton`/`floatingControl` via `className` for chrome; the
+ * base stays colour-neutral so the glyph inherits `currentColor` from context.
+ */
+export function IconButton({ label, icon: Icon, className, iconClassName, type, ...props }: IconButtonProps) {
+  return (
+    <button
+      {...props}
+      type={type ?? "button"}
+      aria-label={label}
+      className={cn(
+        "grid size-tap shrink-0 place-items-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        controlDisabled,
+        className,
+      )}
+    >
+      <Icon aria-hidden="true" className={cn("size-icon-md", iconClassName)} />
     </button>
   );
 }
@@ -208,14 +265,7 @@ export function InlineNotice({
     >
       <span className="min-w-0">{children}</span>
       {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label={dismissLabel}
-          className="-m-2.5 grid h-tap w-tap shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+        <IconButton icon={X} label={dismissLabel} onClick={onDismiss} className="-m-2.5 opacity-70 hover:opacity-100" />
       )}
     </div>
   );
@@ -231,21 +281,33 @@ export function semanticChipTone(tone: SemanticChipTone | undefined | null) {
   return toneNeutral;
 }
 
+type ToggleSwitchBase = {
+  enabled: boolean;
+  className?: string;
+  disabled?: boolean;
+};
+
+export type ToggleSwitchProps = ToggleSwitchBase &
+  (
+    | {
+        /** Operable switch — requires an accessible name. */
+        onToggle: () => void;
+        "aria-label": string;
+      }
+    | {
+        /** Read-only presentational indicator (no interactive role). */
+        onToggle?: undefined;
+        "aria-label"?: string;
+      }
+  );
+
 export function ToggleSwitch({
   enabled,
   className,
   onToggle,
   disabled = false,
   "aria-label": ariaLabel,
-}: {
-  enabled: boolean;
-  className?: string;
-  // When provided the switch is an operable control; when omitted it renders as a
-  // read-only presentational indicator (no interactive role is advertised).
-  onToggle?: () => void;
-  disabled?: boolean;
-  "aria-label"?: string;
-}) {
+}: ToggleSwitchProps) {
   const track = cn(
     "relative inline-flex h-6 w-10 shrink-0 rounded-full transition",
     enabled ? "bg-[color:var(--clinical-accent)]" : "bg-[color:var(--border-strong)]",
@@ -272,7 +334,8 @@ export function ToggleSwitch({
         onClick={onToggle}
         className={cn(
           track,
-          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
+          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          controlDisabled,
         )}
       >
         {knob}
@@ -281,9 +344,15 @@ export function ToggleSwitch({
   }
 
   // Read-only: expose the state as an image label so assistive tech announces
-  // on/off without implying the control can be operated.
+  // on/off without implying the control can be operated. Unlabeled indicators
+  // are decorative — hide them from the accessibility tree.
   return (
-    <span role="img" aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined} className={track}>
+    <span
+      role={ariaLabel ? "img" : undefined}
+      aria-hidden={ariaLabel ? undefined : true}
+      aria-label={ariaLabel ? `${ariaLabel}: ${enabled ? "on" : "off"}` : undefined}
+      className={track}
+    >
       {knob}
     </span>
   );
@@ -291,12 +360,50 @@ export function ToggleSwitch({
 
 type IconComponent = LucideIcon;
 
+export function SourceDesignationBadge({
+  metadata,
+  className,
+}: {
+  metadata?: SourceMetadataInput;
+  className?: string;
+}) {
+  const source = normalizeSourceMetadata(metadata);
+  const classification = classifySourceAuthority(source);
+  const toneClassName =
+    classification.designation === "official"
+      ? toneSuccess
+      : classification.designation === "trusted"
+        ? toneInfo
+        : toneWarningQuiet;
+  const Icon =
+    classification.designation === "official"
+      ? Landmark
+      : classification.designation === "trusted"
+        ? ShieldCheck
+        : TriangleAlert;
+
+  return (
+    <span
+      title={sourceDesignationDescription(source)}
+      aria-label={`Source designation: ${sourceDesignationLabel(classification.designation)}. ${sourceDesignationDescription(source)}`}
+      className={cn(
+        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold",
+        toneClassName,
+        className,
+      )}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      {sourceDesignationLabel(classification.designation)}
+    </span>
+  );
+}
+
 export function SourceStatusBadge({
   metadata,
   className,
   showTitle = true,
 }: {
-  metadata?: unknown;
+  metadata?: SourceMetadataInput;
   className?: string;
   showTitle?: boolean;
 }) {
@@ -329,13 +436,14 @@ export function SourceStatusBadge({
   );
 }
 
-export function SourceProvenance({ metadata }: { metadata?: unknown }) {
+export function SourceProvenance({ metadata }: { metadata?: SourceMetadataInput }) {
   const source = normalizeSourceMetadata(metadata);
   const reviewDate = formatClinicalDate(source.review_date);
   // Unknown review date / jurisdiction segments are dropped as filler; the
   // validation and extraction-quality labels always stay — they are clinical
   // governance signals, not noise.
   const items = [
+    sourceDesignationLabel(classifySourceAuthority(source).designation),
     validationStatusLabel(source),
     reviewDate === "Unknown" ? null : `Review ${reviewDate}`,
     source.jurisdiction,
@@ -378,6 +486,25 @@ export function PanelHeading({
   );
 }
 
+export function Skeleton({
+  className,
+  animationDelay,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { animationDelay?: string }) {
+  return (
+    <div
+      className={cn(
+        "rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
+        "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
+        "motion-safe:animate-shimmer",
+        className,
+      )}
+      style={animationDelay ? { animationDelay } : undefined}
+      {...props}
+    />
+  );
+}
+
 export function LoadingPanel({
   label,
   variant = "spinner",
@@ -391,16 +518,7 @@ export function LoadingPanel({
     return (
       <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
         {Array.from({ length: lines }).map((_, index) => (
-          <span
-            key={index}
-            aria-hidden
-            className={cn(
-              "block h-3.5 rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
-              "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
-              "motion-safe:animate-shimmer",
-              index === lines - 1 ? "w-2/3" : "w-full",
-            )}
-          />
+          <Skeleton key={index} aria-hidden className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")} />
         ))}
         <span className="sr-only">{label}</span>
       </div>
@@ -424,14 +542,24 @@ export function EmptyState({
   icon: Icon,
   title,
   body,
+  description,
   actions,
-  live,
+  live = "polite",
   tone = "neutral",
   testId,
 }: {
   icon?: IconComponent;
   title: string;
-  body: string;
+  /** Supporting copy. `PanelHeading` calls the same slot `description`. */
+  body?: string;
+  /**
+   * Deprecated alias for `body`, accepted because `PanelHeading` names this slot
+   * `description` and passing `description` here used to render nothing at all —
+   * silently, with no type error, because `body` was the only recognised name.
+   * Prefer `body`; this alias exists so the mistake is impossible rather than
+   * invisible, and will be removed once call sites converge.
+   */
+  description?: string;
   /** Optional controls stay within the shared state surface rather than becoming a second panel. */
   actions?: ReactNode;
   /** Announce a state transition only when the state is introduced dynamically. */
@@ -463,7 +591,7 @@ export function EmptyState({
         )}
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>
-          <p className={cn("mt-1 leading-6", textMuted)}>{body}</p>
+          {(body ?? description) ? <p className={cn("mt-1 leading-6", textMuted)}>{body ?? description}</p> : null}
           {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
         </div>
       </div>

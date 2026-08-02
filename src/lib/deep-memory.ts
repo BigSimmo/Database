@@ -684,7 +684,14 @@ export async function upsertDocumentDeepMemory(args: {
       chunks: args.chunks,
       images: args.images ?? [],
     });
-  } catch {
+  } catch (error) {
+    // A failed model index profile degrades this document's memory cards to a
+    // deterministic fallback. Surface it (mirroring hybrid_rpc_failed below)
+    // rather than swallowing the error and silently shipping weaker retrieval.
+    logger.warn("deep_memory_model_profile_failed", {
+      documentId: args.document.id,
+      message: error instanceof Error ? error.message : String(error),
+    });
     modelProfile = fallbackModelIndexProfile();
   }
   const cards = buildDocumentMemoryCards({ ...args, sections, modelProfile });

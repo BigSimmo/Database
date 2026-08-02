@@ -1,4 +1,6 @@
 interface:
-  display_name: "Operator Closeout"
-  short_description: "Turn operator debt into safe batches"
-  default_prompt: "Use $operator-closeout to inventory pending operator actions, deduplicate them, and prepare a safe approval-gated execution batch."
+  display_name: "Operations Alias"
+  short_description: "Compatibility alias for Database operator work"
+  default_prompt: "Use $operator-closeout only as a compatibility alias for $operations."
+policy:
+  allow_implicit_invocation: false

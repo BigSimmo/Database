@@ -42,7 +42,7 @@ import {
 } from "@/components/clinical-dashboard/clinical-output-helpers";
 import { SectionHeading } from "@/components/clinical-dashboard/dashboard-shell";
 import { cleanDisplayTitle, compactSourceSnippet } from "@/components/clinical-dashboard/display-text";
-import { SourceActionRow } from "@/components/clinical-dashboard/source-actions";
+import { SourceActionRow, logCitationOpen } from "@/components/clinical-dashboard/source-actions";
 import {
   chatMicroAction,
   clinicalDivider,
@@ -62,7 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
+import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
   extractSafetyFindings,
@@ -71,7 +71,7 @@ import {
   type SafetyFinding,
   type SafetyFindingKind,
 } from "@/lib/clinical-safety";
-import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
   AnswerSection,
@@ -575,6 +575,39 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
+ * Align clinical-notes inputs with the fail-closed render model: when an answer
+ * is not explicitly source-backed, strip structured clinical payloads so the
+ * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
+ * content from untrusted sections, quotes, or documentBreakdown (visual
+ * evidence is passed separately).
+ */
+export function trustGatedAnswerForClinicalNotes(
+  answer: RagAnswer,
+  visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
+): RagAnswer {
+  if (isAnswerSourceBacked(answer)) {
+    return {
+      ...answer,
+      visualEvidence,
+      smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
+    };
+  }
+  // Clear free-text answer too: labeled Action/Monitoring prose can rebuild
+  // clinical-notes sections even after structured fields are stripped.
+  return {
+    ...answer,
+    answer: "",
+    answerSections: [],
+    quoteCards: [],
+    documentBreakdown: [],
+    comparisonMatrix: undefined,
+    comparisonEvaluationState: undefined,
+    visualEvidence,
+    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
+  };
+}
+
+/**
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *
  * @param answer - The answer from which to derive clinical detail sections.
@@ -598,13 +631,16 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
 }
 
 export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
-  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(answer, viewMode));
+  const tabs = clinicalNotesAvailableTabs(
+    clinicalNotesDetailSectionsForAnswer(trustGatedAnswerForClinicalNotes(answer), viewMode),
+  );
   const largestTabCount = tabs.reduce((largest, tab) => Math.max(largest, tab.count), 0);
   return Math.max(1, largestTabCount || fallback);
 }
 
 export function ClinicalNotesChecklistPanel({
   answer,
+  visualEvidence,
   viewMode,
   evidenceMapRows,
   sourceLinks = [],
@@ -614,6 +650,7 @@ export function ClinicalNotesChecklistPanel({
   onOpenTables,
 }: {
   answer: RagAnswer;
+  visualEvidence: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
@@ -622,7 +659,8 @@ export function ClinicalNotesChecklistPanel({
   onCopy: () => void;
   onOpenTables?: () => void;
 }) {
-  const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
+  const renderableAnswer = trustGatedAnswerForClinicalNotes(answer, visualEvidence);
+  const detailSections = clinicalNotesDetailSectionsForAnswer(renderableAnswer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
@@ -632,14 +670,18 @@ export function ClinicalNotesChecklistPanel({
   const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
-  const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
-  const [added, setAdded] = useState(false);
+  const tableEvidenceCount = clinicalNotesTableEvidenceCount(renderableAnswer);
   const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
     return (
-      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
+      <ClinicalOutputPanel
+        answer={renderableAnswer}
+        showLead={false}
+        viewMode={viewMode}
+        evidenceMapRows={evidenceMapRows}
+      />
     );
   }
 
@@ -830,7 +872,7 @@ export function ClinicalNotesChecklistPanel({
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source
             </span>
@@ -845,12 +887,18 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+            disabled
+            aria-disabled="true"
+            aria-describedby="clinical-notes-add-unavailable"
+            title="Add to favourites — coming soon"
+            className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)] opacity-60"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
+            Add
           </button>
+          <span id="clinical-notes-add-unavailable" className="sr-only">
+            Adding clinical notes to favourites is coming soon.
+          </span>
         </div>
       </div>
     </section>
@@ -868,7 +916,24 @@ function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
   return <CircleAlert aria-hidden="true" className="h-5 w-5" />;
 }
 
-export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
+// Issue 9: governance provenance retained on safety-finding citations lets the safety
+// panel badge sources that are outdated, due for review, or not locally validated —
+// the same currency/validation signals shown for ordinary source citations. Current
+// and unknown-status sources add no badge (they carry no actionable caveat here).
+function safetyFindingGovernanceLabels(citation: SafetyFinding["citation"]): string[] {
+  const metadata = citation.source_metadata ? normalizeSourceMetadata(citation.source_metadata) : null;
+  if (!metadata) return [];
+  const labels: string[] = [];
+  if (metadata.document_status === "outdated" || metadata.document_status === "review_due") {
+    labels.push(sourceStatusLabel(metadata));
+  }
+  if (metadata.clinical_validation_status === "unverified") {
+    labels.push(validationStatusLabel(metadata));
+  }
+  return labels;
+}
+
+export function SafetyFindingsListContent({ findings, query }: { findings: SafetyFinding[]; query?: string }) {
   if (findings.length === 0) return null;
 
   const sortedFindings = sortSafetyFindingsBySeverity(findings);
@@ -902,12 +967,22 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
               </span>
               <Link
                 href={finding.href}
+                onClick={() => query && logCitationOpen(query, finding.citation)}
                 className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-8"
                 aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
               >
                 <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
                 <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </Link>
+              {safetyFindingGovernanceLabels(finding.citation).map((label) => (
+                <span
+                  key={label}
+                  data-testid="safety-finding-governance"
+                  className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", toneWarning)}
+                >
+                  {label}
+                </span>
+              ))}
             </div>
             <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
           </div>
@@ -1001,7 +1076,7 @@ export function evidenceTabCount({
 }
 
 export function clinicalNotesCount(answer: RagAnswer) {
-  return buildHighYieldClinicalOutputSections(answer).filter((section) =>
+  return buildHighYieldClinicalOutputSections(trustGatedAnswerForClinicalNotes(answer)).filter((section) =>
     ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
   ).length;
 }
@@ -1121,7 +1196,7 @@ function RenderModelSourceList({
           <article key={`${source.id}:${source.href}`} className={cn(sourceCard, "overflow-hidden p-0")}>
             <Link
               href={source.href}
-              className="block min-h-[44px] px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="block min-h-tap px-3 py-3 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               aria-label={openLabel}
             >
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
@@ -1244,12 +1319,14 @@ export function QuoteCards({
   onCopyQuotes,
   onFollowUp,
   onScopeDocument,
+  query,
 }: {
   quotes: QuoteCard[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
   onFollowUp?: (quote: QuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
+  query?: string;
 }) {
   return (
     <section id="quotes" className="space-y-3 scroll-mt-4 sm:scroll-mt-6">
@@ -1304,6 +1381,7 @@ export function QuoteCards({
                       documentId={quote.document_id}
                       onScopeDocument={onScopeDocument}
                       onFollowUp={onFollowUp ? () => onFollowUp(quote) : undefined}
+                      onOpenSource={() => query && logCitationOpen(query, quote, quote.source_strength)}
                       divider={false}
                     />
                   </div>
