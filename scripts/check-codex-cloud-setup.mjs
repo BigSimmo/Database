@@ -355,6 +355,7 @@ export function validateCodexCloudSetup() {
       "Cloud setup must pin the connected-mode retrieval value at setup time.",
     ],
     [/inherit = "all"/, "Cloud setup must configure Codex shell_environment_policy inheritance."],
+    [/CODEX_CLOUD_SETUP_STOP_AFTER_POLICY/, "Cloud setup must expose a policy-only stop for behavior-level tests."],
   ]) {
     requireMatch(errors, setup, pattern, message);
   }

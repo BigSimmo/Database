@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -28,20 +29,55 @@ import {
 } from "../scripts/ensure-codex-cloud-git-remote.mjs";
 
 const temporaryDirectories: string[] = [];
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const setupScript = path.join(repoRoot, "scripts/setup-codex-cloud.sh");
+const requiredPolicyExcludes = [
+  "OPENAI_API_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_PROJECT_REF",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "DATABASE_URL",
+] as const;
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
-function temporaryGitRepository() {
-  const directory = mkdtempSync(path.join(os.tmpdir(), "codex-cloud-git-"));
+function temporaryDirectory(prefix: string) {
+  const directory = mkdtempSync(path.join(os.tmpdir(), prefix));
   temporaryDirectories.push(directory);
+  return directory;
+}
+
+function temporaryGitRepository() {
+  const directory = temporaryDirectory("codex-cloud-git-");
   expect(spawnSync("git", ["init", "--quiet", "--initial-branch=task", directory]).status).toBe(0);
   return directory;
 }
 
 function git(directory: string, ...args: string[]) {
   return spawnSync("git", ["-C", directory, ...args], { encoding: "utf8" });
+}
+
+function runSetupPolicyOnly(home: string, env: Record<string, string | undefined> = {}) {
+  return spawnSync("bash", [setupScript], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      CODEX_CLOUD_SETUP_STOP_AFTER_POLICY: "1",
+      ...env,
+    },
+  });
+}
+
+function readCodexConfig(home: string) {
+  return readFileSync(path.join(home, ".codex/config.toml"), "utf8");
+}
+
+function readRuntimeProfile(home: string) {
+  return readFileSync(path.join(home, ".clinical-kb-codex-cloud.sh"), "utf8");
 }
 
 describe("Codex Cloud environment contract", () => {
@@ -230,7 +266,98 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("SUPABASE_PROJECT_REF");
     expect(setup).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(setup).toContain("DATABASE_URL");
+    expect(setup).toContain("CODEX_CLOUD_SETUP_STOP_AFTER_POLICY");
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
+  });
+
+  it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {
+    const home = temporaryDirectory("codex-cloud-home-");
+    mkdirSync(path.join(home, ".codex"), { recursive: true });
+    writeFileSync(
+      path.join(home, ".codex/config.toml"),
+      ["[mcp_servers.example]", 'command = "echo"', 'args = ["ping"]', ""].join("\n"),
+    );
+
+    const first = runSetupPolicyOnly(home, {
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+    });
+    expect(first.status, first.stderr || first.stdout).toBe(0);
+
+    const config = readCodexConfig(home);
+    expect(config).toContain("[mcp_servers.example]");
+    expect(config).toContain("BEGIN clinical-kb-codex-cloud shell policy");
+    expect(config).toContain("[shell_environment_policy]");
+    expect(config).toContain('inherit = "all"');
+    for (const name of requiredPolicyExcludes) {
+      expect(config).toContain(`"${name}"`);
+    }
+    expect(config.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
+
+    const profile = readRuntimeProfile(home);
+    expect(profile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="offline"');
+    expect(profile).toContain("export RAG_PROVIDER_MODE=offline");
+
+    const second = runSetupPolicyOnly(home, {
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+    });
+    expect(second.status, second.stderr || second.stdout).toBe(0);
+    const rewritten = readCodexConfig(home);
+    expect(rewritten).toContain("[mcp_servers.example]");
+    expect(rewritten.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
+    expect(rewritten.match(/BEGIN clinical-kb-codex-cloud shell policy/g)).toHaveLength(1);
+  });
+
+  it("pins connected retrieval mode and rejects unsafe shell-policy configs", () => {
+    const connectedHome = temporaryDirectory("codex-cloud-connected-");
+    const connected = runSetupPolicyOnly(connectedHome, {
+      CODEX_CLOUD_ACCESS_PROFILE: "connected",
+      RAG_PROVIDER_MODE: "offline",
+    });
+    expect(connected.status, connected.stderr || connected.stdout).toBe(0);
+    const connectedProfile = readRuntimeProfile(connectedHome);
+    expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
+    expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
+    expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
+
+    const unmanagedHome = temporaryDirectory("codex-cloud-unmanaged-");
+    mkdirSync(path.join(unmanagedHome, ".codex"), { recursive: true });
+    const unmanagedConfig = [
+      "[mcp_servers.keep]",
+      'command = "echo"',
+      "",
+      "[shell_environment_policy]",
+      'inherit = "all"',
+      "exclude = []",
+      "",
+    ].join("\n");
+    const unmanagedPath = path.join(unmanagedHome, ".codex/config.toml");
+    writeFileSync(unmanagedPath, unmanagedConfig);
+    const unmanaged = runSetupPolicyOnly(unmanagedHome, {
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+    });
+    expect(unmanaged.status).not.toBe(0);
+    expect(unmanaged.stderr).toContain("Unmanaged [shell_environment_policy] table found");
+    expect(readFileSync(unmanagedPath, "utf8")).toBe(unmanagedConfig);
+
+    const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
+    mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });
+    const incompleteConfig = [
+      "[mcp_servers.keep]",
+      'command = "echo"',
+      "",
+      "# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
+      "[shell_environment_policy]",
+      'inherit = "all"',
+      "",
+    ].join("\n");
+    const incompletePath = path.join(incompleteHome, ".codex/config.toml");
+    writeFileSync(incompletePath, incompleteConfig);
+    const incomplete = runSetupPolicyOnly(incompleteHome, {
+      CODEX_CLOUD_ACCESS_PROFILE: "offline",
+    });
+    expect(incomplete.status).not.toBe(0);
+    expect(incomplete.stderr).toContain("Incomplete managed shell policy block");
+    expect(readFileSync(incompletePath, "utf8")).toBe(incompleteConfig);
   });
 
   it("accepts a task-only HEAD only inside Codex Cloud", () => {

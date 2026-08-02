@@ -176,6 +176,13 @@ fi
   printf '%s\n' "$codex_policy_end"
 } > "$codex_config_file"
 
+# Test harness only: write the runtime profile + shell policy, then stop before
+# toolchain installs so unit tests can exercise config merge without npm/Playwright.
+if [[ "${CODEX_CLOUD_SETUP_STOP_AFTER_POLICY:-0}" = "1" ]]; then
+  log "Stopping after shell-policy write (test harness)."
+  exit 0
+fi
+
 profile_source='[ -f "$HOME/.clinical-kb-codex-cloud.sh" ] && . "$HOME/.clinical-kb-codex-cloud.sh"'
 for shell_profile in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.bash_profile"; do
   touch "$shell_profile"
