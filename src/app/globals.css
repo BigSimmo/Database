@@ -55,7 +55,8 @@
      a tap target uses var(--spacing-tap), never a copy of the number, or the
      track and its child desync the next time this value moves. The one
      deliberate exception is the phone composer, pinned to 44px below 431px so
-     the edge-to-edge dock keeps its height (see the max-width: 430px block). */
+     the edge-to-edge dock keeps its height (see the max-width: 430px block,
+     which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
@@ -1437,16 +1438,22 @@ summary::-webkit-details-marker {
   opacity: 0.5;
 }
 
-/* Small-phone pin for the composer icon buttons: hold a 44px tap target and a
-   1.1rem glyph below 431px, where the base rule above would otherwise apply the
-   48px --spacing-tap knob. This is the design system's one sanctioned exception
-   to the 48px floor (SPEC §4.10): the phone composer is an edge-to-edge dock
-   whose height is part of the search-chrome contract, and growing three buttons
-   by 4px each re-tunes the dock reserve and the phone CLS budget for no
-   accessibility gain — 44px already clears WCAG 2.5.5. Single source of truth —
-   do not re-add a second max-width:430px block for these. The mode-action
-   popover only renders ≥1024px, so this holds no .mode-action-* overrides. */
+/* Small-phone pin for the composer: hold a 44px tap target (and a 1.1rem glyph
+   on the icon/send buttons) below 431px, where the base rules above would
+   otherwise apply the 48px --spacing-tap knob to the input and the buttons.
+   This is the design system's one sanctioned exception to the 48px floor
+   (SPEC §4.10): the phone composer is an edge-to-edge dock whose height is
+   part of the search-chrome contract, and growing the input plus three
+   buttons by 4px each re-tunes the dock reserve and the phone CLS budget for
+   no accessibility gain — 44px already clears WCAG 2.5.5. Single source of
+   truth — do not re-add a second max-width:430px block for these. The
+   mode-action popover only renders ≥1024px, so this holds no .mode-action-*
+   overrides. */
 @media (max-width: 430px) {
+  .chat-composer-input {
+    min-height: 2.75rem;
+  }
+
   .chat-composer-icon-button,
   .chat-send-button {
     height: 2.75rem !important;

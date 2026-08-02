@@ -121,7 +121,7 @@ export function AccountSetupDialog({
           onClick={onClose}
           className={cn(
             toolbarButton,
-            "absolute right-3 top-3 z-10 h-10 w-10 border-transparent bg-transparent shadow-none hover:bg-[color:var(--surface-subtle)] sm:right-4 sm:top-4",
+            "absolute right-3 top-3 z-10 border-transparent bg-transparent shadow-none hover:bg-[color:var(--surface-subtle)] sm:right-4 sm:top-4",
           )}
           aria-label="Close account setup"
         >
