@@ -39,6 +39,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
+  // Guide wireframes paint Answer chrome + Sheet stacks inside device frames;
+  // the shared composer would read as a second, real search bar over the study.
+  const isGuideWireframesMockup = pathname.startsWith("/mockups/guide-wireframes");
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -74,6 +77,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isPhoneInPageNavigationMockup &&
         !isSearchBandDirectionsMockup &&
         !isTherapyNavigationMockup &&
+        !isGuideWireframesMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup
@@ -85,6 +89,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchBandDirectionsMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
+        !isGuideWireframesMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup
