@@ -9,6 +9,12 @@ export type Crumb = {
   label: string;
   /** Omit on the final crumb — the current page is not a link to itself. */
   href?: string;
+  /**
+   * Leading glyph. Exists so the first crumb can keep the back-arrow that the
+   * information pages already use to get a history-less deep link home; that
+   * affordance is the reason those pages had their own breadcrumb at all.
+   */
+  icon?: LucideIcon;
 };
 
 export type BreadcrumbProps = {
@@ -20,6 +26,14 @@ export type BreadcrumbProps = {
  * Internal navigation goes through `<Link>`, never a raw `<a href="/…">`
  * (docs/wiring-conventions.md). The trailing crumb is plain text carrying
  * `aria-current="page"`.
+ *
+ * A crumb is a link whenever it has an `href` — the `href`, not the position, is
+ * what decides. That is the semantic the information pages already ship, where
+ * the trailing crumb is the only one without one; deciding on position instead
+ * would silently turn a linked final crumb into dead text.
+ *
+ * Crumb links are `min-h-tap` because on a phone this row is the way back out of
+ * a record, and a text-height hit area is not a target.
  */
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
   if (!items.length) return null;
@@ -29,25 +43,32 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
       <ol className="flex min-w-0 flex-wrap items-center gap-1 text-xs">
         {items.map((item, index) => {
           const last = index === items.length - 1;
+          const Icon = item.icon;
           return (
             <li key={`${item.label}:${index}`} className="flex min-w-0 items-center gap-1">
               {index > 0 ? (
                 <ChevronRight aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--text-soft)]" />
               ) : null}
-              {item.href && !last ? (
+              {item.href ? (
                 <Link
                   href={item.href}
-                  className="truncate rounded-sm text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-md px-1.5 text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
-                  {item.label}
+                  {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
+                  <span className="truncate">{item.label}</span>
                 </Link>
               ) : (
-                <span
-                  aria-current={last ? "page" : undefined}
-                  className="truncate font-semibold text-[color:var(--text)]"
-                >
-                  {item.label}
-                </span>
+                <>
+                  {Icon ? <Icon aria-hidden="true" className="size-icon-sm shrink-0" /> : null}
+                  {/* The label is this element's own text, not a nested span:
+                      `aria-current` has to sit on the node the reader lands on. */}
+                  <span
+                    aria-current={last ? "page" : undefined}
+                    className="truncate px-1.5 font-semibold text-[color:var(--text)]"
+                  >
+                    {item.label}
+                  </span>
+                </>
               )}
             </li>
           );
@@ -75,6 +96,17 @@ export type PageHeaderProps = {
  * Page-level counterpart to `PanelHeading`: `PanelHeading` titles a panel inside a
  * page, `PageHeader` titles the page itself and owns the `<h1>`. A page should
  * carry exactly one.
+ *
+ * Two COMPONENTS §9.16 defects close here, and they are the same defect twice.
+ * The `<h1>` truncated, and the actions row was `shrink-0` beside a title that
+ * could shrink — so a long diagnosis name lost its ending to an ellipsis while a
+ * pair of buttons kept their full width. A page title is the answer to "where am
+ * I", so it wraps; the title column is `minmax(0, 1fr)` and the actions wrap onto
+ * their own row rather than eating into it.
+ *
+ * The title also takes the display scale the hand-rolled product headers already
+ * shipped (`text-2xl`/`sm:text-3xl`, extrabold), so converging onto this
+ * component is not a demotion for the pages that converge.
  */
 export function PageHeader({
   title,
@@ -89,7 +121,7 @@ export function PageHeader({
   return (
     <header className={cn("min-w-0 space-y-3", className)}>
       {breadcrumb?.length ? <Breadcrumb items={breadcrumb} /> : null}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 items-start gap-3">
           {Icon ? (
             <span className={iconTilePremium}>
@@ -98,13 +130,24 @@ export function PageHeader({
           ) : null}
           <div className="min-w-0">
             {eyebrow ? <p className={eyebrowText}>{eyebrow}</p> : null}
-            <h1 className="truncate text-xl font-semibold text-[color:var(--text-heading)]">{title}</h1>
-            {description ? <p className={cn("mt-1 max-w-[68ch] text-sm leading-6", textMuted)}>{description}</p> : null}
+            <h1
+              className={cn(
+                "text-balance text-2xl font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl",
+                eyebrow && "mt-1.5",
+              )}
+            >
+              {title}
+            </h1>
+            {description ? (
+              <p className={cn("mt-1.5 max-w-[68ch] text-pretty text-sm font-medium leading-6", textMuted)}>
+                {description}
+              </p>
+            ) : null}
           </div>
         </div>
-        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions ? <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div>
-      {meta ? <div className="flex flex-wrap items-center gap-1.5">{meta}</div> : null}
+      {meta ? <div className="flex flex-wrap items-center gap-2">{meta}</div> : null}
     </header>
   );
 }
