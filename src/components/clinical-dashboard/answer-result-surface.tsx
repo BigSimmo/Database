@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
@@ -25,7 +25,10 @@ import {
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
+import { answerStateFromRetrieval } from "@/components/ui/answer-state";
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { Sheet } from "@/components/ui/sheet";
+import { VerificationNotice } from "@/components/ui/verification-notice";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
@@ -178,9 +181,36 @@ function StagedAnswerResultSurfaceImpl({
       setCopiedQuotes(false);
     }
   }, [renderModel.quoteCards]);
+  /**
+   * PR 13 answer adoption. The design system's projection of the same payload,
+   * built here so the live support-priority caution and the DS
+   * `RetrievalStateBanner` are two renderings of one state rather than two
+   * independent readings of the same fields.
+   *
+   * `answer.sources` is the cited set the render model works from; the `sources`
+   * prop is the search-result fallback for paths that do not populate it.
+   * `weakEvidence` is passed through rather than re-derived — render trust is
+   * the render policy's decision, not this layer's.
+   */
+  const answerState = useMemo(
+    () =>
+      answerStateFromRetrieval({
+        sources: answer.sources ?? sources,
+        citations: answer.citations,
+        answerQualityTier: answer.answerQualityTier,
+        fallbackReason: answer.fallbackReason,
+        routingReason: answer.routingReason,
+        grounded: answer.grounded,
+        confidence: answer.confidence,
+        unverifiedNumericTokens: answer.unverifiedNumericTokens,
+        weakEvidence,
+      }),
+    [answer, sources, weakEvidence],
+  );
   const priority = answerSupportPriority(answer, safeAnswerSections, centralVisualEvidence, safetyFindings, {
     grounded: answerGrounded,
     weakEvidence,
+    answerState,
   });
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
@@ -202,6 +232,15 @@ function StagedAnswerResultSurfaceImpl({
           )}
         >
           <div className="min-w-0 space-y-3">
+            {/* PR 13 answer adoption. System-owned verification wording above the
+                prose, in document order, on screen and on print alike — the call
+                site chooses the state, never the words. The degraded banner sits
+                directly under it and carries the one-click route back to the
+                cited page, so a caution is never raised with nowhere to go. */}
+            <VerificationNotice state={answerState.kind} sourceCount={sourceCount} />
+            {answerState.kind !== "ready" ? (
+              <RetrievalStateBanner state={answerState} onOpenSource={onScopeDocument} />
+            ) : null}
             <NaturalLanguageAnswer
               text={answer.answer}
               query={query}

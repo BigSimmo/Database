@@ -11,6 +11,8 @@ import {
 } from "@/components/clinical-dashboard/answer-content";
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
+import { answerStateFromRetrieval } from "@/components/ui/answer-state";
+import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 /**
@@ -63,6 +65,23 @@ export function PriorAnswerTurnSurface({
     turn.answer.sources?.length ||
     turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
+  // #207/#208: a prior turn is copied out of the app exactly like a current one,
+  // so it carries the same attribution, caveat and provenance rules.
+  const turnState = useMemo(
+    () =>
+      answerStateFromRetrieval({
+        sources: turn.answer.sources ?? turn.sources,
+        citations: turn.answer.citations,
+        answerQualityTier: turn.answer.answerQualityTier,
+        fallbackReason: turn.answer.fallbackReason,
+        routingReason: turn.answer.routingReason,
+        grounded: turn.answer.grounded,
+        confidence: turn.answer.confidence,
+        unverifiedNumericTokens: turn.answer.unverifiedNumericTokens,
+        weakEvidence: renderModel.trust === "low" || renderModel.trust === "unsupported",
+      }),
+    [turn.answer, turn.sources, renderModel.trust],
+  );
   const needsSourceReview =
     turn.answer.answerQualityTier === "source_only" ||
     turn.answer.grounded === false ||
@@ -104,7 +123,15 @@ export function PriorAnswerTurnSurface({
               sources={renderModel.reviewSources}
               sourceLinks={renderModel.primarySources}
               copied={copied}
-              onCopy={() => onCopy(renderModel.copyText || previewText)}
+              onCopy={() =>
+                onCopy(
+                  composeAnswerClipboardText({
+                    renderCopyText: renderModel.copyText || previewText,
+                    state: turnState,
+                    sourceOnly: turn.answer.answerQualityTier === "source_only",
+                  }),
+                )
+              }
             />
             {needsSourceReview ? (
               <div

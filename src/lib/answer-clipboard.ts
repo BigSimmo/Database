@@ -34,9 +34,16 @@ export type AnswerClipboardMetadataInput = Partial<ClinicalSourceMetadata> | nul
  * Whose words a paste is. Unconditional, including on `ready`: a copied answer
  * loses the banner, the notice and the links, so clinical prose with nothing
  * attached reads in a record as though a clinician wrote and endorsed it.
+ *
+ * `sourceOnly` exists because the state alone cannot answer this question since
+ * `#207`. The projection's precedence puts `ungrounded` above `source_only`, so
+ * an extractive answer that is also weakly supported reports `ungrounded` — and
+ * keying attribution on the kind would then paste "AI-generated" over passages
+ * no model wrote. A caller that knows `answerQualityTier` passes it and the
+ * paste stays factually true about its own provenance.
  */
-export function answerStateAttribution(state: AnswerState): string {
-  return state.kind === "source_only"
+export function answerStateAttribution(state: AnswerState, options?: { sourceOnly?: boolean }): string {
+  return options?.sourceOnly === true || state.kind === "source_only"
     ? "Assembled directly from the cited sources without model synthesis."
     : "AI-generated from the cited sources.";
 }
@@ -113,15 +120,24 @@ export function composeAnswerClipboardText({
   renderCopyText,
   state,
   metadata,
+  sourceOnly,
 }: {
   /** `buildAnswerRenderModel(answer).copyText` — the primary product payload. */
   renderCopyText: string;
   state: AnswerState;
   /** Provenance for a SINGLE document, when the surface has one. */
   metadata?: AnswerClipboardMetadataInput;
+  /**
+   * `answerQualityTier === "source_only"`. Pass it whenever the caller has it:
+   * since `#207`, `ungrounded` outranks `source_only` in the projection, so the
+   * state alone can no longer be trusted to say whether a model wrote the prose.
+   */
+  sourceOnly?: boolean;
 }): string {
   const body = renderCopyText.trim();
-  const head = [answerStateAttribution(state), answerClipboardCaveatLine(state)].filter(Boolean).join("\n");
+  const head = [answerStateAttribution(state, { sourceOnly }), answerClipboardCaveatLine(state)]
+    .filter(Boolean)
+    .join("\n");
   const provenance = answerClipboardProvenanceLine(state, metadata);
 
   return [head, body, provenance].filter(Boolean).join("\n\n").trim();

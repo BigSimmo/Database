@@ -187,6 +187,24 @@ caution.
 **`src/lib/rag/**` is read-only for every surface, including this one.** A change that appears
 to need it stops and becomes a separate contract-PR proposal.
 
+**Deliberately deferred: the `AnswerCard` container swap.** What landed is the whole of
+`VerificationNotice` and the whole of `RetrievalStateBanner` on the live surface, driven by a
+real `answerStateFromRetrieval()` projection, plus both product copy paths on
+`composeAnswerClipboardText()`. What did not land is replacing the existing `answerSurface`
+wrapper with `AnswerCard`'s `<article>`. That is a structural change to the chrome of the
+primary clinical screen: it collides with the `answerSurface` style contract and the phone
+geometry pins, and the first honest signal would be a `verify:ui` run at the end of the wave.
+The clinically load-bearing part of PR 6 — the ungrounded channel, the preserved caution, the
+copy payload — is adopted without it. This is a narrowing of the surface's scope and is
+recorded here rather than left implicit; it needs its own commit and its own `verify:ui` pass.
+
+**Defect found while adopting, and fixed:** attribution in the clipboard cannot be keyed on the
+`AnswerState` kind. `#207` precedence puts `ungrounded` above `source_only`, so an extractive
+answer that is also weakly supported reports `ungrounded`, and the paste claimed "AI-generated"
+over passages no model wrote. `composeAnswerClipboardText()` now takes an explicit `sourceOnly`
+tier flag, which both product callers pass. Pinned in
+`tests/answer-clipboard-product-path.dom.test.tsx` and `tests/answer-clipboard-composition.test.ts`.
+
 ---
 
 ## 3 · Components to register before their surface adopts them

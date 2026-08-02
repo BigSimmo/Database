@@ -186,6 +186,8 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
+import { answerStateFromRetrieval } from "@/components/ui/answer-state";
+import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
@@ -3241,7 +3243,34 @@ export function ClinicalDashboard({
   });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
   const handleCopyAnswer = useEventCallback(() => {
-    copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
+    // #208: the render-policy string stays the primary payload — it carries the
+    // warnings, trust line and numbered sources the UI already decided the
+    // clinician must see. The composer only adds what leaves the app with it:
+    // attribution, the AnswerState caveat, and the provenance audit line. A copy
+    // is read in a record long after the banner is gone.
+    const renderCopyText = answerRenderModel?.copyText || safeAnswerText || answer?.answer || "";
+    if (!answer || !renderCopyText) {
+      copyText("answer", renderCopyText);
+      return;
+    }
+    copyText(
+      "answer",
+      composeAnswerClipboardText({
+        renderCopyText,
+        sourceOnly: answer.answerQualityTier === "source_only",
+        state: answerStateFromRetrieval({
+          sources: answer.sources ?? sources,
+          citations: answer.citations,
+          answerQualityTier: answer.answerQualityTier,
+          fallbackReason: answer.fallbackReason,
+          routingReason: answer.routingReason,
+          grounded: answer.grounded,
+          confidence: answer.confidence,
+          unverifiedNumericTokens: answer.unverifiedNumericTokens,
+          weakEvidence,
+        }),
+      }),
+    );
   });
   // The answer thread's prior-query list, memoized so it isn't a fresh array on
   // every keystroke (it feeds two memoized surfaces below).

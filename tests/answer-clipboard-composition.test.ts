@@ -82,6 +82,22 @@ describe("composeAnswerClipboardText · #208 compose, do not replace", () => {
     expect(composed).not.toContain("AI-generated");
   });
 
+  it("lets an explicit source-only tier override an ungrounded state's attribution", () => {
+    // `#207` precedence puts `ungrounded` above `source_only`, so the state kind
+    // alone cannot say whether a model wrote the prose. Without the override this
+    // pastes "AI-generated" over extractive passages.
+    const composed = composeAnswerClipboardText({
+      renderCopyText: renderCopyText(),
+      state: { kind: "ungrounded", reason: "weak_evidence", sourceCount: 1 },
+      sourceOnly: true,
+    });
+
+    expect(composed.startsWith("Assembled directly from the cited sources without model synthesis.")).toBe(true);
+    expect(composed).not.toContain("AI-generated");
+    // The caveat still describes the state, not the tier.
+    expect(composed).toContain("Caveat: the evidence supporting this answer is weak.");
+  });
+
   it("carries the AnswerState caveat above the render block, where a truncated paste keeps it", () => {
     const composed = composeAnswerClipboardText({
       renderCopyText: renderCopyText(),
