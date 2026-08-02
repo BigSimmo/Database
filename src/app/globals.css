@@ -410,8 +410,11 @@
   --duration-deliberate: 300ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
-  /* CSS keyword ease-out equivalent — do not conflate with chrome-reveal / soft. */
-  --ease-out: cubic-bezier(0, 0, 0.58, 1);
+  /* CSS keyword ease-out equivalent — do not conflate with chrome-reveal / soft.
+     Named --ease-out-keyword (not --ease-out): Tailwind v4 owns --ease-out inside
+     @layer theme for the ease-out utility and --default-transition-timing-function;
+     an unlayered :root --ease-out would silently retarget every bare transition. */
+  --ease-out-keyword: cubic-bezier(0, 0, 0.58, 1);
   /* Phone-chrome hide vs reveal: two tokens, never one (search-chrome-behaviour). */
   --ease-chrome-hide: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-chrome-reveal: cubic-bezier(0.22, 1, 0.36, 1);
