@@ -117,4 +117,31 @@ describe("ErrorSummary", () => {
     await userEvent.click(screen.getByTestId("error-summary-link"));
     expect(screen.getByLabelText(/Review date/)).toHaveFocus();
   });
+
+  it("re-focuses the summary on a repeated failed submit with the same errors", () => {
+    const { rerender } = render(
+      <>
+        <button type="button" data-testid="elsewhere">
+          Elsewhere
+        </button>
+        <ErrorSummary errors={errors} attempt={1} />
+      </>,
+    );
+
+    expect(screen.getByTestId("error-summary")).toHaveFocus();
+    screen.getByTestId("elsewhere").focus();
+    expect(screen.getByTestId("elsewhere")).toHaveFocus();
+
+    // Same field IDs and count — without `attempt`, the effect would not re-run.
+    rerender(
+      <>
+        <button type="button" data-testid="elsewhere">
+          Elsewhere
+        </button>
+        <ErrorSummary errors={errors} attempt={2} />
+      </>,
+    );
+
+    expect(screen.getByTestId("error-summary")).toHaveFocus();
+  });
 });

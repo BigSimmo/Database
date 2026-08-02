@@ -21,6 +21,8 @@ type Priority = "polite" | "assertive";
 const dedupeWindowMs = 1_000;
 /** Minimum gap between announcements so a queued message cannot cut into the previous sentence. */
 const queueGapMs = 150;
+/** Clear→set gap so an identical repeat after the dedupe window still mutates the live region. */
+const repeatClearMs = 50;
 
 type Listener = (state: { polite: string; assertive: string }) => void;
 
@@ -40,6 +42,15 @@ function emit() {
   for (const listener of store.listeners) listener(snapshot);
 }
 
+function setRegion(priority: Priority, message: string) {
+  if (priority === "assertive") store.assertive = message;
+  else store.polite = message;
+}
+
+function currentRegion(priority: Priority) {
+  return priority === "assertive" ? store.assertive : store.polite;
+}
+
 function drain() {
   const next = store.queue.shift();
   if (!next) {
@@ -47,8 +58,22 @@ function drain() {
     return;
   }
   store.draining = true;
-  if (next.priority === "assertive") store.assertive = next.message;
-  else store.polite = next.message;
+
+  // aria-live announces only when the region's text *changes*. A repeat of the
+  // same message after the dedupe window is a new event that announce() let
+  // through — clear first so the subsequent set is observable to AT.
+  if (currentRegion(next.priority) === next.message) {
+    setRegion(next.priority, "");
+    emit();
+    store.timer = setTimeout(() => {
+      setRegion(next.priority, next.message);
+      emit();
+      store.timer = setTimeout(drain, queueGapMs);
+    }, repeatClearMs);
+    return;
+  }
+
+  setRegion(next.priority, next.message);
   emit();
   store.timer = setTimeout(drain, queueGapMs);
 }
@@ -89,16 +114,21 @@ export function resetAnnouncerForTests() {
 
 export function LiveAnnouncer() {
   const [state, setState] = useState({ polite: store.polite, assertive: store.assertive });
+  const [suppressed, setSuppressed] = useState(false);
 
   useEffect(() => {
     store.mounted += 1;
     if (store.mounted > 1) {
-      // Two announcers means every message is read twice. Loud in development,
-      // survivable in production.
+      // Two announcers means every message is read twice. Loud in development;
+      // in production the duplicate is a true no-op — no listener, no regions.
       if (process.env.NODE_ENV !== "production") {
         throw new Error("LiveAnnouncer is a singleton — mount exactly one instance at the app root.");
       }
       console.warn(JSON.stringify({ level: "warn", message: "live-announcer: duplicate instance mounted" }));
+      setSuppressed(true);
+      return () => {
+        store.mounted = Math.max(0, store.mounted - 1);
+      };
     }
     const listener: Listener = (next) => setState(next);
     store.listeners.add(listener);
@@ -108,6 +138,8 @@ export function LiveAnnouncer() {
       store.mounted = Math.max(0, store.mounted - 1);
     };
   }, []);
+
+  if (suppressed) return null;
 
   return (
     <>

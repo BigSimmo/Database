@@ -25,7 +25,7 @@ import type { RagAnswer } from "@/lib/types";
 /** Compile-time proof: the real answer payload satisfies the projection's input shape. */
 type AssignableTo<A, B> = A extends B ? true : false;
 const ragAnswerSatisfiesProjectionInput: AssignableTo<
-  Pick<RagAnswer, "sources" | "answerQualityTier" | "fallbackReason" | "routingReason">,
+  Pick<RagAnswer, "sources" | "citations" | "answerQualityTier" | "fallbackReason" | "routingReason">,
   AnswerStateInput
 > = true;
 
@@ -190,5 +190,53 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     });
 
     expect(state.kind).not.toBe("partial_retrieval");
+  });
+
+  it("derives staleness from cited supporting sources only", () => {
+    // RagAnswer.sources retains every retrieval candidate; citations name the
+    // chunks that support the prose. An outdated uncited candidate must not
+    // label a current cited answer stale_evidence or inflate the source count.
+    const state = answerStateFromRetrieval({
+      sources: [
+        source({
+          id: "chunk-current",
+          document_id: "doc-current",
+          metadata: { document_status: "current" },
+        }),
+        source({
+          id: "chunk-outdated-uncited",
+          document_id: "doc-outdated",
+          title: "Superseded candidate",
+          metadata: { document_status: "outdated", review_date: "2024-02-02" },
+        }),
+      ],
+      citations: [{ chunk_id: "chunk-current", document_id: "doc-current" }],
+    });
+
+    expect(state).toEqual({ kind: "ready", sourceCount: 1 });
+  });
+
+  it("still warns when a cited source itself is overdue", () => {
+    const state = answerStateFromRetrieval({
+      sources: [
+        source({
+          id: "chunk-stale",
+          document_id: "doc-stale",
+          metadata: { document_status: "review_due", review_date: "2025-11-01" },
+        }),
+        source({
+          id: "chunk-other",
+          document_id: "doc-other",
+          metadata: { document_status: "outdated", review_date: "2024-02-02" },
+        }),
+      ],
+      citations: [{ chunk_id: "chunk-stale", document_id: "doc-stale" }],
+    });
+
+    expect(state.kind).toBe("stale_evidence");
+    if (state.kind !== "stale_evidence") return;
+    expect(state.sourceCount).toBe(1);
+    expect(state.overdue).toHaveLength(1);
+    expect(state.overdue[0]?.sourceId).toBe("doc-stale");
   });
 });

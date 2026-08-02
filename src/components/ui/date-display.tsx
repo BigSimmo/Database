@@ -51,6 +51,24 @@ function noteInvalid(value: string) {
   }
 }
 
+/**
+ * Parse an ISO value for display. Date-only strings round-trip through UTC
+ * midnight so impossible calendars like `2026-02-30` — which `new Date()` would
+ * silently roll to 2 March — render as Unknown rather than a date that was
+ * never recorded. Same calendar check as `isValidReviewDate()`, without the
+ * "not in the future" policy (displaying a future event date is legitimate).
+ */
+function parseClinicalIsoDate(value: string): Date | null {
+  if (!value) return null;
+  if (DATE_ONLY_ISO.test(value)) {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return null;
+    return parsed;
+  }
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
 /** The Perth calendar day as `YYYY-MM-DD`, so "days ago" counts days, not 24-hour blocks. */
 function perthCalendarDay(instant: Date) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -88,11 +106,10 @@ export function DateDisplay({
   const now = useClientTime();
 
   const trimmed = typeof value === "string" ? value.trim() : "";
-  const parsed = trimmed ? new Date(trimmed) : null;
-  const valid = parsed !== null && Number.isFinite(parsed.getTime());
+  const parsed = parseClinicalIsoDate(trimmed);
 
   if (!trimmed) return <MissingValue reason={missingReason} className={className} />;
-  if (!valid) {
+  if (!parsed) {
     noteInvalid(trimmed);
     return <MissingValue reason="unknown" className={className} />;
   }

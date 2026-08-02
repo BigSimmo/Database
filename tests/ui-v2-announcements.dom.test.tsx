@@ -58,6 +58,46 @@ describe("LiveAnnouncer", () => {
     await waitFor(() => expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("13 results"));
   });
 
+  it("re-announces an identical message once the dedupe window has elapsed", async () => {
+    vi.useFakeTimers();
+    render(<LiveAnnouncer />);
+
+    act(() => announce("12 results"));
+    expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("12 results");
+
+    // Past the 1s dedupe window: announce() lets the repeat through, and drain()
+    // must clear then set so aria-live sees a DOM change.
+    act(() => {
+      vi.advanceTimersByTime(1_001);
+      announce("12 results");
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+    });
+    expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("12 results");
+
+    // Prove the clear→set path ran: the region was emptied before the repeat landed.
+    // We cannot assert the empty intermediate with fake timers + React batching
+    // reliably after the fact, so assert a second distinct message still works
+    // and that the repeat was not swallowed by the dedupe window.
+    act(() => {
+      vi.advanceTimersByTime(1_001);
+      announce("12 results");
+    });
+    let sawClear = false;
+    await act(async () => {
+      // The clear tick empties the region before the message is restored.
+      vi.advanceTimersByTime(1);
+      sawClear = screen.getByTestId("live-announcer-polite").textContent === "";
+      vi.advanceTimersByTime(50);
+    });
+    expect(sawClear).toBe(true);
+    expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("12 results");
+
+    vi.useRealTimers();
+  });
+
   it("ignores an empty announcement", () => {
     render(<LiveAnnouncer />);
     act(() => announce("   "));
@@ -68,6 +108,31 @@ describe("LiveAnnouncer", () => {
     render(<LiveAnnouncer />);
     // Two announcers means every message is read twice.
     expect(() => render(<LiveAnnouncer />)).toThrow(/singleton/i);
+  });
+
+  it("suppresses a duplicate instance in production so only one live-region pair updates", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      const first = render(<LiveAnnouncer />);
+      const second = render(<LiveAnnouncer />);
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId("live-announcer-polite")).toHaveLength(1);
+      });
+
+      act(() => announce("Only once"));
+      expect(screen.getByTestId("live-announcer-polite")).toHaveTextContent("Only once");
+      expect(warn).toHaveBeenCalled();
+
+      second.unmount();
+      first.unmount();
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+      resetAnnouncerForTests();
+    }
   });
 });
 

@@ -116,6 +116,12 @@ export type ErrorSummaryProps = {
   /** System default wording. */
   heading?: string;
   errors: Array<{ fieldId: string; label: string; message: string }>;
+  /**
+   * Incremented by the caller on each failed submit. Field IDs and error count
+   * alone do not change when the user re-submits the same invalid values, so
+   * without this token the focus effect would skip the second failure.
+   */
+  attempt?: number;
   className?: string;
 };
 
@@ -125,15 +131,20 @@ export type ErrorSummaryProps = {
  * a screen-reader user is not told about errors they then have to hunt for.
  * Deliberately not a live region — a live region plus a focus move reads twice.
  */
-export function ErrorSummary({ heading = "This form could not be submitted", errors, className }: ErrorSummaryProps) {
+export function ErrorSummary({
+  heading = "This form could not be submitted",
+  errors,
+  attempt = 0,
+  className,
+}: ErrorSummaryProps) {
   const container = useRef<HTMLDivElement>(null);
   const errorKey = errors.map((entry) => entry.fieldId).join("|");
 
   useEffect(() => {
     if (errors.length > 0) container.current?.focus();
-    // Re-focus when the error set changes: a second failed submit is a second
-    // failure and deserves the same handling as the first.
-  }, [errorKey, errors.length]);
+    // Re-focus when the error set changes *or* the caller reports another failed
+    // submit with the same errors — a second failure deserves the same handling.
+  }, [errorKey, errors.length, attempt]);
 
   if (errors.length === 0) return null;
 

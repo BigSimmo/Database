@@ -96,6 +96,18 @@ describe("DateDisplay", () => {
     render(<DateDisplay value="2026-03-14T02:00:00.000Z" kind="generated" />);
     expect(screen.getByTestId("date-display").textContent).toMatch(/\d{2}:\d{2}/);
   });
+
+  it("rejects impossible calendar dates that JavaScript would silently roll forward", () => {
+    // new Date("2026-02-30") becomes 2 March; provenance must say Unknown instead.
+    render(<DateDisplay value="2026-02-30" kind="review" />);
+    expect(screen.getByTestId("missing-value")).toHaveTextContent("Unknown");
+  });
+
+  it("accepts a real leap-day calendar date", () => {
+    render(<DateDisplay value="2024-02-29" kind="review" />);
+    expect(screen.getByTestId("date-display")).toHaveTextContent("29/02/2024");
+    expect(screen.queryByTestId("missing-value")).not.toBeInTheDocument();
+  });
 });
 
 describe("VerificationNotice", () => {

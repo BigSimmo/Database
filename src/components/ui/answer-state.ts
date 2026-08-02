@@ -67,8 +67,28 @@ export type AnswerStateSource = {
   source_metadata?: Pick<ClinicalSourceMetadata, "document_status" | "review_date"> | null;
 };
 
+/**
+ * The cited/supporting subset of a retrieval answer. `RagAnswer.sources` retains
+ * every retrieval candidate; `citations` (and claim support IDs) name the chunks
+ * that actually support the prose. Staleness must be derived from that supporting
+ * set — an outdated uncited candidate must not label a current cited answer stale.
+ */
+export type AnswerStateCitation = {
+  chunk_id?: string | null;
+  document_id?: string | null;
+};
+
 export type AnswerStateInput = {
   sources?: readonly AnswerStateSource[] | null;
+  /**
+   * When present and non-empty, only sources that match a citation chunk or
+   * document (or an explicit supporting chunk id) participate in the projection.
+   * Absent/empty leaves the prior "all sources" behaviour for paths that have not
+   * yet populated citations.
+   */
+  citations?: readonly AnswerStateCitation[] | null;
+  /** Claim-level supporting chunk ids — same filter as citations when present. */
+  supportingChunkIds?: readonly string[] | null;
   answerQualityTier?: "model_synthesis" | "source_only" | "cached" | null;
   fallbackReason?: string | null;
   routingReason?: string | null;
@@ -128,6 +148,38 @@ function overdueSourceFrom(source: AnswerStateSource, key: string): OverdueSourc
 }
 
 /**
+ * Narrow the retrieval candidate list to the chunks/documents that support the
+ * delivered answer. `sources` alone over-warns: an outdated uncited candidate
+ * would otherwise label a current cited answer `stale_evidence`.
+ */
+function supportingSources(input: AnswerStateInput): AnswerStateSource[] {
+  const sources = input.sources ?? [];
+  const citedChunkIds = new Set<string>();
+  const citedDocumentIds = new Set<string>();
+
+  for (const citation of input.citations ?? []) {
+    const chunkId = citation.chunk_id?.trim();
+    const documentId = citation.document_id?.trim();
+    if (chunkId) citedChunkIds.add(chunkId);
+    if (documentId) citedDocumentIds.add(documentId);
+  }
+  for (const chunkId of input.supportingChunkIds ?? []) {
+    const trimmed = chunkId?.trim();
+    if (trimmed) citedChunkIds.add(trimmed);
+  }
+
+  if (citedChunkIds.size === 0 && citedDocumentIds.size === 0) {
+    return [...sources];
+  }
+
+  return sources.filter((source) => {
+    const chunkId = source.id?.trim();
+    const documentId = source.document_id?.trim();
+    return Boolean((chunkId && citedChunkIds.has(chunkId)) || (documentId && citedDocumentIds.has(documentId)));
+  });
+}
+
+/**
  * Project the app-facing retrieval payload onto the state the answer surface
  * renders. This is a projection of fields the retrieval layer has already
  * decided — `document_status` is server-set governance, not a date comparison —
@@ -149,7 +201,7 @@ function overdueSourceFrom(source: AnswerStateSource, key: string): OverdueSourc
  * expected sources were unavailable. See `docs/design-system/COMPONENTS.md` §2.
  */
 export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
-  const sources = input.sources ?? [];
+  const sources = supportingSources(input);
   const documents = new Set<string>();
   const overdueByDocument = new Map<string, OverdueSource>();
 
