@@ -259,6 +259,14 @@ and storage mutations require a separately configured non-production project or 
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
+Project `.codex/config.toml` may also list Figma, Railway, read-only Supabase, and Sentry MCP
+URLs for trusted Codex hosts, but those entries stay `enabled = false` in the repository so
+ordinary/offline sessions do not initialize third-party providers. When a connected Cloud or host
+environment enables a server for a task, `default_tools_approval_mode = "auto"` lets the agent
+use it without per-tool permission prompts. Paid API canaries still require explicit confirmation.
+`npm run check:codex-cloud` validates both `.mcp.json` (runtime Cloud allowlist) and the disabled
+project template in `.codex/config.toml`.
+
 In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
 provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
 provider environment variable as `present=false`, the credential-free `BigSimmo/Database` origin,
