@@ -33,19 +33,24 @@ env:
   SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
   SUPABASE_PROJECT_NAME: Clinical KB Database
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
 jobs:
   ingestion-autopilot:
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
+          # Manual dispatch can select a same-repository branch; always execute the
+          # trusted default-branch code before exposing production credentials.
+          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Preflight required secrets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "::error::Ingestion autopilot cannot run — missing repo secret SUPABASE_SERVICE_ROLE_KEY"
@@ -68,6 +73,7 @@ jobs:
       - name: Run autopilot
         id: autopilot
         env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # Apply only when BOTH the dispatch input and the repo variable allow it.
           APPLY_REQUESTED: ${{ github.event.inputs.apply }}
           APPLY_ALLOWED: ${{ vars.INGESTION_AUTOPILOT_APPLY }}
