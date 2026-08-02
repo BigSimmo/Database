@@ -16,15 +16,15 @@ const OUT_FILE = "worker/python/requirements.txt";
 function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, { encoding: "utf8", stdio: "pipe", ...opts });
   if (result.status !== 0) {
-    throw new Error(
-      `Command failed: ${cmd} ${args.join(" ")}\n${result.stderr || ""}\n${result.stdout || ""}`,
-    );
+    throw new Error(`Command failed: ${cmd} ${args.join(" ")}\n${result.stderr || ""}\n${result.stdout || ""}`);
   }
   return result;
 }
 
 function venvPython(venvDir) {
-  return process.platform === "win32" ? path.join(venvDir, "Scripts", "python.exe") : path.join(venvDir, "bin", "python");
+  return process.platform === "win32"
+    ? path.join(venvDir, "Scripts", "python.exe")
+    : path.join(venvDir, "bin", "python");
 }
 
 function ensureVenv(venvDir) {

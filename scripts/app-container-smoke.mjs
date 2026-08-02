@@ -129,7 +129,13 @@ async function main() {
   }
 
   run(["docker", "stop", "-t", String(STOP_TIMEOUT_SECONDS), CONTAINER_NAME]);
-  const inspectResult = run(["docker", "inspect", "--format", "{{.State.OOMKilled}} {{.State.ExitCode}}", CONTAINER_NAME]);
+  const inspectResult = run([
+    "docker",
+    "inspect",
+    "--format",
+    "{{.State.OOMKilled}} {{.State.ExitCode}}",
+    CONTAINER_NAME,
+  ]);
   const [oom, exitCode] = inspectResult.stdout?.trim().split(" ") ?? ["true", "-1"];
 
   if (oom === "true") {

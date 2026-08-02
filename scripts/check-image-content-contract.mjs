@@ -36,7 +36,7 @@ function assertImage(image, kind) {
     throw new Error(`${image}: expected worker Cmd to contain 'dist/worker/index.mjs', got ${cmd}`);
   }
 
-  const sourceLabel = inspect(image, "{{index .Config.Labels \"org.opencontainers.image.source\"}}");
+  const sourceLabel = inspect(image, '{{index .Config.Labels "org.opencontainers.image.source"}}');
   if (!sourceLabel) throw new Error(`${image}: missing org.opencontainers.image.source label`);
 }
 
@@ -46,7 +46,16 @@ function assertPathAbsent(image, path) {
 }
 
 function assertWorkerPythonClean(image) {
-  const r = run(["docker", "run", "--rm", "--entrypoint", "sh", image, "-c", "ls worker/python/test_*.py 2>/dev/null || true"]);
+  const r = run([
+    "docker",
+    "run",
+    "--rm",
+    "--entrypoint",
+    "sh",
+    image,
+    "-c",
+    "ls worker/python/test_*.py 2>/dev/null || true",
+  ]);
   if (r.stdout?.trim()) throw new Error(`${image}: worker/python test_*.py files were not removed`);
 }
 

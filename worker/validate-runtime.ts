@@ -75,8 +75,11 @@ export async function validateRuntime(options: ValidateRuntimeOptions = {}): Pro
 
   let externals: string[] = options.externals ?? [];
   if (externals.length === 0) {
-    const externalsPath =
-      options.externalsPath ? (typeof options.externalsPath === "string" ? new URL(`file://${options.externalsPath}`) : options.externalsPath) : resolveRelativeToBundle("./externals.json");
+    const externalsPath = options.externalsPath
+      ? typeof options.externalsPath === "string"
+        ? new URL(`file://${options.externalsPath}`)
+        : options.externalsPath
+      : resolveRelativeToBundle("./externals.json");
     if (existsSync(externalsPath)) {
       try {
         externals = JSON.parse(readFileSync(externalsPath, "utf8")) as string[];

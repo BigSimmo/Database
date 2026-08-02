@@ -16,15 +16,15 @@ const OUT_FILE = "worker/python/requirements.txt";
 function run(cmd, args, opts = {}) {
   const result = spawnSync(cmd, args, { encoding: "utf8", stdio: "pipe", ...opts });
   if (result.status !== 0) {
-    throw new Error(
-      `Command failed: ${cmd} ${args.join(" ")}\n${result.stderr || ""}\n${result.stdout || ""}`,
-    );
+    throw new Error(`Command failed: ${cmd} ${args.join(" ")}\n${result.stderr || ""}\n${result.stdout || ""}`);
   }
   return result;
 }
 
 function venvPython(venvDir) {
-  return process.platform === "win32" ? path.join(venvDir, "Scripts", "python.exe") : path.join(venvDir, "bin", "python");
+  return process.platform === "win32"
+    ? path.join(venvDir, "Scripts", "python.exe")
+    : path.join(venvDir, "bin", "python");
 }
 
 function ensureVenv(venvDir) {
@@ -37,11 +37,9 @@ function ensureVenv(venvDir) {
 
 function pipCompile(venvDir, outputFile) {
   const python = venvPython(venvDir);
-  run(
-    python,
-    ["-m", "piptools", "compile", "--generate-hashes", "--output-file", outputFile, IN_FILE],
-    { env: { ...process.env, CUSTOM_COMPILE_COMMAND: "npm run generate:worker-python-lock" } },
-  );
+  run(python, ["-m", "piptools", "compile", "--generate-hashes", "--output-file", outputFile, IN_FILE], {
+    env: { ...process.env, CUSTOM_COMPILE_COMMAND: "npm run generate:worker-python-lock" },
+  });
 }
 
 function normalize(contents) {
@@ -78,10 +76,11 @@ function main() {
   }
 
   if (normalize(committed) !== normalize(generated)) {
-    writeFileSync("tmp/requirements-generated-diff.txt", `--- committed\n+++ generated\n${committed}\n---\n${generated}`);
-    throw new Error(
-      `${OUT_FILE} is out of sync with ${IN_FILE}. Regenerate with: npm run generate:worker-python-lock`,
+    writeFileSync(
+      "tmp/requirements-generated-diff.txt",
+      `--- committed\n+++ generated\n${committed}\n---\n${generated}`,
     );
+    throw new Error(`${OUT_FILE} is out of sync with ${IN_FILE}. Regenerate with: npm run generate:worker-python-lock`);
   }
 
   console.log(`${OUT_FILE} is in sync with ${IN_FILE}`);

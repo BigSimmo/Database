@@ -9,8 +9,14 @@ describe("worker Python lockfile", () => {
     const contents = readFileSync("worker/python/requirements.txt", "utf8");
     const lines = contents.split(/\r?\n/);
 
-    expect(lines.some((line) => line.includes("==")), "requirements.txt has no pinned versions").toBe(true);
-    expect(lines.some((line) => line.includes("--hash=sha256:")), "requirements.txt has no hashes").toBe(true);
+    expect(
+      lines.some((line) => line.includes("==")),
+      "requirements.txt has no pinned versions",
+    ).toBe(true);
+    expect(
+      lines.some((line) => line.includes("--hash=sha256:")),
+      "requirements.txt has no hashes",
+    ).toBe(true);
     expect(contents.includes("medspacy"), "medspacy not present in lock").toBe(true);
   });
 });
