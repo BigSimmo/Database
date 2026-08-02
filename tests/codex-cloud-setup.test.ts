@@ -19,6 +19,7 @@ import {
   railwayReadCapability,
   sanitizedCloudCapabilityLines,
   validateCodexCloudEnvironment,
+  validateCodexProjectMcpConfiguration,
   validateMcpConfiguration,
 } from "../scripts/check-codex-cloud-setup.mjs";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
@@ -291,6 +292,39 @@ describe("Codex Cloud environment contract", () => {
     expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&read_only=false"))).toContain(
       "Supabase MCP must not include additional query parameters.",
     );
+  });
+
+  it("keeps project .codex/config.toml MCP registrations disabled and secret-free", () => {
+    const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
+    expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
+    expect(validateCodexProjectMcpConfiguration(tracked.replaceAll("enabled = false", "enabled = true"))).toContain(
+      `.codex/config.toml figma_cloud must set enabled = false (host/connected layers opt in).`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replaceAll('default_tools_approval_mode = "auto"', 'default_tools_approval_mode = "prompt"'),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must set default_tools_approval_mode = "auto" so connected Cloud tasks avoid per-tool prompts.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\nbearer_token_env_var = "FIGMA_TOKEN"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed bearer_token_env_var; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=",
+          "project_ref=sjrfecxgysukkwxsowpy&read_only=false&features=",
+        ),
+      ),
+    ).toContain(`.codex/config.toml supabase_cloud must keep the production project read-only.`);
   });
 
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {

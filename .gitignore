@@ -19,7 +19,12 @@
 /.playwright-cli/
 /playwright/.auth/
 /.local/
-/.codex/
+# Track only the secret-free project MCP template. Host-local Codex files under
+# .codex/ stay ignored. Never put OAuth tokens, bearer headers, or env secrets in
+# config.toml — credentials belong in the host credential store. CI Gitleaks and
+# check:codex-cloud reject secret-bearing keys in the tracked template.
+/.codex/*
+!/.codex/config.toml
 /.agents/*
 !/.agents/plugins/
 /.agents/plugins/**
