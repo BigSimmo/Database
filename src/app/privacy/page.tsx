@@ -75,12 +75,26 @@ const SECTIONS: Section[] = [
 export default function PrivacyPage() {
   return (
     <main className={cn(searchPageCanvas)}>
-      <div className={cn(searchPageShell)}>
+      {/*
+        Privacy sits outside the search shell, so this page owns the OS top inset.
+        Replacing searchPageShell's py-3 top pad with max(safe-area-top) keeps the
+        back control below the status bar / Dynamic Island on notched phones
+        (apple-mobile-web-app-status-bar-style=black-translucent) without stacking
+        a second unused pad under the notch.
+      */}
+      <div
+        className={cn(
+          searchPageShell,
+          "pt-[max(0.75rem,var(--safe-area-top))] sm:pt-[max(1.25rem,var(--safe-area-top))]",
+        )}
+      >
         <div className={cn(searchPageContainer, "space-y-6")}>
-          <header className="space-y-3">
-            <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
-              <PrivacyPageBackButton />
-            </Suspense>
+          <header className="space-y-4">
+            <div className="flex min-h-12 items-center">
+              <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
+                <PrivacyPageBackButton />
+              </Suspense>
+            </div>
             <div className="space-y-2">
               <p className={eyebrowText}>{privacyCopy.pageEyebrow}</p>
               <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">

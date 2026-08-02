@@ -36,6 +36,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
   const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
+  // Draws its own sticky chrome + device frames for /privacy; shared shell would
+  // read as a second real header over the study.
+  const isPrivacyPageDirectionsMockup = pathname === "/mockups/privacy-page-directions";
   // These studies render their own top bar and composer inside each device
   // frame. Suppress shared chrome so it cannot be mistaken for the concept.
   const isTherapyNavigationMockup = pathname.startsWith("/mockups/therapy-navigation-");
@@ -76,7 +79,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
-        !isAnswerHomeProposalMockup
+        !isAnswerHomeProposalMockup &&
+        !isPrivacyPageDirectionsMockup
       }
       chromeVisible={
         !isSourceOverlayRedesignMockup &&
@@ -87,7 +91,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
-        !isAnswerHomeProposalMockup
+        !isAnswerHomeProposalMockup &&
+        !isPrivacyPageDirectionsMockup
       }
     >
       {children}

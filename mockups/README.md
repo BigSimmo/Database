@@ -37,6 +37,15 @@ The document-search mockups use generated non-patient bitmap assets in `public/m
 
 Some document-search mockups include live handoff routes (for example `document-search/source-overlays`) that resolve into the real document viewer with a selected page and chunk when indexed data is available locally.
 
+## Privacy page redesign study (2026-08)
+
+Runnable comparison of three elevated `/privacy` directions (desktop + phone frames):
+
+- [`/mockups/privacy-page-directions`](../src/app/mockups/privacy-page-directions/page.tsx)
+
+Static combined comps live under
+[`public/mockups/privacy-page-redesign-2026-08/`](../public/mockups/privacy-page-redesign-2026-08/README.md).
+
 ## Mode-page redesign comps (2026-07-31)
 
 Static desktop/phone comps for the pages that need redesign (not ModeHome mockups for Favourites) live under [`public/mockups/mode-page-redesign-2026-07/`](../public/mockups/mode-page-redesign-2026-07/README.md):
