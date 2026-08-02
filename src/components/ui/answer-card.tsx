@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 import { cn, type SourceMetadataInput } from "@/components/ui-primitives";
-import type { AnswerState, DegradedAnswerState } from "@/components/ui/answer-state";
+import type { AnswerState, DegradedAnswerState, UngroundedReason } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
 import { MissingValue } from "@/components/ui/missing-value";
 import { Quantity } from "@/components/ui/quantity";
@@ -134,6 +134,17 @@ export type ClipboardSourceRef = {
   href?: string;
 };
 
+const UNGROUNDED_CLIPBOARD_CAVEAT: Record<UngroundedReason, string> = {
+  grounded_false:
+    "this answer could not be matched to the sources it cites. Verify every clinical claim in the cited passages before relying on it.",
+  confidence_unsupported:
+    "this answer is reported as unsupported by the sources it cites. Verify every clinical claim in the cited passages before relying on it.",
+  unverified_numeric:
+    "some clinical values in this answer were not found in the cited sources. Verify every number, dose, route, timing and threshold in the cited passages before relying on it.",
+  weak_evidence:
+    "the evidence supporting this answer is weak. Verify every clinical claim in the cited passages before relying on it.",
+};
+
 export function answerClipboardText({
   body,
   state,
@@ -170,7 +181,12 @@ export function answerClipboardText({
           "Caveat: some cited sources are past their review date."
       : state.kind === "partial_retrieval"
         ? `Caveat: only ${state.retrieved} of ${state.requested} sources were available for this answer.`
-        : null;
+        : // An ungrounded answer pasted into a record with no caveat is the exact
+          // medico-legal hazard #207 exists to close: the prose reads as endorsed
+          // clinical text once it leaves the app, and the banner does not travel.
+          state.kind === "ungrounded"
+          ? `Caveat: ${UNGROUNDED_CLIPBOARD_CAVEAT[state.reason]}`
+          : null;
 
   const sourceList = sources?.length
     ? ["Sources for review:", ...sources.map((source) => `- ${clipboardSourceLine(source)}`)].join("\n")

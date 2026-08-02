@@ -62,22 +62,22 @@ this document**]**.
 
 ### 0.2 Built, not registered (15 public symbols across 8 modules — `branch` only)
 
-| Symbols                                                           | Direct test | Notes                                                                          |
-| ----------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------ |
-| `VerificationNotice`                                              | ✓ (PR 6)    | System-owned wording; no children/text prop exists. §1.                        |
-| `AnswerState`, `RetrievalStateBanner`, `answerStateFromRetrieval` | ✓ (PR 6)    | §2. `partial_retrieval` is buildable but unproduced — see the note in §2.      |
-| `MissingValue`                                                    | ✓ (PR 6)    | Four phrases, never a dash. §3.                                                |
-| `DateDisplay`                                                     | ✓ (PR 6)    | ISO in, `<time>` out; agrees with `formatClinicalDate()`. §8.                  |
-| `FormField`, `FieldHint`, `FieldError`, `ErrorSummary`            | ✓ (PR 7)    | The shared field shell. Existing controls fold onto it at adoption. §4.        |
-| `LiveAnnouncer`, `RouteAnnouncer`, `announce`                     | ✓ (PR 8)    | Singleton; the only `aria-live` in the system. §5.                             |
-| `Checkbox`, `RadioGroup`                                          | —           | Native inputs, real fieldset/legend; RadioGroup contract defect (PR 4).        |
-| `Citation`, `CitationList`                                        | —           | Contract defect: enabled-inert possible (PR 4).                                |
-| `Disclosure`, `DisclosureGroup`                                   | —           | Hardcoded `<h3>`; `hidden`/Ctrl-F claim retracted.                             |
-| `Progress`, `StageList`                                           | —           | Width animation; live-region defects (PR 9 / PR 8).                            |
-| `Quantity`                                                        | —           | Strongest addition; consumes a retiring type step (fix in retirement tranche). |
-| `Select`                                                          | —           | Shares the field-shell defects (PR 7 folds into `FormField`).                  |
-| `StatusMark`                                                      | —           | Forced-colour survival **asserted, not proven**.                               |
-| `TextLink`, `ExternalTextLink`, `DownloadLink`, `LinkAction`      | —           | `tone` leaks to DOM; `gap` animation (PR 9).                                   |
+| Symbols                                                           | Direct test | Notes                                                                                                        |
+| ----------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
+| `VerificationNotice`                                              | ✓ (PR 6)    | System-owned wording; no children/text prop exists. §1.                                                      |
+| `AnswerState`, `RetrievalStateBanner`, `answerStateFromRetrieval` | ✓ (PR 6)    | §2. Five kinds since PR 13 Phase 1 (`ungrounded`); `partial_retrieval` is buildable but unproduced — see §2. |
+| `MissingValue`                                                    | ✓ (PR 6)    | Four phrases, never a dash. §3.                                                                              |
+| `DateDisplay`                                                     | ✓ (PR 6)    | ISO in, `<time>` out; agrees with `formatClinicalDate()`. §8.                                                |
+| `FormField`, `FieldHint`, `FieldError`, `ErrorSummary`            | ✓ (PR 7)    | The shared field shell. Existing controls fold onto it at adoption. §4.                                      |
+| `LiveAnnouncer`, `RouteAnnouncer`, `announce`                     | ✓ (PR 8)    | Singleton; the only `aria-live` in the system. §5.                                                           |
+| `Checkbox`, `RadioGroup`                                          | —           | Native inputs, real fieldset/legend; RadioGroup contract defect (PR 4).                                      |
+| `Citation`, `CitationList`                                        | —           | Contract defect: enabled-inert possible (PR 4).                                                              |
+| `Disclosure`, `DisclosureGroup`                                   | —           | Hardcoded `<h3>`; `hidden`/Ctrl-F claim retracted.                                                           |
+| `Progress`, `StageList`                                           | —           | Width animation; live-region defects (PR 9 / PR 8).                                                          |
+| `Quantity`                                                        | —           | Strongest addition; consumes a retiring type step (fix in retirement tranche).                               |
+| `Select`                                                          | —           | Shares the field-shell defects (PR 7 folds into `FormField`).                                                |
+| `StatusMark`                                                      | —           | Forced-colour survival **asserted, not proven**.                                                             |
+| `TextLink`, `ExternalTextLink`, `DownloadLink`, `LinkAction`      | —           | `tone` leaks to DOM; `gap` animation (PR 9).                                                                 |
 
 Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow) and the
 `sheet-focus` stack (`branch`; powers the live `Sheet` path and is intended to fold into
@@ -145,7 +145,7 @@ must own the words; the call site may only choose the state it is in.
 ```ts
 type VerificationNoticeProps = {
   /** Drives the approved wording variant. Never free text. */
-  state: "ready" | "stale_evidence" | "partial_retrieval" | "source_only";
+  state: "ready" | "stale_evidence" | "partial_retrieval" | "ungrounded" | "source_only";
   /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
   audience?: "clinician" | "plain";
   /** Print rendering is self-contained: no wording may depend on the live link. */
@@ -166,7 +166,10 @@ factsheet preview parity.
 **States.** One approved wording per `state`. `ready` still carries the verification
 disclaimer — ready is not verified. `stale_evidence` and `partial_retrieval` wording names
 the degradation category; the specific sources are `RetrievalStateBanner`'s job, not this
-component's.
+component's. `ungrounded` (added in PR 13 Phase 1, ledger `#207`) says the cited sources
+could not be shown to support every claim and names the claim class to check in the
+passages; it wears the caution role, matching the live "Review source match" the product
+paints amber today. It never says the answer is wrong — unsupported is not refuted.
 
 **Keyboard & screen reader.** Static text in document order, above answer actions. Not a
 live region, not focusable; its icon is `aria-hidden`. On print it always renders, first in
@@ -218,11 +221,15 @@ type OverdueSource = SourceRef & {
   status: "review_due" | "outdated";
 };
 
+/** Why an answer is not grounded in the sources it cites, broadest consequence first. */
+type UngroundedReason = "grounded_false" | "confidence_unsupported" | "unverified_numeric" | "weak_evidence";
+
 /** States an AnswerCard may render. */
 type AnswerState =
   | { kind: "ready"; sourceCount: number }
   | { kind: "stale_evidence"; overdue: OverdueSource[]; sourceCount: number }
   | { kind: "partial_retrieval"; retrieved: number; requested: number; missing: SourceRef[] }
+  | { kind: "ungrounded"; reason: UngroundedReason; sourceCount: number }
   | { kind: "source_only"; reason: "generation_failed" | "quality_gate" };
 
 /** Deliberately NOT an AnswerState: no card may render it. */
@@ -262,6 +269,11 @@ type RetrievalStateBannerProps = {
   count. Same rule in `answerClipboardText()`.
 - `partial_retrieval` names the gap ("2 of 5 sources unavailable") and lists missing sources
   as unavailable rows — never silently omitted.
+- `ungrounded` names which check fired — one headline per `reason` under the group label
+  "Source match status" — and gives the same instruction in all four cases: read the cited
+  passages and confirm the numbers there. It is the DS carrier for the live product's
+  "Review source match" caution (`evidence-panels.tsx`, `answer-thread-turn.tsx`), so
+  adoption cannot retire that warning by accident.
 - `source_only` says it is a fallback and why that is safe (sources are real and cited);
   this is expected product behaviour, not an apology.
 - Announcements go through `LiveAnnouncer` once on settle ("Answer ready, 4 sources" /
@@ -271,7 +283,10 @@ type RetrievalStateBannerProps = {
   (`src/lib/source-metadata.ts`) — one audit path, no parallel implementation.
 
 **States and colour channels.** `stale_evidence` wears the warning (source-currency) role on
-the spine and banner. `partial_retrieval` and `source_only` are **operational** severity:
+the spine and banner, and `ungrounded` joins it — not because grounding is a currency fact,
+but because the live product already paints "Review source match" amber, and adoption that
+demoted it to the neutral role would lose the signal `#207` exists to preserve.
+`partial_retrieval` and `source_only` are **operational** severity:
 neutral/info treatment plus explicit text — amber is reserved for source currency
 (SPEC §11 severity vocabularies). Dose values inside a stale answer demote to label weight
 with the unit unchanged.
@@ -294,12 +309,21 @@ app-facing payload onto this union by reading fields the retrieval layer has alr
 decided — `source_metadata.document_status` for currency, `answerQualityTier` +
 `fallbackReason` for the fallback discriminator — so no date comparison happens here.
 `partial_retrieval` **has no producer**: nothing app-facing names which expected sources
-were unavailable, so adoption can emit only `ready`, `stale_evidence` and `source_only`
-until a separate RAG contract PR adds a named missing-source signal. Do not synthesise one
-from candidate counts. Precedence when states overlap is by clinical consequence —
-`stale_evidence` outranks `source_only`, and the source-only disclosure still reaches the
-reader through `AnswerCard`'s separate `verification` prop.
-`tests/answer-state-contract.test.ts` pins all of this.
+were unavailable, so adoption can emit only `ready`, `stale_evidence`, `ungrounded` and
+`source_only` until a separate RAG contract PR adds a named missing-source signal. Do not
+synthesise one from candidate counts. Precedence when states overlap is by clinical
+consequence — `stale_evidence` > `partial_retrieval` > `ungrounded` > `source_only` >
+`ready` — and the source-only disclosure still reaches the reader through `AnswerCard`'s
+separate `verification` prop. `tests/answer-state-contract.test.ts` pins all of this.
+
+**`ungrounded` added in PR 13 Phase 1 (ledger `#207`).** It reads `grounded`, `confidence`
+and `unverifiedNumericTokens` — fields the payload already carried and the live product
+already gated on — plus an optional caller-derived `weakEvidence` for adoption sites that
+compute one from render trust. Nothing is derived here: absent grounding fields are not
+ungrounding, so a call site that has not been widened does not acquire a caution on every
+answer. Ungrounded outranks `source_only` (an unsupported source-only answer must not read
+as "evidence complete, synthesis weak"), and `stale_evidence` stays the outer kind when an
+answer is both, so one answer never stacks two alarms.
 
 ---
 
@@ -759,7 +783,8 @@ wording. Never `bg-transparent`; prose at `--text-md`/`--leading-prose`/`--measu
 links, and unattributed clinical prose in a record reads as clinician-endorsed. It is
 **not** a replacement for `formatAnswerRenderCopyText()`; see SPEC §13 for the PR 13
 constraint. **Open defects → PR.** unrestricted slots, no required safety props → PR 6;
-no ungrounded-answer channel in `AnswerState` → **must fix before PR 13** (SPEC §13).
+ungrounded-answer channel → **fixed** in PR 13 Phase 1 as the fifth `AnswerState` kind
+(ledger `#207`, SPEC §13 blocker 2).
 
 ### 9.14 `AnswerFooter`
 

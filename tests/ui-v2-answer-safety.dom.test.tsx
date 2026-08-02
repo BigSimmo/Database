@@ -125,12 +125,30 @@ describe("VerificationNotice", () => {
 
   it("uses a different approved wording for each state", () => {
     const wording = new Set<string>();
-    for (const state of ["ready", "stale_evidence", "partial_retrieval", "source_only"] as const) {
+    for (const state of ["ready", "stale_evidence", "partial_retrieval", "ungrounded", "source_only"] as const) {
       const { unmount } = render(<VerificationNotice state={state} />);
       wording.add(screen.getByTestId("verification-notice").textContent ?? "");
       unmount();
     }
-    expect(wording.size).toBe(4);
+    expect(wording.size).toBe(5);
+  });
+
+  it("wears the caution role for an ungrounded answer, matching the live Review source match", () => {
+    // #207. The product paints this caution amber today; adoption must not
+    // demote it to the neutral informational role.
+    render(<VerificationNotice state="ungrounded" />);
+    const notice = screen.getByTestId("verification-notice");
+    expect(notice.className).toContain("var(--warning)");
+    expect(notice.className).not.toContain("var(--danger)");
+  });
+
+  it("tells an ungrounded answer's reader to confirm the numbers in the passages", () => {
+    render(<VerificationNotice state="ungrounded" />);
+    const notice = screen.getByTestId("verification-notice");
+    expect(notice).toHaveTextContent(/could not be shown to support/i);
+    expect(notice).toHaveTextContent(/dose/i);
+    // Never an accusation the checks cannot support: unsupported is not refuted.
+    expect(notice).not.toHaveTextContent(/incorrect|wrong|false/i);
   });
 
   it("wears the caution role for stale evidence and never the danger role", () => {
@@ -151,7 +169,7 @@ describe("VerificationNotice", () => {
 
   it("never names a model or a vendor in any approved wording", () => {
     for (const audience of ["clinician", "plain"] as const) {
-      for (const state of ["ready", "stale_evidence", "partial_retrieval", "source_only"] as const) {
+      for (const state of ["ready", "stale_evidence", "partial_retrieval", "ungrounded", "source_only"] as const) {
         const { unmount } = render(<VerificationNotice state={state} audience={audience} />);
         const text = screen.getByTestId("verification-notice").textContent ?? "";
         expect(text).not.toMatch(/openai|gpt|claude|gemini|\d+%/i);
@@ -313,6 +331,38 @@ describe("RetrievalStateBanner", () => {
     expect(screen.getAllByTestId("retrieval-state-missing-row")).toHaveLength(2);
   });
 
+  it("names the signal that made an answer ungrounded, one reason at a time", () => {
+    // #207. Four distinct headlines, so the banner says which check fired rather
+    // than emitting one vague caution for every ungrounded cause.
+    const headlines = new Set<string>();
+    for (const reason of ["grounded_false", "confidence_unsupported", "unverified_numeric", "weak_evidence"] as const) {
+      const { unmount } = render(
+        <RetrievalStateBanner state={{ kind: "ungrounded", reason, sourceCount: 3 }} onOpenSource={vi.fn()} />,
+      );
+      headlines.add(screen.getByTestId("retrieval-state-headline").textContent ?? "");
+      unmount();
+    }
+    expect(headlines.size).toBe(4);
+  });
+
+  it("gives an ungrounded answer the caution treatment and the read-the-passages instruction", () => {
+    render(
+      <RetrievalStateBanner
+        state={{ kind: "ungrounded", reason: "unverified_numeric", sourceCount: 2 }}
+        onOpenSource={vi.fn()}
+      />,
+    );
+
+    const banner = screen.getByTestId("retrieval-state-banner");
+    expect(banner).toHaveAttribute("data-state", "ungrounded");
+    expect(banner).toHaveAccessibleName("Source match status");
+    expect(banner).toHaveTextContent(/were not found in the cited sources/i);
+    expect(banner).toHaveTextContent(/read the cited passages/i);
+    // Source-currency amber, never danger red — this is not clinical hazard.
+    expect(banner.className).toContain("warning");
+    expect(banner.className).not.toContain("danger");
+  });
+
   it("is a labelled group, not a landmark, and not a live region", () => {
     render(<RetrievalStateBanner state={{ kind: "source_only", reason: "quality_gate" }} onOpenSource={vi.fn()} />);
     const banner = screen.getByTestId("retrieval-state-banner");
@@ -342,6 +392,25 @@ describe("AnswerCard", () => {
       </AnswerCard>,
     );
     expect(screen.queryByTestId("retrieval-state-banner")).not.toBeInTheDocument();
+  });
+
+  it("renders an ungrounded answer as structurally degraded, never as a plain ready card", () => {
+    // #207: the adoption failure this guards is a silent one — the card renders,
+    // the prose is fine, and the caution the product shows today is simply gone.
+    render(
+      <AnswerCard
+        state={{ kind: "ungrounded", reason: "grounded_false", sourceCount: 2 }}
+        verification={{ state: "ungrounded", sourceCount: 2 }}
+        onOpenSource={vi.fn()}
+      >
+        <p>Titrate slowly.</p>
+      </AnswerCard>,
+    );
+
+    const card = screen.getByTestId("answer-card");
+    expect(card).toHaveAttribute("data-state", "ungrounded");
+    expect(within(card).getByTestId("retrieval-state-banner")).toHaveAttribute("data-state", "ungrounded");
+    expect(within(card).getByTestId("verification-notice")).toHaveAttribute("data-state", "ungrounded");
   });
 
   it("raises the banner for a degraded answer and wires its re-verification route", async () => {
@@ -425,6 +494,23 @@ describe("answerClipboardText", () => {
     });
     expect(text).toContain("Assembled directly from the cited sources without model synthesis.");
     expect(text).not.toContain("AI-generated");
+  });
+
+  it("carries an ungrounded caveat out of the app, naming the check that fired", () => {
+    // #207 medico-legal case: an unsupported answer pasted into a record with no
+    // caveat reads as endorsed clinical text, and the banner does not travel.
+    const caveats = new Set<string>();
+    for (const reason of ["grounded_false", "confidence_unsupported", "unverified_numeric", "weak_evidence"] as const) {
+      const text = answerClipboardText({
+        body: "Start at 12.5 mg.",
+        state: { kind: "ungrounded", reason, sourceCount: 2 },
+      });
+      expect(text).toContain("Start at 12.5 mg.");
+      expect(text).toMatch(/^Caveat: /m);
+      expect(text).toMatch(/verify every (clinical claim|number, dose, route, timing and threshold)/i);
+      caveats.add(text);
+    }
+    expect(caveats.size).toBe(4);
   });
 
   it("enumerates the cited sources with their links", () => {

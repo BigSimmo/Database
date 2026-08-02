@@ -681,12 +681,14 @@ is outside the token system entirely.
 | PR 7 · Form foundation               | `FormField` family; merged `describedBy`; hint **and** error in the DOM; required/optional/autocomplete; refs                                                                                                                                                                                  | **done** — built, not registered. Hint and error are both in the DOM and both in `describedBy` when invalid; caller ids merge ahead of them; external ids supported; required/optional is label text, never colour; `ErrorSummary` takes focus rather than announcing. `TextField`/`SearchField`/`Select`/choice controls fold onto the shell in PR 13's adoption, not here                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | PR 8 · Announcements and route focus | `RouteAnnouncer` + `LiveAnnouncer`; focus to `<h1>`; settle-then-announce; fix the visible live region                                                                                                                                                                                         | **done** — built, not registered. Singleton `announce()` with a dedupe window and a queue gap; two visually-hidden regions; route change moves focus to the new `<h1>` unless focus sits inside a dialog or a `data-preserve-focus` workflow, and announces the page title once. Retiring the existing visible `aria-live` nodes (`document-search-results.tsx`, `StageList`) is adoption work in PR 13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
-**PR 6 step-0 contract pre-check (recorded).** Three of the four `AnswerState`
+**PR 6 step-0 contract pre-check (recorded).** Four of the five `AnswerState`
 variants project cleanly from the payload the app layer already receives, with no
 change to `src/lib/rag/**` or `src/lib/source-review.ts`: `ready` from the source
 count, `stale_evidence` from each source's server-set `document_status`
-(`review_due`/`outdated`) plus its `review_date`, and `source_only` from
-`answerQualityTier` plus `fallbackReason`. **`partial_retrieval` has no
+(`review_due`/`outdated`) plus its `review_date`, `source_only` from
+`answerQualityTier` plus `fallbackReason`, and — added in PR 13 Phase 1 —
+`ungrounded` from `grounded`, `confidence` and `unverifiedNumericTokens`, which
+the payload already carries (blocker 2 below). **`partial_retrieval` has no
 producer** — nothing app-facing names which expected sources were unavailable
 (`retrievalDiagnostics` carries candidate counts, `conflictsOrGaps` carries
 prose). The component is built to its specified contract, but PR 13 can only emit
@@ -720,6 +722,33 @@ constraints below are **adoption blockers**, recorded here so PR 13 cannot read
    would silently retire a warning the product shows today.
    **Must be fixed before PR 13 adopts the answer surface** — it needs a fifth
    state or a companion flag, and the wording is a clinical-owner decision.
+
+   **RESOLVED in PR 13 Phase 1 (ledger `#207`).** A fifth kind, not a companion
+   flag: `{ kind: "ungrounded"; reason: UngroundedReason; sourceCount }`, where
+   `UngroundedReason` is `grounded_false | confidence_unsupported |
+unverified_numeric | weak_evidence`. A companion flag on `ready` was rejected —
+   it keeps the "ready" vocabulary for an answer that is not, and is missable in
+   `AnswerCard`'s exhaustiveness, which is the whole point of the union.
+   `AnswerStateInput` gains optional `grounded`, `confidence`,
+   `unverifiedNumericTokens` and a caller-derived `weakEvidence`, still
+   structurally typed — the design-system bundle does not import `RagAnswer`.
+   Precedence: `stale_evidence` > `partial_retrieval` > **`ungrounded`** >
+   `source_only` > `ready`. Ungrounded outranks source-only because a source-only
+   answer that is also unsupported must not read as "evidence complete, synthesis
+   weak"; `stale_evidence` stays the outer kind on an answer that is both, so one
+   answer never stacks two alarms. Absent grounding fields are **not** ungrounding,
+   so a caller that has not been widened yet does not acquire a caution on every
+   answer. `VerificationNotice` gains an approved `ungrounded` wording in both
+   audiences and joins the caution role; `RetrievalStateBanner` renders one
+   headline per reason under the group label "Source match status";
+   `answerClipboardText()` carries a per-reason caveat, because the banner does not
+   travel with a paste. Wording in both surfaces remains open to the clinical
+   owner's revision at the PR 13 glance — the channel, precedence and test pins do
+   not. Pinned by `tests/answer-state-contract.test.ts` (projection, precedence,
+   the `RagAnswer` assignability proof extended to the three grounding fields) and
+   `tests/ui-v2-answer-safety.dom.test.tsx` (five distinct wordings, caution role,
+   degraded card, per-reason clipboard caveats).
+
 3. **`--warning` as body-text colour** on `VerificationNotice`'s caution variant
    and `DoseLine`'s overdue label is the only place a status hue is used at text
    tier rather than a `--text-*` token. Gate 1 must add that contrast pair
