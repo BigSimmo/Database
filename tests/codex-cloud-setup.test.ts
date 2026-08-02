@@ -30,13 +30,17 @@ import {
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
-  for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  for (const directory of temporaryDirectories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
 });
 
 function temporaryGitRepository() {
   const directory = mkdtempSync(path.join(os.tmpdir(), "codex-cloud-git-"));
   temporaryDirectories.push(directory);
-  expect(spawnSync("git", ["init", "--quiet", "--initial-branch=task", directory]).status).toBe(0);
+  expect(
+    spawnSync("git", ["init", "--quiet", "--initial-branch=task", directory])
+      .status,
+  ).toBe(0);
   return directory;
 }
 
@@ -48,15 +52,21 @@ describe("Codex Cloud environment contract", () => {
   it("keeps the checked-in setup reproducible and provider-safe", () => {
     const staticEnvironment = { ...process.env };
     delete staticEnvironment.CODEX_CLOUD;
-    const result = spawnSync(process.execPath, ["scripts/check-codex-cloud-setup.mjs"], {
-      cwd: path.resolve(import.meta.dirname, ".."),
-      encoding: "utf8",
-      env: staticEnvironment,
-      shell: false,
-    });
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/check-codex-cloud-setup.mjs"],
+      {
+        cwd: path.resolve(import.meta.dirname, ".."),
+        encoding: "utf8",
+        env: staticEnvironment,
+        shell: false,
+      },
+    );
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain("[Codex Cloud Check] PASS: static Cloud contracts match.");
+    expect(result.stdout).toContain(
+      "[Codex Cloud Check] PASS: static Cloud contracts match.",
+    );
   });
 
   it("reports sensitive and proxy variable names without exposing values", () => {
@@ -68,15 +78,21 @@ describe("Codex Cloud environment contract", () => {
       HTTP_PROXY: "http://supported.example.test",
     };
 
-    expect(configuredProviderCredentialNames(env)).toEqual(["OPENAI_API_KEY", "CROSS_TENANT_SERVICE_ROLE_KEY"]);
-    expect(configuredProviderCredentialNames({ CODEX_CLOUD_GITHUB_PAT: "never-print-this" })).toEqual([
-      "CODEX_CLOUD_GITHUB_PAT",
+    expect(configuredProviderCredentialNames(env)).toEqual([
+      "OPENAI_API_KEY",
+      "CROSS_TENANT_SERVICE_ROLE_KEY",
     ]);
+    expect(
+      configuredProviderCredentialNames({
+        CODEX_CLOUD_GITHUB_PAT: "never-print-this",
+      }),
+    ).toEqual(["CODEX_CLOUD_GITHUB_PAT"]);
     expect(obsoleteNpmProxyVariables(env)).toEqual(["npm_config_https_proxy"]);
   });
 
   it("covers every provider-capable test variable in the Cloud credential inventory", () => {
-    for (const key of providerEnvironmentKeys) expect(providerCredentialVariables).toContain(key);
+    for (const key of providerEnvironmentKeys)
+      expect(providerCredentialVariables).toContain(key);
   });
 
   it("validates effective offline modes and keeps connected verification explicit", () => {
@@ -88,9 +104,12 @@ describe("Codex Cloud environment contract", () => {
       PLAYWRIGHT_OFFLINE_MODE: "true",
     };
     expect(validateCodexCloudEnvironment(offline)).toEqual([]);
-    expect(validateCodexCloudEnvironment({ ...offline, NEXT_PUBLIC_DEMO_MODE: "false" })).toContain(
-      "NEXT_PUBLIC_DEMO_MODE must be true in offline mode.",
-    );
+    expect(
+      validateCodexCloudEnvironment({
+        ...offline,
+        NEXT_PUBLIC_DEMO_MODE: "false",
+      }),
+    ).toContain("NEXT_PUBLIC_DEMO_MODE must be true in offline mode.");
     expect(
       validateCodexCloudEnvironment({
         ...offline,
@@ -108,7 +127,9 @@ describe("Codex Cloud environment contract", () => {
         RAG_PROVIDER_MODE: "offline",
         SUPABASE_ACCESS_TOKEN: "setup-only-secret",
       }),
-    ).toContain("Connected mode exposes provider environment variables: SUPABASE_ACCESS_TOKEN.");
+    ).toContain(
+      "Connected mode exposes provider environment variables: SUPABASE_ACCESS_TOKEN.",
+    );
   });
 
   it("emits sanitized modes, credential presence, and MCP metadata only", () => {
@@ -123,7 +144,11 @@ describe("Codex Cloud environment contract", () => {
         OPENAI_API_KEY: secret,
       },
       {
-        origin: { configured: true, repositoryMatch: true, credentialsEmbedded: false },
+        origin: {
+          configured: true,
+          repositoryMatch: true,
+          credentialsEmbedded: false,
+        },
         railwayCliAvailable: true,
         codexCliAvailable: true,
         safeGitHelper: true,
@@ -141,19 +166,27 @@ describe("Codex Cloud environment contract", () => {
     );
     const report = lines.join("\n");
     expect(report).toContain("OPENAI_API_KEY.present=true");
-    expect(report).toContain("mcp.server=railway type=http command=none endpoint=https://mcp.railway.com/");
+    expect(report).toContain(
+      "mcp.server=railway type=http command=none endpoint=https://mcp.railway.com/",
+    );
     expect(report).not.toContain(secret);
     expect(report).not.toContain("sensitive-test");
   });
 
   it("requires the Railway CLI and dedicated account token without substituting a project token", () => {
-    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, true).ready).toBe(true);
-    expect(railwayReadCapability({ RAILWAY_TOKEN: "configured" }, true)).toMatchObject({
+    expect(
+      railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, true).ready,
+    ).toBe(true);
+    expect(
+      railwayReadCapability({ RAILWAY_TOKEN: "configured" }, true),
+    ).toMatchObject({
       dedicatedCredentialPresent: false,
       projectCredentialPresent: true,
       ready: false,
     });
-    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, false).ready).toBe(false);
+    expect(
+      railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, false).ready,
+    ).toBe(false);
   });
 
   it("parses MCP transport metadata without query or environment values", () => {
@@ -185,7 +218,10 @@ describe("Codex Cloud environment contract", () => {
   it("requires hosted Railway OAuth and project-scoped read-only Supabase MCP", () => {
     const valid = JSON.stringify({
       mcpServers: {
-        railway: { type: "http", url: expectedMcpConfiguration.railwayUrl.replace(/\/$/, "") },
+        railway: {
+          type: "http",
+          url: expectedMcpConfiguration.railwayUrl.replace(/\/$/, ""),
+        },
         supabase: {
           type: "http",
           url: `${expectedMcpConfiguration.supabaseUrl}?project_ref=${expectedMcpConfiguration.supabaseProjectRef}&read_only=true&features=${expectedMcpConfiguration.supabaseFeatures.join(",")}`,
@@ -193,40 +229,81 @@ describe("Codex Cloud environment contract", () => {
       },
     });
     expect(validateMcpConfiguration(valid)).toEqual([]);
-    expect(validateMcpConfiguration(valid.replace("read_only=true", "read_only=false"))).toContain(
-      "Supabase MCP must keep the production project read-only.",
-    );
-    expect(validateMcpConfiguration(valid.replace('"supabase":', '"unexpected":{},"supabase":'))).toContain(
+    expect(
+      validateMcpConfiguration(
+        valid.replace("read_only=true", "read_only=false"),
+      ),
+    ).toContain("Supabase MCP must keep the production project read-only.");
+    expect(
+      validateMcpConfiguration(
+        valid.replace('"supabase":', '"unexpected":{},"supabase":'),
+      ),
+    ).toContain(
       "Cloud MCP configuration must contain only Railway and Supabase.",
     );
-    expect(validateMcpConfiguration(valid.replace('"railway":{"type"', '"railway":{"headers":{},"type"'))).toContain(
+    expect(
+      validateMcpConfiguration(
+        valid.replace('"railway":{"type"', '"railway":{"headers":{},"type"'),
+      ),
+    ).toContain(
       "railway MCP must use hosted OAuth without embedded environment variables or headers.",
     );
-    expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&token=forbidden"))).toContain(
-      "Supabase MCP must not include additional query parameters.",
-    );
-    expect(validateMcpConfiguration(valid.replace("&read_only=true", "&read_only=true&read_only=false"))).toContain(
-      "Supabase MCP must not include additional query parameters.",
-    );
+    expect(
+      validateMcpConfiguration(
+        valid.replace("&read_only=true", "&read_only=true&token=forbidden"),
+      ),
+    ).toContain("Supabase MCP must not include additional query parameters.");
+    expect(
+      validateMcpConfiguration(
+        valid.replace("&read_only=true", "&read_only=true&read_only=false"),
+      ),
+    ).toContain("Supabase MCP must not include additional query parameters.");
   });
 
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
-    const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
-    const maintenance = readFileSync(new URL("../scripts/maintain-codex-cloud.sh", import.meta.url), "utf8");
-    const commandShims = readFileSync(new URL("../scripts/install-codex-cloud-command-shims.sh", import.meta.url), "utf8");
-    const patDelete = readFileSync(new URL("../scripts/delete-codex-cloud-branch-with-pat.sh", import.meta.url), "utf8");
+    const setup = readFileSync(
+      new URL("../scripts/setup-codex-cloud.sh", import.meta.url),
+      "utf8",
+    );
+    const maintenance = readFileSync(
+      new URL("../scripts/maintain-codex-cloud.sh", import.meta.url),
+      "utf8",
+    );
+    const commandShims = readFileSync(
+      new URL(
+        "../scripts/install-codex-cloud-command-shims.sh",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const patDelete = readFileSync(
+      new URL(
+        "../scripts/delete-codex-cloud-branch-with-pat.sh",
+        import.meta.url,
+      ),
+      "utf8",
+    );
     expect(setup).toContain("if ! grep -Fq '.clinical-kb-codex-cloud.sh'");
-    expect(setup).toContain('if [[ "$actual_version" != "$expected_version" ]]');
+    expect(setup).toContain(
+      'if [[ "$actual_version" != "$expected_version" ]]',
+    );
     expect(setup).toContain('"$HOME/.bash_profile"');
-    expect(setup.match(/unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g)).toHaveLength(2);
+    expect(
+      setup.match(
+        /unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy/g,
+      ),
+    ).toHaveLength(2);
     expect(setup.indexOf("unset OPENAI_API_KEY")).toBeLessThan(
       setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]'),
     );
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
     expect(commandShims).toContain('nvm which "$expected_node_major"');
     expect(commandShims).toContain('. "$runtime_profile"');
-    expect(patDelete).toContain('CODEX_CLOUD_ACCESS_PROFILE:-offline');
+    expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
+    expect(patDelete).toContain("CODEX_CLOUD_ACCESS_PROFILE:-offline");
+    expect(patDelete).toContain('[[ "$branch" != -* ]]');
     expect(patDelete).toContain("git check-ref-format --branch");
+    expect(patDelete).toContain("git remote get-url --push --all origin");
     expect(patDelete).toContain("GIT_ASKPASS");
   });
 
@@ -250,12 +327,22 @@ describe("Codex Cloud environment contract", () => {
   });
 
   it("does not describe a source-only runtime as fully browser-ready", () => {
-    expect(codexCloudValidationScope({ runtime: true, environment: true, browserInstallSkipped: true })).toBe(
+    expect(
+      codexCloudValidationScope({
+        runtime: true,
+        environment: true,
+        browserInstallSkipped: true,
+      }),
+    ).toBe(
       "static, environment, and source-only runtime (browser validation skipped)",
     );
-    expect(codexCloudValidationScope({ runtime: true, environment: true, browserInstallSkipped: false })).toBe(
-      "static, environment, and runtime",
-    );
+    expect(
+      codexCloudValidationScope({
+        runtime: true,
+        environment: true,
+        browserInstallSkipped: false,
+      }),
+    ).toBe("static, environment, and runtime");
   });
 
   it("distinguishes executable files from missing paths", () => {
@@ -270,11 +357,19 @@ describe("Codex Cloud environment contract", () => {
       return { status: 0 };
     };
 
-    expect(pythonWorkerImportError(process.execPath, run as typeof spawnSync)).toBeNull();
-    expect(invocation).toEqual([process.execPath, "-c", `import ${pythonWorkerImports.join(", ")}`]);
-    expect(pythonWorkerImportError(process.execPath, (() => ({ status: 1 })) as unknown as typeof spawnSync)).toContain(
-      "Python worker imports failed",
-    );
+    expect(
+      pythonWorkerImportError(process.execPath, run as typeof spawnSync),
+    ).toBeNull();
+    expect(invocation).toEqual([
+      process.execPath,
+      "-c",
+      `import ${pythonWorkerImports.join(", ")}`,
+    ]);
+    expect(
+      pythonWorkerImportError(process.execPath, (() => ({
+        status: 1,
+      })) as unknown as typeof spawnSync),
+    ).toContain("Python worker imports failed");
   });
 });
 
@@ -299,14 +394,26 @@ describe("Codex Cloud origin repair", () => {
 
   it("never overwrites a wrong or credential-bearing origin", () => {
     const wrong = temporaryGitRepository();
-    expect(git(wrong, "remote", "add", "origin", "https://github.com/example/other.git").status).toBe(0);
+    expect(
+      git(
+        wrong,
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/example/other.git",
+      ).status,
+    ).toBe(0);
     expect(() => ensureOriginRemote(wrong)).toThrow(/refusing to overwrite/);
-    expect(configuredOriginUrl(wrong)).toBe("https://github.com/example/other.git");
+    expect(configuredOriginUrl(wrong)).toBe(
+      "https://github.com/example/other.git",
+    );
 
     const credentialed = temporaryGitRepository();
     const unsafe = "https://token-value@github.com/BigSimmo/Database.git";
     expect(git(credentialed, "remote", "add", "origin", unsafe).status).toBe(0);
-    expect(() => ensureOriginRemote(credentialed)).toThrow(/embedded credentials/);
+    expect(() => ensureOriginRemote(credentialed)).toThrow(
+      /embedded credentials/,
+    );
     expect(configuredOriginUrl(credentialed)).toBe(unsafe);
   });
 });
