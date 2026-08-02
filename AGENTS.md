@@ -909,8 +909,8 @@ Use `docs/codex-cloud.md` as the environment contract:
   thread, and Actions work, including inline-thread replies/resolution, Actions
   run/job/log/artifact inspection, and approved branch, file, or PR mutations. Missing
   `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
-  capability. The intended connection is `BigSimmo` with administrator access to this
-  repository.
+  capability. The intended connection is `BigSimmo` with repository write access.
+  Reserve administrator access for separately approved operations.
 - A PAT is a connected-only, user-authorised exception for a genuine connector gap. Store a
   short-lived, fine-grained `CODEX_CLOUD_GITHUB_PAT` only as a connected Cloud secret and
   scope it to this repository and the named operation. Never make it an ordinary variable,
@@ -941,7 +941,7 @@ Durable notes for Cloud Agents. Standard commands live in `README.md` and `packa
   connector/MCP tools first for PR, issue, comment, review-thread, and Actions tasks they
   support (including run/job/log/artifact inspection and review-thread replies/resolution).
   A missing `gh` CLI is not a blocker for connector-supported work; never add a PAT as a
-  workaround. The intended connection is `BigSimmo` with administrator access to this
-  repository. Verify the exact target and connector result before any write. Ordinary
+  workaround. The intended connection is `BigSimmo` with repository write access.
+  Reserve administrator access for separately approved operations. Verify the exact target and connector result before any write. Ordinary
   authorised shell `git` branch publication remains allowed; use shell `gh` only for a
   genuine connector gap and only when the task permits it.
