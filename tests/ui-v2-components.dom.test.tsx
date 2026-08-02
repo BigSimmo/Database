@@ -287,7 +287,12 @@ describe("Toast", () => {
 
 describe("DoseLine", () => {
   it("keeps the unit in its authored case — g is not G, mg is not MG", () => {
-    render(<DoseLine rows={[{ drug: "Clozapine", value: "12.5", unit: "mg" }]} />);
+    render(
+      <DoseLine
+        rows={[{ id: "clozapine", drug: "Clozapine", dose: { value: "12.5", unit: "mg" }, status: "current" }]}
+        onOpenSource={vi.fn()}
+      />,
+    );
 
     const unit = screen.getByText("mg");
     expect(unit.textContent).toBe("mg");
@@ -300,9 +305,18 @@ describe("DoseLine", () => {
     render(
       <DoseLine
         rows={[
-          { drug: "Quetiapine", value: "800", unit: "mg/day" },
-          { drug: "Olanzapine", value: "20", unit: "mg/day", overdue: true },
+          { id: "quetiapine", drug: "Quetiapine", dose: { value: "800", unit: "mg/day" }, status: "current" },
+          {
+            id: "olanzapine",
+            drug: "Olanzapine",
+            dose: { value: "20", unit: "mg/day" },
+            status: "review_due",
+            // An overdue row must carry the route back to its source: the type
+            // refuses "warned, with nowhere to go".
+            source: { sourceId: "doc-3", title: "Olanzapine Monograph" },
+          },
         ]}
+        onOpenSource={vi.fn()}
       />,
     );
 
@@ -313,12 +327,16 @@ describe("DoseLine", () => {
 });
 
 describe("AnswerFooter", () => {
-  it("drops missing segments but keeps the review date explicit", () => {
-    render(<AnswerFooter publisher="RANZCP" generatedAt="31/07/2026 13:04" />);
+  // PR 6 reverses the old "drop unknown segments" behaviour: on a provenance
+  // strip the absence IS the governance signal, so an unrecorded publisher now
+  // says so instead of looking identical to a recorded one.
+  it("names every provenance field, rendering absences as phrases", () => {
+    render(<AnswerFooter publisher="RANZCP" generatedAt="2026-07-31T05:04:00.000Z" />);
 
     const footer = screen.getByTestId("answer-footer");
     expect(footer).toHaveTextContent("RANZCP");
-    expect(footer).toHaveTextContent("Review date unknown");
-    expect(footer).not.toHaveTextContent("Version");
+    expect(footer).toHaveTextContent("Version");
+    expect(footer).toHaveTextContent("Review");
+    expect(within(footer).getAllByTestId("missing-value").length).toBeGreaterThan(0);
   });
 });

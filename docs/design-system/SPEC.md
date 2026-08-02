@@ -675,11 +675,61 @@ is outside the token system entirely.
 
 ### Phase 3 — safety structure
 
-| PR                                   | Contents                                                                                                                                                                                                                                                                                       | Status                               |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| PR 6 · Answer safety                 | `VerificationNotice` (system wording, plain-language print variant) · `AnswerState` required on `AnswerCard` · `DoseLine` overdue text + mark + open action, composed through `Quantity` · `MissingValue` · `DateDisplay` in `AnswerFooter` · clipboard caveat via `clipboardProvenanceLine()` | open — specs in COMPONENTS §1–§3, §8 |
-| PR 7 · Form foundation               | `FormField` family; merged `describedBy`; hint **and** error in the DOM; required/optional/autocomplete; refs                                                                                                                                                                                  | open — COMPONENTS §4                 |
-| PR 8 · Announcements and route focus | `RouteAnnouncer` + `LiveAnnouncer`; focus to `<h1>`; settle-then-announce; fix the visible live region                                                                                                                                                                                         | open — COMPONENTS §5                 |
+| PR                                   | Contents                                                                                                                                                                                                                                                                                       | Status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR 6 · Answer safety                 | `VerificationNotice` (system wording, plain-language print variant) · `AnswerState` required on `AnswerCard` · `DoseLine` overdue text + mark + open action, composed through `Quantity` · `MissingValue` · `DateDisplay` in `AnswerFooter` · clipboard caveat via `clipboardProvenanceLine()` | **done** — built, not registered. `AnswerCard` requires `state` **and** `verification`; a degraded state cannot be constructed without `onOpenSource`. `DoseLine` takes a structured dose model, composes `Quantity`, and carries the governance enum (`status`, **required**) rather than an optional boolean, so a row cannot render clean by omission and `outdated` cannot collapse into `review_due`; overdue is marked in three channels (amber rule + words + shape-differentiated `StatusMark`) and an overdue row must carry its `source`. `answerStateFromRetrieval()` counts and keys by **document**, not chunk. `AnswerFooter` takes ISO in and renders `DateDisplay`/`MissingValue` — the old "drop unknown segments" behaviour is reversed, because on a provenance strip the absence **is** the signal. `answerClipboardText()` carries unconditional attribution + verify instruction, the degraded caveat, the enumerated sources, and provenance through `clipboardProvenanceLine()` — see the clinical-review note below for what it is still not |
+| PR 7 · Form foundation               | `FormField` family; merged `describedBy`; hint **and** error in the DOM; required/optional/autocomplete; refs                                                                                                                                                                                  | **done** — built, not registered. Hint and error are both in the DOM and both in `describedBy` when invalid; caller ids merge ahead of them; external ids supported; required/optional is label text, never colour; `ErrorSummary` takes focus rather than announcing. `TextField`/`SearchField`/`Select`/choice controls fold onto the shell in PR 13's adoption, not here                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| PR 8 · Announcements and route focus | `RouteAnnouncer` + `LiveAnnouncer`; focus to `<h1>`; settle-then-announce; fix the visible live region                                                                                                                                                                                         | **done** — built, not registered. Singleton `announce()` with a dedupe window and a queue gap; two visually-hidden regions; route change moves focus to the new `<h1>` unless focus sits inside a dialog or a `data-preserve-focus` workflow, and announces the page title once. Retiring the existing visible `aria-live` nodes (`document-search-results.tsx`, `StageList`) is adoption work in PR 13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+**PR 6 step-0 contract pre-check (recorded).** Three of the four `AnswerState`
+variants project cleanly from the payload the app layer already receives, with no
+change to `src/lib/rag/**` or `src/lib/source-review.ts`: `ready` from the source
+count, `stale_evidence` from each source's server-set `document_status`
+(`review_due`/`outdated`) plus its `review_date`, and `source_only` from
+`answerQualityTier` plus `fallbackReason`. **`partial_retrieval` has no
+producer** — nothing app-facing names which expected sources were unavailable
+(`retrievalDiagnostics` carries candidate counts, `conflictsOrGaps` carries
+prose). The component is built to its specified contract, but PR 13 can only emit
+the other three states until a separate RAG contract PR adds a named
+missing-source signal. `tests/answer-state-contract.test.ts` is the standing
+proof and pins the gap so it cannot be papered over in the component layer.
+
+**PR 6 clinical review — carried forward into PR 13 (recorded).** The clinical
+governance review of PR 6 raised no P0 and cleared the branch on the strength of
+its zero product imports. Eight findings were fixed in PR 6 itself; three
+constraints below are **adoption blockers**, recorded here so PR 13 cannot read
+"PR 6 merged" as clearance for them.
+
+1. **`answerClipboardText()` is not a replacement for `renderModel.copyText`.**
+   It was strengthened in PR 6 beyond this document's original slice-8 scope —
+   attribution and "Verify against the linked source documents before clinical
+   use." are now unconditional (including on `ready`), the cited documents are
+   enumerated, and the single-document provenance line is suppressed on a
+   multi-source stale answer where it would contradict the caveat. That closes
+   the "AI prose pasted into a record with no attribution" hazard. It is still
+   **narrower** than `formatAnswerRenderCopyText()`
+   (`src/lib/answer-render-policy.ts`), which additionally carries the render
+   policy's own warnings. **PR 13 must not swap `formatAnswerRenderCopyText` out
+   for `answerClipboardText`**; either compose the two or extend this one first,
+   with the clinical owner's review.
+2. **`AnswerState` has no channel for an ungrounded answer.** `RagAnswer` carries
+   `grounded`, `confidence: "unsupported"` and `unverifiedNumericTokens`, and the
+   live product already gates on them (`evidence-panels.tsx`,
+   `answer-thread-turn.tsx`) to show "Review source match". The projection maps a
+   `grounded: false` answer over current sources to `ready`, so adopting it as-is
+   would silently retire a warning the product shows today.
+   **Must be fixed before PR 13 adopts the answer surface** — it needs a fifth
+   state or a companion flag, and the wording is a clinical-owner decision.
+3. **`--warning` as body-text colour** on `VerificationNotice`'s caution variant
+   and `DoseLine`'s overdue label is the only place a status hue is used at text
+   tier rather than a `--text-*` token. Gate 1 must add that contrast pair
+   explicitly rather than assuming the text tiers cover it.
+
+Also noted, not blocking: the logged-once `Set`s in `missing-value`,
+`date-display`, `verification-notice`, `answer-state` and `retrieval-state-banner`
+are module-level, so on the server they are per-process and unbounded — a
+persistent data defect logs once at boot and is then swallowed. Acceptable while
+these components are unregistered; revisit if adoption puts them on a hot path.
 
 ### Phase 4 — architecture, then adoption
 
