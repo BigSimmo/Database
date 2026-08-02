@@ -77,7 +77,7 @@ export async function validateRuntime(options: ValidateRuntimeOptions = {}): Pro
   if (externals.length === 0) {
     const externalsPath = options.externalsPath
       ? typeof options.externalsPath === "string"
-        ? new URL(`file://${options.externalsPath}`)
+        ? pathToFileURL(options.externalsPath)
         : options.externalsPath
       : resolveRelativeToBundle("./externals.json");
     if (existsSync(externalsPath)) {

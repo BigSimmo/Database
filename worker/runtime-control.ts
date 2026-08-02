@@ -10,8 +10,8 @@ export type WorkerRuntimeControlOptions = {
 export class WorkerAbortError extends Error {
   readonly exitCode: number;
 
-  constructor(message: string, exitCode: number = 1) {
-    super(message);
+  constructor(message: string, exitCode: number = 1, options?: ErrorOptions) {
+    super(message, options);
     this.name = "WorkerAbortError";
     this.exitCode = exitCode;
   }
@@ -19,17 +19,12 @@ export class WorkerAbortError extends Error {
 
 export class WorkerRuntimeControl {
   #stopped = false;
-  #stopPromise: Promise<void>;
-  #resolveStop!: () => void;
   #cleanup: (() => void)[] = [];
   #signalSource?: Pick<EventEmitter, "on" | "off">;
   #attached = false;
 
   constructor(options: WorkerRuntimeControlOptions = {}) {
     this.#signalSource = options.signalSource;
-    this.#stopPromise = new Promise((resolve) => {
-      this.#resolveStop = resolve;
-    });
   }
 
   get isStopped(): boolean {
@@ -39,7 +34,6 @@ export class WorkerRuntimeControl {
   stop(): void {
     if (this.#stopped) return;
     this.#stopped = true;
-    this.#resolveStop();
     for (const cb of this.#cleanup) {
       try {
         cb();
@@ -62,23 +56,17 @@ export class WorkerRuntimeControl {
     if (this.#stopped) return Promise.resolve();
     return new Promise((resolve) => {
       let settled = false;
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        resolve();
-      }, ms);
-
-      const stopUnsub = this.onStop(() => {
+      let stopUnsub = () => {};
+      const settle = () => {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        resolve();
-      });
-
-      // Self-cleanup once the promise settles to avoid leaking cleanup entries.
-      Promise.race([new Promise<void>((r) => setTimeout(r, ms)), this.#stopPromise]).then(() => {
         stopUnsub();
-      });
+        resolve();
+      };
+
+      const timer = setTimeout(settle, ms);
+      stopUnsub = this.onStop(settle);
     });
   }
 

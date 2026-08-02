@@ -3,7 +3,7 @@
  * check-worker-python-lock — verify that worker/python/requirements.txt is
  * in sync with worker/python/requirements.in and is a hashed lockfile.
  */
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -76,6 +76,7 @@ function main() {
   }
 
   if (normalize(committed) !== normalize(generated)) {
+    mkdirSync("tmp", { recursive: true });
     writeFileSync(
       "tmp/requirements-generated-diff.txt",
       `--- committed\n+++ generated\n${committed}\n---\n${generated}`,

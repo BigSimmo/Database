@@ -1901,33 +1901,31 @@ async function main() {
     }
   }
 
-  try {
-    await runWorkerLoop({
-      once,
-      pollMs: env.WORKER_POLL_MS,
-      healthBackoffMs: env.WORKER_HEALTH_BACKOFF_MS,
-      maxClaimFailures: env.WORKER_MAX_CLAIM_FAILURES,
-      claim: claimJobs,
-      process: processJob,
-      probe: () => probeSupabaseHealth(supabase),
-      backoff: workerBackoffMs,
-      controller,
-      log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
-      captureException: captureWorkerException,
-    });
-    console.log("Clinical KB worker stopped gracefully");
-    process.exit(0);
-  } catch (error) {
-    if (error instanceof WorkerAbortError) {
-      console.error("Clinical KB worker aborted", safeErrorLogDetails(error));
-      process.exit(error.exitCode);
-    }
-    throw error;
-  }
+  await runWorkerLoop({
+    once,
+    pollMs: env.WORKER_POLL_MS,
+    healthBackoffMs: env.WORKER_HEALTH_BACKOFF_MS,
+    maxClaimFailures: env.WORKER_MAX_CLAIM_FAILURES,
+    claim: claimJobs,
+    process: processJob,
+    probe: () => probeSupabaseHealth(supabase),
+    backoff: workerBackoffMs,
+    controller,
+    log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
+    captureException: captureWorkerException,
+  });
+  console.log("Clinical KB worker stopped gracefully");
+  // Flush before exit so any buffered claim/process events are not dropped.
+  await flushWorkerErrorTracking();
+  process.exit(0);
 }
 
 main().catch(async (error) => {
-  console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
+  const abort = error instanceof WorkerAbortError ? error : null;
+  console.error(
+    abort ? "Clinical KB worker aborted" : "Clinical KB worker stopped unexpectedly",
+    safeErrorLogDetails(error),
+  );
   captureWorkerException(error, "fatal");
   if (env.WORKER_FAILURE_WEBHOOK_URL) {
     try {
@@ -1935,7 +1933,7 @@ main().catch(async (error) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: `CRITICAL: Clinical KB worker stopped unexpectedly. Error: ${error instanceof Error ? error.message : String(error)}`,
+          text: `CRITICAL: Clinical KB worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
         }),
       });
     } catch (webhookError) {
@@ -1944,5 +1942,5 @@ main().catch(async (error) => {
   }
   // Flush last: the process is about to exit and buffered events would be lost.
   await flushWorkerErrorTracking();
-  process.exit(1);
+  process.exit(abort?.exitCode ?? 1);
 });

@@ -48,7 +48,9 @@ export async function runWorkerLoop(deps: WorkerRunLoopDeps): Promise<void> {
       if (!health.ok) {
         log("Supabase health check failed; worker is backing off", "warn", { message: health.message });
         if (once) {
-          throw new WorkerAbortError("Supabase health check failed in --once mode", 1);
+          throw new WorkerAbortError("Supabase health check failed in --once mode", 1, {
+            cause: health.message ? new Error(health.message) : undefined,
+          });
         }
         if (controller.isStopped) break;
         await controller.sleep(healthBackoffMs);
@@ -69,7 +71,9 @@ export async function runWorkerLoop(deps: WorkerRunLoopDeps): Promise<void> {
       if (consecutiveClaimFailures === maxClaimFailures) {
         captureException?.(error, "claim");
       }
-      if (once) throw new WorkerAbortError("Ingestion job claim failed in --once mode", 1);
+      if (once) {
+        throw new WorkerAbortError("Ingestion job claim failed in --once mode", 1, { cause: error });
+      }
       if (consecutiveClaimFailures >= maxClaimFailures) {
         if (controller.isStopped) break;
         await controller.sleep(healthBackoffMs);

@@ -2,9 +2,15 @@
 /**
  * trivy-image-scan — vulnerability scan and SBOM generation using a pinned
  * immutable Trivy Docker image. Designed for Linux CI; local runs need a
- * `trivy` binary on PATH or Docker exposing the daemon socket.
+ * `trivy` binary on PATH or Docker.
+ *
+ * The Docker fallback exports the target image with `docker save` and mounts
+ * only that tar (plus an optional output dir). It never bind-mounts the Docker
+ * daemon socket, which would be equivalent to root on the host.
  */
-import { basename, dirname, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
 // Pin to a multi-platform image index digest. Update with:
@@ -20,6 +26,48 @@ function run(cmd, args, opts = {}) {
 function localTrivy() {
   const result = run(process.platform === "win32" ? "where" : "which", ["trivy"]);
   return result.stdout?.split(/\r?\n/)[0]?.trim() || null;
+}
+
+/**
+ * @param {string} imageRef
+ * @param {string[]} trivyArgs use "__IMAGE__" where the image ref belongs and
+ *   "__OUT__" where an output path belongs (when outputHostPath is set)
+ * @param {{ outputHostPath?: string | null }} [opts]
+ */
+function runDockerTrivy(imageRef, trivyArgs, { outputHostPath = null } = {}) {
+  const workDir = mkdtempSync(join(tmpdir(), "trivy-scan-"));
+  const tarName = "image.tar";
+  const tarPath = join(workDir, tarName);
+  try {
+    const save = run("docker", ["save", "-o", tarPath, imageRef]);
+    if (save.status !== 0) {
+      return {
+        status: 1,
+        stdout: save.stdout,
+        stderr: save.stderr || save.stdout || `docker save failed for ${imageRef}`,
+      };
+    }
+
+    const mounts = ["-v", `${workDir}:/work:ro`];
+    if (outputHostPath) {
+      mounts.push("-v", `${dirname(resolve(outputHostPath))}:/out`);
+    }
+
+    const dockerArgs = ["run", "--rm", "--network=none", ...mounts, TRIVY_IMAGE];
+    for (const arg of trivyArgs) {
+      if (arg === "__IMAGE__") {
+        dockerArgs.push("--input", `/work/${tarName}`);
+      } else if (arg === "__OUT__" && outputHostPath) {
+        dockerArgs.push(`/out/${basename(outputHostPath)}`);
+      } else {
+        dockerArgs.push(arg);
+      }
+    }
+
+    return run("docker", dockerArgs);
+  } finally {
+    rmSync(workDir, { recursive: true, force: true });
+  }
 }
 
 function main() {
@@ -38,25 +86,11 @@ function main() {
 
   if (sbomPath) {
     const out = resolve(sbomPath);
-    const sbomArgs = trivy
-      ? [trivy, "image", "--format", "cyclonedx", "--output", out, imageRef]
-      : [
-          "docker",
-          "run",
-          "--rm",
-          "-v",
-          "/var/run/docker.sock:/var/run/docker.sock",
-          "-v",
-          `${dirname(out)}:/out`,
-          TRIVY_IMAGE,
-          "image",
-          "--format",
-          "cyclonedx",
-          "--output",
-          `/out/${basename(out)}`,
-          imageRef,
-        ];
-    const result = run(sbomArgs[0], sbomArgs.slice(1), { cwd: process.cwd() });
+    const result = trivy
+      ? run(trivy, ["image", "--format", "cyclonedx", "--output", out, imageRef])
+      : runDockerTrivy(imageRef, ["image", "--format", "cyclonedx", "--output", "__OUT__", "__IMAGE__"], {
+          outputHostPath: out,
+        });
     if (result.status !== 0) {
       console.error(result.stderr || result.stdout);
       process.exit(1);
@@ -64,26 +98,10 @@ function main() {
     console.log(`SBOM written to ${out}`);
   }
 
-  const scanArgs = trivy
-    ? [trivy, "image", "--format", "json", "--exit-code", "0", "--severity", severity, imageRef]
-    : [
-        "docker",
-        "run",
-        "--rm",
-        "-v",
-        "/var/run/docker.sock:/var/run/docker.sock",
-        TRIVY_IMAGE,
-        "image",
-        "--format",
-        "json",
-        "--exit-code",
-        "0",
-        "--severity",
-        severity,
-        imageRef,
-      ];
+  const result = trivy
+    ? run(trivy, ["image", "--format", "json", "--exit-code", "0", "--severity", severity, imageRef])
+    : runDockerTrivy(imageRef, ["image", "--format", "json", "--exit-code", "0", "--severity", severity, "__IMAGE__"]);
 
-  const result = run(scanArgs[0], scanArgs.slice(1), { cwd: process.cwd() });
   if (result.status !== 0) {
     console.error(result.stderr || result.stdout || `Trivy failed to scan ${imageRef}`);
     process.exit(1);

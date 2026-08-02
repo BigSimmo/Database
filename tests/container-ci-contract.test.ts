@@ -86,4 +86,19 @@ describe("container delivery contract", () => {
     expect(smoke).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
     expect(workflow).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
   });
+
+  it("avoids Docker-socket mounts and creates tmp/ before lock-diff diagnostics", () => {
+    const trivy = read("scripts/trivy-image-scan.mjs");
+    const pythonLock = read("scripts/check-worker-python-lock.mjs");
+    const runtime = read("worker/validate-runtime.ts");
+    const sleep = read("worker/runtime-control.ts");
+
+    expect(trivy).not.toContain("/var/run/docker.sock");
+    expect(trivy).toContain("docker save");
+    expect(pythonLock).toContain('mkdirSync("tmp", { recursive: true })');
+    expect(runtime).toContain("pathToFileURL(options.externalsPath)");
+    expect(runtime).not.toContain("file://${options.externalsPath}");
+    // Single settle path — no stray Promise.race timer that outlives stop().
+    expect(sleep).not.toMatch(/Promise\.race\(\[\s*new Promise/);
+  });
 });
