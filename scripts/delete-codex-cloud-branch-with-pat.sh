@@ -14,6 +14,7 @@ fail() {
 
 [[ "$#" -eq 1 ]] || usage
 branch="$1"
+[[ "$branch" != -* ]] || fail "Refusing an option-like branch name."
 [[ "${CODEX_CLOUD_ACCESS_PROFILE:-offline}" = "connected" ]] || fail "This emergency helper is connected-profile only."
 [[ -n "${CODEX_CLOUD_GITHUB_PAT:-}" ]] || fail "CODEX_CLOUD_GITHUB_PAT is unavailable; add it only as a connected Cloud secret for this one operation."
 
@@ -23,8 +24,14 @@ case "$branch" in
     ;;
 esac
 git check-ref-format --branch "$branch" >/dev/null || fail "Invalid branch name."
-[[ "$(git config --get remote.origin.url 2>/dev/null || true)" = "https://github.com/BigSimmo/Database.git" ]] ||
+expected_origin="https://github.com/BigSimmo/Database.git"
+[[ "$(git config --get remote.origin.url 2>/dev/null || true)" = "$expected_origin" ]] ||
   fail "origin must be the credential-free BigSimmo/Database URL."
+push_urls="$(git remote get-url --push --all origin)" || fail "Could not read origin push URLs."
+[[ -n "$push_urls" ]] || fail "origin has no push URL."
+while IFS= read -r push_url; do
+  [[ "$push_url" = "$expected_origin" ]] || fail "origin push URL must be the credential-free BigSimmo/Database URL."
+done <<< "$push_urls"
 
 askpass="$(mktemp)"
 trap 'rm -f "$askpass"; unset CODEX_CLOUD_GITHUB_PAT' EXIT
