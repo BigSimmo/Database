@@ -39,12 +39,19 @@ function runDockerTrivy(imageRef, trivyArgs, { outputHostPath = null } = {}) {
   const tarName = "image.tar";
   const tarPath = join(workDir, tarName);
   try {
-    const save = run("docker", ["save", "-o", tarPath, imageRef]);
+    // Keep Docker's save temp files inside workDir so finally{} can reclaim them
+    // and CI runners do not fill the shared /tmp between sequential scans.
+    const saveEnv = { ...process.env, TMPDIR: workDir, DOCKER_TMPDIR: workDir };
+    const save = run("docker", ["save", "-o", tarPath, imageRef], { env: saveEnv });
     if (save.status !== 0) {
+      const detail = save.stderr || save.stdout || `docker save failed for ${imageRef}`;
+      if (/no space left on device/i.test(detail)) {
+        console.error(`ENOSPC while docker-saving ${imageRef}; free builder cache and retry.`);
+      }
       return {
         status: 1,
         stdout: save.stdout,
-        stderr: save.stderr || save.stdout || `docker save failed for ${imageRef}`,
+        stderr: detail,
       };
     }
 
@@ -77,10 +84,19 @@ function main() {
     process.exit(1);
   }
 
-  const sbomIndex = rest.indexOf("--sbom");
-  const sbomPath = sbomIndex >= 0 ? rest[sbomIndex + 1] : null;
-  const severityIdx = rest.indexOf("--severity");
-  const severity = severityIdx >= 0 ? rest[severityIdx + 1] : "HIGH,CRITICAL";
+  function optionValue(flag) {
+    const idx = rest.indexOf(flag);
+    if (idx < 0) return null;
+    const value = rest[idx + 1];
+    if (!value || value.startsWith("--")) {
+      console.error(`Missing value for ${flag}`);
+      process.exit(1);
+    }
+    return value;
+  }
+
+  const sbomPath = optionValue("--sbom");
+  const severity = optionValue("--severity") ?? "HIGH,CRITICAL";
 
   const trivy = localTrivy();
 

@@ -142,18 +142,35 @@ async function main() {
     process.exit(1);
   }
 
-  run(["docker", "stop", "-t", String(STOP_TIMEOUT_SECONDS), CONTAINER_NAME]);
+  const stopResult = run(["docker", "stop", "-t", String(STOP_TIMEOUT_SECONDS), CONTAINER_NAME]);
+  if (stopResult.status !== 0) {
+    console.error("docker stop failed:", stopResult.stderr || stopResult.stdout);
+    cleanContainer();
+    process.exit(1);
+  }
+
   const inspectResult = run([
     "docker",
     "inspect",
     "--format",
-    "{{.State.OOMKilled}} {{.State.ExitCode}}",
+    "{{.State.Running}} {{.State.OOMKilled}} {{.State.ExitCode}}",
     CONTAINER_NAME,
   ]);
-  const [oom, exitCode] = inspectResult.stdout?.trim().split(" ") ?? ["true", "-1"];
+  const [running, oom, exitCode] = inspectResult.stdout?.trim().split(" ") ?? ["true", "true", "-1"];
 
+  if (running === "true") {
+    console.error("Container still running after docker stop");
+    cleanContainer();
+    process.exit(1);
+  }
   if (oom === "true") {
     console.error("Container was OOMKilled");
+    cleanContainer();
+    process.exit(1);
+  }
+  // 137 = SIGKILL (128+9). Graceful STOPSIGNAL SIGTERM must not escalate.
+  if (exitCode === "137") {
+    console.error("Container exited 137 (SIGKILL) — graceful stop timed out");
     cleanContainer();
     process.exit(1);
   }

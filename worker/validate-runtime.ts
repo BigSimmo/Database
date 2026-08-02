@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { pathToFileURL } from "node:url";
+import { builtinModules } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { env } from "../src/lib/env";
 import { checkPythonPdfPrerequisites, checkMedspacyPrerequisites } from "./prerequisites";
+
+const NODE_BUILTINS = new Set(builtinModules);
 
 type ValidationResult = {
   ok: boolean;
@@ -92,8 +94,9 @@ export async function validateRuntime(options: ValidateRuntimeOptions = {}): Pro
   }
 
   for (const spec of externals) {
-    if (spec.startsWith("node:")) {
-      result.externals.push({ spec, resolved: spec, ok: true });
+    // esbuild may emit bare builtin names (`fs`) as well as `node:fs`.
+    if (spec.startsWith("node:") || NODE_BUILTINS.has(spec)) {
+      result.externals.push({ spec, resolved: spec.startsWith("node:") ? spec : `node:${spec}`, ok: true });
       continue;
     }
     try {

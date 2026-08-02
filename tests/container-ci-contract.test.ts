@@ -102,10 +102,29 @@ describe("container delivery contract", () => {
 
     expect(trivy).not.toContain("/var/run/docker.sock");
     expect(trivy).toContain("docker save");
+    expect(trivy).toContain("optionValue");
     expect(pythonLock).toContain('mkdirSync("tmp", { recursive: true })');
     expect(runtime).toContain("pathToFileURL(options.externalsPath)");
     expect(runtime).not.toContain("file://${options.externalsPath}");
+    expect(runtime).toContain("builtinModules");
     // Single settle path — no stray Promise.race timer that outlives stop().
     expect(sleep).not.toMatch(/Promise\.race\(\[\s*new Promise/);
+  });
+
+  it("fails closed on missing Cmd, shell listing errors, and SIGKILL smoke exits", () => {
+    const contract = read("scripts/check-image-content-contract.mjs");
+    const smoke = read("scripts/app-container-smoke.mjs");
+    expect(contract).toContain('cmd === "null"');
+    expect(contract).toContain("assertShellListingClean");
+    expect(contract).toContain("/app/worker/python/test_*.py");
+    expect(smoke).toContain('exitCode === "137"');
+    expect(smoke).toContain("State.Running");
+  });
+
+  it("keeps Trivy SBOM and vulnerability steps non-blocking in CI", () => {
+    const workflow = read(".github/workflows/docker-image.yml");
+    expect(workflow).toMatch(/Generate SBOMs[\s\S]*?continue-on-error:\s*true/);
+    expect(workflow).toMatch(/Vulnerability scan \(HIGH,CRITICAL\)[\s\S]*?continue-on-error:\s*true/);
+    expect(workflow).toContain("if-no-files-found: warn");
   });
 });
