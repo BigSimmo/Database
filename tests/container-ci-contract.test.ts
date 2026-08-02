@@ -87,6 +87,13 @@ describe("container delivery contract", () => {
     expect(workflow).toContain("RAG_QUERY_HASH_SECRET=smoke-test-hash-secret");
   });
 
+  it("accepts Next 16 next-server PID 1 in app container smoke", () => {
+    const smoke = read("scripts/app-container-smoke.mjs");
+    expect(smoke).toContain("next start");
+    expect(smoke).toContain("next-server");
+    expect(smoke).toContain("pid1LooksLikeNextServer");
+  });
+
   it("avoids Docker-socket mounts and creates tmp/ before lock-diff diagnostics", () => {
     const trivy = read("scripts/trivy-image-scan.mjs");
     const pythonLock = read("scripts/check-worker-python-lock.mjs");

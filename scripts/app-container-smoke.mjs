@@ -3,7 +3,8 @@
  * app-container-smoke — run the built app image provider-free and verify:
  *   - /api/health returns HTTP 200 with status: ok, openaiConfig: skipped,
  *     supabaseConfig: ok
- *   - PID 1 is the expected next start command
+ *   - PID 1 is the Next production server (`next start` argv, or Next 16's
+ *     rewritten `next-server (v…)` process title after boot)
  *   - container stops cleanly within a bounded timeout
  */
 import { spawnSync } from "node:child_process";
@@ -128,9 +129,15 @@ async function main() {
     "-e",
     "console.log(require('fs').readFileSync('/proc/1/cmdline','utf8').replace(/\\u0000/g,' ').trim())",
   ]);
-  const pid1 = psResult.stdout?.trim();
-  if (!pid1?.includes("next start")) {
-    console.error("PID 1 is not the expected next start command:", pid1);
+  const pid1 = psResult.stdout?.trim() ?? "";
+  // Next 16 rewrites the process title to `next-server (vX.Y.Z)` after
+  // `next start` boots; accept either form so smoke tracks the live server.
+  const pid1LooksLikeNextServer = pid1.includes("next start") || /\bnext-server\b/.test(pid1);
+  if (!pid1LooksLikeNextServer) {
+    console.error("PID 1 is not the expected Next production server:", pid1);
+    const logs = run(["docker", "logs", "--tail", "80", CONTAINER_NAME]);
+    if (logs.stdout) console.error(logs.stdout);
+    if (logs.stderr) console.error(logs.stderr);
     cleanContainer();
     process.exit(1);
   }
