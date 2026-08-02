@@ -350,7 +350,7 @@ export function Sheet({
         style={contentStyle}
         className={cn(
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
-          "transition duration-200 motion-reduce:transition-none sm:duration-150",
+          "transition duration-[var(--duration-moderate)] motion-reduce:transition-none sm:duration-[var(--duration-quick)]",
           placement === "left"
             ? "h-full max-h-full max-w-[min(22rem,calc(100vw-1rem))] rounded-r-2xl border-y-0 border-l-0 pt-safe sm:max-h-dvh sm:max-w-[22rem] sm:rounded-l-none sm:rounded-r-2xl sm:pb-0"
             : cn(

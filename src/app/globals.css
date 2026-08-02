@@ -399,11 +399,22 @@
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
+  /* Motion ladder — exact observed production timings (Wave 4 Arch).
+     Phone-chrome hide=240ms / reveal=200ms must stay exact (search-chrome-behaviour). */
+  --duration-instant: 100ms;
   --duration-fast: 120ms;
+  --duration-quick: 150ms;
   --duration-base: 180ms;
+  --duration-moderate: 200ms;
   --duration-slow: 240ms;
+  --duration-deliberate: 300ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* CSS keyword ease-out equivalent — do not conflate with chrome-reveal / soft. */
+  --ease-out: cubic-bezier(0, 0, 0.58, 1);
+  /* Phone-chrome hide vs reveal: two tokens, never one (search-chrome-behaviour). */
+  --ease-chrome-hide: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-chrome-reveal: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
 
@@ -2913,7 +2924,7 @@ td,
 }
 
 .stagger-item {
-  animation: cascade-fade-up 200ms var(--ease-out-soft) both;
+  animation: cascade-fade-up var(--duration-moderate) var(--ease-out-soft) both;
   animation-delay: calc(var(--stagger-index, 0) * 35ms);
 }
 
@@ -2947,7 +2958,7 @@ html[data-motion="reduced"] .stagger-item {
 
   /* Opt-in soft opacity fade for critical feedback state changes */
   .fade-accessible-reduced {
-    transition: opacity 120ms var(--ease-out-soft) !important;
+    transition: opacity var(--duration-fast) var(--ease-out-soft) !important;
   }
 }
 
@@ -3196,15 +3207,15 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 @media (max-width: 639px) {
   #main-content[data-reserve-transitioning="true"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
   #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
   [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
   /* A page-owned reserve changes scroll height below the current viewport.
      Suspend browser anchoring only for that transition so Chrome cannot turn
@@ -3214,7 +3225,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
   [data-reserve-owner][data-reserve-transitioning="true"] {
     will-change: padding-bottom;
-    transition: padding-bottom 240ms var(--ease-out-soft);
+    transition: padding-bottom var(--duration-slow) var(--ease-out-soft);
   }
 }
 
@@ -3233,8 +3244,8 @@ html.theme-transitioning *,
 html.theme-transitioning *:before,
 html.theme-transitioning *:after {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
-  transition-duration: 200ms !important;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+  transition-duration: var(--duration-moderate) !important;
+  transition-timing-function: var(--ease-chrome-hide) !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

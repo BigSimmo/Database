@@ -681,7 +681,7 @@ export function NaturalLanguageAnswer({
               data-testid="source-only-disclosure"
               role="note"
               className={cn(
-                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-150",
+                "w-fit max-w-full overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-xs transition-[border-radius] duration-[var(--duration-quick)]",
                 sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
                 textMuted,
               )}

@@ -363,7 +363,7 @@ function TherapyPicker() {
               <button
                 key={t.slug}
                 type="button"
-                className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] block w-full py-2.5 px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer text-sm-minus font-semibold text-[color:var(--text-heading)]`}
+                className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] block w-full py-2.5 px-3.5 border-0 border-b border-[color:var(--border)] bg-transparent text-left cursor-pointer text-sm-minus font-semibold text-[color:var(--text-heading)]`}
                 onClick={() => {
                   b.select(t.slug);
                   setOpen(false);

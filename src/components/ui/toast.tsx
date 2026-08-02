@@ -142,7 +142,7 @@ export function ToastRegion() {
       role="status"
       aria-live="polite"
       aria-relevant="additions text"
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[100] flex flex-col items-center gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:right-0 sm:items-end"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[110] flex flex-col items-center gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:inset-x-auto sm:right-0 sm:items-end"
     >
       {toasts.map((toast) => (
         <ToastCard key={toast.id} toast={toast} onDismiss={dismiss} />

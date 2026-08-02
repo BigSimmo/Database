@@ -1648,8 +1648,8 @@ export function DocumentViewer({
               glassOverlaySurface,
               "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
               composerScrollHidden
-                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
             )}
           >
             <button

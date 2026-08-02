@@ -322,7 +322,7 @@ export function SettingsDialog({
               // No permanent `will-change-transform`: it keeps a compositor layer
               // alive at rest for a header that only transforms during scroll-hide.
               // `transition-transform` already hints the browser for the animation.
-              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-300 motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
+              "edge-glass-header sticky top-0 z-30 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] transition-transform duration-[var(--duration-deliberate)] motion-reduce:transition-none lg:static lg:z-auto lg:translate-y-0 lg:pb-0 lg:pt-6 lg:bg-transparent! lg:px-0!",
               headerHidden ? "-translate-y-full" : "translate-y-0",
             )}
           >
