@@ -158,8 +158,7 @@ if [[ -f "$codex_config_file" ]]; then
   # table is unmanaged. Accept TOML's bare or quoted key spellings, leading
   # whitespace, and an optional trailing comment; appending our managed table
   # would otherwise create a duplicate header that Codex cannot load.
-  shell_policy_table_pattern="^[[:space:]]*\\[[[:space:]]*(shell_environment_policy|\\\"shell_environment_policy\\"|'shell_environment_policy')[[:space:]]*\\][[:space:]]*(#.*)?$"
-  if printf '%s\n' "$codex_config_preserved" | grep -Eq "$shell_policy_table_pattern"; then
+  if printf '%s\n' "$codex_config_preserved" | grep -Eq '^[[:space:]]*\[[[:space:]]*(shell_environment_policy|"shell_environment_policy"|'"'"'shell_environment_policy'"'"')[[:space:]]*\][[:space:]]*(#.*)?$'; then
     fail "Unmanaged [shell_environment_policy] table found in $codex_config_file; remove it before re-running setup."
   fi
 else
