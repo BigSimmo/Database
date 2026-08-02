@@ -55,7 +55,7 @@ an asserted-but-untested behaviour is _worse_ than `—` and is called out.
 
 **[verified:** register and previews from `EXPORT_MANIFEST.md`; direct-test coverage from the
 master handover's audit of the shipped test set; `main` presence from this worktree
-(`src/components/ui/` on main holds only `OverlayProvider`, `badge`, `card`, `sheet`; the
+(`src/components/ui/sheet.tsx` is the live main-tier overlay primitive in this worktree; the
 branch deletes the dead `badge`/`card`).**]** Product-import counts for `main` components are
 **[assumed: >0** for live shared components; exact counts belong to the adoption tracker, not
 this document**]**.
@@ -79,9 +79,9 @@ this document**]**.
 | `StatusMark`                                                      | —           | Forced-colour survival **asserted, not proven**.                               |
 | `TextLink`, `ExternalTextLink`, `DownloadLink`, `LinkAction`      | —           | `tone` leaks to DOM; `gap` animation (PR 9).                                   |
 
-Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow),
-`OverlayProvider`/`useOverlay` (`main`, **zero imports** — superseded by `OverlayRoot`, §7),
-`sheet-focus` stack (`branch`; folds into `OverlayRoot`).
+Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow) and the
+`sheet-focus` stack (`branch`; powers the live `Sheet` path and is intended to fold into
+`OverlayRoot`).
 
 ### 0.3 Specified, not built
 
@@ -522,25 +522,14 @@ page dimming per surface; don't let a mode add its own scrim "just here".
 
 ## 7 · `OverlayRoot`
 
-**Problem.** Two overlay models coexist (`OverlayProvider` on main with zero imports, plus
-the `sheet-focus` stack on the branch); Tooltip has no portal; Toast portals nowhere and
-hardcodes a z below its own token; Sheet defaults `portal: false`. One overlay architecture
-must own stacking, focus, escape, and inertness.
+**Problem.** The live `Sheet` and its `sheet-focus` stack own modal behaviour today, while
+Tooltip has no portal, Toast portals nowhere, and Sheet defaults `portal: false`. One overlay
+architecture must own stacking, focus, escape, and inertness.
 
 ```ts
 type OverlayLayer = "overlay" | "popover" | "modal" | "toast";
 
 function OverlayRoot(): JSX.Element; // single portal host at the app root
-
-type UseOverlayOptions = {
-  layer: OverlayLayer;
-  open: boolean;
-  onEscape?: () => void; // topmost-only delivery
-  trapFocus?: boolean; // modal layers default true
-  restoreFocus?: boolean; // default true
-  inertBackground?: boolean; // modal layers default true
-};
-function useOverlay(options: UseOverlayOptions): { portal: (node: ReactNode) => ReactPortal };
 ```
 
 **Behaviour.**
@@ -553,8 +542,10 @@ function useOverlay(options: UseOverlayOptions): { portal: (node: ReactNode) => 
   Background becomes inert (`inert`/`aria-hidden`) for modal layers; scroll is locked.
 - Popover/tooltip layers get collision-aware positioning on this foundation (Menu/Popover,
   P1, build here — not another model).
-- `OverlayProvider` (main, unused) is deleted when this lands; `Sheet`, `ConfirmDialog`,
-  `Tooltip`, `Toast` migrate onto it (PR 10).
+- `Sheet` is the live modal path during Arch; `ConfirmDialog`, `Tooltip`, and `Toast`
+  converge on `OverlayRoot` in the later overlay adoption tranche.
+- `calculator-sheet` remains a parallel `--z-modal` surface deferred past Arch. It is not
+  absorbed into `OverlayRoot` or `Sheet` in this PR.
 
 **States.** Per-consumer; the root itself has none.
 
@@ -930,8 +921,3 @@ never restate a token value. The 2026-07-31 icon regression (lucide imports repl
 with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
 this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
 tests to run.
-
-### 9.34 `OverlayProvider` — superseded
-
-`main`-tier, zero imports. Deleted when `OverlayRoot` (§7) lands in PR 10. Do not adopt
-it in the interim.
