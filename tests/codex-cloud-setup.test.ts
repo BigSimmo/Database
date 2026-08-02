@@ -396,146 +396,154 @@ describe("Codex Cloud environment contract", () => {
     expect(patDelete).toContain("core.hooksPath=/dev/null");
   });
 
-  it("writes managed shell policy behaviorally and preserves unrelated Codex config", () => {
-    const home = temporaryDirectory("codex-cloud-home-");
-    mkdirSync(path.join(home, ".codex"), { recursive: true });
-    writeFileSync(
-      path.join(home, ".codex/config.toml"),
-      ["[mcp_servers.example]", 'command = "echo"', 'args = ["ping"]', ""].join("\n"),
-    );
+  // setup-codex-cloud.sh is Linux/Cloud-only; WSL Git cannot resolve a Windows
+  // worktree's gitdir pointer, so these behavioral cases run in Linux CI.
+  it.skipIf(process.platform === "win32")(
+    "writes managed shell policy behaviorally and preserves unrelated Codex config",
+    () => {
+      const home = temporaryDirectory("codex-cloud-home-");
+      mkdirSync(path.join(home, ".codex"), { recursive: true });
+      writeFileSync(
+        path.join(home, ".codex/config.toml"),
+        ["[mcp_servers.example]", 'command = "echo"', 'args = ["ping"]', ""].join("\n"),
+      );
 
-    const first = runSetupPolicyOnly(home, {
-      CODEX_CLOUD_ACCESS_PROFILE: "offline",
-    });
-    expect(first.status, first.stderr || first.stdout).toBe(0);
-
-    const config = readCodexConfig(home);
-    expect(config).toContain("[mcp_servers.example]");
-    expect(config).toContain("BEGIN clinical-kb-codex-cloud shell policy");
-    expect(config).toContain("[shell_environment_policy]");
-    expect(config).toContain('inherit = "all"');
-    for (const name of requiredPolicyExcludes) {
-      expect(config).toContain(`"${name}"`);
-    }
-    expect(config.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
-
-    const profile = readRuntimeProfile(home);
-    expect(profile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="offline"');
-    expect(profile).toContain("export RAG_PROVIDER_MODE=offline");
-
-    const second = runSetupPolicyOnly(home, {
-      CODEX_CLOUD_ACCESS_PROFILE: "offline",
-    });
-    expect(second.status, second.stderr || second.stdout).toBe(0);
-    const rewritten = readCodexConfig(home);
-    expect(rewritten).toContain("[mcp_servers.example]");
-    expect(rewritten.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
-    expect(rewritten.match(/BEGIN clinical-kb-codex-cloud shell policy/g)).toHaveLength(1);
-  });
-
-  it("pins connected retrieval mode and rejects unsafe shell-policy configs", () => {
-    const connectedHome = temporaryDirectory("codex-cloud-connected-");
-    const connected = runSetupPolicyOnly(connectedHome, {
-      CODEX_CLOUD_ACCESS_PROFILE: "connected",
-      RAG_PROVIDER_MODE: "offline",
-    });
-    expect(connected.status, connected.stderr || connected.stdout).toBe(0);
-    const connectedProfile = readRuntimeProfile(connectedHome);
-    expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
-    expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
-    expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
-
-    const unmanagedHome = temporaryDirectory("codex-cloud-unmanaged-");
-    mkdirSync(path.join(unmanagedHome, ".codex"), { recursive: true });
-    const unmanagedConfig = [
-      "[mcp_servers.keep]",
-      'command = "echo"',
-      "",
-      "[shell_environment_policy]",
-      'inherit = "all"',
-      "exclude = []",
-      "",
-    ].join("\n");
-    const unmanagedPath = path.join(unmanagedHome, ".codex/config.toml");
-    writeFileSync(unmanagedPath, unmanagedConfig);
-    const unmanaged = runSetupPolicyOnly(unmanagedHome, {
-      CODEX_CLOUD_ACCESS_PROFILE: "offline",
-    });
-    expect(unmanaged.status).not.toBe(0);
-    expect(unmanaged.stderr).toContain("Unmanaged [shell_environment_policy] table found");
-    expect(readFileSync(unmanagedPath, "utf8")).toBe(unmanagedConfig);
-
-    for (const tableHeader of [
-      "  [shell_environment_policy] # valid TOML",
-      '[ "shell_environment_policy" ]',
-      "['shell_environment_policy'] # valid TOML",
-    ]) {
-      const formattedHome = temporaryDirectory("codex-cloud-formatted-");
-      mkdirSync(path.join(formattedHome, ".codex"), { recursive: true });
-      const formattedConfig = [tableHeader, 'inherit = "all"', "exclude = []", ""].join("\n");
-      const formattedPath = path.join(formattedHome, ".codex/config.toml");
-      writeFileSync(formattedPath, formattedConfig);
-      const formatted = runSetupPolicyOnly(formattedHome, {
+      const first = runSetupPolicyOnly(home, {
         CODEX_CLOUD_ACCESS_PROFILE: "offline",
       });
-      expect(formatted.status).not.toBe(0);
-      expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
-      expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
-    }
+      expect(first.status, first.stderr || first.stdout).toBe(0);
 
-    for (const formattedConfig of [
-      'shell_environment_policy.inherit = "all"\n',
-      'shell_environment_policy = { inherit = "all", exclude = [] }\n',
-    ]) {
-      const formattedHome = temporaryDirectory("codex-cloud-formatted-");
-      mkdirSync(path.join(formattedHome, ".codex"), { recursive: true });
-      const formattedPath = path.join(formattedHome, ".codex/config.toml");
-      writeFileSync(formattedPath, formattedConfig);
-      const formatted = runSetupPolicyOnly(formattedHome, {
+      const config = readCodexConfig(home);
+      expect(config).toContain("[mcp_servers.example]");
+      expect(config).toContain("BEGIN clinical-kb-codex-cloud shell policy");
+      expect(config).toContain("[shell_environment_policy]");
+      expect(config).toContain('inherit = "all"');
+      for (const name of requiredPolicyExcludes) {
+        expect(config).toContain(`"${name}"`);
+      }
+      expect(config.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
+
+      const profile = readRuntimeProfile(home);
+      expect(profile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="offline"');
+      expect(profile).toContain("export RAG_PROVIDER_MODE=offline");
+
+      const second = runSetupPolicyOnly(home, {
         CODEX_CLOUD_ACCESS_PROFILE: "offline",
       });
-      expect(formatted.status).not.toBe(0);
-      expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
-      expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
-    }
+      expect(second.status, second.stderr || second.stdout).toBe(0);
+      const rewritten = readCodexConfig(home);
+      expect(rewritten).toContain("[mcp_servers.example]");
+      expect(rewritten.match(/^\[shell_environment_policy\]$/gm)).toHaveLength(1);
+      expect(rewritten.match(/BEGIN clinical-kb-codex-cloud shell policy/g)).toHaveLength(1);
+    },
+  );
 
-    const atomicHome = temporaryDirectory("codex-cloud-atomic-");
-    const atomicTools = temporaryDirectory("codex-cloud-tools-");
-    mkdirSync(path.join(atomicHome, ".codex"), { recursive: true });
-    const atomicConfig = ["[mcp_servers.keep]", 'command = "echo"', ""].join("\n");
-    const atomicPath = path.join(atomicHome, ".codex/config.toml");
-    writeFileSync(atomicPath, atomicConfig);
-    const failingMktemp = path.join(atomicTools, "mktemp");
-    writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", {
-      mode: 0o755,
-    });
-    const atomic = runSetupPolicyOnly(atomicHome, {
-      CODEX_CLOUD_ACCESS_PROFILE: "offline",
-      PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter),
-    });
-    expect(atomic.status).not.toBe(0);
-    expect(readFileSync(atomicPath, "utf8")).toBe(atomicConfig);
+  it.skipIf(process.platform === "win32")(
+    "pins connected retrieval mode and rejects unsafe shell-policy configs",
+    () => {
+      const connectedHome = temporaryDirectory("codex-cloud-connected-");
+      const connected = runSetupPolicyOnly(connectedHome, {
+        CODEX_CLOUD_ACCESS_PROFILE: "connected",
+        RAG_PROVIDER_MODE: "offline",
+      });
+      expect(connected.status, connected.stderr || connected.stdout).toBe(0);
+      const connectedProfile = readRuntimeProfile(connectedHome);
+      expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
+      expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
+      expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
 
-    const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
-    mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });
-    const incompleteConfig = [
-      "[mcp_servers.keep]",
-      'command = "echo"',
-      "",
-      "# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
-      "[shell_environment_policy]",
-      'inherit = "all"',
-      "",
-    ].join("\n");
-    const incompletePath = path.join(incompleteHome, ".codex/config.toml");
-    writeFileSync(incompletePath, incompleteConfig);
-    const incomplete = runSetupPolicyOnly(incompleteHome, {
-      CODEX_CLOUD_ACCESS_PROFILE: "offline",
-    });
-    expect(incomplete.status).not.toBe(0);
-    expect(incomplete.stderr).toContain("Incomplete managed shell policy block");
-    expect(readFileSync(incompletePath, "utf8")).toBe(incompleteConfig);
-  });
+      const unmanagedHome = temporaryDirectory("codex-cloud-unmanaged-");
+      mkdirSync(path.join(unmanagedHome, ".codex"), { recursive: true });
+      const unmanagedConfig = [
+        "[mcp_servers.keep]",
+        'command = "echo"',
+        "",
+        "[shell_environment_policy]",
+        'inherit = "all"',
+        "exclude = []",
+        "",
+      ].join("\n");
+      const unmanagedPath = path.join(unmanagedHome, ".codex/config.toml");
+      writeFileSync(unmanagedPath, unmanagedConfig);
+      const unmanaged = runSetupPolicyOnly(unmanagedHome, {
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      });
+      expect(unmanaged.status).not.toBe(0);
+      expect(unmanaged.stderr).toContain("Unmanaged [shell_environment_policy] table found");
+      expect(readFileSync(unmanagedPath, "utf8")).toBe(unmanagedConfig);
+
+      for (const tableHeader of [
+        "  [shell_environment_policy] # valid TOML",
+        '[ "shell_environment_policy" ]',
+        "['shell_environment_policy'] # valid TOML",
+      ]) {
+        const formattedHome = temporaryDirectory("codex-cloud-formatted-");
+        mkdirSync(path.join(formattedHome, ".codex"), { recursive: true });
+        const formattedConfig = [tableHeader, 'inherit = "all"', "exclude = []", ""].join("\n");
+        const formattedPath = path.join(formattedHome, ".codex/config.toml");
+        writeFileSync(formattedPath, formattedConfig);
+        const formatted = runSetupPolicyOnly(formattedHome, {
+          CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        });
+        expect(formatted.status).not.toBe(0);
+        expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
+        expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
+      }
+
+      for (const formattedConfig of [
+        'shell_environment_policy.inherit = "all"\n',
+        'shell_environment_policy = { inherit = "all", exclude = [] }\n',
+      ]) {
+        const formattedHome = temporaryDirectory("codex-cloud-formatted-");
+        mkdirSync(path.join(formattedHome, ".codex"), { recursive: true });
+        const formattedPath = path.join(formattedHome, ".codex/config.toml");
+        writeFileSync(formattedPath, formattedConfig);
+        const formatted = runSetupPolicyOnly(formattedHome, {
+          CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        });
+        expect(formatted.status).not.toBe(0);
+        expect(formatted.stderr).toContain("Unmanaged [shell_environment_policy] table found");
+        expect(readFileSync(formattedPath, "utf8")).toBe(formattedConfig);
+      }
+
+      const atomicHome = temporaryDirectory("codex-cloud-atomic-");
+      const atomicTools = temporaryDirectory("codex-cloud-tools-");
+      mkdirSync(path.join(atomicHome, ".codex"), { recursive: true });
+      const atomicConfig = ["[mcp_servers.keep]", 'command = "echo"', ""].join("\n");
+      const atomicPath = path.join(atomicHome, ".codex/config.toml");
+      writeFileSync(atomicPath, atomicConfig);
+      const failingMktemp = path.join(atomicTools, "mktemp");
+      writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", {
+        mode: 0o755,
+      });
+      const atomic = runSetupPolicyOnly(atomicHome, {
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+        PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter),
+      });
+      expect(atomic.status).not.toBe(0);
+      expect(readFileSync(atomicPath, "utf8")).toBe(atomicConfig);
+
+      const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
+      mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });
+      const incompleteConfig = [
+        "[mcp_servers.keep]",
+        'command = "echo"',
+        "",
+        "# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
+        "[shell_environment_policy]",
+        'inherit = "all"',
+        "",
+      ].join("\n");
+      const incompletePath = path.join(incompleteHome, ".codex/config.toml");
+      writeFileSync(incompletePath, incompleteConfig);
+      const incomplete = runSetupPolicyOnly(incompleteHome, {
+        CODEX_CLOUD_ACCESS_PROFILE: "offline",
+      });
+      expect(incomplete.status).not.toBe(0);
+      expect(incomplete.stderr).toContain("Incomplete managed shell policy block");
+      expect(readFileSync(incompletePath, "utf8")).toBe(incompleteConfig);
+    },
+  );
 
   it("accepts a task-only HEAD only inside Codex Cloud", () => {
     const directory = temporaryGitRepository();
