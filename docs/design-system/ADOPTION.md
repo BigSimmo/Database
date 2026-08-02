@@ -152,13 +152,30 @@ naming the module. Adoption here is consistency, not a rewrite of what the badge
 three axes (designation, status, provenance) stay independent and no badge infers one from
 another.
 
+`SourceProvenance` deliberately drops unknown review-date and jurisdiction segments as filler
+while `clipboardProvenanceLine()` stays fully explicit. That difference is recorded in both
+implementations and is **not** a defect to reconcile: the visible strip is read at speed, the
+clipboard line is an audit artefact.
+
+The work that is real here is the caution channel: `answerSupportPriority()` gains an optional
+`answerState`, so the live "Review source match" card and the DS `RetrievalStateBanner` derive
+from the same projection and cannot drift once the answer surface adopts `AnswerCard`. It is an
+addition to the three original signals, never a replacement — deriving from the state alone
+would lose the stale-and-ungrounded case, which the projection collapses to `stale_evidence`.
+Pinned by `tests/answer-support-priority.dom.test.tsx`.
+
 ### 2.6 answer — controller, last
 
 ```text
 src/components/clinical-dashboard/answer-content.tsx
+src/components/clinical-dashboard/answer-result-surface.tsx
 src/components/clinical-dashboard/answer-thread-turn.tsx
 src/components/ClinicalDashboard.tsx        (answer orchestration only)
 ```
+
+`answer-result-surface.tsx` was missing from this list when it was first written and is added
+here rather than silently edited: it is the module that calls `answerSupportPriority()` and
+owns the inline support card, so the answer surface cannot be adopted without it.
 
 Adopts `AnswerCard` + `AnswerState` + `VerificationNotice` + `RetrievalStateBanner`, with
 `DateDisplay` / `MissingValue` for absent fields, and wires `onCopy` to
@@ -245,7 +262,7 @@ held with the wave's prep material; the files are the contract here.
 | headers    | `tests/search-results-header-band.dom.test.tsx` · `tests/header-scroll-hide-contract.test.ts` · `tests/ui-style-contract.spec.ts` + `tests/helpers/style-contracts.ts` · `tests/ui-route-coverage.spec.ts`                                                                                                                                                     |
 | catalogues | `tests/ui-tools.spec.ts` (services/differentials) · `tests/ui-specifiers.spec.ts` · `tests/ui-formulation.spec.ts` · `tests/ui-route-coverage.spec.ts` · `tests/registry-retry.dom.test.tsx` · `tests/page-secondary-navigation.dom.test.tsx`                                                                                                                  |
 | docs       | `tests/document-filter-panel.dom.test.tsx` · `tests/document-search-record-fault.dom.test.tsx` · `tests/document-clinical-summary.dom.test.tsx` · `tests/document-section-nav.dom.test.tsx` · `tests/document-section-summary.dom.test.tsx` · `tests/document-section-nav-contract.test.ts` · `tests/ui-smoke.spec.ts` (documents)                             |
-| provenance | `tests/source-badges-off-vocab.dom.test.tsx` · `tests/source-metadata.test.ts` · `tests/source-preview-popover.dom.test.tsx` · `tests/forms.test.ts`                                                                                                                                                                                                           |
+| provenance | `tests/source-badges-off-vocab.dom.test.tsx` · `tests/source-metadata.test.ts` · `tests/source-preview-popover.dom.test.tsx` · `tests/forms.test.ts` · `tests/answer-support-priority.dom.test.tsx`                                                                                                                                                            |
 | answer     | `tests/ui-smoke.spec.ts` (answer, incl. the **"Review source match"** support-card pin) · `tests/ui-tools.spec.ts` (answer empty state) · `tests/answer-progress-ui-smoke.spec.ts` · `tests/answer-preferences.dom.test.tsx` · `tests/answer-state-contract.test.ts` · `tests/answer-clipboard-composition.test.ts` · `tests/ui-v2-answer-safety.dom.test.tsx` |
 
 **The load-bearing pin for `#207`** is the live "Review source match" assertion on
