@@ -348,6 +348,34 @@ describe("Codex Cloud environment contract", () => {
     expect(
       validateCodexProjectMcpConfiguration(
         tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\n__anything = "secret"',
+        ),
+      ),
+    ).toContain(`.codex/config.toml figma_cloud must be URL-only; unsupported key __anything.`);
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.supabase_cloud]",
+          "[mcp_servers.figma_cloud.tools]\n__hasNestedTables = false\n\n[mcp_servers.supabase_cloud]",
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not declare nested tool override tables in the shared project config.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.figma_cloud]",
+          'mcp_servers.figma_cloud.http_headers.Authorization = "Bearer redacted-test"\n\n[mcp_servers.figma_cloud]',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed http_headers; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
           "project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=",
           "project_ref=sjrfecxgysukkwxsowpy&read_only=false&features=",
         ),

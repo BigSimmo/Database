@@ -65,11 +65,13 @@ function parseTomlScalar(value) {
  * Parse `[mcp_servers.name]` tables from a Codex project config.toml.
  * Supports only the scalar keys this gate governs.
  * @param {string} text
- * @returns {Record<string, Record<string, unknown>>}
+ * @returns {{ servers: Record<string, Record<string, unknown>>, nestedServers: Set<string>, unparsedServers: Set<string> }}
  */
 export function parseCodexProjectMcpServers(text) {
   /** @type {Record<string, Record<string, unknown>>} */
   const servers = {};
+  const nestedServers = new Set();
+  const unparsedServers = new Set();
   let current = null;
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
@@ -79,7 +81,7 @@ export function parseCodexProjectMcpServers(text) {
     if (nested) {
       current = nested[1];
       servers[current] ??= {};
-      servers[current].__hasNestedTables = true;
+      nestedServers.add(current);
       continue;
     }
 
@@ -94,16 +96,23 @@ export function parseCodexProjectMcpServers(text) {
       current = null;
       continue;
     }
-    if (!current) continue;
+    if (!current) {
+      const dotted = line.match(/^mcp_servers\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
+      if (dotted) {
+        servers[dotted[1]] ??= {};
+        servers[dotted[1]][dotted[2]] = parseTomlScalar(dotted[3]);
+      }
+      continue;
+    }
 
     const kv = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
     if (!kv) {
-      servers[current].__hasUnparsedEntries = true;
+      unparsedServers.add(current);
       continue;
     }
     servers[current][kv[1]] = parseTomlScalar(kv[2]);
   }
-  return servers;
+  return { servers, nestedServers, unparsedServers };
 }
 
 function validateSupabaseMcpUrl(urlString, label, errors) {
@@ -139,7 +148,7 @@ function validateSupabaseMcpUrl(urlString, label, errors) {
  */
 export function validateCodexProjectMcpConfiguration(text) {
   const errors = [];
-  const servers = parseCodexProjectMcpServers(text);
+  const { servers, nestedServers, unparsedServers } = parseCodexProjectMcpServers(text);
   const expectedNames = Object.keys(expectedCodexProjectMcpServers).sort();
   const actualNames = Object.keys(servers).sort();
   if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
@@ -162,7 +171,7 @@ export function validateCodexProjectMcpConfiguration(text) {
           : "the production server is constrained read-only";
       errors.push(`${label} must set default_tools_approval_mode = "${expected.approvalMode}" because ${reason}.`);
     }
-    for (const key of Object.keys(server).filter((entry) => !entry.startsWith("__"))) {
+    for (const key of Object.keys(server)) {
       const rootKey = key.split(".")[0];
       if (forbiddenCodexProjectMcpKeys.includes(rootKey)) {
         errors.push(`${label} must not embed ${rootKey}; keep OAuth credentials in the host store.`);
@@ -170,10 +179,10 @@ export function validateCodexProjectMcpConfiguration(text) {
         errors.push(`${label} must be URL-only; unsupported key ${key}.`);
       }
     }
-    if (server.__hasNestedTables) {
+    if (nestedServers.has(name)) {
       errors.push(`${label} must not declare nested tool override tables in the shared project config.`);
     }
-    if (server.__hasUnparsedEntries) {
+    if (unparsedServers.has(name)) {
       errors.push(`${label} contains unsupported or unparsed entries.`);
     }
     if (typeof server.url !== "string" || !server.url) {
