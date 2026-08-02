@@ -68,7 +68,7 @@ function StaleEvidenceBody({
 }) {
   // Totality is its own sentence. "3 sources are past review" reads very
   // differently when 3 is also the total.
-  const everySourceOverdue = sourceCount > 0 && overdue.length >= sourceCount;
+  const everySourceOverdue = sourceCount > 0 && overdue.length === sourceCount;
   const scope = everySourceOverdue
     ? "Every source for this answer"
     : `${overdue.length} of ${sourceCount} sources for this answer`;
@@ -120,22 +120,21 @@ function StaleEvidenceBody({
 }
 
 function PartialRetrievalBody({
-  retrieved,
   requested,
   missing,
   onOpenSource,
 }: {
+  /** Kept on the props shape for call-site parity with `partial_retrieval`; the headline uses `missing.length`. */
   retrieved: number;
   requested: number;
   missing: SourceRef[];
   onOpenSource: RetrievalStateBannerProps["onOpenSource"];
 }) {
-  const gap = Math.max(0, requested - retrieved);
   return (
     <>
       <p data-testid="retrieval-state-headline" className="font-semibold">
         {missing.length > 0
-          ? `${gap} of ${requested} sources unavailable.`
+          ? `${missing.length} of ${requested} sources unavailable.`
           : "Some sources for this answer were unavailable."}
       </p>
       {missing.length > 0 ? (

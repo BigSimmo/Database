@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ErrorSummary, FormField } from "@/components/ui/form-field";
 
-function Field(props: Partial<React.ComponentProps<typeof FormField>>) {
+function Field(props: Partial<ComponentProps<typeof FormField>>) {
   return (
     <FormField label="Review date" {...props}>
       {(field) => (
