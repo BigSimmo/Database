@@ -411,16 +411,14 @@ describe("Codex Cloud environment contract", () => {
     const atomicHome = temporaryDirectory("codex-cloud-atomic-");
     const atomicTools = temporaryDirectory("codex-cloud-tools-");
     mkdirSync(path.join(atomicHome, ".codex"), { recursive: true });
-    const atomicConfig = ['[mcp_servers.keep]', 'command = "echo"', ""].join("\n");
+    const atomicConfig = ["[mcp_servers.keep]", 'command = "echo"', ""].join("\n");
     const atomicPath = path.join(atomicHome, ".codex/config.toml");
     writeFileSync(atomicPath, atomicConfig);
     const failingMktemp = path.join(atomicTools, "mktemp");
     writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", { mode: 0o755 });
     const atomic = runSetupPolicyOnly(atomicHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "offline",
-      PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH]
-        .filter(Boolean)
-        .join(path.delimiter),
+      PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter),
     });
     expect(atomic.status).not.toBe(0);
     expect(readFileSync(atomicPath, "utf8")).toBe(atomicConfig);
