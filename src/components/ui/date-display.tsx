@@ -32,6 +32,13 @@ export type DateDisplayProps = {
 const DATE_ONLY = { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Australia/Perth" } as const;
 const DATE_TIME = { ...DATE_ONLY, hour: "2-digit", minute: "2-digit", hour12: false } as const;
 
+/**
+ * `2026-03-14` carries no time. Formatting it with hour+minute would print
+ * `14/03/2026, 08:00` — a precision that was never recorded, invented on a
+ * provenance strip a clinician is being asked to trust.
+ */
+const DATE_ONLY_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
 const loggedInvalidValues = new Set<string>();
 
 function noteInvalid(value: string) {
@@ -90,7 +97,8 @@ export function DateDisplay({
     return <MissingValue reason="unknown" className={className} />;
   }
 
-  const absolute = new Intl.DateTimeFormat("en-AU", kind === "generated" ? DATE_TIME : DATE_ONLY).format(parsed);
+  const withTime = kind === "generated" && !DATE_ONLY_ISO.test(trimmed);
+  const absolute = new Intl.DateTimeFormat("en-AU", withTime ? DATE_TIME : DATE_ONLY).format(parsed);
   // A review date is a commitment, not an ambience — it never softens into
   // "in about a month". `generated` is a fixed stamp of this answer's run.
   const relativeAllowed = relative && kind === "event" && now > 0;

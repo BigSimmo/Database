@@ -36,8 +36,10 @@ const WORDING: Record<"clinician" | "plain", Record<VerificationState, string>> 
     // "ready" still carries the disclaimer: ready is not verified.
     ready:
       "AI-generated from the cited sources. Verify every clinical claim against the linked source before acting on it.",
+    // "some of which": the banner below reports the exact fraction, and this
+    // line must not assert that every cited source is overdue when it is not.
     stale_evidence:
-      "AI-generated from cited sources that are past their review date. Re-verify every clinical claim against the linked source before acting on it.",
+      "AI-generated from cited sources, some of which are past their review date. Re-verify every clinical claim against the linked source before acting on it.",
     partial_retrieval:
       "AI-generated from an incomplete set of sources. Some sources for this question were unavailable, so this answer may omit relevant guidance. Verify against the linked sources before acting on it.",
     source_only:
@@ -55,8 +57,45 @@ const WORDING: Record<"clinician" | "plain", Record<VerificationState, string>> 
   },
 };
 
+/**
+ * Wording for a state this build does not recognise — a newer producer, a bad
+ * cast, a partially-deployed rollout. A verification notice is the one surface
+ * where the neutral variant is the *weakest* thing to say, so an unknown state
+ * falls back to the most cautionary wording available rather than to `ready`.
+ * It asserts nothing specific about the sources, because nothing specific is known.
+ */
+const UNKNOWN_STATE_WORDING: Record<"clinician" | "plain", string> = {
+  clinician:
+    "AI-generated, and the provenance of this answer could not be established. Treat it as unverified and check every clinical claim against the linked source before acting on it.",
+  plain:
+    "A computer wrote this summary, and we could not establish where it came from. Do not act on it without checking with your treating team.",
+};
+
 /** Source-currency caution wears the warning role. Never danger red — this is not clinical hazard. */
 const CAUTION_STATES = new Set<VerificationState>(["stale_evidence"]);
+
+const loggedUnknownStates = new Set<string>();
+
+function wordingFor(audience: "clinician" | "plain", state: VerificationState): string {
+  const wording = WORDING[audience][state];
+  if (wording) return wording;
+
+  const key = `${audience}:${String(state)}`;
+  if (!loggedUnknownStates.has(key)) {
+    loggedUnknownStates.add(key);
+    if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") {
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          message: "verification-notice: unrecognized state, using most cautionary wording",
+          field: "state",
+          value: String(state),
+        }),
+      );
+    }
+  }
+  return UNKNOWN_STATE_WORDING[audience];
+}
 
 export function VerificationNotice({
   state,
@@ -67,9 +106,11 @@ export function VerificationNotice({
   printedBy,
   className,
 }: VerificationNoticeProps) {
-  const caution = CAUTION_STATES.has(state);
+  const wording = wordingFor(audience, state);
+  // An unrecognised state is treated as caution: it wears the warning mark for
+  // the same reason it gets the strongest wording.
+  const caution = CAUTION_STATES.has(state) || !WORDING[audience][state];
   const Icon = caution ? TriangleAlert : Info;
-  const wording = WORDING[audience][state] ?? WORDING[audience].ready;
 
   return (
     <aside

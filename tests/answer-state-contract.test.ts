@@ -84,7 +84,54 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
       title: "WA Clozapine Protocol",
       locator: "p. 12",
       reviewDueOn: "2025-11-01",
+      status: "review_due",
     });
+    // The governance state is carried, not collapsed: a superseded document must
+    // not be reported in the "review has come around" vocabulary.
+    expect(state.overdue[1]?.status).toBe("outdated");
+  });
+
+  it("counts documents, not chunks — several chunks of one document is the normal case", () => {
+    // Chunk-level counting is wrong in both directions, and the direction that
+    // inflates the denominator ("1 of 6" for 1 of 2 documents) UNDER-warns.
+    const state = answerStateFromRetrieval({
+      sources: [
+        source({ id: "chunk-1", metadata: { document_status: "review_due", review_date: "2025-11-01" } }),
+        source({
+          id: "chunk-2",
+          page_number: 40,
+          metadata: { document_status: "review_due", review_date: "2025-11-01" },
+        }),
+        source({
+          id: "chunk-3",
+          page_number: 41,
+          metadata: { document_status: "review_due", review_date: "2025-11-01" },
+        }),
+        source({ id: "chunk-4", document_id: "doc-2", metadata: { document_status: "current" } }),
+        source({ id: "chunk-5", document_id: "doc-2", metadata: { document_status: "current" } }),
+      ],
+    });
+
+    expect(state.kind).toBe("stale_evidence");
+    if (state.kind !== "stale_evidence") return;
+    expect(state.sourceCount).toBe(2);
+    // One row, one React key, one document.
+    expect(state.overdue).toHaveLength(1);
+    expect(state.overdue.map((entry) => entry.sourceId)).toEqual(["doc-1"]);
+  });
+
+  it("takes the most severe governance status when a document's chunks disagree", () => {
+    const state = answerStateFromRetrieval({
+      sources: [
+        source({ id: "chunk-1", metadata: { document_status: "review_due", review_date: "2025-11-01" } }),
+        source({ id: "chunk-2", metadata: { document_status: "outdated", review_date: "2025-11-01" } }),
+      ],
+    });
+
+    expect(state.kind).toBe("stale_evidence");
+    if (state.kind !== "stale_evidence") return;
+    expect(state.overdue).toHaveLength(1);
+    expect(state.overdue[0]?.status).toBe("outdated");
   });
 
   it("does not treat an unknown review status as overdue", () => {

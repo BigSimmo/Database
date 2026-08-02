@@ -2,8 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { AnswerCard, AnswerFooter, DoseLine, answerClipboardText } from "@/components/ui/answer-card";
-import type { AnswerState } from "@/components/ui/answer-state";
+import { AnswerCard, AnswerFooter, DoseLine, answerClipboardText, type DoseRow } from "@/components/ui/answer-card";
+import type { AnswerState, OverdueSource } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
 import { MissingValue } from "@/components/ui/missing-value";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
@@ -11,6 +11,17 @@ import { VerificationNotice } from "@/components/ui/verification-notice";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 const readyState: AnswerState = { kind: "ready", sourceCount: 4 };
+
+const overdue: OverdueSource[] = [
+  {
+    sourceId: "doc-1",
+    title: "WA Clozapine Protocol",
+    locator: "p. 12",
+    reviewDueOn: "2025-11-01",
+    status: "review_due",
+  },
+  { sourceId: "doc-2", title: "RANZCP Guideline", reviewDueOn: null, status: "review_due" },
+];
 
 describe("MissingValue", () => {
   it("names the four kinds of absence instead of rendering a dash", () => {
@@ -71,6 +82,20 @@ describe("DateDisplay", () => {
     expect(() => render(<DateDisplay value="not-a-date" kind="event" />)).not.toThrow();
     expect(screen.getByTestId("missing-value")).toHaveTextContent("Unknown");
   });
+
+  it("never invents a time for a date-only generation stamp", () => {
+    // "2026-03-14" carries no time. Printing "14/03/2026, 08:00" on a provenance
+    // strip states a precision that was never recorded.
+    render(<DateDisplay value="2026-03-14" kind="generated" />);
+    const node = screen.getByTestId("date-display");
+    expect(node).toHaveTextContent("14/03/2026");
+    expect(node.textContent).not.toMatch(/\d{2}:\d{2}/);
+  });
+
+  it("keeps the time on a generation stamp that actually carries one", () => {
+    render(<DateDisplay value="2026-03-14T02:00:00.000Z" kind="generated" />);
+    expect(screen.getByTestId("date-display").textContent).toMatch(/\d{2}:\d{2}/);
+  });
 });
 
 describe("VerificationNotice", () => {
@@ -126,14 +151,27 @@ describe("VerificationNotice", () => {
     render(<VerificationNotice state="stale_evidence" />);
     expect(screen.getByTestId("verification-notice")).not.toHaveAttribute("aria-live");
   });
+
+  it("does not claim every cited source is overdue in the stale wording", () => {
+    // The banner one line below reports the exact fraction; this line must not
+    // contradict it by asserting totality.
+    render(<VerificationNotice state="stale_evidence" />);
+    expect(screen.getByTestId("verification-notice")).toHaveTextContent(/some of which are past their review date/i);
+  });
+
+  it("falls back to the most cautionary wording for an unrecognised state, never to ready", () => {
+    // Failing open to the neutral variant on a verification notice would weaken
+    // the one disclaimer a clinician reads before acting.
+    const state = "provenance_unavailable" as unknown as "ready";
+    render(<VerificationNotice state={state} />);
+    const notice = screen.getByTestId("verification-notice");
+    expect(notice).toHaveTextContent(/could not be established/i);
+    expect(notice).toHaveTextContent(/unverified/i);
+    expect(notice.className).toContain("var(--warning)");
+  });
 });
 
 describe("RetrievalStateBanner", () => {
-  const overdue = [
-    { sourceId: "doc-1", title: "WA Clozapine Protocol", locator: "p. 12", reviewDueOn: "2025-11-01" },
-    { sourceId: "doc-2", title: "RANZCP Guideline", reviewDueOn: null },
-  ];
-
   it("names how many of the cited sources are overdue", () => {
     render(<RetrievalStateBanner state={{ kind: "stale_evidence", overdue, sourceCount: 5 }} onOpenSource={vi.fn()} />);
     expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent("2 of 5 sources");
@@ -166,7 +204,45 @@ describe("RetrievalStateBanner", () => {
 
   it("explains why a source-only answer is still safe to read", () => {
     render(<RetrievalStateBanner state={{ kind: "source_only", reason: "quality_gate" }} onOpenSource={vi.fn()} />);
-    expect(screen.getByTestId("retrieval-state-banner")).toHaveTextContent(/quoted from a real, cited source/i);
+    const banner = screen.getByTestId("retrieval-state-banner");
+    expect(banner).toHaveTextContent(/drawn directly from the cited sources rather than summarised by a model/i);
+    // The tier is inferred from the routing mode and the extractive builder
+    // composes sections, so verbatim fidelity is not a claim this surface can make.
+    expect(banner.textContent).not.toMatch(/nothing has been paraphrased/i);
+  });
+
+  it("distinguishes a superseded source from one merely due for review", () => {
+    render(
+      <RetrievalStateBanner
+        state={{
+          kind: "stale_evidence",
+          sourceCount: 4,
+          overdue: [
+            { sourceId: "doc-1", title: "Withdrawn Protocol", reviewDueOn: "2024-01-01", status: "outdated" },
+            { sourceId: "doc-2", title: "RANZCP Guideline", reviewDueOn: "2025-11-01", status: "review_due" },
+          ],
+        }}
+        onOpenSource={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("retrieval-state-headline")).toHaveTextContent("including 1 that has been superseded");
+    const rows = screen.getAllByTestId("retrieval-state-overdue-row");
+    expect(rows[0]).toHaveAttribute("data-status", "outdated");
+    expect(rows[0]).toHaveTextContent(/superseded/i);
+    // Shape, not colour: the slashed ring differs from the half ring.
+    expect(within(rows[0] as HTMLElement).getByTestId("status-mark")).toHaveAttribute("data-status", "outdated");
+    expect(within(rows[1] as HTMLElement).getByTestId("status-mark")).toHaveAttribute("data-status", "review_due");
+  });
+
+  it("refuses a stale state that names no overdue source", () => {
+    // "0 of 3 sources are past their review date" is a caution arguing against
+    // itself. This state has a producer, so an empty list is a defect there.
+    expect(() =>
+      render(
+        <RetrievalStateBanner state={{ kind: "stale_evidence", sourceCount: 3, overdue: [] }} onOpenSource={vi.fn()} />,
+      ),
+    ).toThrow(/stale_evidence requires a non-empty/i);
   });
 
   it("distinguishes a failed generation from a failed quality check", () => {
@@ -251,7 +327,15 @@ describe("AnswerCard", () => {
         state={{
           kind: "stale_evidence",
           sourceCount: 1,
-          overdue: [{ sourceId: "doc-1", title: "WA Clozapine Protocol", locator: "p. 12", reviewDueOn: "2025-11-01" }],
+          overdue: [
+            {
+              sourceId: "doc-1",
+              title: "WA Clozapine Protocol",
+              locator: "p. 12",
+              reviewDueOn: "2025-11-01",
+              status: "review_due",
+            },
+          ],
         }}
         verification={{ state: "stale_evidence" }}
         onOpenSource={onOpenSource}
@@ -285,11 +369,49 @@ describe("answerClipboardText", () => {
   it("carries the degraded caveat out of the app with the copied text", () => {
     const text = answerClipboardText({
       body: "Start at 12.5 mg.",
-      state: { kind: "stale_evidence", sourceCount: 3, overdue: [] },
+      state: { kind: "stale_evidence", sourceCount: 3, overdue },
     });
 
     expect(text).toContain("Start at 12.5 mg.");
-    expect(text).toContain("0 of 3 cited sources are past their review date");
+    expect(text).toContain("2 of 3 cited sources are past their review date");
+  });
+
+  it("never states that zero sources are stale on an answer flagged stale", () => {
+    const text = answerClipboardText({
+      body: "Start at 12.5 mg.",
+      state: { kind: "stale_evidence", sourceCount: 3, overdue: [] },
+    });
+
+    expect(text).not.toContain("0 of 3");
+    expect(text).toContain("some cited sources are past their review date");
+  });
+
+  it("attributes and instructs verification even on a ready answer", () => {
+    // A copied answer loses the banner, the notice and the links. Clinical prose
+    // with nothing attached reads in a record as though a clinician endorsed it.
+    const text = answerClipboardText({ body: "Start at 12.5 mg.", state: readyState });
+    expect(text).toContain("AI-generated from the cited sources.");
+    expect(text).toContain("Verify against the linked source documents before clinical use.");
+  });
+
+  it("names the source-only answer as unsynthesised rather than AI-generated", () => {
+    const text = answerClipboardText({
+      body: "Start at 12.5 mg.",
+      state: { kind: "source_only", reason: "quality_gate" },
+    });
+    expect(text).toContain("Assembled directly from the cited sources without model synthesis.");
+    expect(text).not.toContain("AI-generated");
+  });
+
+  it("enumerates the cited sources with their links", () => {
+    const text = answerClipboardText({
+      body: "Start at 12.5 mg.",
+      state: readyState,
+      sources: [{ title: "WA Clozapine Protocol", locator: "p. 12", href: "/documents/doc-1" }],
+    });
+
+    expect(text).toContain("Sources for review:");
+    expect(text).toContain("- WA Clozapine Protocol, p. 12 — /documents/doc-1");
   });
 
   it("appends provenance through the single audit-line implementation", () => {
@@ -299,13 +421,25 @@ describe("answerClipboardText", () => {
     expect(text).toContain("Review status:");
   });
 
-  it("adds no caveat to a ready answer", () => {
+  it("suppresses the single-document provenance line when it would contradict the caveat", () => {
+    // `metadata` describes one document. "1 of 6 cited sources are past their
+    // review date" followed by "Review status: Current" reads as a correction.
+    const text = answerClipboardText({
+      body: "Start at 12.5 mg.",
+      state: { kind: "stale_evidence", sourceCount: 6, overdue: [overdue[0] as OverdueSource] },
+    });
+
+    expect(text).toContain("1 of 6 cited sources are past their review date");
+    expect(text).not.toContain("Review status:");
+  });
+
+  it("adds no degraded caveat to a ready answer", () => {
     expect(answerClipboardText({ body: "Start at 12.5 mg.", state: readyState })).not.toContain("Caveat:");
   });
 });
 
 describe("DoseLine", () => {
-  const rows = [
+  const rows: DoseRow[] = [
     {
       id: "clozapine",
       drug: "Clozapine",
@@ -315,7 +449,7 @@ describe("DoseLine", () => {
       route: "oral",
       maximum: { value: "900", unit: "mg/day" },
       source: { sourceId: "doc-1", title: "WA Clozapine Protocol", locator: "p. 12" },
-      overdue: true,
+      status: "review_due",
     },
   ];
 
@@ -329,6 +463,29 @@ describe("DoseLine", () => {
     expect(within(row).getByTestId("dose-row-overdue")).toHaveTextContent("Source review overdue");
     // 3. the non-colour shape mark
     expect(within(row).getByTestId("status-mark")).toHaveAttribute("data-status", "review_due");
+  });
+
+  it("says superseded, not review overdue, for a withdrawn source", () => {
+    // The half ring reads "partway through its life". A superseded guideline is
+    // not partway through anything.
+    render(
+      <DoseLine
+        rows={[{ ...(rows[0] as DoseRow), status: "outdated", source: rows[0]!.source! }]}
+        onOpenSource={vi.fn()}
+      />,
+    );
+
+    const row = screen.getByTestId("dose-row");
+    expect(row).toHaveAttribute("data-status", "outdated");
+    expect(within(row).getByTestId("dose-row-overdue")).toHaveTextContent("Source superseded");
+    expect(within(row).getByTestId("status-mark")).toHaveAttribute("data-status", "outdated");
+  });
+
+  it("renders a current row without the overdue caution", () => {
+    render(<DoseLine rows={[{ ...(rows[0] as DoseRow), status: "current" }]} onOpenSource={vi.fn()} />);
+    const row = screen.getByTestId("dose-row");
+    expect(row).not.toHaveAttribute("data-overdue");
+    expect(within(row).queryByTestId("dose-row-overdue")).not.toBeInTheDocument();
   });
 
   it("composes Quantity rather than reimplementing dose typography", () => {

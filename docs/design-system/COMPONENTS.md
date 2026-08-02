@@ -208,7 +208,16 @@ type SourceRef = { sourceId: string; title: string; locator?: string };
  * — known past review, with no review commitment recorded at all. `DateDisplay`
  * renders the absence as `Not recorded` rather than inventing a date.
  */
-type OverdueSource = SourceRef & { reviewDueOn: string | null /* ISO */ };
+ *
+ * `status` was added when this was built (PR 6). Collapsing `outdated`
+ * (superseded) into the `review_due` vocabulary tells a clinician a withdrawn
+ * guideline is merely due for review. It is carried, and drives both the
+ * `StatusMark` shape and the wording.
+ */
+type OverdueSource = SourceRef & {
+  reviewDueOn: string | null /* ISO */;
+  status: "review_due" | "outdated";
+};
 
 /** States an AnswerCard may render. */
 type AnswerState =
@@ -242,6 +251,16 @@ type RetrievalStateBannerProps = {
   review date (`DateDisplay`) and an open-at-cited-page action; the answer remains readable —
   caution, never a gate (DECISIONS §Q1). When every cited source is overdue, the banner
   states totality: "Every source for this answer is past its review date."
+- **A source is a document, not a chunk.** `RagAnswer.sources` is chunk-level and several
+  chunks of one document is the normal case, so `answerStateFromRetrieval()` dedupes and
+  counts by `document_id`. Chunk-level counting is wrong in both directions, and the
+  direction that inflates the denominator under-warns. Where chunks of one document disagree
+  on governance status, the more severe reading wins.
+- **An empty `overdue` list is a defect, not a state.** `stale_evidence` with no named
+  overdue source would render "0 of 3 sources are past their review date" — a caution
+  arguing against itself. The banner throws in development (mirroring the
+  `partial_retrieval`/`missing` guard) and, in production, states the caution without a
+  count. Same rule in `answerClipboardText()`.
 - `partial_retrieval` names the gap ("2 of 5 sources unavailable") and lists missing sources
   as unavailable rows — never silently omitted.
 - `source_only` says it is a fallback and why that is safe (sources are real and cited);
@@ -708,9 +727,15 @@ the type-retirement tranche (PR 13-adjacent), tracked so it cannot ship into ado
 **Purpose.** Ledger row for dose data. **Contract.** Composes `Quantity` — never
 reimplements its typography; takes a structured dose model (value/range, frequency,
 route, maximum, source), never a preformatted string; dose column right-aligned so
-numerals stack. **Overdue behaviour (Q1).** Amber per-row rule **plus** visible text
-("Source review overdue") **plus** a non-colour mark, and the row's open-source-at-page
-action — caution and affordance, never a gate. **Open defects → PR.** all of the above →
+numerals stack. `status: DocumentStatus` is **required** — this is the
+highest-consequence surface in the system and a row must not read clean because a call
+site omitted a flag; an overdue `status` additionally requires `source`, so "warned, with
+nowhere to go" is unrepresentable. **Overdue behaviour (Q1).** Amber per-row rule **plus**
+visible text ("Source review overdue" / "Source superseded") **plus** a non-colour mark
+whose shape differs per state, and the row's open-source-at-page action — caution and
+affordance, never a gate. Both overdue states wear amber, not danger: SPEC §11 reserves
+amber for source currency and red for clinical hazard, and the mark plus the word
+"superseded" carry the severity difference. **Open defects → PR.** all of the above →
 PR 6.
 
 ### 9.11 `StatusMark`
@@ -739,7 +764,12 @@ trusted — never for validation status).
 `verification: VerificationNoticeProps` are **required**; body/query echo/source
 summary/actions are structured props, not free `ReactNode` slots; the system owns the
 wording. Never `bg-transparent`; prose at `--text-md`/`--leading-prose`/`--measure`.
-**Open defects → PR.** unrestricted slots, no required safety props → PR 6.
+**Clipboard.** `answerClipboardText()` carries attribution and the verify instruction on
+**every** state including `ready` — a copied answer loses the banner, the notice and the
+links, and unattributed clinical prose in a record reads as clinician-endorsed. It is
+**not** a replacement for `formatAnswerRenderCopyText()`; see SPEC §13 for the PR 13
+constraint. **Open defects → PR.** unrestricted slots, no required safety props → PR 6;
+no ungrounded-answer channel in `AnswerState` → **must fix before PR 13** (SPEC §13).
 
 ### 9.14 `AnswerFooter`
 

@@ -289,7 +289,7 @@ describe("DoseLine", () => {
   it("keeps the unit in its authored case — g is not G, mg is not MG", () => {
     render(
       <DoseLine
-        rows={[{ id: "clozapine", drug: "Clozapine", dose: { value: "12.5", unit: "mg" } }]}
+        rows={[{ id: "clozapine", drug: "Clozapine", dose: { value: "12.5", unit: "mg" }, status: "current" }]}
         onOpenSource={vi.fn()}
       />,
     );
@@ -305,8 +305,16 @@ describe("DoseLine", () => {
     render(
       <DoseLine
         rows={[
-          { id: "quetiapine", drug: "Quetiapine", dose: { value: "800", unit: "mg/day" } },
-          { id: "olanzapine", drug: "Olanzapine", dose: { value: "20", unit: "mg/day" }, overdue: true },
+          { id: "quetiapine", drug: "Quetiapine", dose: { value: "800", unit: "mg/day" }, status: "current" },
+          {
+            id: "olanzapine",
+            drug: "Olanzapine",
+            dose: { value: "20", unit: "mg/day" },
+            status: "review_due",
+            // An overdue row must carry the route back to its source: the type
+            // refuses "warned, with nowhere to go".
+            source: { sourceId: "doc-3", title: "Olanzapine Monograph" },
+          },
         ]}
         onOpenSource={vi.fn()}
       />,

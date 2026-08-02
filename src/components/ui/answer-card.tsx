@@ -127,28 +127,72 @@ export function AnswerCard({
  * Provenance goes through `clipboardProvenanceLine()` so there is exactly one
  * implementation of the audit line.
  */
+export type ClipboardSourceRef = {
+  title: string;
+  locator?: string;
+  /** Absolute or app-relative link back to the cited document. */
+  href?: string;
+};
+
 export function answerClipboardText({
   body,
   state,
+  sources,
   metadata,
 }: {
   body: string;
   state: AnswerState;
+  /** The cited documents, enumerated so the paste can be audited away from the app. */
+  sources?: readonly ClipboardSourceRef[];
+  /**
+   * Provenance for a SINGLE document. Emitted only when it cannot contradict the
+   * state — see below.
+   */
   metadata?: SourceMetadataInput;
 }) {
+  // Attribution and the verify instruction are unconditional, including on
+  // `ready`. A copied answer loses the banner, the notice and the links, so
+  // clinical prose with nothing attached reads in a record as though a clinician
+  // wrote and endorsed it. This deliberately exceeds SPEC §13 slice 8, which
+  // scoped the copied caveat to non-ready states; see docs/design-system/SPEC.md.
+  const attribution =
+    state.kind === "source_only"
+      ? "Assembled directly from the cited sources without model synthesis."
+      : "AI-generated from the cited sources.";
+  const verify = "Verify against the linked source documents before clinical use.";
+
   const caveat =
     state.kind === "stale_evidence"
-      ? `Caveat: ${state.overdue.length} of ${state.sourceCount} cited sources are past their review date.`
+      ? state.overdue.length > 0
+        ? `Caveat: ${state.overdue.length} of ${state.sourceCount} cited sources are past their review date.`
+        : // Defensive: the banner guards this state, and a count of zero would
+          // argue against the caution it is attached to.
+          "Caveat: some cited sources are past their review date."
       : state.kind === "partial_retrieval"
         ? `Caveat: only ${state.retrieved} of ${state.requested} sources were available for this answer.`
-        : state.kind === "source_only"
-          ? "Caveat: assembled directly from the cited sources without model synthesis."
-          : null;
+        : null;
+
+  const sourceList = sources?.length
+    ? ["Sources for review:", ...sources.map((source) => `- ${clipboardSourceLine(source)}`)].join("\n")
+    : null;
 
   // Normalised first so a partial metadata record produces the same fully
   // explicit audit line as a complete one — the clipboard line never abbreviates.
-  const provenance = clipboardProvenanceLine(metadata ? normalizeSourceMetadata(metadata) : null);
-  return [body.trim(), caveat, provenance].filter(Boolean).join("\n");
+  //
+  // Suppressed on a multi-source stale answer: `metadata` describes one
+  // document, so "1 of 6 cited sources are past their review date" followed by
+  // "Review status: Current" would read as a correction of the caveat.
+  const provenanceApplies = !(state.kind === "stale_evidence" && state.sourceCount > 1);
+  const provenance = provenanceApplies
+    ? clipboardProvenanceLine(metadata ? normalizeSourceMetadata(metadata) : null)
+    : null;
+
+  return [body.trim(), `${attribution} ${verify}`, caveat, sourceList, provenance].filter(Boolean).join("\n");
+}
+
+function clipboardSourceLine({ title, locator, href }: ClipboardSourceRef) {
+  const label = [title.trim(), locator?.trim()].filter(Boolean).join(", ");
+  return href?.trim() ? `${label} — ${href.trim()}` : label;
 }
 
 export type DoseQuantity = {
@@ -158,7 +202,9 @@ export type DoseQuantity = {
   unit?: string;
 };
 
-export type DoseRow = {
+export type DoseSourceRef = { sourceId: string; title: string; locator?: string };
+
+type DoseRowBase = {
   /** Stable identity. Never the array index — a reordered ledger must not re-key. */
   id: string;
   /** Drug or intervention name. */
@@ -169,15 +215,30 @@ export type DoseRow = {
   frequency?: string;
   route?: string;
   maximum?: DoseQuantity;
-  /** Where the row was read from. Drives the open-at-cited-page action. */
-  source?: { sourceId: string; title: string; locator?: string };
-  /**
-   * Governance-set: the source this row was read from is past its review date.
-   * Never inferred here from a date — the review policy lives in the source
-   * governance layer (COMPONENTS §2).
-   */
-  overdue?: boolean;
 };
+
+/**
+ * `status` is REQUIRED and carries the governance enum, not a boolean.
+ *
+ * Two things follow from that, both deliberate. A call site cannot omit the
+ * currency of the source a dose was read from — the highest-consequence surface
+ * in the system gets the same "unrepresentable-as-absent" treatment `AnswerCard`
+ * gives its verification notice. And `outdated` (superseded) cannot collapse
+ * into `review_due` (still in force, review has come around); they are different
+ * facts and get different marks and different words.
+ *
+ * An overdue row additionally requires `source`: the caution's entire purpose is
+ * that re-verification is one click away, so "warned, with nowhere to go" is
+ * refused by the type (DECISIONS §Q1).
+ *
+ * Governance-set throughout. Never inferred here from a date — the review policy
+ * lives in the source governance layer (COMPONENTS §2).
+ */
+export type DoseRow = DoseRowBase &
+  (
+    | { status: "current" | "unknown"; source?: DoseSourceRef }
+    | { status: "review_due" | "outdated"; source: DoseSourceRef }
+  );
 
 export type DoseLineProps = {
   rows: readonly DoseRow[];
@@ -199,10 +260,15 @@ export type DoseLineProps = {
  * (`g` is not `G`), and the unit is demoted so the figure is what you see first.
  *
  * Overdue is a three-channel signal (Q1): the amber inset rule, the words
- * "Source review overdue", and a non-colour `StatusMark`. Colour alone fails
- * greyscale print, forced colours, and roughly one in twelve male readers — and
- * a dose from a stale guideline is exactly the case where "looks authoritative"
- * is the danger.
+ * ("Source review overdue" / "Source superseded"), and a non-colour `StatusMark`
+ * whose shape differs per state. Colour alone fails greyscale print, forced
+ * colours, and roughly one in twelve male readers — and a dose from a stale
+ * guideline is exactly the case where "looks authoritative" is the danger.
+ *
+ * Both overdue states wear amber rather than danger red: SPEC §11 reserves the
+ * amber channel for source currency and red for clinical hazard, and a
+ * superseded source is a currency fact. The slashed mark and the word
+ * "superseded" carry the difference in severity.
  */
 export function DoseLine({ rows, caption, onOpenSource, className }: DoseLineProps) {
   if (!rows.length) return null;
@@ -220,62 +286,67 @@ export function DoseLine({ rows, caption, onOpenSource, className }: DoseLinePro
         </p>
       ) : null}
       <ul className="divide-y divide-[color:var(--border)]">
-        {rows.map((row) => (
-          <li
-            key={row.id}
-            data-testid="dose-row"
-            data-overdue={row.overdue ? "true" : undefined}
-            // The inset rule is painted with box-shadow so it cannot add layout
-            // width; the left padding compensates for it explicitly rather than
-            // letting the rule eat the card inset.
-            className={cn(
-              "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 pr-[var(--pad-card)]",
-              "pl-[calc(var(--pad-card)_+_var(--rule-w))]",
-              row.overdue ? "shadow-[var(--rule-warning)]" : "shadow-[var(--rule-accent)]",
-            )}
-          >
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-[color:var(--text-heading)]">{row.drug}</span>
-              {row.qualifier ? (
-                <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{row.qualifier}</span>
-              ) : null}
-              {row.route || row.frequency ? (
-                <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                  {[row.route, row.frequency].filter(Boolean).join(" · ")}
-                </span>
-              ) : null}
-              {row.overdue ? (
-                <span
-                  data-testid="dose-row-overdue"
-                  className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-[color:var(--warning)]"
-                >
-                  <StatusMark status="review_due" />
-                  Source review overdue
-                </span>
-              ) : null}
-            </span>
-            <span className="shrink-0 whitespace-nowrap text-right">
-              <Quantity value={row.dose.value} unit={row.dose.unit} size="sm" />
-              {row.maximum ? (
-                <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
-                  {"Max "}
-                  <Quantity value={row.maximum.value} unit={row.maximum.unit} size="sm" demoted />
-                </span>
-              ) : null}
-              {row.source ? (
-                <button
-                  type="button"
-                  data-testid="dose-row-open-source"
-                  onClick={() => onOpenSource(row.source!.sourceId, row.source!.locator)}
-                  aria-label={`Open ${[row.source.title, row.source.locator].filter(Boolean).join(", ")}`}
-                  className="mt-1 inline-flex min-h-tap items-center rounded-md text-xs font-semibold underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                >
-                  Open source
-                </button>
-              ) : null}
-            </span>
-          </li>
-        ))}
+        {rows.map((row) => {
+          const overdue = row.status === "review_due" || row.status === "outdated";
+          return (
+            <li
+              key={row.id}
+              data-testid="dose-row"
+              data-status={row.status}
+              data-overdue={overdue ? "true" : undefined}
+              // The inset rule is painted with box-shadow so it cannot add layout
+              // width; the left padding compensates for it explicitly rather than
+              // letting the rule eat the card inset.
+              className={cn(
+                "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 pr-[var(--pad-card)]",
+                "pl-[calc(var(--pad-card)_+_var(--rule-w))]",
+                overdue ? "shadow-[var(--rule-warning)]" : "shadow-[var(--rule-accent)]",
+              )}
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-[color:var(--text-heading)]">{row.drug}</span>
+                {row.qualifier ? (
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">{row.qualifier}</span>
+                ) : null}
+                {row.route || row.frequency ? (
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    {[row.route, row.frequency].filter(Boolean).join(" · ")}
+                  </span>
+                ) : null}
+                {overdue ? (
+                  <span
+                    data-testid="dose-row-overdue"
+                    data-status={row.status}
+                    className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-[color:var(--warning)]"
+                  >
+                    <StatusMark status={row.status} />
+                    {row.status === "outdated" ? "Source superseded" : "Source review overdue"}
+                  </span>
+                ) : null}
+              </span>
+              <span className="shrink-0 whitespace-nowrap text-right">
+                <Quantity value={row.dose.value} unit={row.dose.unit} size="sm" />
+                {row.maximum ? (
+                  <span className="mt-0.5 block text-xs text-[color:var(--text-muted)]">
+                    {"Max "}
+                    <Quantity value={row.maximum.value} unit={row.maximum.unit} size="sm" demoted />
+                  </span>
+                ) : null}
+                {row.source ? (
+                  <button
+                    type="button"
+                    data-testid="dose-row-open-source"
+                    onClick={() => onOpenSource(row.source!.sourceId, row.source!.locator)}
+                    aria-label={`Open ${[row.source.title, row.source.locator].filter(Boolean).join(", ")}`}
+                    className="mt-1 inline-flex min-h-tap items-center rounded-md text-xs font-semibold underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    Open source
+                  </button>
+                ) : null}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

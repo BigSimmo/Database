@@ -5,6 +5,7 @@ import { FileWarning, Info, TriangleAlert } from "lucide-react";
 import { cn, toneInfo, toneWarning } from "@/components/ui-primitives";
 import type { DegradedAnswerState, OverdueSource, SourceRef } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
+import { StatusMark } from "@/components/ui/status-mark";
 
 /**
  * COMPONENTS §2. The banner that sits above the prose whenever the answer is
@@ -27,19 +28,13 @@ export type RetrievalStateBannerProps = {
   className?: string;
 };
 
-const loggedEmptyPartialStates = new Set<string>();
+const loggedEmptyStates = new Set<string>();
 
-function noteEmptyPartialState(key: string) {
-  if (loggedEmptyPartialStates.has(key)) return;
-  loggedEmptyPartialStates.add(key);
-  console.warn(
-    JSON.stringify({
-      level: "warn",
-      message: "retrieval-state-banner: partial_retrieval carried no named missing sources",
-      field: "missing",
-      value: key,
-    }),
-  );
+function noteEmptyState(kind: string, message: string, field: string, key: string) {
+  const dedupeKey = `${kind}:${key}`;
+  if (loggedEmptyStates.has(dedupeKey)) return;
+  loggedEmptyStates.add(dedupeKey);
+  console.warn(JSON.stringify({ level: "warn", message, field, value: key }));
 }
 
 function OpenSourceButton({
@@ -74,9 +69,22 @@ function StaleEvidenceBody({
   // Totality is its own sentence. "3 sources are past review" reads very
   // differently when 3 is also the total.
   const everySourceOverdue = sourceCount > 0 && overdue.length >= sourceCount;
-  const headline = everySourceOverdue
-    ? "Every source for this answer is past its review date."
-    : `${overdue.length} of ${sourceCount} sources for this answer are past their review date.`;
+  const scope = everySourceOverdue
+    ? "Every source for this answer"
+    : `${overdue.length} of ${sourceCount} sources for this answer`;
+  // A superseded document is not "due for review" — it has been replaced, and
+  // saying the softer thing is the error that matters here.
+  const superseded = overdue.filter((source) => source.status === "outdated").length;
+  const headline =
+    // Production fallback for the guarded defect above: state the caution
+    // without a count rather than announcing "0 of 3".
+    overdue.length === 0
+      ? "Some sources for this answer are past their review date."
+      : superseded === overdue.length
+        ? `${scope} ${everySourceOverdue ? "has" : "have"} been superseded.`
+        : superseded > 0
+          ? `${scope} ${everySourceOverdue ? "is" : "are"} past ${everySourceOverdue ? "its" : "their"} review date, including ${superseded} that ${superseded === 1 ? "has" : "have"} been superseded.`
+          : `${scope} ${everySourceOverdue ? "is" : "are"} past ${everySourceOverdue ? "its" : "their"} review date.`;
 
   return (
     <>
@@ -88,12 +96,14 @@ function StaleEvidenceBody({
           <li
             key={source.sourceId}
             data-testid="retrieval-state-overdue-row"
+            data-status={source.status}
             className="flex flex-wrap items-center gap-x-2 gap-y-1"
           >
+            <StatusMark status={source.status} className="mt-[0.4em] self-start" />
             <span className="min-w-0 font-medium">{source.title}</span>
             {source.locator ? <span className="text-[color:var(--text-muted)]">{source.locator}</span> : null}
             <span className="text-[color:var(--text-muted)]">
-              {"Review due "}
+              {source.status === "outdated" ? "Superseded — was due " : "Review due "}
               <DateDisplay value={source.reviewDueOn} kind="review" missingReason="not_recorded" />
             </span>
             <OpenSourceButton
@@ -163,9 +173,12 @@ function SourceOnlyBody({ reason }: { reason: "generation_failed" | "quality_gat
       </p>
       {/* Expected product behaviour, not an apology: state why the fallback is
           the safe outcome rather than hedging about it. */}
+      {/* Deliberately not "nothing has been paraphrased": the tier is inferred
+          from the routing mode, and the extractive builder composes sections.
+          Claim only what this surface can stand behind. */}
       <p className="mt-1">
-        Every passage below is quoted from a real, cited source. Nothing has been paraphrased, so read the passages
-        rather than a summary of them.
+        The passages below are drawn directly from the cited sources rather than summarised by a model, so read the
+        passages rather than a summary of them.
       </p>
     </>
   );
@@ -181,7 +194,29 @@ export function RetrievalStateBanner({ state, onOpenSource, className }: Retriev
         "RetrievalStateBanner: partial_retrieval requires a non-empty `missing` list. An unnamed gap is a data defect, not a render state.",
       );
     }
-    noteEmptyPartialState(`${state.retrieved}/${state.requested}`);
+    noteEmptyState(
+      "partial_retrieval",
+      "retrieval-state-banner: partial_retrieval carried no named missing sources",
+      "missing",
+      `${state.retrieved}/${state.requested}`,
+    );
+  }
+
+  if (state.kind === "stale_evidence" && state.overdue.length === 0) {
+    // Same defect, sharper: this state HAS a producer, so an empty list means an
+    // answer was flagged stale and would then announce "0 of 3 sources are past
+    // their review date" — a caution that argues against itself.
+    if (process.env.NODE_ENV !== "production") {
+      throw new Error(
+        "RetrievalStateBanner: stale_evidence requires a non-empty `overdue` list. Rendering an empty one states that nothing is stale on an answer flagged stale.",
+      );
+    }
+    noteEmptyState(
+      "stale_evidence",
+      "retrieval-state-banner: stale_evidence carried no overdue sources",
+      "overdue",
+      String(state.sourceCount),
+    );
   }
 
   const caution = state.kind === "stale_evidence";

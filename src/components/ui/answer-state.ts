@@ -13,6 +13,9 @@ export type SourceRef = {
   locator?: string;
 };
 
+/** The two governance states that make a source overdue. `unknown` is not one of them. */
+export type OverdueStatus = "review_due" | "outdated";
+
 export type OverdueSource = SourceRef & {
   /**
    * ISO review date, or `null` when governance has flagged the source
@@ -25,6 +28,13 @@ export type OverdueSource = SourceRef & {
    * renders the absence as `Not recorded` rather than inventing a date.
    */
   reviewDueOn: string | null;
+  /**
+   * Which governance state made it overdue. Carried rather than collapsed:
+   * `review_due` is a document still in force whose review has come around,
+   * `outdated` is one that has been superseded. Rendering the second in the
+   * first's vocabulary tells a clinician a withdrawn guideline is merely due.
+   */
+  status: OverdueStatus;
 };
 
 /** States an AnswerCard may render. */
@@ -74,18 +84,46 @@ export type AnswerStateInput = {
  */
 const generationFallbackMarker = /generation_fallback|generation_failed/i;
 
-function overdueSourceFrom(source: AnswerStateSource): OverdueSource | null {
+const loggedStateDefects = new Set<string>();
+
+function noteOnce(key: string, message: string, detail: Record<string, string | number>) {
+  if (loggedStateDefects.has(key)) return;
+  loggedStateDefects.add(key);
+  if (typeof process !== "undefined" && process.env?.NODE_ENV === "test") return;
+  console.warn(JSON.stringify({ level: "warn", message, ...detail }));
+}
+
+/**
+ * A retrieval source is a CHUNK; several chunks of one document is the normal
+ * case. Every count and every banner row in this module is keyed on the
+ * document, because "3 of 8 sources are past their review date" is read by a
+ * clinician as three documents — and chunk-level counting is wrong in both
+ * directions, including the direction that under-warns.
+ */
+function documentKeyFor(source: AnswerStateSource, index: number): string {
+  const key = source.document_id?.trim() || source.id?.trim();
+  if (key) return key;
+  // Unidentifiable source: it still exists, so it still counts. It can never be
+  // reported overdue (there is nothing to open), so this only ever widens the
+  // denominator honestly rather than hiding a cited source.
+  noteOnce("source-without-identifier", "answer-state: cited source has no document_id or id", {
+    field: "document_id",
+  });
+  return `__unidentified_${index}__`;
+}
+
+function overdueSourceFrom(source: AnswerStateSource, key: string): OverdueSource | null {
   const status = source.source_metadata?.document_status;
   // Only the two governance-set overdue states. `unknown` is not overdue — it is
   // unknown, and the source badges say so in their own vocabulary.
   if (status !== "review_due" && status !== "outdated") return null;
-  const sourceId = source.document_id?.trim() || source.id?.trim();
-  if (!sourceId) return null;
+  if (key.startsWith("__unidentified_")) return null;
   return {
-    sourceId,
+    sourceId: key,
     title: source.title?.trim() || "Untitled source",
     locator: typeof source.page_number === "number" ? `p. ${source.page_number}` : undefined,
     reviewDueOn: source.source_metadata?.review_date?.trim() || null,
+    status,
   };
 }
 
@@ -112,8 +150,24 @@ function overdueSourceFrom(source: AnswerStateSource): OverdueSource | null {
  */
 export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
   const sources = input.sources ?? [];
-  const sourceCount = sources.length;
-  const overdue = sources.map(overdueSourceFrom).filter((entry): entry is OverdueSource => entry !== null);
+  const documents = new Set<string>();
+  const overdueByDocument = new Map<string, OverdueSource>();
+
+  sources.forEach((source, index) => {
+    const key = documentKeyFor(source, index);
+    documents.add(key);
+    const entry = overdueSourceFrom(source, key);
+    if (!entry) return;
+    const existing = overdueByDocument.get(key);
+    // Chunks of one document can disagree only through a data defect; take the
+    // more severe reading so a superseded document is never softened to `review_due`.
+    if (!existing || (existing.status === "review_due" && entry.status === "outdated")) {
+      overdueByDocument.set(key, entry);
+    }
+  });
+
+  const sourceCount = documents.size;
+  const overdue = [...overdueByDocument.values()];
 
   if (overdue.length > 0) return { kind: "stale_evidence", overdue, sourceCount };
 
