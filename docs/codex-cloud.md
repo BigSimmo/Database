@@ -127,8 +127,9 @@ For an explicitly authorised GitHub task, use Cloud's authenticated GitHub integ
 as the remote control plane. For ordinary Cloud work, publish through the native task
 diff/PR controls and verify the returned GitHub branch and pull-request link. Do not infer
 that GitHub is unavailable merely because `gh`, shell Git credentials, or a particular
-direct agent tool are absent. The intended connection is `BigSimmo` with administrator
-access to this repository. Some GitHub APIs, including review-thread or Actions management,
+direct agent tool are absent. The intended GitHub identity is `BigSimmo`. Use repository
+write access for branch and pull-request publication; reserve administrator access for separately
+approved operations. Some GitHub APIs, including review-thread or Actions management,
 may not be exposed in every Cloud task; use an approved GitHub-connected workflow for those
 operations or report the unavailable capability. Do not use shell credentials as a workaround.
 
