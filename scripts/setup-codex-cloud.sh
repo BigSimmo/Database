@@ -148,6 +148,13 @@ codex_policy_begin="# BEGIN clinical-kb-codex-cloud shell policy (managed by set
 codex_policy_end="# END clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)"
 if [[ -f "$codex_config_file" ]]; then
   codex_config_preserved="$(sed "/^${codex_policy_begin}\$/,/^${codex_policy_end}\$/d" "$codex_config_file")"
+  # After stripping the managed block, any remaining [shell_environment_policy]
+  # table is unmanaged. Appending our managed table below would produce a
+  # duplicate header that the Codex CLI's TOML parser rejects, so fail loudly
+  # instead of writing invalid config.
+  if printf '%s\n' "$codex_config_preserved" | grep -Eq '^\[shell_environment_policy\]'; then
+    fail "Unmanaged [shell_environment_policy] table found in $codex_config_file; remove it before re-running setup."
+  fi
 else
   codex_config_preserved=""
 fi
