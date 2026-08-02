@@ -147,6 +147,12 @@ mkdir -p "$codex_config_dir"
 codex_policy_begin="# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)"
 codex_policy_end="# END clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)"
 if [[ -f "$codex_config_file" ]]; then
+  # An interrupted prior write can leave BEGIN without END. The sed range below
+  # would then delete from BEGIN to EOF and discard unrelated settings, so fail
+  # before rewriting rather than silently truncating preserved config.
+  if grep -Fq "$codex_policy_begin" "$codex_config_file" && ! grep -Fq "$codex_policy_end" "$codex_config_file"; then
+    fail "Incomplete managed shell policy block in $codex_config_file; remove the incomplete BEGIN marker before re-running setup."
+  fi
   codex_config_preserved="$(sed "/^${codex_policy_begin}\$/,/^${codex_policy_end}\$/d" "$codex_config_file")"
   # After stripping the managed block, any remaining [shell_environment_policy]
   # table is unmanaged. Appending our managed table below would produce a
