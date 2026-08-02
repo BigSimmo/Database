@@ -100,8 +100,12 @@ PLAYWRIGHT_OFFLINE_MODE=true
 Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
 tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
 environment. The generated agent profile removes the complete provider-variable inventory in
-both access profiles. Connected access means the scoped OAuth MCP servers and GitHub connector
-are available; it does not mean raw credentials are exposed to the shell.
+both access profiles. Connected access configures the repository profile for scoped OAuth MCP
+servers and GitHub integration, but it does not expose raw credentials to the shell or guarantee
+that every GitHub capability appears as a direct agent tool. For ordinary Cloud task publishing,
+use the native Cloud diff/PR controls and verify the resulting GitHub branch and PR link. A
+metadata-only `make_pr` response is not publication evidence. If a requested GitHub API is not
+available, report that limitation rather than using shell credentials as a workaround.
 
 Codex Cloud secrets and ordinary environment variables have different exposure and lifecycle
 properties. This repository has no mechanism that promotes setup-only OpenAI, Supabase, E2E,
@@ -119,14 +123,15 @@ The GitHub connector is the supported repository/PR path. Follow the official
 `BigSimmo/Database` repository, and ensure the installation grants the user write access if
 Cloud tasks must publish PRs. Repository discovery proves read access only.
 
-For an explicitly authorised GitHub task, treat the authenticated GitHub connector/MCP
-tools as the default remote control plane. Use the connector for repository and PR reads,
-issue and PR comments, inline-review-thread replies/resolution, Actions
-run/job/log/artifact inspection and retries, and approved branch, file, or PR mutations.
-Do not infer that GitHub is unavailable because `gh`, shell GitHub credentials, or
-direct shell access are absent. The intended connection is `BigSimmo` with administrator
-access to this repository. Use shell `git` or `gh` only for a genuine connector gap and
-only when the task permits it.
+For an explicitly authorised GitHub task, use Cloud's authenticated GitHub integration
+as the remote control plane. For ordinary Cloud work, publish through the native task
+diff/PR controls and verify the returned GitHub branch and pull-request link. Do not infer
+that GitHub is unavailable merely because `gh`, shell Git credentials, or a particular
+direct agent tool are absent. The intended GitHub identity is `BigSimmo`. Use repository
+write access for branch and pull-request publication; reserve administrator access for separately
+approved operations. Some GitHub APIs, including review-thread or Actions management,
+may not be exposed in every Cloud task; use an approved GitHub-connected workflow for those
+operations or report the unavailable capability. Do not use shell credentials as a workaround.
 
 GitHub connector permission is separate from credentials inside the agent shell. Do
 not add a personal access token to Cloud secrets or environment variables to make
