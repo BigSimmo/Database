@@ -30,9 +30,9 @@ permissions:
   contents: read
 
 jobs:
-  app-image:
+  build-and-verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,38 +42,71 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
-      - name: Build app image (no push)
+      - name: Build app image (load, no push)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile
+          tags: clinical-kb-app:ci
           push: false
-          # The publishable key is public-by-design and only inlines into the
-          # client bundle, so the CI placeholder is enough to validate the build.
-          # Real production images are built with the real key at deploy time.
+          load: true
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
-            # Exercise a matched lowered limit, not only the 150 MB defaults.
             MAX_UPLOAD_MB=50
             NEXT_PUBLIC_MAX_UPLOAD_MB=50
             ALLOW_LOW_RAM_BUILD=1
+          cache-from: type=gha,scope=clinical-kb-app
+          cache-to: type=gha,scope=clinical-kb-app,mode=max
 
-  worker-image:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
-      - name: Build worker image (no push)
+      - name: Build worker image (load, no push)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile.worker
+          tags: clinical-kb-worker:ci
           push: false
+          load: true
+          cache-from: type=gha,scope=clinical-kb-worker
+          cache-to: type=gha,scope=clinical-kb-worker,mode=max
+
+      - name: Verify image content contract
+        run: node scripts/check-image-content-contract.mjs
+
+      - name: Run app container smoke (provider-free, cap-drop)
+        run: node scripts/app-container-smoke.mjs
+
+      - name: Run worker runtime validation (provider-free, network-isolated)
+        run: docker run --rm --network=none --entrypoint node clinical-kb-worker:ci dist/worker/validate-runtime.mjs
+
+      - name: Read-only runtime check (advisory)
+        run: |
+          docker run --rm --read-only --cap-drop=ALL --security-opt no-new-privileges:true \
+            -e NODE_ENV=production \
+            -e NEXT_PUBLIC_DEMO_MODE=false \
+            -e NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co \
+            -e SUPABASE_SERVICE_ROLE_KEY=smoke-test-placeholder \
+            -e RAG_PROVIDER_MODE=offline \
+            -e NEXT_TELEMETRY_DISABLED=1 \
+            clinical-kb-app:ci \
+            node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.json()).then(j=>{if(j.status!=='ok')throw new Error(JSON.stringify(j));console.log(j)}).catch(e=>{console.error(e);process.exit(1)})" || true
+        continue-on-error: true
+
+      - name: Generate SBOMs
+        run: |
+          node scripts/trivy-image-scan.mjs clinical-kb-app:ci --sbom sbom-app.cdx.json
+          node scripts/trivy-image-scan.mjs clinical-kb-worker:ci --sbom sbom-worker.cdx.json
+
+      - name: Upload SBOMs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sboms
+          path: |
+            sbom-app.cdx.json
+            sbom-worker.cdx.json
+          if-no-files-found: error
+
+      - name: Vulnerability scan (HIGH,CRITICAL)
+        run: |
+          node scripts/trivy-image-scan.mjs clinical-kb-app:ci
+          node scripts/trivy-image-scan.mjs clinical-kb-worker:ci

@@ -206,8 +206,10 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
 
 ### Image contract (`Dockerfile`)
 
-- `node:24-bookworm-slim` in all stages — respects `engines`/`engine-strict`
-  and the `preinstall` engine guard.
+- `node:24-bookworm-slim` is pinned by multi-platform SHA-256 digest in a
+  shared `node-base` stage and used by every stage. BuildKit cache mounts
+  speed `npm ci` and the worker Python venv install without bloating final
+  images.
 - The build stage runs the repo's own `npm run build`
   (`guard-next-build.mjs` + `next build --webpack` + the client-bundle secret
   scan) — **the image build fails exactly where a local build would**. The
@@ -235,8 +237,9 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
   differ.
 - Runtime is a non-root `node` user, prod-only `node_modules`, direct
   `next start -H 0.0.0.0 -p $PORT` (Railway injects `$PORT`; the local
-  port-picker script is deliberately bypassed), and a `HEALTHCHECK` against
-  `/api/health`.
+  port-picker script is deliberately bypassed), a `HEALTHCHECK` against
+  `/api/health`, an explicit `STOPSIGNAL SIGTERM`, and OCI source/title
+  labels for supply-chain traceability.
 - No secret is ever baked into a layer. `SUPABASE_SERVICE_ROLE_KEY`,
   `OPENAI_API_KEY`, etc. are injected at run time by Railway's variable store.
 - Request bodies are bounded twice: Next Proxy buffers at most 151 MiB, and
@@ -279,9 +282,10 @@ check and watch patterns rather than relying on dashboard defaults.
 
 ### Decision: containerized worker (recommended) over completing the edge-agent migration
 
-Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + a
-prebuilt esbuild bundle over production-only `node_modules` +
-Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
+Ship the existing worker as a container (`Dockerfile.worker`: pinned Node 24 +
+a prebuilt esbuild bundle over production-only `node_modules` +
+Tesseract + a Python venv with a hashed `worker/python/requirements.txt` +
+a provider-free `dist/worker/validate-runtime.mjs` gate) and run **one
 always-on worker instance** co-located in Railway Singapore (`worker` service),
 using Railway's `ALWAYS` restart policy so repeated bootstrap failures cannot
 exhaust a finite retry allowance and leave the queue undrained.
@@ -355,6 +359,10 @@ Operational rules that follow:
   generation/chunk-key, and completion is gated by the strict completion RPCs
   plus the edge agent. Railway's always-restart policy brings the worker back and
   it reclaims stale jobs automatically.
+- The worker handles `SIGTERM`/`SIGINT` gracefully: it drains the
+  already-claimed active batch, stops claiming new jobs, and exits `0`. A
+  `STOPSIGNAL SIGTERM` directive is in both final images. Fatal runtime errors
+  still exit `1` and dispatch the existing failure webhook.
 - **Backlog improvement (not in this change):** a heartbeat that refreshes
   `locked_at` could ride the existing throttled progress updates
   (`WORKER_PROGRESS_UPDATE_MIN_INTERVAL_MS`, 60 s), which would let the stale

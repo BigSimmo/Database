@@ -212,7 +212,16 @@ const containerPatterns = [
   "railway.worker.json",
   "tests/stubs/server-only.ts",
   /^worker\/.+/,
-  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
+  "worker/python/requirements.in",
+  "worker/python/requirements.txt",
+  "scripts/app-container-smoke.mjs",
+  "scripts/check-image-content-contract.mjs",
+  "scripts/trivy-image-scan.mjs",
+  "scripts/resolve-oci-image-digest.mjs",
+  "scripts/generate-worker-python-lock.mjs",
+  "scripts/check-worker-python-lock.mjs",
+  "tests/container-ci-contract.test.ts",
+  /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks|app-container-smoke|check-image-content-contract|trivy-image-scan|resolve-oci-image-digest|generate-worker-python-lock|check-worker-python-lock)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];

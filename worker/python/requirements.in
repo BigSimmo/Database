@@ -1,0 +1,7 @@
+# Direct Python dependencies for the worker OCR stack.
+# Run `npm run generate:worker-python-lock` to regenerate `requirements.txt`.
+
+PyMuPDF>=1.24.0
+pillow>=10.0.0
+pytesseract>=0.3.10
+medspacy>=1.1.0
