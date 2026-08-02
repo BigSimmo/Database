@@ -154,11 +154,12 @@ if [[ -f "$codex_config_file" ]]; then
     fail "Incomplete managed shell policy block in $codex_config_file; remove the incomplete BEGIN marker before re-running setup."
   fi
   codex_config_preserved="$(sed "/^${codex_policy_begin}\$/,/^${codex_policy_end}\$/d" "$codex_config_file")"
-  # After stripping the managed block, any remaining [shell_environment_policy]
-  # table is unmanaged. Appending our managed table below would produce a
-  # duplicate header that the Codex CLI's TOML parser rejects, so fail loudly
-  # instead of writing invalid config.
-  if printf '%s\n' "$codex_config_preserved" | grep -Eq '^\[shell_environment_policy\]'; then
+  # After stripping the managed block, any remaining shell_environment_policy
+  # table is unmanaged. Accept TOML's bare or quoted key spellings, leading
+  # whitespace, and an optional trailing comment; appending our managed table
+  # would otherwise create a duplicate header that Codex cannot load.
+  shell_policy_table_pattern="^[[:space:]]*\\[[[:space:]]*(shell_environment_policy|\\\"shell_environment_policy\\"|'shell_environment_policy')[[:space:]]*\\][[:space:]]*(#.*)?$"
+  if printf '%s\n' "$codex_config_preserved" | grep -Eq "$shell_policy_table_pattern"; then
     fail "Unmanaged [shell_environment_policy] table found in $codex_config_file; remove it before re-running setup."
   fi
 else
