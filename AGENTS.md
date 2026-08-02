@@ -870,8 +870,9 @@ Use `docs/codex-cloud.md` as the environment contract:
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
   Use `connected` only when the user explicitly authorizes the required provider access.
-- When MCP tools are already available in a Cloud session and the task needs them, use them
-  without asking for per-tool permission. Paid API canaries (`eval:rag`,
+- When MCP tools are already available in a Cloud session and the task needs them, read-only tools
+  can run without per-tool approval. Write-capable Figma, Railway, and Sentry tools still require
+  explicit confirmation. Paid API canaries (`eval:rag`,
   `eval:retrieval:quality`, `eval:quality`, `verify:release`, `test:live`,
   `check:supabase-project`) still need explicit confirmation. Project `.codex/config.toml`
   keeps MCP entries `enabled = false` so ordinary/offline Codex hosts do not initialize them;

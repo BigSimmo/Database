@@ -29,14 +29,17 @@ export const expectedMcpConfiguration = Object.freeze({
 
 /** Project `.codex/config.toml` registrations — disabled by default, secret-free URLs only. */
 export const expectedCodexProjectMcpServers = Object.freeze({
-  figma_cloud: Object.freeze({ url: "https://mcp.figma.com/mcp" }),
-  railway_cloud: Object.freeze({ url: expectedMcpConfiguration.railwayUrl }),
-  sentry_cloud: Object.freeze({ url: "https://mcp.sentry.dev/mcp" }),
+  figma_cloud: Object.freeze({ url: "https://mcp.figma.com/mcp", approvalMode: "writes" }),
+  railway_cloud: Object.freeze({ url: expectedMcpConfiguration.railwayUrl, approvalMode: "writes" }),
+  sentry_cloud: Object.freeze({ url: "https://mcp.sentry.dev/mcp", approvalMode: "writes" }),
   supabase_cloud: Object.freeze({
     // URL validated with the same project/read-only/feature rules as `.mcp.json`.
     kind: "supabase",
+    approvalMode: "auto",
   }),
 });
+
+const allowedCodexProjectMcpKeys = Object.freeze(["default_tools_approval_mode", "enabled", "url"]);
 
 const forbiddenCodexProjectMcpKeys = Object.freeze([
   "bearer_token_env_var",
@@ -93,8 +96,11 @@ export function parseCodexProjectMcpServers(text) {
     }
     if (!current) continue;
 
-    const kv = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.+)$/);
-    if (!kv) continue;
+    const kv = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
+    if (!kv) {
+      servers[current].__hasUnparsedEntries = true;
+      continue;
+    }
     servers[current][kv[1]] = parseTomlScalar(kv[2]);
   }
   return servers;
@@ -144,29 +150,37 @@ export function validateCodexProjectMcpConfiguration(text) {
     const server = servers[name];
     if (!server) continue;
     const label = `.codex/config.toml ${name}`;
+    const expected = expectedCodexProjectMcpServers[name];
 
     if (server.enabled !== false) {
       errors.push(`${label} must set enabled = false (host/connected layers opt in).`);
     }
-    if (server.default_tools_approval_mode !== "auto") {
-      errors.push(
-        `${label} must set default_tools_approval_mode = "auto" so connected Cloud tasks avoid per-tool prompts.`,
-      );
+    if (server.default_tools_approval_mode !== expected.approvalMode) {
+      const reason =
+        expected.approvalMode === "writes"
+          ? "write-capable tools require explicit approval"
+          : "the production server is constrained read-only";
+      errors.push(`${label} must set default_tools_approval_mode = "${expected.approvalMode}" because ${reason}.`);
     }
-    for (const key of forbiddenCodexProjectMcpKeys) {
-      if (server[key] !== undefined) {
-        errors.push(`${label} must not embed ${key}; keep OAuth credentials in the host store.`);
+    for (const key of Object.keys(server).filter((entry) => !entry.startsWith("__"))) {
+      const rootKey = key.split(".")[0];
+      if (forbiddenCodexProjectMcpKeys.includes(rootKey)) {
+        errors.push(`${label} must not embed ${rootKey}; keep OAuth credentials in the host store.`);
+      } else if (!allowedCodexProjectMcpKeys.includes(key)) {
+        errors.push(`${label} must be URL-only; unsupported key ${key}.`);
       }
     }
     if (server.__hasNestedTables) {
       errors.push(`${label} must not declare nested tool override tables in the shared project config.`);
+    }
+    if (server.__hasUnparsedEntries) {
+      errors.push(`${label} contains unsupported or unparsed entries.`);
     }
     if (typeof server.url !== "string" || !server.url) {
       errors.push(`${label} must declare a secret-free url.`);
       continue;
     }
 
-    const expected = expectedCodexProjectMcpServers[name];
     if (expected.kind === "supabase") {
       validateSupabaseMcpUrl(server.url, label, errors);
     } else if (server.url !== expected.url) {

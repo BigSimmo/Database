@@ -264,14 +264,13 @@ hosts load in addition to `$CODEX_HOME/config.toml` (where `setup-codex-cloud.sh
 shell-environment policy). It is not inert documentation: Codex applies project-local
 `.codex/config.toml` when the project is trusted. The tracked template lists Figma
 (`https://mcp.figma.com/mcp`), Railway, read-only Supabase, and Sentry
-(`https://mcp.sentry.dev/mcp`) as URL-only registrations with `enabled = false` and
-`default_tools_approval_mode = "auto"`. Ordinary/offline sessions therefore do not initialize
-those providers. When a connected Cloud or host layer enables a server for a task, tools are
-auto-approved so agents avoid per-tool permission prompts; paid API canaries, Railway
-mutations/deploys, and other cost-or-write provider actions still require explicit confirmation
-per AGENTS.md. Figma and Sentry OAuth credentials stay in the host credential store — never in
-the tracked file. Runtime Cloud MCP allowlist remains `.mcp.json` (Railway + read-only Supabase
-only). `npm run check:codex-cloud` validates both files.
+(`https://mcp.sentry.dev/mcp`) as URL-only registrations with `enabled = false`. Ordinary/offline
+sessions therefore do not initialize those providers. Production read-only Supabase uses
+`default_tools_approval_mode = "auto"`; write-capable Figma, Railway, and Sentry use `"writes"`
+so reads avoid per-tool prompts while writes still require explicit confirmation per AGENTS.md.
+Paid API canaries also require explicit confirmation. Figma and Sentry OAuth credentials stay in
+the host credential store — never in the tracked file. Runtime Cloud MCP allowlist remains
+`.mcp.json` (Railway + read-only Supabase only). `npm run check:codex-cloud` validates both files.
 
 In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
 provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
