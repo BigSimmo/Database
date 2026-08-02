@@ -19,7 +19,8 @@
 /.playwright-cli/
 /playwright/.auth/
 /.local/
-/.codex/
+/.codex/*
+!/.codex/config.toml
 /.agents/*
 !/.agents/plugins/
 /.agents/plugins/**

@@ -1,0 +1,14 @@
+# Secret-free, project-scoped MCP registrations shared by trusted Codex hosts.
+# OAuth credentials remain in each Codex host's credential store.
+
+[mcp_servers.figma_cloud]
+url = "https://mcp.figma.com/mcp"
+
+[mcp_servers.supabase_cloud]
+url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+
+[mcp_servers.railway_cloud]
+url = "https://mcp.railway.com/"
+
+[mcp_servers.sentry_cloud]
+url = "https://mcp.sentry.dev/mcp"
