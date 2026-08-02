@@ -16,7 +16,8 @@ restated in prose here is a defect in this document.
 - **Companions:** [TOKENS.md](TOKENS.md) (reconciled inventory) ·
   [COMPONENTS.md](COMPONENTS.md) (the eight new specifications + maturity matrix) ·
   [DECISIONS.md](DECISIONS.md) (C1–C5, Q&A record, assumptions, blocked items) ·
-  [GATES.md](GATES.md) (every rule paired with its enforcement status)
+  [GATES.md](GATES.md) (every rule paired with its enforcement status) ·
+  [ADOPTION.md](ADOPTION.md) (PR 13 registration: order, per-surface allowlists, exclusions, pins)
 
 **Source of truth, ranked.** 1. `AGENTS.md` · 2. `ckb-v2-tokens.css` · 3. committed tests · 4. `.design-sync/conventions.md` · 5. this document set.
 
@@ -785,13 +786,13 @@ these components are unregistered; revisit if adoption puts them on a hot path.
 
 ### Phase 4 — architecture, then adoption
 
-| PR                             | Contents                                                                                                                                                                                                                                 | Status               |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open                 |
-| PR 10 · Overlays               | One `OverlayRoot`; mandatory `Sheet` name; portal by default; `Tooltip` composes child handlers; `Toast` splits tone/priority/persistence, pauses on hover and focus                                                                     | open — COMPONENTS §7 |
-| PR 11 · Print and documents    | Print as a tokenised theme; `[data-print-hide]`; print primitives; `DocumentFrame`                                                                                                                                                       | open — COMPONENTS §6 |
-| PR 12 · Design-sync integrity  | Declarations generated from real types; manifest parity in `verify:cheap`; direct tests for every registered component; preview state matrices; `tailwind-merge` or slot props; split `ui-primitives.tsx`                                | open                 |
-| PR 13 · Register, then adopt   | Register only after Phases 1–3 are green. Adopt one surface at a time behind `.ckb-v2`, visual diff each: isolated form → page header and actions → source-provenance block → **answer surface last**. Type-scale retirement last of all | open                 |
+| PR                             | Contents                                                                                                                                                                                                                                 | Status                                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open                                                                                           |
+| PR 10 · Overlays               | One `OverlayRoot`; mandatory `Sheet` name; portal by default; `Tooltip` composes child handlers; `Toast` splits tone/priority/persistence, pauses on hover and focus                                                                     | open — COMPONENTS §7                                                                           |
+| PR 11 · Print and documents    | Print as a tokenised theme; `[data-print-hide]`; print primitives; `DocumentFrame`                                                                                                                                                       | open — COMPONENTS §6                                                                           |
+| PR 12 · Design-sync integrity  | Declarations generated from real types; manifest parity in `verify:cheap`; direct tests for every registered component; preview state matrices; `tailwind-merge` or slot props; split `ui-primitives.tsx`                                | open                                                                                           |
+| PR 13 · Register, then adopt   | Register only after Phases 1–3 are green. Adopt one surface at a time behind `.ckb-v2`, visual diff each: isolated form → page header and actions → source-provenance block → **answer surface last**. Type-scale retirement last of all | in progress — registration recorded in [ADOPTION.md](ADOPTION.md); blockers 1–2 above resolved |
 
 **Adoption invariants.** Every step reversible and diffable per surface · no adoption
 before the cascade port (dark evidence is void until then) · the most-read text ships
