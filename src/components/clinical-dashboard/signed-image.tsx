@@ -160,7 +160,7 @@ export const SignedImage = memo(function SignedImage({
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(
-            "rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+            "rounded-lg object-contain transition-opacity duration-[var(--duration-deliberate)] motion-reduce:transition-none",
             loaded ? "opacity-100" : "opacity-0",
           )}
         />

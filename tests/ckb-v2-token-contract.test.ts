@@ -288,7 +288,15 @@ describe("ckb-v2 structure", () => {
 
   it("zeroes motion durations under prefers-reduced-motion", () => {
     const reducedMotion = stylesheet.slice(stylesheet.indexOf("@media (prefers-reduced-motion: reduce)"));
-    for (const token of ["--duration-fast", "--duration-base", "--duration-slow"]) {
+    for (const token of [
+      "--duration-instant",
+      "--duration-fast",
+      "--duration-quick",
+      "--duration-base",
+      "--duration-moderate",
+      "--duration-slow",
+      "--duration-deliberate",
+    ]) {
       expect(reducedMotion).toContain(`${token}: 0ms;`);
     }
   });
