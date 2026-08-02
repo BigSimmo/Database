@@ -3115,6 +3115,15 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* =========================================================================
+ * Print theme (SPEC §4.12) — four scoped blocks below:
+ *   1) Global print reset + chrome hide
+ *   2) Factsheet export isolation (html.factsheets-printing)
+ *   3) Safety-plan tool ([data-print-hide] / [data-safety-plan-copy])
+ *   4) Therapy Compass isolation (@page therapy-compass-sheet)
+ * Chrome must prefer [data-print-hide]; element-name selectors below are
+ * transitional back-compat until every chrome owner is attribute-marked.
+ * ========================================================================= */
 @media print {
   html,
   body {
@@ -3124,6 +3133,12 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     color: #000;
   }
 
+  /* Prefer attribute marking for new chrome (SPEC §4.12). */
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Transitional element-name chrome hide — do not extend this list. */
   header,
   nav,
   button,
@@ -3150,6 +3165,11 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   a {
     color: #000;
     text-decoration: underline;
+  }
+
+  /* Flatten glass/elevation so print is ink-on-paper. */
+  * {
+    text-shadow: none !important;
   }
 }
 
