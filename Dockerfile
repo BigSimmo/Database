@@ -30,8 +30,7 @@ COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
 # Registry blips (ECONNRESET) have failed CI app-image builds mid-install; retry
 # the whole `npm ci` rather than relying only on per-request fetch retries.
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    for attempt in 1 2 3; do \
+RUN for attempt in 1 2 3; do \
       npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
       sleep $((attempt * 10)); \
@@ -68,8 +67,7 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    for attempt in 1 2 3; do \
+RUN for attempt in 1 2 3; do \
       npm ci --omit=dev --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
       sleep $((attempt * 10)); \
