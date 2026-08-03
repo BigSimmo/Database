@@ -47,7 +47,7 @@ profile before starting Node. It is idempotent and uses `nvm which` rather than
 `command -v node`, so maintenance cannot accidentally wrap an earlier wrapper.
 
 The setup command fails if the complete toolchain cannot be installed. It pins Railway CLI
-`5.30.1` and Codex CLI `0.146.0`, both stable npm releases as reviewed on 2026-07-30. Railway's
+`5.30.4` and Codex CLI `0.146.0`, both stable npm releases as reviewed on 2026-07-30. Railway's
 [official CLI guide](https://docs.railway.com/cli) supports global npm installation on Node 16+
 (this repository uses Node 24). OpenAI's
 [official Codex CLI guide](https://learn.chatgpt.com/docs/codex/cli) supports Linux installation;
@@ -139,23 +139,17 @@ approved operations. Some GitHub APIs, including review-thread or Actions manage
 may not be exposed in every Cloud task; use an approved GitHub-connected workflow for those
 operations or report the unavailable capability. Do not use shell credentials as a workaround.
 
-GitHub connector permission is separate from credentials inside the agent shell. The connector
-remains the default for repository, PR, review, and Actions work. For an explicitly authorised
-connector gap, a fine-grained GitHub PAT may be stored only as the connected environment secret
-`CODEX_CLOUD_GITHUB_PAT`. Scope it to the `BigSimmo/Database` repository, give it only the
-least privilege needed for the named operation (for stale-branch deletion, **Contents: write**),
-and set a short expiry. Never add it as an ordinary environment variable, print it, put it in a
-remote URL, cache, profile, or repository file, or use it for provider access. The default and
-ordinary connected profiles both scrub the name before Node work begins.
+GitHub connector permission is separate from credentials inside the agent shell. The connector,
+native Push control, and GitHub UI are the supported Cloud publication and cleanup paths. Cloud
+secrets are setup-only, so `CODEX_CLOUD_GITHUB_PAT` cannot safely support an agent-phase helper;
+the name is explicitly excluded by the shell policy and tested with the rest of the credential
+inventory.
 
-The only tracked PAT helper is
-`bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>`. It refuses offline
-mode, protected/invalid refs, and any origin other than the credential-free
-`https://github.com/BigSimmo/Database.git`; it uses a temporary askpass program and deletes
-only the specified branch and disables Git hooks for its PAT-bearing push. Use it only for the exact
-user-authorised cleanup, then remove or
-rotate the secret. If Cloud does not expose secrets to the requested task phase, the PAT is not a
-usable workaround—report that platform limit rather than copying the token anywhere.
+`bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` is retained only for
+an explicitly authorised operator running outside Codex Cloud. It rejects `CODEX_CLOUD=1`,
+protected/invalid refs, and any origin other than the credential-free
+`https://github.com/BigSimmo/Database.git`. Never copy a PAT into a Cloud task, profile, checkout,
+remote URL, cache, or log.
 
 Setup restores a missing `origin` to the credential-free URL
 `https://github.com/BigSimmo/Database.git`; it preserves an existing correct remote and fails
@@ -240,16 +234,24 @@ The effective-environment check runs automatically when `CODEX_CLOUD=1`, includi
 `--runtime`, so a newly started agent shell cannot pass with stale modes. Its report prints only
 approved mode values and presence booleans. The runtime check additionally verifies Node/npm
 policy and installed-lock parity, pinned Railway/Codex CLIs, Deno 2, Python 3 and worker imports,
-Tesseract, browser executables, local `main`/`origin/main`, the `BigSimmo/Database` origin
-identity, offline credential absence when applicable, and obsolete npm proxy variable names
+Tesseract, actual headless launch-and-close for Chromium/Firefox/WebKit, the Python requirements
+fingerprint plus `pip check` and medspaCy/spaCy versions, the expected base commit as an ancestor
+of HEAD, the `BigSimmo/Database` origin identity, offline credential absence when applicable,
+and obsolete npm proxy variable names
 without reading or printing their values. MCP inspection emits server names, commands, and
 environment variable names only.
 
-A repository cannot remove a variable already inherited by the top-level task process. The
-command shims protect normal Node work, which is what the acceptance commands exercise. If a
-fresh task still exposes a provider variable to a direct raw `/bin/bash`, Python, or another
-native child before the generated profile is loaded, treat that as a Codex Cloud launcher defect
-and report the variable name only; do not weaken the profile or reintroduce provider variables.
+A repository cannot remove a variable already inherited by the top-level task process. Before
+sourcing any profile or invoking node/npm in a fresh task, run:
+
+```bash
+bash --noprofile --norc scripts/check-codex-cloud-raw-env.sh
+```
+
+The probe checks the complete provider-variable inventory and prints names only. A failure is a
+launcher/environment defect; remove the variable in host environment settings and start another
+fresh task. Passing only after sourcing the profile or using a command shim does not close the
+raw-environment boundary.
 
 `npm run check:production-readiness` remains useful in the offline profile for local safeguards.
 Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
@@ -271,32 +273,30 @@ and service metadata. Railway's remote MCP does not accept project tokens; retai
 only for explicitly approved local/operator workflows.
 
 The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
-`read_only=true`, and exposes only documentation, database, debugging, and development feature
-groups. Complete its browser OAuth flow for the organization containing `Clinical KB Database`
+`read_only=true`, and exposes only documentation/development metadata tools. The database and
+debugging groups are excluded so ordinary Cloud cannot execute SQL, read clinical rows, or inspect
+production logs. Complete its browser OAuth flow for the organization containing `Clinical KB Database`
 and restart the client if tools do not appear. Schema writes, Edge Function deployment, branching,
 and storage mutations require a separately configured non-production project or branch; do not
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
-Project `.codex/config.toml` is a second, project-scoped MCP template that trusted Codex
-hosts load in addition to `$CODEX_HOME/config.toml` (where `setup-codex-cloud.sh` writes the
-shell-environment policy). It is not inert documentation: Codex applies project-local
-`.codex/config.toml` when the project is trusted. The tracked template lists Figma
-(`https://mcp.figma.com/mcp`), Railway, read-only Supabase, and Sentry
-(`https://mcp.sentry.dev/mcp`) as URL-only registrations with `enabled = false`. Ordinary/offline
-sessions therefore do not initialize those providers. Production read-only Supabase uses
-`default_tools_approval_mode = "auto"`; write-capable Figma, Railway, and Sentry use `"writes"`
-so reads avoid per-tool prompts while writes still require explicit confirmation per AGENTS.md.
-Paid API canaries also require explicit confirmation. Figma and Sentry OAuth credentials stay in
-the host credential store — never in the tracked file. Runtime Cloud MCP allowlist remains
-`.mcp.json` (Railway + read-only Supabase only). `npm run check:codex-cloud` validates both files.
+Project `.codex/config.toml` is the checked-in Codex MCP template. Its URL-only entries
+remain `enabled = false` so offline tasks do not initialize providers; an installed ChatGPT/Codex
+plugin or host MCP layer must grant OAuth and expose the callable tools in a fresh connected task.
+The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
+Cloud availability unless a plugin manifest or host explicitly imports it.
 
-In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
-provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
-provider environment variable as `present=false`, the credential-free `BigSimmo/Database` origin,
-and only the hosted Railway and project-scoped read-only Supabase MCP metadata. This proves the
-shell boundary and configured capabilities, not OAuth authorization. Then verify each explicitly
-authorized provider with a read-only identity/status call and report only non-secret metadata.
+Production Supabase stays project-scoped and `read_only=true`, with
+`default_tools_approval_mode = "prompt"` so every production metadata/read call requires
+confirmation. Do not use unrestricted SQL or query clinical rows. Railway, Figma, and Sentry
+write-capable tools remain approval-gated. OAuth credentials stay in the host store—never the
+tracked files or agent environment.
+
+In a fresh connected task, first run the raw-shell probe and repository acceptance, then inspect
+the actual callable tool inventory. A configured URL or `enabled = false` template is not runtime
+proof. Verify Railway and Supabase with read-only identity/project metadata calls and report only
+non-secret status; if either tool is absent, the host integration is not activated.
 
 ### Connected-environment remediation checklist
 
@@ -317,19 +317,20 @@ copying credentials into the checkout.
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
    Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
-   `sjrfecxgysukkwxsowpy`, `read_only=true`, and the existing feature allowlist. Do not broaden the
+   `sjrfecxgysukkwxsowpy`, `read_only=true`, and the docs/development-only feature allowlist. Do not broaden the
    production Supabase MCP to write access. Enable Figma or Sentry only for a task that names that
    provider; their write-capable tools remain approval-gated.
 3. **Start a fresh task.** OAuth tools and environment values are fixed when the task starts. A
    setup rerun inside an already-running offline task can validate a generated connected profile,
    but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open
    a new task after consent.
-4. **Prove the shell boundary before providers.** Run `npm run check:codex-cloud`,
+4. **Prove the shell boundary before providers.** First run the direct raw-shell command above
+   before profiles or command shims. Then run `npm run check:codex-cloud`,
    `npm run check:codex-cloud -- --runtime`, `npm run check:runtime`, and
-   `npm run check:installed-lock-parity`. Require the two Cloud PASS lines, correct runtime and
-   lock parity, `CODEX_CLOUD_ACCESS_PROFILE=connected`, no provider variable reported present, a
-   credential-free matching origin, and the expected MCP metadata. A connected label alone is not
-   provider proof.
+   `npm run check:installed-lock-parity`. Set `CODEX_CLOUD_EXPECTED_BASE_SHA` to the intended
+   merged base commit. Require the raw PASS line, both Cloud PASS lines, correct runtime/lock
+   parity, `CODEX_CLOUD_ACCESS_PROFILE=connected`, no provider variable reported present, and a
+   credential-free matching origin. Repository MCP metadata is configuration evidence only.
 5. **Prove each provider read-only.** Use the tools exposed by the fresh host session, not shell
    tokens. For GitHub, read repository metadata and confirm `BigSimmo/Database` plus the intended
    identity. For Railway, read workspace/project/service metadata and confirm the IDs above without
@@ -337,8 +338,8 @@ copying credentials into the checkout.
    without querying clinical row contents. Report only non-secret identity and status metadata.
    OpenAI has no generic connected-profile credential: leave `RAG_PROVIDER_MODE=offline` until a
    separately approved paid canary or protected workflow supplies its own credential boundary.
-6. **Publish a task branch safely.** Work on a task-specific non-protected branch. Commit and format
-   the intended repository change, publish that exact existing commit through the native GitHub
+6. **Publish a task branch safely.** Work on a task-specific non-protected branch. Format, stage, and commit
+   the intended repository change, then publish that exact existing commit through the native GitHub
    connector/Cloud PR workflow, and verify the remote branch and PR link. If shell Git
    authentication is intentionally available, `git push --set-upstream origin <task-branch>` is
    acceptable after confirming the credential-free origin; otherwise a failed `git ls-remote` is
