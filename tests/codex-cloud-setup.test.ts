@@ -434,8 +434,8 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("Unmanaged [shell_environment_policy] table found");
     expect(setup).toContain("Incomplete managed shell policy block");
     expect(setup).toContain('export RAG_PROVIDER_MODE="${rag_provider_mode}"');
-    expect(setup).toContain('rag_provider_mode="${RAG_PROVIDER_MODE:-auto}"');
-    expect(setup).not.toContain('RAG_PROVIDER_MODE="\\${RAG_PROVIDER_MODE:-auto}"');
+    expect(setup).toContain('rag_provider_mode="${RAG_PROVIDER_MODE:-offline}"');
+    expect(setup).not.toContain('rag_provider_mode="${RAG_PROVIDER_MODE:-auto}"');
     expect(setup).toContain("SUPABASE_URL");
     expect(setup).toContain("SUPABASE_PROJECT_REF");
     expect(setup).toContain("NEXT_PUBLIC_SUPABASE_URL");
