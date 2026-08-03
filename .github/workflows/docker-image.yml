@@ -56,8 +56,8 @@ jobs:
             MAX_UPLOAD_MB=50
             NEXT_PUBLIC_MAX_UPLOAD_MB=50
             ALLOW_LOW_RAM_BUILD=1
-          cache-from: type=gha,scope=clinical-kb-app
-          cache-to: type=gha,scope=clinical-kb-app,mode=max,ignore-error=true
+          cache-from: type=gha,scope=clinical-kb-app,timeout=2m
+          cache-to: type=gha,scope=clinical-kb-app,mode=max,timeout=2m,ignore-error=true
 
       - name: Build worker image (load, no push)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -67,8 +67,8 @@ jobs:
           tags: clinical-kb-worker:ci
           push: false
           load: true
-          cache-from: type=gha,scope=clinical-kb-worker
-          cache-to: type=gha,scope=clinical-kb-worker,mode=max,ignore-error=true
+          cache-from: type=gha,scope=clinical-kb-worker,timeout=2m
+          cache-to: type=gha,scope=clinical-kb-worker,mode=max,timeout=2m,ignore-error=true
 
       - name: Verify image content contract
         run: node scripts/check-image-content-contract.mjs
