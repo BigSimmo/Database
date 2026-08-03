@@ -874,11 +874,7 @@ export async function validateCodexCloudRuntime(env = process.env) {
   const checkout = gitCheckoutFreshness(repoRoot, env);
   if (!baseline) {
     errors.push("Neither local main, origin/main, nor a Cloud task HEAD is available.");
-  } else if (
-    baseline === "HEAD" &&
-    checkout.freshness === "unverified" &&
-    env.CODEX_CLOUD_PROVISIONING !== "1"
-  ) {
+  } else if (baseline === "HEAD" && checkout.freshness === "unverified" && env.CODEX_CLOUD_PROVISIONING !== "1") {
     errors.push(
       "Checkout freshness is unverified: set CODEX_CLOUD_EXPECTED_BASE_SHA to the intended merge/base commit.",
     );
