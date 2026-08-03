@@ -1,4 +1,4 @@
-import type { AnswerState } from "@/components/ui/answer-state";
+import type { AnswerState } from "@/lib/answer-state-types";
 import { clipboardProvenanceLine, normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
