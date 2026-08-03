@@ -20,11 +20,185 @@ export const expectedCloudCliVersions = Object.freeze({
 });
 
 export const expectedMcpConfiguration = Object.freeze({
-  railwayUrl: "https://mcp.railway.com/",
+  // Canonical form matches `.mcp.json` (no trailing slash).
+  railwayUrl: "https://mcp.railway.com",
   supabaseUrl: "https://mcp.supabase.com/mcp",
   supabaseProjectRef: "sjrfecxgysukkwxsowpy",
   supabaseFeatures: Object.freeze(["database", "debugging", "development", "docs"]),
 });
+
+/** Project `.codex/config.toml` registrations — disabled by default, secret-free URLs only. */
+export const expectedCodexProjectMcpServers = Object.freeze({
+  figma_cloud: Object.freeze({ url: "https://mcp.figma.com/mcp", approvalMode: "writes" }),
+  railway_cloud: Object.freeze({ url: expectedMcpConfiguration.railwayUrl, approvalMode: "writes" }),
+  sentry_cloud: Object.freeze({ url: "https://mcp.sentry.dev/mcp", approvalMode: "writes" }),
+  supabase_cloud: Object.freeze({
+    // URL validated with the same project/read-only/feature rules as `.mcp.json`.
+    kind: "supabase",
+    approvalMode: "auto",
+  }),
+});
+
+const allowedCodexProjectMcpKeys = Object.freeze(["default_tools_approval_mode", "enabled", "url"]);
+
+const forbiddenCodexProjectMcpKeys = Object.freeze([
+  "bearer_token_env_var",
+  "command",
+  "env",
+  "env_http_headers",
+  "env_vars",
+  "headers",
+  "http_headers",
+]);
+
+function parseTomlScalar(value) {
+  const trimmed = value.trim();
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+/**
+ * Parse `[mcp_servers.name]` tables from a Codex project config.toml.
+ * Supports only the scalar keys this gate governs.
+ * @param {string} text
+ * @returns {{ servers: Record<string, Record<string, unknown>>, nestedServers: Set<string>, unparsedServers: Set<string> }}
+ */
+export function parseCodexProjectMcpServers(text) {
+  /** @type {Record<string, Record<string, unknown>>} */
+  const servers = {};
+  const nestedServers = new Set();
+  const unparsedServers = new Set();
+  let current = null;
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const nested = line.match(/^\[mcp_servers\.([A-Za-z0-9_-]+)\./);
+    if (nested) {
+      current = nested[1];
+      servers[current] ??= {};
+      nestedServers.add(current);
+      continue;
+    }
+
+    const table = line.match(/^\[mcp_servers\.([A-Za-z0-9_-]+)\]$/);
+    if (table) {
+      current = table[1];
+      servers[current] ??= {};
+      continue;
+    }
+
+    if (line.startsWith("[")) {
+      current = null;
+      continue;
+    }
+    if (!current) {
+      const dotted = line.match(/^mcp_servers\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
+      if (dotted) {
+        servers[dotted[1]] ??= {};
+        servers[dotted[1]][dotted[2]] = parseTomlScalar(dotted[3]);
+      }
+      continue;
+    }
+
+    const kv = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/);
+    if (!kv) {
+      unparsedServers.add(current);
+      continue;
+    }
+    servers[current][kv[1]] = parseTomlScalar(kv[2]);
+  }
+  return { servers, nestedServers, unparsedServers };
+}
+
+function validateSupabaseMcpUrl(urlString, label, errors) {
+  try {
+    const url = new URL(urlString);
+    if (`${url.origin}${url.pathname}` !== expectedMcpConfiguration.supabaseUrl) {
+      errors.push(`${label} must use the official hosted endpoint.`);
+    }
+    if (url.searchParams.get("project_ref") !== expectedMcpConfiguration.supabaseProjectRef) {
+      errors.push(`${label} must be scoped to the expected project.`);
+    }
+    if (url.searchParams.get("read_only") !== "true") {
+      errors.push(`${label} must keep the production project read-only.`);
+    }
+    const queryNames = [...url.searchParams.keys()].sort();
+    if (JSON.stringify(queryNames) !== JSON.stringify(["features", "project_ref", "read_only"])) {
+      errors.push(`${label} must not include additional query parameters.`);
+    }
+    const features = (url.searchParams.get("features") ?? "").split(",").filter(Boolean).sort();
+    if (JSON.stringify(features) !== JSON.stringify(expectedMcpConfiguration.supabaseFeatures)) {
+      errors.push(`${label} must expose only the approved read-only feature groups.`);
+    }
+  } catch {
+    errors.push(`${label} URL must be valid.`);
+  }
+}
+
+/**
+ * Project `.codex/config.toml` must register the approved MCP surface as disabled
+ * URL-only templates so offline/ordinary Codex hosts do not initialize providers.
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function validateCodexProjectMcpConfiguration(text) {
+  const errors = [];
+  const { servers, nestedServers, unparsedServers } = parseCodexProjectMcpServers(text);
+  const expectedNames = Object.keys(expectedCodexProjectMcpServers).sort();
+  const actualNames = Object.keys(servers).sort();
+  if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
+    errors.push(`.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.`);
+  }
+
+  for (const name of expectedNames) {
+    const server = servers[name];
+    if (!server) continue;
+    const label = `.codex/config.toml ${name}`;
+    const expected = expectedCodexProjectMcpServers[name];
+
+    if (server.enabled !== false) {
+      errors.push(`${label} must set enabled = false (host/connected layers opt in).`);
+    }
+    if (server.default_tools_approval_mode !== expected.approvalMode) {
+      const reason =
+        expected.approvalMode === "writes"
+          ? "write-capable tools require explicit approval"
+          : "the production server is constrained read-only";
+      errors.push(`${label} must set default_tools_approval_mode = "${expected.approvalMode}" because ${reason}.`);
+    }
+    for (const key of Object.keys(server)) {
+      const rootKey = key.split(".")[0];
+      if (forbiddenCodexProjectMcpKeys.includes(rootKey)) {
+        errors.push(`${label} must not embed ${rootKey}; keep OAuth credentials in the host store.`);
+      } else if (!allowedCodexProjectMcpKeys.includes(key)) {
+        errors.push(`${label} must be URL-only; unsupported key ${key}.`);
+      }
+    }
+    if (nestedServers.has(name)) {
+      errors.push(`${label} must not declare nested tool override tables in the shared project config.`);
+    }
+    if (unparsedServers.has(name)) {
+      errors.push(`${label} contains unsupported or unparsed entries.`);
+    }
+    if (typeof server.url !== "string" || !server.url) {
+      errors.push(`${label} must declare a secret-free url.`);
+      continue;
+    }
+
+    if (expected.kind === "supabase") {
+      validateSupabaseMcpUrl(server.url, label, errors);
+    } else if (server.url !== expected.url) {
+      errors.push(`${label} must use the pinned endpoint ${expected.url}.`);
+    }
+  }
+
+  return errors;
+}
 
 export const providerCredentialVariables = Object.freeze([
   ...providerEnvironmentKeys,
@@ -319,6 +493,7 @@ export function validateCodexCloudSetup() {
   const envExample = read(".env.example");
   const gitignore = read(".gitignore");
   const mcp = read(".mcp.json");
+  const codexProjectConfig = read(".codex/config.toml");
 
   if (packageJson.engines?.node !== `${nodeVersion}.x`) {
     errors.push(`package.json engines.node must match .node-version (${nodeVersion}.x).`);
@@ -333,7 +508,7 @@ export function validateCodexCloudSetup() {
   for (const [pattern, message] of [
     [/npm ci --include=dev/, "Cloud setup must install the exact lockfile with dev dependencies."],
     [/deno@2/, "Cloud setup must install Deno 2.x."],
-    [/worker\/python\/requirements\.txt/, "Cloud setup must install Python worker requirements."],
+    [/worker\/python\/requirements-cloud\.txt/, "Cloud setup must install the Python 3.12 Cloud worker lock."],
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
@@ -465,6 +640,7 @@ export function validateCodexCloudSetup() {
     errors.push(error instanceof Error ? error.message : String(error));
   }
   errors.push(...validateMcpConfiguration(mcp));
+  errors.push(...validateCodexProjectMcpConfiguration(codexProjectConfig));
 
   for (const command of [
     "check:supabase-project",

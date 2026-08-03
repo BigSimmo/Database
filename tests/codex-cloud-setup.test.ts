@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,7 @@ import {
   railwayReadCapability,
   sanitizedCloudCapabilityLines,
   validateCodexCloudEnvironment,
+  validateCodexProjectMcpConfiguration,
   validateMcpConfiguration,
 } from "../scripts/check-codex-cloud-setup.mjs";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
@@ -30,7 +31,11 @@ import {
 
 const temporaryDirectories: string[] = [];
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const setupScript = path.join(repoRoot, "scripts/setup-codex-cloud.sh");
+const setupScript = "scripts/setup-codex-cloud.sh";
+const bashCommand =
+  process.platform === "win32"
+    ? path.join(process.env.ProgramFiles || "C:\\Program Files", "Git/bin/bash.exe")
+    : "bash";
 const requiredPolicyExcludes = [
   "OPENAI_API_KEY",
   "OPENAI_ORG_ID",
@@ -88,21 +93,32 @@ function git(directory: string, ...args: string[]) {
   return spawnSync("git", ["-C", directory, ...args], { encoding: "utf8" });
 }
 
+function bashPathEntry(entry: string) {
+  if (process.platform !== "win32") return entry;
+  return entry.replace(/^([A-Za-z]):/, (_, drive: string) => `/${drive.toLowerCase()}`).replaceAll("\\", "/");
+}
+
+function bashPathList(value: string) {
+  if (process.platform !== "win32") return value;
+  return value.split(path.delimiter).filter(Boolean).map(bashPathEntry).join(":");
+}
+
 function runSetupPolicyOnly(home: string, env: Record<string, string | undefined> = {}) {
   // The test redirects HOME to isolate the generated Codex config. Put the
   // running test process's Node binary first so version-manager launchers that
   // resolve their runtime through HOME remain usable until setup reaches the
   // policy-only stop.
   const nodeBin = path.dirname(process.execPath);
-  return spawnSync("bash", [setupScript], {
+  const requestedPath = env.PATH || [nodeBin, process.env.PATH].filter(Boolean).join(path.delimiter);
+  return spawnSync(bashCommand, [setupScript], {
     cwd: repoRoot,
     encoding: "utf8",
     env: {
       ...process.env,
-      HOME: home,
-      PATH: [nodeBin, process.env.PATH].filter(Boolean).join(path.delimiter),
+      HOME: bashPathEntry(home),
       CODEX_CLOUD_SETUP_STOP_AFTER_POLICY: "1",
       ...env,
+      PATH: bashPathList(requestedPath),
     },
   });
 }
@@ -293,6 +309,92 @@ describe("Codex Cloud environment contract", () => {
     );
   });
 
+  it("keeps project .codex/config.toml MCP registrations disabled and secret-free", () => {
+    const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
+    expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
+    expect(validateCodexProjectMcpConfiguration(tracked.replaceAll("enabled = false", "enabled = true"))).toContain(
+      `.codex/config.toml figma_cloud must set enabled = false (host/connected layers opt in).`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace('default_tools_approval_mode = "writes"', 'default_tools_approval_mode = "auto"'),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must set default_tools_approval_mode = "writes" because write-capable tools require explicit approval.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace('default_tools_approval_mode = "auto"', 'default_tools_approval_mode = "writes"'),
+      ),
+    ).toContain(
+      `.codex/config.toml supabase_cloud must set default_tools_approval_mode = "auto" because the production server is constrained read-only.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\nbearer_token_env_var = "FIGMA_TOKEN"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed bearer_token_env_var; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\nhttp_headers.Authorization = "Bearer redacted-test"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed http_headers; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\nscopes = ["files:write"]',
+        ),
+      ),
+    ).toContain(`.codex/config.toml figma_cloud must be URL-only; unsupported key scopes.`);
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          'url = "https://mcp.figma.com/mcp"',
+          'url = "https://mcp.figma.com/mcp"\n__anything = "secret"',
+        ),
+      ),
+    ).toContain(`.codex/config.toml figma_cloud must be URL-only; unsupported key __anything.`);
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.supabase_cloud]",
+          "[mcp_servers.figma_cloud.tools]\n__hasNestedTables = false\n\n[mcp_servers.supabase_cloud]",
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not declare nested tool override tables in the shared project config.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.figma_cloud]",
+          'mcp_servers.figma_cloud.http_headers.Authorization = "Bearer redacted-test"\n\n[mcp_servers.figma_cloud]',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must not embed http_headers; keep OAuth credentials in the host store.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=",
+          "project_ref=sjrfecxgysukkwxsowpy&read_only=false&features=",
+        ),
+      ),
+    ).toContain(`.codex/config.toml supabase_cloud must keep the production project read-only.`);
+  });
+
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
     const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
     const maintenance = readFileSync(new URL("../scripts/maintain-codex-cloud.sh", import.meta.url), "utf8");
@@ -325,6 +427,13 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("NEXT_PUBLIC_SUPABASE_URL");
     expect(setup).toContain("DATABASE_URL");
     expect(setup).toContain("CODEX_CLOUD_SETUP_STOP_AFTER_POLICY");
+    expect(setup).toContain("CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE");
+    expect(setup).toContain("worker/python/requirements-cloud.txt");
+    expect(setup).toContain("diagnose-codex-cloud.mjs");
+    expect(setup).toContain("trap diagnose_setup_failure ERR");
+    expect(setup).toContain('setup_step="python-worker-requirements"');
+    expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
+    expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
     expect(commandShims).toContain('nvm which "$expected_node_major"');
     expect(commandShims).toContain('. "$runtime_profile"');
@@ -441,21 +550,17 @@ describe("Codex Cloud environment contract", () => {
     }
 
     const atomicHome = temporaryDirectory("codex-cloud-atomic-");
-    const atomicTools = temporaryDirectory("codex-cloud-tools-");
     mkdirSync(path.join(atomicHome, ".codex"), { recursive: true });
     const atomicConfig = ["[mcp_servers.keep]", 'command = "echo"', ""].join("\n");
     const atomicPath = path.join(atomicHome, ".codex/config.toml");
     writeFileSync(atomicPath, atomicConfig);
-    const failingMktemp = path.join(atomicTools, "mktemp");
-    writeFileSync(failingMktemp, "#!/usr/bin/env sh\nexit 1\n", {
-      mode: 0o755,
-    });
     const atomic = runSetupPolicyOnly(atomicHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "offline",
-      PATH: [atomicTools, path.dirname(process.execPath), process.env.PATH].filter(Boolean).join(path.delimiter),
+      CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE: "1",
     });
     expect(atomic.status).not.toBe(0);
     expect(readFileSync(atomicPath, "utf8")).toBe(atomicConfig);
+    expect(readdirSync(path.dirname(atomicPath)).filter((name) => name.startsWith(".config.toml."))).toEqual([]);
 
     const incompleteHome = temporaryDirectory("codex-cloud-incomplete-");
     mkdirSync(path.join(incompleteHome, ".codex"), { recursive: true });

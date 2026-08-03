@@ -261,9 +261,8 @@ function compactImage(image: ChunkImage) {
   };
 }
 
-function buildMatchExplanation(query: string, result: SearchResult) {
+function buildMatchExplanation(queryTerms: readonly string[], result: SearchResult) {
   if (result.match_explanation) return result.match_explanation;
-  const queryTerms = new Set(normalizedClinicalSearchTokens(query));
   const titleText = `${result.title} ${result.file_name}`.toLowerCase();
   const sectionText = `${result.section_heading ?? ""} ${(result.section_path ?? []).join(" ")}`.toLowerCase();
   const labelText = (result.document_labels ?? []).map((label) => label.label.toLowerCase()).join(" ");
@@ -272,10 +271,10 @@ function buildMatchExplanation(query: string, result: SearchResult) {
     result.table_facts?.length ||
     result.images?.some((image) => image.source_kind === "table_crop" || image.sourceKind === "table_crop"),
   );
-  const titleHit = Array.from(queryTerms).some((term) => titleText.includes(term));
-  const sectionHit = Array.from(queryTerms).some((term) => sectionText.includes(term));
-  const labelHit = Array.from(queryTerms).some((term) => labelText.includes(term));
-  const contentHit = Array.from(queryTerms).some((term) => contentText.includes(term));
+  const titleHit = queryTerms.some((term) => titleText.includes(term));
+  const sectionHit = queryTerms.some((term) => sectionText.includes(term));
+  const labelHit = queryTerms.some((term) => labelText.includes(term));
+  const contentHit = queryTerms.some((term) => contentText.includes(term));
   const metadata = result.source_metadata;
   return {
     titleHit,
@@ -306,7 +305,7 @@ function buildMatchExplanation(query: string, result: SearchResult) {
   };
 }
 
-function compactSearchResult(query: string, result: SearchResult) {
+function compactSearchResult(result: SearchResult, queryTerms: readonly string[]) {
   const evidenceImages = result.images?.filter((image) => isClinicalImageEvidence(image)).slice(0, 3) ?? [];
   return {
     id: result.id,
@@ -331,7 +330,7 @@ function compactSearchResult(query: string, result: SearchResult) {
     score_explanation: result.score_explanation,
     source_metadata: compactSourceMetadata(result.source_metadata),
     relevance: result.relevance,
-    match_explanation: buildMatchExplanation(query, result),
+    match_explanation: buildMatchExplanation(queryTerms, result),
     index_unit: result.index_unit
       ? {
           id: result.index_unit.id,
@@ -365,7 +364,8 @@ function compactSearchResult(query: string, result: SearchResult) {
 }
 
 function compactSearchResults(query: string, results: SearchResult[]) {
-  return results.map((result) => compactSearchResult(query, result));
+  const queryTerms = Array.from(new Set(normalizedClinicalSearchTokens(query)));
+  return results.map((result) => compactSearchResult(result, queryTerms));
 }
 
 function searchDegradedModeSignal(telemetry?: { embedding_skip_reason?: string | null }) {

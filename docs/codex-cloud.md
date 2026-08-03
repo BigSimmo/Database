@@ -197,6 +197,25 @@ repairs the normal Node command boundary. Any runtime, dependency, CLI, Deno, Py
 browser drift reruns the full setup instead of repairing only `node_modules`. All profile
 insertions, command shims, CLI installs, and remote repair are idempotent.
 
+### Automatic setup diagnostics
+
+Cloud setup tracks its current phase. If a command fails, the error trap runs
+`npm run diagnose:codex-cloud` automatically and prints sanitized `ISSUE` and `FIX` lines after
+the original error. The diagnostic checks the Node/npm contract, the active Cloud Python runtime,
+the runtime-specific Python lock header, and the failed setup phase without printing environment
+values or calling a provider. Run it manually in an agent shell when setup completed but the
+runtime later appears stale:
+
+```bash
+npm run diagnose:codex-cloud
+```
+
+The production worker image and Codex Cloud deliberately use separate hashed Python locks because
+medspaCy 1.3.1 requires spaCy `<3.8` on Python 3.11 but `>=3.8` on Python 3.12. Production uses
+`worker/python/requirements.txt` (Python 3.11); Cloud uses
+`worker/python/requirements-cloud.txt` (Python 3.12). After changing
+`worker/python/requirements.in`, regenerate and verify both locks with their matching interpreters.
+
 ## Acceptance
 
 Run this in a fresh Cloud task before relying on the environment:
@@ -258,6 +277,19 @@ and restart the client if tools do not appear. Schema writes, Edge Function depl
 and storage mutations require a separately configured non-production project or branch; do not
 broaden the production entry. OpenAI generation, Supabase live data, Railway changes, hosted CI
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
+
+Project `.codex/config.toml` is a second, project-scoped MCP template that trusted Codex
+hosts load in addition to `$CODEX_HOME/config.toml` (where `setup-codex-cloud.sh` writes the
+shell-environment policy). It is not inert documentation: Codex applies project-local
+`.codex/config.toml` when the project is trusted. The tracked template lists Figma
+(`https://mcp.figma.com/mcp`), Railway, read-only Supabase, and Sentry
+(`https://mcp.sentry.dev/mcp`) as URL-only registrations with `enabled = false`. Ordinary/offline
+sessions therefore do not initialize those providers. Production read-only Supabase uses
+`default_tools_approval_mode = "auto"`; write-capable Figma, Railway, and Sentry use `"writes"`
+so reads avoid per-tool prompts while writes still require explicit confirmation per AGENTS.md.
+Paid API canaries also require explicit confirmation. Figma and Sentry OAuth credentials stay in
+the host credential store — never in the tracked file. Runtime Cloud MCP allowlist remains
+`.mcp.json` (Railway + read-only Supabase only). `npm run check:codex-cloud` validates both files.
 
 In a fresh connected Cloud session, run `npm run check:codex-cloud -- --environment` before any
 provider call. The sanitized report must show `CODEX_CLOUD_ACCESS_PROFILE=connected`, every
