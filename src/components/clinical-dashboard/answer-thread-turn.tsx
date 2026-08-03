@@ -11,8 +11,7 @@ import {
 } from "@/components/clinical-dashboard/answer-content";
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
-import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
-import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
+import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 /**
@@ -65,18 +64,6 @@ export function PriorAnswerTurnSurface({
     turn.answer.sources?.length ||
     turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
-  // #207/#208: a prior turn is copied out of the app exactly like a current one,
-  // so it carries the same attribution, caveat and provenance rules — and the
-  // same empty-`sources` fallback the live surface and clipboard path use.
-  const turnState = useMemo(
-    () =>
-      answerStateForAnswer({
-        answer: turn.answer,
-        sources: turn.sources,
-        weakEvidence: renderModel.trust === "low" || renderModel.trust === "unsupported",
-      }),
-    [turn.answer, turn.sources, renderModel.trust],
-  );
   const needsSourceReview =
     turn.answer.answerQualityTier === "source_only" ||
     turn.answer.grounded === false ||
@@ -120,10 +107,11 @@ export function PriorAnswerTurnSurface({
               copied={copied}
               onCopy={() =>
                 onCopy(
-                  composeAnswerClipboardText({
+                  buildAnswerClipboardText({
+                    answer: turn.answer,
+                    sources: turn.sources,
+                    weakEvidence: renderModel.trust === "low" || renderModel.trust === "unsupported",
                     renderCopyText: renderModel.copyText || previewText,
-                    state: turnState,
-                    sourceOnly: turn.answer.answerQualityTier === "source_only",
                   }),
                 )
               }

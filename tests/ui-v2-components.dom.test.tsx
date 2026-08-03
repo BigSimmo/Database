@@ -41,8 +41,8 @@ describe("TextField / SearchField", () => {
   it("wires hint text through aria-describedby", () => {
     render(<TextField label="Publisher" hint="As printed on the source." />);
 
-    // The label now carries the optionality marker the shared shell states in
-    // text, so the accessible name is "Publisher (optional)".
+    // Only required fields carry a marker in the label text, so an optional
+    // field's accessible name stays "Publisher".
     const input = screen.getByLabelText(/Publisher/);
     const describedBy = input.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
@@ -233,6 +233,42 @@ describe("RadioGroup", () => {
     expect(ids).toHaveLength(2);
     expect(document.getElementById(ids[0] as string)).toHaveTextContent("Applies to this result set only.");
     expect(document.getElementById(ids[1] as string)).toHaveTextContent("Choose a sort order.");
+  });
+
+  it("applies the resolved group id to the fieldset when the caller omits id", () => {
+    // Without this, callers that omit `id` get a fieldset with no DOM id, so an
+    // error summary cannot link to the group and option/hint/error ids still
+    // exist under an orphan prefix.
+    render(
+      <RadioGroup
+        label="Sort"
+        name="sort"
+        options={[
+          { value: "relevance", label: "Relevance" },
+          { value: "newest", label: "Newest" },
+        ]}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Sort" });
+    expect(group).toHaveAttribute("id");
+    expect(group.getAttribute("id")?.length).toBeGreaterThan(0);
+  });
+
+  it("honours an externally supplied id on the fieldset", () => {
+    render(
+      <RadioGroup
+        id="sort-order"
+        label="Sort"
+        name="sort"
+        options={[
+          { value: "relevance", label: "Relevance" },
+          { value: "newest", label: "Newest" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("group", { name: "Sort" })).toHaveAttribute("id", "sort-order");
   });
 
   it("derives option ids from a sanitised key rather than the raw value", () => {

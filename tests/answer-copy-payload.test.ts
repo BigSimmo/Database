@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { answerStateForAnswer, resolveAnswerSources } from "@/components/clinical-dashboard/answer-copy-payload";
+import {
+  answerStateForAnswer,
+  buildAnswerClipboardText,
+  resolveAnswerSources,
+  singleDocumentClipboardMetadata,
+} from "@/components/clinical-dashboard/answer-copy-payload";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 const overdueSource: SearchResult = {
@@ -18,6 +23,15 @@ const overdueSource: SearchResult = {
   source_metadata: {
     document_status: "outdated",
     review_date: "2020-01-01",
+  },
+};
+
+const currentSource: SearchResult = {
+  ...overdueSource,
+  id: "chunk-2",
+  source_metadata: {
+    document_status: "current",
+    review_date: "2026-01-01",
   },
 };
 
@@ -68,5 +82,33 @@ describe("answerStateForAnswer · empty sources fallback", () => {
     });
 
     expect(state).toEqual({ kind: "ready", sourceCount: 0 });
+  });
+});
+
+describe("buildAnswerClipboardText · single-document provenance", () => {
+  it("includes the provenance audit line for a one-document answer", () => {
+    const copied = buildAnswerClipboardText({
+      answer: answerWith([currentSource]),
+      renderCopyText: "Clinical answer draft\n\nStart at 12.5 mg at night.",
+    });
+
+    expect(copied).toContain("Designation:");
+    expect(copied).toContain("Review status:");
+  });
+
+  it("suppresses the provenance line when more than one document is cited", () => {
+    const secondDoc: SearchResult = {
+      ...currentSource,
+      id: "chunk-3",
+      document_id: "doc-2",
+      title: "Second guideline",
+    };
+    const copied = buildAnswerClipboardText({
+      answer: answerWith([currentSource, secondDoc]),
+      renderCopyText: "Clinical answer draft",
+    });
+
+    expect(copied).not.toContain("Designation:");
+    expect(singleDocumentClipboardMetadata([currentSource, secondDoc])).toBeUndefined();
   });
 });

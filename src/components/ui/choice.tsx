@@ -230,7 +230,7 @@ export function RadioGroup({
 
   return (
     <fieldset
-      id={id}
+      id={groupId}
       className={cn("min-w-0 border-0 p-0", className)}
       aria-invalid={invalid || undefined}
       aria-describedby={mergeDescribedBy(describedBy?.trim(), hint ? hintId : null, invalid ? errorId : null)}

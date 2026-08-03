@@ -61,6 +61,23 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
 }
 
 /**
+ * Provenance metadata for the clipboard audit line — only when the cited set
+ * collapses to one document. Multi-document pastes suppress the line in the
+ * composer (it would contradict a multi-source stale caveat).
+ */
+export function singleDocumentClipboardMetadata(
+  sources: readonly SearchResult[] | null | undefined,
+): SearchResult["source_metadata"] | undefined {
+  if (!sources?.length) return undefined;
+  const documentIds = new Set(
+    sources.map((source) => source.document_id?.trim()).filter((id): id is string => Boolean(id)),
+  );
+  if (documentIds.size !== 1) return undefined;
+  const withMetadata = sources.find((source) => source.source_metadata != null);
+  return withMetadata?.source_metadata ?? undefined;
+}
+
+/**
  * The clipboard payload for an answer. `renderCopyText` stays the primary
  * product string and passes through byte-for-byte; the composer only adds what
  * leaves the app with it — attribution, the state caveat, and the provenance
@@ -77,9 +94,11 @@ export function buildAnswerClipboardText({
   weakEvidence,
   renderCopyText,
 }: AnswerCopyInput & { renderCopyText: string }): string {
+  const resolvedSources = resolveAnswerSources(answer.sources, sources);
   return composeAnswerClipboardText({
     renderCopyText,
     sourceOnly: answer.answerQualityTier === "source_only",
     state: answerStateForAnswer({ answer, sources, weakEvidence }),
+    metadata: singleDocumentClipboardMetadata(resolvedSources),
   });
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
@@ -12,6 +13,7 @@ import {
   NaturalLanguageAnswer,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import {
   AnswerSupportSummaryCard,
   answerSupportPriority,
@@ -24,8 +26,8 @@ import {
   primaryVisualTable,
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
+import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
-import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { Sheet } from "@/components/ui/sheet";
 import { VerificationNotice } from "@/components/ui/verification-notice";
@@ -102,6 +104,7 @@ function StagedAnswerResultSurfaceImpl({
   crossModeQueries?: Array<string | null | undefined>;
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
+  const router = useRouter();
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
     safetyFindings.length > 0 ||
@@ -254,7 +257,17 @@ function StagedAnswerResultSurfaceImpl({
                 alarms teach a reader to skip all three, so the duplicate is the
                 dangerous one, not the missing one. */}
             {answerState.kind === "stale_evidence" || answerState.kind === "partial_retrieval" ? (
-              <RetrievalStateBanner state={answerState} onOpenSource={onScopeDocument} />
+              <RetrievalStateBanner
+                state={answerState}
+                // Navigate to the cited page — do not reuse onScopeDocument.
+                // That handler only replaces selectedDocumentIds and leaves the
+                // clinician on the answer screen with a silent filter change
+                // while the button is labelled "Open <source>, p. N".
+                onOpenSource={(sourceId, locator) => {
+                  const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
+                  if (href) router.push(href);
+                }}
+              />
             ) : null}
             <NaturalLanguageAnswer
               text={answer.answer}

@@ -78,6 +78,44 @@ export function sourceResultHref(source: SearchResult) {
   return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;
 }
 
+/**
+ * Href for the retrieval-state banner's "Open source" action. `sourceId` is the
+ * projection's document key; `locator` is the banner's `p. N` string when known.
+ * Synthetic `__unidentified_*` keys are not navigable.
+ */
+export function citedDocumentHref(
+  sourceId: string,
+  locator: string | undefined,
+  candidates: readonly SearchResult[],
+): string | null {
+  if (!sourceId || sourceId.startsWith("__unidentified_")) return null;
+
+  const pageMatch = locator?.match(/^p\.\s*(\d+)$/i);
+  const pageFromLocator = pageMatch ? Number(pageMatch[1]) : null;
+  const match = candidates.find((source) => source.document_id === sourceId);
+
+  if (match) {
+    const page = pageFromLocator ?? match.page_number ?? 1;
+    const metadata =
+      match.source_metadata && typeof match.source_metadata === "object"
+        ? (match.source_metadata as Record<string, unknown>)
+        : {};
+    const registryHref = registryCorpusDetailHref({
+      kind: metadata.registry_record_kind as string | undefined,
+      slug: metadata.registry_record_slug as string | undefined,
+      subkind: metadata.registry_record_subkind as string | undefined,
+      recordId: metadata.registry_record_id as string | undefined,
+    });
+    if (registryHref) return registryHref;
+    return `/documents/${encodeURIComponent(sourceId)}?page=${page}&chunk=${encodeURIComponent(match.id)}`;
+  }
+
+  const params = new URLSearchParams();
+  if (pageFromLocator != null) params.set("page", String(pageFromLocator));
+  const query = params.toString();
+  return `/documents/${encodeURIComponent(sourceId)}${query ? `?${query}` : ""}`;
+}
+
 type SourceOpenTelemetry = {
   id: string;
   title?: string;
