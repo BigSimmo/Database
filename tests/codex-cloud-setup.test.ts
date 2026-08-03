@@ -402,7 +402,7 @@ describe("Codex Cloud environment contract", () => {
     const result = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
       cwd: repoRoot,
       encoding: "utf8",
-      env: { PATH: process.env.PATH, OPENAI_API_KEY: secret },
+      env: { PATH: process.env.PATH, NODE_ENV: "test", OPENAI_API_KEY: secret },
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain("OPENAI_API_KEY");
