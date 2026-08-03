@@ -8,15 +8,15 @@ usage() {
 }
 
 fail() {
-  printf '[codex-cloud:github-pat] ERROR: %s\n' "$*" >&2
+  printf '[operator:github-pat] ERROR: %s\n' "$*" >&2
   exit 1
 }
 
 [[ "$#" -eq 1 ]] || usage
 branch="$1"
 [[ "$branch" != -* ]] || fail "Refusing an option-like branch name."
-[[ "${CODEX_CLOUD_ACCESS_PROFILE:-offline}" = "connected" ]] || fail "This emergency helper is connected-profile only."
-[[ -n "${CODEX_CLOUD_GITHUB_PAT:-}" ]] || fail "CODEX_CLOUD_GITHUB_PAT is unavailable; add it only as a connected Cloud secret for this one operation."
+[[ "${CODEX_CLOUD:-0}" != "1" ]] || fail "Cloud secrets are unavailable during the agent phase; use native Push, the GitHub connector, or GitHub UI."
+[[ -n "${CODEX_CLOUD_GITHUB_PAT:-}" ]] || fail "CODEX_CLOUD_GITHUB_PAT is unavailable; this operator-only helper must run outside Codex Cloud."
 
 case "$branch" in
   main|master|develop|release|release/*|HEAD|HEAD/*|refs/*|*..*|*~*|*@\{*|*\\*|*\ *|"")
@@ -47,4 +47,4 @@ chmod 0700 "$askpass"
 
 GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
   git -c credential.helper= -c core.hooksPath=/dev/null push origin --delete "$branch"
-printf '[codex-cloud:github-pat] PASS: deleted %s.\n' "$branch"
+printf '[operator:github-pat] PASS: deleted %s.\n' "$branch"
