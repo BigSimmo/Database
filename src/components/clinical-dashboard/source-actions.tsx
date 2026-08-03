@@ -78,6 +78,59 @@ export function sourceResultHref(source: SearchResult) {
   return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;
 }
 
+/**
+ * Href for the retrieval-state banner's "Open source" action. `sourceId` is the
+ * projection's document key; `locator` is the banner's `p. N` string when known.
+ * Synthetic `__unidentified_*` keys are not navigable.
+ */
+export function citedDocumentHref(
+  sourceId: string,
+  locator: string | undefined,
+  candidates: readonly SearchResult[],
+): string | null {
+  if (!sourceId || sourceId.startsWith("__unidentified_")) return null;
+
+  const pageMatch = locator?.match(/^p\.\s*(\d+)$/i);
+  const pageFromLocator = pageMatch ? Number(pageMatch[1]) : null;
+  // Match the locator's page before picking a chunk. One document can contribute
+  // chunks from several pages, and `loadAuthorizedDocumentDetail` makes the
+  // selected chunk's page authoritative over the requested one
+  // (`src/lib/document-detail.ts`: `effectivePage = selectedChunk?.page_number ??
+  // requestedPage`). Taking the first candidate while advertising the locator's
+  // page therefore opens a control labelled "p. 12" on page 4.
+  const documentCandidates = candidates.filter((source) => source.document_id === sourceId);
+  const match =
+    (pageFromLocator != null
+      ? documentCandidates.find((source) => source.page_number === pageFromLocator)
+      : undefined) ?? documentCandidates[0];
+
+  if (match) {
+    const page = pageFromLocator ?? match.page_number ?? 1;
+    // Only pin a chunk that actually sits on the page being advertised;
+    // otherwise open the page and let the viewer land where the label promised.
+    const chunkIsOnAdvertisedPage = pageFromLocator == null || match.page_number === pageFromLocator;
+    const metadata =
+      match.source_metadata && typeof match.source_metadata === "object"
+        ? (match.source_metadata as Record<string, unknown>)
+        : {};
+    const registryHref = registryCorpusDetailHref({
+      kind: metadata.registry_record_kind as string | undefined,
+      slug: metadata.registry_record_slug as string | undefined,
+      subkind: metadata.registry_record_subkind as string | undefined,
+      recordId: metadata.registry_record_id as string | undefined,
+    });
+    if (registryHref) return registryHref;
+    return chunkIsOnAdvertisedPage
+      ? `/documents/${encodeURIComponent(sourceId)}?page=${page}&chunk=${encodeURIComponent(match.id)}`
+      : `/documents/${encodeURIComponent(sourceId)}?page=${page}`;
+  }
+
+  const params = new URLSearchParams();
+  if (pageFromLocator != null) params.set("page", String(pageFromLocator));
+  const query = params.toString();
+  return `/documents/${encodeURIComponent(sourceId)}${query ? `?${query}` : ""}`;
+}
+
 type SourceOpenTelemetry = {
   id: string;
   title?: string;
