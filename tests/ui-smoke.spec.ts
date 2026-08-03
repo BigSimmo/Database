@@ -905,7 +905,14 @@ async function expectAccountSettingsSurface(settings: Locator) {
 
 async function expectMobileSettingsLayout(settings: Locator) {
   const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
-  const label = jurisdictionRow.getByText("Jurisdiction", { exact: true });
+  // The row carries two labels for one control, deliberately. The visible row
+  // text is a `<label htmlFor>` so clicking it focuses the select, and the DS
+  // `Select` keeps its own `sr-only` label because a field without one is not a
+  // field; `aria-labelledby` points at the visible one, so the accessible name
+  // is those words once rather than the two concatenated. This layout assertion
+  // is about where the *visible* label sits, so it addresses that one by id
+  // instead of by text.
+  const label = jurisdictionRow.locator("#settings-jurisdiction-label");
   const control = jurisdictionRow.getByRole("combobox");
   const [rowBox, labelBox, controlBox] = await Promise.all([
     jurisdictionRow.boundingBox(),
