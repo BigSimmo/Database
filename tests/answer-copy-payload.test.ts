@@ -20,9 +20,22 @@ const overdueSource: SearchResult = {
   image_ids: [],
   similarity: 0.9,
   images: [],
+  // ClinicalSourceMetadata's governance fields are required and nullable, not
+  // optional: the type refuses a partial literal so a fixture cannot quietly
+  // omit the provenance a real source always carries.
   source_metadata: {
-    document_status: "outdated",
+    source_title: "Superseded WA protocol",
+    publisher: null,
+    jurisdiction: null,
+    version: null,
+    publication_date: null,
     review_date: "2020-01-01",
+    uploaded_at: null,
+    indexed_at: null,
+    uploaded_by: null,
+    document_status: "outdated",
+    clinical_validation_status: "unknown",
+    extraction_quality: "unknown",
   },
 };
 
