@@ -27,7 +27,7 @@ COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
 # Same install-retry contract as the app Dockerfile (registry ECONNRESET flakes).
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+RUN --mount=type=cache,id=npm,target=/root/.npm,sharing=locked \
     for attempt in 1 2 3; do \
       npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
@@ -43,7 +43,7 @@ WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
-RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+RUN --mount=type=cache,id=npm,target=/root/.npm,sharing=locked \
     for attempt in 1 2 3; do \
       npm ci --omit=dev --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000 && break; \
       if [ "$attempt" -eq 3 ]; then exit 1; fi; \
@@ -57,7 +57,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY worker/python/requirements.txt worker/python/requirements.txt
 RUN python3 -m venv /opt/ocr-venv
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
   /opt/ocr-venv/bin/pip install --upgrade --require-hashes -r worker/python/requirements.txt \
   && /opt/ocr-venv/bin/pip check
 ENV PATH="/opt/ocr-venv/bin:${PATH}"

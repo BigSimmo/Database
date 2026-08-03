@@ -11,6 +11,7 @@ import {
 } from "@/components/clinical-dashboard/answer-content";
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
+import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
 /**
@@ -104,7 +105,16 @@ export function PriorAnswerTurnSurface({
               sources={renderModel.reviewSources}
               sourceLinks={renderModel.primarySources}
               copied={copied}
-              onCopy={() => onCopy(renderModel.copyText || previewText)}
+              onCopy={() =>
+                onCopy(
+                  buildAnswerClipboardText({
+                    answer: turn.answer,
+                    sources: turn.sources,
+                    weakEvidence: renderModel.trust === "low" || renderModel.trust === "unsupported",
+                    renderCopyText: renderModel.copyText || previewText,
+                  }),
+                )
+              }
             />
             {needsSourceReview ? (
               <div

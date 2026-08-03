@@ -25,7 +25,20 @@ import type { RagAnswer } from "@/lib/types";
 /** Compile-time proof: the real answer payload satisfies the projection's input shape. */
 type AssignableTo<A, B> = A extends B ? true : false;
 const ragAnswerSatisfiesProjectionInput: AssignableTo<
-  Pick<RagAnswer, "sources" | "citations" | "answerQualityTier" | "fallbackReason" | "routingReason">,
+  Pick<
+    RagAnswer,
+    | "sources"
+    | "citations"
+    | "answerQualityTier"
+    | "fallbackReason"
+    | "routingReason"
+    // #207: the grounding signals the ungrounded channel reads. Pinned here so a
+    // rename or narrowing in `RagAnswer` fails this file rather than silently
+    // projecting an unsupported answer as `ready` again.
+    | "grounded"
+    | "confidence"
+    | "unverifiedNumericTokens"
+  >,
   AnswerStateInput
 > = true;
 
@@ -238,6 +251,102 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     expect(state.sourceCount).toBe(1);
     expect(state.overdue).toHaveLength(1);
     expect(state.overdue[0]?.sourceId).toBe("doc-stale");
+  });
+
+  it("projects an ungrounded answer over current sources as ungrounded, never ready", () => {
+    // The #207 blocker in one assertion. Before the ungrounded channel existed
+    // this returned `ready`, so adopting AnswerCard would have retired the live
+    // "Review source match" caution with nothing in its place.
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "current" } })],
+      grounded: false,
+    });
+
+    expect(state).toEqual({ kind: "ungrounded", reason: "grounded_false", sourceCount: 1 });
+  });
+
+  it("treats an unsupported confidence as ungrounded", () => {
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "current" } })],
+      grounded: true,
+      confidence: "unsupported",
+    });
+
+    expect(state).toEqual({ kind: "ungrounded", reason: "confidence_unsupported", sourceCount: 1 });
+  });
+
+  it("treats unverified numeric tokens as ungrounded", () => {
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "current" } })],
+      grounded: true,
+      confidence: "high",
+      unverifiedNumericTokens: ["300 mg", "12 hours"],
+    });
+
+    expect(state).toEqual({ kind: "ungrounded", reason: "unverified_numeric", sourceCount: 1 });
+  });
+
+  it("treats a caller-derived weak-evidence flag as ungrounded", () => {
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "current" } })],
+      weakEvidence: true,
+    });
+
+    expect(state).toEqual({ kind: "ungrounded", reason: "weak_evidence", sourceCount: 1 });
+  });
+
+  it("reads the ungrounded reasons in the live product's gate order", () => {
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "current" } })],
+      grounded: false,
+      confidence: "unsupported",
+      unverifiedNumericTokens: ["300 mg"],
+      weakEvidence: true,
+    });
+
+    expect(state.kind).toBe("ungrounded");
+    if (state.kind !== "ungrounded") return;
+    expect(state.reason).toBe("grounded_false");
+  });
+
+  it("leaves a grounded answer ready when the grounding fields are absent or benign", () => {
+    // Absent is not ungrounded. Callers that have not been widened yet must not
+    // acquire a caution on every answer.
+    expect(answerStateFromRetrieval({ sources: [source({})] }).kind).toBe("ready");
+    expect(
+      answerStateFromRetrieval({
+        sources: [source({})],
+        grounded: true,
+        confidence: "medium",
+        unverifiedNumericTokens: [],
+        weakEvidence: false,
+      }).kind,
+    ).toBe("ready");
+  });
+
+  it("ranks ungrounded above source_only", () => {
+    // A source-only answer that is also unsupported must not read as "evidence
+    // complete, synthesis weak" — the clinician's act is to distrust the prose.
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "current" } })],
+      answerQualityTier: "source_only",
+      fallbackReason: "low_signal_retrieval_gate",
+      grounded: false,
+    });
+
+    expect(state.kind).toBe("ungrounded");
+  });
+
+  it("keeps stale_evidence as the outer kind when an answer is both stale and ungrounded", () => {
+    // One banner. Evidence that may already be wrong outranks prose that cannot
+    // be shown to follow from it, and stacking two alarms degrades both.
+    const state = answerStateFromRetrieval({
+      sources: [source({ metadata: { document_status: "review_due", review_date: "2025-11-01" } })],
+      grounded: false,
+      confidence: "unsupported",
+    });
+
+    expect(state.kind).toBe("stale_evidence");
   });
 
   it("keeps unidentified overdue sources as stale_evidence rather than ready", () => {

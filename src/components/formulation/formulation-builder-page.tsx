@@ -26,6 +26,8 @@ import {
   SessionPrivacyNote,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
+import { Select } from "@/components/ui/select";
+import { TextField } from "@/components/ui/text-field";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import {
   findFormulationMechanism,
@@ -357,34 +359,29 @@ export function FormulationBuilderPage({
                 )}
 
                 <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_14rem]">
-                  <label className="relative">
-                    <span className="sr-only">Search formulation mechanisms</span>
-                    <Search
-                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--text-soft)]"
-                      aria-hidden
-                    />
-                    <input
-                      value={query}
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search mechanisms or patient language..."
-                      className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-3 text-sm font-semibold text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-placeholder)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-                    />
-                  </label>
-                  <label>
-                    <span className="sr-only">Filter mechanisms by domain</span>
-                    <select
-                      value={domain}
-                      onChange={(event) => setDomain(event.target.value)}
-                      className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-                    >
-                      <option value="all">All domains</option>
-                      {formulationDomains.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {/* Kept as a text input, not a `SearchField`: this filters the
+                      mechanism list in place and never submits, so it is not a
+                      second page composer (docs/search-chrome-behaviour.md). */}
+                  <TextField
+                    label="Search formulation mechanisms"
+                    hideLabel
+                    icon={Search}
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search mechanisms or patient language..."
+                    className="font-semibold"
+                  />
+                  <Select
+                    label="Filter mechanisms by domain"
+                    hideLabel
+                    value={domain}
+                    onChange={(event) => setDomain(event.target.value)}
+                    className="font-semibold"
+                    options={[
+                      { value: "all", label: "All domains" },
+                      ...formulationDomains.map((item) => ({ value: item, label: item })),
+                    ]}
+                  />
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2" aria-label="Available mechanisms">
