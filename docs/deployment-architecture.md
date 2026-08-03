@@ -207,9 +207,10 @@ comparable (~200 ms) from Singapore or Sydney and does not favour either host.
 ### Image contract (`Dockerfile`)
 
 - `node:24-bookworm-slim` is pinned by multi-platform SHA-256 digest in a
-  shared `node-base` stage and used by every stage. BuildKit cache mounts
-  speed `npm ci` and the worker Python venv install without bloating final
-  images.
+  shared `node-base` stage and used by every stage. Dependency installs use
+  ordinary Docker layer caching. The shared Dockerfiles deliberately avoid
+  BuildKit cache mounts because Railway requires hard-coded, service-specific
+  cache IDs, which would couple each image to one Railway service.
 - The build stage runs the repo's own `npm run build`
   (`guard-next-build.mjs` + `next build --webpack` + the client-bundle secret
   scan) — **the image build fails exactly where a local build would**. The
