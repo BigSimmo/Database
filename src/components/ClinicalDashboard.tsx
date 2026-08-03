@@ -186,8 +186,7 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
-import { answerStateFromRetrieval } from "@/components/ui/answer-state";
-import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
+import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
@@ -3253,24 +3252,7 @@ export function ClinicalDashboard({
       copyText("answer", renderCopyText);
       return;
     }
-    copyText(
-      "answer",
-      composeAnswerClipboardText({
-        renderCopyText,
-        sourceOnly: answer.answerQualityTier === "source_only",
-        state: answerStateFromRetrieval({
-          sources: answer.sources ?? sources,
-          citations: answer.citations,
-          answerQualityTier: answer.answerQualityTier,
-          fallbackReason: answer.fallbackReason,
-          routingReason: answer.routingReason,
-          grounded: answer.grounded,
-          confidence: answer.confidence,
-          unverifiedNumericTokens: answer.unverifiedNumericTokens,
-          weakEvidence,
-        }),
-      }),
-    );
+    copyText("answer", buildAnswerClipboardText({ answer, sources, weakEvidence, renderCopyText }));
   });
   // The answer thread's prior-query list, memoized so it isn't a fresh array on
   // every keystroke (it feeds two memoized surfaces below).
