@@ -3,11 +3,11 @@
 #
 # checked-in policy:
 # - enabled = false so ordinary/offline Codex sessions do not initialize providers
-# - read-only Supabase tools use "auto"; write-capable Figma/Railway/Sentry tools use
-#   "writes" so reads stay frictionless while writes still require explicit approval
+# - production Supabase uses "prompt" so every metadata/read operation requires
+#   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
 #   test:live, check:supabase-project) still need explicit confirmation per AGENTS.md
-# Runtime Cloud MCP remains `.mcp.json` (Railway + read-only Supabase only).
+# Hosted Cloud tools come from installed OAuth plugins/connectors; `.mcp.json` is a cross-client template, not runtime proof.
 
 [mcp_servers.figma_cloud]
 url = "https://mcp.figma.com/mcp"
@@ -15,11 +15,11 @@ enabled = false
 default_tools_approval_mode = "writes"
 
 [mcp_servers.supabase_cloud]
-# Production project, read_only=true, approved feature groups only.
+# Production project, read_only=true, docs/development metadata only; database and debugging groups are excluded.
 # OAuth scopes come from the hosted Supabase consent screen; do not broaden this URL.
-url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdevelopment"
 enabled = false
-default_tools_approval_mode = "auto"
+default_tools_approval_mode = "prompt"
 
 [mcp_servers.railway_cloud]
 url = "https://mcp.railway.com"
