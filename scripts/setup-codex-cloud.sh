@@ -322,7 +322,7 @@ npm run check:runtime
 npm run check:installed-lock-parity
 npm run check:worker-python-locks:static
 npm run check:codex-cloud
-npm run check:codex-cloud -- --runtime
+CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime
 npm run diagnose:codex-cloud
 trap - ERR
 log "Setup complete with ${CODEX_CLOUD_ACCESS_PROFILE} access profile."
