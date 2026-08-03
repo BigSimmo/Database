@@ -6,7 +6,27 @@ import {
   resolveAnswerSources,
   singleDocumentClipboardMetadata,
 } from "@/components/clinical-dashboard/answer-copy-payload";
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { ClinicalSourceMetadata, RagAnswer, SearchResult } from "@/lib/types";
+
+// ClinicalSourceMetadata's governance fields are required-and-nullable rather
+// than optional, so a fixture cannot quietly omit the provenance a real source
+// always carries. Annotated once here and varied by spread below: spreading
+// `overdueSource.source_metadata` instead would widen every field back to
+// optional, because `source_metadata` is optional on `SearchResult`.
+const overdueMetadata: ClinicalSourceMetadata = {
+  source_title: "Superseded WA protocol",
+  publisher: null,
+  jurisdiction: null,
+  version: null,
+  publication_date: null,
+  review_date: "2020-01-01",
+  uploaded_at: null,
+  indexed_at: null,
+  uploaded_by: null,
+  document_status: "outdated",
+  clinical_validation_status: "unknown",
+  extraction_quality: "unknown",
+};
 
 const overdueSource: SearchResult = {
   id: "chunk-1",
@@ -20,32 +40,13 @@ const overdueSource: SearchResult = {
   image_ids: [],
   similarity: 0.9,
   images: [],
-  // ClinicalSourceMetadata's governance fields are required and nullable, not
-  // optional: the type refuses a partial literal so a fixture cannot quietly
-  // omit the provenance a real source always carries.
-  source_metadata: {
-    source_title: "Superseded WA protocol",
-    publisher: null,
-    jurisdiction: null,
-    version: null,
-    publication_date: null,
-    review_date: "2020-01-01",
-    uploaded_at: null,
-    indexed_at: null,
-    uploaded_by: null,
-    document_status: "outdated",
-    clinical_validation_status: "unknown",
-    extraction_quality: "unknown",
-  },
+  source_metadata: overdueMetadata,
 };
 
 const currentSource: SearchResult = {
   ...overdueSource,
   id: "chunk-2",
-  source_metadata: {
-    document_status: "current",
-    review_date: "2026-01-01",
-  },
+  source_metadata: { ...overdueMetadata, document_status: "current", review_date: "2026-01-01" },
 };
 
 function answerWith(sources: SearchResult[]): RagAnswer {
