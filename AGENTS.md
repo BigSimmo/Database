@@ -870,13 +870,17 @@ Use `docs/codex-cloud.md` as the environment contract:
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
   Use `connected` only when the user explicitly authorizes the required provider access.
-- When MCP tools are already available in a Cloud session and the task needs them, read-only tools
-  can run without per-tool approval. Write-capable Figma, Railway, and Sentry tools still require
-  explicit confirmation. Paid API canaries (`eval:rag`,
-  `eval:retrieval:quality`, `eval:quality`, `verify:release`, `test:live`,
-  `check:supabase-project`) still need explicit confirmation. Project `.codex/config.toml`
-  keeps MCP entries `enabled = false` so ordinary/offline Codex hosts do not initialize them;
-  runtime Cloud MCP remains `.mcp.json` plus the host environment.
+- When MCP tools are already callable in a Cloud session and the task needs them, use the host
+  plugin/connector inventory. The production Supabase target is limited to prompted, read-only
+  `docs` and `development` metadata tools; do not enable database, SQL, row, or log tools.
+  Write-capable Figma, Railway, and Sentry tools still require explicit confirmation. Paid API
+  canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
+  `test:live`, `check:supabase-project`) still need explicit confirmation. Project
+  `.codex/config.toml` keeps MCP entries `enabled = false` so ordinary/offline hosts do not
+  initialize them. Connected setup writes enabled Railway and constrained Supabase entries to the
+  host `$CODEX_HOME/config.toml`; actual availability still requires the installed host
+  plugin/connector to complete OAuth and a fresh task to prove the callable inventory with
+  read-only identity calls. Root `.mcp.json` is a static cross-client template, not runtime proof.
 - Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
   read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
   clean disposable checkout on a task-specific non-protected branch.
@@ -887,15 +891,18 @@ Use `docs/codex-cloud.md` as the environment contract:
 - Repository setup cannot grant GitHub installation permissions, workspace RBAC, network
   policy, or provider credentials. Treat those as product/account settings and verify them
   separately without printing secret values.
-- In a fresh Cloud agent shell, run `npm run check:codex-cloud` directly, without manually
-  sourcing a profile or entering a login shell; it must report the static-and-environment PASS
-  line. Then run `npm run check:codex-cloud -- --runtime`; it must report the static,
-  environment, and runtime PASS line. The command shims load the generated profile for normal
-  `node`, `npm`, and `npx` work. Also run `npm run check:runtime` and
-  `npm run check:installed-lock-parity` before trusting a new or reset environment. A skipped
-  browser install is not full browser readiness. Output is limited to approved mode values,
-  presence booleans, repository identity, and MCP server/command/environment-variable names;
-  never print credential values.
+- In a fresh Cloud task, run `bash scripts/check-codex-cloud-raw-env.sh` before sourcing a
+  profile or entering a login shell. It must report only provider variable names and presence,
+  never values. Then run `npm run check:codex-cloud` directly; it must report the
+  static-and-environment PASS line. Run `npm run check:codex-cloud -- --runtime` with
+  `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the intended merge/base commit when the checkout has
+  only a task HEAD. Setup and maintenance may report freshness as unverified so provisioning
+  remains repairable, but explicit acceptance must not pass an arbitrary HEAD. The command shims
+  load the generated profile for normal `node`, `npm`, and `npx` work. Also run
+  `npm run check:runtime` and `npm run check:installed-lock-parity` before trusting a new or
+  reset environment. A skipped browser install is not full browser readiness. Output is limited
+  to approved mode values, presence booleans, full Git commit identities, and MCP
+  server/command/environment-variable names; never print credential values.
 - Do not add OpenAI, Supabase, Railway, GitHub, database, or user credentials as ordinary
   Cloud environment variables. Codex Cloud secrets are setup-only and unavailable to the
   agent phase unless the platform explicitly exposes a secret to the named task phase; do not
@@ -908,9 +915,12 @@ Use `docs/codex-cloud.md` as the environment contract:
   `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
   dispatch confirmation, and the `Database / production` environment, never by exposing
   credentials to the Codex Cloud agent shell.
-- Railway reads require both the pinned CLI and a dedicated `RAILWAY_API_TOKEN`. Never substitute
-  `RAILWAY_TOKEN`. GitHub CLI authentication, the credential-free `origin` URL, and shell Git
-  authentication are separate capabilities.
+- Connected Cloud Railway access uses the hosted Railway MCP connector and browser OAuth; prove it
+  with the callable tool inventory and a read-only identity/project-list call. CLI token auth is a
+  separate operator capability: it requires both the pinned CLI and a dedicated
+  `RAILWAY_API_TOKEN`, and must never substitute `RAILWAY_TOKEN` or expose either token to an
+  ordinary agent shell. GitHub connector access, GitHub CLI authentication, the credential-free
+  `origin` URL, and shell Git authentication are separate capabilities.
 - For an explicitly authorised GitHub task, use the authenticated GitHub connector/MCP
   tools as the default remote control plane. Use them for repository, PR, issue, review
   thread, and Actions work, including inline-thread replies/resolution, Actions
@@ -918,14 +928,13 @@ Use `docs/codex-cloud.md` as the environment contract:
   `gh`, shell GitHub credentials, or direct shell network access is not a loss of this
   capability. The intended connection is `BigSimmo` with repository write access.
   Reserve administrator access for separately approved operations.
-- A PAT is a connected-only, user-authorised exception for a genuine connector gap. Store a
-  short-lived, fine-grained `CODEX_CLOUD_GITHUB_PAT` only as a connected Cloud secret and
-  scope it to this repository and the named operation. Never make it an ordinary variable,
-  profile value, remote URL, or cached file. Use only
-  `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` for an exact
-  branch-deletion instruction; it verifies the profile, ref, and credential-free origin and
-  never prints the token. Remove or rotate the secret immediately afterwards. If secrets are
-  unavailable in that task phase, report the platform limit rather than bypassing it.
+- In Codex Cloud, use native Push, the authenticated GitHub connector, or GitHub's UI for branch
+  publication and cleanup. `CODEX_CLOUD_GITHUB_PAT` is excluded from every Cloud agent shell.
+  The helper `bash scripts/delete-codex-cloud-branch-with-pat.sh <non-protected-branch>` is
+  operator-only outside Codex Cloud; it must reject `CODEX_CLOUD=1`, validate the exact
+  non-protected ref and credential-free origin, and never print the token. If the native or
+  connector path is unavailable, report the platform limit rather than copying a PAT into a
+  profile, remote URL, cached file, or agent environment.
 - Confirm the exact repository and PR/thread/job before a write, and verify the connector
   result before treating the write as successful. A repository cannot sanitize a variable
   already inherited by the top-level task process; the tracked shims protect normal
