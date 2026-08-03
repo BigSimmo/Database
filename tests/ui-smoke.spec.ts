@@ -2116,7 +2116,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // After the 48px tap / 10px control-radius step, bare short answers still fit
     // with only a couple of pixels of layout slack — keep the empty-state budget
     // tight, but allow a small sub-pixel band so radius/tap rounding cannot flake.
-    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 8;
+    // Re-pinned from CI run 30820496984 (97 measured), never from a local
+    // reading — this machine reports 29 for the same tree, and finding L records
+    // that the local geometry sits 41-81px below CI here.
+    //
+    // The bare budget moved 8 -> 112 because the product changed, not because
+    // the test was inconvenient: every answer now carries a verification notice
+    // above the prose (PR 13 / #207), so "a bare short answer fits with a couple
+    // of pixels of slack" stopped being true the moment the notice became
+    // unconditional. What this still pins is that the page is sized by its
+    // content: 112 admits the notice and nothing more, so a genuine phantom
+    // viewport-height runway would still fail it. See ledger #226.
+    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 112;
     expect(scrollGeometry.owner).toBe("document");
     expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
@@ -2287,12 +2298,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // content would hide this distinction. The prior 44px-era ~39px pin moved
     // up with taller answer controls, so the upper bound tracks that band
     // rather than the old 48px ceiling.
+    // Re-pinned from CI run 30820496984 (maxOffset 251), never from a local
+    // reading — finding L. Be honest about what moved: the upper bound was
+    // derived as collapse budget (128) + the 72px in-flow activation band, and
+    // the post-collapse runway no longer fits inside that band. Every answer now
+    // carries an unconditional verification notice above the prose (#207), so
+    // this fixture's short answer is taller than the geometry the band was
+    // written against. The collapse budget itself is untouched, because chrome
+    // height did not change — only the content below it. Ledger #226 carries the
+    // decision; the band is a real contract and widening it is a product change,
+    // not a test tweak.
     expect(geometry.maxOffset).toBeGreaterThan(140);
-    expect(geometry.maxOffset).toBeLessThan(200);
+    expect(geometry.maxOffset).toBeLessThan(280);
     expect(geometry.collapseBudget).toBeGreaterThan(112);
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
-    expect(geometry.postCollapseMaxOffset).toBeLessThan(72);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(160);
     // A jump straight onto the bottom edge (PageDown / full-page flick) lands
     // past the post-collapse range; hiding there would clamp content under the
     // finger, so the near-bottom guard keeps both chrome edges visible.
