@@ -138,8 +138,16 @@ export function VerificationNotice({
       // Deliberately not a live region and not focusable: it is standing
       // document text above the answer actions, not an event. Print CSS may
       // never hide or clamp it, so no line-clamp and no print:hidden here.
+      //
+      // Compact on phones, full size from `sm`. Every word survives at every
+      // width — the notice is the safety content and is never clamped, never
+      // collapsed behind a disclosure, and never dropped on a small screen.
+      // What changes is only the type scale, because at `text-sm` this block
+      // costs 160px above the prose on a 390px phone and pushes the answer's
+      // scroll runway past the in-flow chrome activation band
+      // (tests/ui-smoke.spec.ts:2224, ledger #226).
       className={cn(
-        "flex items-start gap-2 text-sm text-[color:var(--text-muted)]",
+        "flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6",
         caution ? "text-[color:var(--warning)]" : null,
         className,
       )}
@@ -148,7 +156,11 @@ export function VerificationNotice({
       <div className="min-w-0">
         <p>{wording}</p>
         {typeof sourceCount === "number" ? (
-          <p data-testid="verification-notice-sources">
+          // A count, not a warning, and the Sources control sits directly below
+          // it on screen already saying the same number — so it is the one line
+          // here that a phone can spend. Kept in the DOM and restored from `sm`
+          // and in print, where it is part of the audit artefact.
+          <p data-testid="verification-notice-sources" className="hidden sm:block print:block">
             {sourceCount === 1 ? "Based on 1 cited source." : `Based on ${sourceCount} cited sources.`}
           </p>
         ) : null}
