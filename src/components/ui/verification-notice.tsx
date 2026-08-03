@@ -22,6 +22,14 @@ export type VerificationNoticeProps = {
   state: VerificationState;
   /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
   audience?: "clinician" | "plain";
+  /**
+   * Who produced the prose. Never inferred from `state`: `#207` precedence lets
+   * `stale_evidence`, `partial_retrieval` and `ungrounded` outrank
+   * `source_only`, so an extractive answer reports one of those kinds and would
+   * otherwise be announced as "AI-generated" over passages no model wrote.
+   * Callers pass the quality tier, not the state kind. Ledger `#228`.
+   */
+  attribution?: "model" | "extractive";
   /** Print rendering is self-contained: no wording may depend on the live link. */
   medium?: "screen" | "print";
   sourceCount?: number;
@@ -66,6 +74,42 @@ const WORDING: Record<"clinician" | "plain", Record<VerificationState, string>> 
 };
 
 /**
+ * Wording for an answer assembled from source passages rather than written by a
+ * model, in the states that outrank `source_only`.
+ *
+ * `#207` precedence puts `stale_evidence`, `partial_retrieval` and `ungrounded`
+ * above `source_only`, so an extractive answer that is also stale, partial or
+ * unsupported reports one of those kinds — and every one of their wordings opens
+ * with "AI-generated". The result was two contradictory provenance claims on one
+ * answer: this notice saying a model wrote it, directly above the Source-only
+ * disclosure saying no model did. A clinician cannot weigh an answer without
+ * knowing which.
+ *
+ * Attribution cannot be inferred from the kind, which is exactly why the
+ * clipboard composer takes an explicit `sourceOnly` flag (`#208`). This is the
+ * on-screen counterpart. Each string keeps its state's full instruction and
+ * changes only the provenance clause. Ledger `#228`.
+ */
+const EXTRACTIVE_WORDING: Record<"clinician" | "plain", Partial<Record<VerificationState, string>>> = {
+  clinician: {
+    stale_evidence:
+      "Assembled directly from the cited sources without model synthesis, and some of those sources are past their review date. Re-verify every clinical claim against the linked source before acting on it.",
+    partial_retrieval:
+      "Assembled directly from an incomplete set of cited sources without model synthesis. Some sources for this question were unavailable, so this answer may omit relevant guidance. Verify against the linked sources before acting on it.",
+    ungrounded:
+      "Assembled directly from the cited sources without model synthesis, and those sources could not be shown to support every claim in it. Read the cited passages and confirm each clinical number, dose, timing and threshold there before acting on it.",
+  },
+  plain: {
+    stale_evidence:
+      "This summary is copied straight from the documents listed below rather than written by a computer, and those documents are overdue for review, so parts of it may be out of date. Check it with your treating team before acting on it.",
+    partial_retrieval:
+      "This summary is copied straight from the documents listed below rather than written by a computer, and some documents could not be included, so it may be incomplete. Check it with your treating team before acting on it.",
+    ungrounded:
+      "This summary is copied straight from the documents listed below rather than written by a computer, and we could not confirm that those documents say everything it says. Do not act on it without checking with your treating team.",
+  },
+};
+
+/**
  * Wording for a state this build does not recognise — a newer producer, a bad
  * cast, a partially-deployed rollout. A verification notice is the one surface
  * where the neutral variant is the *weakest* thing to say, so an unknown state
@@ -93,7 +137,17 @@ const CAUTION_STATES = new Set<VerificationState>(["stale_evidence", "ungrounded
 
 const loggedUnknownStates = new Set<string>();
 
-function wordingFor(audience: "clinician" | "plain", state: VerificationState): string {
+function wordingFor(
+  audience: "clinician" | "plain",
+  state: VerificationState,
+  attribution: "model" | "extractive",
+): string {
+  // Only the provenance clause changes; the state's instruction is unchanged,
+  // and an unrecognised state still falls through to the most cautionary text.
+  if (attribution === "extractive") {
+    const extractive = EXTRACTIVE_WORDING[audience][state];
+    if (extractive) return extractive;
+  }
   const wording = WORDING[audience][state];
   if (wording) return wording;
 
@@ -117,13 +171,14 @@ function wordingFor(audience: "clinician" | "plain", state: VerificationState): 
 export function VerificationNotice({
   state,
   audience = "clinician",
+  attribution = "model",
   medium = "screen",
   sourceCount,
   printedAt,
   printedBy,
   className,
 }: VerificationNoticeProps) {
-  const wording = wordingFor(audience, state);
+  const wording = wordingFor(audience, state, attribution);
   // An unrecognised state is treated as caution: it wears the warning mark for
   // the same reason it gets the strongest wording.
   const caution = CAUTION_STATES.has(state) || !WORDING[audience][state];
@@ -134,6 +189,7 @@ export function VerificationNotice({
       data-testid="verification-notice"
       data-state={state}
       data-audience={audience}
+      data-attribution={attribution}
       data-medium={medium}
       // Deliberately not a live region and not focusable: it is standing
       // document text above the answer actions, not an event. Print CSS may

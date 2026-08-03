@@ -246,6 +246,11 @@ function StagedAnswerResultSurfaceImpl({
                 one kind that carries no count, hence the `in` guard. */}
             <VerificationNotice
               state={answerState.kind}
+              // From the quality tier, never from the state kind: #207
+              // precedence lets stale/partial/ungrounded outrank source_only, so
+              // keying on the kind announced "AI-generated" directly above the
+              // Source-only disclosure saying no model wrote it (#228).
+              attribution={answer.answerQualityTier === "source_only" ? "extractive" : "model"}
               sourceCount={"sourceCount" in answerState ? answerState.sourceCount : sourceCount}
             />
             {/* Only where the banner says something the notice cannot. For

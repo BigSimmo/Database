@@ -151,6 +151,29 @@ describe("VerificationNotice", () => {
     expect(notice).not.toHaveTextContent(/incorrect|wrong|false/i);
   });
 
+  it("never claims a model wrote an extractive answer, in any state that outranks source_only", () => {
+    // #228. #207 precedence puts stale_evidence, partial_retrieval and
+    // ungrounded above source_only, so an extractive answer reports one of those
+    // kinds. Keying the provenance clause on the kind announced "AI-generated"
+    // directly above the Source-only disclosure saying no model wrote it — two
+    // contradictory claims about the one fact that decides how the answer is
+    // weighed.
+    for (const state of ["stale_evidence", "partial_retrieval", "ungrounded"] as const) {
+      const { unmount } = render(<VerificationNotice state={state} attribution="extractive" />);
+      const notice = screen.getByTestId("verification-notice");
+      expect(notice, `${state} must not claim model authorship`).not.toHaveTextContent(/AI-generated/i);
+      expect(notice).toHaveTextContent(/without model synthesis/i);
+      // The state's own instruction survives; only the provenance clause moves.
+      expect(notice).toHaveTextContent(/verify|confirm|re-verify/i);
+      unmount();
+    }
+  });
+
+  it("keeps the model attribution by default so an un-widened caller is unchanged", () => {
+    render(<VerificationNotice state="ungrounded" />);
+    expect(screen.getByTestId("verification-notice")).toHaveTextContent(/AI-generated/i);
+  });
+
   it("wears the caution role for stale evidence and never the danger role", () => {
     render(<VerificationNotice state="stale_evidence" />);
     const notice = screen.getByTestId("verification-notice");
