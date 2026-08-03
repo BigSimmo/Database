@@ -110,6 +110,36 @@ describe("buildAnswerClipboardText · single-document provenance", () => {
     expect(copied).toContain("Review status:");
   });
 
+  it("keeps the provenance line when the extra document is an uncited candidate", () => {
+    // RagAnswer.sources retains every retrieval candidate while citations name
+    // the supporting set. Deriving metadata from the raw candidate list made a
+    // genuinely one-document answer look like two and dropped the audit line
+    // from the paste — on the normal payload shape, not an edge case.
+    const uncitedOtherDoc: SearchResult = {
+      ...currentSource,
+      id: "chunk-99",
+      document_id: "doc-2",
+      title: "Unrelated candidate",
+    };
+    const answer: RagAnswer = {
+      ...answerWith([currentSource, uncitedOtherDoc]),
+      citations: [
+        {
+          chunk_id: currentSource.id,
+          document_id: currentSource.document_id,
+          title: currentSource.title,
+          file_name: currentSource.file_name,
+          page_number: currentSource.page_number,
+          chunk_index: currentSource.chunk_index,
+        },
+      ],
+    };
+
+    const copied = buildAnswerClipboardText({ answer, renderCopyText: "Clinical answer draft" });
+    expect(copied).toContain("Designation:");
+    expect(copied).toContain("Review status:");
+  });
+
   it("suppresses the provenance line when more than one document is cited", () => {
     const secondDoc: SearchResult = {
       ...currentSource,

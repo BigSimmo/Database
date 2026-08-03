@@ -61,6 +61,36 @@ export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCo
 }
 
 /**
+ * The supporting set, not every retrieval candidate. `RagAnswer.sources` retains
+ * every candidate the retrieval returned while `citations` name the chunks that
+ * actually support the prose (`ui/answer-state.ts`), so a one-document answer
+ * whose retrieval also surfaced an unrelated candidate must not be read as a
+ * two-document answer. Falls back to the full set when nothing identifies the
+ * citations, because an unfiltered set is better than an empty one.
+ */
+export function citedSourcesOnly(
+  sources: readonly SearchResult[] | null | undefined,
+  citations: RagAnswer["citations"] | null | undefined,
+): readonly SearchResult[] {
+  if (!sources?.length) return sources ?? [];
+  const citedChunkIds = new Set<string>();
+  const citedDocumentIds = new Set<string>();
+  for (const citation of citations ?? []) {
+    const chunkId = citation.chunk_id?.trim();
+    const documentId = citation.document_id?.trim();
+    if (chunkId) citedChunkIds.add(chunkId);
+    if (documentId) citedDocumentIds.add(documentId);
+  }
+  if (citedChunkIds.size === 0 && citedDocumentIds.size === 0) return sources;
+  const cited = sources.filter(
+    (source) =>
+      (source.id != null && citedChunkIds.has(source.id)) ||
+      (source.document_id != null && citedDocumentIds.has(source.document_id)),
+  );
+  return cited.length > 0 ? cited : sources;
+}
+
+/**
  * Provenance metadata for the clipboard audit line — only when the cited set
  * collapses to one document. Multi-document pastes suppress the line in the
  * composer (it would contradict a multi-source stale caveat).
@@ -99,6 +129,9 @@ export function buildAnswerClipboardText({
     renderCopyText,
     sourceOnly: answer.answerQualityTier === "source_only",
     state: answerStateForAnswer({ answer, sources, weakEvidence }),
-    metadata: singleDocumentClipboardMetadata(resolvedSources),
+    // Cited set, not every candidate: an uncited candidate from another document
+    // would otherwise make a one-document answer look like two and suppress the
+    // provenance audit line entirely.
+    metadata: singleDocumentClipboardMetadata(citedSourcesOnly(resolvedSources, answer.citations)),
   });
 }

@@ -92,10 +92,23 @@ export function citedDocumentHref(
 
   const pageMatch = locator?.match(/^p\.\s*(\d+)$/i);
   const pageFromLocator = pageMatch ? Number(pageMatch[1]) : null;
-  const match = candidates.find((source) => source.document_id === sourceId);
+  // Match the locator's page before picking a chunk. One document can contribute
+  // chunks from several pages, and `loadAuthorizedDocumentDetail` makes the
+  // selected chunk's page authoritative over the requested one
+  // (`src/lib/document-detail.ts`: `effectivePage = selectedChunk?.page_number ??
+  // requestedPage`). Taking the first candidate while advertising the locator's
+  // page therefore opens a control labelled "p. 12" on page 4.
+  const documentCandidates = candidates.filter((source) => source.document_id === sourceId);
+  const match =
+    (pageFromLocator != null
+      ? documentCandidates.find((source) => source.page_number === pageFromLocator)
+      : undefined) ?? documentCandidates[0];
 
   if (match) {
     const page = pageFromLocator ?? match.page_number ?? 1;
+    // Only pin a chunk that actually sits on the page being advertised;
+    // otherwise open the page and let the viewer land where the label promised.
+    const chunkIsOnAdvertisedPage = pageFromLocator == null || match.page_number === pageFromLocator;
     const metadata =
       match.source_metadata && typeof match.source_metadata === "object"
         ? (match.source_metadata as Record<string, unknown>)
@@ -107,7 +120,9 @@ export function citedDocumentHref(
       recordId: metadata.registry_record_id as string | undefined,
     });
     if (registryHref) return registryHref;
-    return `/documents/${encodeURIComponent(sourceId)}?page=${page}&chunk=${encodeURIComponent(match.id)}`;
+    return chunkIsOnAdvertisedPage
+      ? `/documents/${encodeURIComponent(sourceId)}?page=${page}&chunk=${encodeURIComponent(match.id)}`
+      : `/documents/${encodeURIComponent(sourceId)}?page=${page}`;
   }
 
   const params = new URLSearchParams();
