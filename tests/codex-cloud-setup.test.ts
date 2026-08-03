@@ -10,12 +10,14 @@ import {
   configuredProviderCredentialNames,
   expectedMcpConfiguration,
   executableFile,
+  gitCheckoutFreshness,
   localGitBaseline,
   obsoleteNpmProxyVariables,
   parseMcpServerMetadata,
   playwrightBrowserErrors,
   providerCredentialVariables,
   pythonWorkerImportError,
+  pythonWorkerVersionLine,
   pythonWorkerImports,
   railwayReadCapability,
   sanitizedCloudCapabilityLines,
@@ -225,6 +227,14 @@ describe("Codex Cloud environment contract", () => {
         railwayCliAvailable: true,
         codexCliAvailable: true,
         safeGitHelper: true,
+        checkout: {
+          head: "a".repeat(40),
+          localMain: "b".repeat(40),
+          originMain: "c".repeat(40),
+          expectedBase: "a".repeat(40),
+          expectedBaseAncestor: "true",
+          freshness: "verified",
+        },
         mcpServers: [
           {
             name: "railway",
@@ -240,8 +250,35 @@ describe("Codex Cloud environment contract", () => {
     const report = lines.join("\n");
     expect(report).toContain("OPENAI_API_KEY.present=true");
     expect(report).toContain("mcp.server=railway type=http command=none endpoint=https://mcp.railway.com/");
+    expect(report).toContain(`git.head=${"a".repeat(40)}`);
+    expect(report).toContain("git.expected_base_ancestor=true");
+    expect(report).toContain("git.checkout_freshness=verified");
     expect(report).not.toContain(secret);
     expect(report).not.toContain("sensitive-test");
+    expect(
+      sanitizedCloudCapabilityLines(
+        {
+          CODEX_CLOUD: "1",
+          CODEX_CLOUD_ACCESS_PROFILE: "connected",
+          RAG_PROVIDER_MODE: "auto",
+        },
+        {
+          origin: { configured: true, repositoryMatch: true, credentialsEmbedded: false },
+          railwayCliAvailable: false,
+          codexCliAvailable: false,
+          safeGitHelper: false,
+          checkout: {
+            head: "unavailable",
+            localMain: "unavailable",
+            originMain: "unavailable",
+            expectedBase: "unset",
+            expectedBaseAncestor: "unverified",
+            freshness: "unverified",
+          },
+          mcpServers: [],
+        },
+      ),
+    ).toContain("RAG_PROVIDER_MODE=invalid");
   });
 
   it("requires the Railway CLI and dedicated account token without substituting a project token", () => {
@@ -448,6 +485,8 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('setup_step="python-worker-requirements"');
     expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
     expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
+    expect(setup).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
+    expect(maintenance).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
     expect(commandShims).toContain('nvm which "$expected_node_major"');
     expect(commandShims).toContain('. "$runtime_profile"');
@@ -622,6 +661,36 @@ describe("Codex Cloud environment contract", () => {
 
     expect(localGitBaseline(directory, {})).toBeNull();
     expect(localGitBaseline(directory, { CODEX_CLOUD: "1" })).toBe("HEAD");
+
+    const head = git(directory, "rev-parse", "HEAD").stdout.trim();
+    expect(gitCheckoutFreshness(directory, { CODEX_CLOUD: "1" })).toEqual({
+      head,
+      localMain: "unavailable",
+      originMain: "unavailable",
+      expectedBase: "unset",
+      expectedBaseAncestor: "unverified",
+      freshness: "unverified",
+    });
+    expect(
+      gitCheckoutFreshness(directory, {
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_EXPECTED_BASE_SHA: head,
+      }),
+    ).toMatchObject({
+      expectedBase: head,
+      expectedBaseAncestor: "true",
+      freshness: "verified",
+    });
+  });
+
+  it("normalizes Python package version output for capability reports", () => {
+    const run = (() => ({
+      status: 0,
+      stdout: "medspacy=1.3.1 spacy=3.8.2\n",
+    })) as unknown as typeof spawnSync;
+    expect(pythonWorkerVersionLine(process.execPath, run)).toBe(
+      "python.worker_versions=medspacy=1.3.1,spacy=3.8.2",
+    );
   });
 
   it("launches and closes every installed Playwright browser", async () => {
