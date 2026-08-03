@@ -20,16 +20,35 @@ import type { RagAnswer, SearchResult } from "@/lib/types";
 
 export type AnswerCopyInput = {
   answer: RagAnswer;
-  /** Search-result fallback for paths that do not populate `answer.sources`. */
+  /**
+   * Search-result fallback for paths that do not populate `answer.sources`.
+   * An empty array is treated as unpopulated — `??` alone would keep `[]` and
+   * drop overdue-source warnings that only the fallback still carries.
+   */
   sources?: SearchResult[];
   /** Render trust, passed through rather than re-derived. */
   weakEvidence?: boolean;
 };
 
+/**
+ * Prefer the answer's cited set when it has entries; otherwise use the caller's
+ * fallback. `RagAnswer.sources` is typed as a required array, so "not populated"
+ * arrives as `[]` rather than `undefined`, and nullish coalescing is the wrong
+ * operator for that contract.
+ */
+export function resolveAnswerSources(
+  answerSources: SearchResult[] | null | undefined,
+  fallback?: SearchResult[] | null,
+): SearchResult[] | undefined {
+  if (answerSources != null && answerSources.length > 0) return answerSources;
+  if (fallback != null && fallback.length > 0) return fallback;
+  return answerSources ?? fallback ?? undefined;
+}
+
 /** The projection every answer surface reads, from the payload they all hold. */
 export function answerStateForAnswer({ answer, sources, weakEvidence }: AnswerCopyInput): AnswerState {
   return answerStateFromRetrieval({
-    sources: answer.sources ?? sources,
+    sources: resolveAnswerSources(answer.sources, sources),
     citations: answer.citations,
     answerQualityTier: answer.answerQualityTier,
     fallbackReason: answer.fallbackReason,

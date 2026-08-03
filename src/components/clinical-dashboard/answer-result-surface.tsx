@@ -25,7 +25,7 @@ import {
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
-import { answerStateFromRetrieval } from "@/components/ui/answer-state";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { Sheet } from "@/components/ui/sheet";
 import { VerificationNotice } from "@/components/ui/verification-notice";
@@ -187,24 +187,13 @@ function StagedAnswerResultSurfaceImpl({
    * `RetrievalStateBanner` are two renderings of one state rather than two
    * independent readings of the same fields.
    *
-   * `answer.sources` is the cited set the render model works from; the `sources`
-   * prop is the search-result fallback for paths that do not populate it.
+   * Goes through `answerStateForAnswer` so empty `answer.sources` still falls
+   * back to the search-result set — the same resolution the clipboard path uses.
    * `weakEvidence` is passed through rather than re-derived — render trust is
    * the render policy's decision, not this layer's.
    */
   const answerState = useMemo(
-    () =>
-      answerStateFromRetrieval({
-        sources: answer.sources ?? sources,
-        citations: answer.citations,
-        answerQualityTier: answer.answerQualityTier,
-        fallbackReason: answer.fallbackReason,
-        routingReason: answer.routingReason,
-        grounded: answer.grounded,
-        confidence: answer.confidence,
-        unverifiedNumericTokens: answer.unverifiedNumericTokens,
-        weakEvidence,
-      }),
+    () => answerStateForAnswer({ answer, sources, weakEvidence }),
     [answer, sources, weakEvidence],
   );
   const priority = answerSupportPriority(answer, safeAnswerSections, centralVisualEvidence, safetyFindings, {

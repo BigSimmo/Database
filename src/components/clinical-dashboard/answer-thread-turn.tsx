@@ -11,7 +11,7 @@ import {
 } from "@/components/clinical-dashboard/answer-content";
 import { sanitizeAnswerDisplayText } from "@/components/clinical-dashboard/display-text";
 import { answerSurface, cn, textMuted } from "@/components/ui-primitives";
-import { answerStateFromRetrieval } from "@/components/ui/answer-state";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { composeAnswerClipboardText } from "@/lib/answer-clipboard";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
@@ -66,18 +66,13 @@ export function PriorAnswerTurnSurface({
     turn.answer.citations.length;
   const previewText = safeText || turn.answer.answer;
   // #207/#208: a prior turn is copied out of the app exactly like a current one,
-  // so it carries the same attribution, caveat and provenance rules.
+  // so it carries the same attribution, caveat and provenance rules — and the
+  // same empty-`sources` fallback the live surface and clipboard path use.
   const turnState = useMemo(
     () =>
-      answerStateFromRetrieval({
-        sources: turn.answer.sources ?? turn.sources,
-        citations: turn.answer.citations,
-        answerQualityTier: turn.answer.answerQualityTier,
-        fallbackReason: turn.answer.fallbackReason,
-        routingReason: turn.answer.routingReason,
-        grounded: turn.answer.grounded,
-        confidence: turn.answer.confidence,
-        unverifiedNumericTokens: turn.answer.unverifiedNumericTokens,
+      answerStateForAnswer({
+        answer: turn.answer,
+        sources: turn.sources,
         weakEvidence: renderModel.trust === "low" || renderModel.trust === "unsupported",
       }),
     [turn.answer, turn.sources, renderModel.trust],
