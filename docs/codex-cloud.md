@@ -218,9 +218,10 @@ Run this in a fresh Cloud task before relying on the environment:
 Read all applicable AGENTS.md files and docs/codex-cloud.md. State whether this is the
 offline or connected profile. Report tool versions without printing environment values.
 Run npm run check:codex-cloud, npm run check:runtime,
-npm run check:installed-lock-parity, and npm run check:codex-cloud -- --runtime. Do not
-call a provider unless this task explicitly names and authorizes that provider. Report the
-decisive line from every command and any unrun check.
+npm run check:installed-lock-parity, and set CODEX_CLOUD_EXPECTED_BASE_SHA to the intended
+merge/base commit before running npm run check:codex-cloud -- --runtime. Do not call a
+provider unless this task explicitly names and authorizes that provider. Report the decisive
+line from every command and any unrun check.
 ```
 
 Expected decisive lines include:
@@ -237,9 +238,13 @@ policy and installed-lock parity, pinned Railway/Codex CLIs, Deno 2, Python 3 an
 Tesseract, actual headless launch-and-close for Chromium/Firefox/WebKit, the Python requirements
 fingerprint plus `pip check` and medspaCy/spaCy versions, the expected base commit as an ancestor
 of HEAD, the `BigSimmo/Database` origin identity, offline credential absence when applicable,
-and obsolete npm proxy variable names
-without reading or printing their values. MCP inspection emits server names, commands, and
-environment variable names only.
+and obsolete npm proxy variable names without reading or printing their values. It reports
+the full current HEAD, local main and origin/main when present, expected base, ancestry result,
+and a separate freshness state. Setup and maintenance use the process-local
+`CODEX_CLOUD_PROVISIONING=1` flag so an unavoidable task-only checkout reports
+`freshness=unverified` without entering a repair loop. The explicit acceptance command does
+not set that flag and fails until `CODEX_CLOUD_EXPECTED_BASE_SHA` proves the intended base.
+MCP inspection emits server names, commands, and environment variable names only.
 
 A repository cannot remove a variable already inherited by the top-level task process. Before
 sourcing any profile or invoking node/npm in a fresh task, run:
