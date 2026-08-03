@@ -298,6 +298,81 @@ and only the hosted Railway and project-scoped read-only Supabase MCP metadata. 
 shell boundary and configured capabilities, not OAuth authorization. Then verify each explicitly
 authorized provider with a read-only identity/status call and report only non-secret metadata.
 
+### Connected-environment remediation checklist
+
+Use this checklist when a Cloud task reports a connected profile but cannot call providers, publish
+its branch, or make the local health endpoint ready. Repository setup can prepare the boundary, but
+the host must grant OAuth and repository access in a fresh task; do not try to repair those gaps by
+copying credentials into the checkout.
+
+1. **Create the durable host environment.** In Codex environment settings, create or select
+   `Database - connected` for `BigSimmo/Database`. Set exactly the five non-secret values from the
+   connected profile above. Configure setup as
+   `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh` and
+   maintenance as
+   `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
+   Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
+   `ALLOW_PROVIDER_TESTS`.
+2. **Grant the host integrations.** Authorize the Codex GitHub connector for
+   `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
+   `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
+   Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
+   `sjrfecxgysukkwxsowpy`, `read_only=true`, and the existing feature allowlist. Do not broaden the
+   production Supabase MCP to write access. Enable Figma or Sentry only for a task that names that
+   provider; their write-capable tools remain approval-gated.
+3. **Start a fresh task.** OAuth tools and environment values are fixed when the task starts. A
+   setup rerun inside an already-running offline task can validate a generated connected profile,
+   but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open
+   a new task after consent.
+4. **Prove the shell boundary before providers.** Run `npm run check:codex-cloud`,
+   `npm run check:codex-cloud -- --runtime`, `npm run check:runtime`, and
+   `npm run check:installed-lock-parity`. Require the two Cloud PASS lines, correct runtime and
+   lock parity, `CODEX_CLOUD_ACCESS_PROFILE=connected`, no provider variable reported present, a
+   credential-free matching origin, and the expected MCP metadata. A connected label alone is not
+   provider proof.
+5. **Prove each provider read-only.** Use the tools exposed by the fresh host session, not shell
+   tokens. For GitHub, read repository metadata and confirm `BigSimmo/Database` plus the intended
+   identity. For Railway, read workspace/project/service metadata and confirm the IDs above without
+   triggering a deployment. For Supabase, read project/schema metadata and confirm the pinned ref
+   without querying clinical row contents. Report only non-secret identity and status metadata.
+   OpenAI has no generic connected-profile credential: leave `RAG_PROVIDER_MODE=offline` until a
+   separately approved paid canary or protected workflow supplies its own credential boundary.
+6. **Publish a task branch safely.** Work on a task-specific non-protected branch. Commit and format
+   the intended repository change, publish that exact existing commit through the native GitHub
+   connector/Cloud PR workflow, and verify the remote branch and PR link. If shell Git
+   authentication is intentionally available, `git push --set-upstream origin <task-branch>` is
+   acceptable after confirming the credential-free origin; otherwise a failed `git ls-remote` is
+   not repaired with an embedded PAT. Do not publish a generic detached `work` branch merely to
+   remove an informational "no upstream" warning.
+7. **Separate local app proof from live readiness.** Run `npm run ensure`, use the printed URL, and
+   confirm `/api/local-project-id` before checking `/api/health`. In demo mode, an HTTP 503 with
+   missing Supabase configuration and skipped OpenAI is expected and must not be relabelled healthy.
+   Stop only the verified repository-owned server after the check. Production-connected health and
+   authenticated tests run through the protected operator/provider workflow below, not by placing
+   credentials in the Cloud agent shell.
+8. **Treat swap as capacity control, not access setup.** Do not create persistent or ad-hoc swap by
+   default. First run the intended full unit suite and production build while observing available
+   memory. If they complete without memory pressure, record "swap not required." If a reproducible
+   out-of-memory failure remains after using the repository's coordinated single-heavy-command
+   workflow, resize the disposable environment or configure swap in the host image; do not commit a
+   swapfile, add it under the repository, or rely on an ephemeral in-task swapfile as a durable fix.
+
+Acceptance is complete only when evidence distinguishes these independent capabilities:
+
+| Capability              | Required evidence                                                                    | Not sufficient                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Connected boundary      | Cloud environment and runtime PASS lines with provider variables absent              | Editing the generated profile in one running task                  |
+| GitHub read/write       | Connector repository read plus verified publication of the exact task commit         | Repository discovery, `make_pr` metadata, or a local commit        |
+| Railway read            | OAuth-backed metadata for the expected workspace and project                         | Installed Railway CLI alone                                        |
+| Supabase read           | OAuth-backed metadata for the pinned read-only project                               | A configured MCP URL without completed OAuth                       |
+| OpenAI/live application | Explicitly approved paid canary or protected authenticated workflow                  | Setting `RAG_PROVIDER_MODE=auto` without credentials               |
+| Local application       | Project identity plus the reported health status from the `ensure` URL               | Assuming a localhost port or treating demo 503 as production-ready |
+| Capacity                | Full intended checks complete without OOM, or a host-level capacity change is proven | Swap size by itself                                                |
+
+If a capability still fails, record the exact sanitized failure and its owner: repository setup,
+Codex environment/OAuth, provider RBAC, GitHub installation, protected workflow, or host capacity.
+Do not collapse those distinct boundaries into a generic "Cloud access" result.
+
 ## Authenticated live testing
 
 Do not expose provider credentials to the Codex Cloud agent. Cloud secrets are removed
