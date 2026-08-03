@@ -103,6 +103,26 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(clearRecentQueries).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the clinical default rows both clickable and singly named", () => {
+    // Correct accessible name and a clickable label are not a trade. The row
+    // text stays a real `<label htmlFor>` so clicking it focuses the select, and
+    // `aria-labelledby` points back at that same label so the name is those
+    // words once rather than two `<label for>` elements concatenated.
+    renderDialog();
+    for (const [id, name] of [
+      ["settings-jurisdiction", "Jurisdiction"],
+      ["settings-population", "Default population"],
+    ] as const) {
+      const control = document.getElementById(id);
+      expect(control, `${name} control must exist`).not.toBeNull();
+      const label = document.querySelector(`label[for="${id}"]`);
+      expect(label, `${name} row text must stay a label so clicking it focuses the control`).not.toBeNull();
+      expect(label).toHaveAttribute("id", `${id}-label`);
+      expect(control).toHaveAttribute("aria-labelledby", `${id}-label`);
+      expect(control).toHaveAccessibleName(name);
+    }
+  });
+
   it("disables clear recent searches when there are no recent queries", () => {
     mockRecentCount.set(0);
     renderDialog();

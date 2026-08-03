@@ -135,8 +135,21 @@ export function PageHeader({
       {breadcrumb?.length ? <Breadcrumb items={breadcrumb} /> : null}
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 items-start gap-3">
+          {/* Hidden on phones, as the hand-rolled record headers already had it
+              (`sm:grid` on the DSM tile before adoption). The tile is decorative
+              — the icon is `aria-hidden` and the title carries the meaning — and
+              on a 390px screen it spends width a wrapping clinical title needs.
+              Restored here rather than via a per-caller escape hatch so every
+              page header keeps one treatment.
+
+              `max-sm:hidden`, not `hidden sm:grid`: `iconTilePremium` already
+              carries `grid`, and `cn()` in this repo is a plain join with no
+              tailwind-merge (ledger #218), so `hidden` + `sm:grid` + `grid`
+              would leave three display utilities to be resolved by stylesheet
+              order rather than by intent. One base display plus one max-width
+              override has nothing to race. */}
           {Icon ? (
-            <span className={iconTilePremium}>
+            <span className={cn(iconTilePremium, "max-sm:hidden")}>
               <Icon aria-hidden="true" className="size-icon-lg" />
             </span>
           ) : null}

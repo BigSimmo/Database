@@ -518,20 +518,32 @@ export function SettingsDialog({
               noteId="settings-clinical-defaults-note"
             >
               <SettingsGroup>
-                <SettingsField icon={Globe2} label="Jurisdiction">
+                <SettingsField
+                  icon={Globe2}
+                  label="Jurisdiction"
+                  htmlFor="settings-jurisdiction"
+                  labelId="settings-jurisdiction-label"
+                >
                   <SettingsSelect
                     id="settings-jurisdiction"
                     label="Jurisdiction"
+                    labelledBy="settings-jurisdiction-label"
                     describedBy="settings-clinical-defaults-note"
                     value={preferences.jurisdiction}
                     onChange={(value) => setPreference("jurisdiction", value)}
                     options={JURISDICTION_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField icon={CircleUserRound} label="Default population">
+                <SettingsField
+                  icon={CircleUserRound}
+                  label="Default population"
+                  htmlFor="settings-population"
+                  labelId="settings-population-label"
+                >
                   <SettingsSelect
                     id="settings-population"
                     label="Default population"
+                    labelledBy="settings-population-label"
                     describedBy="settings-clinical-defaults-note"
                     value={preferences.population}
                     onChange={(value) => setPreference("population", value)}
@@ -917,15 +929,21 @@ function SegmentedControl<T extends string>({
 }
 
 /**
- * The settings row already prints the visible label beside its icon, so the DS
- * `Select` carries the same words as its own `sr-only` label rather than a second
- * visible one. The row's text is therefore no longer a `<label htmlFor>` — one
- * control must have exactly one accessible name, and two `<label for>` elements
- * pointing at the same select concatenate into one.
+ * The visible row text stays a real `<label htmlFor>` so clicking it focuses the
+ * select, and `aria-labelledby` points back at that same label so it also owns
+ * the accessible name. The DS `Select` keeps its own `sr-only` label — a field
+ * without one is not a field — but `aria-labelledby` takes precedence, so the
+ * name is the row's words once rather than two `<label for>` elements
+ * concatenated into one.
+ *
+ * The earlier fold dropped `htmlFor` to avoid that concatenation and lost
+ * click-to-focus with it. Correct name and clickable label are not a trade: this
+ * is the shape that gives both.
  */
 function SettingsSelect<T extends string>({
   id,
   label,
+  labelledBy,
   value,
   onChange,
   options,
@@ -933,6 +951,7 @@ function SettingsSelect<T extends string>({
 }: {
   id: string;
   label: string;
+  labelledBy?: string;
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string }>;
@@ -944,6 +963,7 @@ function SettingsSelect<T extends string>({
       label={label}
       hideLabel
       value={value}
+      aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       onChange={(event) => onChange(event.target.value as T)}
       options={options.map((option) => ({ value: option.value, label: option.label }))}
