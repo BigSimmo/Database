@@ -237,7 +237,17 @@ function StagedAnswerResultSurfaceImpl({
                 site chooses the state, never the words. The degraded banner sits
                 directly under it and carries the one-click route back to the
                 cited page, so a caution is never raised with nowhere to go. */}
-            <VerificationNotice state={answerState.kind} sourceCount={sourceCount} />
+            {/* One count, not two. The notice and the banner are the two
+                governance statements on this surface and they sit adjacent, so
+                reading "Based on 3 cited sources." directly above "2 of 7
+                sources for this answer are past their review date" leaves a
+                clinician unable to tell how much of the evidence base is
+                overdue. Both now come from the projection. `source_only` is the
+                one kind that carries no count, hence the `in` guard. */}
+            <VerificationNotice
+              state={answerState.kind}
+              sourceCount={"sourceCount" in answerState ? answerState.sourceCount : sourceCount}
+            />
             {/* Only where the banner says something the notice cannot. For
                 `stale_evidence` it names which sources are overdue and for
                 `partial_retrieval` how much was missed; for `ungrounded` and

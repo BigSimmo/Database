@@ -141,11 +141,24 @@ export type ClipboardSourceRef = {
 export function answerClipboardText({
   body,
   state,
+  sourceOnly,
   sources,
   metadata,
 }: {
   body: string;
   state: AnswerState;
+  /**
+   * True when the answer was assembled from source passages rather than written
+   * by a model. It cannot be inferred from `state`: `#207` precedence puts
+   * `ungrounded` above `source_only`, so an extractive answer that is also
+   * weakly supported reports `ungrounded`, and keying attribution on the kind
+   * pastes "AI-generated" over passages no model wrote — a false provenance
+   * claim in a clinical record. The product composer takes the same explicit
+   * flag for the same reason (`@/lib/answer-clipboard`); this primitive was left
+   * without one, which mattered the moment `AnswerCard` acquired its first
+   * product mount (ledger `#216`).
+   */
+  sourceOnly?: boolean;
   /** The cited documents, enumerated so the paste can be audited away from the app. */
   sources?: readonly ClipboardSourceRef[];
   /**
@@ -171,7 +184,7 @@ export function answerClipboardText({
 
   return [
     body.trim(),
-    `${answerStateAttribution(state)} ${verify}`,
+    `${answerStateAttribution(state, { sourceOnly })} ${verify}`,
     answerClipboardCaveatLine(state),
     sourceList,
     answerClipboardProvenanceLine(state, metadata),
