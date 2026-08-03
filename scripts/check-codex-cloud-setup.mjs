@@ -414,10 +414,11 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const codexCliAvailable = options.codexCliAvailable ?? commandAvailable("codex");
   const safeGitHelper = options.safeGitHelper ?? hasSafeGitHubCredentialHelper(repoRoot);
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
+  const checkout = options.checkout ?? gitCheckoutFreshness(repoRoot, env);
   const lines = [
     `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
     `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
-    `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["auto", "openai", "offline"])}`,
+    `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["offline"])}`,
     `NEXT_PUBLIC_DEMO_MODE=${approvedModeValue(env.NEXT_PUBLIC_DEMO_MODE, ["true", "false"])}`,
     `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
   ];
@@ -433,6 +434,12 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   lines.push(`git.origin_repository_match=${origin.repositoryMatch}`);
   lines.push(`git.origin_credential_embedded=${origin.credentialsEmbedded}`);
   lines.push(`git.github_cli_helper_configured=${safeGitHelper}`);
+  lines.push(`git.head=${checkout.head}`);
+  lines.push(`git.local_main=${checkout.localMain}`);
+  lines.push(`git.origin_main=${checkout.originMain}`);
+  lines.push(`git.expected_base=${checkout.expectedBase}`);
+  lines.push(`git.expected_base_ancestor=${checkout.expectedBaseAncestor}`);
+  lines.push(`git.checkout_freshness=${checkout.freshness}`);
   for (const server of mcpServers) {
     lines.push(
       `mcp.server=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
@@ -458,6 +465,42 @@ export function localGitBaseline(root = process.cwd(), env = process.env) {
     if (result.status === 0) return "HEAD";
   }
   return null;
+}
+
+function fullGitRevision(root, ref) {
+  const result = spawnSync("git", ["rev-parse", "--verify", ref], {
+    cwd: root,
+    encoding: "utf8",
+    shell: false,
+  });
+  return result.status === 0 ? String(result.stdout ?? "").trim() : "unavailable";
+}
+
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
+export function gitCheckoutFreshness(root = process.cwd(), env = process.env) {
+  const head = fullGitRevision(root, "HEAD");
+  const localMain = fullGitRevision(root, "refs/heads/main");
+  const originMain = fullGitRevision(root, "refs/remotes/origin/main");
+  const expectedBase = env.CODEX_CLOUD_EXPECTED_BASE_SHA || "unset";
+  let expectedBaseAncestor = "unverified";
+  if (expectedBase !== "unset" && head !== "unavailable") {
+    const result = spawnSync("git", ["merge-base", "--is-ancestor", expectedBase, "HEAD"], {
+      cwd: root,
+      stdio: "ignore",
+      shell: false,
+    });
+    expectedBaseAncestor = result.status === 0 ? "true" : "false";
+  }
+  const taskOnly = localMain === "unavailable" && originMain === "unavailable";
+  const freshness =
+    expectedBaseAncestor === "true"
+      ? "verified"
+      : expectedBaseAncestor === "false"
+        ? "invalid"
+        : taskOnly
+          ? "unverified"
+          : "branch-reference-available";
+  return { head, localMain, originMain, expectedBase, expectedBaseAncestor, freshness };
 }
 
 export function executableFile(filePath) {
@@ -559,7 +602,7 @@ export function pythonWorkerVersionLine(pythonCommand, run = spawnSync) {
   return result.status === 0
     ? `python.worker_versions=${String(result.stdout ?? "")
         .trim()
-        .replaceAll(/\\s+/g, ",")}`
+        .replaceAll(/\s+/g, ",")}`
     : "python.worker_versions=unavailable";
 }
 
@@ -828,21 +871,20 @@ export async function validateCodexCloudRuntime(env = process.env) {
     errors.push(`Obsolete npm proxy variable names are set: ${obsoleteProxyNames.join(", ")}.`);
   }
   const baseline = localGitBaseline(repoRoot, env);
+  const checkout = gitCheckoutFreshness(repoRoot, env);
   if (!baseline) {
     errors.push("Neither local main, origin/main, nor a Cloud task HEAD is available.");
-  } else if (baseline === "HEAD" && !env.CODEX_CLOUD_EXPECTED_BASE_SHA) {
+  } else if (
+    baseline === "HEAD" &&
+    checkout.freshness === "unverified" &&
+    env.CODEX_CLOUD_PROVISIONING !== "1"
+  ) {
     errors.push(
       "Checkout freshness is unverified: set CODEX_CLOUD_EXPECTED_BASE_SHA to the intended merge/base commit.",
     );
   }
-  if (env.CODEX_CLOUD_EXPECTED_BASE_SHA) {
-    const expectedBase = spawnSync("git", ["merge-base", "--is-ancestor", env.CODEX_CLOUD_EXPECTED_BASE_SHA, "HEAD"], {
-      cwd: repoRoot,
-      stdio: "ignore",
-    });
-    if (expectedBase.status !== 0) {
-      errors.push("CODEX_CLOUD_EXPECTED_BASE_SHA is not an ancestor of the current HEAD.");
-    }
+  if (checkout.expectedBaseAncestor === "false") {
+    errors.push("CODEX_CLOUD_EXPECTED_BASE_SHA is not an ancestor of the current HEAD.");
   }
   const origin = inspectOriginRemote(repoRoot);
   if (!origin.configured) errors.push("origin is unavailable in the Cloud checkout.");
@@ -857,6 +899,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
   if (runtime) errors.push(...(await validateCodexCloudRuntime()));
   else if (environment) errors.push(...validateCodexCloudEnvironment());
+  if (
+    runtime &&
+    process.env.CODEX_CLOUD_PROVISIONING === "1" &&
+    gitCheckoutFreshness(repoRoot).freshness === "unverified"
+  ) {
+    console.warn(
+      "[Codex Cloud Check] WARN: checkout freshness is unverified during provisioning; run explicit acceptance with CODEX_CLOUD_EXPECTED_BASE_SHA.",
+    );
+  }
   if (environment) {
     console.log("[Codex Cloud Environment] sanitized effective modes and capabilities:");
     for (const line of sanitizedCloudCapabilityLines()) console.log(`  ${line}`);
