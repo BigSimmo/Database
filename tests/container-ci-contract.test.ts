@@ -79,6 +79,7 @@ describe("container delivery contract", () => {
   it("does not fail image verification when the optional GitHub cache export is unavailable", () => {
     const workflow = read(".github/workflows/docker-image.yml");
     expect(workflow.match(/cache-to:.*ignore-error=true/g)).toHaveLength(2);
+    expect(workflow.match(/cache-(?:from|to):.*timeout=2m/g)).toHaveLength(4);
   });
 
   it("runs a provider-free runtime validator inside the worker image", () => {
