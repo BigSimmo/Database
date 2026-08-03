@@ -1,4 +1,16 @@
-"use client";
+/*
+ * Deliberately NOT "use client". `PageHeader` and `Breadcrumb` hold no state,
+ * no effects and no event handlers — the directive was inert until adoption,
+ * and then it was actively harmful: both of this module's importers
+ * (`information-page-shell.tsx`, `dsm-page-header.tsx`) are server components
+ * that now pass a `LucideIcon` as `icon`, and a component is a function, so
+ * every record page crashed with "Functions cannot be passed directly to
+ * Client Components". Rendering `<ArrowLeft />` at the call site used to hide
+ * that, because an element serialises where a component does not.
+ *
+ * Keep it server-side. If this ever needs interactivity, the boundary belongs
+ * around the interactive part, not around the page title.
+ */
 
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import Link from "next/link";
