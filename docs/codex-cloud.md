@@ -282,8 +282,11 @@ broaden the production entry. OpenAI generation, Supabase live data, Railway cha
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
 Project `.codex/config.toml` is the checked-in Codex MCP template. Its URL-only entries
-remain `enabled = false` so offline tasks do not initialize providers; an installed ChatGPT/Codex
-plugin or host MCP layer must grant OAuth and expose the callable tools in a fresh connected task.
+remain `enabled = false` so offline tasks do not initialize providers. In the connected profile,
+setup copies the audited Railway and constrained Supabase URLs into its managed
+`$CODEX_HOME/config.toml` block with `enabled = true`; the first use completes browser OAuth.
+Hosted ChatGPT still requires the matching installed plugin/connector. In either host, start a fresh
+task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
 Cloud availability unless a plugin manifest or host explicitly imports it.
 
@@ -312,7 +315,8 @@ copying credentials into the checkout.
    maintenance as
    `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
    Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
-   `ALLOW_PROVIDER_TESTS`.
+   `ALLOW_PROVIDER_TESTS`. Connected setup writes only the audited Railway/Supabase endpoints
+   into the managed host MCP block; it never writes OAuth tokens.
 2. **Grant the host integrations.** Authorize the Codex GitHub connector for
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
