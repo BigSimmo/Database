@@ -597,6 +597,14 @@ export function validateCodexCloudSetup() {
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
+    [
+      /mcp_servers\.railway_connected/,
+      "Connected Cloud setup must enable the hosted Railway MCP server in the managed host config.",
+    ],
+    [
+      /mcp_servers\.supabase_connected/,
+      "Connected Cloud setup must enable the constrained Supabase MCP server in the managed host config.",
+    ],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
