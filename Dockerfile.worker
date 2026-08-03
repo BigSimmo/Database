@@ -55,7 +55,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY worker/python/requirements.txt worker/python/requirements.txt
 RUN python3 -m venv /opt/ocr-venv
-RUN /opt/ocr-venv/bin/pip install --upgrade --require-hashes -r worker/python/requirements.txt \
+RUN /opt/ocr-venv/bin/pip install --no-cache-dir --upgrade --require-hashes -r worker/python/requirements.txt \
   && /opt/ocr-venv/bin/pip check
 ENV PATH="/opt/ocr-venv/bin:${PATH}"
 ENV PYTHONDONTWRITEBYTECODE=1
