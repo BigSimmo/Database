@@ -478,6 +478,8 @@ describe("Codex Cloud environment contract", () => {
     expect(config).toContain("BEGIN clinical-kb-codex-cloud shell policy");
     expect(config).toContain("[shell_environment_policy]");
     expect(config).toContain('inherit = "all"');
+    expect(config).not.toContain("[mcp_servers.railway_connected]");
+    expect(config).not.toContain("[mcp_servers.supabase_connected]");
     for (const name of requiredPolicyExcludes) {
       expect(config).toContain(`"${name}"`);
     }
@@ -505,6 +507,12 @@ describe("Codex Cloud environment contract", () => {
     });
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
+    const connectedConfig = readCodexConfig(connectedHome);
+    expect(connectedConfig).toContain("[mcp_servers.railway_connected]");
+    expect(connectedConfig).toContain("[mcp_servers.supabase_connected]");
+    expect(connectedConfig).toContain("features=docs%2Cdevelopment");
+    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(2);
+    expect(connectedConfig).toContain('default_tools_approval_mode = "prompt"');
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
