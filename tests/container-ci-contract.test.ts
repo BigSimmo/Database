@@ -76,7 +76,6 @@ describe("container delivery contract", () => {
     expect(read("Dockerfile.worker")).not.toContain("--mount=type=cache");
   });
 
-
   it("runs a provider-free runtime validator inside the worker image", () => {
     expect(read("Dockerfile.worker")).toContain("dist/worker/validate-runtime.mjs");
   });
