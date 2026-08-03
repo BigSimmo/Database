@@ -238,7 +238,18 @@ function StagedAnswerResultSurfaceImpl({
                 directly under it and carries the one-click route back to the
                 cited page, so a caution is never raised with nowhere to go. */}
             <VerificationNotice state={answerState.kind} sourceCount={sourceCount} />
-            {answerState.kind !== "ready" ? (
+            {/* Only where the banner says something the notice cannot. For
+                `stale_evidence` it names which sources are overdue and for
+                `partial_retrieval` how much was missed; for `ungrounded` and
+                `source_only` it restates the notice almost word for word, and
+                the live "Review source match" card below the answer states it a
+                third time. Measured on a one-sentence answer: three renderings
+                of one warning, eleven lines of caution around one line of
+                answer, 147px of scroll where the phone budget is 8
+                (tests/ui-smoke.spec.ts:2056, ledger #227). Three identical
+                alarms teach a reader to skip all three, so the duplicate is the
+                dangerous one, not the missing one. */}
+            {answerState.kind === "stale_evidence" || answerState.kind === "partial_retrieval" ? (
               <RetrievalStateBanner state={answerState} onOpenSource={onScopeDocument} />
             ) : null}
             <NaturalLanguageAnswer
