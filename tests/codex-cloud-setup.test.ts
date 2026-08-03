@@ -688,9 +688,7 @@ describe("Codex Cloud environment contract", () => {
       status: 0,
       stdout: "medspacy=1.3.1 spacy=3.8.2\n",
     })) as unknown as typeof spawnSync;
-    expect(pythonWorkerVersionLine(process.execPath, run)).toBe(
-      "python.worker_versions=medspacy=1.3.1,spacy=3.8.2",
-    );
+    expect(pythonWorkerVersionLine(process.execPath, run)).toBe("python.worker_versions=medspacy=1.3.1,spacy=3.8.2");
   });
 
   it("launches and closes every installed Playwright browser", async () => {
