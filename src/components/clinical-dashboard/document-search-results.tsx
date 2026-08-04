@@ -43,7 +43,10 @@ import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
 import { Sheet } from "@/components/ui/sheet";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { deriveDocumentSearchUnavailable } from "@/components/clinical-dashboard/document-search-unavailable-status";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
@@ -1356,14 +1359,28 @@ function DocumentSearchResultsPanelImpl({
               {sortedMatches.length === 0 ? (
                 // Facet toggles empty this list without a navigation, and the filter
                 // sheet covers the results it describes, so the state is introduced
-                // dynamically and the shared primitive's polite announcement is the
-                // point of adopting it here — the local panel it replaces said
-                // nothing at all when the last matching document dropped out.
-                <EmptyState
-                  icon={Funnel}
-                  title="No document matches include all selected filters."
-                  testId="document-filter-empty-results"
-                />
+                // dynamically and the polite announcement is the point — the local
+                // panel this replaced said nothing at all when the last matching
+                // document dropped out.
+                //
+                // Now the shared surface rather than the bare primitive: this is
+                // exactly the reader F11 describes, sitting under a shelf of chips
+                // that caused the emptiness, and the bare primitive named the
+                // problem while offering no route out of it. It gets the chips, so
+                // it can offer to undo one; and Browse, because when narrowing this
+                // result set is not the answer, reaching the whole corpus is.
+                <div data-testid="document-filter-empty-results">
+                  <SearchResultsEmptyState
+                    modeId="documents"
+                    query={trimmedQuery}
+                    appliedFilters={appliedFilters}
+                    onClearFilters={clearAllFilters}
+                    onBrowseAll={onOpenLibrary}
+                    browseAllLabel={
+                      documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"
+                    }
+                  />
+                </div>
               ) : null}
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {renderedMatches.map((document, index) => {

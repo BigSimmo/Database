@@ -262,14 +262,12 @@ describe("Therapy Compass production-mode wiring", () => {
       "utf8",
     );
     expect(searchScreenSrc).toContain("onClick={b.clearSearchFilters}");
-    // The chip row must no longer hold a full reset. The sheet's `onClear` still
-    // does, and so does the empty state's action until F11 replaces that block
-    // with separate `Remove "X"` / `Clear all filters` routes — at which point
-    // the sheet is the only full reset left.
-    const chipRow = searchScreenSrc.slice(0, searchScreenSrc.indexOf("<TherapyFilterSheet"));
-    expect(
-      chipRow.includes("b.clearSearch\n") || /onClick=\{b\.clearSearch\}/.test(chipRow),
-      "A control in the quick-filter row promising to clear filters must not delete the query.",
-    ).toBe(false);
+    // Exactly one full reset survives this screen, and it is the sheet's
+    // `Clear all` — the only control whose label says it clears everything.
+    // Anything else calling `clearSearch` is a control promising to clear
+    // filters while deleting the search behind them.
+    const fullResetSites = searchScreenSrc.match(/b\.clearSearch(?![A-Za-z])/g) ?? [];
+    expect(fullResetSites).toHaveLength(1);
+    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
 });

@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   MobileResultFilterControl,
+  SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
 
@@ -350,5 +351,94 @@ describe("SearchResultsHeaderBand", () => {
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
     expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
+  });
+});
+
+describe("SearchResultsEmptyState", () => {
+  const filters = [
+    { id: "medication", label: "Lithium", onRemove: vi.fn() },
+    { id: "action", label: "Discharge", onRemove: vi.fn() },
+  ];
+
+  it("leads with relaxing a filter when the set is empty because of them", async () => {
+    const user = userEvent.setup();
+    const onClearFilters = vi.fn();
+    const onRemove = vi.fn();
+    const onBrowseAll = vi.fn();
+
+    render(
+      <SearchResultsEmptyState
+        modeId="documents"
+        query="lithium monitoring"
+        appliedFilters={[filters[0], { ...filters[1], onRemove }]}
+        onClearFilters={onClearFilters}
+        onBrowseAll={onBrowseAll}
+        browseAllLabel="Browse all 2,014 sources"
+      />,
+    );
+
+    // The heading counts the filters rather than quoting the query: the query is
+    // not what emptied the set, and saying so sends the reader to rewrite the one
+    // thing that was working.
+    expect(screen.getByText("No documents match all 2 filters")).toBeVisible();
+    // The failure is attributed. "The search itself ran fine" is the sentence
+    // that stops a filtered-to-zero result reading as a broken search.
+    expect(screen.getByText(/The search itself ran fine/)).toBeVisible();
+
+    // Naming the filter in the label is what makes it a one-tap undo instead of
+    // a second thing to go and find.
+    await user.click(screen.getByRole("button", { name: "Remove “Discharge”" }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+
+    // Separate control, separate label — the single button that said "Clear
+    // filters" and reset the query too is exactly what this replaces.
+    await user.click(screen.getByRole("button", { name: "Clear all filters" }));
+    expect(onClearFilters).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole("button", { name: "Browse all 2,014 sources" }));
+    expect(onBrowseAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the example and cross-mode routes, demoted below a rule", () => {
+    render(
+      <SearchResultsEmptyState
+        modeId="documents"
+        query="lithium monitoring"
+        appliedFilters={filters}
+        onClearFilters={vi.fn()}
+        onTryExample={vi.fn()}
+      />,
+    );
+
+    const example = screen.getByRole("button", { name: /^Try:/ });
+    expect(example).toBeVisible();
+    // Demotion is structural, not just ordering: an example query is a different
+    // search, and the reader has not finished this one.
+    expect(example.parentElement).toHaveClass("border-t");
+  });
+
+  it("is unchanged when nothing is applied", () => {
+    render(<SearchResultsEmptyState modeId="documents" query="lithium monitoring" onTryExample={vi.fn()} />);
+
+    expect(screen.getByText("No matches for “lithium monitoring”")).toBeVisible();
+    expect(screen.getByText("Try an example, or jump to another mode.")).toBeVisible();
+    expect(screen.queryByTestId("search-results-empty-remove-filter")).toBeNull();
+    expect(screen.queryByTestId("search-results-empty-clear-filters")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Try:/ }).parentElement).not.toHaveClass("border-t");
+  });
+
+  it("offers no Clear all for a single filter, because Remove already is one", () => {
+    render(
+      <SearchResultsEmptyState
+        modeId="documents"
+        query="lithium monitoring"
+        appliedFilters={[filters[0]]}
+        onClearFilters={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("No documents match all 1 filter")).toBeVisible();
+    expect(screen.getByTestId("search-results-empty-remove-filter")).toBeVisible();
+    expect(screen.queryByTestId("search-results-empty-clear-filters")).toBeNull();
   });
 });

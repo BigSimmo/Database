@@ -4,6 +4,7 @@ import {
   Bookmark,
   ChevronsUpDown,
   CircleAlert,
+  CircleMinus,
   Funnel,
   LayoutList,
   LoaderCircle,
@@ -696,62 +697,138 @@ export function MobileResultFilterControl<Value extends string>({
   );
 }
 
+const emptyStateAction =
+  "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]";
+
 export function SearchResultsEmptyState({
   modeId,
   query,
   onTryExample,
   onCrossMode,
   canAccessFavourites = false,
+  appliedFilters = EMPTY_APPLIED_FILTERS,
+  onClearFilters,
+  onBrowseAll,
+  browseAllLabel = "Browse all sources",
 }: {
   modeId: AppModeId;
   query: string;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
   canAccessFavourites?: boolean;
+  /** The same chips the shelf is rendering. When the set is empty *because of
+      these*, the way out is to relax one — not to run a different search. The
+      release that made filters real (#1555) deleted the only copy pointing at
+      them, so a reader filtered to zero was offered an unrelated example and a
+      different mode, never the chips directly above that caused it. */
+  appliedFilters?: AppliedFilterChip[];
+  /** Clears every filter and keeps the query. Omit to hide that route. */
+  onClearFilters?: () => void;
+  /** Reach rather than refinement: the whole corpus, for when narrowing this
+      result set is not the answer. */
+  onBrowseAll?: () => void;
+  browseAllLabel?: string;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
   const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
+  const searchConfig = appModeSearchConfig(modeId);
+  const resultNoun = inlineNoun(searchConfig?.resultHeading?.replace(/ matches$/i, "s") ?? "Results");
+  // The last chip, named. Deliberately not described as "the one you just
+  // added": `appliedFilters` arrives in group order, not application order, so
+  // calling it the most recent would be a claim the data cannot support.
+  const lastFilter = appliedFilters.at(-1);
+  const filtered = appliedFilters.length > 0;
+  const secondary = [
+    config?.examples[0] && onTryExample ? (
+      <button
+        key="example"
+        type="button"
+        onClick={() => onTryExample(config.examples[0])}
+        className={cn(emptyStateAction, focusRing)}
+      >
+        Try: {config.examples[0]}
+      </button>
+    ) : null,
+    ...crossModes.slice(0, 2).map((target) =>
+      onCrossMode ? (
+        <button
+          key={target}
+          type="button"
+          onClick={() => onCrossMode(target)}
+          className={cn(emptyStateAction, focusRing)}
+        >
+          Search in {target}
+        </button>
+      ) : null,
+    ),
+    onBrowseAll ? (
+      <button key="browse" type="button" onClick={onBrowseAll} className={cn(emptyStateAction, focusRing)}>
+        <LayoutList className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        {browseAllLabel}
+      </button>
+    ) : null,
+  ].filter(Boolean);
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
       <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-        <Search className="h-5 w-5" aria-hidden />
+        {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
       </span>
       <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
-        No matches for &ldquo;{query.trim() || "your search"}&rdquo;
+        {filtered
+          ? `No ${resultNoun} match all ${appliedFilters.length} filter${appliedFilters.length === 1 ? "" : "s"}`
+          : `No matches for “${query.trim() || "your search"}”`}
       </p>
       <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        Try an example, or jump to another mode.
+        {filtered
+          ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
+          : "Try an example, or jump to another mode."}
       </p>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
-        {config?.examples[0] && onTryExample ? (
-          <button
-            type="button"
-            onClick={() => onTryExample(config.examples[0])}
-            className={cn(
-              "inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-              focusRing,
-            )}
-          >
-            Try: {config.examples[0]}
-          </button>
-        ) : null}
-        {crossModes.slice(0, 2).map((target) =>
-          onCrossMode ? (
+      {/* Relaxing comes first and is the only accented pair. Naming the filter in
+          the label is what makes it a one-tap undo rather than a second thing to
+          go and find; `Clear all filters` is separate so each label matches its
+          own action, which is also the fix for the single button that said
+          "Clear filters" and called `clearSearch`. */}
+      {filtered ? (
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+          {lastFilter ? (
             <button
-              key={target}
               type="button"
-              onClick={() => onCrossMode(target)}
+              onClick={lastFilter.onRemove}
+              data-testid="search-results-empty-remove-filter"
               className={cn(
-                "inline-flex min-h-9 items-center rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]",
                 focusRing,
               )}
             >
-              Search in {target}
+              <CircleMinus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Remove “{lastFilter.label}”
             </button>
-          ) : null,
-        )}
-      </div>
+          ) : null}
+          {onClearFilters && appliedFilters.length > 1 ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              data-testid="search-results-empty-clear-filters"
+              className={cn(emptyStateAction, focusRing)}
+            >
+              Clear all filters
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {secondary.length > 0 ? (
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-center gap-1.5",
+            // Demoted below a rule once relaxing is on offer: an example query is
+            // a different search, and the reader has not finished this one.
+            filtered ? "mt-3.5 border-t border-[color:var(--border)] pt-3.5" : "mt-3",
+          )}
+        >
+          {secondary}
+        </div>
+      ) : null}
     </div>
   );
 }

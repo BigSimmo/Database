@@ -2,13 +2,16 @@
 
 import { useId, useState } from "react";
 
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  SearchResultsEmptyState,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 
 import { useTcBindings } from "../bindings";
 import { TherapyFilterSheet, TherapyFilterTrigger } from "../filter-sheet";
-import { outlineControl, softControl, therapyBtn } from "../controls";
-import { SearchXIcon, XIcon } from "../icons";
-import { EmptyState, LoadingState } from "../ui";
+import { softControl, therapyBtn } from "../controls";
+import { XIcon } from "../icons";
+import { LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
 // Curated quick-filter tags surfaced as chips (all exist in the tag set).
@@ -139,15 +142,17 @@ export function SearchScreen() {
       ) : (
         <>
           {results.length === 0 ? (
-            <EmptyState
-              icon={SearchXIcon}
-              title="No therapies match those filters"
-              body="Try a broader term, remove a tag, or clear the filters to browse the full library."
-              action={
-                <button type="button" className={`${therapyBtn} ${outlineControl}`} onClick={b.clearSearch}>
-                  Clear filters
-                </button>
-              }
+            // The shared surface, so the filtered-to-zero reader gets the same
+            // route out here as in documents. What it replaces was a single
+            // button labelled `Clear filters` wired to `clearSearch`, which also
+            // deleted the query — the label promised one thing and the handler
+            // did another. `Remove "X"` and `Clear all filters` are now separate
+            // controls, so each label matches its own action.
+            <SearchResultsEmptyState
+              modeId="therapy-compass"
+              query={q}
+              appliedFilters={appliedFilters}
+              onClearFilters={b.clearSearchFilters}
             />
           ) : (
             <div className="flex flex-col gap-3.5">
