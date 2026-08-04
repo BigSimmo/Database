@@ -10,11 +10,14 @@ import {
   configuredProviderCredentialNames,
   expectedMcpConfiguration,
   executableFile,
+  gitCheckoutFreshness,
   localGitBaseline,
   obsoleteNpmProxyVariables,
   parseMcpServerMetadata,
+  playwrightBrowserErrors,
   providerCredentialVariables,
   pythonWorkerImportError,
+  pythonWorkerVersionLine,
   pythonWorkerImports,
   railwayReadCapability,
   sanitizedCloudCapabilityLines,
@@ -62,6 +65,7 @@ const requiredPolicyExcludes = [
   "RAILWAY_TOKEN",
   "GH_TOKEN",
   "GITHUB_TOKEN",
+  "CODEX_CLOUD_GITHUB_PAT",
   "GITLAB_TOKEN",
   "GLAB_TOKEN",
   "CODEX_TRIGGER_TOKEN",
@@ -191,7 +195,7 @@ describe("Codex Cloud environment contract", () => {
         NEXT_PUBLIC_DEMO_MODE: "false",
         PLAYWRIGHT_OFFLINE_MODE: "false",
       }),
-    ).toEqual([]);
+    ).toContain("RAG_PROVIDER_MODE must be an approved value in connected mode.");
 
     expect(
       validateCodexCloudEnvironment({
@@ -223,6 +227,14 @@ describe("Codex Cloud environment contract", () => {
         railwayCliAvailable: true,
         codexCliAvailable: true,
         safeGitHelper: true,
+        checkout: {
+          head: "a".repeat(40),
+          localMain: "b".repeat(40),
+          originMain: "c".repeat(40),
+          expectedBase: "a".repeat(40),
+          expectedBaseAncestor: "true",
+          freshness: "verified",
+        },
         mcpServers: [
           {
             name: "railway",
@@ -238,18 +250,45 @@ describe("Codex Cloud environment contract", () => {
     const report = lines.join("\n");
     expect(report).toContain("OPENAI_API_KEY.present=true");
     expect(report).toContain("mcp.server=railway type=http command=none endpoint=https://mcp.railway.com/");
+    expect(report).toContain(`git.head=${"a".repeat(40)}`);
+    expect(report).toContain("git.expected_base_ancestor=true");
+    expect(report).toContain("git.checkout_freshness=verified");
     expect(report).not.toContain(secret);
     expect(report).not.toContain("sensitive-test");
+    expect(
+      sanitizedCloudCapabilityLines(
+        {
+          CODEX_CLOUD: "1",
+          CODEX_CLOUD_ACCESS_PROFILE: "connected",
+          RAG_PROVIDER_MODE: "auto",
+        },
+        {
+          origin: { configured: true, repositoryMatch: true, credentialsEmbedded: false },
+          railwayCliAvailable: false,
+          codexCliAvailable: false,
+          safeGitHelper: false,
+          checkout: {
+            head: "unavailable",
+            localMain: "unavailable",
+            originMain: "unavailable",
+            expectedBase: "unset",
+            expectedBaseAncestor: "unverified",
+            freshness: "unverified",
+          },
+          mcpServers: [],
+        },
+      ),
+    ).toContain("RAG_PROVIDER_MODE=invalid");
   });
 
   it("requires the Railway CLI and dedicated account token without substituting a project token", () => {
-    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, true).ready).toBe(true);
+    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, true).cliTokenAuthReady).toBe(true);
     expect(railwayReadCapability({ RAILWAY_TOKEN: "configured" }, true)).toMatchObject({
       dedicatedCredentialPresent: false,
       projectCredentialPresent: true,
-      ready: false,
+      cliTokenAuthReady: false,
     });
-    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, false).ready).toBe(false);
+    expect(railwayReadCapability({ RAILWAY_API_TOKEN: "configured" }, false).cliTokenAuthReady).toBe(false);
   });
 
   it("parses MCP transport metadata without query or environment values", () => {
@@ -324,10 +363,10 @@ describe("Codex Cloud environment contract", () => {
     );
     expect(
       validateCodexProjectMcpConfiguration(
-        tracked.replace('default_tools_approval_mode = "auto"', 'default_tools_approval_mode = "writes"'),
+        tracked.replace('default_tools_approval_mode = "prompt"', 'default_tools_approval_mode = "auto"'),
       ),
     ).toContain(
-      `.codex/config.toml supabase_cloud must set default_tools_approval_mode = "auto" because the production server is constrained read-only.`,
+      `.codex/config.toml supabase_cloud must set default_tools_approval_mode = "prompt" because the production server is constrained read-only.`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
@@ -395,6 +434,18 @@ describe("Codex Cloud environment contract", () => {
     ).toContain(`.codex/config.toml supabase_cloud must keep the production project read-only.`);
   });
 
+  it("probes the raw task environment without printing credential values", () => {
+    const secret = "never-print-raw-provider-value";
+    const result = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: { PATH: process.env.PATH, NODE_ENV: "test", OPENAI_API_KEY: secret },
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("OPENAI_API_KEY");
+    expect(result.stderr).not.toContain(secret);
+  });
+
   it("keeps setup and maintenance repairs guarded for repeat execution", () => {
     const setup = readFileSync(new URL("../scripts/setup-codex-cloud.sh", import.meta.url), "utf8");
     const maintenance = readFileSync(new URL("../scripts/maintain-codex-cloud.sh", import.meta.url), "utf8");
@@ -420,8 +471,8 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain("Unmanaged [shell_environment_policy] table found");
     expect(setup).toContain("Incomplete managed shell policy block");
     expect(setup).toContain('export RAG_PROVIDER_MODE="${rag_provider_mode}"');
-    expect(setup).toContain('rag_provider_mode="${RAG_PROVIDER_MODE:-auto}"');
-    expect(setup).not.toContain('RAG_PROVIDER_MODE="\\${RAG_PROVIDER_MODE:-auto}"');
+    expect(setup).toContain('rag_provider_mode="${RAG_PROVIDER_MODE:-offline}"');
+    expect(setup).not.toContain('rag_provider_mode="${RAG_PROVIDER_MODE:-auto}"');
     expect(setup).toContain("SUPABASE_URL");
     expect(setup).toContain("SUPABASE_PROJECT_REF");
     expect(setup).toContain("NEXT_PUBLIC_SUPABASE_URL");
@@ -434,11 +485,13 @@ describe("Codex Cloud environment contract", () => {
     expect(setup).toContain('setup_step="python-worker-requirements"');
     expect(setup).toContain("--require-hashes -r worker/python/requirements-cloud.txt");
     expect(setup).toContain('"$ocr_venv/bin/python" -m pip check');
+    expect(setup).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
+    expect(maintenance).toContain("CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime");
     expect(maintenance).toContain("ensure-codex-cloud-git-remote.mjs");
     expect(commandShims).toContain('nvm which "$expected_node_major"');
     expect(commandShims).toContain('. "$runtime_profile"');
     expect(commandShims).toContain('mkdir -p "$HOME/.local/bin"');
-    expect(patDelete).toContain("CODEX_CLOUD_ACCESS_PROFILE:-offline");
+    expect(patDelete).toContain('[[ "${CODEX_CLOUD:-0}" != "1" ]]');
     expect(patDelete).toContain('[[ "$branch" != -* ]]');
     expect(patDelete).toContain("git check-ref-format --branch");
     expect(patDelete).toContain("git remote get-url --push --all origin");
@@ -464,6 +517,8 @@ describe("Codex Cloud environment contract", () => {
     expect(config).toContain("BEGIN clinical-kb-codex-cloud shell policy");
     expect(config).toContain("[shell_environment_policy]");
     expect(config).toContain('inherit = "all"');
+    expect(config).not.toContain("[mcp_servers.railway_connected]");
+    expect(config).not.toContain("[mcp_servers.supabase_connected]");
     for (const name of requiredPolicyExcludes) {
       expect(config).toContain(`"${name}"`);
     }
@@ -491,6 +546,12 @@ describe("Codex Cloud environment contract", () => {
     });
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
+    const connectedConfig = readCodexConfig(connectedHome);
+    expect(connectedConfig).toContain("[mcp_servers.railway_connected]");
+    expect(connectedConfig).toContain("[mcp_servers.supabase_connected]");
+    expect(connectedConfig).toContain("features=docs%2Cdevelopment");
+    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(2);
+    expect(connectedConfig).toContain('default_tools_approval_mode = "prompt"');
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
@@ -600,6 +661,67 @@ describe("Codex Cloud environment contract", () => {
 
     expect(localGitBaseline(directory, {})).toBeNull();
     expect(localGitBaseline(directory, { CODEX_CLOUD: "1" })).toBe("HEAD");
+
+    const head = git(directory, "rev-parse", "HEAD").stdout.trim();
+    expect(gitCheckoutFreshness(directory, { CODEX_CLOUD: "1" })).toEqual({
+      head,
+      localMain: "unavailable",
+      originMain: "unavailable",
+      expectedBase: "unset",
+      expectedBaseAncestor: "unverified",
+      freshness: "unverified",
+    });
+    expect(
+      gitCheckoutFreshness(directory, {
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_EXPECTED_BASE_SHA: head,
+      }),
+    ).toMatchObject({
+      expectedBase: head,
+      expectedBaseAncestor: "true",
+      freshness: "verified",
+    });
+    expect(
+      gitCheckoutFreshness(directory, {
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_EXPECTED_BASE_SHA: "arbitrary-sensitive-value",
+      }),
+    ).toMatchObject({
+      expectedBase: "invalid",
+      expectedBaseAncestor: "unverified",
+    });
+    expect(
+      gitCheckoutFreshness(directory, {
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_EXPECTED_BASE_SHA: `${head}\nmalformed`,
+      }),
+    ).toMatchObject({
+      expectedBase: "invalid",
+      expectedBaseAncestor: "unverified",
+    });
+  });
+
+  it("normalizes Python package version output for capability reports", () => {
+    const run = (() => ({
+      status: 0,
+      stdout: "medspacy=1.3.1 spacy=3.8.2\n",
+    })) as unknown as typeof spawnSync;
+    expect(pythonWorkerVersionLine(process.execPath, run)).toBe("python.worker_versions=medspacy=1.3.1,spacy=3.8.2");
+  });
+
+  it("launches and closes every installed Playwright browser", async () => {
+    let closeCount = 0;
+    const browserType = {
+      executablePath: () => process.execPath,
+      launch: async (options: { headless: boolean; timeout: number }) => {
+        expect(options).toEqual({ headless: true, timeout: 1234 });
+        return { close: async () => void (closeCount += 1) };
+      },
+    };
+    expect(
+      await playwrightBrowserErrors({ chromium: browserType, firefox: browserType, webkit: browserType }, 1234),
+    ).toEqual([]);
+    expect(closeCount).toBe(3);
   });
 
   it("does not describe a source-only runtime as fully browser-ready", () => {
