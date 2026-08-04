@@ -441,9 +441,21 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   let literalCkbV2 = false;
   let dynamicCkbV2 = false;
   for (const expression of classExpressions) {
+    const directTemplateLiteral = (() => {
+      const current = unwrapExpression(expression);
+      if (!ts.isTemplateExpression(current)) return false;
+      return (
+        classTokenPresent(current.head.text) ||
+        current.templateSpans.some((span) => classTokenPresent(span.literal.text))
+      );
+    })();
+    if (directTemplateLiteral) literalCkbV2 = true;
     for (const pattern of patternsFor(expression)) {
       if (!pattern.constructed && classTokenPresent(pattern.value)) literalCkbV2 = true;
-      if (pattern.constructed && couldConstructCkbV2(pattern.value)) dynamicCkbV2 = true;
+      // A complete token authored directly in a template's static text remains
+      // a literal opt-in even when unrelated classes (for example `dark`) are
+      // interpolated beside it. Calls/joins/replacements still count as dynamic.
+      if (!directTemplateLiteral && pattern.constructed && couldConstructCkbV2(pattern.value)) dynamicCkbV2 = true;
     }
   }
   return { literalCkbV2, dynamicCkbV2 };

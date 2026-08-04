@@ -30,6 +30,12 @@ describe("design-system adoption manifest", () => {
       expected: { literalCkbV2: true, dynamicCkbV2: false },
     },
     {
+      name: "literal token beside a theme interpolation",
+      source:
+        "export function Root({ theme }: { theme: string }) { return <main className={`page ckb-v2 ${theme}`} />; }",
+      expected: { literalCkbV2: true, dynamicCkbV2: false },
+    },
+    {
       name: "array join",
       source: `export function Root() { return <main className={["ckb", "v2"].join("-")} />; }`,
       expected: { literalCkbV2: false, dynamicCkbV2: true },
