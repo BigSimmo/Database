@@ -1,7 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  countDarkColorOverridesInSource,
+  countHardcodedCssMotionDurations,
+  countLegacyPaletteUtilitiesInSource,
+  countOnePixelShadowSpreadsInSource,
+  countRawCssZIndicesInSource,
+  findCssLayoutTransitionsInSource,
+  findDensityRecipeOverridesInSource,
+  findHardcodedMotionClassesInSource,
   findInteractiveTapLiteralsInSource,
+  findJsxEdgeOwnershipConflictsInSource,
+  findLayoutTransitionClassesInSource,
+  findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
   rawColorContractSource,
 } from "../scripts/design-system-contract-utils.mjs";
@@ -22,6 +33,108 @@ describe("design-system contract helpers", () => {
         '<div className={cn("h-11", active && "md:w-11")}>Decoration</div>',
       ),
     ).toEqual([]);
+  });
+
+  it("detects border and ring width ownership on the same JSX literal without merging exclusive branches", () => {
+    expect(
+      findJsxEdgeOwnershipConflictsInSource(
+        "src/example.tsx",
+        [
+          '<button className="border border-[color:var(--border)] focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]" />',
+          '<button className={active ? "border" : "ring-1"} />',
+          '<span className="ring-1 ring-[color:var(--border)]" />',
+        ].join("\n"),
+      ),
+    ).toEqual(["src/example.tsx:1"]);
+  });
+
+  it("blocks Chip and metadata density overrides while allowing layout-only classes", () => {
+    const source = [
+      'const ok = <Chip className="whitespace-nowrap shrink-0" />;',
+      'const badChip = <Chip className={cn("h-6", active && "text-xs")} />;',
+      'const badPill = <span className={cn(metadataPillDensity.compact, "sm:min-h-8")} />;',
+    ].join("\n");
+
+    expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual([
+      "src/example.tsx:2 (h-6, text-xs)",
+      "src/example.tsx:3 (min-h-8)",
+    ]);
+  });
+
+  it("finds hardcoded motion utilities but accepts named duration tokens", () => {
+    const source = [
+      'const good = "transition-transform duration-[var(--duration-fast)]";',
+      'const bad = "transition-all duration-200 delay-[75ms]";',
+    ].join("\n");
+
+    expect(findHardcodedMotionClassesInSource("src/example.tsx", source)).toEqual([
+      "src/example.tsx:2 (transition-all)",
+      "src/example.tsx:2 (duration-200)",
+      "src/example.tsx:2 (delay-[75ms])",
+    ]);
+  });
+
+  it("reports layout-property transition utilities and CSS declarations", () => {
+    expect(
+      findLayoutTransitionClassesInSource(
+        "src/example.tsx",
+        'const classes = "transition-[height,background-color] sm:transition-[grid-template-rows] transition-transform";',
+      ),
+    ).toEqual([
+      { relativePath: "src/example.tsx", line: 1, property: "height" },
+      { relativePath: "src/example.tsx", line: 1, property: "grid-template-rows" },
+    ]);
+    expect(
+      findCssLayoutTransitionsInSource(
+        "src/example.css",
+        ".a { transition: padding-bottom var(--duration-fast) ease; }\n.b { transition-property: opacity, top; }",
+      ),
+    ).toEqual([
+      { relativePath: "src/example.css", line: 1, property: "padding-bottom" },
+      { relativePath: "src/example.css", line: 2, property: "top" },
+    ]);
+  });
+
+  it("enforces named z-index rungs across standard and arbitrary utilities", () => {
+    expect(
+      findUnapprovedZIndexClassesInSource(
+        "src/example.tsx",
+        'const classes = "z-40 z-[95] sm:z-[77] hover:z-50 -z-10";',
+      ),
+    ).toEqual(["src/example.tsx:1 (sm:z-[77])", "src/example.tsx:1 (hover:z-50)", "src/example.tsx:1 (-z-10)"]);
+  });
+
+  it("counts legacy palette utilities and dark color overrides from static class strings", () => {
+    const source = 'const classes = "bg-white text-slate-700 dark:bg-black/50 hover:bg-[color:var(--surface)]";';
+    expect(countLegacyPaletteUtilitiesInSource("src/example.tsx", source)).toBe(3);
+    expect(countDarkColorOverridesInSource("src/example.tsx", source)).toBe(1);
+  });
+
+  it("counts only a true fourth 1px shadow length as a forbidden spread", () => {
+    const source = [
+      ".a { box-shadow: 0 1px 2px rgb(0 0 0 / 20%); }",
+      ".b { box-shadow: inset 0 0 0 1px var(--border), 0 2px 4px -1px black; }",
+      ".c { --shadow-card: 0 0 1px rgb(0 0 0 / 20%); }",
+      'const classes = "shadow-[0_0_0_1px_rgb(0_0_0_/_20%)]";',
+    ].join("\n");
+    expect(countOnePixelShadowSpreadsInSource(source)).toBe(2);
+  });
+
+  it("counts hardcoded CSS durations and delays, including reduced-motion sentinels", () => {
+    const source = [
+      ".a { transition: opacity 150ms ease, transform var(--duration-fast) ease; }",
+      ".b { animation-duration: 0.01ms !important; }",
+      ".c { transition-duration: 0.2s; }",
+      ".d { transition-delay: 75ms; }",
+    ].join("\n");
+    expect(countHardcodedCssMotionDurations(source)).toBe(4);
+  });
+
+  it("counts numeric CSS z-index declarations but not auto or token values", () => {
+    expect(
+      countRawCssZIndicesInSource(".a{z-index:95}.b{z-index: -1;}.c{z-index:auto;}.d{z-index:var(--z-modal);}"),
+    ).toBe(1);
+    expect(countRawCssZIndicesInSource(".a{z-index: 95;}.b{z-index:-1;}")).toBe(2);
   });
 
   it("masks raw colours only inside the fixed-paper factsheet rendering scope", () => {

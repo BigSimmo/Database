@@ -111,6 +111,331 @@ export function findInteractiveTapLiteralsInSource(relativePath, sourceText) {
   return findings;
 }
 
+const BORDER_WIDTH_UTILITY = /^border(?:-[xytrblse])?(?:-(?:0|2|4|8|\[(?!color:)[^\]]+\]))?$/;
+const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
+const DENSITY_HEIGHT_UTILITY = /^(?:h|min-h|max-h|size)-/;
+const DENSITY_TEXT_UTILITY = /^text-(?:2xs|xs|sm-minus|sm|base|lg|xl|[2-9]xl|\[[^\]]*(?:px|rem|em|clamp\()[^\]]*\])$/;
+const HARDCODED_MOTION_UTILITY = /^(?:duration|delay)-(?:\d+|\[(?!var\(--duration-)[^\]]+\])$/;
+const LEGACY_PALETTE_UTILITY =
+  /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
+const COLOR_UTILITY =
+  /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:\[[^\]]+\]|[a-z]+(?:-[a-z]+)*(?:-\d{2,3})?)(?:\/\d{1,3})?$/;
+const ALLOWED_Z_INDEX_RUNGS = new Set([0, 5, 10, 20, 30, 40, 60, 80, 81, 82, 83, 84, 85, 95, 100, 110]);
+const LAYOUT_TRANSITION_PROPERTIES = new Set([
+  "width",
+  "height",
+  "grid-template-columns",
+  "grid-template-rows",
+  "top",
+  "left",
+  "gap",
+  "padding-bottom",
+]);
+
+function splitUtilityTokens(text) {
+  return text.split(/\s+/).filter(Boolean);
+}
+
+function splitTailwindVariants(token) {
+  const parts = [];
+  let start = 0;
+  let squareDepth = 0;
+  let roundDepth = 0;
+  for (let index = 0; index < token.length; index += 1) {
+    const character = token[index];
+    if (character === "[") squareDepth += 1;
+    else if (character === "]") squareDepth = Math.max(0, squareDepth - 1);
+    else if (character === "(") roundDepth += 1;
+    else if (character === ")") roundDepth = Math.max(0, roundDepth - 1);
+    else if (character === ":" && squareDepth === 0 && roundDepth === 0) {
+      parts.push(token.slice(start, index));
+      start = index + 1;
+    }
+  }
+  parts.push(token.slice(start));
+  return parts;
+}
+
+function utilityBase(token) {
+  return splitTailwindVariants(token).at(-1)?.replace(/^!/, "") ?? "";
+}
+
+function utilityVariants(token) {
+  return splitTailwindVariants(token).slice(0, -1);
+}
+
+function staticUtilityTokensInSource(relativePath, sourceText) {
+  if (!/\.[cm]?[jt]sx?$/.test(relativePath)) return [];
+  const kind = relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, kind);
+  const tokens = [];
+
+  function visit(node) {
+    if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) {
+      const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+      for (const token of splitUtilityTokens(node.text)) tokens.push({ token, line });
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return tokens;
+}
+
+function jsxClassAttribute(node, source) {
+  return node.attributes.properties.find(
+    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+  );
+}
+
+export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  function visit(node) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const classAttribute = jsxClassAttribute(node, source);
+      if (classAttribute && ts.isJsxAttribute(classAttribute)) {
+        // Inspect each literal segment independently. Combining all branches of a
+        // conditional class expression would report border/ring pairs that can
+        // never be present on the element at the same time.
+        const conflicts = jsxClassSegments(classAttribute).filter((segment) => {
+          const bases = splitUtilityTokens(segment).map(utilityBase);
+          return (
+            bases.some((token) => BORDER_WIDTH_UTILITY.test(token)) &&
+            bases.some((token) => RING_WIDTH_UTILITY.test(token))
+          );
+        });
+        if (conflicts.length > 0) {
+          const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
+          findings.push(`${relativePath}:${line}`);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
+export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
+  if (!relativePath.endsWith(".tsx")) return [];
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const findings = [];
+
+  const combine = (left, right) =>
+    left.flatMap((leftEntry) =>
+      right.map((rightEntry) => ({
+        usesDensityRecipe: leftEntry.usesDensityRecipe || rightEntry.usesDensityRecipe,
+        tokens: [...leftEntry.tokens, ...rightEntry.tokens],
+      })),
+    );
+
+  function classPossibilities(node) {
+    if (!node) return [{ usesDensityRecipe: false, tokens: [] }];
+    if (
+      ts.isParenthesizedExpression(node) ||
+      ts.isAsExpression(node) ||
+      ts.isTypeAssertionExpression(node) ||
+      ts.isNonNullExpression(node)
+    ) {
+      return classPossibilities(node.expression);
+    }
+    if (ts.isConditionalExpression(node)) {
+      return [...classPossibilities(node.whenTrue), ...classPossibilities(node.whenFalse)];
+    }
+    if (ts.isBinaryExpression(node)) {
+      if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
+        return [{ usesDensityRecipe: false, tokens: [] }, ...classPossibilities(node.right)];
+      }
+      if (
+        node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+        node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+      ) {
+        return [...classPossibilities(node.left), ...classPossibilities(node.right)];
+      }
+      return combine(classPossibilities(node.left), classPossibilities(node.right));
+    }
+    if (ts.isCallExpression(node)) {
+      return node.arguments.reduce(
+        (possibilities, argument) => combine(possibilities, classPossibilities(argument)),
+        [{ usesDensityRecipe: false, tokens: [] }],
+      );
+    }
+    if (ts.isArrayLiteralExpression(node)) {
+      return node.elements.reduce(
+        (possibilities, element) => combine(possibilities, classPossibilities(element)),
+        [{ usesDensityRecipe: false, tokens: [] }],
+      );
+    }
+    if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      return [{ usesDensityRecipe: false, tokens: splitUtilityTokens(node.text).map(utilityBase) }];
+    }
+    if (ts.isTemplateExpression(node)) {
+      const tokens = [node.head.text, ...node.templateSpans.map((span) => span.literal.text)]
+        .flatMap(splitUtilityTokens)
+        .map(utilityBase);
+      return [{ usesDensityRecipe: false, tokens }];
+    }
+    const expressionText = node.getText(source);
+    return [{ usesDensityRecipe: /\bmetadataPill(?:Density)?\b/.test(expressionText), tokens: [] }];
+  }
+
+  function visit(node) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const classAttribute = jsxClassAttribute(node, source);
+      if (!classAttribute || !ts.isJsxAttribute(classAttribute)) {
+        ts.forEachChild(node, visit);
+        return;
+      }
+      const initializer = classAttribute.initializer;
+      const expression = initializer && ts.isJsxExpression(initializer) ? initializer.expression : initializer;
+      const tag = node.tagName.getText(source);
+      const conflicting = classPossibilities(expression).flatMap((possibility) => {
+        if (tag !== "Chip" && !possibility.usesDensityRecipe) return [];
+        return possibility.tokens.filter(
+          (token) => DENSITY_HEIGHT_UTILITY.test(token) || DENSITY_TEXT_UTILITY.test(token),
+        );
+      });
+      if (conflicting.length > 0) {
+        const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
+        findings.push(`${relativePath}:${line} (${[...new Set(conflicting)].join(", ")})`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(source);
+  return findings;
+}
+
+export function findHardcodedMotionClassesInSource(relativePath, sourceText) {
+  return staticUtilityTokensInSource(relativePath, sourceText)
+    .filter(({ token }) => {
+      const base = utilityBase(token);
+      return base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base);
+    })
+    .map(({ token, line }) => `${relativePath}:${line} (${token})`);
+}
+
+export function findLayoutTransitionClassesInSource(relativePath, sourceText) {
+  return staticUtilityTokensInSource(relativePath, sourceText).flatMap(({ token, line }) => {
+    const match = utilityBase(token).match(/^transition-\[([^\]]+)\]$/);
+    if (!match) return [];
+    return match[1]
+      .split(/[,_]/)
+      .filter((property) => LAYOUT_TRANSITION_PROPERTIES.has(property))
+      .map((property) => ({ relativePath, line, property }));
+  });
+}
+
+export function findUnapprovedZIndexClassesInSource(relativePath, sourceText) {
+  return staticUtilityTokensInSource(relativePath, sourceText).flatMap(({ token, line }) => {
+    const match = utilityBase(token).match(/^(-?)z-(?:\[(-?\d+)\]|(-?\d+))$/);
+    if (!match) return [];
+    const value = Number(`${match[1]}${match[2] ?? match[3]}`);
+    return ALLOWED_Z_INDEX_RUNGS.has(value) ? [] : [`${relativePath}:${line} (${token})`];
+  });
+}
+
+export function countLegacyPaletteUtilitiesInSource(relativePath, sourceText) {
+  return staticUtilityTokensInSource(relativePath, sourceText).filter(({ token }) =>
+    LEGACY_PALETTE_UTILITY.test(utilityBase(token)),
+  ).length;
+}
+
+export function countDarkColorOverridesInSource(relativePath, sourceText) {
+  return staticUtilityTokensInSource(relativePath, sourceText).filter(({ token }) => {
+    const variants = utilityVariants(token);
+    return variants.includes("dark") && COLOR_UTILITY.test(utilityBase(token));
+  }).length;
+}
+
+function splitCssShadowLayers(value) {
+  const layers = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") depth = Math.max(0, depth - 1);
+    else if (character === "," && depth === 0) {
+      layers.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  layers.push(value.slice(start));
+  return layers;
+}
+
+function topLevelCssTokens(value) {
+  const tokens = [];
+  let start = 0;
+  let depth = 0;
+  for (let index = 0; index <= value.length; index += 1) {
+    const character = value[index];
+    if (character === "(") depth += 1;
+    else if (character === ")") depth = Math.max(0, depth - 1);
+    if ((index === value.length || /\s/.test(character)) && depth === 0) {
+      const token = value.slice(start, index).trim();
+      if (token) tokens.push(token);
+      start = index + 1;
+    }
+  }
+  return tokens;
+}
+
+function layerHasOnePixelSpread(layer) {
+  const lengths = topLevelCssTokens(layer).filter((token) =>
+    /^-?(?:0|\d*\.?\d+(?:px|rem|em|vh|vw|vmin|vmax))$/.test(token),
+  );
+  return lengths.length >= 4 && lengths[3] === "1px";
+}
+
+export function countOnePixelShadowSpreadsInSource(sourceText) {
+  let count = 0;
+  const declaration = /(?:box-shadow|--(?:e[0-4]|shadow-[a-z0-9-]+))\s*:\s*([^;{}]+);/gi;
+  for (const match of sourceText.matchAll(declaration)) {
+    count += splitCssShadowLayers(match[1]).filter(layerHasOnePixelSpread).length;
+  }
+  const arbitraryShadow = /shadow-\[([^\]]+)\]/g;
+  for (const match of sourceText.matchAll(arbitraryShadow)) {
+    count += splitCssShadowLayers(match[1].replaceAll("_", " ")).filter(layerHasOnePixelSpread).length;
+  }
+  return count;
+}
+
+export function countHardcodedCssMotionDurations(sourceText) {
+  let count = 0;
+  const declaration = /(?:transition|animation)(?:-duration|-delay)?\s*:\s*([^;{}]+);/gi;
+  for (const match of sourceText.matchAll(declaration)) {
+    const value = match[1];
+    for (const duration of value.matchAll(/(?<![-\w])\d*\.?\d+(?:ms|s)\b/g)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function findCssLayoutTransitionsInSource(relativePath, sourceText) {
+  const findings = [];
+  const declaration = /transition(?:-property)?\s*:\s*([^;{}]+);/gi;
+  for (const match of sourceText.matchAll(declaration)) {
+    const line = sourceText.slice(0, match.index).split(/\r?\n/).length;
+    for (const property of LAYOUT_TRANSITION_PROPERTIES) {
+      const pattern = new RegExp(`(?:^|[,\\s])${property.replaceAll("-", "\\-")}(?=[,\\s]|$)`);
+      if (pattern.test(match[1])) findings.push({ relativePath, line, property });
+    }
+  }
+  return findings;
+}
+
+export function countRawCssZIndicesInSource(sourceText) {
+  return [...sourceText.matchAll(/z-index\s*:\s*(?:-?\d+)\s*;/gi)].length;
+}
+
 function maskRanges(source, ranges) {
   const characters = source.split("");
   for (const { start, end } of ranges) characters.fill(" ", start, end);

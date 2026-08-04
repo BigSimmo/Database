@@ -1,5 +1,12 @@
 {
   "rawColorLiterals": 2,
   "literalShadowClasses": 0,
-  "legacyTapClasses": 0
+  "legacyTapClasses": 0,
+  "edgeOwnershipConflicts": 15,
+  "onePixelShadowSpreads": 2,
+  "hardcodedCssMotionDurations": 42,
+  "rawCssZIndices": 9,
+  "legacyPaletteUtilities": 2,
+  "darkColorOverrides": 3,
+  "legacyShadowAliases": 231
 }

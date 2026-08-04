@@ -6,7 +6,18 @@ import ts from "@typescript/typescript6";
 import {
   LEGACY_TAP_CLASS,
   RAW_COLOR_EXEMPTIONS,
+  countDarkColorOverridesInSource,
+  countHardcodedCssMotionDurations,
+  countLegacyPaletteUtilitiesInSource,
+  countOnePixelShadowSpreadsInSource,
+  countRawCssZIndicesInSource,
+  findCssLayoutTransitionsInSource,
+  findDensityRecipeOverridesInSource,
+  findHardcodedMotionClassesInSource,
   findInteractiveTapLiteralsInSource,
+  findJsxEdgeOwnershipConflictsInSource,
+  findLayoutTransitionClassesInSource,
+  findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
   jsxClassText,
   rawColorContractSource,
@@ -19,8 +30,19 @@ const PRINT_METRICS = process.argv.includes("--print-metrics");
 const SOURCE_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
 const LITERAL_SHADOW_CLASS = /shadow-\[(?!var\()[^\]]+\]/g;
+const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
+const APPROVED_LAYOUT_TRANSITION_COUNTS = new Map([
+  // These are existing, interaction-specific exceptions rather than a general
+  // license for layout animation. Any additional property/path pair fails.
+  ["src/app/globals.css|padding-bottom", 4],
+  ["src/components/calculators/guided-flow.tsx|width", 1],
+  ["src/components/clinical-dashboard/master-search-header.tsx|grid-template-rows", 3],
+  ["src/components/clinical-dashboard/master-search-header.tsx|height", 1],
+  ["src/components/document-viewer/section-nav.tsx|height", 1],
+  ["src/components/secondary-navigation.tsx|top", 1],
+]);
 
 const toPosix = (value) => value.split(path.sep).join("/");
 
@@ -103,7 +125,20 @@ const metrics = {
   rawColorLiterals: 0,
   literalShadowClasses: 0,
   legacyTapClasses: 0,
+  edgeOwnershipConflicts: 0,
+  onePixelShadowSpreads: 0,
+  hardcodedCssMotionDurations: 0,
+  rawCssZIndices: 0,
+  legacyPaletteUtilities: 0,
+  darkColorOverrides: 0,
+  legacyShadowAliases: 0,
 };
+
+const edgeOwnershipFindings = [];
+const densityOverrideFindings = [];
+const hardcodedMotionClassFindings = [];
+const layoutTransitionFindings = [];
+const unapprovedZIndexFindings = [];
 
 for (const file of files) {
   const source = textAt(file.relativePath);
@@ -114,6 +149,22 @@ for (const file of files) {
   metrics.rawColorLiterals += countMatches(rawColorSource, RAW_COLOR);
   metrics.literalShadowClasses += countMatches(contractSource, LITERAL_SHADOW_CLASS);
   metrics.legacyTapClasses += countMatches(contractSource, LEGACY_TAP_CLASS);
+  const fileEdgeFindings = findJsxEdgeOwnershipConflictsInSource(file.relativePath, source);
+  edgeOwnershipFindings.push(...fileEdgeFindings);
+  metrics.edgeOwnershipConflicts += fileEdgeFindings.length;
+  metrics.onePixelShadowSpreads += countOnePixelShadowSpreadsInSource(contractSource);
+  metrics.hardcodedCssMotionDurations += countHardcodedCssMotionDurations(contractSource);
+  metrics.rawCssZIndices += countRawCssZIndicesInSource(contractSource);
+  metrics.legacyPaletteUtilities += countLegacyPaletteUtilitiesInSource(file.relativePath, source);
+  metrics.darkColorOverrides += countDarkColorOverridesInSource(file.relativePath, source);
+  metrics.legacyShadowAliases += countMatches(contractSource, LEGACY_SHADOW_ALIAS);
+  densityOverrideFindings.push(...findDensityRecipeOverridesInSource(file.relativePath, source));
+  hardcodedMotionClassFindings.push(...findHardcodedMotionClassesInSource(file.relativePath, source));
+  layoutTransitionFindings.push(...findLayoutTransitionClassesInSource(file.relativePath, source));
+  if (file.relativePath.endsWith(".css")) {
+    layoutTransitionFindings.push(...findCssLayoutTransitionsInSource(file.relativePath, contractSource));
+  }
+  unapprovedZIndexFindings.push(...findUnapprovedZIndexClassesInSource(file.relativePath, source));
   for (const match of source.matchAll(CUSTOM_CONTROL_CLASS_PROP)) {
     assert(
       !hasLegacyTapClass(match[1] ?? match[2] ?? ""),
@@ -121,6 +172,38 @@ for (const file of files) {
     );
   }
 }
+
+assert(
+  densityOverrideFindings.length === 0,
+  `Chip/metadata density recipes have competing text or height utilities: ${densityOverrideFindings.join(", ")}`,
+);
+assert(
+  hardcodedMotionClassFindings.length === 0,
+  `hardcoded motion utilities or transition-all found: ${hardcodedMotionClassFindings.join(", ")}`,
+);
+assert(
+  unapprovedZIndexFindings.length === 0,
+  `Tailwind z-index utilities bypass the named ladder: ${unapprovedZIndexFindings.join(", ")}`,
+);
+
+const layoutTransitionCounts = new Map();
+const unapprovedLayoutTransitions = [];
+for (const finding of layoutTransitionFindings) {
+  const key = `${finding.relativePath}|${finding.property}`;
+  if (!APPROVED_LAYOUT_TRANSITION_COUNTS.has(key)) {
+    unapprovedLayoutTransitions.push(`${finding.relativePath}:${finding.line} (${finding.property})`);
+    continue;
+  }
+  layoutTransitionCounts.set(key, (layoutTransitionCounts.get(key) ?? 0) + 1);
+}
+for (const [key, count] of layoutTransitionCounts) {
+  const approved = APPROVED_LAYOUT_TRANSITION_COUNTS.get(key) ?? 0;
+  if (count > approved) unapprovedLayoutTransitions.push(`${key} increased from ${approved} to ${count}`);
+}
+assert(
+  unapprovedLayoutTransitions.length === 0,
+  `unapproved layout-property transitions found: ${unapprovedLayoutTransitions.join(", ")}`,
+);
 
 const interactiveTapFindings = files.flatMap(findInteractiveTapLiterals);
 assert(
@@ -263,6 +346,9 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}).`,
+  `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}; edge conflicts ${metrics.edgeOwnershipConflicts}; 1px shadow spreads ${metrics.onePixelShadowSpreads}).`,
+);
+console.log(
+  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}.`,
 );
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);
