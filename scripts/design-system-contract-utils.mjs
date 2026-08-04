@@ -237,7 +237,9 @@ function classExpressionAnalyzer(relativePath, sourceText) {
 
   function createsScope(node) {
     if (ts.isFunctionLike(node)) return { functionScope: true };
-    if (ts.isBlock(node) && !ts.isFunctionLike(node.parent)) return { functionScope: false };
+    if ((ts.isBlock(node) && !ts.isFunctionLike(node.parent)) || ts.isCaseBlock(node)) {
+      return { functionScope: false };
+    }
     if (ts.isCatchClause(node) || ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node)) {
       return { functionScope: false };
     }
@@ -251,19 +253,27 @@ function classExpressionAnalyzer(relativePath, sourceText) {
       : parentScope;
     scopeByNode.set(node, scope);
 
-    if (
-      ts.isImportDeclaration(node) &&
-      node.importClause?.namedBindings &&
-      ts.isNamedImports(node.importClause.namedBindings)
-    ) {
-      for (const specifier of node.importClause.namedBindings.elements) {
-        const imported = specifier.propertyName?.text ?? specifier.name.text;
-        addBinding(scope, specifier.name.text, {
-          declaration: specifier,
-          densityRecipe: imported === "metadataPill" || imported === "metadataPillDensity",
+    if (ts.isImportDeclaration(node) && node.importClause?.namedBindings) {
+      const namedBindings = node.importClause.namedBindings;
+      if (ts.isNamespaceImport(namedBindings)) {
+        addBinding(scope, namedBindings.name.text, {
+          declaration: namedBindings,
+          densityRecipe: false,
           initializer: null,
-          start: specifier.name.getStart(source),
+          namespaceImport: true,
+          start: namedBindings.name.getStart(source),
         });
+      } else if (ts.isNamedImports(namedBindings)) {
+        for (const specifier of namedBindings.elements) {
+          const imported = specifier.propertyName?.text ?? specifier.name.text;
+          addBinding(scope, specifier.name.text, {
+            declaration: specifier,
+            densityRecipe: imported === "metadataPill" || imported === "metadataPillDensity",
+            initializer: null,
+            namespaceImport: false,
+            start: specifier.name.getStart(source),
+          });
+        }
       }
     }
     if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
@@ -274,13 +284,29 @@ function classExpressionAnalyzer(relativePath, sourceText) {
         start: node.name.getStart(source),
       });
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
-      addBinding(bindingScopeForVariable(node, scope), node.name.text, {
-        declaration: node,
-        densityRecipe: false,
-        initializer: node.initializer ?? null,
-        start: node.name.getStart(source),
-      });
+    if (ts.isVariableDeclaration(node)) {
+      const targetScope = bindingScopeForVariable(node, scope);
+      if (ts.isIdentifier(node.name)) {
+        addBinding(targetScope, node.name.text, {
+          declaration: node,
+          densityRecipe: false,
+          initializer: node.initializer ?? null,
+          namespaceImport: false,
+          start: node.name.getStart(source),
+        });
+      } else if (ts.isObjectBindingPattern(node.name) && node.initializer) {
+        for (const element of node.name.elements) {
+          if (!ts.isIdentifier(element.name)) continue;
+          addBinding(targetScope, element.name.text, {
+            declaration: element,
+            densityRecipe: false,
+            destructuredFrom: node.initializer,
+            initializer: element.initializer ?? null,
+            namespaceImport: false,
+            start: element.name.getStart(source),
+          });
+        }
+      }
     }
     ts.forEachChild(node, (child) => collectBindings(child, scope));
   }
@@ -386,9 +412,16 @@ function classExpressionAnalyzer(relativePath, sourceText) {
       }
       if (!binding) return empty();
       if (binding.densityRecipe) return [{ usesDensityRecipe: true, tokens: [] }];
-      if (!binding.initializer || resolving.has(binding)) return empty();
+      if (resolving.has(binding)) return empty();
       const next = new Set(resolving);
       next.add(binding);
+      if (binding.destructuredFrom) {
+        const sourcePossibilities = possibilities(binding.destructuredFrom, next);
+        if (sourcePossibilities.some((entry) => entry.usesDensityRecipe)) {
+          return [{ usesDensityRecipe: true, tokens: [] }];
+        }
+      }
+      if (!binding.initializer) return empty();
       return possibilities(binding.initializer, next);
     }
     if (ts.isPropertyAccessExpression(node)) {
@@ -398,6 +431,14 @@ function classExpressionAnalyzer(relativePath, sourceText) {
       }
       if (ts.isIdentifier(node.expression)) {
         const binding = resolveBinding(node.expression);
+        if (
+          binding &&
+          binding !== blockedBinding &&
+          binding.namespaceImport &&
+          (node.name.text === "metadataPill" || node.name.text === "metadataPillDensity")
+        ) {
+          return [{ usesDensityRecipe: true, tokens: [] }];
+        }
         if (binding && binding !== blockedBinding && binding.initializer && !resolving.has(binding)) {
           const initializer = binding.initializer;
           const unwrapped = ts.isAsExpression(initializer) ? initializer.expression : initializer;
@@ -418,7 +459,12 @@ function classExpressionAnalyzer(relativePath, sourceText) {
       }
       return empty();
     }
-    if (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression)) {
+    if (ts.isElementAccessExpression(node)) {
+      const expressionPossibilities = possibilities(node.expression, resolving);
+      if (expressionPossibilities.some((entry) => entry.usesDensityRecipe)) {
+        return [{ usesDensityRecipe: true, tokens: [] }];
+      }
+      if (!ts.isIdentifier(node.expression)) return empty();
       const binding = resolveBinding(node.expression);
       if (!binding || binding === blockedBinding || !binding.initializer || resolving.has(binding)) return empty();
       const initializer = ts.isAsExpression(binding.initializer) ? binding.initializer.expression : binding.initializer;

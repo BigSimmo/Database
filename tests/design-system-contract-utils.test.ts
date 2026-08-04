@@ -113,6 +113,23 @@ describe("design-system contract helpers", () => {
     expect(findJsxEdgeOwnershipConflictsInSource("src/example.tsx", declarationAfterUse)).toEqual([]);
   });
 
+  it("keeps switch CaseBlock bindings inside the switch lexical scope", () => {
+    const source = [
+      'const edge = "border";',
+      "function Component(kind: string) {",
+      "  switch (kind) {",
+      '    case "safe":',
+      '      const edge = "bg-red-500";',
+      '      const safe = <div className={cn(edge, active && "ring-2")} />;',
+      "      break;",
+      "  }",
+      '  return <div className={cn(edge, active && "ring-2")} />;',
+      "}",
+    ].join("\n");
+
+    expect(findJsxEdgeOwnershipConflictsInSource("src/example.tsx", source)).toEqual(["src/example.tsx:9"]);
+  });
+
   it("blocks Chip and metadata density overrides while allowing layout-only classes", () => {
     const source = [
       'const ok = <Chip className="whitespace-nowrap shrink-0" />;',
@@ -163,6 +180,44 @@ describe("design-system contract helpers", () => {
     ].join("\n");
 
     expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual([]);
+  });
+
+  it("recognises metadata density element access without misclassifying a local object", () => {
+    const source = [
+      'const conflict = <span className={cn(metadataPillDensity["compact"], "h-8")} />;',
+      "function Safe() {",
+      '  const metadataPillDensity = { compact: "text-red-500" };',
+      '  return <span className={cn(metadataPillDensity["compact"], "h-8")} />;',
+      "}",
+    ].join("\n");
+
+    expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual(["src/example.tsx:1 (h-8)"]);
+  });
+
+  it("recognises destructured metadata density aliases without crossing function scope", () => {
+    const source = [
+      "const { compact: pill } = metadataPillDensity;",
+      'const conflict = <span className={cn(pill, "h-8")} />;',
+      "function Safe() {",
+      '  const { compact: pill } = { compact: "text-red-500" };',
+      '  return <span className={cn(pill, "h-8")} />;',
+      "}",
+    ].join("\n");
+
+    expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual(["src/example.tsx:2 (h-8)"]);
+  });
+
+  it("recognises namespace metadata exports without misclassifying a shadowed namespace", () => {
+    const source = [
+      'import * as UI from "@/components/ui";',
+      'const conflict = <span className={cn(UI.metadataPill.compact, "h-8")} />;',
+      "function Safe() {",
+      '  const UI = { metadataPill: "text-red-500" };',
+      '  return <span className={cn(UI.metadataPill, "h-8")} />;',
+      "}",
+    ].join("\n");
+
+    expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual(["src/example.tsx:2 (h-8)"]);
   });
 
   it("finds hardcoded motion utilities but accepts named duration tokens", () => {
