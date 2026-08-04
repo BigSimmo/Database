@@ -163,7 +163,7 @@ function combineClassPatterns(groups, separator, constructed = false) {
  */
 export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const bindings = new Map();
+  const bindings = [];
   const classExpressions = [];
 
   function propertyName(node) {
@@ -171,9 +171,66 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
     return null;
   }
 
+  function isFunctionScope(node) {
+    return (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node) ||
+      ts.isMethodDeclaration(node) ||
+      ts.isConstructorDeclaration(node) ||
+      ts.isGetAccessorDeclaration(node) ||
+      ts.isSetAccessorDeclaration(node)
+    );
+  }
+
+  function isLexicalScope(node) {
+    return (
+      ts.isSourceFile(node) ||
+      ts.isBlock(node) ||
+      ts.isModuleBlock(node) ||
+      ts.isCaseBlock(node) ||
+      ts.isForStatement(node) ||
+      ts.isForInStatement(node) ||
+      ts.isForOfStatement(node)
+    );
+  }
+
+  function bindingScope(declaration) {
+    const declarationList = declaration.parent;
+    const blockScoped =
+      ts.isVariableDeclarationList(declarationList) && (declarationList.flags & ts.NodeFlags.BlockScoped) !== 0;
+    let current = declarationList.parent;
+    while (current) {
+      if (blockScoped && isLexicalScope(current)) return current;
+      if (!blockScoped && (isFunctionScope(current) || ts.isSourceFile(current))) return current;
+      current = current.parent;
+    }
+    return source;
+  }
+
+  function isWithinScope(node, scope) {
+    let current = node;
+    while (current) {
+      if (current === scope) return true;
+      current = current.parent;
+    }
+    return false;
+  }
+
+  function scopeDepth(scope) {
+    let depth = 0;
+    let current = scope;
+    while (current.parent) {
+      depth += 1;
+      current = current.parent;
+    }
+    return depth;
+  }
+
   function collect(node) {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      bindings.set(node.name.text, node.initializer);
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      const scope = bindingScope(node);
+      bindings.push({ declaration: node, scope, depth: scopeDepth(scope) });
     }
     if (ts.isJsxAttribute(node) && ["class", "className"].includes(node.name.getText(source))) {
       if (node.initializer && ts.isStringLiteral(node.initializer)) classExpressions.push(node.initializer);
@@ -187,11 +244,32 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   }
   collect(source);
 
+  function resolveBinding(identifier) {
+    const referencePosition = identifier.getStart(source);
+    const visible = bindings
+      .filter(
+        (binding) => binding.declaration.name.text === identifier.text && isWithinScope(identifier, binding.scope),
+      )
+      .sort((left, right) => {
+        if (left.depth !== right.depth) return right.depth - left.depth;
+        const leftPosition = left.declaration.getStart(source);
+        const rightPosition = right.declaration.getStart(source);
+        const leftPrecedes = leftPosition <= referencePosition;
+        const rightPrecedes = rightPosition <= referencePosition;
+        if (leftPrecedes !== rightPrecedes) return leftPrecedes ? -1 : 1;
+        return leftPrecedes ? rightPosition - leftPosition : leftPosition - rightPosition;
+      });
+    return visible[0] ?? null;
+  }
+
   function arrayElements(expression, seen) {
     const current = unwrapExpression(expression);
     if (ts.isArrayLiteralExpression(current)) return [...current.elements];
-    if (ts.isIdentifier(current) && !seen.has(current.text) && bindings.has(current.text)) {
-      return arrayElements(bindings.get(current.text), new Set(seen).add(current.text));
+    if (ts.isIdentifier(current)) {
+      const binding = resolveBinding(current);
+      if (binding?.declaration.initializer && !seen.has(binding.declaration)) {
+        return arrayElements(binding.declaration.initializer, new Set(seen).add(binding.declaration));
+      }
     }
     return null;
   }
@@ -203,9 +281,10 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
     if (current.kind === ts.SyntaxKind.TrueKeyword || current.kind === ts.SyntaxKind.FalseKeyword)
       return [{ value: "", constructed: false }];
     if (ts.isIdentifier(current)) {
-      if (seen.has(current.text) || !bindings.has(current.text))
+      const binding = resolveBinding(current);
+      if (!binding?.declaration.initializer || seen.has(binding.declaration))
         return [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
-      return patternsFor(bindings.get(current.text), new Set(seen).add(current.text));
+      return patternsFor(binding.declaration.initializer, new Set(seen).add(binding.declaration));
     }
     if (ts.isTemplateExpression(current)) {
       let combined = [{ value: current.head.text, constructed: true }];

@@ -45,6 +45,20 @@ describe("design-system adoption manifest", () => {
       expected: { literalCkbV2: false, dynamicCkbV2: true },
     },
     {
+      name: "sibling function shadowing",
+      source:
+        `export function First({ version }: { version: string }) { const shell = "ckb-" + version; return <main className={shell} />; } ` +
+        `export function Second() { const shell = "page"; return <main className={shell} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
+      name: "nested lexical shadowing",
+      source:
+        `export function Root({ version }: { version: string }) { const shell = "ckb-" + version; ` +
+        `{ const shell = "page"; void shell; } return <main className={shell} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
       name: "unrelated dynamic class",
       source:
         `export function Root({ state }: { state: string }) { return <main className={cn("page", ` +
