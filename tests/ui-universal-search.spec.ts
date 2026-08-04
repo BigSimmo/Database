@@ -435,6 +435,75 @@ test.describe("universal search smart affordances", () => {
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
   });
 
+  test("hides Answer-mode also-matches while drafting and shows them after the final answer", async ({ page }) => {
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      await fulfillUniversalSearch(route, smartPayload);
+    });
+
+    const answer = {
+      answer: "Synthetic answer for the deferred also-matches check.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      demoMode: true,
+    };
+    await page.addInitScript(
+      ({ payload }) => {
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (input, init) => {
+          const rawUrl = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+          const pathname = new URL(rawUrl, window.location.href).pathname;
+          if (pathname !== "/api/answer/stream") return originalFetch(input, init);
+
+          const encoder = new TextEncoder();
+          const events: Array<{ delay: number; event: string; data: unknown }> = [
+            { delay: 0, event: "progress", data: { stage: "scoping", message: "Preparing scope." } },
+            { delay: 80, event: "progress", data: { stage: "retrieving", message: "Searching documents." } },
+            { delay: 160, event: "progress", data: { stage: "ranking", message: "Selecting governed sources." } },
+            {
+              delay: 240,
+              event: "progress",
+              data: { stage: "generating", message: "Drafting a cited answer from the selected passages." },
+            },
+            {
+              delay: 1_800,
+              event: "progress",
+              data: { stage: "complete", message: "Answer ready.", elapsedMs: 1_800 },
+            },
+            { delay: 1_900, event: "final", data: payload },
+          ];
+
+          return new Response(
+            new ReadableStream({
+              start(controller) {
+                for (const item of events) {
+                  window.setTimeout(() => {
+                    controller.enqueue(encoder.encode(`event: ${item.event}\ndata: ${JSON.stringify(item.data)}\n\n`));
+                    if (item.event === "final") controller.close();
+                  }, item.delay);
+                }
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "text/event-stream; charset=utf-8" } },
+          );
+        };
+      },
+      { payload: answer },
+    );
+
+    const input = await openComposer(page, "/?mode=answer&focus=1");
+    await input.fill("acamprosat");
+    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+
+    await expect(page.getByTestId("answer-progress-stepper")).toBeVisible();
+    await expect(page.getByText("Drafting a cited answer from the selected passages.")).toBeVisible();
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Also matches in other modes")).toBeVisible();
+  });
+
   test("keeps a saved exact match first in Favourites", async ({ page }) => {
     await mockSmartSearch(page);
     const input = await openComposer(page, "/favourites?focus=1");
