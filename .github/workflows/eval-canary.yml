@@ -6,41 +6,17 @@
 # scheduled failures. Each run also uploads the eval JSON artifact that feeds
 # offline ranking-snapshot regeneration (scripts/build-ranking-snapshot.ts).
 #
-# The schedule only fires from the default branch. After merging, trigger one
-# workflow_dispatch run and confirm it is green before trusting the weekly
-# cadence.
+# The schedule and repository dispatch both load this workflow from the default
+# branch. After merging, send an `eval-canary` repository dispatch and confirm
+# it is green before trusting the weekly cadence.
 name: Eval Canary
 
 on:
-  workflow_dispatch:
-    inputs:
-      answer_case_limit:
-        description: "Number of answer-quality cases to run (--limit)"
-        required: false
-        default: "44"
-      # Staged ranking-weight evaluation (ADDENDUM 4 Phase B): a RAG_RANKING_CONFIG JSON
-      # override evaluated live WITHOUT touching code defaults. Empty = production weights.
-      # Malformed JSON fails the run loudly (validation step below) instead of silently
-      # reverting to defaults and corrupting a baseline/post comparison.
-      rag_ranking_config:
-        description: "Optional RAG_RANKING_CONFIG JSON override (staged ranking weights); empty = production defaults"
-        required: false
-        default: ""
-      # Pre-merge branch evals (Phase D-1): run the golden eval from a branch so ranking PRs
-      # can gather live proof BEFORE merging. Dispatch requires repo write access, so refs are
-      # limited to trusted collaborators' branches. Empty = the dispatched/default branch.
-      ref:
-        description: "Optional git ref (branch/SHA) to evaluate; empty = default branch"
-        required: false
-        default: ""
-      # Phase E: opt-in run of the 30-case answer-quality/targeting eval (eval:answer-quality)
-      # alongside the gate subset. Dispatch-only and default-off, so scheduled runs and
-      # existing dispatch shapes are byte-identical. Informational: the script exits 0
-      # without a --targeting-floor, so it can never fail the canary.
-      answer_quality_eval:
-        description: "Also run the 30-case answer-quality/targeting eval (eval:answer-quality); 'true' to enable"
-        required: false
-        default: ""
+  # repository_dispatch always loads this secret-bearing workflow and its code
+  # from the trusted default branch. Optional client_payload keys are
+  # answer_case_limit, rag_ranking_config, and answer_quality_eval.
+  repository_dispatch:
+    types: [eval-canary]
   schedule:
     # Sunday 18:00 UTC = Monday 02:00 Australia/Perth — off-peak for clinicians.
     - cron: "0 18 * * 0"
@@ -60,11 +36,9 @@ env:
   # Evals use the service-role admin client; the publishable key only needs to
   # satisfy env validation (same placeholder approach as ci.yml).
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
   # Empty for schedule runs and default dispatches (resolveRankingConfig treats empty as
   # unset); non-empty only for staged ranking-weight evals via the dispatch input.
-  RAG_RANKING_CONFIG: ${{ github.event.inputs.rag_ranking_config || '' }}
+  RAG_RANKING_CONFIG: ${{ github.event.client_payload.rag_ranking_config || '' }}
   # Pace golden retrieval so forced-vector probes do not trip transient 429s
   # after a long text-fast-path run (see vector-ptsd history in eval-canary).
   RAG_EVAL_CASE_DELAY_MS: 2000
@@ -99,8 +73,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Empty ref = checkout's default (the triggering sha) — schedule runs unaffected.
-          ref: ${{ github.event.inputs.ref || '' }}
 
       - name: Record evaluated Git SHA
         shell: bash
@@ -111,7 +83,7 @@ jobs:
       # eval into an accidental baseline and corrupt the pair comparison.
       - name: Validate ranking-config override
         id: validate_override
-        if: github.event.inputs.rag_ranking_config != ''
+        if: github.event.client_payload.rag_ranking_config != ''
         run: |
           node -e '
             const raw = process.env.RAG_RANKING_CONFIG;
@@ -124,6 +96,9 @@ jobs:
 
       - name: Preflight required secrets
         id: preflight
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           missing=""
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
@@ -147,10 +122,15 @@ jobs:
 
       - name: Guard Supabase project identity
         id: project_guard
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: npm run check:supabase-project
 
       - name: Golden retrieval eval (live corpus)
         id: golden_retrieval
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           mkdir -p .local/eval-canary
           set -o pipefail
@@ -162,7 +142,9 @@ jobs:
       - name: Answer-quality subset (live generation)
         id: answer_quality
         env:
-          ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '44' }}
+          ANSWER_CASE_LIMIT: ${{ github.event.client_payload.answer_case_limit || '44' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           # Canary-only latency allowance: cross-region runner -> Sydney Supabase
           # + OpenAI. Release/local eval:quality keeps the strict default gates.
           EVAL_LATENCY_CONTEXT: cross-region-runner
@@ -184,7 +166,10 @@ jobs:
       # (proven necessary on dispatch #57, where a red eval:quality skipped this step).
       - name: Answer-quality targeting eval (optional, dispatch-only)
         id: answer_targeting
-        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.answer_quality_eval == 'true' }}
+        if: ${{ !cancelled() && github.event_name == 'repository_dispatch' && github.event.client_payload.answer_quality_eval == 'true' }}
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           mkdir -p .local/eval-canary
           set -o pipefail
