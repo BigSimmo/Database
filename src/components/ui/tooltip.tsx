@@ -9,14 +9,14 @@ import {
   useRef,
   useState,
   type ReactElement,
-  type ReactNode,
 } from "react";
 import { OverlayPortal } from "@/components/ui/overlay-root";
 import { cn } from "@/components/ui-primitives";
 
 export type TooltipProps = {
   children: ReactElement<Record<string, unknown>>;
-  content: ReactNode;
+  /** Plain supplementary text so the trigger always has a complete description. */
+  content: string;
   placement?: "top" | "bottom";
   className?: string;
 };
@@ -110,6 +110,7 @@ export function Tooltip({ children, content, placement = "top", className }: Too
             ref={tooltipRef}
             role="tooltip"
             id={id}
+            aria-label={content}
             data-testid="tooltip"
             data-placement={position.placement}
             style={{
@@ -117,15 +118,23 @@ export function Tooltip({ children, content, placement = "top", className }: Too
               left: position.left,
               top: position.top,
               maxWidth: position.maxWidth ?? "min(20rem, calc(100vw - 1rem))",
-              maxHeight: position.maxHeight ?? "calc(100vh - 1rem)",
-              overflowY: "auto",
             }}
             className={cn(
               "pointer-events-none w-max max-w-xs rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-xs text-[color:var(--text)] shadow-[var(--shadow-hover)] ring-1 ring-[color:var(--border-lux)]",
               className,
             )}
           >
-            {content}
+            <span
+              aria-hidden="true"
+              data-testid="tooltip-visual"
+              className="block overflow-hidden"
+              style={{ maxHeight: position.maxHeight ?? "calc(100vh - 1rem)" }}
+            >
+              {content}
+            </span>
+            <span data-testid="tooltip-description" className="sr-only">
+              {content}
+            </span>
           </span>
         </OverlayPortal>
       ) : null}

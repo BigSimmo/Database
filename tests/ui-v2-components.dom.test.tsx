@@ -500,6 +500,7 @@ describe("Tooltip", () => {
   });
 
   it("caps and clamps viewport-sized content inside a 320px viewport", async () => {
+    const fullContent = "Opening context. Additional supplementary detail. FINAL LINE REMAINS DESCRIBED.";
     const originalWidth = window.innerWidth;
     const originalHeight = window.innerHeight;
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
@@ -516,18 +517,27 @@ describe("Tooltip", () => {
 
     try {
       render(
-        <Tooltip content="A very long tooltip that must stay inside the phone viewport." placement="bottom">
+        <Tooltip content={fullContent} placement="bottom">
           <button type="button">Edge trigger</button>
         </Tooltip>,
       );
-      screen.getByRole("button", { name: "Edge trigger" }).focus();
+      const trigger = screen.getByRole("button", { name: "Edge trigger" });
+      trigger.focus();
       const tooltip = await screen.findByRole("tooltip");
       await waitFor(() => {
         expect(tooltip.style.maxWidth).toBe("304px");
-        expect(tooltip.style.maxHeight).toBe("224px");
         expect(tooltip.style.left).toBe("8px");
         expect(tooltip.style.top).toBe("8px");
       });
+      const visual = within(tooltip).getByTestId("tooltip-visual");
+      expect(visual.style.maxHeight).toBe("224px");
+      expect(visual).toHaveClass("overflow-hidden");
+      expect(visual.style.overflowY).toBe("");
+      expect(tooltip.style.overflowY).toBe("");
+      expect(tooltip).not.toHaveAttribute("tabindex");
+      expect(tooltip).toHaveAttribute("aria-label", fullContent);
+      expect(within(tooltip).getByTestId("tooltip-description")).toHaveTextContent("FINAL LINE REMAINS DESCRIBED.");
+      expect(trigger).toHaveAccessibleDescription(fullContent);
     } finally {
       rect.mockRestore();
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
