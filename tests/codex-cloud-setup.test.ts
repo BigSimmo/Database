@@ -681,6 +681,24 @@ describe("Codex Cloud environment contract", () => {
       expectedBaseAncestor: "true",
       freshness: "verified",
     });
+    expect(
+      gitCheckoutFreshness(directory, {
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_EXPECTED_BASE_SHA: "arbitrary-sensitive-value",
+      }),
+    ).toMatchObject({
+      expectedBase: "invalid",
+      expectedBaseAncestor: "unverified",
+    });
+    expect(
+      gitCheckoutFreshness(directory, {
+        CODEX_CLOUD: "1",
+        CODEX_CLOUD_EXPECTED_BASE_SHA: `${head}\nmalformed`,
+      }),
+    ).toMatchObject({
+      expectedBase: "invalid",
+      expectedBaseAncestor: "unverified",
+    });
   });
 
   it("normalizes Python package version output for capability reports", () => {

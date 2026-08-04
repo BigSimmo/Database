@@ -476,14 +476,22 @@ function fullGitRevision(root, ref) {
   return result.status === 0 ? String(result.stdout ?? "").trim() : "unavailable";
 }
 
+function normalizedExpectedBase(root, value) {
+  if (!value) return "unset";
+  const candidate = String(value);
+  if (!/^[0-9a-f]{40}$/i.test(candidate)) return "invalid";
+  const revision = fullGitRevision(root, `${candidate}^{commit}`);
+  return /^[0-9a-f]{40}$/i.test(revision) ? revision.toLowerCase() : "invalid";
+}
+
 /** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
 export function gitCheckoutFreshness(root = process.cwd(), env = process.env) {
   const head = fullGitRevision(root, "HEAD");
   const localMain = fullGitRevision(root, "refs/heads/main");
   const originMain = fullGitRevision(root, "refs/remotes/origin/main");
-  const expectedBase = env.CODEX_CLOUD_EXPECTED_BASE_SHA || "unset";
+  const expectedBase = normalizedExpectedBase(root, env.CODEX_CLOUD_EXPECTED_BASE_SHA);
   let expectedBaseAncestor = "unverified";
-  if (expectedBase !== "unset" && head !== "unavailable") {
+  if (expectedBase !== "unset" && expectedBase !== "invalid" && head !== "unavailable") {
     const result = spawnSync("git", ["merge-base", "--is-ancestor", expectedBase, "HEAD"], {
       cwd: root,
       stdio: "ignore",
