@@ -35,7 +35,7 @@ cd "$repo_root"
 
 expected_node_major="$(tr -cd '0-9' < .node-version)"
 expected_npm_version="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"npm@\([^"]*\)".*/\1/p' package.json | head -n 1)"
-railway_cli_version="5.30.1"
+railway_cli_version="5.30.4"
 codex_cli_version="0.146.0"
 expected_cloud_python="3.12"
 [[ -n "$expected_node_major" ]] || fail "Could not read the Node major from .node-version."
@@ -91,13 +91,18 @@ esac
 # these variables, so a runtime `${RAG_PROVIDER_MODE:-auto}` fallback would
 # override a connected environment configured for offline retrieval.
 if [[ "$access_profile" = "connected" ]]; then
-  rag_provider_mode="${RAG_PROVIDER_MODE:-auto}"
-  case "$rag_provider_mode" in
-    auto|openai|offline) ;;
-    *) fail "Unsupported RAG_PROVIDER_MODE: $rag_provider_mode" ;;
-  esac
+  rag_provider_mode="${RAG_PROVIDER_MODE:-offline}"
+  [[ "$rag_provider_mode" = "offline" ]] ||
+    fail "Ordinary Codex Cloud must keep RAG_PROVIDER_MODE=offline; run live OpenAI checks only in the protected provider workflow."
 else
   rag_provider_mode="offline"
+fi
+
+connected_supabase_mcp_url=""
+if [[ "$access_profile" = "connected" ]]; then
+  connected_supabase_mcp_url="$(sed -n '/^\[mcp_servers\.supabase_cloud\]$/,/^\[mcp_servers\./ s/^url = "\(.*\)"$/\1/p' .codex/config.toml | head -n 1)"
+  [[ "$connected_supabase_mcp_url" = https://mcp.supabase.com/mcp\?* ]] ||
+    fail "Could not resolve the audited Supabase MCP URL from .codex/config.toml."
 fi
 
 runtime_profile="$HOME/.clinical-kb-codex-cloud.sh"
@@ -153,7 +158,7 @@ codex_shell_policy_excludes=(
   SUPABASE_ACCESS_TOKEN SUPABASE_SERVICE_ROLE_KEY SUPABASE_DB_URL DATABASE_URL POSTGRES_PASSWORD
   CROSS_TENANT_SERVICE_ROLE_KEY
   RAILWAY_API_TOKEN RAILWAY_TOKEN
-  GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN
+  GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN CODEX_CLOUD_GITHUB_PAT
   HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
   E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 )
@@ -201,6 +206,16 @@ trap 'rm -f "$codex_config_candidate"' EXIT
   printf 'inherit = "all"\n'
   printf 'ignore_default_excludes = false\n'
   printf 'exclude = [%s]\n' "$codex_exclude_toml"
+  if [[ "$access_profile" = "connected" ]]; then
+    printf '\n%s\n' '[mcp_servers.railway_connected]'
+    printf '%s\n' 'url = "https://mcp.railway.com"'
+    printf '%s\n' 'enabled = true'
+    printf '%s\n' 'default_tools_approval_mode = "writes"'
+    printf '\n%s\n' '[mcp_servers.supabase_connected]'
+    printf 'url = "%s"\n' "$connected_supabase_mcp_url"
+    printf '%s\n' 'enabled = true'
+    printf '%s\n' 'default_tools_approval_mode = "prompt"'
+  fi
   printf '%s\n' "$codex_policy_end"
 } > "$codex_config_candidate"
 if [[ "${CODEX_CLOUD_SETUP_TEST_FAIL_ATOMIC_WRITE:-0}" = "1" ]]; then
@@ -232,11 +247,15 @@ log "Installing locked Node dependencies."
 setup_step="node-dependencies"
 npm ci --include=dev
 
+setup_step="railway-cli"
 install_npm_cli "@railway/cli" "$railway_cli_version" "railway"
+setup_step="codex-cli"
 install_npm_cli "@openai/codex" "$codex_cli_version" "codex"
 
+setup_step="git-remote"
 node scripts/ensure-codex-cloud-git-remote.mjs --configure-gh-helper
 
+setup_step="deno-runtime"
 if ! command -v deno >/dev/null 2>&1 || [[ "$(deno --version 2>/dev/null | sed -n '1s/^deno \([0-9]*\).*/\1/p')" != "2" ]]; then
   log "Installing Deno 2.x."
   npm install --global 'deno@2'
@@ -283,6 +302,11 @@ log "Installing Python worker requirements."
 setup_step="python-worker-requirements"
 "$ocr_venv/bin/python" -m pip install --disable-pip-version-check --require-hashes -r worker/python/requirements-cloud.txt
 "$ocr_venv/bin/python" -m pip check
+requirements_marker="$ocr_venv/.requirements-cloud.sha256"
+requirements_marker_candidate="${requirements_marker}.tmp"
+sha256sum worker/python/requirements-cloud.txt | awk '{print $1}' > "$requirements_marker_candidate"
+mv -f "$requirements_marker_candidate" "$requirements_marker"
+"$ocr_venv/bin/python" -c 'from importlib.metadata import version; print("medspacy=%s spacy=%s" % (version("medspacy"), version("spacy")))'
 export CODEX_CLOUD_OCR_PYTHON="$ocr_venv/bin/python"
 
 if [[ "${CODEX_CLOUD_SKIP_BROWSER_INSTALL:-0}" = "1" ]]; then
@@ -298,7 +322,7 @@ npm run check:runtime
 npm run check:installed-lock-parity
 npm run check:worker-python-locks:static
 npm run check:codex-cloud
-npm run check:codex-cloud -- --runtime
+CODEX_CLOUD_PROVISIONING=1 npm run check:codex-cloud -- --runtime
 npm run diagnose:codex-cloud
 trap - ERR
 log "Setup complete with ${CODEX_CLOUD_ACCESS_PROFILE} access profile."
