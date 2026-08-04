@@ -157,6 +157,20 @@ describe("audit navigation and auth regressions", () => {
     expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
   });
 
+  it("mounts Answer-mode also-matches only after generation completes", () => {
+    const alsoMatchesGate = sourceSegment(
+      clinicalDashboardSource,
+      "const showUniversalAlsoMatches =",
+      "const showDesktopHomeComposer =",
+    );
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "tools"');
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "favourites"');
+    expect(alsoMatchesGate).toContain('activeModeResultKind === "answer" && Boolean(answer) && !loading');
+    expect(alsoMatchesGate).not.toContain(
+      'activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites"',
+    );
+  });
+
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
     const uploadReadOnlyContract = sourceSegment(
       clinicalDashboardSource,
