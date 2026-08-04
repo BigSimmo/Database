@@ -6,7 +6,6 @@ import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/co
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 import { useTcBindings } from "../bindings";
-import { LoadingState } from "../ui";
 
 const SUGGESTIONS = [
   "Anxiety in outpatient care",
@@ -19,15 +18,10 @@ const SUGGESTIONS = [
 export function HomeScreen() {
   const b = useTcBindings();
 
-  // Avoid presenting an empty or fabricated catalogue while required data loads.
-  if (b.loading && b.therapies.length === 0) {
-    return <LoadingState label="Loading therapy library…" />;
-  }
-
   const therapyCountCopy =
-    b.therapies.length === 0
+    b.therapyCount === 0
       ? "Source-grounded therapy records."
-      : `${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"}.`;
+      : `${b.therapyCount} source-grounded therapy ${b.therapyCount === 1 ? "record" : "records"}.`;
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">

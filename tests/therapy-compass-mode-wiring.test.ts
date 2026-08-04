@@ -6,6 +6,7 @@ import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/sea
 import {
   THERAPY_CATALOGUE_ASSETS,
   THERAPY_CATALOGUE_ASSETS_PREVIOUS,
+  THERAPY_CATALOGUE_SUMMARY,
 } from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
@@ -149,7 +150,7 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
   });
 
-  it("ships a compact browse home/index without narrowing the full-prose search corpus", () => {
+  it("keeps projections available without putting one on the Therapy home paint path", () => {
     const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
     const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
     const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
@@ -160,9 +161,26 @@ describe("Therapy Compass production-mode wiring", () => {
     // pin both halves rather than the old single expression.
     expect(loaderSrc).toContain("fetchCatalogue(options.catalogue)");
     expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[catalogue]");
-    expect(bindingsSrc).toContain('screen === "home" ? "home"');
+    expect(bindingsSrc).toContain("enabled: !isHome");
+    expect(bindingsSrc).toContain("THERAPY_CATALOGUE_SUMMARY.totalCount");
+    expect(bindingsSrc).not.toContain('screen === "home" ? "home"');
     expect(bindingsSrc).toContain('screen === "pathways" ? "index"');
     expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
+  });
+
+  it("generates Therapy home count and artifact defaults from the current catalogue", () => {
+    const home = JSON.parse(readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir), "utf8")) as Array<{
+      slug: string;
+      briefInterventionAvailable: boolean;
+      patientSheetAvailable: boolean;
+    }>;
+    expect(THERAPY_CATALOGUE_SUMMARY.totalCount).toBe(home.length);
+    expect(THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug).toBe(
+      home.find((therapy) => therapy.briefInterventionAvailable)?.slug,
+    );
+    expect(THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug).toBe(
+      home.find((therapy) => therapy.patientSheetAvailable)?.slug,
+    );
   });
 
   it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {

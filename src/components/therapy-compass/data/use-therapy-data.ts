@@ -14,11 +14,19 @@ type TherapyDataOptions = {
   catalogue?: "home" | "index" | "full";
   includePathways?: boolean;
   includeReference?: boolean;
+  /** Skip all catalogue I/O for routes whose first paint uses generated summary metadata only. */
+  enabled?: boolean;
 };
 
-// Cache each route-sized payload once per session. Home uses the smallest catalogue,
-// pathways use the thin browse index, and search/detail/compare/recommend use full records.
+// Cache each route-sized payload once per session. Therapy home disables I/O and
+// renders generated summary metadata; pathways use the thin browse index, and
+// search/detail/compare/recommend use full records.
 const cache = new Map<string, Promise<TherapyDataset>>();
+const EMPTY_DATASET: TherapyDataset = {
+  therapies: [],
+  pathways: [],
+  reference: { categories: [], tags: [], measures: [] },
+};
 
 /** Test helper: drop the session-scoped dataset cache between cases. */
 export function clearTherapyDataCache() {
@@ -80,8 +88,9 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
       catalogue: options.catalogue ?? "full",
       includePathways: options.includePathways ?? true,
       includeReference: options.includeReference ?? true,
+      enabled: options.enabled ?? true,
     }),
-    [options.catalogue, options.includePathways, options.includeReference],
+    [options.catalogue, options.enabled, options.includePathways, options.includeReference],
   );
   const requestKey = `${resolved.catalogue}:${resolved.includePathways ? "pathways" : "none"}:${resolved.includeReference ? "reference" : "none"}`;
   const [state, setState] = useState<
@@ -101,6 +110,7 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
   }, []);
 
   const retry = useCallback((): Promise<void> => {
+    if (!resolved.enabled) return Promise.resolve();
     // Coalesce repeated clicks onto the same in-flight reload.
     if (inFlightRetryRef.current) return inFlightRetryRef.current;
     cache.delete(requestKey);
@@ -113,9 +123,13 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
     });
     inFlightRetryRef.current = promise;
     return promise;
-  }, [requestKey]);
+  }, [requestKey, resolved.enabled]);
 
   useEffect(() => {
+    if (!resolved.enabled) {
+      settleRetryWaiters();
+      return;
+    }
     let active = true;
     if (!cache.has(requestKey)) cache.set(requestKey, loadDataset(resolved));
     const request = cache.get(requestKey)!;
@@ -151,6 +165,7 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
     };
   }, [settleRetryWaiters]);
 
+  if (!resolved.enabled) return { data: EMPTY_DATASET, loading: false, error: null, retry };
   if (state.requestKey !== requestKey) return { data: null, loading: true, error: null, retry };
   return { data: state.data, loading: state.loading, error: state.error, retry };
 }

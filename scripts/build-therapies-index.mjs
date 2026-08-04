@@ -57,7 +57,7 @@ function manifestAssets(body, name) {
   return Object.fromEntries(entries);
 }
 
-function renderManifest(current, previous) {
+function renderManifest(current, previous, summary) {
   const entry = (assets) =>
     `{\n  full: "${assets.full}",\n  index: "${assets.index}",\n  home: "${assets.home}",\n} as const;\n`;
   return [
@@ -69,6 +69,14 @@ function renderManifest(current, previous) {
     "// pruned. `useTherapyData` also falls back to the unversioned alias for",
     "// bundles that include that fallback (pre-fallback clients are best-effort).",
     `export const THERAPY_CATALOGUE_ASSETS_PREVIOUS = ${entry(previous)}`,
+    "// First-paint metadata for the Therapy home. The landing page renders only",
+    "// the catalogue count and trusted default artifact destinations, so it must",
+    "// not download and parse a record projection before its LCP can paint.",
+    "export const THERAPY_CATALOGUE_SUMMARY = {",
+    `  totalCount: ${summary.totalCount},`,
+    `  defaultBriefSlug: ${JSON.stringify(summary.defaultBriefSlug)},`,
+    `  defaultSheetSlug: ${JSON.stringify(summary.defaultSheetSlug)},`,
+    "} as const;\n",
   ].join("\n");
 }
 
@@ -148,6 +156,28 @@ const browserHomeProjected = therapies
     aliases: Array.isArray(therapy.aliases) ? therapy.aliases : [],
   }))
   .sort((a, b) => a.name.localeCompare(b.name));
+
+const catalogueSummary = {
+  totalCount: browserHomeProjected.length,
+  defaultBriefSlug: browserHomeProjected.find((therapy) => therapy.briefInterventionAvailable)?.slug ?? null,
+  defaultSheetSlug: browserHomeProjected.find((therapy) => therapy.patientSheetAvailable)?.slug ?? null,
+};
+
+if (checkOnly) {
+  const summaryBlock = currentManifest.match(/THERAPY_CATALOGUE_SUMMARY = \{([^}]*)\}/)?.[1] ?? "";
+  const recordedSummary = {
+    totalCount: Number(summaryBlock.match(/totalCount: (\d+)/)?.[1] ?? Number.NaN),
+    defaultBriefSlug: summaryBlock.match(/defaultBriefSlug: (null|"[^"]+")/)?.[1] ?? "",
+    defaultSheetSlug: summaryBlock.match(/defaultSheetSlug: (null|"[^"]+")/)?.[1] ?? "",
+  };
+  if (
+    recordedSummary.totalCount !== catalogueSummary.totalCount ||
+    recordedSummary.defaultBriefSlug !== JSON.stringify(catalogueSummary.defaultBriefSlug) ||
+    recordedSummary.defaultSheetSlug !== JSON.stringify(catalogueSummary.defaultSheetSlug)
+  ) {
+    throw new Error("Generated therapy catalogue summary is stale. Re-run `node scripts/build-therapies-index.mjs`.");
+  }
+}
 
 function syncTarget(target, records) {
   const expected = `${escapeFalseOpenAiKeySignatures(JSON.stringify(records, null, 2))}\n`;
@@ -254,7 +284,7 @@ if (!checkOnly) {
       return [kind, priorPrevious[kind] ?? current[kind]];
     }),
   );
-  writeFileSync(manifestTarget, renderManifest(current, previous));
+  writeFileSync(manifestTarget, renderManifest(current, previous, catalogueSummary));
   // Prune everything older than those two generations. Without this, every data
   // revision strands the previous full catalogue (~2.5 MB) plus both projections
   // in `public/` forever — carried in git history and in every Docker image. PR
