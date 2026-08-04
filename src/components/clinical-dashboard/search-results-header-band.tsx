@@ -269,8 +269,9 @@ export function SearchResultsHeaderBand({
       data-status={resolvedStatus}
       data-testid="search-query-ribbon"
       className={cn(
-        // `search-band` carries the accent as a real border-top; there is no
-        // overlay bar to be clipped by the corner arc any more.
+        // `search-band` no longer paints the accent — the lead rule does. The
+        // class stays because the forced-colors fault signal hangs off it, and
+        // because the style-contract registry names it.
         "search-band relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
         className,
       )}
@@ -278,7 +279,7 @@ export function SearchResultsHeaderBand({
       {/* One line. The band was 123px on a phone to say "12 documents", because
           the utility rail dropped to its own row and that row was ~85% empty.
           It wraps only where a page supplies a full-width phone control — see
-          `resolvedPlacement`. */}
+          `mobileControlsPlacement`. */}
       <div
         className={cn(
           "flex min-w-0 items-center gap-x-2 px-3 sm:min-h-[3.75rem] sm:flex-nowrap sm:gap-x-2.5 sm:px-4",
@@ -347,8 +348,17 @@ export function SearchResultsHeaderBand({
               "Sign in to search"
             ) : (
               // `refetching` keeps text content identical to `ready` so the atomic
-              // live region does not re-announce an unchanged count; the dot is
-              // decorative and the dimming is CSS via `data-status`.
+              // live region does not re-announce an unchanged count. The pulsing
+              // dot is the whole signal and it is decorative.
+              //
+              // This comment used to add "and the dimming is CSS via
+              // `data-status`". There is no `[data-status="refetching"]` rule in
+              // globals.css and there is no evidence there ever was, so the
+              // sentence described an intention rather than the code. Adding the
+              // rule is a visual change across twelve modes and belongs to
+              // whoever decides a background refresh should look different;
+              // asserting it here while it does not exist is what let it go
+              // unnoticed.
               <>
                 {resolvedStatus === "refetching" ? (
                   <span
