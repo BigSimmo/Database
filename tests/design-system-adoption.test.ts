@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 import { describe, expect, it } from "vitest";
 
@@ -56,6 +57,29 @@ const baselineNames = [
   "therapy-compass-home.png",
 ];
 
+function git(fixtureRoot: string, args: string[]) {
+  return execFileSync("git", args, {
+    cwd: fixtureRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  }).trim();
+}
+
+function commitFixture(fixtureRoot: string, message: string) {
+  git(fixtureRoot, ["add", "-A"]);
+  git(fixtureRoot, ["commit", "-q", "-m", message]);
+  return git(fixtureRoot, ["rev-parse", "HEAD"]);
+}
+
+function initialiseCandidateRepository(fixtureRoot: string) {
+  git(fixtureRoot, ["init", "-q"]);
+  git(fixtureRoot, ["config", "user.email", "fixture@example.invalid"]);
+  git(fixtureRoot, ["config", "user.name", "Fixture"]);
+  writeFixtureFile(fixtureRoot, "src/app/page.tsx", "export default function Page() { return null; }\n");
+  writeFixtureFile(fixtureRoot, "tests/ui-visual-baseline.spec.ts", read("tests/ui-visual-baseline.spec.ts"));
+  return commitFixture(fixtureRoot, "candidate source");
+}
+
 function writeBaselineSet(
   fixtureRoot: string,
   {
@@ -63,34 +87,39 @@ function writeBaselineSet(
     reviewStatus = "approved",
     candidateNames = baselineNames,
     hashOverride,
+    candidateSourceHead = git(fixtureRoot, ["rev-parse", "HEAD"]),
   }: {
     platform?: string;
     reviewStatus?: string;
     candidateNames?: string[];
     hashOverride?: string;
+    candidateSourceHead?: string;
   } = {},
 ) {
   const paths = candidateNames.map((name) => `tests/__screenshots__/linux/${name}`);
   for (const baselinePath of paths) writeFixtureFile(fixtureRoot, baselinePath, validPng);
   const candidates = paths.map((baselinePath, index) => ({
+    id: candidateNames[index].replace(/\.png$/, ""),
     path: baselinePath,
     sha256: index === 0 && hashOverride ? hashOverride : createHash("sha256").update(validPng).digest("hex"),
     width: 16,
     height: 16,
   }));
   const provenance = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     platform,
     runnerImage: "ubuntu-24.04",
-    reviewedHead: "a".repeat(40),
+    candidateSourceHead,
     review: {
       status: reviewStatus,
       reviewerType: "human",
+      candidateSourceHead,
       reviewedBy: "fixture-reviewer",
       reviewedAt: "2026-08-05T00:00:00.000Z",
     },
     source: {
       kind: "hosted-ci-artifact",
+      candidateSourceHead,
       runId: "12345",
       artifactName: "visual-baseline-12345",
     },
@@ -473,6 +502,7 @@ describe("design-system adoption manifest", () => {
         "src/app/(search-app)/documents/source/page.tsx",
         read("src/app/(search-app)/documents/source/page.tsx"),
       );
+      initialiseCandidateRepository(fixtureRoot);
       const baselineSet = writeBaselineSet(fixtureRoot);
       const proof = Object.fromEntries(
         current.requiredProofCategories.map((category: string) => [
@@ -626,6 +656,16 @@ describe("design-system adoption manifest", () => {
     const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-review-"));
     const countRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-count-"));
     try {
+      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+        initialiseCandidateRepository(fixtureRoot);
+      writeFixtureFile(
+        validRoot,
+        "tests/ui-visual-baseline.spec.ts",
+        read("tests/ui-visual-baseline.spec.ts").replace(
+          /const AWAITING_BASELINE(?:\s*:\s*[^=]+)?\s*=\s*new Set\(\[[\s\S]*?\]\);/,
+          "const AWAITING_BASELINE: ReadonlySet<string> = new Set([]);",
+        ),
+      );
       const valid = writeBaselineSet(validRoot);
       expect(
         validateLinuxVisualBaselineSet(valid.paths, { root: validRoot, trackedFiles: valid.trackedFiles }),
@@ -673,6 +713,150 @@ describe("design-system adoption manifest", () => {
     } finally {
       for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
         fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("pins baseline provenance to the canonical six target ids and paths", () => {
+    const arbitraryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-arbitrary-"));
+    const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-target-missing-"));
+    const extraRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-target-extra-"));
+    try {
+      for (const fixtureRoot of [arbitraryRoot, missingRoot, extraRoot]) initialiseCandidateRepository(fixtureRoot);
+
+      const arbitrary = writeBaselineSet(arbitraryRoot, {
+        candidateNames: ["one.png", "two.png", "three.png", "four.png", "five.png", "six.png"],
+      });
+      expect(
+        validateLinuxVisualBaselineSet(arbitrary.paths, {
+          root: arbitraryRoot,
+          trackedFiles: arbitrary.trackedFiles,
+        }),
+      ).toEqual(
+        expect.arrayContaining([
+          "visual baseline provenance candidates must exactly match the canonical six ids and paths",
+          "committed surface baselines must exactly match the canonical six Linux targets",
+        ]),
+      );
+
+      const missing = writeBaselineSet(missingRoot, { candidateNames: baselineNames.slice(0, 5) });
+      expect(
+        validateLinuxVisualBaselineSet(missing.paths, {
+          root: missingRoot,
+          trackedFiles: missing.trackedFiles,
+        }),
+      ).toEqual(
+        expect.arrayContaining([
+          "visual baseline provenance must contain exactly 6 candidates",
+          "visual baseline provenance candidates must exactly match the canonical six ids and paths",
+          "committed surface baselines must exactly match the canonical six Linux targets",
+        ]),
+      );
+
+      const extra = writeBaselineSet(extraRoot, { candidateNames: [...baselineNames, "extra-target.png"] });
+      expect(
+        validateLinuxVisualBaselineSet(extra.paths, {
+          root: extraRoot,
+          trackedFiles: extra.trackedFiles,
+        }),
+      ).toEqual(
+        expect.arrayContaining([
+          "visual baseline provenance must contain exactly 6 candidates",
+          "visual baseline provenance candidates must exactly match the canonical six ids and paths",
+          "committed surface baselines must exactly match the canonical six Linux targets",
+        ]),
+      );
+    } finally {
+      for (const fixtureRoot of [arbitraryRoot, missingRoot, extraRoot])
+        fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("binds hosted generation and human approval to an existing ancestor candidate source", () => {
+    const malformedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-malformed-"));
+    const nonexistentRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-nonexistent-"));
+    const nonAncestorRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-nonancestor-"));
+    const reviewMismatchRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-review-mismatch-"));
+    try {
+      for (const fixtureRoot of [malformedRoot, nonexistentRoot, nonAncestorRoot, reviewMismatchRoot])
+        initialiseCandidateRepository(fixtureRoot);
+
+      const malformed = writeBaselineSet(malformedRoot, { candidateSourceHead: "not-a-sha" });
+      expect(
+        validateLinuxVisualBaselineSet(malformed.paths, {
+          root: malformedRoot,
+          trackedFiles: malformed.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance candidateSourceHead must be a full Git SHA");
+
+      const nonexistent = writeBaselineSet(nonexistentRoot, { candidateSourceHead: "f".repeat(40) });
+      expect(
+        validateLinuxVisualBaselineSet(nonexistent.paths, {
+          root: nonexistentRoot,
+          trackedFiles: nonexistent.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance candidateSourceHead must identify an existing commit");
+
+      const baseHead = git(nonAncestorRoot, ["rev-parse", "HEAD"]);
+      git(nonAncestorRoot, ["checkout", "-q", "-b", "candidate"]);
+      writeFixtureFile(nonAncestorRoot, "candidate-marker.txt");
+      const siblingHead = commitFixture(nonAncestorRoot, "sibling candidate");
+      git(nonAncestorRoot, ["checkout", "-q", "-b", "validation", baseHead]);
+      const nonAncestor = writeBaselineSet(nonAncestorRoot, { candidateSourceHead: siblingHead });
+      expect(
+        validateLinuxVisualBaselineSet(nonAncestor.paths, {
+          root: nonAncestorRoot,
+          trackedFiles: nonAncestor.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance candidateSourceHead must be an ancestor of current HEAD");
+
+      const reviewMismatch = writeBaselineSet(reviewMismatchRoot);
+      reviewMismatch.provenance.review.candidateSourceHead = "0".repeat(40);
+      writeFixtureFile(
+        reviewMismatchRoot,
+        "tests/__screenshots__/linux/provenance.json",
+        `${JSON.stringify(reviewMismatch.provenance, null, 2)}\n`,
+      );
+      expect(
+        validateLinuxVisualBaselineSet(reviewMismatch.paths, {
+          root: reviewMismatchRoot,
+          trackedFiles: reviewMismatch.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance requires an approved timestamped human review");
+    } finally {
+      for (const fixtureRoot of [malformedRoot, nonexistentRoot, nonAncestorRoot, reviewMismatchRoot])
+        fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects runtime or visual-suite drift after the candidate source commit", () => {
+    const runtimeRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-runtime-drift-"));
+    const suiteRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-suite-drift-"));
+    try {
+      initialiseCandidateRepository(runtimeRoot);
+      writeFixtureFile(runtimeRoot, "src/app/page.tsx", "export default function Page() { return <main />; }\n");
+      const runtimeDrift = writeBaselineSet(runtimeRoot);
+      expect(
+        validateLinuxVisualBaselineSet(runtimeDrift.paths, {
+          root: runtimeRoot,
+          trackedFiles: runtimeDrift.trackedFiles,
+        }),
+      ).toContain("post-candidate repository change is not baseline-only: src/app/page.tsx");
+
+      initialiseCandidateRepository(suiteRoot);
+      writeFixtureFile(
+        suiteRoot,
+        "tests/ui-visual-baseline.spec.ts",
+        read("tests/ui-visual-baseline.spec.ts").replace('route: "/therapy-compass"', 'route: "/services"'),
+      );
+      const suiteDrift = writeBaselineSet(suiteRoot);
+      expect(
+        validateLinuxVisualBaselineSet(suiteDrift.paths, {
+          root: suiteRoot,
+          trackedFiles: suiteDrift.trackedFiles,
+        }),
+      ).toContain("visual suite changed after candidate capture beyond the AWAITING_BASELINE declaration");
+    } finally {
+      for (const fixtureRoot of [runtimeRoot, suiteRoot]) fs.rmSync(fixtureRoot, { force: true, recursive: true });
     }
   });
 
@@ -785,7 +969,7 @@ describe("design-system adoption manifest", () => {
   it("is deterministic and separates observed global v2 from the pending contract", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
-    expect(manifest.schemaVersion).toBe(6);
+    expect(manifest.schemaVersion).toBe(7);
     expect(manifest.globalShell).toMatchObject({
       file: "src/app/layout.tsx",
       element: "html",

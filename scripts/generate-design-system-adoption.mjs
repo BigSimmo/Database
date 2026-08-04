@@ -31,11 +31,30 @@ const CANONICAL_VISUAL_BASELINE_POLICY = Object.freeze({
   requiredPrefix: "tests/__screenshots__/linux/",
   allowedExtensions: [".png"],
   provenanceFile: "tests/__screenshots__/linux/provenance.json",
-  provenanceSchemaVersion: 1,
+  provenanceSchemaVersion: 2,
   requiredPlatform: "linux",
   requiredRunnerImage: "ubuntu-24.04",
   requiredReviewStatus: "approved",
   requiredCandidateCount: 6,
+  canonicalCandidates: [
+    { id: "dashboard-shell", path: "tests/__screenshots__/linux/dashboard-shell.png" },
+    { id: "dashboard-shell-phone", path: "tests/__screenshots__/linux/dashboard-shell-phone.png" },
+    { id: "search-results-band", path: "tests/__screenshots__/linux/search-results-band.png" },
+    { id: "search-results-band-phone", path: "tests/__screenshots__/linux/search-results-band-phone.png" },
+    { id: "document-viewer", path: "tests/__screenshots__/linux/document-viewer.png" },
+    { id: "therapy-compass-home", path: "tests/__screenshots__/linux/therapy-compass-home.png" },
+  ],
+  sourceBinding: {
+    visualSuiteFile: "tests/ui-visual-baseline.spec.ts",
+    allowedChangedPaths: [
+      "docs/branch-review-ledger.md",
+      "docs/design-system/ADOPTION.md",
+      "docs/design-system/COMPONENTS.md",
+      "docs/design-system/adoption-contract.json",
+      "docs/design-system/adoption-manifest.json",
+      "tests/__screenshots__/linux/provenance.json",
+    ],
+  },
 });
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const NEXT_UI_ENTRY_BASENAMES = new Set([
@@ -260,6 +279,127 @@ export function validateAdoptionArtifactPath(
   return failures;
 }
 
+export function visualBaselineTargetIds(sourceText, relativePath = "tests/ui-visual-baseline.spec.ts") {
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let targetArray = null;
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.name.text === "targets" && declaration.initializer) {
+        const initializer = unwrapExpression(declaration.initializer);
+        if (ts.isArrayLiteralExpression(initializer)) targetArray = initializer;
+      }
+    }
+  }
+  if (!targetArray) return null;
+  const ids = [];
+  for (const element of targetArray.elements) {
+    const target = unwrapExpression(element);
+    if (!ts.isObjectLiteralExpression(target)) return null;
+    const name = target.properties.find(
+      (property) =>
+        ts.isPropertyAssignment(property) &&
+        ((ts.isIdentifier(property.name) && property.name.text === "name") ||
+          (ts.isStringLiteral(property.name) && property.name.text === "name")),
+    );
+    if (!name || !ts.isPropertyAssignment(name)) return null;
+    const value = unwrapExpression(name.initializer);
+    if (!ts.isStringLiteral(value) && !ts.isNoSubstitutionTemplateLiteral(value)) return null;
+    ids.push(value.text);
+  }
+  return ids.sort();
+}
+
+function normalizeVisualSuiteAwaitingDeclaration(sourceText) {
+  const expression = /const\s+AWAITING_BASELINE(?:\s*:\s*[^=]+)?\s*=\s*new Set\(\[[\s\S]*?\]\);/g;
+  const matches = sourceText.match(expression);
+  if (matches?.length !== 1) return null;
+  return sourceText.replace(expression, "const AWAITING_BASELINE = __CANONICAL_AWAITING_BASELINE__;");
+}
+
+function gitOutput(root, args) {
+  try {
+    return execFileSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+}
+
+function gitSucceeds(root, args) {
+  try {
+    execFileSync("git", args, { cwd: root, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validateCandidateSourceBinding(candidateSourceHead, { root, policy }) {
+  const failures = [];
+  if (!/^[0-9a-f]{40}$/.test(candidateSourceHead ?? "")) {
+    return ["visual baseline provenance candidateSourceHead must be a full Git SHA"];
+  }
+  const currentHead = gitOutput(root, ["rev-parse", "--verify", "HEAD^{commit}"])?.trim();
+  if (!currentHead) return ["visual baseline source binding requires a Git repository with a current HEAD"];
+  if (!gitSucceeds(root, ["cat-file", "-e", `${candidateSourceHead}^{commit}`])) {
+    return ["visual baseline provenance candidateSourceHead must identify an existing commit"];
+  }
+  if (!gitSucceeds(root, ["merge-base", "--is-ancestor", candidateSourceHead, currentHead])) {
+    failures.push("visual baseline provenance candidateSourceHead must be an ancestor of current HEAD");
+  }
+
+  const visualSuiteFile = policy.sourceBinding.visualSuiteFile;
+  const candidateSuite = gitOutput(root, ["show", `${candidateSourceHead}:${visualSuiteFile}`]);
+  const currentSuite = exists(visualSuiteFile, root) ? fs.readFileSync(path.join(root, visualSuiteFile), "utf8") : null;
+  const canonicalIds = policy.canonicalCandidates.map((candidate) => candidate.id).sort();
+  const candidateIds = candidateSuite === null ? null : visualBaselineTargetIds(candidateSuite, visualSuiteFile);
+  const currentIds = currentSuite === null ? null : visualBaselineTargetIds(currentSuite, visualSuiteFile);
+  if (JSON.stringify(candidateIds) !== JSON.stringify(canonicalIds))
+    failures.push("candidateSourceHead visual suite targets must exactly match the canonical six ids");
+  if (JSON.stringify(currentIds) !== JSON.stringify(canonicalIds))
+    failures.push("current visual suite targets must exactly match the canonical six ids");
+
+  const normalizedCandidateSuite =
+    candidateSuite === null ? null : normalizeVisualSuiteAwaitingDeclaration(candidateSuite);
+  const normalizedCurrentSuite = currentSuite === null ? null : normalizeVisualSuiteAwaitingDeclaration(currentSuite);
+  const visualSuiteOnlyChangedAwaiting =
+    normalizedCandidateSuite !== null && normalizedCandidateSuite === normalizedCurrentSuite;
+  if (!visualSuiteOnlyChangedAwaiting)
+    failures.push("visual suite changed after candidate capture beyond the AWAITING_BASELINE declaration");
+
+  const changedOutput = gitOutput(root, [
+    "diff",
+    "--no-ext-diff",
+    "--no-renames",
+    "--name-only",
+    "-z",
+    candidateSourceHead,
+    "--",
+  ]);
+  const untrackedOutput = gitOutput(root, ["ls-files", "--others", "--exclude-standard", "-z"]);
+  if (changedOutput === null || untrackedOutput === null) {
+    failures.push("visual baseline source binding could not inspect post-candidate repository changes");
+    return failures;
+  }
+  const changedPaths = new Set(
+    [...changedOutput.split("\0"), ...untrackedOutput.split("\0")].filter(Boolean).map(toPosix),
+  );
+  const allowedPaths = new Set([
+    ...policy.sourceBinding.allowedChangedPaths,
+    ...policy.canonicalCandidates.map((candidate) => candidate.path),
+  ]);
+  if (visualSuiteOnlyChangedAwaiting) allowedPaths.add(visualSuiteFile);
+  for (const changedPath of [...changedPaths].sort()) {
+    if (!allowedPaths.has(changedPath))
+      failures.push(`post-candidate repository change is not baseline-only: ${changedPath}`);
+  }
+  return failures;
+}
+
 export function validateLinuxVisualBaselineSet(
   baselinePaths,
   { root = ROOT, trackedFiles = trackedFilesForRoot(root) } = {},
@@ -289,11 +429,16 @@ export function validateLinuxVisualBaselineSet(
     failures.push("visual baseline provenance platform must be linux");
   if (provenance.runnerImage !== CANONICAL_VISUAL_BASELINE_POLICY.requiredRunnerImage)
     failures.push("visual baseline provenance runnerImage must be ubuntu-24.04");
-  if (!/^[0-9a-f]{40}$/.test(provenance.reviewedHead ?? ""))
-    failures.push("visual baseline provenance reviewedHead must be a full Git SHA");
+  failures.push(
+    ...validateCandidateSourceBinding(provenance.candidateSourceHead, {
+      root,
+      policy: CANONICAL_VISUAL_BASELINE_POLICY,
+    }),
+  );
   if (
     provenance.review?.status !== CANONICAL_VISUAL_BASELINE_POLICY.requiredReviewStatus ||
     provenance.review?.reviewerType !== "human" ||
+    provenance.review?.candidateSourceHead !== provenance.candidateSourceHead ||
     typeof provenance.review?.reviewedBy !== "string" ||
     provenance.review.reviewedBy.trim() === "" ||
     typeof provenance.review?.reviewedAt !== "string" ||
@@ -305,6 +450,7 @@ export function validateLinuxVisualBaselineSet(
   const runId = provenance.source?.runId;
   if (
     provenance.source?.kind !== "hosted-ci-artifact" ||
+    provenance.source?.candidateSourceHead !== provenance.candidateSourceHead ||
     typeof runId !== "string" ||
     !/^\d+$/.test(runId) ||
     provenance.source?.artifactName !== `visual-baseline-${runId}`
@@ -320,10 +466,22 @@ export function validateLinuxVisualBaselineSet(
   const candidatePaths = candidates.map((candidate) => candidate?.path).filter((entry) => typeof entry === "string");
   if (new Set(candidatePaths).size !== candidatePaths.length)
     failures.push("visual baseline provenance candidate paths must be unique");
+  const candidateIds = candidates.map((candidate) => candidate?.id).filter((entry) => typeof entry === "string");
+  if (new Set(candidateIds).size !== candidateIds.length)
+    failures.push("visual baseline provenance candidate ids must be unique");
+  const observedCandidateSet = candidates
+    .filter((candidate) => candidate && typeof candidate.id === "string" && typeof candidate.path === "string")
+    .map(({ id, path: candidatePath }) => ({ id, path: candidatePath }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const canonicalCandidateSet = [...CANONICAL_VISUAL_BASELINE_POLICY.canonicalCandidates].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+  if (JSON.stringify(observedCandidateSet) !== JSON.stringify(canonicalCandidateSet))
+    failures.push("visual baseline provenance candidates must exactly match the canonical six ids and paths");
 
   for (const candidate of candidates) {
-    if (!candidate || typeof candidate.path !== "string") {
-      failures.push("visual baseline provenance candidate is missing a path");
+    if (!candidate || typeof candidate.id !== "string" || typeof candidate.path !== "string") {
+      failures.push("visual baseline provenance candidate is missing an id or path");
       continue;
     }
     const pathFailures = validateAdoptionArtifactPath(candidate.path, {
@@ -344,6 +502,9 @@ export function validateLinuxVisualBaselineSet(
   }
 
   const sortedCandidatePaths = [...candidatePaths].sort();
+  const canonicalPaths = CANONICAL_VISUAL_BASELINE_POLICY.canonicalCandidates.map((candidate) => candidate.path).sort();
+  if (JSON.stringify(declaredPaths) !== JSON.stringify(canonicalPaths))
+    failures.push("committed surface baselines must exactly match the canonical six Linux targets");
   if (JSON.stringify(sortedCandidatePaths) !== JSON.stringify(declaredPaths))
     failures.push("committed surface baselines must exactly match the six reviewed Linux provenance candidates");
   return failures;
@@ -1361,6 +1522,15 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
     failures.push("proof evidence path policy drifted from the canonical contract");
   if (JSON.stringify(contract.visualBaselinePolicy) !== JSON.stringify(CANONICAL_VISUAL_BASELINE_POLICY))
     failures.push("Linux visual baseline path policy drifted from the canonical contract");
+  const visualSuitePath = CANONICAL_VISUAL_BASELINE_POLICY.sourceBinding.visualSuiteFile;
+  const visualSuiteIds = exists(visualSuitePath, root)
+    ? visualBaselineTargetIds(read(visualSuitePath, root), visualSuitePath)
+    : null;
+  const canonicalVisualTargetIds = CANONICAL_VISUAL_BASELINE_POLICY.canonicalCandidates
+    .map((candidate) => candidate.id)
+    .sort();
+  if (JSON.stringify(visualSuiteIds) !== JSON.stringify(canonicalVisualTargetIds))
+    failures.push("visual baseline suite targets must exactly match the canonical six ids");
   const expectedProofPolicy = {
     defaultApplicability: contract.defaultProofApplicability,
     nonVisualRoutes: contract.nonVisualRouteContracts,

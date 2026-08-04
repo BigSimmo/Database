@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
   "globalShellRoot": { "file": "src/app/layout.tsx", "element": "html" },
   "defaultProofApplicability": "required",
@@ -18,11 +18,36 @@
     "requiredPrefix": "tests/__screenshots__/linux/",
     "allowedExtensions": [".png"],
     "provenanceFile": "tests/__screenshots__/linux/provenance.json",
-    "provenanceSchemaVersion": 1,
+    "provenanceSchemaVersion": 2,
     "requiredPlatform": "linux",
     "requiredRunnerImage": "ubuntu-24.04",
     "requiredReviewStatus": "approved",
-    "requiredCandidateCount": 6
+    "requiredCandidateCount": 6,
+    "canonicalCandidates": [
+      { "id": "dashboard-shell", "path": "tests/__screenshots__/linux/dashboard-shell.png" },
+      {
+        "id": "dashboard-shell-phone",
+        "path": "tests/__screenshots__/linux/dashboard-shell-phone.png"
+      },
+      { "id": "search-results-band", "path": "tests/__screenshots__/linux/search-results-band.png" },
+      {
+        "id": "search-results-band-phone",
+        "path": "tests/__screenshots__/linux/search-results-band-phone.png"
+      },
+      { "id": "document-viewer", "path": "tests/__screenshots__/linux/document-viewer.png" },
+      { "id": "therapy-compass-home", "path": "tests/__screenshots__/linux/therapy-compass-home.png" }
+    ],
+    "sourceBinding": {
+      "visualSuiteFile": "tests/ui-visual-baseline.spec.ts",
+      "allowedChangedPaths": [
+        "docs/branch-review-ledger.md",
+        "docs/design-system/ADOPTION.md",
+        "docs/design-system/COMPONENTS.md",
+        "docs/design-system/adoption-contract.json",
+        "docs/design-system/adoption-manifest.json",
+        "tests/__screenshots__/linux/provenance.json"
+      ]
+    }
   },
   "productionSurfaces": [
     {
