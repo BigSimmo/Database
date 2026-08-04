@@ -1110,15 +1110,20 @@ function DocumentSearchResultsPanelImpl({
   const recordMatchCount = recordMatches.length;
   const shouldShowHome = showHome || !trimmedQuery;
 
-  function toggleTagFacet(facet: SmartDocumentTagFacet) {
-    setActiveFacetState((current) => {
-      const keys = current.query === query ? current.keys : [];
-      return {
-        query,
-        keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
-      };
-    });
-  }
+  // Stable per query so the applied-filter shelf can depend on it honestly
+  // rather than suppressing the dependency check.
+  const toggleTagFacet = useCallback(
+    (facet: SmartDocumentTagFacet) => {
+      setActiveFacetState((current) => {
+        const keys = current.query === query ? current.keys : [];
+        return {
+          query,
+          keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
+        };
+      });
+    },
+    [query],
+  );
 
   const unavailable = deriveDocumentSearchUnavailable({
     apiUnavailable,
@@ -1181,10 +1186,7 @@ function DocumentSearchResultsPanelImpl({
       }
     }
     return chips;
-    // `toggleTagFacet` is a stable closure over `query`, which is already a
-    // dependency of `activeFacetKeys`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs]);
+  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs, toggleTagFacet]);
   const clearAllFilters = () => {
     setActiveFacetState({ query, keys: [] });
     setActiveResultType("all");
