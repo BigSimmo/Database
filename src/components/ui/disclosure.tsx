@@ -103,22 +103,19 @@ export function Disclosure({
   );
 }
 
+export type DisclosureGroupProps = {
+  items: Array<{ id: string; title: ReactNode; description?: ReactNode; meta?: ReactNode; content: ReactNode }>;
+  exclusive?: boolean;
+  className?: string;
+  headingLevel?: 2 | 3 | 4 | 5 | 6;
+};
+
 /**
  * A stack of disclosures. `exclusive` makes it an accordion (one open at a time);
  * the default lets several stay open, which is usually right for reference
  * content where a reader compares two sections.
  */
-export function DisclosureGroup({
-  items,
-  exclusive = false,
-  className,
-  headingLevel = 3,
-}: {
-  items: Array<{ id: string; title: ReactNode; description?: ReactNode; meta?: ReactNode; content: ReactNode }>;
-  exclusive?: boolean;
-  className?: string;
-  headingLevel?: 2 | 3 | 4 | 5 | 6;
-}) {
+export function DisclosureGroup({ items, exclusive = false, className, headingLevel = 3 }: DisclosureGroupProps) {
   const [openIds, setOpenIds] = useState<string[]>([]);
 
   return (

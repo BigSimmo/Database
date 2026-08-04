@@ -16,7 +16,12 @@ export type Toast = {
   duration?: number;
 };
 
-type ToastInput = Omit<Toast, "id">;
+export type ToastInput = Omit<Toast, "id">;
+export type ToastProviderProps = { children: ReactNode };
+export type ToastApi = {
+  push: (toast: ToastInput) => string;
+  dismiss: (id: string) => void;
+};
 
 type ToastContextValue = {
   toasts: Toast[];
@@ -55,7 +60,7 @@ const MAX_VISIBLE_TOASTS = 5;
  * background left no trace once its panel scrolled away. Wrap the surface (or the
  * app shell) in `ToastProvider` and call `useToast().push(...)` from the handler.
  */
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastsRef = useRef<Toast[]>([]);
   const counter = useRef(0);
@@ -89,7 +94,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useToast() {
+export function useToast(): ToastApi {
   const context = useContext(ToastContext);
   if (!context) throw new Error("useToast must be used inside a <ToastProvider>");
   return { push: context.push, dismiss: context.dismiss };

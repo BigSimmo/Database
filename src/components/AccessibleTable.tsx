@@ -47,6 +47,35 @@ function isMetadataHeader(value: string) {
 
 export type AccessibleTableColumnAlign = "start" | "end" | "auto";
 
+export type AccessibleTableProps = {
+  caption: string;
+  markdown?: string | null;
+  rows?: string[][] | null;
+  columns?: string[] | null;
+  normalizedTable?: NormalizedAccessibleTable | null;
+  compact?: boolean;
+  expandOnMobile?: boolean;
+  previewRows?: number;
+  hidePreviewCaption?: boolean;
+  hidePreviewRowCount?: boolean;
+  densePreview?: boolean;
+  dialogTitle?: string | null;
+  clinicalOnly?: boolean;
+  rowActions?: Array<ReactNode | null>;
+  actionsHeader?: string;
+  // GEN-H3: when the normalizer can't confidently reconstruct a clinical table,
+  // the padded raw grid is misleading (mostly empty "-" cells, clipped headers).
+  // Callers that have the cropped source image (e.g. the visual-evidence cards)
+  // can pass it here to show the real table screenshot instead of that grid.
+  lowConfidenceFallback?: ReactNode;
+  // Per-column horizontal alignment. Default is "auto": columns whose every
+  // non-empty cell is numeric right-align so their digits stack, everything else
+  // stays left. Pass "start"/"end" to pin a column, or `numericColumns` to state
+  // the numeric indexes outright and skip detection entirely.
+  columnAlign?: AccessibleTableColumnAlign[];
+  numericColumns?: number[];
+};
+
 // Register #48: dose columns were left-aligned as text, so `tabular-nums` had
 // nothing to stack against — "12.5 mg" and "5 mg" still started at different
 // optical positions. A numeric column is one whose every non-empty cell starts
@@ -424,34 +453,7 @@ export function AccessibleTable({
   lowConfidenceFallback,
   columnAlign,
   numericColumns,
-}: {
-  caption: string;
-  markdown?: string | null;
-  rows?: string[][] | null;
-  columns?: string[] | null;
-  normalizedTable?: NormalizedAccessibleTable | null;
-  compact?: boolean;
-  expandOnMobile?: boolean;
-  previewRows?: number;
-  hidePreviewCaption?: boolean;
-  hidePreviewRowCount?: boolean;
-  densePreview?: boolean;
-  dialogTitle?: string | null;
-  clinicalOnly?: boolean;
-  rowActions?: Array<ReactNode | null>;
-  actionsHeader?: string;
-  // GEN-H3: when the normalizer can't confidently reconstruct a clinical table,
-  // the padded raw grid is misleading (mostly empty "-" cells, clipped headers).
-  // Callers that have the cropped source image (e.g. the visual-evidence cards)
-  // can pass it here to show the real table screenshot instead of that grid.
-  lowConfidenceFallback?: ReactNode;
-  // Per-column horizontal alignment. Default is "auto": columns whose every
-  // non-empty cell is numeric right-align so their digits stack, everything else
-  // stays left. Pass "start"/"end" to pin a column, or `numericColumns` to state
-  // the numeric indexes outright and skip detection entirely.
-  columnAlign?: AccessibleTableColumnAlign[];
-  numericColumns?: number[];
-}) {
+}: AccessibleTableProps) {
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const dialogId = useId();
   const [open, setOpen] = useState(false);

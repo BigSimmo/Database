@@ -173,7 +173,7 @@ export const searchResultsSection =
 export const searchFocusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-type AsyncButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
+export type AsyncButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
   busy: boolean;
   busyLabel: string;
   children: ReactNode;
@@ -196,7 +196,7 @@ export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, typ
   );
 }
 
-type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children"> & {
+export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children"> & {
   /**
    * Required accessible name. Icon-only buttons carry no visible text, so the
    * label is the only thing assistive tech can announce — making it a required
@@ -235,6 +235,15 @@ export function IconButton({ label, icon: Icon, className, iconClassName, type, 
 
 export type NoticeTone = "success" | "warning" | "danger" | "info" | "neutral";
 
+export type InlineNoticeProps = {
+  tone: NoticeTone;
+  children: ReactNode;
+  onDismiss?: () => void;
+  dismissLabel?: string;
+  animated?: boolean;
+  className?: string;
+};
+
 function noticeToneClass(tone: NoticeTone) {
   if (tone === "success") return toneSuccess;
   if (tone === "danger") return toneDanger;
@@ -256,14 +265,7 @@ export function InlineNotice({
   dismissLabel = "Dismiss notification",
   animated = false,
   className,
-}: {
-  tone: NoticeTone;
-  children: ReactNode;
-  onDismiss?: () => void;
-  dismissLabel?: string;
-  animated?: boolean;
-  className?: string;
-}) {
+}: InlineNoticeProps) {
   const assertive = tone === "danger" || tone === "warning";
   return (
     <div
@@ -372,13 +374,12 @@ export function ToggleSwitch({
 
 type IconComponent = LucideIcon;
 
-export function SourceDesignationBadge({
-  metadata,
-  className,
-}: {
+export type SourceDesignationBadgeProps = {
   metadata?: SourceMetadataInput;
   className?: string;
-}) {
+};
+
+export function SourceDesignationBadge({ metadata, className }: SourceDesignationBadgeProps) {
   const source = normalizeSourceMetadata(metadata);
   const classification = classifySourceAuthority(source);
   const toneClassName =
@@ -410,15 +411,13 @@ export function SourceDesignationBadge({
   );
 }
 
-export function SourceStatusBadge({
-  metadata,
-  className,
-  showTitle = true,
-}: {
+export type SourceStatusBadgeProps = {
   metadata?: SourceMetadataInput;
   className?: string;
   showTitle?: boolean;
-}) {
+};
+
+export function SourceStatusBadge({ metadata, className, showTitle = true }: SourceStatusBadgeProps) {
   const source = normalizeSourceMetadata(metadata);
   const status = source.document_status;
   const toneClassName =
@@ -448,7 +447,9 @@ export function SourceStatusBadge({
   );
 }
 
-export function SourceProvenance({ metadata }: { metadata?: SourceMetadataInput }) {
+export type SourceProvenanceProps = { metadata?: SourceMetadataInput };
+
+export function SourceProvenance({ metadata }: SourceProvenanceProps) {
   const source = normalizeSourceMetadata(metadata);
   const reviewDate = formatClinicalDate(source.review_date);
   // Unknown review date / jurisdiction segments are dropped as filler; the
@@ -474,15 +475,13 @@ export function SourceProvenance({ metadata }: { metadata?: SourceMetadataInput 
   );
 }
 
-export function PanelHeading({
-  icon: Icon,
-  title,
-  description,
-}: {
+export type PanelHeadingProps = {
   icon?: IconComponent;
   title: string;
   description?: string;
-}) {
+};
+
+export function PanelHeading({ icon: Icon, title, description }: PanelHeadingProps) {
   return (
     <div className="flex items-start gap-3">
       {Icon && (
@@ -498,11 +497,9 @@ export function PanelHeading({
   );
 }
 
-export function Skeleton({
-  className,
-  animationDelay,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement> & { animationDelay?: string }) {
+export type SkeletonProps = React.HTMLAttributes<HTMLDivElement> & { animationDelay?: string };
+
+export function Skeleton({ className, animationDelay, ...props }: SkeletonProps) {
   return (
     <div
       className={cn(
@@ -517,17 +514,14 @@ export function Skeleton({
   );
 }
 
-export function LoadingPanel({
-  label,
-  variant = "spinner",
-  lines = 3,
-  layout = "panel",
-}: {
+export type LoadingPanelProps = {
   label: string;
   variant?: "spinner" | "skeleton";
   lines?: number;
   layout?: "panel" | "centered";
-}) {
+};
+
+export function LoadingPanel({ label, variant = "spinner", lines = 3, layout = "panel" }: LoadingPanelProps) {
   if (variant === "skeleton") {
     return (
       <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
@@ -563,20 +557,7 @@ export function LoadingPanel({
   );
 }
 
-export function EmptyState({
-  icon: Icon,
-  title,
-  headingLevel,
-  body,
-  description,
-  actions,
-  live = "off",
-  tone = "neutral",
-  testId,
-  align = "start",
-  iconNode,
-  centeredTreatment = "neutral",
-}: {
+export type EmptyStateProps = {
   icon?: IconComponent;
   iconNode?: ReactNode;
   title: string;
@@ -611,7 +592,22 @@ export function EmptyState({
   align?: "start" | "center";
   /** Clinical-centred states retain a neutral panel with an accent icon and compact action offset. */
   centeredTreatment?: "neutral" | "clinical";
-}) {
+};
+
+export function EmptyState({
+  icon: Icon,
+  title,
+  headingLevel,
+  body,
+  description,
+  actions,
+  live = "off",
+  tone = "neutral",
+  testId,
+  align = "start",
+  iconNode,
+  centeredTreatment = "neutral",
+}: EmptyStateProps) {
   const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   return (
     <div

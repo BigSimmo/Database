@@ -70,7 +70,7 @@ function ensureFallbackHost(layer: OverlayLayer) {
   return root.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`)!;
 }
 
-type OverlayPortalProps =
+export type OverlayPortalProps =
   | { layer: "modal"; name: string; children: ReactNode }
   | { layer: Exclude<OverlayLayer, "modal">; name?: string; children: ReactNode };
 

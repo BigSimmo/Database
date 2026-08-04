@@ -63,6 +63,12 @@ export type Stage = {
   detail?: ReactNode;
 };
 
+export type StageListProps = {
+  stages: Stage[];
+  label?: string;
+  className?: string;
+};
+
 /**
  * A staged job, shown as stages — not as one skeleton.
  *
@@ -75,15 +81,7 @@ export type Stage = {
  * `aria-live="polite"` on the list so a stage transition is announced without
  * interrupting; the current stage carries `aria-current="step"`.
  */
-export function StageList({
-  stages,
-  label = "Progress",
-  className,
-}: {
-  stages: Stage[];
-  label?: string;
-  className?: string;
-}) {
+export function StageList({ stages, label = "Progress", className }: StageListProps) {
   const activeIndex = stages.findIndex((stage) => stage.state === "active");
   const doneCount = stages.filter((stage) => stage.state === "done").length;
 

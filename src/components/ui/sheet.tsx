@@ -59,6 +59,8 @@ type SheetBaseProps = {
   id?: string;
 };
 
+export type SheetProps = SheetBaseProps & SheetAccessibleName;
+
 /**
  * Responsive overlay: a bottom sheet on mobile (rises from the bottom, safe-area
  * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation, no
@@ -95,7 +97,7 @@ export function Sheet({
   desktopBackdropClassName,
   testId,
   id,
-}: SheetBaseProps & SheetAccessibleName) {
+}: SheetProps) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);

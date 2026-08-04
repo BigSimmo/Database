@@ -1,97 +1,45 @@
 # Clinical KB design system — COMPONENTS
 
-**The eight unbuilt specifications (five of them safety infrastructure), plus the maturity
-matrix for everything that exists.** Prop shapes are normative contracts; token references
-are roles only — values live in the token files (see [TOKENS.md](TOKENS.md)).
+**The public component contracts, their local publication state, and the remaining
+specifications.** Prop shapes are normative contracts; token references are roles only —
+values live in the token files (see [TOKENS.md](TOKENS.md)).
 
-- **Date:** 31 July 2026 · companions: [SPEC.md](SPEC.md) · [DECISIONS.md](DECISIONS.md) ·
+- **Date:** 5 August 2026 · companions: [SPEC.md](SPEC.md) · [DECISIONS.md](DECISIONS.md) ·
   [GATES.md](GATES.md)
-- **Tier vocabulary:** `main` — in production code · `branch` — committed at `ef13a072a`
-  (local-only; **zero product imports**) · `design` — design project only · `spec` —
-  specified, not built.
+- **Publication vocabulary:** `registered` — exported by `.design-sync/entry.tsx`, mapped to
+  source, covered by a source-derived prop contract, preview, and direct static contract test ·
+  `support-only` — public bundle API with no visual registry row · `product adopted` — imported
+  by a declared production surface · `spec` — specified, not built.
 
 ---
 
 ## 0 · Maturity matrix
 
-"Built" alone is too ambiguous — these columns are the claim. **Dark proof** means a
-component-level computed-style or visual dark check (the token-level dark contract exists,
-but no component has dark proof until the cascade port lands — the branch copy still ships
-`.ckb-v2:not(.dark)`). **HCM** = forced-colours proof. All proofs absent are marked `—`;
-an asserted-but-untested behaviour is _worse_ than `—` and is called out.
+"Built" alone is too ambiguous — the generated maturity snapshot below is the claim. It is
+derived from source, `.design-sync/config.json`, previews, direct contract coverage, and
+production imports. It intentionally does not claim dark, forced-colours, 320px, print, remote
+publication, or product adoption without separate evidence.
 
-### 0.1 Registered components (29 — local design-sync contract; remote status unverified)
+### 0.1 Registered visual components (53 — local contract; remote status unverified)
 
-| Component                              | Tier                   | Preview | Direct test                     | Dark | HCM | 320px | Print | Product imports | Stability                    |
-| -------------------------------------- | ---------------------- | ------- | ------------------------------- | ---- | --- | ----- | ----- | --------------- | ---------------------------- |
-| AccessibleTable                        | main (+branch changes) | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
-| AnswerCard                             | branch                 | ✓       | ✓ (PR 6)                        | —    | —   | —     | —     | 0               | experimental                 |
-| AnswerFooter                           | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| AsyncButton                            | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | deprecated → `Button`        |
-| Breadcrumb                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                 |
-| Button                                 | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| Chip                                   | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| ConfirmDialog                          | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| DoseLine                               | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| EmptyState                             | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
-| IconButton                             | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
-| InlineNotice                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
-| LoadingPanel                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
-| PageHeader                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                 |
-| Pagination                             | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| PanelHeading                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
-| SafeBoldText                           | main                   | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
-| SearchField                            | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| Sheet                                  | main (+branch)         | ✓       | — (no standalone contract test) | —    | —   | —     | —     | yes             | stable (live), defects open  |
-| Skeleton                               | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
-| SourceDesignationBadge                 | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
-| SourceProvenance                       | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
-| SourceStatusBadge                      | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
-| Tabs                                   | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| TextField                              | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| ToastRegion (+ ToastProvider/useToast) | branch                 | ✓       | ✓ (provider flow)               | —    | —   | —     | —     | 0               | experimental                 |
-| ToggleSwitch                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live), defects open  |
-| Tooltip                                | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
-| VerificationNotice                     | branch                 | ✓       | ✓                               | —    | —   | —     | —     | yes             | reference, not shell-adopted |
+Every visual export has one source map entry, a source-derived public `*Props` contract (except
+the two zero-prop roots), a reference preview, and a direct static publication test. The generated
+table under **Generated maturity snapshot** is the canonical list and product-import count.
 
-**[verified:** register and previews from `EXPORT_MANIFEST.md`; direct-test coverage from the
-master handover's audit of the shipped test set; `main` presence from this worktree
-(`src/components/ui/sheet.tsx` is the live main-tier overlay primitive in this worktree; the
-branch deletes the dead `badge`/`card`).**]** Product-import counts for `main` components are
-**[assumed: >0** for live shared components; exact counts belong to the adoption tracker, not
-this document**]**.
+### 0.2 Support-only public APIs
 
-### 0.2 Built, not registered (15 public symbols across 8 modules — `branch` only)
-
-| Symbols                                                           | Direct test | Notes                                                                                                        |
-| ----------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
-| `AnswerState`, `RetrievalStateBanner`, `answerStateFromRetrieval` | ✓ (PR 6)    | §2. Five kinds since PR 13 Phase 1 (`ungrounded`); `partial_retrieval` is buildable but unproduced — see §2. |
-| `MissingValue`                                                    | ✓ (PR 6)    | Four phrases, never a dash. §3.                                                                              |
-| `DateDisplay`                                                     | ✓ (PR 6)    | ISO in, `<time>` out; agrees with `formatClinicalDate()`. §8.                                                |
-| `FormField`, `FieldHint`, `FieldError`, `ErrorSummary`            | ✓ (PR 7)    | The shared field shell. Existing controls fold onto it at adoption. §4.                                      |
-| `LiveAnnouncer`, `RouteAnnouncer`, `announce`                     | ✓ (PR 8)    | Singleton; the only `aria-live` in the system. §5.                                                           |
-| `Checkbox`, `RadioGroup`                                          | —           | Native inputs, real fieldset/legend; RadioGroup contract defect (PR 4).                                      |
-| `Citation`, `CitationList`                                        | —           | Contract defect: enabled-inert possible (PR 4).                                                              |
-| `Disclosure`, `DisclosureGroup`                                   | —           | Hardcoded `<h3>`; `hidden`/Ctrl-F claim retracted.                                                           |
-| `Progress`, `StageList`                                           | —           | Width animation; live-region defects (PR 9 / PR 8).                                                          |
-| `Quantity`                                                        | —           | Strongest addition; consumes a retiring type step (fix in retirement tranche).                               |
-| `Select`                                                          | —           | Shares the field-shell defects (PR 7 folds into `FormField`).                                                |
-| `StatusMark`                                                      | —           | Forced-colour survival **asserted, not proven**.                                                             |
-| `TextLink`, `ExternalTextLink`, `DownloadLink`, `LinkAction`      | —           | `tone` leaks to DOM; `gap` animation (PR 9).                                                                 |
-
-Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow) and the
-`sheet-focus` stack (`branch`; powers the live `Sheet` path and is intended to fold into
-`OverlayRoot`).
+`OverlayPortal`, `ToastProvider`, `useToast`, `AnswerState`,
+`answerStateFromRetrieval`, `answerClipboardText`, `LiveAnnouncer`, `RouteAnnouncer`, and
+`announce` are entry-only support APIs. They do not get visual registry rows. The private
+`sheet-focus` stack remains deliberately unpublished.
 
 ### 0.3 Specified, not built
 
-_Remaining from the eight in this document:_ `DocumentFrame` (PR 11) · `OverlayRoot` (PR 10).
+_Remaining from the original eight in this document:_ `DocumentFrame` (PR 11).
 
-_Built in PRs 6–8, listed in §0.2 above:_ `AnswerState`/`RetrievalStateBanner` ·
-`MissingValue` · `DateDisplay` ·
-`FormField`+`FieldHint`+`FieldError`+`ErrorSummary` · `LiveAnnouncer`/`RouteAnnouncer`.
-They are **built, not registered** — registration waits for PR 13 per SPEC §13,
-so their preview state matrices and product adoption are still open.
+`OverlayRoot`, `SegmentedControl`, and the PR 6–8 components are built and represented by the
+local publication contract. Registration proves a source/API/preview/test reference; it does
+not prove root-shell mounting, remote design-project publication, or product adoption.
 
 _P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` ·
 `AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
@@ -105,37 +53,37 @@ surface-owned filter pattern or the canonical `AccessibleTable`; do not revive e
 _P2 clinical and governance:_ `LifecycleTrack` · `ConfidenceMeter` · `EvidenceGutter` ·
 `Dropzone` · `AuditTimeline` · `VersionDiff` · `ProvenancePanel` · `ClinicalCallout` ·
 print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
-`ScreenOnly`, `KeepTogether`) · `SegmentedControl` · toolbar family · `Stat` · `Divider` ·
+`ScreenOnly`, `KeepTogether`) · toolbar family · `Stat` · `Divider` ·
 `TruncatedText` · `Identifier` · `Avatar` · `CommandPalette`.
 
 ### 0.4 Open-defect ledger (existing components → closing PR)
 
-| Component                    | Open defects (compressed)                                                                                                                              | Closes in                    |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
-| Button                       | brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary (danger contrast landed #1538)                                | follow-on                    |
-| AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                                   | **done** (PR-A)              |
-| IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                                     | **done** (PR-A)              |
-| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob still animates `left`/`right`                                                    | PR 9 (motion)                |
-| Chip                         | 20px remove target · `removeLabel` required when removable · no full-value path                                                                        | PR 12 (target size)          |
-| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A)           | PR 7                         |
-| Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                                  | PR 7                         |
-| Citation/CitationList        | interactive requires `onActivate`; static form uses `aria-label` on span · index keys · unstructured data                                              | follow-on                    |
-| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                         | **done** (PR 6)              |
-| StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                                     | PR 12                        |
-| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                             | **done** (PR 6)              |
-| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                                        | **done** (PR 6)              |
-| PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                               | PR 7-adjacent layout fix     |
-| Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order · split `SegmentedControl`                                       | PR 4-adjacent, own tranche   |
-| Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                                 | PR 8                         |
-| Links                        | `tone` leaks to DOM · `download` overridable by spread · `gap` animation · new-tab policy implicit                                                     | PR 9                         |
-| Tooltip                      | overwrites child handlers/describedBy · no portal/collision/delay · hardcoded z                                                                        | PR 10                        |
-| Toast                        | z below `--z-toast` · warning=danger icon · urgency coupled to tone · no pause on hover/focus · no portal/queue cap                                    | PR 10                        |
-| Sheet/ConfirmDialog          | optional name · portal default off · hardcoded z/duration · title truncates · bare "Confirm" default                                                   | PR 10                        |
-| Disclosure                   | hardcoded `<h3>` · no print behaviour · truncation                                                                                                     | PR 11                        |
-| Progress/StageList           | width animation · "step 0 of N" · whole-list live region                                                                                               | PR 8, PR 9                   |
-| EmptyState                   | `live="polite"` by default                                                                                                                             | PR 8                         |
-| AccessibleTable              | div caption vs `aria-label` · optional caption · uppercase dense headers · **bare `-` for missing cells** · inline equal widths · hand-rolled expander | PR 6 (`MissingValue`), PR 12 |
-| ui-primitives.tsx            | 572-line module mixing recipes/actions/feedback/clinical — split                                                                                       | PR 12                        |
+| Component                    | Open defects (compressed)                                                                                                                    | Closes in                |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| Button                       | brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary (danger contrast landed #1538)                      | follow-on                |
+| AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                         | **done** (PR-A)          |
+| IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                           | **done** (PR-A)          |
+| ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob still animates `left`/`right`                                          | PR 9 (motion)            |
+| Chip                         | final `appearance`/size API, removable label contract, tap target and full-value title                                                       | **done**                 |
+| TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A) | PR 7                     |
+| Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                        | PR 7                     |
+| Citation/CitationList        | interactive requires `onActivate`; static form uses `aria-label` on span · index keys · unstructured data                                    | follow-on                |
+| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                               | **done** (PR 6)          |
+| StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                           | PR 12                    |
+| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                   | **done** (PR 6)          |
+| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                              | **done** (PR 6)          |
+| PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                     | PR 7-adjacent layout fix |
+| Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order                                                        | PR 4-adjacent            |
+| Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                       | PR 8                     |
+| Links                        | `tone` leaks to DOM · `download` overridable by spread · `gap` animation · new-tab policy implicit                                           | PR 9                     |
+| Tooltip                      | composed handlers/description, string content, OverlayRoot portal, collision and delay contract                                              | **done** (PR 10)         |
+| Toast                        | independent tone/priority/persistence, OverlayRoot portal, pause, dedupe and queue contract                                                  | **done** (PR 10)         |
+| Sheet/ConfirmDialog          | required names/action labels, portal default, tokened layers/duration and wrapping titles                                                    | **done** (PR 10)         |
+| Disclosure                   | hardcoded `<h3>` · no print behaviour · truncation                                                                                           | PR 11                    |
+| Progress/StageList           | width animation · "step 0 of N" · whole-list live region                                                                                     | PR 8, PR 9               |
+| EmptyState                   | static live-off default with explicit polite/assertive opt-in                                                                                | **done** (PR 8)          |
+| AccessibleTable              | required semantic caption landed; remaining dense headers, missing-cell, widths and expander convergence                                     | PR 6/PR 12 remainder     |
+| ui-primitives.tsx            | 572-line module mixing recipes/actions/feedback/clinical — split                                                                             | PR 12                    |
 
 ---
 
@@ -556,9 +504,9 @@ page dimming per surface; don't let a mode add its own scrim "just here".
 
 ## 7 · `OverlayRoot`
 
-**Problem.** The live `Sheet` and its `sheet-focus` stack own modal behaviour today, while
-Tooltip has no portal, Toast portals nowhere, and Sheet defaults `portal: false`. One overlay
-architecture must own stacking, focus, escape, and inertness.
+**Purpose.** One overlay root owns the named layer hosts while the private `sheet-focus` stack
+continues to own mature modal focus behaviour. Tooltip, Toast, Sheet, and ConfirmDialog publish
+through this shared layer contract.
 
 ```ts
 type OverlayLayer = "overlay" | "popover" | "modal" | "toast";
@@ -576,8 +524,8 @@ function OverlayRoot(): JSX.Element; // single portal host at the app root
   Background becomes inert (`inert`/`aria-hidden`) for modal layers; scroll is locked.
 - Popover/tooltip layers get collision-aware positioning on this foundation (Menu/Popover,
   P1, build here — not another model).
-- `Sheet` is the live modal path during Arch; `ConfirmDialog`, `Tooltip`, and `Toast`
-  converge on `OverlayRoot` in the later overlay adoption tranche.
+- `Sheet`, `ConfirmDialog`, `Tooltip`, and `Toast` publish through `OverlayPortal`; the application
+  root mounts the singleton `OverlayRoot`. A fallback host keeps isolated previews and tests safe.
 - `calculator-sheet` remains a parallel `--z-modal` surface deferred past Arch. It is not
   absorbed into `OverlayRoot` or `Sheet` in this PR.
 
@@ -591,7 +539,7 @@ model, decoupled from visual tone.
 **Must refuse to render.** A second `OverlayRoot` (dev throw) · a consumer passing a raw z
 value (no such prop exists) · mounting a modal-layer overlay with no accessible name.
 
-**Do:** migrate every floating surface here before building Menu/Popover. **Don't:** keep
+**Do:** build every new floating surface here, including Menu/Popover. **Don't:** keep
 per-component portals or hand-rolled stacks after adoption.
 
 ---
@@ -834,13 +782,14 @@ for panels that exist in the DOM; an invalid or disabled selected value falls ba
 first enabled tab so the tab order is never empty; manual activation available for
 expensive panels. **Rules.** Sort/filter choices are not tabs — they are
 `SegmentedControl` (§9.18). **Open defects → PR.** phantom `aria-controls`, empty tab
-order → contract-test tranche of PR 4; the split → its own tranche.
+order → contract-test tranche of PR 4. The control split is complete.
 
-### 9.18 `SegmentedControl` — specified, not built
+### 9.18 `SegmentedControl`
 
 Small mutually exclusive choice (sort, density) as pressed buttons or a radiogroup —
-**never** `role="tablist"`. Splits out of `Tabs`; until it exists, do not ship a new
-"segmented" use of `Tabs`.
+**never** `role="tablist"`. It is built as an accessible radiogroup with a required visible or
+referenced label, roving focus, Arrow/Home/End keys, disabled-option skipping, and fit/equal
+layouts. Use it instead of shipping a new "segmented" use of `Tabs`.
 
 ### 9.19 `Pagination`
 
@@ -864,8 +813,8 @@ underline offset → PR 9.
 **Purpose.** Supplementary hint — never the sole carrier of meaning (truncation policy,
 SPEC §11). **Contract (PR 10).** Composes the child's handlers and merges
 `aria-describedby` (never overwrites); portalled via `OverlayRoot` at the popover rung;
-collision-aware; open/rest delay; dismiss on Escape. **Open defects → PR.** handler
-overwrite, no portal/collision/delay, hardcoded z → PR 10.
+collision-aware; open/rest delay; dismiss on Escape; `content` is a string so the trigger has
+a complete description. **Publication status.** The PR 10 contract is implemented.
 
 ### 9.22 `Toast` (`ToastRegion` + `ToastProvider`/`useToast`)
 
@@ -873,25 +822,26 @@ overwrite, no portal/collision/delay, hardcoded z → PR 10.
 axes: `tone` (appearance) · `priority` (polite/assertive) · `persistence` (timed —
 pauses on hover **and** focus — or explicit) · optional labelled `action`. One
 application-level viewport at the toast rung (above modal, deliberately); queue cap and
-dedupe; warning and danger never share an icon (SPEC §5). **Open defects → PR.** z below
-its own token, coupled urgency, no pause, duplicate-mount risk, no portal/cap → PR 10.
+dedupe; warning and danger never share an icon (SPEC §5). **Publication status.**
+`ToastRegion` is the visual export; `ToastProvider` and `useToast` remain support-only APIs.
 
 ### 9.23 `Sheet`
 
 **Purpose.** The modal layer. Focus trap, restoration, and nested-sheet topmost handling
-are mature — preserve them through the `OverlayRoot` migration. **Contract (PR 10).** An
+remain in the private focus stack while the surface publishes through `OverlayRoot`.
+**Contract (PR 10).** An
 accessible name is mandatory (visible `title`, `labelledBy`, or `aria-label` — an unnamed
 dialog cannot mount); portal defaults **true**; z and duration from the named tokens;
 titles wrap, header actions never starve them; close button on the `controlBase`
-encoding. **Open defects → PR.** optional name, portal default, hardcoded z/duration,
-truncating title → PR 10.
+encoding. **Publication status.** The PR 10 API and overlay contract are implemented and the app
+layout mounts `OverlayRoot`. This is overlay infrastructure, not a `.ckb-v2` style activation.
 
 ### 9.24 `ConfirmDialog`
 
 **Contract.** `confirmLabel` required and object-specific ("Delete 3 documents", never
 "Confirm") · `description` is a block-safe slot · destructive confirmations may require
-the typed confirm phrase; its label is a `string`. **Open defects → PR.** default
-"Confirm", `ReactNode` in `<p>`, declaration drift → PR 10, PR 12.
+the typed confirm phrase; its label is a `string`. **Publication status.** The final API is
+source-derived and its reference preview exercises the typed confirmation path.
 
 ### 9.25 `Disclosure` / `DisclosureGroup`
 
@@ -921,8 +871,8 @@ PR.** whole-list live region, step-0, silent failure → PR 8.
 **Contract.** `live` defaults **off** — a static empty page is not a status region;
 callers opt in only for dynamically-introduced emptiness · offers a real next action ·
 neutral treatment (the offline/no-answer state rides this component, SPEC §10). `headingLevel`
-is opt-in and limited to `h2`–`h6`; `testId` is the stable focused-test hook. **Open
-defects → PR.** polite-by-default → PR 8.
+is opt-in and limited to `h2`–`h6`; `testId` is the stable focused-test hook. The preview
+demonstrates both the static live-off default and an explicitly polite dynamic state.
 
 ### 9.29 `LoadingPanel` / `Skeleton`
 
@@ -939,8 +889,9 @@ strengths — keep them. **Contract.** A semantic `<caption>` is required (visua
 not a `<div>` + `aria-label`); dense headers are sentence case; missing cells render
 `MissingValue`, never a bare dash; column widths follow content roles, not imposed
 equal-width inline styles; the expand control composes `Button` and the outline rule.
-**Open defects → PR.** div caption, optional caption, uppercase headers, bare dash,
-inline widths, hand-rolled expander → PR 6 (`MissingValue`), PR 12 (the rest).
+**Publication status.** `caption` is required in the exported props and the preview renders the
+canonical semantic table path. Remaining implementation convergence is tracked separately from
+the publication contract.
 
 ### 9.31 `PanelHeading`
 
@@ -969,9 +920,66 @@ tests to run.
 
 ## Generated maturity snapshot
 
-Registered public components: 29
-Components with a valid design-sync preview: 29
-Components with product imports: 20
+Registered public components: 53
+Components with a valid design-sync preview: 53
+Components with product imports: 31
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
+
+| Component                | Family   | Entry export | Preview | Direct test | Product imports |
+| ------------------------ | -------- | ------------ | ------- | ----------- | --------------: |
+| `AccessibleTable`        | source   | yes          | yes     | yes         |               4 |
+| `AnswerCard`             | answer   | yes          | yes     | yes         |               0 |
+| `AnswerFooter`           | answer   | yes          | yes     | yes         |               0 |
+| `AsyncButton`            | controls | yes          | yes     | yes         |               4 |
+| `Breadcrumb`             | layout   | yes          | yes     | yes         |               1 |
+| `Button`                 | controls | yes          | yes     | yes         |               1 |
+| `Checkbox`               | controls | yes          | yes     | yes         |               0 |
+| `Chip`                   | controls | yes          | yes     | yes         |               3 |
+| `Citation`               | source   | yes          | yes     | yes         |               0 |
+| `CitationList`           | source   | yes          | yes     | yes         |               0 |
+| `ConfirmDialog`          | layout   | yes          | yes     | yes         |               0 |
+| `DateDisplay`            | source   | yes          | yes     | yes         |               3 |
+| `Disclosure`             | layout   | yes          | yes     | yes         |               0 |
+| `DisclosureGroup`        | layout   | yes          | yes     | yes         |               0 |
+| `DoseLine`               | answer   | yes          | yes     | yes         |               0 |
+| `DownloadLink`           | controls | yes          | yes     | yes         |               0 |
+| `EmptyState`             | feedback | yes          | yes     | yes         |              13 |
+| `ErrorSummary`           | feedback | yes          | yes     | yes         |               0 |
+| `ExternalTextLink`       | controls | yes          | yes     | yes         |               0 |
+| `FieldError`             | feedback | yes          | yes     | yes         |               1 |
+| `FieldHint`              | feedback | yes          | yes     | yes         |               1 |
+| `FormField`              | controls | yes          | yes     | yes         |               2 |
+| `IconButton`             | controls | yes          | yes     | yes         |               2 |
+| `InlineNotice`           | feedback | yes          | yes     | yes         |               6 |
+| `LinkAction`             | controls | yes          | yes     | yes         |               0 |
+| `LoadingPanel`           | feedback | yes          | yes     | yes         |               7 |
+| `MissingValue`           | feedback | yes          | yes     | yes         |               3 |
+| `OverlayRoot`            | layout   | yes          | yes     | yes         |               1 |
+| `PageHeader`             | layout   | yes          | yes     | yes         |               2 |
+| `Pagination`             | controls | yes          | yes     | yes         |               0 |
+| `PanelHeading`           | layout   | yes          | yes     | yes         |               2 |
+| `Progress`               | feedback | yes          | yes     | yes         |               0 |
+| `Quantity`               | answer   | yes          | yes     | yes         |               1 |
+| `RadioGroup`             | controls | yes          | yes     | yes         |               0 |
+| `RetrievalStateBanner`   | answer   | yes          | yes     | yes         |               2 |
+| `SafeBoldText`           | layout   | yes          | yes     | yes         |               8 |
+| `SearchField`            | controls | yes          | yes     | yes         |               0 |
+| `SegmentedControl`       | controls | yes          | yes     | yes         |               2 |
+| `Select`                 | controls | yes          | yes     | yes         |               2 |
+| `Sheet`                  | layout   | yes          | yes     | yes         |              20 |
+| `Skeleton`               | feedback | yes          | yes     | yes         |               5 |
+| `SourceDesignationBadge` | source   | yes          | yes     | yes         |               1 |
+| `SourceProvenance`       | source   | yes          | yes     | yes         |               1 |
+| `SourceStatusBadge`      | source   | yes          | yes     | yes         |               1 |
+| `StageList`              | feedback | yes          | yes     | yes         |               0 |
+| `StatusMark`             | source   | yes          | yes     | yes         |               3 |
+| `Tabs`                   | controls | yes          | yes     | yes         |               0 |
+| `TextField`              | controls | yes          | yes     | yes         |               3 |
+| `TextLink`               | controls | yes          | yes     | yes         |               0 |
+| `ToastRegion`            | feedback | yes          | yes     | yes         |               0 |
+| `ToggleSwitch`           | controls | yes          | yes     | yes         |               2 |
+| `Tooltip`                | feedback | yes          | yes     | yes         |               0 |
+| `VerificationNotice`     | answer   | yes          | yes     | yes         |               2 |
+
 <!-- adoption-manifest:maturity:end -->

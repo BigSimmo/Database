@@ -15,10 +15,10 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
  * count is read out through a low-contrast visible node.
  */
 
-type Priority = "polite" | "assertive";
+export type AnnouncePriority = "polite" | "assertive";
 
-type AnnounceOptions = {
-  priority?: Priority;
+export type AnnounceOptions = {
+  priority?: AnnouncePriority;
   /**
    * Identifies one caller-owned transition. Distinct ids let identical wording
    * represent distinct events inside the repeat window; reusing an id still
@@ -42,7 +42,7 @@ const store = {
   polite: "",
   assertive: "",
   listeners: new Set<Listener>(),
-  queue: [] as Array<{ message: string; priority: Priority }>,
+  queue: [] as Array<{ message: string; priority: AnnouncePriority }>,
   recent: new Map<string, number>(),
   draining: false,
   timer: null as ReturnType<typeof setTimeout> | null,
@@ -80,12 +80,12 @@ function getActiveId() {
   return store.activeId;
 }
 
-function setRegion(priority: Priority, message: string) {
+function setRegion(priority: AnnouncePriority, message: string) {
   if (priority === "assertive") store.assertive = message;
   else store.polite = message;
 }
 
-function currentRegion(priority: Priority) {
+function currentRegion(priority: AnnouncePriority) {
   return priority === "assertive" ? store.assertive : store.polite;
 }
 

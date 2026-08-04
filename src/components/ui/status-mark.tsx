@@ -4,6 +4,7 @@ import { cn } from "@/components/ui-primitives";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 export type DocumentStatus = NonNullable<ClinicalSourceMetadata["document_status"]>;
+export type StatusMarkProps = { status: DocumentStatus; className?: string };
 
 /**
  * Status encoded in SHAPE, at one 8px footprint for every state:
@@ -26,7 +27,7 @@ export type DocumentStatus = NonNullable<ClinicalSourceMetadata["document_status
  * Always `aria-hidden`: the state is announced by the adjacent text, and a mark
  * that both draws and announces produces a double reading.
  */
-export function StatusMark({ status, className }: { status: DocumentStatus; className?: string }) {
+export function StatusMark({ status, className }: StatusMarkProps) {
   const tone =
     status === "current"
       ? "var(--success)"

@@ -33,6 +33,17 @@ function walk(directory, root = ROOT) {
   });
 }
 
+export function productionPageRoutes(root = ROOT) {
+  return walk(path.join(root, "src", "app"), root)
+    .filter(
+      (relativePath) =>
+        /\/page\.(?:ts|tsx)$/.test(relativePath) &&
+        !relativePath.includes("/api/") &&
+        !relativePath.includes("/mockups/"),
+    )
+    .sort();
+}
+
 function sourceFile(relativePath, root = ROOT) {
   const key = `${root}:${relativePath}`;
   if (!SOURCE_FILE_CACHE.has(key))
@@ -385,6 +396,10 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
 }
 
 function manifestSections(manifest) {
+  const componentRows = manifest.components.map(
+    (component) =>
+      `| \`${component.name}\` | ${component.family} | ${component.entryExported ? "yes" : "no"} | ${component.designSync.previewValid ? "yes" : "no"} | ${component.testFiles.length > 0 ? "yes" : "no"} | ${component.productImportFiles.length} |`,
+  );
   const maturity = [
     "<!-- adoption-manifest:maturity:start -->",
     "## Generated maturity snapshot",
@@ -394,18 +409,37 @@ function manifestSections(manifest) {
     `Components with product imports: ${manifest.summary.productImportedComponentCount}`,
     "",
     "This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.",
+    "",
+    "| Component | Family | Entry export | Preview | Direct test | Product imports |",
+    "| --- | --- | --- | --- | --- | ---: |",
+    ...componentRows,
     "<!-- adoption-manifest:maturity:end -->",
   ].join("\n");
+  const surfaceRows = manifest.surfaces.map(
+    (surface) =>
+      `| \`${surface.id}\` | ${surface.disposition} | ${surface.routes.length} | ${surface.roots.length} | ${surface.shellState} |`,
+  );
   const adoption = [
     "<!-- adoption-manifest:adoption:start -->",
     "## Generated adoption truth",
+    "",
+    "`generate-design-system-adoption.mjs` discovers every production `src/app/**/page.tsx` and",
+    "requires each route to appear exactly once in `adoption-contract.json`. Undeclared, missing, or",
+    "multiply-owned routes fail the check. `src/app/api/**` and `src/app/mockups/**` are non-page",
+    "product exclusions; the only route-only disposition is the documented legacy document-source",
+    "redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.",
     "",
     `Registered public components: ${manifest.summary.registeredComponentCount}`,
     `Declared product roots: ${manifest.summary.rootCount}`,
     `Roots with a literal \`.ckb-v2\` opt-in: ${manifest.adoption.literalCkbV2RootCount}`,
     `Dynamic \`ckb-v2\` constructions: ${manifest.adoption.dynamicCkbV2RootCount}`,
+    `Declared production page routes: ${manifest.routeCoverage.declared.length}/${manifest.routeCoverage.discovered.length}`,
     "",
     "The live product remains on the compatibility layer until a declared root opts into the v2 class literally.",
+    "",
+    "| Surface | Disposition | Routes | Roots | Expected shell |",
+    "| --- | --- | ---: | ---: | --- |",
+    ...surfaceRows,
     "<!-- adoption-manifest:adoption:end -->",
   ].join("\n");
   return { maturity, adoption };
@@ -461,7 +495,10 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       };
     });
   const surfaces = contract.productionSurfaces.map((surface) => {
-    const roots = surface.roots.map((rootFile) => {
+    const rootFiles = [...(surface.routeRoots ? surface.routes : []), ...(surface.roots ?? [])].filter(
+      (rootFile, index, files) => files.indexOf(rootFile) === index,
+    );
+    const roots = rootFiles.map((rootFile) => {
       const sourceText = exists(rootFile, root) ? read(rootFile, root) : "";
       const imports = importFacts(rootFile, sourceMap, root);
       const importedFamilies = [...new Set(imports.map((name) => contract.componentFamilies[name]))].sort();
@@ -478,6 +515,9 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
     });
     return {
       id: surface.id,
+      disposition: surface.disposition,
+      documentedDisposition: surface.documentedDisposition ?? null,
+      routes: [...surface.routes].sort(),
       shellState: surface.expectedShellState,
       permittedComponentFamilies: [...surface.permittedComponentFamilies].sort(),
       sanctionedSpecialPatterns: [...surface.sanctionedSpecialPatterns].sort(),
@@ -490,18 +530,42 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   const dynamicCkbV2RootCount = surfaces
     .flatMap((surface) => surface.roots)
     .filter((rootFact) => rootFact.dynamicCkbV2).length;
+  const discoveredRoutes = productionPageRoutes(root);
+  const routeOwners = new Map();
+  for (const surface of contract.productionSurfaces) {
+    for (const route of surface.routes) {
+      const owners = routeOwners.get(route) ?? [];
+      owners.push(surface.id);
+      routeOwners.set(route, owners);
+    }
+  }
+  const declaredRoutes = [...routeOwners.keys()].sort();
+  const undeclaredRoutes = discoveredRoutes.filter((route) => !routeOwners.has(route));
+  const duplicateRoutes = [...routeOwners.entries()]
+    .filter(([, owners]) => owners.length > 1)
+    .map(([route, owners]) => ({ route, owners }))
+    .sort((left, right) => left.route.localeCompare(right.route));
+  const missingRoutes = declaredRoutes.filter((route) => !discoveredRoutes.includes(route));
   return {
     schemaVersion: contract.schemaVersion,
     baseline: contract.baseline,
     requiredProofCategories: [...contract.requiredProofCategories],
     components,
     surfaces,
+    routeCoverage: {
+      discovered: discoveredRoutes,
+      declared: declaredRoutes,
+      undeclared: undeclaredRoutes,
+      missing: missingRoutes,
+      duplicates: duplicateRoutes,
+    },
     adoption: { literalCkbV2RootCount, dynamicCkbV2RootCount },
     summary: {
       registeredComponentCount: components.length,
       previewCount: components.filter((component) => component.designSync.previewValid).length,
       productImportedComponentCount: components.filter((component) => component.productImportFiles.length > 0).length,
       rootCount: surfaces.flatMap((surface) => surface.roots).length,
+      productionRouteCount: discoveredRoutes.length,
     },
   };
 }
@@ -514,6 +578,8 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
       failures.push(`${component.name} is not exported from its declared source`);
     if (!component.entryExported) failures.push(`${component.name} is missing from .design-sync/entry.tsx`);
     if (!component.designSync.listedInDtsProps) failures.push(`${component.name} is missing dtsPropsFor metadata`);
+    if (!component.designSync.previewValid) failures.push(`${component.name} is missing a valid design-sync preview`);
+    if (component.testFiles.length === 0) failures.push(`${component.name} has no direct test proof`);
   }
   for (const surface of manifest.surfaces) {
     for (const rootFact of surface.roots) {
@@ -526,7 +592,18 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
           failures.push(`${surface.id} imports an unpermitted ${family} component`);
       }
     }
+    if (surface.disposition !== "owned" && !surface.documentedDisposition)
+      failures.push(`${surface.id} ${surface.disposition} disposition is undocumented`);
   }
+  for (const route of manifest.routeCoverage.undeclared) failures.push(`production page route is undeclared: ${route}`);
+  for (const route of manifest.routeCoverage.missing)
+    failures.push(`declared production page route is missing: ${route}`);
+  for (const duplicate of manifest.routeCoverage.duplicates)
+    failures.push(`production page route has multiple owners: ${duplicate.route} (${duplicate.owners.join(", ")})`);
+  const sourceMapNames = Object.keys(JSON.parse(read(CONFIG_PATH, root)).componentSrcMap ?? {}).sort();
+  const familyNames = Object.keys(contract.componentFamilies).sort();
+  if (JSON.stringify(sourceMapNames) !== JSON.stringify(familyNames))
+    failures.push("adoption componentFamilies must match the design-sync visual component registry");
   if (manifest.requiredProofCategories.join("|") !== contract.requiredProofCategories.join("|"))
     failures.push("required proof categories drifted from adoption contract");
   return failures;

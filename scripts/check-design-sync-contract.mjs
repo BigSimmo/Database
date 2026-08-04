@@ -3,6 +3,8 @@ import path from "node:path";
 import process from "node:process";
 import ts from "@typescript/typescript6";
 
+import { deriveDesignSyncProps } from "./generate-design-sync-contract.mjs";
+
 const ROOT = process.cwd();
 const CONFIG_PATH = ".design-sync/config.json";
 const ENTRY_PATH = ".design-sync/entry.tsx";
@@ -48,89 +50,34 @@ function previewIsValid(name, config) {
   );
 }
 
-function declaredProps(relativePath, { typeName, functionName }) {
-  const source = ts.createSourceFile(relativePath, read(relativePath), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const aliases = new Map(
-    source.statements.filter(ts.isTypeAliasDeclaration).map((statement) => [statement.name.text, statement.type]),
-  );
-  const properties = new Set();
-  const visitType = (typeNode, excluded = new Set()) => {
-    if (ts.isTypeLiteralNode(typeNode)) {
-      for (const member of typeNode.members) {
-        if (ts.isPropertySignature(member) && member.name && !excluded.has(member.name.getText(source)))
-          properties.add(member.name.getText(source));
-      }
-      return;
-    }
-    if (ts.isIntersectionTypeNode(typeNode) || ts.isUnionTypeNode(typeNode)) {
-      for (const type of typeNode.types) visitType(type, excluded);
-      return;
-    }
-    if (ts.isTypeReferenceNode(typeNode) && ts.isIdentifier(typeNode.typeName)) {
-      const target = aliases.get(typeNode.typeName.text);
-      const omitted = new Set(excluded);
-      if (
-        typeNode.typeName.text === "Omit" &&
-        typeNode.typeArguments?.[1] &&
-        ts.isUnionTypeNode(typeNode.typeArguments[1])
-      ) {
-        for (const item of typeNode.typeArguments[1].types) {
-          if (ts.isLiteralTypeNode(item))
-            omitted.add(ts.isStringLiteral(item.literal) ? item.literal.text : item.literal.getText(source));
-        }
-      }
-      if (target) visitType(target, omitted);
-      if (typeNode.typeName.text === "Omit" && typeNode.typeArguments?.[0])
-        visitType(typeNode.typeArguments[0], omitted);
-    }
-  };
-  if (typeName && aliases.has(typeName)) visitType(aliases.get(typeName));
-  if (functionName) {
-    const declaration = source.statements.find(
-      (statement) => ts.isFunctionDeclaration(statement) && statement.name?.text === functionName,
-    );
-    const parameterType = declaration?.parameters[0]?.type;
-    if (parameterType) visitType(parameterType);
-  }
-  return [...properties].sort();
-}
-
-function assertPublishedProps(config, failures) {
-  // `dtsPropsFor` is the sync tool's string-only downstream format. These
-  // requirements are derived from the TypeScript public props and fail closed if
-  // a source addition is not represented in that downstream metadata.
-  const requirements = {
-    AnswerCard: ["ungrounded", "VerificationNoticeProps"],
-    VerificationNotice: ["ungrounded", "attribution?:", "extractive"],
-    EmptyState: ["headingLevel?: 2 | 3 | 4 | 5 | 6", "testId?: string"],
-    TextField: ["id?:", "hint?: string", "error?: string", "fieldClassName?: string", "aria-describedby?: string"],
-    SearchField: ["id?:", "onClear?:", "clearLabel?: string", "aria-describedby?: string"],
-    Sheet: ["initialFocusRef?:", "returnFocusRef?:", "testId?: string", "id?: string"],
-    AccessibleTable: ["normalizedTable?:"],
-  };
-  for (const [component, requiredSnippets] of Object.entries(requirements)) {
-    const declaration = config.dtsPropsFor?.[component] ?? "";
-    for (const snippet of requiredSnippets) {
-      if (!declaration.includes(snippet))
-        failures.push(`${component} dtsPropsFor omits source-derived public prop detail: ${snippet}`);
-    }
-  }
-  const sourceDerived = {
-    TextField: ["src/components/ui/text-field.tsx", { typeName: "TextFieldProps" }],
-    SearchField: ["src/components/ui/text-field.tsx", { typeName: "SearchFieldProps" }],
-    VerificationNotice: ["src/components/ui/verification-notice.tsx", { typeName: "VerificationNoticeProps" }],
-    EmptyState: ["src/components/ui-primitives.tsx", { functionName: "EmptyState" }],
-    Sheet: ["src/components/ui/sheet.tsx", { functionName: "Sheet" }],
-    AccessibleTable: ["src/components/AccessibleTable.tsx", { functionName: "AccessibleTable" }],
-  };
-  for (const [component, [source, selector]] of Object.entries(sourceDerived)) {
-    const declaration = config.dtsPropsFor?.[component] ?? "";
-    for (const prop of declaredProps(source, selector)) {
-      const escaped = prop.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      if (!new RegExp(`${escaped}\\s*\\??:`).test(declaration))
-        failures.push(`${component} dtsPropsFor omits source-derived public prop: ${prop}`);
-    }
-  }
+function previewTypeFailures(componentNames, config) {
+  const configPath = path.join(ROOT, "tsconfig.json");
+  const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, ts.sys);
+  if (!parsed) return [`unable to parse ${configPath} for preview validation`];
+  const previewRoot = `${path.sep}.design-sync${path.sep}previews${path.sep}`;
+  const program = ts.createProgram({
+    rootNames: componentNames.map((name) => path.join(ROOT, ".design-sync", "previews", `${name}.tsx`)),
+    options: {
+      ...parsed.options,
+      baseUrl: ROOT,
+      noEmit: true,
+      paths: {
+        ...(parsed.options.paths ?? {}),
+        [config.pkg]: [path.join(ROOT, ENTRY_PATH)],
+      },
+    },
+  });
+  return ts
+    .getPreEmitDiagnostics(program)
+    .filter((diagnostic) => diagnostic.file?.fileName.includes(previewRoot))
+    .map((diagnostic) => {
+      const file = diagnostic.file;
+      const position = file && diagnostic.start != null ? file.getLineAndCharacterOfPosition(diagnostic.start) : null;
+      const location = file
+        ? `${path.relative(ROOT, file.fileName)}${position ? `:${position.line + 1}:${position.character + 1}` : ""}`
+        : "design-sync preview";
+      return `${location}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
+    });
 }
 
 function main() {
@@ -146,6 +93,9 @@ function main() {
   const dtsNames = Object.keys(config.dtsPropsFor ?? {}).sort();
   if (JSON.stringify(componentNames) !== JSON.stringify(dtsNames))
     failures.push("componentSrcMap and dtsPropsFor must expose the same public components");
+  const generatedProps = deriveDesignSyncProps({ config });
+  if (JSON.stringify(config.dtsPropsFor) !== JSON.stringify(generatedProps))
+    failures.push("dtsPropsFor must be generated from source public Props types");
 
   for (const name of componentNames) {
     const source = config.componentSrcMap[name];
@@ -159,13 +109,31 @@ function main() {
       (isUiPrimitive && /export \* from ["']@\/components\/ui-primitives["']/.test(entry)) ||
       new RegExp(`export\\s*\\{[^}]*\\b${name}\\b[^}]*\\}`).test(entry);
     if (!entryExports) failures.push(`${name} is not exported by ${ENTRY_PATH}`);
+    const propsName = `${name}Props`;
+    const entryExportsProps =
+      generatedProps[name] === "" ||
+      (isUiPrimitive && /export \* from ["']@\/components\/ui-primitives["']/.test(entry)) ||
+      new RegExp(`export\\s*\\{[^}]*\\b${propsName}\\b[^}]*\\}`, "s").test(entry);
+    if (!entryExportsProps) failures.push(`${propsName} is not exported by ${ENTRY_PATH}`);
     if (!previewIsValid(name, config))
       failures.push(`${name} preview is missing, malformed, or imports a different package`);
   }
-  if (!/export type \{ AnswerState \} from ["']@\/components\/ui\/answer-state["']/.test(entry))
-    failures.push("AnswerState is not exported as part of the design-sync public type surface");
+  failures.push(...previewTypeFailures(componentNames, config));
+  for (const supportExport of [
+    "AnswerState",
+    "LiveAnnouncer",
+    "OverlayPortal",
+    "RouteAnnouncer",
+    "ToastProvider",
+    "announce",
+    "answerClipboardText",
+    "answerStateFromRetrieval",
+    "useToast",
+  ]) {
+    if (!new RegExp(`export\\s*\\{[^}]*\\b${supportExport}\\b[^}]*\\}`, "s").test(entry))
+      failures.push(`${supportExport} support API is missing from ${ENTRY_PATH}`);
+  }
   if (/sheet-focus/.test(entry)) failures.push("sheet-focus helpers must remain unpublished");
-  assertPublishedProps(config, failures);
 
   if (failures.length) throw new Error(failures.join("\n"));
   process.stdout.write(

@@ -1,10 +1,15 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { analyzeCkbV2ClassUsage, checkAdoptionManifest } from "../scripts/generate-design-system-adoption.mjs";
+import {
+  analyzeCkbV2ClassUsage,
+  checkAdoptionManifest,
+  productionPageRoutes,
+} from "../scripts/generate-design-system-adoption.mjs";
 
 const root = path.resolve(__dirname, "..");
 
@@ -110,6 +115,47 @@ describe("design-system adoption manifest", () => {
     );
   });
 
+  it("fails closed when a production page route has no declared owner", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const manifest = {
+      ...current,
+      routeCoverage: {
+        ...current.routeCoverage,
+        undeclared: ["src/app/unowned/page.tsx"],
+      },
+    };
+
+    expect(checkAdoptionManifest(manifest)).toContain("production page route is undeclared: src/app/unowned/page.tsx");
+  });
+
+  it("requires documentation for non-owned route and shared-shell dispositions", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const manifest = {
+      ...current,
+      surfaces: current.surfaces.map((surface: { id: string }) =>
+        surface.id === "documents-source-legacy-redirect" ? { ...surface, documentedDisposition: null } : surface,
+      ),
+    };
+
+    expect(checkAdoptionManifest(manifest)).toContain(
+      "documents-source-legacy-redirect legacy-redirect disposition is undocumented",
+    );
+  });
+
+  it("discovers production pages while excluding api and mockup trees", () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-routes-"));
+    try {
+      for (const route of ["src/app/real/page.tsx", "src/app/api/debug/page.tsx", "src/app/mockups/demo/page.tsx"]) {
+        const absolutePath = path.join(fixtureRoot, route);
+        fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+        fs.writeFileSync(absolutePath, "export default function Page() { return null; }\n");
+      }
+      expect(productionPageRoutes(fixtureRoot)).toEqual(["src/app/real/page.tsx"]);
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
   it("is deterministic and records the compatibility-layer baseline", () => {
     execFileSync(process.execPath, ["scripts/generate-design-system-adoption.mjs", "--check"], {
       cwd: root,
@@ -117,11 +163,16 @@ describe("design-system adoption manifest", () => {
     });
 
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
-    expect(manifest.schemaVersion).toBe(1);
+    expect(manifest.schemaVersion).toBe(2);
     expect(manifest.adoption.literalCkbV2RootCount).toBe(0);
     expect(manifest.surfaces.every((surface: { shellState: string }) => surface.shellState === "compatibility")).toBe(
       true,
     );
+    expect(manifest.routeCoverage.discovered).toHaveLength(47);
+    expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
+    expect(manifest.routeCoverage.undeclared).toEqual([]);
+    expect(manifest.routeCoverage.missing).toEqual([]);
+    expect(manifest.routeCoverage.duplicates).toEqual([]);
   });
 
   it("keeps generated adoption sections synchronized with the manifest", () => {
@@ -129,5 +180,11 @@ describe("design-system adoption manifest", () => {
     const expected = `Registered public components: ${manifest.summary.registeredComponentCount}`;
     expect(read("docs/design-system/COMPONENTS.md")).toContain(expected);
     expect(read("docs/design-system/ADOPTION.md")).toContain(expected);
+    expect(read("docs/design-system/COMPONENTS.md")).toMatch(
+      /\|\s*Component\s*\|\s*Family\s*\|\s*Entry export\s*\|\s*Preview\s*\|/,
+    );
+    expect(read("docs/design-system/ADOPTION.md")).toMatch(
+      /\|\s*Surface\s*\|\s*Disposition\s*\|\s*Routes\s*\|\s*Roots\s*\|/,
+    );
   });
 });
