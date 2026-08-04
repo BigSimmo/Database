@@ -59,7 +59,6 @@ import {
   floatingControl,
   LoadingPanel,
   metadataPill,
-  panelSubtle,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
@@ -1111,15 +1110,20 @@ function DocumentSearchResultsPanelImpl({
   const recordMatchCount = recordMatches.length;
   const shouldShowHome = showHome || !trimmedQuery;
 
-  function toggleTagFacet(facet: SmartDocumentTagFacet) {
-    setActiveFacetState((current) => {
-      const keys = current.query === query ? current.keys : [];
-      return {
-        query,
-        keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
-      };
-    });
-  }
+  // Stable per query so the applied-filter shelf can depend on it honestly
+  // rather than suppressing the dependency check.
+  const toggleTagFacet = useCallback(
+    (facet: SmartDocumentTagFacet) => {
+      setActiveFacetState((current) => {
+        const keys = current.query === query ? current.keys : [];
+        return {
+          query,
+          keys: keys.includes(facet.key) ? keys.filter((key) => key !== facet.key) : [...keys, facet.key],
+        };
+      });
+    },
+    [query],
+  );
 
   const unavailable = deriveDocumentSearchUnavailable({
     apiUnavailable,
@@ -1182,10 +1186,7 @@ function DocumentSearchResultsPanelImpl({
       }
     }
     return chips;
-    // `toggleTagFacet` is a stable closure over `query`, which is already a
-    // dependency of `activeFacetKeys`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs]);
+  }, [tagFacetGroups, activeFacetKeys, effectiveResultType, resultTabs, toggleTagFacet]);
   const clearAllFilters = () => {
     setActiveFacetState({ query, keys: [] });
     setActiveResultType("all");
@@ -1290,17 +1291,12 @@ function DocumentSearchResultsPanelImpl({
         <LoadingPanel label="Finding matching documents" />
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
-          <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
-            <span className="mx-auto grid h-tap w-tap place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-              <FileText aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>
-              <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
-                {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No matching documents"
+            headingLevel={3}
+            body={`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
+          />
         ) : (
           <DocumentSearchHome
             documentCount={documentCount}
