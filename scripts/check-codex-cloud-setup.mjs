@@ -151,8 +151,8 @@ function validateSupabaseMcpUrl(urlString, label, errors) {
 }
 
 /**
- * Project `.codex/config.toml` must register the approved MCP surface as disabled
- * URL-only templates so offline/ordinary Codex hosts do not initialize providers.
+ * This isolated activation-test branch requires the approved MCP surface to be
+ * enabled so a fresh Cloud host can prove startup-time project MCP loading.
  * @param {string} text
  * @returns {string[]}
  */
@@ -171,8 +171,8 @@ export function validateCodexProjectMcpConfiguration(text) {
     const label = `.codex/config.toml ${name}`;
     const expected = expectedCodexProjectMcpServers[name];
 
-    if (server.enabled !== false) {
-      errors.push(`${label} must set enabled = false (host/connected layers opt in).`);
+    if (server.enabled !== true) {
+      errors.push(`${label} must set enabled = true for the isolated Cloud activation test.`);
     }
     if (server.default_tools_approval_mode !== expected.approvalMode) {
       const reason =
