@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { accessSync, constants, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -15,7 +16,7 @@ import { providerEnvironmentKeys } from "./test-environment.mjs";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const expectedCloudCliVersions = Object.freeze({
-  railway: "5.30.1",
+  railway: "5.30.4",
   codex: "0.146.0",
 });
 
@@ -24,18 +25,27 @@ export const expectedMcpConfiguration = Object.freeze({
   railwayUrl: "https://mcp.railway.com",
   supabaseUrl: "https://mcp.supabase.com/mcp",
   supabaseProjectRef: "sjrfecxgysukkwxsowpy",
-  supabaseFeatures: Object.freeze(["database", "debugging", "development", "docs"]),
+  supabaseFeatures: Object.freeze(["development", "docs"]),
 });
 
 /** Project `.codex/config.toml` registrations — disabled by default, secret-free URLs only. */
 export const expectedCodexProjectMcpServers = Object.freeze({
-  figma_cloud: Object.freeze({ url: "https://mcp.figma.com/mcp", approvalMode: "writes" }),
-  railway_cloud: Object.freeze({ url: expectedMcpConfiguration.railwayUrl, approvalMode: "writes" }),
-  sentry_cloud: Object.freeze({ url: "https://mcp.sentry.dev/mcp", approvalMode: "writes" }),
+  figma_cloud: Object.freeze({
+    url: "https://mcp.figma.com/mcp",
+    approvalMode: "writes",
+  }),
+  railway_cloud: Object.freeze({
+    url: expectedMcpConfiguration.railwayUrl,
+    approvalMode: "writes",
+  }),
+  sentry_cloud: Object.freeze({
+    url: "https://mcp.sentry.dev/mcp",
+    approvalMode: "writes",
+  }),
   supabase_cloud: Object.freeze({
     // URL validated with the same project/read-only/feature rules as `.mcp.json`.
     kind: "supabase",
-    approvalMode: "auto",
+    approvalMode: "prompt",
   }),
 });
 
@@ -275,7 +285,7 @@ export function validateCodexCloudEnvironment(env = process.env) {
   }
 
   for (const [name, allowed] of Object.entries({
-    RAG_PROVIDER_MODE: ["auto", "openai", "offline"],
+    RAG_PROVIDER_MODE: ["offline"],
     NEXT_PUBLIC_DEMO_MODE: ["true", "false"],
     PLAYWRIGHT_OFFLINE_MODE: ["true", "false"],
   })) {
@@ -290,7 +300,7 @@ export function railwayReadCapability(env = process.env, cliAvailable = false) {
     cliAvailable,
     dedicatedCredentialPresent: Boolean(env.RAILWAY_API_TOKEN),
     projectCredentialPresent: Boolean(env.RAILWAY_TOKEN),
-    ready: cliAvailable && Boolean(env.RAILWAY_API_TOKEN),
+    cliTokenAuthReady: cliAvailable && Boolean(env.RAILWAY_API_TOKEN),
   };
 }
 
@@ -404,10 +414,11 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const codexCliAvailable = options.codexCliAvailable ?? commandAvailable("codex");
   const safeGitHelper = options.safeGitHelper ?? hasSafeGitHubCredentialHelper(repoRoot);
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
+  const checkout = options.checkout ?? gitCheckoutFreshness(repoRoot, env);
   const lines = [
     `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
     `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
-    `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["auto", "openai", "offline"])}`,
+    `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["offline"])}`,
     `NEXT_PUBLIC_DEMO_MODE=${approvedModeValue(env.NEXT_PUBLIC_DEMO_MODE, ["true", "false"])}`,
     `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
   ];
@@ -415,12 +426,20 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   lines.push(`railway.cli_available=${railway.cliAvailable}`);
   lines.push(`railway.dedicated_credential_present=${railway.dedicatedCredentialPresent}`);
   lines.push(`railway.project_credential_present=${railway.projectCredentialPresent}`);
-  lines.push(`railway.read_commands_ready=${railway.ready}`);
+  lines.push(`railway.cli_token_auth_ready=${railway.cliTokenAuthReady}`);
+  lines.push("mcp.runtime_tool_inventory=host-provided-unverified-by-repository");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
+  lines.push(pythonWorkerVersionLine(env.CODEX_CLOUD_OCR_PYTHON));
   lines.push(`git.origin_configured=${origin.configured}`);
   lines.push(`git.origin_repository_match=${origin.repositoryMatch}`);
   lines.push(`git.origin_credential_embedded=${origin.credentialsEmbedded}`);
   lines.push(`git.github_cli_helper_configured=${safeGitHelper}`);
+  lines.push(`git.head=${checkout.head}`);
+  lines.push(`git.local_main=${checkout.localMain}`);
+  lines.push(`git.origin_main=${checkout.originMain}`);
+  lines.push(`git.expected_base=${checkout.expectedBase}`);
+  lines.push(`git.expected_base_ancestor=${checkout.expectedBaseAncestor}`);
+  lines.push(`git.checkout_freshness=${checkout.freshness}`);
   for (const server of mcpServers) {
     lines.push(
       `mcp.server=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
@@ -448,12 +467,75 @@ export function localGitBaseline(root = process.cwd(), env = process.env) {
   return null;
 }
 
+function fullGitRevision(root, ref) {
+  const result = spawnSync("git", ["rev-parse", "--verify", ref], {
+    cwd: root,
+    encoding: "utf8",
+    shell: false,
+  });
+  return result.status === 0 ? String(result.stdout ?? "").trim() : "unavailable";
+}
+
+function normalizedExpectedBase(root, value) {
+  if (!value) return "unset";
+  const candidate = String(value);
+  if (!/^[0-9a-f]{40}$/i.test(candidate)) return "invalid";
+  const revision = fullGitRevision(root, `${candidate}^{commit}`);
+  return /^[0-9a-f]{40}$/i.test(revision) ? revision.toLowerCase() : "invalid";
+}
+
+/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
+export function gitCheckoutFreshness(root = process.cwd(), env = process.env) {
+  const head = fullGitRevision(root, "HEAD");
+  const localMain = fullGitRevision(root, "refs/heads/main");
+  const originMain = fullGitRevision(root, "refs/remotes/origin/main");
+  const expectedBase = normalizedExpectedBase(root, env.CODEX_CLOUD_EXPECTED_BASE_SHA);
+  let expectedBaseAncestor = "unverified";
+  if (expectedBase !== "unset" && expectedBase !== "invalid" && head !== "unavailable") {
+    const result = spawnSync("git", ["merge-base", "--is-ancestor", expectedBase, "HEAD"], {
+      cwd: root,
+      stdio: "ignore",
+      shell: false,
+    });
+    expectedBaseAncestor = result.status === 0 ? "true" : "false";
+  }
+  const taskOnly = localMain === "unavailable" && originMain === "unavailable";
+  const freshness =
+    expectedBaseAncestor === "true"
+      ? "verified"
+      : expectedBaseAncestor === "false"
+        ? "invalid"
+        : taskOnly
+          ? "unverified"
+          : "branch-reference-available";
+  return { head, localMain, originMain, expectedBase, expectedBaseAncestor, freshness };
+}
+
 export function executableFile(filePath) {
   try {
     return statSync(filePath).isFile() && (accessSync(filePath, constants.X_OK), true);
   } catch {
     return false;
   }
+}
+
+export async function playwrightBrowserErrors(browserTypes, timeout = 15_000) {
+  const errors = [];
+  for (const [name, browserType] of Object.entries(browserTypes)) {
+    if (!executableFile(browserType.executablePath())) {
+      errors.push(`${name} browser executable is unavailable.`);
+      continue;
+    }
+    let browser;
+    try {
+      browser = await browserType.launch({ headless: true, timeout });
+    } catch (error) {
+      errors.push(`${name} browser launch failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      await browser?.close();
+    }
+  }
+  return errors;
 }
 
 export const pythonWorkerImports = ["fitz", "PIL", "pytesseract", "medspacy"];
@@ -479,6 +561,59 @@ export function pythonWorkerImportError(pythonCommand, run = spawnSync) {
   return `Python worker imports failed: ${pythonWorkerImports.join(", ")}.`;
 }
 
+export function pythonWorkerDependencyErrors(pythonCommand, run = spawnSync) {
+  if (!pythonCommand || !executableFile(pythonCommand)) {
+    return ["The configured Codex Cloud OCR Python executable is unavailable."];
+  }
+  const errors = [];
+  const pipCheck = run(pythonCommand, ["-m", "pip", "check"], {
+    encoding: "utf8",
+    shell: false,
+  });
+  if (pipCheck.status !== 0) errors.push("Python worker dependency conflicts were reported by pip check.");
+
+  const requirements = readFileSync(path.join(repoRoot, "worker/python/requirements-cloud.txt"));
+  const expectedHash = createHash("sha256").update(requirements).digest("hex");
+  const markerPath = path.resolve(path.dirname(pythonCommand), "..", ".requirements-cloud.sha256");
+  let installedHash = "";
+  try {
+    installedHash = readFileSync(markerPath, "utf8").trim();
+  } catch {
+    errors.push("Python worker requirements fingerprint is missing; rerun Cloud setup.");
+  }
+  if (installedHash && installedHash !== expectedHash) {
+    errors.push("Python worker requirements fingerprint is stale; rerun Cloud setup.");
+  }
+
+  const versions = run(
+    pythonCommand,
+    [
+      "-c",
+      "from importlib.metadata import version; print('medspacy=%s spacy=%s' % (version('medspacy'), version('spacy')))",
+    ],
+    { encoding: "utf8", shell: false },
+  );
+  if (versions.status !== 0) errors.push("Python worker medspacy/spacy version reporting failed.");
+  return errors;
+}
+
+export function pythonWorkerVersionLine(pythonCommand, run = spawnSync) {
+  if (!pythonCommand || !executableFile(pythonCommand)) return "python.worker_versions=unavailable";
+  const result = run(
+    pythonCommand,
+    [
+      "-c",
+      "from importlib.metadata import version; print('medspacy=%s spacy=%s' % (version('medspacy'), version('spacy')))",
+    ],
+    { encoding: "utf8", shell: false },
+  );
+  return result.status === 0
+    ? `python.worker_versions=${String(result.stdout ?? "")
+        .trim()
+        .replaceAll(/\s+/g, ",")}`
+    : "python.worker_versions=unavailable";
+}
+
 export function validateCodexCloudSetup() {
   const errors = [];
   const packageJson = JSON.parse(read("package.json"));
@@ -487,6 +622,7 @@ export function validateCodexCloudSetup() {
   const setup = read("scripts/setup-codex-cloud.sh");
   const maintenance = read("scripts/maintain-codex-cloud.sh");
   const commandShims = read("scripts/install-codex-cloud-command-shims.sh");
+  const rawEnvironmentProbe = read("scripts/check-codex-cloud-raw-env.sh");
   const patDelete = read("scripts/delete-codex-cloud-branch-with-pat.sh");
   const guide = read("docs/codex-cloud.md");
   const agents = read("AGENTS.md");
@@ -512,6 +648,14 @@ export function validateCodexCloudSetup() {
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
+    [
+      /mcp_servers\.railway_connected/,
+      "Connected Cloud setup must enable the hosted Railway MCP server in the managed host config.",
+    ],
+    [
+      /mcp_servers\.supabase_connected/,
+      "Connected Cloud setup must enable the constrained Supabase MCP server in the managed host config.",
+    ],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
@@ -595,9 +739,15 @@ export function validateCodexCloudSetup() {
   requireMatch(
     errors,
     patDelete,
-    /CODEX_CLOUD_ACCESS_PROFILE.*connected/,
-    "PAT deletion helper must require the connected profile.",
+    /CODEX_CLOUD.*use native Push/,
+    "PAT deletion helper must reject the Codex Cloud agent phase and direct operators to native publication.",
   );
+  requireMatch(errors, rawEnvironmentProbe, /never values/, "Raw Cloud environment probe must report names only.");
+  for (const name of providerCredentialVariables) {
+    if (!rawEnvironmentProbe.includes(name)) {
+      errors.push(`Raw Cloud environment probe must cover provider environment variable ${name}.`);
+    }
+  }
   requireMatch(
     errors,
     patDelete,
@@ -706,6 +856,7 @@ export async function validateCodexCloudRuntime(env = process.env) {
   }
   const pythonError = pythonWorkerImportError(env.CODEX_CLOUD_OCR_PYTHON);
   if (pythonError) errors.push(pythonError);
+  else errors.push(...pythonWorkerDependencyErrors(env.CODEX_CLOUD_OCR_PYTHON));
 
   for (const error of [
     repositoryCommand(process.execPath, ["scripts/run-tsx.mjs", "scripts/check-runtime.ts"]),
@@ -717,15 +868,7 @@ export async function validateCodexCloudRuntime(env = process.env) {
   if (env.CODEX_CLOUD_SKIP_BROWSER_INSTALL !== "1") {
     try {
       const { chromium, firefox, webkit } = await import("playwright");
-      for (const [name, browserType] of Object.entries({
-        chromium,
-        firefox,
-        webkit,
-      })) {
-        if (!executableFile(browserType.executablePath())) {
-          errors.push(`${name} browser executable is unavailable.`);
-        }
-      }
+      errors.push(...(await playwrightBrowserErrors({ chromium, firefox, webkit })));
     } catch (error) {
       errors.push(`Playwright browser validation failed: ${error.message}`);
     }
@@ -735,8 +878,17 @@ export async function validateCodexCloudRuntime(env = process.env) {
   if (obsoleteProxyNames.length > 0) {
     errors.push(`Obsolete npm proxy variable names are set: ${obsoleteProxyNames.join(", ")}.`);
   }
-  if (!localGitBaseline(repoRoot, env)) {
+  const baseline = localGitBaseline(repoRoot, env);
+  const checkout = gitCheckoutFreshness(repoRoot, env);
+  if (!baseline) {
     errors.push("Neither local main, origin/main, nor a Cloud task HEAD is available.");
+  } else if (baseline === "HEAD" && checkout.freshness === "unverified" && env.CODEX_CLOUD_PROVISIONING !== "1") {
+    errors.push(
+      "Checkout freshness is unverified: set CODEX_CLOUD_EXPECTED_BASE_SHA to the intended merge/base commit.",
+    );
+  }
+  if (checkout.expectedBaseAncestor === "false") {
+    errors.push("CODEX_CLOUD_EXPECTED_BASE_SHA is not an ancestor of the current HEAD.");
   }
   const origin = inspectOriginRemote(repoRoot);
   if (!origin.configured) errors.push("origin is unavailable in the Cloud checkout.");
@@ -751,6 +903,15 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
   if (runtime) errors.push(...(await validateCodexCloudRuntime()));
   else if (environment) errors.push(...validateCodexCloudEnvironment());
+  if (
+    runtime &&
+    process.env.CODEX_CLOUD_PROVISIONING === "1" &&
+    gitCheckoutFreshness(repoRoot).freshness === "unverified"
+  ) {
+    console.warn(
+      "[Codex Cloud Check] WARN: checkout freshness is unverified during provisioning; run explicit acceptance with CODEX_CLOUD_EXPECTED_BASE_SHA.",
+    );
+  }
   if (environment) {
     console.log("[Codex Cloud Environment] sanitized effective modes and capabilities:");
     for (const line of sanitizedCloudCapabilityLines()) console.log(`  ${line}`);
