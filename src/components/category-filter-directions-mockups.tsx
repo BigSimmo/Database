@@ -70,9 +70,11 @@ function categoryLabel(id: CategoryId) {
    ------------------------------------------------------------------------- */
 
 function PhoneChrome({ children }: { children: ReactNode }) {
+  // Keep the header clipped to the phone radius, but leave the body
+  // overflow-visible so in-frame filter panels are not chopped off.
   return (
-    <div className="overflow-hidden rounded-[1.35rem] border border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] shadow-[var(--shadow-lift)]">
-      <header className="flex items-center justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5">
+    <div className="rounded-[1.35rem] border border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] shadow-[var(--shadow-lift)]">
+      <header className="flex items-center justify-between gap-2 overflow-hidden rounded-t-[1.3rem] border-b border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5">
         <span className="grid h-10 w-10 place-items-center rounded-lg text-[color:var(--text-muted)]">
           <Menu className="h-5 w-5" aria-hidden />
         </span>
@@ -259,14 +261,22 @@ function BaselineNativeSelect({
   );
 }
 
-/** A — Soft value button + bottom sheet. */
-function SoftSheetFilter({ value, onChange }: { value: CategoryId; onChange: (next: CategoryId) => void }) {
-  const [open, setOpen] = useState(false);
+/** A — Soft value button + in-flow options panel. */
+function SoftSheetFilter({
+  value,
+  onChange,
+  defaultOpen = false,
+}: {
+  value: CategoryId;
+  onChange: (next: CategoryId) => void;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const titleId = useId();
   const filtered = value !== "all";
 
   return (
-    <div className="relative">
+    <div>
       <button
         type="button"
         aria-haspopup="dialog"
@@ -304,16 +314,16 @@ function SoftSheetFilter({ value, onChange }: { value: CategoryId; onChange: (ne
       {open ? (
         <div
           role="dialog"
-          aria-modal="true"
+          aria-modal="false"
           aria-labelledby={titleId}
-          className="absolute inset-x-0 top-[calc(100%+0.5rem)] z-10 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
+          className="mt-2 overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
         >
           <div className="border-b border-[color:var(--border)] px-3 py-2.5">
             <p id={titleId} className="text-xs font-extrabold text-[color:var(--text-heading)]">
               Choose a category
             </p>
           </div>
-          <div role="listbox" aria-label="Tool categories" className="max-h-64 overflow-y-auto p-1.5">
+          <div role="listbox" aria-label="Tool categories" className="p-1.5">
             {CATEGORIES.map((option) => {
               const active = option.id === value;
               return (
@@ -380,13 +390,21 @@ function ChipRailFilter({ value, onChange }: { value: CategoryId; onChange: (nex
 }
 
 /** C — Custom listbox trigger (DSM-style), soft focus only. */
-function ListboxFilter({ value, onChange }: { value: CategoryId; onChange: (next: CategoryId) => void }) {
-  const [open, setOpen] = useState(false);
+function ListboxFilter({
+  value,
+  onChange,
+  defaultOpen = false,
+}: {
+  value: CategoryId;
+  onChange: (next: CategoryId) => void;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const listId = useId();
   const filtered = value !== "all";
 
   return (
-    <div className="relative">
+    <div>
       <button
         type="button"
         aria-haspopup="listbox"
@@ -420,7 +438,7 @@ function ListboxFilter({ value, onChange }: { value: CategoryId; onChange: (next
           id={listId}
           role="listbox"
           aria-label="Tool categories"
-          className="absolute inset-x-0 top-[calc(100%+0.4rem)] z-10 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
+          className="mt-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
         >
           {CATEGORIES.map((option) => {
             const active = option.id === value;
@@ -455,16 +473,24 @@ function ListboxFilter({ value, onChange }: { value: CategoryId; onChange: (next
 }
 
 /** D — Primary segments + overflow sheet for the long tail. */
-function SegmentOverflowFilter({ value, onChange }: { value: CategoryId; onChange: (next: CategoryId) => void }) {
+function SegmentOverflowFilter({
+  value,
+  onChange,
+  defaultOpen = false,
+}: {
+  value: CategoryId;
+  onChange: (next: CategoryId) => void;
+  defaultOpen?: boolean;
+}) {
   const primary = CATEGORIES.filter(
     (item) => item.id === "all" || item.id === "assessment" || item.id === "reference" || item.id === "care",
   );
   const overflow = CATEGORIES.filter((item) => item.id === "coordination" || item.id === "saved");
   const inOverflow = overflow.some((item) => item.id === value);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="relative">
+    <div>
       <div
         role="group"
         aria-label="Filter by tool category"
@@ -517,7 +543,7 @@ function SegmentOverflowFilter({ value, onChange }: { value: CategoryId; onChang
         <ul
           role="listbox"
           aria-label="More categories"
-          className="absolute right-0 top-[calc(100%+0.4rem)] z-10 min-w-[10rem] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
+          className="mt-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
         >
           {overflow.map((option) => {
             const active = option.id === value;
@@ -552,12 +578,20 @@ function SegmentOverflowFilter({ value, onChange }: { value: CategoryId; onChang
 }
 
 /** E — Quiet field with left accent rail; focus is a soft glow, never a blue box on the text. */
-function QuietRailFilter({ value, onChange }: { value: CategoryId; onChange: (next: CategoryId) => void }) {
-  const [open, setOpen] = useState(false);
+function QuietRailFilter({
+  value,
+  onChange,
+  defaultOpen = false,
+}: {
+  value: CategoryId;
+  onChange: (next: CategoryId) => void;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const filtered = value !== "all";
 
   return (
-    <div className="relative">
+    <div>
       <button
         type="button"
         aria-haspopup="listbox"
@@ -591,7 +625,7 @@ function QuietRailFilter({ value, onChange }: { value: CategoryId; onChange: (ne
         <ul
           role="listbox"
           aria-label="Tool categories"
-          className="absolute inset-x-0 top-[calc(100%+0.4rem)] z-10 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
+          className="mt-2 overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
         >
           {CATEGORIES.map((option) => {
             const active = option.id === value;
@@ -698,12 +732,14 @@ function Direction({
 
 function StatefulFrame({
   label,
+  initialValue = "all",
   render,
 }: {
   label: string;
+  initialValue?: CategoryId;
   render: (value: CategoryId, setValue: (next: CategoryId) => void) => ReactNode;
 }) {
-  const [value, setValue] = useState<CategoryId>("all");
+  const [value, setValue] = useState<CategoryId>(initialValue);
   return <Frame label={label}>{render(value, setValue)}</Frame>;
 }
 
@@ -766,8 +802,10 @@ export function CategoryFilterDirectionsMockupsPage() {
             render={(value, setValue) => <PhoneScene filter={<SoftSheetFilter value={value} onChange={setValue} />} />}
           />
           <StatefulFrame
-            label="Try opening the panel"
-            render={(value, setValue) => <PhoneScene filter={<SoftSheetFilter value={value} onChange={setValue} />} />}
+            label="Open · panel visible"
+            render={(value, setValue) => (
+              <PhoneScene filter={<SoftSheetFilter value={value} onChange={setValue} defaultOpen />} />
+            )}
           />
         </Direction>
 
@@ -785,7 +823,12 @@ export function CategoryFilterDirectionsMockupsPage() {
           ]}
         >
           <StatefulFrame
-            label="Chip rail · scroll sideways"
+            label="All selected"
+            render={(value, setValue) => <PhoneScene filter={<ChipRailFilter value={value} onChange={setValue} />} />}
+          />
+          <StatefulFrame
+            label="Assess selected"
+            initialValue="assessment"
             render={(value, setValue) => <PhoneScene filter={<ChipRailFilter value={value} onChange={setValue} />} />}
           />
         </Direction>
@@ -804,8 +847,15 @@ export function CategoryFilterDirectionsMockupsPage() {
           ]}
         >
           <StatefulFrame
-            label="Listbox · open to compare"
+            label="Resting"
             render={(value, setValue) => <PhoneScene filter={<ListboxFilter value={value} onChange={setValue} />} />}
+          />
+          <StatefulFrame
+            label="Open · Treat selected"
+            initialValue="care"
+            render={(value, setValue) => (
+              <PhoneScene filter={<ListboxFilter value={value} onChange={setValue} defaultOpen />} />
+            )}
           />
         </Direction>
 
@@ -823,9 +873,15 @@ export function CategoryFilterDirectionsMockupsPage() {
           ]}
         >
           <StatefulFrame
-            label="Segments · try More"
+            label="Primary segments"
             render={(value, setValue) => (
               <PhoneScene filter={<SegmentOverflowFilter value={value} onChange={setValue} />} />
+            )}
+          />
+          <StatefulFrame
+            label="More menu open"
+            render={(value, setValue) => (
+              <PhoneScene filter={<SegmentOverflowFilter value={value} onChange={setValue} defaultOpen />} />
             )}
           />
         </Direction>
@@ -844,8 +900,15 @@ export function CategoryFilterDirectionsMockupsPage() {
           ]}
         >
           <StatefulFrame
-            label="Quiet rail · open the menu"
+            label="Resting"
             render={(value, setValue) => <PhoneScene filter={<QuietRailFilter value={value} onChange={setValue} />} />}
+          />
+          <StatefulFrame
+            label="Open · Evidence selected"
+            initialValue="reference"
+            render={(value, setValue) => (
+              <PhoneScene filter={<QuietRailFilter value={value} onChange={setValue} defaultOpen />} />
+            )}
           />
         </Direction>
       </div>
