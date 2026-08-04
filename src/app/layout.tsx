@@ -113,7 +113,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en-AU"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${themeClass}`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ckb-v2 ${themeClass}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>

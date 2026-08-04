@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Invariants of the opt-in `.ckb-v2` token layer (`src/app/ckb-v2-tokens.css`).
+ * Invariants of the scoped `.ckb-v2` token layer (`src/app/ckb-v2-tokens.css`).
  *
  * These are the relationships the v2 design review found broken in v1, each of
  * which was invisible to lint, typecheck and a screenshot diff:
@@ -80,8 +80,8 @@ function contrastRatio(first: string, second: string) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-describe("ckb-v2 layer stays opt-in", () => {
-  it("declares nothing outside a .ckb-v2 scope, so the live app is untouched", () => {
+describe("ckb-v2 layer stays scoped", () => {
+  it("declares nothing outside a .ckb-v2 scope, preserving the class rollback boundary", () => {
     // Every top-level selector must be class-scoped. A stray `:root` here would
     // repaint the whole app the moment the file is imported.
     const withoutComments = stylesheet.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -97,7 +97,7 @@ describe("ckb-v2 layer stays opt-in", () => {
     expect(globals).toContain('@import "./ckb-v2-tokens.css";');
   });
 
-  it("keeps --text-placeholder on the live layer too, so production placeholders resolve before .ckb-v2 adoption", () => {
+  it("keeps --text-placeholder on the compatibility layer for rollback", () => {
     const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
     expect(globals).toMatch(/--text-placeholder\s*:/);
   });
