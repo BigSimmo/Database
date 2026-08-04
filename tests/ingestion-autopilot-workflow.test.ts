@@ -26,9 +26,20 @@ describe("ingestion autopilot workflow secret handling", () => {
     ]);
 
     const installIndex = workflow.indexOf("      - name: Install dependencies");
+    const checkoutIndex = workflow.indexOf("      - name: Checkout");
+    const preflightIndex = workflow.indexOf("      - name: Preflight required secrets");
+    const setupIndex = workflow.indexOf("      - name: Setup Node.js");
     const autopilotIndex = workflow.indexOf("      - name: Run autopilot");
+    expect(checkoutIndex).toBeGreaterThan(-1);
+    expect(preflightIndex).toBeGreaterThan(checkoutIndex);
+    expect(setupIndex).toBeGreaterThan(preflightIndex);
     expect(installIndex).toBeGreaterThan(-1);
     expect(autopilotIndex).toBeGreaterThan(installIndex);
+
+    const checkoutBlock = workflow.slice(checkoutIndex, preflightIndex);
+    const preflightBlock = workflow.slice(preflightIndex, setupIndex);
+    expect(checkoutBlock).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(preflightBlock).toContain("SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}");
 
     const installBlock = workflow.slice(installIndex, autopilotIndex);
     expect(installBlock).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
