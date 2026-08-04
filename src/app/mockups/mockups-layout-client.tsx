@@ -29,6 +29,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // Draws its own result bands inside device frames; the shared chrome above
   // them would read as a third, real band competing with the two on offer.
   const isSearchBandDirectionsMockup = pathname === "/mockups/search-band-directions";
+  // Renders Tools phone frames with the Category filter under study; shared
+  // header/composer would read as a second real chrome layer over the frames.
+  const isCategoryFilterDirectionsMockup = pathname === "/mockups/category-filter-directions";
   const isPhoneInPageNavigationMockup = pathname === "/mockups/phone-inpage-navigation";
   // Draws its own composer in every frame, and the notice under study is the one
   // the shared composer renders — showing both would put two different privacy
@@ -73,6 +76,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isCalculatorsSearchPageMockup &&
         !isPhoneInPageNavigationMockup &&
         !isSearchBandDirectionsMockup &&
+        !isCategoryFilterDirectionsMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
@@ -83,6 +87,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isSearchHeadingMockup &&
         !isSearchRefineAdaptiveMockup &&
         !isSearchBandDirectionsMockup &&
+        !isCategoryFilterDirectionsMockup &&
         !isPhoneInPageNavigationMockup &&
         !isTherapyNavigationMockup &&
         !isWarningConsolidationMockup &&

@@ -37,6 +37,10 @@ The document-search mockups use generated non-patient bitmap assets in `public/m
 
 Some document-search mockups include live handoff routes (for example `document-search/source-overlays`) that resolve into the real document viewer with a selected page and chunk when indexed data is available locally.
 
+## Category filter directions (phone)
+
+Runnable study at [`/mockups/category-filter-directions`](../src/app/mockups/category-filter-directions/page.tsx): five replacements for the native Category `<select>` blue highlight on Tools (shared `MobileResultFilterControl`). Recommended lean is soft value button (A) or chip rail (B).
+
 ## Mode-page redesign comps (2026-07-31)
 
 Static desktop/phone comps for the pages that need redesign (not ModeHome mockups for Favourites) live under [`public/mockups/mode-page-redesign-2026-07/`](../public/mockups/mode-page-redesign-2026-07/README.md):
