@@ -59,6 +59,18 @@ describe("design-system adoption manifest", () => {
       expected: { literalCkbV2: false, dynamicCkbV2: true },
     },
     {
+      name: "default parameter binding",
+      source:
+        `export function Root({ version }: { version: string }, shell = "ckb-" + version) { ` +
+        `return <main className={shell} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
+      name: "parameter shadows outer binding",
+      source: `const shell = "ckb-v2"; export function Root(shell: string) { return <main className={shell} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: false },
+    },
+    {
       name: "unrelated dynamic class",
       source:
         `export function Root({ state }: { state: string }) { return <main className={cn("page", ` +

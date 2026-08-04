@@ -196,6 +196,7 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   }
 
   function bindingScope(declaration) {
+    if (ts.isParameter(declaration) && isFunctionScope(declaration.parent)) return declaration.parent;
     const declarationList = declaration.parent;
     const blockScoped =
       ts.isVariableDeclarationList(declarationList) && (declarationList.flags & ts.NodeFlags.BlockScoped) !== 0;
@@ -228,7 +229,7 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   }
 
   function collect(node) {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+    if ((ts.isVariableDeclaration(node) || ts.isParameter(node)) && ts.isIdentifier(node.name)) {
       const scope = bindingScope(node);
       bindings.push({ declaration: node, scope, depth: scopeDepth(scope) });
     }
