@@ -9,6 +9,7 @@ import { resolveMetadataBase } from "@/lib/metadata-base";
 import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/lib/theme";
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
+import { OverlayRoot } from "@/components/ui/overlay-root";
 import "./globals.css";
 
 /**
@@ -151,6 +152,7 @@ export default async function RootLayout({
         <WebVitalsReporter />
         <PwaLifecycle />
         <AppAnnouncements />
+        <OverlayRoot />
         <AuthProvider>
           <AccountDataProvider>
             <MobileKeyboardProvider>{children}</MobileKeyboardProvider>

@@ -10,10 +10,11 @@ describe("root announcements mount", () => {
     expect(island.match(/<RouteAnnouncer\s*\/>/g)).toHaveLength(1);
   });
 
-  it("keeps the root layout server-rendered and mounts one announcement island", () => {
+  it("keeps the root layout server-rendered and mounts singleton client infrastructure", () => {
     const layout = readFileSync(new URL("../src/app/layout.tsx", import.meta.url), "utf8");
 
     expect(layout).not.toMatch(/^\s*["']use client["'];?/m);
     expect(layout.match(/<AppAnnouncements\s*\/>/g)).toHaveLength(1);
+    expect(layout.match(/<OverlayRoot\s*\/>/g)).toHaveLength(1);
   });
 });
