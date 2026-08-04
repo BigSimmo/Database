@@ -123,6 +123,71 @@ describe("VerificationNotice", () => {
     expect(screen.getByTestId("verification-notice")).toHaveTextContent(/verify/i);
   });
 
+  it("defaults to the complete wording without rendering a compact substitute", () => {
+    render(<VerificationNotice state="ready" />);
+
+    expect(screen.getByTestId("verification-notice-full")).toHaveTextContent(
+      "AI-generated from the cited sources. Verify every clinical claim against the linked source before acting on it.",
+    );
+    expect(screen.queryByTestId("verification-notice-compact")).not.toBeInTheDocument();
+  });
+
+  it("keeps a fixed compact clinical instruction visible on phones while retaining the full wording", () => {
+    render(<VerificationNotice state="partial_retrieval" presentation="responsive-compact" />);
+
+    const compact = screen.getByTestId("verification-notice-compact");
+    const full = screen.getByTestId("verification-notice-full");
+    expect(compact).toHaveTextContent(
+      "AI-generated from incomplete sources and may omit guidance. Verify against cited sources before acting.",
+    );
+    expect(compact.className).toContain("sm:hidden");
+    expect(compact.className).toContain("print:hidden");
+    expect(full).toHaveTextContent(/Some sources for this question were unavailable/i);
+    expect(full.className).toContain("hidden");
+    expect(full.className).toContain("sm:block");
+    expect(full.className).toContain("print:block");
+  });
+
+  it("preserves attribution and every state-specific instruction in responsive compact wording", () => {
+    const cases = [
+      ["ready", "model", /AI-generated.*Verify every clinical claim/i],
+      ["stale_evidence", "model", /some cited sources are overdue.*Re-verify every clinical claim/i],
+      ["partial_retrieval", "model", /incomplete sources and may omit guidance.*Verify against cited sources/i],
+      ["ungrounded", "model", /citations do not support every claim.*dose, number, timing and threshold/i],
+      [
+        "source_only",
+        "extractive",
+        /Copied from cited sources without model synthesis.*Verify against the cited sources/i,
+      ],
+      ["stale_evidence", "extractive", /Copied from cited sources; some are overdue.*Re-verify every clinical claim/i],
+      [
+        "partial_retrieval",
+        "extractive",
+        /Copied from incomplete sources and may omit guidance.*Verify against cited sources/i,
+      ],
+      [
+        "ungrounded",
+        "extractive",
+        /Copied from sources that do not support every claim.*dose, number, timing and threshold/i,
+      ],
+    ] as const;
+
+    for (const [state, attribution, expected] of cases) {
+      const { unmount } = render(
+        <VerificationNotice state={state} attribution={attribution} presentation="responsive-compact" />,
+      );
+      expect(screen.getByTestId("verification-notice-compact"), `${state}:${attribution}`).toHaveTextContent(expected);
+      unmount();
+    }
+  });
+
+  it("uses the complete wording for print even when responsive compact was requested", () => {
+    render(<VerificationNotice state="ready" medium="print" presentation="responsive-compact" />);
+
+    expect(screen.queryByTestId("verification-notice-compact")).not.toBeInTheDocument();
+    expect(screen.getByTestId("verification-notice-full")).toHaveTextContent(/against the linked source/i);
+  });
+
   it("uses a different approved wording for each state", () => {
     const wording = new Set<string>();
     for (const state of ["ready", "stale_evidence", "partial_retrieval", "ungrounded", "source_only"] as const) {

@@ -30,6 +30,12 @@ export type VerificationNoticeProps = {
    * Callers pass the quality tier, not the state kind. Ledger `#228`.
    */
   attribution?: "model" | "extractive";
+  /**
+   * Keeps the complete governed wording by default. Production answer surfaces
+   * may opt into a shorter, still-complete clinical instruction on phones;
+   * larger screens and print always retain the full wording.
+   */
+  presentation?: "full" | "responsive-compact";
   /** Print rendering is self-contained: no wording may depend on the live link. */
   medium?: "screen" | "print";
   sourceCount?: number;
@@ -109,6 +115,28 @@ const EXTRACTIVE_WORDING: Record<"clinician" | "plain", Partial<Record<Verificat
   },
 };
 
+const RESPONSIVE_COMPACT_WORDING: Record<"model" | "extractive", Record<VerificationState, string>> = {
+  model: {
+    ready: "AI-generated. Verify every clinical claim in the cited sources before acting.",
+    stale_evidence: "AI-generated; some cited sources are overdue. Re-verify every clinical claim before acting.",
+    partial_retrieval:
+      "AI-generated from incomplete sources and may omit guidance. Verify against cited sources before acting.",
+    ungrounded: "AI-generated; citations do not support every claim. Check each dose, number, timing and threshold.",
+    source_only: "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
+  },
+  extractive: {
+    ready: "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
+    stale_evidence: "Copied from cited sources; some are overdue. Re-verify every clinical claim before acting.",
+    partial_retrieval:
+      "Copied from incomplete sources and may omit guidance. Verify against cited sources before acting.",
+    ungrounded: "Copied from sources that do not support every claim. Check each dose, number, timing and threshold.",
+    source_only: "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
+  },
+};
+
+const UNKNOWN_RESPONSIVE_COMPACT_WORDING =
+  "Answer provenance is unknown. Treat it as unverified and check every clinical claim in the cited sources before acting.";
+
 /**
  * Wording for a state this build does not recognise — a newer producer, a bad
  * cast, a partially-deployed rollout. A verification notice is the one surface
@@ -135,7 +163,18 @@ const UNKNOWN_STATE_WORDING: Record<"clinician" | "plain", string> = {
  */
 const CAUTION_STATES = new Set<VerificationState>(["stale_evidence", "ungrounded"]);
 
+const MAX_RECORDED_UNKNOWN_STATES = 32;
 const loggedUnknownStates = new Set<string>();
+
+function recordUnknownState(key: string): boolean {
+  if (loggedUnknownStates.has(key)) return false;
+  if (loggedUnknownStates.size >= MAX_RECORDED_UNKNOWN_STATES) {
+    const oldest = loggedUnknownStates.values().next().value;
+    if (typeof oldest === "string") loggedUnknownStates.delete(oldest);
+  }
+  loggedUnknownStates.add(key);
+  return true;
+}
 
 function wordingFor(
   audience: "clinician" | "plain",
@@ -152,8 +191,7 @@ function wordingFor(
   if (wording) return wording;
 
   const key = `${audience}:${String(state)}`;
-  if (!loggedUnknownStates.has(key)) {
-    loggedUnknownStates.add(key);
+  if (recordUnknownState(key)) {
     if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") {
       console.warn(
         JSON.stringify({
@@ -172,6 +210,7 @@ export function VerificationNotice({
   state,
   audience = "clinician",
   attribution = "model",
+  presentation = "full",
   medium = "screen",
   sourceCount,
   printedAt,
@@ -179,6 +218,9 @@ export function VerificationNotice({
   className,
 }: VerificationNoticeProps) {
   const wording = wordingFor(audience, state, attribution);
+  const showResponsiveCompact =
+    presentation === "responsive-compact" && audience === "clinician" && medium === "screen";
+  const compactWording = RESPONSIVE_COMPACT_WORDING[attribution][state] ?? UNKNOWN_RESPONSIVE_COMPACT_WORDING;
   // An unrecognised state is treated as caution: it wears the warning mark for
   // the same reason it gets the strongest wording.
   const caution = CAUTION_STATES.has(state) || !WORDING[audience][state];
@@ -191,6 +233,7 @@ export function VerificationNotice({
       data-audience={audience}
       data-attribution={attribution}
       data-medium={medium}
+      data-presentation={presentation}
       // Deliberately not a live region and not focusable: it is standing
       // document text above the answer actions, not an event. Print CSS may
       // never hide or clamp it, so no line-clamp and no print:hidden here.
@@ -210,7 +253,18 @@ export function VerificationNotice({
     >
       <Icon aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
       <div className="min-w-0">
-        <p>{wording}</p>
+        {showResponsiveCompact ? (
+          <>
+            <p data-testid="verification-notice-compact" className="sm:hidden print:hidden">
+              {compactWording}
+            </p>
+            <p data-testid="verification-notice-full" className="hidden sm:block print:block">
+              {wording}
+            </p>
+          </>
+        ) : (
+          <p data-testid="verification-notice-full">{wording}</p>
+        )}
         {typeof sourceCount === "number" ? (
           // A count, not a warning, and the Sources control sits directly below
           // it on screen already saying the same number — so it is the one line
