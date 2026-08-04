@@ -1,5 +1,7 @@
 # Productivity workflows
 
+The repository also exposes a validated catalog of 32 single-word Database skills. Run `npm run skills` to list them by category, or `npm run check:skills` to verify that the catalog, skill folders, descriptions, and compatibility aliases agree.
+
 The repository exposes seven offline-first workflow planners. Each planner inspects the current change through `scripts/ci-change-scope.mjs`, prints a minimal local verification sequence, and separates provider-backed commands into an explicit approval section.
 
 | Command                                         | Purpose                                                                                |
@@ -10,7 +12,7 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 | `npm run workflow:design-sweep`                 | Plan the live route, breakpoint, accessibility, and Chromium sweep.                    |
 | `npm run workflow:rag-lab`                      | Select focused retrieval tests, offline RAG evaluation, and gated live evaluations.    |
 | `npm run workflow:operator-closeout`            | Inventory and deduplicate pending operator or confirmation-required actions.           |
-| `npm run workflow:lifecycle -- --phase <phase>` | Plan `status`, `start`, `handoff`, `landed`, or `cleanup` lifecycle work.              |
+| `npm run workflow:lifecycle -- --phase <phase>` | Plan `status`, `start`, `reconcile`, `handoff`, `landed`, or `cleanup` lifecycle work. |
 
 ## Safe execution
 
@@ -21,6 +23,14 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 - Add `-- --json` for machine-readable output.
 - Use `-- --files pathA,pathB` to plan an explicit proposed change before editing.
 - Use `workflow:triage -- --log <path>` to classify a captured failure.
+- Use lifecycle phase `reconcile` for broad multi-worktree work. It selects the report-only
+  `node scripts/reconciliation-preflight.mjs` and
+  `node scripts/reconciliation-evidence-pack.mjs --output .local/reconciliation-evidence/pack.json`
+  locally and keeps `git fetch --prune origin` approval-gated. Add
+  `--include-processes` to the preflight only when process ownership may block cleanup; it never
+  serializes raw command lines. Lifecycle `start`/`cleanup` select
+  `node scripts/primary-checkout-lease.mjs --check` so primary writes fail closed under another
+  owner or dirty/operation state without blocking read-only or feature worktrees.
 
 The existing shared `workflow:run`, `workflow:status`, `workflow:verify`, `workflow:deps`, `workflow:clean-state`, `workflow:export`, and `workflow:handoff` commands now resolve their shared implementation through the repository's Git common directory. This keeps them portable in linked and detached Codex worktrees. Set `CODEX_LOCAL_WORKFLOW_ROOT` only when the shared tools live somewhere non-standard.
 

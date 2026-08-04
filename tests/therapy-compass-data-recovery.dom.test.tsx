@@ -3,10 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 import { clearTherapyDataCache } from "@/components/therapy-compass/data/use-therapy-data";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
 import { HomeScreen } from "@/components/therapy-compass/screens/home-screen";
 
+const navigation = vi.hoisted(() => ({ pathname: "/therapy-compass" }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/therapy-compass",
+  usePathname: () => navigation.pathname,
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
@@ -29,6 +32,7 @@ function response(body: unknown, ok = true, status = 200) {
 }
 
 afterEach(() => {
+  navigation.pathname = "/therapy-compass";
   clearTherapyDataCache();
   vi.unstubAllGlobals();
 });
@@ -41,12 +45,10 @@ describe("Therapy Compass required data recovery", () => {
     });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies.json")) {
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`)) {
         await therapiesGate;
         return response([therapy]);
       }
-      if (path.endsWith("/pathways.json")) return response([]);
-      if (path.endsWith("/reference.json")) return response({});
       throw new Error(`Unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -59,26 +61,27 @@ describe("Therapy Compass required data recovery", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Loading therapy library…");
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source-grounded therapy records\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Therapy" })).not.toBeInTheDocument();
 
     release(undefined);
 
-    await waitFor(() => expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument());
-    expect(screen.getByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/1 source-grounded therapy record\./)).toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Therapy" })).toBeInTheDocument();
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source-grounded therapy records\./)).not.toBeInTheDocument();
   });
 
   it("shows an honest load error, retries all required files, and recovers", async () => {
     let failTherapies = true;
+    // The loader tries the content-addressed URL, then the unversioned alias
+    // (a pre-deploy bundle can name a hash that no longer exists). Both must
+    // fail before the tool is allowed to claim the catalogue could not load.
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies.json")) {
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`) || path.endsWith("/therapies-home.json")) {
         return failTherapies ? response(null, false, 503) : response([therapy]);
       }
-      if (path.endsWith("/pathways.json")) return response([]);
-      if (path.endsWith("/reference.json")) return response({});
       throw new Error(`Unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -90,18 +93,123 @@ describe("Therapy Compass required data recovery", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading therapy library");
-    expect(screen.queryByText(/Search 0 source-grounded therapy records/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source-grounded therapy records\./)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Frequently used therapies" })).not.toBeInTheDocument();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Therapy Compass could not load");
-    expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Therapy could not load");
+    expect(screen.queryByRole("heading", { name: "Therapy" })).not.toBeInTheDocument();
 
     failTherapies = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
-    expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Therapy" })).toBeInTheDocument();
+    expect(screen.getByText(/1 source-grounded therapy record\./)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    // Hashed + alias on the failing load, hashed only once it recovers.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining(`/${THERAPY_CATALOGUE_ASSETS.home}`),
+      expect.stringContaining("/therapies-home.json"),
+      expect.stringContaining(`/${THERAPY_CATALOGUE_ASSETS.home}`),
+    ]);
+  });
+
+  it("keeps Retry busy until the replacement catalogue request settles", async () => {
+    let failTherapies = true;
+    let releaseRetry!: (value: unknown) => void;
+    const retryGate = new Promise((resolve) => {
+      releaseRetry = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.home}`)) {
+        if (failTherapies) return response(null, false, 503);
+        await retryGate;
+        return response([therapy]);
+      }
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <HomeScreen />
+      </TherapyCompassWorkspace>,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Therapy could not load");
+    failTherapies = false;
+    const retry = screen.getByRole("button", { name: "Retry" });
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retrying…" })).toBeDisabled());
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Therapy" })).not.toBeInTheDocument();
+
+    releaseRetry(undefined);
+
+    expect(await screen.findByRole("heading", { name: "Therapy" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("loads full therapy records only on a record-rich route", async () => {
+    navigation.pathname = "/therapy-compass/test-therapy";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.full}`)) return response([therapy]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Detail ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/${THERAPY_CATALOGUE_ASSETS.full}`);
+  });
+
+  it("keeps the full prose corpus on the search route", async () => {
+    navigation.pathname = "/therapy-compass/search";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.full}`)) return response([therapy]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Search ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(`/${THERAPY_CATALOGUE_ASSETS.full}`);
+  });
+
+  it("keeps the compact browse index on the pathways route", async () => {
+    navigation.pathname = "/therapy-compass/pathways";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.index}`)) return response([therapy]);
+      if (path.endsWith("/pathways.json")) return response([]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Pathways ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const fetched = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(fetched.some((url) => url.endsWith(`/${THERAPY_CATALOGUE_ASSETS.index}`))).toBe(true);
+    expect(fetched.some((url) => /\/pathways\.json$/.test(url))).toBe(true);
+    expect(fetched.some((url) => url.includes(`/${THERAPY_CATALOGUE_ASSETS.full}`))).toBe(false);
   });
 });

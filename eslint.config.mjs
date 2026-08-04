@@ -3,6 +3,30 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
 import requireLucideIconAria from "./eslint-rules/require-lucide-icon-aria.mjs";
+import requireButtonWiring from "./eslint-rules/require-button-wiring.mjs";
+import requireZIndexLadder from "./eslint-rules/require-z-index-ladder.mjs";
+import restrictSuppressHydrationWarning from "./eslint-rules/restrict-suppress-hydration-warning.mjs";
+import noHardcodedHex from "./eslint-rules/no-hardcoded-hex.mjs";
+
+// Shared `local` plugin object. ESLint flat config requires every config block
+// that references a plugin namespace to point at the *same* object, so the two
+// local rules below — which want different mockup-ignore scopes — share this one.
+const localRulesPlugin = {
+  rules: {
+    "require-lucide-icon-aria": requireLucideIconAria,
+    "require-button-wiring": requireButtonWiring,
+    "require-z-index-ladder": requireZIndexLadder,
+    "restrict-suppress-hydration-warning": restrictSuppressHydrationWarning,
+    "no-hardcoded-hex": noHardcodedHex,
+  },
+};
+
+// Design-scratch mockups (404 in production) are exempt from the local rules.
+// Match the repo's documented mockup surface precisely — the `/mockups/*`
+// routes, the `*-mockups/` component directories, and the `*-mockup(s).tsx`
+// singletons — instead of a broad `*mockup*` substring, which would also exempt
+// arbitrary production files whose name merely contains "mockup".
+const MOCKUP_IGNORES = ["src/app/mockups/**", "**/*-mockups/**", "**/*-mockups.tsx", "**/*-mockup.tsx"];
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -29,11 +53,63 @@ const eslintConfig = defineConfig([
   {
     files: ["**/*.{jsx,tsx}"],
     ignores: ["**/*mockup*", "**/mockups/**"],
-    plugins: {
-      local: { rules: { "require-lucide-icon-aria": requireLucideIconAria } },
-    },
+    plugins: { local: localRulesPlugin },
     rules: {
       "local/require-lucide-icon-aria": "error",
+    },
+  },
+  // A styled, labelled `<button type="button">` with no handler is a dead control
+  // (the "Language and region" globe class, fixed 2026-07-21). Require an explicit
+  // non-submit button to carry an onClick handler or an explicit disabled state.
+  // Scoped to production source (`src/**`): this is a product-UX concern, so test
+  // fixtures that render a bare <button> to exercise a slot are out of scope. The
+  // full mockup-ignore set exempts the `*-mockups/` design-scratch previews.
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    ignores: MOCKUP_IGNORES,
+    plugins: { local: localRulesPlugin },
+    rules: {
+      "local/require-button-wiring": "error",
+      "local/no-hardcoded-hex": "error",
+    },
+  },
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    plugins: { local: localRulesPlugin },
+    rules: {
+      "local/restrict-suppress-hydration-warning": "error",
+    },
+  },
+  // Z-index ladder enforcement
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    ignores: MOCKUP_IGNORES,
+    plugins: { local: localRulesPlugin },
+    rules: {
+      "local/require-z-index-ladder": "error",
+    },
+  },
+  // Import boundary: production source must not import design-scratch mockup
+  // modules. Every legitimate mockup import lives under `src/app/mockups/**` (all
+  // 404 in production) or inside the `*-mockups` component sources themselves;
+  // everything else is fenced off so a mockup can't leak into a shipped route.
+  // Verified 2026-07-20: zero violations outside the exempt directories.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/app/mockups/**", "**/*-mockups/**", "**/*-mockups.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/*-mockups", "**/*-mockups/*", "**/*mockup*"],
+              message:
+                "Production code must not import mockup modules (design-scratch, 404 in production). Mockup routes live under src/app/mockups/**.",
+            },
+          ],
+        },
+      ],
     },
   },
   // next/og image routes render <img> through Satori (rasterised server-side,

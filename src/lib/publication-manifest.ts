@@ -14,6 +14,7 @@ const publicationManifestSchema = z
         z.object({
           documentId: z.string().uuid(),
           expectedOwnerId: z.string().uuid(),
+          expectedStateDigest: z.string().regex(/^[0-9a-f]{64}$/),
           decision: publicationDecisionSchema,
         }),
       )

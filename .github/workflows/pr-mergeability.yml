@@ -1,0 +1,202 @@
+name: PR mergeability
+
+on:
+  pull_request_target:
+    branches: [main, "release/**"]
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [main, "release/**"]
+
+concurrency:
+  group: pr-mergeability-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  mergeability:
+    name: PR mergeability
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      # pull_request_target runs trusted workflow-revision code. Checkout
+      # github.workflow_sha so the classifier is the exact revision that
+      # triggered this run. Never execute the PR head or persist credentials.
+      - name: Checkout trusted classifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Signal real merge conflicts
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-mergeability.mjs`).href;
+            const { classifyMergeability } = await import(moduleUrl);
+            const prNumber = context.payload.pull_request?.number;
+            if (!prNumber) {
+              core.setFailed("Missing pull_request.number in pull_request_target payload.");
+              return;
+            }
+
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const maxAttempts = 5;
+            let verdict;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              let latestPr;
+              try {
+                latestPr = (
+                  await github.rest.pulls.get({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: prNumber,
+                  })
+                ).data;
+              } catch (error) {
+                core.setFailed(
+                  `Unable to fetch latest PR metadata for PR #${prNumber}: ${error instanceof Error ? error.message : String(error)}. If this was transient, rerun the job.`,
+                );
+                return;
+              }
+
+              verdict = classifyMergeability({
+                mergeable: latestPr.mergeable,
+                mergeableState: latestPr.mergeable_state,
+                draft: latestPr.draft,
+              });
+
+              await core.summary
+                .addHeading("PR mergeability")
+                .addRaw(`Attempt: ${attempt}/${maxAttempts}<br>`)
+                .addRaw(`Draft: ${latestPr.draft ? "yes" : "no"}<br>`)
+                .addRaw(`mergeable: ${String(latestPr.mergeable)}<br>`)
+                .addRaw(`mergeable_state: ${String(latestPr.mergeable_state)}<br>`)
+                .addRaw(`Verdict: ${verdict.action} (${verdict.reason})<br>`)
+                .write();
+
+              if (verdict.action !== "retry") break;
+              if (attempt < maxAttempts) await sleep(3000);
+            }
+
+            if (verdict.action === "retry") {
+              core.setFailed(
+                `GitHub did not finish computing mergeability for PR #${prNumber} after ${maxAttempts} attempts. Rerun this check; do not treat a missing CI check list as a pass.`,
+              );
+              return;
+            }
+
+            if (verdict.action === "skip") {
+              core.notice(verdict.message);
+              return;
+            }
+
+            if (!verdict.ok) {
+              core.setFailed(verdict.message);
+              return;
+            }
+
+            core.notice(verdict.message);
+
+  refresh-after-base-push:
+    name: Refresh PR mergeability after base push
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    steps:
+      # A base push is trusted repository code. Pin the checkout to that exact
+      # base commit and never fetch or execute an open PR's head.
+      - name: Checkout trusted base classifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Refresh unchanged PR heads
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-mergeability.mjs`).href;
+            const { classifyMergeability } = await import(moduleUrl);
+            const base = context.ref.replace(/^refs\/heads\//, "");
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const maxAttempts = 5;
+            let refreshErrors = 0;
+
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              base,
+              per_page: 100,
+            });
+
+            for (const listedPr of pulls) {
+              let latestPr = listedPr;
+              let verdict;
+
+              try {
+                for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                  latestPr = (
+                    await github.rest.pulls.get({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      pull_number: listedPr.number,
+                    })
+                  ).data;
+                  verdict = classifyMergeability({
+                    mergeable: latestPr.mergeable,
+                    mergeableState: latestPr.mergeable_state,
+                    draft: latestPr.draft,
+                  });
+                  if (verdict.action !== "retry") break;
+                  if (attempt < maxAttempts) await sleep(3000);
+                }
+
+                const unresolved = verdict?.action === "retry";
+                const skipped = verdict?.action === "skip";
+                const conclusion = unresolved ? "failure" : skipped || verdict?.ok ? "success" : "failure";
+
+                const reason = unresolved
+                  ? `GitHub did not finish computing mergeability after ${maxAttempts} attempts.`
+                  : verdict.message;
+                await github.rest.checks.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: "PR mergeability",
+                  head_sha: latestPr.head.sha,
+                  status: "completed",
+                  conclusion,
+                  output: {
+                    title: `PR #${latestPr.number}: ${conclusion}`,
+                    summary: [
+                      `Base ${base} advanced to ${context.sha}.`,
+                      `Head remained ${latestPr.head.sha}.`,
+                      `mergeable: ${String(latestPr.mergeable)}`,
+                      `mergeable_state: ${String(latestPr.mergeable_state)}`,
+                      reason,
+                    ].join("\n\n"),
+                  },
+                });
+              } catch (error) {
+                refreshErrors += 1;
+                core.error(
+                  `Unable to refresh PR #${listedPr.number}: ${error instanceof Error ? error.message : String(error)}`,
+                );
+              }
+            }
+
+            core.info(`Refreshed PR mergeability for ${pulls.length} open PR(s) targeting ${base}.`);
+            if (refreshErrors > 0) {
+              core.setFailed(`${refreshErrors} PR mergeability refresh(es) could not be published.`);
+            }

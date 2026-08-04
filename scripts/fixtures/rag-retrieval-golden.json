@@ -197,7 +197,7 @@
     "id": "lithium-therapy-monitoring",
     "query": "What monitoring is required for lithium therapy?",
     "expectedQueryClass": "medication_dose_risk",
-    "expectedDocumentSubstrings": [],
+    "expectedDocumentSubstrings": ["Lithium"],
     "expectedContentTerms": ["lithium", ["monitor", "level", "thyroid", "renal", "tsh"]],
     "topK": 12,
     "expectTableEvidence": false

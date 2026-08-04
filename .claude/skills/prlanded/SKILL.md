@@ -16,13 +16,21 @@ requirement that applies to mutating provider operations (merging, closing PRs, 
 
 1. **Confirm the merge:** `gh pr view <pr> --json state,mergeCommit,mergedAt` → `MERGED`.
 2. **Verify by content, not ancestry** (squash rewrites history, so `git branch --merged`
-   is misleading). Diff your branch tip against merged `main`:
+   is misleading). Compare trees, and compare against the squash commit:
+
    ```bash
    git fetch --quiet origin main
-   git diff --stat origin/main...<your-branch>
+   git diff --stat <squash-commit> <your-branch-tip>
    ```
+
    An empty diff means everything landed. Any remaining lines are work that did NOT make
    it — the classic auto-merge race. Investigate before deleting the branch.
+
+   Do not use three-dot `origin/main...<branch>` here. It diffs from the merge base, which
+   after a squash is still the pre-merge `main`, so it replays the branch's own delta and
+   reports a false orphan on every fresh merge. Two-dot against the squash commit is a tree
+   comparison and stays correct after other PRs land on `main`.
+
 3. **Check for orphaned late commits:** if you pushed after enabling auto-merge, confirm
    those commits are in the squashed result (search the merge commit / `git log origin/main`
    for their content). If missing, fix-forward with a new PR — do not force-push.
@@ -32,8 +40,9 @@ requirement that applies to mutating provider operations (merging, closing PRs, 
    only after confirming the content diff is empty. For squash-merged branches, `-d` will
    refuse (no ancestry merge) even though the content landed, so `-D` is required once
    the empty diff confirms the work is fully landed. Do not force-delete before verification.
-5. **Update the ledger** (`docs/branch-review-ledger.md`) and any relevant memory note with
-   the merged HEAD SHA and outcome.
+5. **Update the ledger** with `npm run ledger:append`, passing `--ref <branch>`, `--head`
+   (the merged squash commit's full 40-character SHA, not an abbreviation),
+   `--scope prlanded`, `--outcome`, and `--checks`, plus any relevant memory note.
 
 ## Notes
 

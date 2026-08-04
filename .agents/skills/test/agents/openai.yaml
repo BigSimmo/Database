@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test"
+  short_description: "Run the smallest useful local Database test"
+  default_prompt: "Use $test to select and run the smallest deterministic local proof for this Database behavior."

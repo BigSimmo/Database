@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildComparisonAnswer, buildComparisonMatrix } from "../src/lib/rag-comparison";
+import { buildComparisonAnswer, buildComparisonMatrix } from "../src/lib/rag/rag-comparison";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {

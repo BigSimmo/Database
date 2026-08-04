@@ -1,9 +1,13 @@
 # Multi-user auth — Supabase configuration checklist (you apply)
 
-The app ships multi-user auth code (persistent cookie sessions, magic link +
-password + SSO, per-user isolation). The **live Supabase configuration** below
-is done by you in the dashboard / provider consoles — it is operator-owned, not
-changed automatically by repo commits. Target project: `Clinical KB Database`
+The app ships multi-user auth code (persistent cookie sessions, email OTP /
+magic link + Google/Microsoft OAuth, per-user isolation). Password helpers
+exist in `src/lib/supabase/client.tsx`, but the shipped sign-in UI
+(`auth-panel.tsx`) exposes magic link + OAuth only — do not treat password
+signup as a required operator verification path until a password form ships.
+The **live Supabase configuration** below is done by you in the dashboard /
+provider consoles — it is operator-owned, not changed automatically by repo
+commits. Target project: `Clinical KB Database` <!-- pragma: allowlist secret -->
 (`sjrfecxgysukkwxsowpy`).
 
 > **Order matters:** do **not** enable open signup on live until fail-closed
@@ -14,7 +18,9 @@ changed automatically by repo commits. Target project: `Clinical KB Database`
 ## 1. Auth → Providers
 
 - **Email**: enable **Confirm email** (verifies ownership; blocks throwaway
-  signups). Enable **Email OTP** (magic link — already used) **and** **Password**.
+  signups). Enable **Email OTP** (magic link — the shipped UI path). Enabling
+  **Password** in Supabase is optional until a password form is exposed in the
+  app UI.
 - **Google**: create an OAuth client in Google Cloud Console → add the Supabase
   callback `https://sjrfecxgysukkwxsowpy.supabase.co/auth/v1/callback` as an
   authorized redirect URI → paste client ID/secret into Supabase → enable.
@@ -102,12 +108,10 @@ to launch):**
 
 ## Verification (staging, after the above)
 
-1. Sign up with **email + password** → receive + click the confirmation link →
-   land signed in.
-2. **Magic link** → email link → signed in.
-3. **Google** and **Microsoft** SSO → signed in.
-4. **Hard-refresh** the page → still signed in (persistent cookie session).
-5. **Isolation and shared content:** sign in as user A, upload a document and
+1. **Magic link** → email OTP / link → signed in.
+2. **Google** and **Microsoft** SSO → signed in.
+3. **Hard-refresh** the page → still signed in (persistent cookie session).
+4. **Isolation and shared content:** sign in as user A, upload a document and
    create a private registry override, then sign out; sign in as user B → B sees
    none of A's document or override data, but both users see the complete shared
    Forms/Services catalogue.

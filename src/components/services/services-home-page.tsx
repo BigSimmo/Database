@@ -1,6 +1,6 @@
 "use client";
 
-import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, Users } from "lucide-react";
 
 import {
   ModeHomeMain,
@@ -86,7 +86,7 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
   const taskCards = buildTaskCards(defaultServiceSlug);
   const registry = useRegistryRecords("service");
   const verifiedCount = countVerifiedRegistryRecords(registry);
-  const registryReady = registry.status === "ready";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
   const registryNotice =
     registry.status === "loading" ? (
@@ -107,7 +107,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
       <ModeHomeStatusNotice
         icon={ShieldAlert}
         title="Could not load services"
-        body="The services registry could not be loaded. Try again shortly."
+        body="The services registry could not be loaded."
+        actionLabel="Try again"
+        onAction={registry.refetch}
       />
     ) : !hasRegistryRecords ? (
       <ModeHomeStatusNotice
@@ -118,11 +120,16 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
     ) : null;
 
   return (
-    <ModeHomeMain testId="services-home">
+    <ModeHomeMain
+      testId="services-home"
+      // Keep loading on startOnPhone so the seeded registry does not jump from
+      // center → top when records arrive. Confirmed empty/error notices stay centred.
+      contentAlign={registry.status === "loading" || hasRegistryRecords ? "startOnPhone" : "center"}
+    >
       <ModeHomeTemplate
         testId="services-home-template"
-        title="Find a service"
-        subtitle="Search by need, catchment, referral route, or provider."
+        title="Services"
+        subtitle="Search by need, catchment, or route."
         icon={Users}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
@@ -132,9 +139,8 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
-              label="Catalogue service data"
-              body="Confirm locally before use"
+              label="Referral fit"
+              body="Need, catchment, eligibility and route"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />

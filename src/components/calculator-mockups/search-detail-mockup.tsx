@@ -17,7 +17,6 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { ModeHomeHero } from "@/components/mode-home-template";
 import { chatComposerInput, chatComposerShell, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
 import {
@@ -195,6 +194,25 @@ const filterChips: { id: DomainFilter; label: string }[] = [
   ...domainOrder.map((domain) => ({ id: domain as DomainFilter, label: domainLabels[domain] })),
 ];
 
+function CalculatorMockupHero() {
+  return (
+    <section data-testid="calculators-search" className="mx-auto grid max-w-3xl justify-items-center gap-3 text-center">
+      <span className="grid size-14 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+        <Calculator className="size-7" aria-hidden="true" />
+      </span>
+      <div>
+        <p className={cn(eyebrowText, "text-[color:var(--clinical-accent)]")}>Clinical tools</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-4xl">
+          Calculators
+        </h1>
+        <p className="mx-auto mt-2 max-w-2xl text-sm font-medium leading-6 text-[color:var(--text-muted)] sm:text-base">
+          Validated psychiatry scores with the indication, items, and next actions in one place.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /**
  * The calculators search home: mode-home hero, composer-pill search, domain
  * filters, continue strip, and the card grid / live results. Reused by both
@@ -235,12 +253,7 @@ export function CalculatorSearchHome({
 
   return (
     <main className="mx-auto grid w-full max-w-5xl content-start gap-5 px-4 pb-40 pt-[clamp(1.5rem,5vh,3rem)] text-[color:var(--text)] sm:px-6 lg:px-8">
-      <ModeHomeHero
-        testId="calculators-search"
-        title="Calculators"
-        subtitle="Validated psychiatry scores with the indication, items, and next actions in one place."
-        icon={Calculator}
-      />
+      <CalculatorMockupHero />
 
       <form
         role="search"
@@ -266,9 +279,9 @@ export function CalculatorSearchHome({
         </button>
       </form>
 
-      <div
-        className="flex justify-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        aria-label="Filter by domain"
+      <nav
+        aria-label="Filter calculators"
+        className="flex justify-start gap-2 overflow-x-auto overscroll-x-contain pb-1 sm:flex-wrap sm:justify-center [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_2rem),transparent)] sm:[mask-image:none]"
       >
         {filterChips.map((chip) => {
           const active = domain === chip.id;
@@ -290,7 +303,7 @@ export function CalculatorSearchHome({
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {!trimmed && inProgress.length ? (
         <section aria-label="Continue this session" className="grid gap-2">
@@ -298,7 +311,7 @@ export function CalculatorSearchHome({
             <History className="size-icon-xs" aria-hidden="true" />
             Continue this session
           </p>
-          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_2rem),transparent)]">
             {inProgress.map(({ calc, derived }) => (
               <button
                 key={calc.id}

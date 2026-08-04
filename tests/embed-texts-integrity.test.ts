@@ -66,6 +66,30 @@ describe("embedTexts integrity (IDX-C1, IDX-C2)", () => {
     expect(capturedDimensions).toBe(2);
   });
 
+  it("forwards caller cancellation to every embeddings batch", async () => {
+    stubEmbeddingEnv(2);
+    const controller = new AbortController();
+    let capturedSignal: AbortSignal | undefined;
+
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = {
+          create: vi.fn(async (_body: unknown, options?: { signal?: AbortSignal }) => {
+            capturedSignal = options?.signal;
+            return { data: [{ index: 0, embedding: [0, 0] as number[] }] };
+          }),
+        };
+        responses = { create: vi.fn() };
+      },
+    }));
+
+    const { clearOpenAICaches, embedTexts } = await import("../src/lib/openai");
+    clearOpenAICaches();
+    await embedTexts(["only"], { signal: controller.signal });
+
+    expect(capturedSignal).toBe(controller.signal);
+  });
+
   it("throws when an embedding does not match EMBEDDING_DIMENSIONS", async () => {
     stubEmbeddingEnv(1536);
 

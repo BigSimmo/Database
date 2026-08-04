@@ -77,7 +77,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
                 <ActiveIcon className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-3xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <span className="block truncate text-3xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Mode
                 </span>
                 <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -178,7 +178,7 @@ export default function ModeDropdownMockupPage() {
             <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
               <Sparkles className="h-4 w-4" />
             </span>
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+            <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
               Clinical KB mockup
             </p>
           </div>

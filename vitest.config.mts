@@ -1,6 +1,11 @@
+import { vitestCacheDirectory } from "./scripts/test-cache-path.mjs";
+
 const liveProviderTests = process.env.ALLOW_PROVIDER_TESTS === "true";
 
 const config = {
+  // Codex worktrees commonly share node_modules through a junction. Keep Vite's
+  // transform cache outside that shared dependency tree and unique per worktree.
+  cacheDir: vitestCacheDirectory(process.cwd()),
   test: {
     // Route and RAG tests cold-import large Next.js module graphs inside the test
     // body. Give those transforms headroom on slower worktree filesystems while
@@ -15,20 +20,55 @@ const config = {
       provider: "v8",
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
-      include: ["src/lib/**/*.ts", "src/app/**/route.ts", "src/components/**/*.{ts,tsx}"],
-      exclude: [
-        "src/app/**/{page,layout,loading,error,not-found}.tsx",
-        // Design-exploration mockups are dev-only prototypes (see mockups/README.md).
-        "src/**/*mockup*",
-        "src/app/mockups/**",
-      ],
-      // Regression floor set just below current coverage. Raise over time; the point
-      // is to fail CI on a meaningful drop, not to chase a target.
+      // Inventory every executable TypeScript surface, including pages/layouts,
+      // mockups, scripts, the worker, and Supabase Edge Functions. The existing
+      // core threshold remains scoped to its historical files so expanding the
+      // inventory cannot weaken that regression floor.
+      include: ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "supabase/functions/**/*.ts"],
+      exclude: ["src/lib/supabase/database.types.ts"],
       thresholds: {
-        statements: 48,
-        branches: 38,
-        functions: 43,
-        lines: 50,
+        // Broad regression floor. Re-ratcheted 2026-07-29: the previous values
+        // (48/38/43/50) had drifted 14-17pp below measured coverage
+        // (63.99/55.29/57.6/66.19), so a change could delete a large amount of
+        // coverage and still pass. Each floor now sits ~2pp under measured — enough
+        // headroom for a PR that ships an uncovered surface, not enough to hide a
+        // regression. Re-measure with `npm run test:coverage` and raise these when
+        // the gap grows past ~5pp again; never lower them to make a red gate green.
+        "src/{lib/**/*.ts,app/**/route.ts,components/**/*.{ts,tsx}}": {
+          statements: 62,
+          branches: 53,
+          functions: 55,
+          lines: 64,
+        },
+        // Aggregate behavioral floors ratchet the full post-fixture group rather
+        // than making individual large RAG modules brittle. Each value is the
+        // greater of the measured whole-group floor or the broad floor + 5pp.
+        "src/lib/{clinical-search,retrieval-selection,answer-ranking,clinical-value-binding,medication-entities,rag/rag-candidate-sources,rag/rag-context-selection,rag/rag-retrieval-variants,rag/rag-routing}.ts":
+          {
+            statements: 86,
+            branches: 78,
+            functions: 88,
+            lines: 90,
+          },
+        "src/lib/{answer-verification,evidence,evidence-relevance,rag/rag-claim-support,rag/rag-evidence-gates,rag/rag-quote-verification,rag/rag-source-segmentation}.ts":
+          {
+            statements: 92,
+            branches: 81,
+            functions: 94,
+            lines: 94,
+          },
+        "src/lib/rag/{rag,rag-extractive-answer,rag-comparison,rag-answer-support}.ts": {
+          statements: 83,
+          branches: 72,
+          functions: 90,
+          lines: 88,
+        },
+        "src/lib/{clinical-safety,source-governance,source-review,clinical-review-queue,answer-response}.ts": {
+          statements: 94,
+          branches: 83,
+          functions: 96,
+          lines: 97,
+        },
       },
     },
     // Two projects run under one `npm run test` invocation. `extends: true` makes

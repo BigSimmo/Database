@@ -17,7 +17,23 @@ export function useSignedImageUrl(endpoint: string, enabled: boolean) {
   const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
+  const { authorizationHeader, session, markSessionExpired } = useAuthSession();
+  // Drop painted URLs during render when the auth *identity* changes (sign-out /
+  // expiry / account switch). Auth also clears the module LRU; without this,
+  // mounted consumers keep showing the prior user's URL until refetch settles.
+  //
+  // Keyed to the user id, not `authorizationHeader`: the header is a new object
+  // on every access-token refresh, which would blank an image the same user is
+  // still entitled to see and force a needless refetch. The id changes in the
+  // same render as the header on a real identity change, so this is no later
+  // than the header-keyed version was — it just ignores refreshes.
+  const authIdentity = session?.user?.id ?? null;
+  const [seenAuthIdentity, setSeenAuthIdentity] = useState(authIdentity);
+  if (authIdentity !== seenAuthIdentity) {
+    setSeenAuthIdentity(authIdentity);
+    setUrl(null);
+    setFailed(false);
+  }
 
   useEffect(() => {
     if (!enabled) return () => undefined;

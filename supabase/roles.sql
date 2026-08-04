@@ -1,8 +1,6 @@
--- Bootstrap safe supabase_admin future-object defaults before migrations in
--- fresh local databases. The Supabase CLI reads this file as `postgres`, which
--- cannot alter the reserved supabase_admin role. Local replay therefore applies
--- this file once as supabase_admin before reset; subsequent CLI reads verify the
--- durable catalog postcondition and become no-ops.
+-- Bootstrap secure future-object defaults for migrations and dashboard SQL
+-- that create objects as postgres. The Supabase CLI and hosted migration
+-- runner can execute this file without assuming another role.
 
 do $$
 declare
@@ -11,39 +9,33 @@ declare
   v_entries text[] := '{}'::text[];
   v_safe boolean := false;
   v_has_unexpected_grantee boolean := false;
+  v_has_grantable boolean := false;
 begin
-  select oid into v_role_oid from pg_catalog.pg_roles where rolname = 'supabase_admin';
+  select oid into v_role_oid from pg_catalog.pg_roles where rolname = 'postgres';
   select oid into v_namespace_oid from pg_catalog.pg_namespace where nspname = 'public';
 
   if v_role_oid is null or v_namespace_oid is null then
-    raise exception 'supabase_admin and public schema are required for default-privilege bootstrap';
+    raise exception 'postgres role and public schema are required for default-privilege bootstrap';
   end if;
 
-  begin
-    alter default privileges for role supabase_admin
-      revoke all privileges on tables from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      revoke all privileges on tables from public, anon, authenticated, service_role;
-
-    alter default privileges for role supabase_admin
-      revoke all privileges on sequences from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      revoke all privileges on sequences from public, anon, authenticated, service_role;
-
-    alter default privileges for role supabase_admin
-      revoke execute on functions from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      revoke execute on functions from public, anon, authenticated, service_role;
-
-    alter default privileges for role supabase_admin in schema public
-      grant select, insert, update, delete on tables to service_role;
-    alter default privileges for role supabase_admin in schema public
-      grant usage, select on sequences to service_role;
-    alter default privileges for role supabase_admin in schema public
-      grant execute on functions to service_role;
-  exception when insufficient_privilege then
-    null;
-  end;
+  alter default privileges for role postgres
+    revoke all privileges on tables from public, anon, authenticated, service_role;
+  alter default privileges for role postgres in schema public
+    revoke all privileges on tables from public, anon, authenticated, service_role;
+  alter default privileges for role postgres
+    revoke all privileges on sequences from public, anon, authenticated, service_role;
+  alter default privileges for role postgres in schema public
+    revoke all privileges on sequences from public, anon, authenticated, service_role;
+  alter default privileges for role postgres
+    revoke execute on functions from public, anon, authenticated, service_role;
+  alter default privileges for role postgres in schema public
+    revoke execute on functions from public, anon, authenticated, service_role;
+  alter default privileges for role postgres in schema public
+    grant select, insert, update, delete on tables to service_role;
+  alter default privileges for role postgres in schema public
+    grant usage, select on sequences to service_role;
+  alter default privileges for role postgres in schema public
+    grant execute on functions to service_role;
 
   with object_types(object_type, object_code) as (
     values ('table'::text, 'r'::"char"), ('sequence'::text, 'S'::"char"), ('function'::text, 'f'::"char")
@@ -65,7 +57,8 @@ begin
     select distinct
       ea.object_type,
       case when privilege.grantee = 0 then 'PUBLIC' else grantee.rolname end as grantee,
-      lower(privilege.privilege_type) as privilege_type
+      lower(privilege.privilege_type) as privilege_type,
+      privilege.is_grantable
     from effective_acls ea
     cross join lateral pg_catalog.aclexplode(ea.acl) privilege
     left join pg_catalog.pg_roles grantee on grantee.oid = privilege.grantee
@@ -76,12 +69,14 @@ begin
         order by object_type, grantee, privilege_type),
       '{}'::text[]
     ),
-    coalesce(bool_or(grantee not in ('supabase_admin', 'postgres', 'service_role')), false)
-  into v_entries, v_has_unexpected_grantee
+    coalesce(bool_or(grantee not in ('postgres', 'service_role')), false),
+    coalesce(bool_or(is_grantable), false)
+  into v_entries, v_has_unexpected_grantee, v_has_grantable
   from exploded;
 
   v_safe :=
     not v_has_unexpected_grantee
+    and not v_has_grantable
     and not exists (
       select 1 from unnest(v_entries) entry
       where entry like 'table:PUBLIC:%'
@@ -123,7 +118,7 @@ begin
   if not v_safe then
     raise exception using
       errcode = '42501',
-      message = 'Unsafe supabase_admin default privileges; bootstrap must run as supabase_admin.',
+      message = 'Unsafe postgres default privileges in schema public.',
       detail = to_jsonb(v_entries)::text;
   end if;
 end;

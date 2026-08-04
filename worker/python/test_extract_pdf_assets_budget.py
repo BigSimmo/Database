@@ -87,6 +87,15 @@ class PdfExtractionBudgetTests(unittest.TestCase):
         self.assertIsNone(warning)
         self.assertEqual(calls, [{"timeout": 60}])
 
+    def test_crop_completeness_penalizes_page_edge_clipping(self):
+        page = type("PageRect", (), {"x0": 0, "y0": 0, "x1": 200, "y1": 200, "width": 200, "height": 200})()
+        requested = type("Rect", (), {"width": 120, "height": 120})()
+        complete = type("Clip", (), {"width": 120, "height": 120, "x0": 20, "y0": 20, "x1": 140, "y1": 140})()
+        clipped = type("Clip", (), {"width": 90, "height": 120, "x0": 0, "y0": 20, "x1": 90, "y1": 140})()
+
+        self.assertEqual(extractor.crop_completeness_score(requested, complete, page), 1.0)
+        self.assertLess(extractor.crop_completeness_score(requested, clipped, page), 0.82)
+
 
 if __name__ == "__main__":
     unittest.main()

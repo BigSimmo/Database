@@ -2,6 +2,9 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import therapiesIndexJson from "../src/data/therapies-index.json";
+import { THERAPY_CATALOGUE_ASSETS } from "@/components/therapy-compass/data/generated-assets";
+
 // Guards the clinical integrity of the Therapy Compass pathway data. The imported
 // mockup shipped pathways whose therapy steps were mismatched to the pathway's
 // clinical problem (e.g. Crisis/risk -> "ERP for tics", Grief/loss -> eating-disorder
@@ -9,15 +12,30 @@ import { describe, expect, it } from "vitest";
 // from recurring by asserting every step references a therapy that (a) exists and
 // (b) is clinically appropriate for that pathway's clinicalProblem.
 
-type Therapy = { slug: string; bestUsedFor: string };
+type Therapy = {
+  slug: string;
+  name?: string;
+  bestUsedFor: string;
+  modality?: string | null;
+  tags?: string[];
+};
 type Step = { therapySlug: string; label: string; description: string };
 type Pathway = { slug: string; clinicalProblem: string; steps: Step[] };
 
 const dataUrl = (name: string) => new URL(`../public/therapy-compass-data/${name}`, import.meta.url);
 
-const therapies = JSON.parse(readFileSync(dataUrl("therapies.json"), "utf8")) as Therapy[];
+const therapies = JSON.parse(readFileSync(dataUrl(THERAPY_CATALOGUE_ASSETS.full), "utf8")) as Therapy[];
 const pathways = JSON.parse(readFileSync(dataUrl("pathways.json"), "utf8")) as Pathway[];
 const bySlug = new Map(therapies.map((t) => [t.slug, t]));
+const canonicalBySlug = new Map(therapiesIndexJson.map((therapy) => [therapy.slug, therapy]));
+const LEGACY_DUPLICATE_SLUGS = [
+  "behavioural-activation",
+  "emdr",
+  "interpersonal-therapy",
+  "mindfulness-based-cognitive-therapy",
+  "problem-solving-therapy",
+  "prolonged-exposure-therapy",
+];
 
 // Independent clinical allowlist: for each pathway clinical problem, the set of
 // catalogue therapies that genuinely treat it. This is the source of truth the
@@ -92,7 +110,6 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
   Mood: [
     "cognitive-behavioural-therapy-cbt",
     "behavioural-activation-ba",
-    "behavioural-activation",
     "interpersonal-psychotherapy-ipt",
     "problem-solving-therapy-pst",
     "mindfulness-based-cognitive-therapy-mbct",
@@ -181,11 +198,9 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
   Trauma: [
     "trauma-focused-cognitive-behavioural-therapy-tf-cbt",
     "eye-movement-desensitisation-and-reprocessing-emdr",
-    "emdr",
     "cognitive-processing-therapy-cpt",
     "cognitive-therapy-for-ptsd-ct-ptsd",
     "prolonged-exposure-pe",
-    "prolonged-exposure-therapy",
     "narrative-exposure-therapy-net",
     "written-exposure-therapy",
     "phase-oriented-trauma-therapy",
@@ -194,7 +209,66 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
   ],
 };
 
+describe("Therapy Compass catalogue clinical labelling", () => {
+  it("never ships a modality that is merely an echo of the record's own tags", () => {
+    // The source catalogue derives `modality` from the tag list, which collapses
+    // 205 therapies onto CBT/ACT/DBT and mislabels treatments it cannot describe:
+    // ECT and rTMS as "ACT", Psychoanalysis and Psychodynamic Psychotherapy as
+    // "CBT", MBT and TFP as "DBT". That value renders as a curated chip on the
+    // detail and recommend screens and scores related-therapy selection, so an
+    // inferred label reads as clinical fact. The generator emits `null` unless
+    // the source curates a value that is not already a tag; consumers treat
+    // `null` as unknown and render nothing. Assert both the server index and the
+    // full catalogue asset — detail/recommend load `catalogue: "full"`, so pinning
+    // only the index would green-pass while the chips still showed the mislabel.
+    for (const [label, records] of [
+      ["server index", therapiesIndexJson],
+      ["full catalogue", therapies],
+    ] as const) {
+      const echoes = records
+        .filter((therapy) => therapy.modality && (therapy.tags ?? []).includes(therapy.modality))
+        .map((therapy) => `${therapy.name ?? therapy.slug} → ${therapy.modality}`);
+      expect(echoes, `${label}: modality must be curated, not inferred from tags`).toEqual([]);
+    }
+  });
+
+  it("does not label somatic or psychodynamic treatments with a talking-therapy modality", () => {
+    // Pins the specific records the tag-derived value got wrong, so a future
+    // regeneration that reintroduces the inference fails by name. Check the full
+    // catalogue (the UI path) as well as the server index projection.
+    for (const name of ["ECT", "rTMS", "Psychoanalysis", "Psychodynamic Psychotherapy"]) {
+      for (const [label, records] of [
+        ["server index", therapiesIndexJson],
+        ["full catalogue", therapies],
+      ] as const) {
+        const record = records.find((therapy) => therapy.name === name);
+        if (!record) continue;
+        expect(record.modality, `${label}: ${name} carries an inferred modality`).toBeNull();
+      }
+    }
+  });
+
+  it("keeps the full catalogue compact so a field scrub cannot mint a 36k-line PR", () => {
+    // Historical `therapies.json` is one minified line (~2.5 MB). Pretty-printing
+    // it when scrubbing modality produced ~18k-line alias + hashed twin diffs.
+    // Projections may stay pretty; the full payload must not.
+    const fullPath = new URL(`../public/therapy-compass-data/${THERAPY_CATALOGUE_ASSETS.full}`, import.meta.url);
+    const text = readFileSync(fullPath, "utf8");
+    expect(text.includes("\n"), "full catalogue must be single-line JSON").toBe(false);
+    expect(text.startsWith("["), "full catalogue must be a JSON array").toBe(true);
+  });
+});
+
 describe("Therapy Compass pathway clinical integrity", () => {
+  it("keeps legacy duplicate therapy slugs out of the canonical catalogue", () => {
+    for (const slug of LEGACY_DUPLICATE_SLUGS) {
+      expect(canonicalBySlug.has(slug), `legacy duplicate therapy ${slug} was restored in therapies-index.json`).toBe(
+        false,
+      );
+      expect(bySlug.has(slug), `legacy duplicate therapy ${slug} was restored in therapies.json`).toBe(false);
+    }
+  });
+
   it("covers every pathway clinical problem with an allowlist", () => {
     for (const p of pathways) {
       expect(DOMAIN_APPROPRIATE[p.clinicalProblem], `no allowlist for ${p.clinicalProblem}`).toBeTruthy();

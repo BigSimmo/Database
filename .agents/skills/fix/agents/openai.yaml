@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fix"
+  short_description: "Triage and repair local Database check failures"
+  default_prompt: "Use $fix to reproduce, classify, and minimally repair this local Database verification failure."

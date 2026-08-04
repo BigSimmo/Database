@@ -14,6 +14,13 @@ function componentSource(relativePath: string) {
 describe("document-derived text must route through a formatter", () => {
   const dashboard = componentSource("ClinicalDashboard.tsx");
   const documentViewer = componentSource("DocumentViewer.tsx");
+  // Document-viewer render surfaces (source images/tables, pinned evidence, the
+  // indexed-text panel, and the overview landing) now live in extracted modules
+  // under document-viewer/. Scan them alongside the container so the raw-render
+  // guards travel with the code as it moves out.
+  const documentViewerSourcePanels = componentSource("document-viewer/source-panels.tsx");
+  const documentViewerLanding = componentSource("document-viewer/document-overview-landing.tsx");
+  const documentViewerSurfaces = `${documentViewer}\n${documentViewerSourcePanels}\n${documentViewerLanding}`;
   // Answer/evidence render surfaces (SourceImage, SourcePreviewContent,
   // NaturalLanguageAnswer, QuoteCards, EvidenceMapTable, …) now live in extracted
   // modules. Scan them alongside the monolith so the raw-render guards travel with
@@ -57,8 +64,8 @@ describe("document-derived text must route through a formatter", () => {
   });
 
   it("renders document-viewer image captions through a formatter, never raw", () => {
-    expect(documentViewer).not.toMatch(/\{image\.caption\}/);
-    expect(documentViewer).toContain("sourceTextForCompactDisplay(image.caption)");
+    expect(documentViewerSurfaces).not.toMatch(/\{image\.caption\}/);
+    expect(documentViewerSurfaces).toContain("sourceTextForCompactDisplay(image.caption)");
   });
 
   it("renders visual-evidence titles and alt text through formatters, never raw", () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { VERIFY_AGAINST_SOURCE_NOTE } from "../src/lib/answer-verification";
-import { applyNumericVerification, truncateForModel, unboldUnverifiedNumbers } from "../src/lib/rag";
-import { attachAdjacentContext } from "../src/lib/rag-cache";
+import { applyNumericVerification, truncateForModel, unboldUnverifiedNumbers } from "../src/lib/rag/rag";
+import { attachAdjacentContext } from "../src/lib/rag/rag-cache";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 describe("truncateForModel — boundary-aware, number-safe source truncation (P7)", () => {

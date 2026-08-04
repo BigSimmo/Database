@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRagEvaluationDiagnostics, evaluateAustralianRagExpectation } from "@/lib/rag-eval-diagnostics";
+import { buildRagEvaluationDiagnostics, evaluateAustralianRagExpectation } from "@/lib/rag/rag-eval-diagnostics";
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
 function source(args: {

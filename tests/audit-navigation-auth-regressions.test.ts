@@ -5,8 +5,11 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
-import { GET as redirectPresentations, HEAD as headPresentations } from "@/app/differentials/presentations/route";
-import { GET as redirectMedications, HEAD as headMedications } from "@/app/medications/route";
+import {
+  GET as redirectPresentations,
+  HEAD as headPresentations,
+} from "@/app/(search-app)/differentials/presentations/route";
+import { GET as redirectMedications, HEAD as headMedications } from "@/app/(search-app)/medications/route";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 
 function source(relativePath: string) {
@@ -24,6 +27,7 @@ function sourceSegment(contents: string, startMarker: string, endMarker: string)
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
+const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 
 describe("audit navigation and auth regressions", () => {
   it("redirects exact legacy route handlers at request time while retaining useful query state", () => {
@@ -43,9 +47,17 @@ describe("audit navigation and auth regressions", () => {
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
-    const medications = redirectMedications();
+    const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications"));
     expect(medications.status).toBe(307);
     expect(medications.headers.get("location")).toBe("/?mode=prescribing");
+
+    // Search context survives the legacy redirect with the same sanitized
+    // allowlist as the root legacy-mode redirect: trimmed q plus focus/run=1.
+    const medicationsWithQuery = redirectMedications(
+      new NextRequest("https://clinical-kb.test/medications?q=+lithium+&focus=1&run=0&mode=ignored&extra=drop"),
+    );
+    expect(medicationsWithQuery.status).toBe(307);
+    expect(medicationsWithQuery.headers.get("location")).toBe("/?mode=prescribing&q=lithium&focus=1");
 
     expect([headApplications, headPresentations, headMedications]).toEqual([
       redirectApplications,
@@ -84,9 +96,64 @@ describe("audit navigation and auth regressions", () => {
     );
 
     expect(focusLeaveContract).toContain("onBlur={(event) => {");
+    expect(focusLeaveContract).toContain("if (usesPhoneSearchLayout) return;");
     expect(focusLeaveContract).toContain("const nextFocusedElement = event.relatedTarget;");
     expect(focusLeaveContract).toContain("event.currentTarget.contains(nextFocusedElement)");
     expect(focusLeaveContract).toContain("setModeMenuOpen(false);");
+  });
+
+  it("opens the master mode menu as a phone bottom sheet below the phone layout gate", () => {
+    expect(masterSearchHeaderSource).toContain('testId="app-mode-menu-sheet"');
+    expect(masterSearchHeaderSource).toContain("enabled: modeMenuOpen && !usesPhoneSearchLayout");
+    expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
+    expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
+    expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
+    expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
+    // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
+    expect(masterSearchHeaderSource).toContain(
+      "const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);",
+    );
+    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
+  });
+
+  it("prefetches only the mode a user focuses or points at", () => {
+    const modeOptions = sourceSegment(
+      masterSearchHeaderSource,
+      "function renderModeMenuOptions()",
+      "const restoreActionMenuFocusRef",
+    );
+    const openModeMenuWithFocus = sourceSegment(
+      masterSearchHeaderSource,
+      "function openModeMenuWithFocus(",
+      "function toggleModeMenu(",
+    );
+    const toggleModeMenu = sourceSegment(
+      masterSearchHeaderSource,
+      "function toggleModeMenu(",
+      "function handleModeTriggerKeyDown(",
+    );
+
+    expect(masterSearchHeaderSource).toContain("function prefetchModeHome(modeId: AppModeId)");
+    expect(masterSearchHeaderSource).toContain("router.prefetch(href)");
+    expect(modeOptions).toContain("onFocus={() => prefetchModeHome(mode.id)}");
+    expect(modeOptions).toContain("onPointerEnter={() => prefetchModeHome(mode.id)}");
+    // Menu-open paths warm only the highlighted option — never every visible home.
+    expect(openModeMenuWithFocus).toContain("prefetchModeHome(highlighted.id)");
+    expect(toggleModeMenu).toContain("prefetchModeHome(highlighted.id)");
+    expect(masterSearchHeaderSource).not.toContain("function prefetchModeHomes(");
+    expect(masterSearchHeaderSource).not.toContain("visibleAppModeOptions.forEach((mode) => router.prefetch");
+    expect(masterSearchHeaderSource).not.toContain(
+      "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
+    );
+  });
+
+  it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
+    expect(universalAlsoMatchesSource).toContain('const searchActive = isWide || modeId === "answer" || expanded;');
+    expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
+    expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
+    expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
+    expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
+    expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
@@ -135,7 +202,7 @@ describe("audit navigation and auth regressions", () => {
       "function openUploadDrawer()",
       "function openEvidenceDrawer()",
     );
-    expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
+    expect(uploadMutationContract).toContain("if (!canUseAdministrativeApis) {");
   });
 
   it("keeps the private upload workspace tabs and panels programmatically associated", () => {
@@ -151,7 +218,24 @@ describe("audit navigation and auth regressions", () => {
     for (const section of ["setup", "upload", "indexing", "quality"]) {
       expect(clinicalDashboardSource).toContain(`id="dashboard-${section}-section-heading"`);
     }
-    expect(clinicalDashboardSource).toContain("subscribeToUploadDesktopLayout");
+    // The viewport-driven region/tabpanel role is wired through the extracted hook, whose
+    // media-query subscription carries the guard with it.
+    expect(clinicalDashboardSource).toContain("useUploadDesktopLayout()");
+    // Assert the EXPORTED hook's return wires the media-query subscription through
+    // useSyncExternalStore with the () => false server snapshot, and that the call closes
+    // right after that snapshot. Scoping to the exported function body (not the whole file)
+    // plus the `return` anchor and trailing `)` means a stale/disconnected call elsewhere, a
+    // comment or string, a present-but-unused helper, a dropped SSR fallback, or a mutated
+    // snapshot such as `() => false || getUploadDesktopLayoutSnapshot()` all fail the guard.
+    const uploadDesktopHookSource = source("src/components/clinical-dashboard/use-upload-desktop-layout.ts");
+    const useUploadDesktopLayoutBody = sourceSegment(
+      uploadDesktopHookSource,
+      "export function useUploadDesktopLayout(",
+      "}",
+    );
+    expect(useUploadDesktopLayoutBody).toMatch(
+      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*\)/,
+    );
     expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
     expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
     expect(clinicalDashboardSource).toContain('event.key === "Home"');

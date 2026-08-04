@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 describe("production and mockup boundaries", () => {
   it("keeps production Documents routes free of fixture imports", () => {
     for (const file of ["search/page.tsx", "source/page.tsx", "source/evidence/page.tsx"]) {
-      const source = readFileSync(resolve(process.cwd(), "src/app/documents", file), "utf8");
+      const source = readFileSync(resolve(process.cwd(), "src/app/(search-app)/documents", file), "utf8");
       expect(source).not.toContain("master-document-flow-mockups");
     }
   });

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Handover"
+  short_description: "Prepare a safe evidence-backed Database handover"
+  default_prompt: "Use $handover to prepare this Database work for handover with local proof and no automatic publishing."

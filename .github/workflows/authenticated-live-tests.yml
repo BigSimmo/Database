@@ -1,0 +1,80 @@
+name: Authenticated live tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Approve production E2E sign-in/out, test requests, and rate-limit updates"
+        required: true
+        default: "do-not-run"
+        type: choice
+        options:
+          - "do-not-run"
+          - "run-authenticated-live-tests"
+
+concurrency:
+  group: authenticated-live-tests
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  live-tests:
+    name: Authenticated production tests with bounded E2E mutations
+    if: github.ref == 'refs/heads/main' && inputs.confirmation == 'run-authenticated-live-tests'
+    environment: Database / production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Preflight required secrets
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+        shell: bash
+        run: |
+          missing=""
+          [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
+          [ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
+          [ -z "$E2E_USER_EMAIL" ] && missing="$missing E2E_USER_EMAIL"
+          [ -z "$E2E_USER_PASSWORD" ] && missing="$missing E2E_USER_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Authenticated live tests cannot run - missing GitHub secrets:$missing"
+            exit 1
+          fi
+
+      - name: Guard production Supabase identity
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+          SUPABASE_PROJECT_NAME: Clinical KB Database
+        run: npm run check:supabase-project
+
+      - name: Run explicitly enabled authenticated tests
+        env:
+          ALLOW_PROVIDER_TESTS: "true"
+          NEXT_PUBLIC_DEMO_MODE: "false"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_PROJECT_REF: sjrfecxgysukkwxsowpy
+          SUPABASE_PROJECT_NAME: Clinical KB Database
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+        run: npm run test:live

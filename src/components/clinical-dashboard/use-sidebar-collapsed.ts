@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback } from "react";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 const storageKey = "clinical-kb-sidebar-collapsed";
 const changeEvent = "clinical-kb-sidebar-collapsed-change";
@@ -25,10 +26,6 @@ function getSnapshot() {
   }
 }
 
-function getServerSnapshot() {
-  return false;
-}
-
 function subscribe(onChange: () => void) {
   window.addEventListener("storage", onChange);
   window.addEventListener(changeEvent, onChange);
@@ -38,13 +35,15 @@ function subscribe(onChange: () => void) {
   };
 }
 
+const useSidebarCollapsedStore = createBrowserStore(subscribe, getSnapshot, false);
+
 /**
  * Desktop sidebar collapse state shared across shells and persisted per
  * browser, mirroring the use-theme.ts external-store pattern so the choice
  * survives route changes between the dashboard and standalone shells.
  */
 export function useSidebarCollapsed() {
-  const collapsed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const collapsed = useSidebarCollapsedStore();
   const setCollapsed = useCallback((next: boolean) => {
     try {
       window.localStorage.setItem(storageKey, next ? "1" : "0");

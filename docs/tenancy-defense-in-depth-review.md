@@ -124,22 +124,22 @@ transcripts; this is the consolidated verdict.
 
 ### Mutations · signed URLs · upload (highest blast radius)
 
-| Route · method                       | Verdict            | Owner mechanism                                                                                                                                                                          |
-| ------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/documents/[id]/signed-url` | ✅ verified-scoped | `withOwnerReadScope` on doc **before** `createSignedUrl`; `storage_path` from owner-verified row ([signed-url/route.ts:40-51](src/app/api/documents/[id]/signed-url/route.ts))           |
-| `GET /api/images/[id]/signed-url`    | ✅ verified-scoped | image has no `owner_id`; tenancy via parent-document `withOwnerReadScope` ([images/[id]/signed-url/route.ts:49-55](src/app/api/images/[id]/signed-url/route.ts))                         |
-| `POST /api/documents/[id]/reindex`   | ✅ verified-scoped | `requireAuthenticatedUser` + `.eq('owner_id',user.id)`; every state write re-scoped ([reindex/route.ts:110-255](src/app/api/documents/[id]/reindex/route.ts))                            |
-| `POST /api/documents/bulk`           | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id).in('id',ids)`; body ids intersected with ownership ([bulk/route.ts:127-204](src/app/api/documents/bulk/route.ts))                            |
-| `POST /api/documents/bulk/reindex`   | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id)`; per-doc writes re-scoped ([bulk/reindex/route.ts:101-247](src/app/api/documents/bulk/reindex/route.ts))                                    |
-| `POST /api/upload`                   | ✅ verified-scoped | `owner_id` = session id, or configured `PUBLIC_WORKSPACE_OWNER_ID` only if public uploads enabled, else 503 ([upload/route.ts:94-97](src/app/api/upload/route.ts)); operator note TEN-N3 |
+| Route · method                       | Verdict            | Owner mechanism                                                                                                                                                                                                               |
+| ------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/documents/[id]/signed-url` | ✅ verified-scoped | `withOwnerReadScope` on doc **before** `createSignedUrl`; `storage_path` from owner-verified row ([signed-url/route.ts:40-51](src/app/api/documents/[id]/signed-url/route.ts))                                                |
+| `GET /api/images/[id]/signed-url`    | ✅ verified-scoped | image has no `owner_id`; tenancy via parent-document `withOwnerReadScope` ([images/[id]/signed-url/route.ts:49-55](src/app/api/images/[id]/signed-url/route.ts))                                                              |
+| `POST /api/documents/[id]/reindex`   | ✅ verified-scoped | `requireAuthenticatedUser` + `.eq('owner_id',user.id)`; every state write re-scoped ([reindex/route.ts:110-255](src/app/api/documents/[id]/reindex/route.ts))                                                                 |
+| `POST /api/documents/bulk`           | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id).in('id',ids)`; body ids intersected with ownership ([bulk/route.ts:127-204](src/app/api/documents/bulk/route.ts))                                                                 |
+| `POST /api/documents/bulk/reindex`   | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id)`; per-doc writes re-scoped ([bulk/reindex/route.ts:101-247](src/app/api/documents/bulk/reindex/route.ts))                                                                         |
+| `POST /api/upload`                   | ✅ admin-only      | Validated Supabase session plus immutable `app_metadata.site_role = administrator`; uploaded rows remain scoped to that administrator until publication review promotes them ([upload/route.ts](src/app/api/upload/route.ts)) |
 
 ### Search
 
-| Route · method                 | Verdict            | Owner mechanism                                                                                                                                                                                                               |
-| ------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/search`             | ✅ verified-scoped | `searchChunksWithTelemetry({ownerId,allowGlobalSearch:!ownerId})`; RPCs owner-filter; `assertGlobalSearchAllowed` throws in prod ([search/route.ts:726-728](src/app/api/search/route.ts); [rag.ts:2151-2164](src/lib/rag.ts)) |
-| `GET /api/search/universal`    | ✅ verified-scoped | live branch only when `access.ownerId` truthy; each domain owner-seeded; static catalogs intended-public ([universal/route.ts:70-82](src/app/api/search/universal/route.ts))                                                  |
-| `POST /api/search/interaction` | ✅ verified-scoped | writes hard-pinned to `owner_id:user.id`; clicked doc/chunk validated owner-owned or nulled ([interaction/route.ts:44-84](src/app/api/search/interaction/route.ts))                                                           |
+| Route · method                 | Verdict            | Owner mechanism                                                                                                                                                                                                                   |
+| ------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/search`             | ✅ verified-scoped | `searchChunksWithTelemetry({ownerId,allowGlobalSearch:!ownerId})`; RPCs owner-filter; `assertGlobalSearchAllowed` throws in prod ([search/route.ts:726-728](src/app/api/search/route.ts); [rag.ts:2151-2164](src/lib/rag/rag.ts)) |
+| `GET /api/search/universal`    | ✅ verified-scoped | live branch only when `access.ownerId` truthy; each domain owner-seeded; static catalogs intended-public ([universal/route.ts:70-82](src/app/api/search/universal/route.ts))                                                      |
+| `POST /api/search/interaction` | ✅ verified-scoped | writes hard-pinned to `owner_id:user.id`; clicked doc/chunk validated owner-owned or nulled ([interaction/route.ts:44-84](src/app/api/search/interaction/route.ts))                                                               |
 
 ### Ingestion · jobs
 
@@ -224,12 +224,12 @@ does **not** yield a cross-tenant leak:
 
 - **In-memory answer/search caches:** the cache **key** includes `ownerId` as an explicit component —
   `scopedAnswerCacheKey = [depVersion, ownerId ?? "anonymous", scopeKey, modeKey, query]`
-  ([rag.ts:1453-1459](src/lib/rag.ts)) and `scopedSearchCacheKey`
-  ([rag.ts:1553-1559](src/lib/rag.ts)). User A's UUID-prefixed key cannot collide with B's.
+  ([rag.ts:1453-1459](src/lib/rag/rag.ts)) and `scopedSearchCacheKey`
+  ([rag.ts:1553-1559](src/lib/rag/rag.ts)). User A's UUID-prefixed key cannot collide with B's.
 - **Persisted `rag_response_cache`:** owner enforced as a **column predicate** on both read and write —
   `sharedCacheSelector` adds `.eq('owner_id', args.ownerId)` (authed) or `.is('owner_id', null)` (anon)
-  ([rag.ts:1667](src/lib/rag.ts)); writes stamp `owner_id: args.ownerId ?? null` after a same-owner
-  delete ([rag.ts:1870-1873](src/lib/rag.ts)). A reads only `owner_id = A` rows — never B's, never the
+  ([rag.ts:1667](src/lib/rag/rag.ts)); writes stamp `owner_id: args.ownerId ?? null` after a same-owner
+  delete ([rag.ts:1870-1873](src/lib/rag/rag.ts)). A reads only `owner_id = A` rows — never B's, never the
   null bucket.
 - The `owner_id IS NULL` cache partition is shared **among anonymous callers only**, and only ever
   holds answers built from **public null-owner documents** — the intended public corpus, not private
@@ -318,10 +318,11 @@ runs only after `requireOwnedDocument`).
 The guard's `OWNER_SCOPE_ALLOWLIST` holds **exactly** these reviewed indirect-scope exceptions (any
 new entry must be added here and to the list in the guard, or the regression test fails):
 
-| File                                | Table            | Why it is safe                                                                                                                                   |
-| ----------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/app/api/setup-status/route.ts` | `documents`      | Local-origin-gated `.limit(1)` existence probe ("is any document indexed?"); returns only status booleans, not an owner-data read (§3 / TEN-N1). |
-| `src/app/api/setup-status/route.ts` | `import_batches` | Local-origin-gated `.limit(1)` existence probe for schema provisioning; returns only status booleans, not an owner-data read (§3 / TEN-N1).      |
+| File                                | Table                  | Why it is safe                                                                                                                                                |
+| ----------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/api/setup-status/route.ts` | `documents`            | Local-origin-gated `.limit(1)` existence probe ("is any document indexed?"); returns only status booleans, not an owner-data read (§3 / TEN-N1).              |
+| `src/app/api/setup-status/route.ts` | `import_batches`       | Local-origin-gated `.limit(1)` existence probe for schema provisioning; returns only status booleans, not an owner-data read (§3 / TEN-N1).                   |
+| `src/app/api/setup-status/route.ts` | `storage_cleanup_jobs` | Local-origin-gated head-count probe for pending cleanup rows (schema/ops posture); returns only status booleans/counts, not an owner-data read (§3 / TEN-N1). |
 
 ---
 
@@ -332,15 +333,13 @@ new entry must be added here and to the list in the guard, or the regression tes
   disclosure (a function/relation name), only to a caller past the local-origin gate. Fix: return a
   generic message; log the raw error server-side.
 - **TEN-N2 (latent):** `summarizeDocument(documentId, ownerId?)` has an **optional** `ownerId`
-  ([rag.ts:7792](src/lib/rag.ts)) and would skip the owner filter if ever called with `undefined`. The
+  ([rag.ts:7792](src/lib/rag/rag.ts)) and would skip the owner filter if ever called with `undefined`. The
   only caller passes `user.id` ([summarize/route.ts:34](src/app/api/documents/[id]/summarize/route.ts)),
   so no live exploit — but make the parameter required (or fail closed) so a future caller can't
   reintroduce a gap.
-- **TEN-N3 (operator note, intended):** with `NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED=true`, all anonymous
-  uploads are pooled under the single configured `PUBLIC_WORKSPACE_OWNER_ID`
-  ([upload/route.ts:94](src/app/api/upload/route.ts)) — anonymous X's upload is visible to anonymous Y
-  and the workspace owner. This is the documented public-workspace model, not a private-row A→B leak,
-  but operators enabling public uploads should understand it.
+- **TEN-N3 (resolved):** the public-workspace upload path was removed. Anonymous and ordinary
+  authenticated users cannot upload; both the server route and Storage table privileges enforce the
+  administrator-only boundary.
 
 ---
 

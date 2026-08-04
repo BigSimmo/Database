@@ -701,7 +701,7 @@ export function MasterDocumentSearch() {
           <header className="space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+                <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                   Documents
                 </p>
                 <h1 className="mt-1 text-2xl font-extrabold tracking-normal text-[color:var(--text-heading)] sm:text-3xl">
@@ -937,8 +937,8 @@ function DocumentPreview({ selectedEvidence }: { selectedEvidence?: EvidenceFixt
           <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-[color:var(--text-heading)]">
             <mark className="rounded bg-amber-100 px-1">Regular haematological monitoring</mark> is essential to reduce
             risk and ensure treatment can continue safely.{" "}
-            <a className="font-bold text-[color:var(--clinical-accent)]">Table 3</a> outlines the recommended monitoring
-            schedule.
+            <span className="font-bold text-[color:var(--clinical-accent)]">Table 3</span> outlines the recommended
+            monitoring schedule.
           </p>
         </div>
         <div>
@@ -1306,7 +1306,7 @@ export function MasterDocumentReader() {
                   ))}
                 </div>
                 <section>
-                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                     Matched terms
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1356,7 +1356,7 @@ export function MasterDocumentReader() {
                     key={label}
                     className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
                   >
-                    <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                    <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                       {label}
                     </p>
                     <p className="mt-1 text-sm font-bold text-[color:var(--text-heading)]">{value}</p>
@@ -1788,7 +1788,7 @@ function MasterEvidenceDetailContent({
 
           <aside className="hidden self-start rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)] lg:block">
             <div className="border-b border-[color:var(--border)] p-4">
-              <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+              <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 Source document
               </p>
               <div className="mt-3 flex gap-3">
@@ -1824,7 +1824,7 @@ function MasterEvidenceDetailContent({
                 </div>
               ))}
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Matched terms
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1834,7 +1834,7 @@ function MasterEvidenceDetailContent({
                 </div>
               </div>
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Relevance
                 </p>
                 <p className="nums mt-1 text-2xl font-extrabold text-[color:var(--clinical-accent)]">

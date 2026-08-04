@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Search } from "lucide-react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { AsyncButton, EmptyState } from "@/components/ui-primitives";
+import { AsyncButton, EmptyState, ToggleSwitch } from "@/components/ui-primitives";
 
 describe("EmptyState", () => {
   it("keeps recovery actions inside an announced state surface", () => {
@@ -52,5 +53,38 @@ describe("AsyncButton", () => {
     const button = screen.getByRole("button", { name: "Save" });
     expect(button).toBeEnabled();
     expect(button).not.toHaveAttribute("aria-busy");
+  });
+
+  it("defaults to type=button after the props spread", () => {
+    render(
+      <AsyncButton busy={false} busyLabel="Saving">
+        Save
+      </AsyncButton>,
+    );
+    expect(screen.getByRole("button")).toHaveAttribute("type", "button");
+  });
+
+  it("preserves an explicit type=submit for form actions", () => {
+    render(
+      <AsyncButton type="submit" busy={false} busyLabel="Saving">
+        Save
+      </AsyncButton>,
+    );
+    expect(screen.getByRole("button")).toHaveAttribute("type", "submit");
+  });
+});
+
+describe("ToggleSwitch", () => {
+  it("requires a name when operable", async () => {
+    const onToggle = vi.fn();
+    render(<ToggleSwitch enabled={false} onToggle={onToggle} aria-label="Pregnancy" />);
+    await userEvent.click(screen.getByRole("switch", { name: "Pregnancy" }));
+    expect(onToggle).toHaveBeenCalledOnce();
+  });
+
+  it("renders a non-interactive indicator without onToggle", () => {
+    render(<ToggleSwitch enabled aria-label="Available" />);
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Available: on" })).toBeInTheDocument();
   });
 });

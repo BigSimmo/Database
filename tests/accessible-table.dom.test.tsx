@@ -48,4 +48,19 @@ describe("AccessibleTable (jsdom)", () => {
     expect(expandButton).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("table-fullscreen-dialog")).toBeInTheDocument();
   });
+
+  it("shows the provided source-image fallback for low-confidence clinical tables", () => {
+    render(
+      <AccessibleTable
+        caption="Dose table"
+        columns={["Medication", "", "Action"]}
+        rows={[["Lorazepam", "1 mg", "Monitor observations"]]}
+        lowConfidenceFallback={<div data-testid="source-table-image">Original table image</div>}
+      />,
+    );
+
+    expect(screen.getByTestId("table-low-confidence-note")).toHaveTextContent("showing the source document image");
+    expect(screen.getByTestId("source-table-image")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
 });

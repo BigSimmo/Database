@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agentFailureDecision,
   completionGateFromRow,
   deferralDecision,
   metadataNumber,
@@ -26,6 +27,24 @@ function gateRow(overrides: Partial<CompletionGateRow> = {}): CompletionGateRow 
 }
 
 describe("indexing-v3-agent behavior", () => {
+  it("schedules agent retries until the attempt budget is exhausted", () => {
+    const retry = agentFailureDecision({ attemptCount: 2, maxAttempts: 3, nowMs: 1_000, retryDelayMs: 30_000 });
+    expect(retry).toEqual({
+      shouldRetry: true,
+      status: "retry_pending",
+      jobStatus: "pending",
+      enrichmentStatus: "pending",
+      nextRunAt: "1970-01-01T00:00:31.000Z",
+    });
+
+    expect(agentFailureDecision({ attemptCount: 3, maxAttempts: 3, nowMs: 1_000, retryDelayMs: 30_000 })).toEqual({
+      shouldRetry: false,
+      status: "failed",
+      jobStatus: "failed",
+      enrichmentStatus: "failed",
+      nextRunAt: null,
+    });
+  });
   it("maps canonical strict-gate rows into pass/fail completion decisions", () => {
     const complete = completionGateFromRow(gateRow());
     expect(complete.result).toBe("complete");

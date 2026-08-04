@@ -11,7 +11,7 @@ async function loadProvider(vars: { mode?: string; key?: string }) {
   vi.resetModules();
   vi.stubEnv("RAG_PROVIDER_MODE", vars.mode ?? "auto");
   vi.stubEnv("OPENAI_API_KEY", vars.key ?? "");
-  return import("@/lib/rag-provider");
+  return import("@/lib/rag/rag-provider");
 }
 
 describe("rag provider mode resolution", () => {

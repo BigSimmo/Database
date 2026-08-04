@@ -59,7 +59,7 @@ function Shell({ children }: { children: ReactNode }) {
                 <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--primary)]/20 bg-[color:var(--primary-soft)] text-[color:var(--primary)] shadow-[var(--shadow-inset)]">
                   <Layers className="h-4 w-4" />
                 </span>
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Clinical KB mockup
                 </p>
               </div>
@@ -72,7 +72,7 @@ function Shell({ children }: { children: ReactNode }) {
               </p>
             </div>
             <div className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                 Design priorities
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -122,7 +122,7 @@ function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neu
 }
 
 function Action({ children, primary = false }: { children: ReactNode; primary?: boolean }) {
-  const baseClass = `inline-flex min-h-10 max-w-full min-w-0 items-center justify-center gap-2 rounded-md px-3 text-center text-xs font-semibold leading-tight transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 ${focusRing} [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 sm:min-h-11 sm:text-sm`;
+  const baseClass = `inline-flex min-h-10 max-w-full min-w-0 items-center justify-center gap-2 rounded-md px-3 text-center text-xs font-semibold leading-tight transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 active:scale-[0.99] ${focusRing} [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 sm:min-h-11 sm:text-sm`;
   return (
     <button
       type="button"
@@ -142,7 +142,7 @@ function CloseButton({ label = "Close popup" }: { label?: string }) {
     <button
       type="button"
       aria-label={label}
-      className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:text-[color:var(--text)] ${focusRing} sm:h-11 sm:w-11`}
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition duration-160 ease-[var(--ease-spring)] hover:border-[color:var(--clinical-accent)]/35 hover:text-[color:var(--text)] active:scale-[0.98] ${focusRing} sm:h-11 sm:w-11`}
     >
       <X className="h-4 w-4" />
     </button>
@@ -155,7 +155,7 @@ function SourceCapsule() {
       type="button"
       aria-haspopup="dialog"
       aria-expanded="true"
-      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] ${focusRing}`}
+      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] active:scale-[0.99] ${focusRing}`}
     >
       <span className="min-w-0 truncate">Source-backed</span>
       <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -235,7 +235,7 @@ function SourcePreviewPopover() {
     <div className="max-w-xl rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-elevated)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Source preview</p>
+          <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Source preview</p>
           <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
             Check the best passage, status, and source action before opening the PDF.
           </p>
@@ -463,7 +463,7 @@ function QuoteCards() {
           className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-tight)]"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Exact quote</p>
+            <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Exact quote</p>
             <Pill>{item === 1 ? "p.12" : "p.14"}</Pill>
           </div>
           <blockquote className="mt-2 border-l-2 border-[color:var(--clinical-accent)]/35 pl-3 text-sm font-medium leading-6 text-[color:var(--text)]">
@@ -715,7 +715,7 @@ export default function AnswerEvidencePopupsMockupPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {["Tables", "Sources", "Images", "Quotes", "PDFs", "Map"].map((tab) => (
               <div key={tab} className="min-w-0">
-                <p className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="mb-2 text-xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   {tab} tab
                 </p>
                 <MobileEvidencePanel selected={tab} />

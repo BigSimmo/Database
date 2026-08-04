@@ -5,6 +5,7 @@ import {
   loadGoldenRetrievalCases,
   retrievalLimitForGoldenCase,
   summarizeGoldenRetrievalResults,
+  textContainsClinicalTerm,
 } from "../scripts/eval-retrieval";
 import type { SearchResult } from "../src/lib/types";
 
@@ -75,13 +76,16 @@ describe("golden retrieval eval helpers", () => {
       telemetry: {
         query_class: "table_threshold",
         search_total_latency_ms: 321,
-        retrieval_phase_latencies_ms: { query_classification: 12, metadata_hydration: 34 },
+        retrieval_phase_latencies_ms: { query_classification: 12, metadata_and_memory_hydration: 34 },
       },
       latencyMs: 321,
     });
 
     expect(evaluated.searchTotalLatencyMs).toBe(321);
-    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({ query_classification: 12, metadata_hydration: 34 });
+    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({
+      query_classification: 12,
+      metadata_and_memory_hydration: 34,
+    });
   });
 
   it("scores ideal graded signal ranking, coverage, and irrelevant sources", () => {
@@ -129,6 +133,15 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.ndcgAt10).toBe(1);
     expect(evaluated.requiredSignalCoverageAt10).toBe(1);
     expect(evaluated.irrelevantSourceRateAt10).toBe(0.5);
+    expect(evaluated.topResults[0]).toMatchObject({
+      relevanceGrade: 3,
+      matchedDeclaredSignals: ["document:ClozapinePresAdminMonitor", "content:anc", "table_evidence"],
+    });
+    expect(evaluated.topResults[1]).toMatchObject({ relevanceGrade: 0, matchedDeclaredSignals: [] });
+    expect(JSON.parse(JSON.stringify(evaluated)).topResults[0]).toMatchObject({
+      relevanceGrade: 3,
+      matchedDeclaredSignals: ["document:ClozapinePresAdminMonitor", "content:anc", "table_evidence"],
+    });
     expect(summarizeGoldenRetrievalResults([evaluated])).toMatchObject({
       signal_metric_case_count: 1,
       ndcg_at_10: 1,
@@ -213,6 +226,10 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.declaredSignalCount).toBe(2);
     expect(evaluated.requiredSignalCoverageAt10).toBe(1);
     expect(evaluated.ndcgAt10).toBe(1);
+    expect(evaluated.topResults[0]).toMatchObject({
+      relevanceGrade: 2,
+      matchedDeclaredSignals: ["content:fbc OR full blood count", "table_evidence"],
+    });
   });
 
   it("uses explicit neutral values for cases with no declared retrieval signals", () => {
@@ -235,6 +252,7 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.ndcgAt10).toBe(1);
     expect(evaluated.requiredSignalCoverageAt10).toBe(1);
     expect(evaluated.irrelevantSourceRateAt10).toBe(0);
+    expect(evaluated.topResults[0]).toMatchObject({ relevanceGrade: null, matchedDeclaredSignals: [] });
 
     const summary = summarizeGoldenRetrievalResults([evaluated]);
     expect(summary.signal_metric_case_count).toBe(0);
@@ -447,6 +465,56 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.failures).toEqual([]);
   });
 
+  it("recognizes current safety-plan and alcohol-withdrawal titles", () => {
+    const safetyPlan = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "safety-plan-title",
+        query: "What should a patient safety plan include?",
+        expectedQueryClass: "document_lookup",
+        expectedDocumentSubstrings: ["PtSafetyPlan"],
+        expectedContentTerms: ["safety", "plan"],
+        topK: 8,
+        expectTableEvidence: false,
+      },
+      results: [
+        result({
+          // Strict golden-eval aliases only accept "Patient Safety Plan" for PtSafetyPlan
+          // (see scripts/lib/clinical-aliases.ts tiering note).
+          title: "Patient Safety Plan Policy and Procedure (RKPG)",
+          file_name: "Patient Safety Plan Policy and Procedure (RKPG).pdf",
+          content: "A safety plan records agreed actions.",
+        }),
+      ],
+      telemetry: { query_class: "document_lookup", retrieval_strategy: "text_fast_path" },
+      latencyMs: 10,
+    });
+    const alcoholWithdrawal = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "ciwa-title",
+        query: "What CIWA-Ar score threshold requires drug treatment in alcohol withdrawal?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: ["Alcohol withdrawal"],
+        expectedContentTerms: ["alcohol", "withdrawal", ["ciwa", "score", "threshold"]],
+        topK: 12,
+        expectTableEvidence: false,
+      },
+      results: [
+        result({
+          // Document substring matching uses title/file/section path only (not body
+          // content), so the fixture title must carry the pinned phrase.
+          title: "Alcohol Withdrawal - Addiction, Toxicity and Withdrawal",
+          file_name: "Alcohol Withdrawal - Addiction, Toxicity and Withdrawal.pdf",
+          content: "Use the CIWA-Ar treatment table for alcohol withdrawal.",
+        }),
+      ],
+      telemetry: { query_class: "table_threshold", retrieval_strategy: "text_fast_path" },
+      latencyMs: 10,
+    });
+
+    expect(safetyPlan.failures).toEqual([]);
+    expect(alcoholWithdrawal.failures).toEqual([]);
+  });
+
   it("reports failed cases with top result summaries", () => {
     const evaluated = evaluateGoldenRetrievalCase({
       testCase: {
@@ -551,5 +619,31 @@ describe("golden retrieval eval helpers", () => {
       expectedContentTerms: [],
       topK: 8,
     });
+  });
+});
+
+describe("textContainsClinicalTerm word-boundary matching", () => {
+  // Inputs mirror resultContentText output: lowercase, whitespace-collapsed, punctuation kept.
+  it("preserves every whitespace-delimited match (superset guarantee)", () => {
+    expect(textContainsClinicalTerm("a ciwa score of 10", "ciwa")).toBe(true);
+    expect(textContainsClinicalTerm("full blood count monitoring", "full blood count")).toBe(true);
+    expect(textContainsClinicalTerm("anc below 1.5 requires review", "1.5")).toBe(true);
+  });
+
+  it("matches punctuation-joined corpus tokens the whitespace matcher missed (canary #53 audit classes)", () => {
+    expect(textContainsClinicalTerm("scores on the ciwa-ar scale", "ciwa")).toBe(true);
+    expect(textContainsClinicalTerm("assessment and treatment, then review", "treatment")).toBe(true);
+    expect(textContainsClinicalTerm("methadone (opioid substitution)", "opioid")).toBe(true);
+    expect(textContainsClinicalTerm("risk of developing ptsd.[35]", "ptsd")).toBe(true);
+    // Line-broken hyphenation from PDF extraction ("ciwa- ar") matches via the boundary run.
+    expect(textContainsClinicalTerm("the (ciwa- ar) scale, revised", "ciwa")).toBe(true);
+    // Multi-word terms tolerate punctuation as the internal separator too.
+    expect(textContainsClinicalTerm("full-blood-count monitoring", "full blood count")).toBe(true);
+  });
+
+  it("still rejects substrings inside words (no false positives from the widened boundary)", () => {
+    expect(textContainsClinicalTerm("managed over time with support", "ed")).toBe(false);
+    expect(textContainsClinicalTerm("prescription of lithium", "script")).toBe(false);
+    expect(textContainsClinicalTerm("intramuscularly administered", "im")).toBe(false);
   });
 });

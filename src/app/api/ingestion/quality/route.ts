@@ -321,7 +321,7 @@ export async function GET(request: Request) {
     if (isDemoMode()) return NextResponse.json({ items: [], demoMode: true });
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,
@@ -356,26 +356,22 @@ export async function GET(request: Request) {
         .from("ingestion_jobs")
         .select("id,document_id,status,stage,error_message,updated_at")
         .in("document_id", documentIds)
-        .order("updated_at", { ascending: false })
-        .limit(200),
+        .order("updated_at", { ascending: false }),
       supabase
         .from("ingestion_job_stages")
         .select(
           "id,document_id,job_id,stage_name,stage_status,error_message,metadata,artifact_counts,finished_at,started_at",
         )
         .in("document_id", documentIds)
-        .order("started_at", { ascending: false })
-        .limit(300),
+        .order("started_at", { ascending: false }),
       supabase
         .from("document_pages")
         .select("document_id,page_number,text,ocr_used,metadata")
-        .in("document_id", documentIds)
-        .limit(600),
+        .in("document_id", documentIds),
       supabase
         .from("document_images")
         .select("document_id,page_number,source_kind,searchable,metadata")
-        .in("document_id", documentIds)
-        .limit(600),
+        .in("document_id", documentIds),
     ]);
 
     for (const result of [qualityResult, jobsResult, stagesResult, pagesResult, imagesResult]) {

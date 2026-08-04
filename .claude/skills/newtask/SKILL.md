@@ -9,6 +9,14 @@ This repo moves fast (`claude/*` branches auto-merge on green) and shares ~40 wo
 and one stash stack, so starting work on a stale base or a cold worktree is the default
 failure. This skill sets up an isolated, current worktree so new work starts clean.
 
+## Before you start
+
+Check whether this task can ride an already-open PR you own or bundle with other queued
+low-risk work instead of minting a new branch — see AGENTS.md "PR bundling (reduce
+one-task-one-PR churn)". Only proceed to the steps below (which create a new branch and
+worktree) once bundling doesn't apply: the work isn't independently low-risk by that
+rule's test, or there's no suitable open PR to ride.
+
 ## Steps
 
 1. **Sync main.** `git fetch --quiet origin main`.

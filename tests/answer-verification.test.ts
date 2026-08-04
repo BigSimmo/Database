@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { extractClinicalValueAtoms, extractNumericTokens, verifyAnswerNumbers } from "../src/lib/answer-verification";
-import type { SearchResult } from "../src/lib/types";
+import {
+  applyNumericVerification,
+  containsNumericBandReference,
+  detectLabelledNumericBandConflicts,
+  extractClinicalValueAtoms,
+  extractNumericTokens,
+  verifyAnswerNumbers,
+} from "../src/lib/answer-verification";
+import { citationFromResult } from "../src/lib/citations";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
   return {
@@ -20,6 +28,231 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
 }
 
 describe("answer-verification (GEN-C2 / GEN-H2)", () => {
+  it("detects overlapping labelled score bands without inferring corrected cutoffs", () => {
+    const conflicts = detectLabelledNumericBandConflicts(
+      "Escalate when the LUNSERS score is medium (41-89), high (81-100), or very high (>101).",
+    );
+
+    expect(conflicts).toEqual([
+      expect.objectContaining({
+        reason: "overlap",
+        labels: ["medium", "high", "very high"],
+        text: "medium (41-89), high (81-100), or very high (>101)",
+      }),
+    ]);
+  });
+
+  it("does not merge a trailing different-scale identity into the active score band list", () => {
+    expect(
+      detectLabelledNumericBandConflicts("LUNSERS score bands: medium (41-89). High (81-100) applies on PANSS."),
+    ).toEqual([]);
+    expect(
+      detectLabelledNumericBandConflicts("LUNSERS score bands: medium (41-89). High (81-100) applies on LUNSERS."),
+    ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+    for (const actionAcronym of ["ECG", "CNC", "ED"]) {
+      expect(
+        detectLabelledNumericBandConflicts(
+          `LUNSERS score bands: medium (41-89). High (81-100) requires ${actionAcronym} review.`,
+        ),
+      ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+    }
+    expect(
+      detectLabelledNumericBandConflicts("LUNSERS score bands: medium (41-89). High (81-100) is reviewed in ICU."),
+    ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+  });
+
+  it("does not merge a repeated active scale when the same clause switches to another scale", () => {
+    expect(
+      detectLabelledNumericBandConflicts(
+        "LUNSERS score bands: medium (41-89); for comparison, LUNSERS differs because PANSS uses high (81-100).",
+      ),
+    ).toEqual([]);
+    expect(
+      detectLabelledNumericBandConflicts(
+        "LUNSERS score bands: medium (41-89); for comparison, LUNSERS uses high (81-100).",
+      ),
+    ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+    expect(
+      detectLabelledNumericBandConflicts(
+        "LUNSERS score bands: medium (41-89); LUNSERS differs from PANSS, where high (81-100).",
+      ),
+    ).toEqual([]);
+    expect(
+      detectLabelledNumericBandConflicts(
+        "LUNSERS score bands: medium (41-89); unlike PANSS, LUNSERS has high (81-100).",
+      ),
+    ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+    expect(
+      detectLabelledNumericBandConflicts("LUNSERS score bands: medium (41-89); after ECG review, high (81-100)."),
+    ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+  });
+
+  it("respects inclusive boundaries and ignores coherent or unit-mismatched band lists", () => {
+    expect(detectLabelledNumericBandConflicts("Severity bands are mild (0-10) and severe (>=10).")).toHaveLength(1);
+    expect(detectLabelledNumericBandConflicts("Risk score is low (0-9), medium (10-19), or high (>19).")).toEqual([]);
+    expect(detectLabelledNumericBandConflicts("Risk levels are low (1-2 mg) and high (1-2 mmol).")).toEqual([]);
+  });
+
+  it.each([
+    "Scores 41-89 (medium), 81-100 (high), >101 (very high).",
+    "LUNSERS score bands: 41 to 89 are medium; 81 to 100 are high; >101 is very high.",
+  ])("detects overlapping value-first labelled bands: %s", (text) => {
+    expect(detectLabelledNumericBandConflicts(text)).toEqual([
+      expect.objectContaining({ reason: "overlap", labels: ["medium", "high", "very high"] }),
+    ]);
+  });
+
+  it.each([
+    "Scores 0-9 (low), 10-19 (medium), >19 (high).",
+    "LUNSERS score bands: 0 to 9 are low; 10 to 19 are medium; >19 is high.",
+  ])("leaves coherent value-first labelled bands unchanged: %s", (text) => {
+    expect(detectLabelledNumericBandConflicts(text)).toEqual([]);
+  });
+
+  it.each([
+    "Score bands: between 41 and 89 is medium; between 81 and 100 is high.",
+    "Score bands: medium (scores 41-89), high (scores 81-100).",
+    "Score bands: medium = 41-89; high = 81-100.",
+    "Score bands: 41-89 corresponds to medium; 81-100 corresponds to high.",
+    "Score bands:\n- Medium: 41-89.\n- High: 81-100.",
+    "| Band | Score |\n| --- | --- |\n| Medium | 41-89 |\n| High | 81-100 |",
+    "Score bands: medium (**41-89**), high (**81-100**).",
+    "Score bands: **medium** (41-89), **high** (81-100).",
+    "Score bands: **41-89** (medium), **81-100** (high).",
+    "LUNSERS score bands: medium scores from 41 to 89; high scores from 81 to 100.",
+    "LUNSERS bands: medium 41 through 89; high 81 through 100.",
+    "LUNSERS scores: medium 41-89. High 81-100.",
+    "LUNSERS: medium 41-89; high 81-100.",
+    "LUNSERS score bands: medium from 41 to 89; high from 81 to 100.",
+    "LUNSERS score bands: medium 41-89, while the score is high 81-100.",
+    "| Score | Band |\n| --- | --- |\n| 41-89 | Medium |\n| 81-100 | High |",
+  ])("detects overlapping bands in provider formatting: %s", (text) => {
+    expect(detectLabelledNumericBandConflicts(text)).toEqual([
+      expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] }),
+    ]);
+  });
+
+  it.each([
+    ["LUNSERS scores: medium 41-89. High 81-100. Very high >101.", ["medium", "high", "very high"]],
+    ["LUNSERS: medium 41-89; high 81-100; very high >101.", ["medium", "high", "very high"]],
+    ["Severity bands are normal 0-10, borderline 8-15, and severe >15.", ["normal", "borderline", "severe"]],
+    ["Severity bands are minimal 0-10, moderate 8-15, and severe >15.", ["minimal", "moderate", "severe"]],
+    ["Risk bands are low 0-10 mg, medium 8-15 mg, and high 20-30 mmol.", ["low", "medium"]],
+  ])("detects an overlapping compatible-unit subset: %s", (text, labels) => {
+    expect(detectLabelledNumericBandConflicts(text)).toEqual([expect.objectContaining({ reason: "overlap", labels })]);
+  });
+
+  it("detects a single reversed labelled range", () => {
+    expect(detectLabelledNumericBandConflicts("Risk score is high (100-81).")).toEqual([
+      expect.objectContaining({ reason: "reversed_range", labels: ["high"] }),
+    ]);
+  });
+
+  it.each([
+    "Depression score is low (0-9), while suicide risk is high (0-9).",
+    "Score ranges differ: Guideline A uses low (0-10); Guideline B uses high (5-15).",
+    "Score ranges differ: Protocol A uses low (0-10); Protocol B uses high (5-15).",
+    "PHQ-9 uses low (0-10); GAD-7 uses high (5-15).",
+    "Scale A uses low (0-10); Scale B uses high (5-15).",
+    "Score ranges differ: HAM-D uses low (0-10); MADRS uses high (5-15).",
+    "Score ranges differ: NICE uses low (0-10); Maudsley uses high (5-15).",
+    "Score ranges differ: BPRS uses low (0-10); PANSS uses high (5-15).",
+    "HAM-D and MADRS score ranges differ: HAM-D uses low (0-10); MADRS uses high (5-15).",
+    "Comparing NICE and Maudsley score ranges: NICE uses low (0-10); Maudsley uses high (5-15).",
+    "BPRS and PANSS score ranges: BPRS uses low (0-10); PANSS uses high (5-15).",
+  ])("does not merge explicitly distinct scales or sources: %s", (text) => {
+    expect(detectLabelledNumericBandConflicts(text)).toEqual([]);
+  });
+
+  it("detects overlap when the same named scale is repeated for each band", () => {
+    expect(
+      detectLabelledNumericBandConflicts("LUNSERS score is medium (41-89); LUNSERS score is high (81-100)."),
+    ).toEqual([expect.objectContaining({ reason: "overlap", labels: ["medium", "high"] })]);
+  });
+
+  it("recognizes an unlabelled actionable score range as a band reference", () => {
+    for (const text of [
+      "Escalate when the LUNSERS score is 81-100.",
+      "Escalate for scores of 81-100.",
+      "Escalate for a result of 81-100 on the LUNSERS score.",
+      "Escalate when the score is between 81 and 100.",
+      "Escalate at 81-100 points.",
+      "Escalate in the 81-100 range.",
+      "Escalate for LUNSERS values of 81-100.",
+    ]) {
+      expect(containsNumericBandReference(text)).toBe(true);
+    }
+    expect(containsNumericBandReference("The patient is 81-100 years old.")).toBe(false);
+  });
+
+  it("does not merge independent answer fields into one conflicting scale", () => {
+    const evidence = source({
+      content: "Renal risk percentage is low (0-10%). Cardiac severity percentage is high (5-15%).",
+    });
+    const input: RagAnswer = {
+      answer: "Renal risk percentage is low (0-10%).",
+      grounded: true,
+      confidence: "medium",
+      citations: [citationFromResult(evidence, "model_selected")],
+      sources: [evidence],
+      answerSections: [
+        {
+          heading: "Cardiac scale",
+          body: "Cardiac severity percentage is high (5-15%).",
+          citation_chunk_ids: [evidence.id],
+        },
+      ],
+    };
+
+    expect(applyNumericVerification(input)).toMatchObject({ grounded: true, confidence: "medium" });
+  });
+
+  it("keeps distinct attributed entries in a preformatted comparison matrix", () => {
+    const text = "Guideline A uses low (0-10); Guideline B uses high (5-15).";
+    const evidence = source({ content: text });
+    const input: RagAnswer = {
+      answer: text,
+      grounded: true,
+      confidence: "high",
+      citations: [citationFromResult(evidence, "model_selected")],
+      sources: [evidence],
+      preformatted: true,
+      responseMode: "comparison_matrix",
+    };
+
+    expect(applyNumericVerification(input)).toMatchObject({ grounded: true, confidence: "high" });
+  });
+
+  it("fails closed for an internally contradictory entry in a preformatted comparison matrix", () => {
+    const text = "Guideline A score bands are medium (41-89) and high (81-100).";
+    const input: RagAnswer = {
+      answer: text,
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [source({ content: text })],
+      preformatted: true,
+      responseMode: "comparison_matrix",
+    };
+
+    expect(applyNumericVerification(input)).toMatchObject({ grounded: false, confidence: "unsupported" });
+  });
+
+  it("does not promise a citation after failing closed and clearing citations", () => {
+    const input: RagAnswer = {
+      answer: "Score bands are medium (41-89) and high (81-100).",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    };
+
+    const output = applyNumericVerification(input);
+    expect(output.citations).toEqual([]);
+    expect(output.answer).toContain("Review the source material");
+    expect(output.answer).not.toContain("cited source");
+  });
+
   it("canonicalizes equivalent microgram spellings without collapsing milligrams", () => {
     const variants = ["100 ug", "100 µg", "100 μg", "100 mcg", "100 microgram", "100 micrograms"];
     const keys = variants.map((value) => extractClinicalValueAtoms(value)[0]?.canonicalValue);
@@ -63,10 +296,16 @@ describe("answer-verification (GEN-C2 / GEN-H2)", () => {
       canonicalValue: "2",
       canonicalUnit: "x10^9/L",
     });
+    expect(extractClinicalValueAtoms("WBC < 3.0 x 109/L")[0]).toMatchObject({
+      comparator: "below",
+      canonicalValue: "3",
+      canonicalUnit: "x10^9/L",
+    });
 
     const verifies = (answer: string, evidence: string) =>
       verifyAnswerNumbers(answer, [{ chunk_id: "chunk-1" }], [source({ content: evidence })]);
     expect(verifies("Withhold below 2.0 ×10⁹/L.", "Withhold below 2.0 x10^9/L.").hasUnverifiedNumbers).toBe(false);
+    expect(verifies("Withhold below 3.0 ×10⁹/L.", "Withhold below 3.0 x 109/L.").hasUnverifiedNumbers).toBe(false);
     expect(verifies("Withhold below 2.0 ×10⁹/L.", "Withhold below 2.0 x10^6/L.").hasUnverifiedNumbers).toBe(true);
     expect(verifies("Withhold below 2.0 ×10⁹/L.", "Withhold below 2.0.").hasUnverifiedNumbers).toBe(true);
     expect(verifyAnswerNumbers("Below 2 ×10⁹/L.", [{ chunk_id: "missing" }], [source()]).hasUnverifiedNumbers).toBe(

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit"
+  short_description: "Audit the Database repository with concrete evidence"
+  default_prompt: "Use $audit to perform an evidence-backed Database audit with severity-ranked reproducible findings."

@@ -1,6 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
+import type { RagAnswer } from "../src/lib/types";
 
 const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+function sampleAnswer(answer = "Cached clinical answer."): RagAnswer {
+  return {
+    answer,
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources: [],
+    routingMode: "fast",
+    routingReason: "test",
+    modelUsed: "test-model",
+  };
+}
 
 type FilterCall =
   | { method: "eq"; column: string; value: unknown }
@@ -51,7 +65,7 @@ describe("RAG cache invalidation", () => {
       }),
     }));
 
-    const { invalidateRagCachesForDocumentMutation } = await import("../src/lib/rag");
+    const { invalidateRagCachesForDocumentMutation } = await import("../src/lib/rag/rag");
 
     invalidateRagCachesForDocumentMutation(ownerId);
 
@@ -71,5 +85,139 @@ describe("RAG cache invalidation", () => {
     invalidateRagCachesForDocumentMutation(ownerId, { affectsPublicCorpus: true });
     await vi.waitFor(() => expect(calls.length).toBe(2), { timeout: 10000 });
     expect(calls[1]).toContainEqual({ method: "is", column: "owner_id", value: null });
+  });
+
+  it("discards a deferred setCachedAnswer that resumes after invalidateRagCachesForOwner", async () => {
+    vi.resetModules();
+
+    let releaseIndexingVersion: (() => void) | undefined;
+    const indexingVersionGate = new Promise<void>((resolve) => {
+      releaseIndexingVersion = resolve;
+    });
+    const indexingStamp = "rag-deep-memory-v1:doc-1:2026-07-01T00:00:00.000Z:";
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        from: vi.fn((table: string) => {
+          if (table === "documents") {
+            const builder = {
+              select: vi.fn(() => builder),
+              eq: vi.fn(() => builder),
+              is: vi.fn(() => builder),
+              or: vi.fn(() => builder),
+              in: vi.fn(() => builder),
+              order: vi.fn(() => builder),
+              limit: vi.fn(() => builder),
+              abortSignal: vi.fn(() => builder),
+              then: (onfulfilled?: (value: { data: unknown; error: null }) => unknown) =>
+                indexingVersionGate
+                  .then(() =>
+                    Promise.resolve({
+                      data: [{ id: "doc-1", updated_at: "2026-07-01T00:00:00.000Z", metadata: {} }],
+                      error: null,
+                    }),
+                  )
+                  .then(onfulfilled),
+            };
+            return builder;
+          }
+
+          const deleteCalls: FilterCall[] = [];
+          return {
+            delete: vi.fn(() => new DeleteQuery(deleteCalls)),
+            insert: vi.fn(async () => ({ data: null, error: null })),
+          };
+        }),
+      }),
+    }));
+
+    const { getCachedAnswer, invalidateRagCachesForOwner, setCachedAnswer } = await import("../src/lib/rag/rag-cache");
+
+    const args = {
+      query: "clozapine monitoring",
+      ownerId,
+      accessScope: { ownerId, includePublic: true as const },
+    };
+    const promotion = setCachedAnswer(args, sampleAnswer("pre-review answer"), {
+      indexingVersionAtRetrievalStart: indexingStamp,
+    });
+
+    // Simulate a table-fact / review mutation while the deferred promotion awaits
+    // its forced indexing-version read. Review metadata does not change that stamp.
+    invalidateRagCachesForOwner(ownerId);
+    releaseIndexingVersion?.();
+    await promotion;
+
+    const cached = await getCachedAnswer(args, Date.now(), {
+      indexingVersionAtRequestStart: indexingStamp,
+    });
+    expect(cached).toBeNull();
+  });
+
+  it("does not let one owner's invalidation discard another owner's deferred setCachedAnswer", async () => {
+    vi.resetModules();
+
+    const ownerA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const ownerB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    let releaseIndexingVersion: (() => void) | undefined;
+    const indexingVersionGate = new Promise<void>((resolve) => {
+      releaseIndexingVersion = resolve;
+    });
+    const indexingStamp = "rag-deep-memory-v1:doc-1:2026-07-01T00:00:00.000Z:";
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        from: vi.fn((table: string) => {
+          if (table === "documents") {
+            const builder = {
+              select: vi.fn(() => builder),
+              eq: vi.fn(() => builder),
+              is: vi.fn(() => builder),
+              or: vi.fn(() => builder),
+              in: vi.fn(() => builder),
+              order: vi.fn(() => builder),
+              limit: vi.fn(() => builder),
+              abortSignal: vi.fn(() => builder),
+              then: (onfulfilled?: (value: { data: unknown; error: null }) => unknown) =>
+                indexingVersionGate
+                  .then(() =>
+                    Promise.resolve({
+                      data: [{ id: "doc-1", updated_at: "2026-07-01T00:00:00.000Z", metadata: {} }],
+                      error: null,
+                    }),
+                  )
+                  .then(onfulfilled),
+            };
+            return builder;
+          }
+
+          const deleteCalls: FilterCall[] = [];
+          return {
+            delete: vi.fn(() => new DeleteQuery(deleteCalls)),
+            insert: vi.fn(async () => ({ data: null, error: null })),
+          };
+        }),
+      }),
+    }));
+
+    const { getCachedAnswer, invalidateRagCachesForOwner, setCachedAnswer } = await import("../src/lib/rag/rag-cache");
+
+    const argsB = {
+      query: "clozapine monitoring",
+      ownerId: ownerB,
+      accessScope: { ownerId: ownerB, includePublic: true as const },
+    };
+    const promotionB = setCachedAnswer(argsB, sampleAnswer("owner-b answer"), {
+      indexingVersionAtRetrievalStart: indexingStamp,
+    });
+
+    invalidateRagCachesForOwner(ownerA);
+    releaseIndexingVersion?.();
+    await promotionB;
+
+    const cachedB = await getCachedAnswer(argsB, Date.now(), {
+      indexingVersionAtRequestStart: indexingStamp,
+    });
+    expect(cachedB?.answer).toBe("owner-b answer");
   });
 });

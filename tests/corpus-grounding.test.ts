@@ -212,7 +212,7 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
       const actual = await importOriginal<typeof import("../src/lib/openai")>();
       return { ...actual, generateParsedTextResult: classifierMock };
     });
-    const rag = await import("../src/lib/rag");
+    const rag = await import("../src/lib/rag/rag");
     const corpusGrounding = await import("../src/lib/corpus-grounding");
     const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
     rag.resetClassifierVerdictMemoForTests();
@@ -324,9 +324,10 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
       },
     }));
     const { rag, analyzeClinicalQuery } = await loadRag({ classifierMock, rows: [] });
-    const analysis = analyzeClinicalQuery("bipolar disorder");
+    const query = "bipolar disorder long term care";
+    const analysis = analyzeClinicalQuery(query);
 
-    const result = await rag.analyzeQueryWithClassifierFallback("bipolar disorder", analysis);
+    const result = await rag.analyzeQueryWithClassifierFallback(query, analysis);
 
     expect(classifierMock).toHaveBeenCalledTimes(1);
     expect(result.queryClass).toBe("broad_summary");

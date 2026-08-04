@@ -1,6 +1,7 @@
 export const savedServicesStorageKey = "clinical-kb-saved-services";
 export const savedFormsStorageKey = "clinical-kb-saved-forms";
 export const savedDifferentialsStorageKey = "clinical-kb-saved-differentials";
+export const savedFactsheetsStorageKey = "clinical-kb-saved-factsheets";
 export const savedRegistryStorageChangedEvent = "clinical-kb-saved-registry-changed";
 
 export function readSavedRegistrySlugs(key: string): string[] {
@@ -34,7 +35,8 @@ export function subscribeSavedRegistrySlugs(onChange: () => void) {
     if (
       event.key === savedServicesStorageKey ||
       event.key === savedFormsStorageKey ||
-      event.key === savedDifferentialsStorageKey
+      event.key === savedDifferentialsStorageKey ||
+      event.key === savedFactsheetsStorageKey
     ) {
       onChange();
     }

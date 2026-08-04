@@ -15,13 +15,21 @@ gaps to reconcile.
 A recipe is an exported string of Tailwind utilities, composed at the call site
 with `cn(...)` (a `filter(Boolean).join(" ")` helper — falsey args drop out, so
 `cn(base, cond && extra, className)` is the standard shape). Recipes compose by
-template literal (`` `${controlBase} …` `` / `` `${quietPanel} …` ``). All colour,
+template literal (`` `${panelSubtle} …` `` / `` `${primaryControl}` ``). All colour,
 radius, shadow, and type values go through design tokens
 (`text-[color:var(--…)]`, `rounded-lg`, `shadow-[var(--…)]`) — never raw palette
 or hex (see M1/M2 in `07-token-adoption-audit.md`).
 
 Recipes are **structure + resting appearance + state contract**. The call site
 supplies only layout deltas (width, margin, one-off padding) and behaviour.
+
+**Export surface:** only `export const` recipes are importable. Module-private
+helpers (`controlBase`, `insetCard`, `iconTile`, `compactMetadataRow`,
+`toneWarningQuiet`, `statusDotBase`, `chatComposerShellDelta`) stay inside
+`ui-primitives.tsx` for the React components that own them — do not re-derive
+or re-export them at call sites. Prefer the exported components
+(`LoadingPanel`, `PanelHeading`, `SourceProvenance`, source badges) when the
+private recipe would have been the only reason to import.
 
 ## State contract (the intended convention)
 
@@ -43,22 +51,20 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 
 ### Interactive controls (tap targets)
 
-| Recipe                    | Purpose                                       | Tap                 | Hover             | Active | Focus-visible                            | Disabled |
-| ------------------------- | --------------------------------------------- | ------------------- | ----------------- | ------ | ---------------------------------------- | -------- |
-| `controlBase`             | Base for buttons (composed by others)         | `min-h-11`          | — (subclass adds) | ✅     | ✅                                       | ✅       |
-| `primaryControl`          | Primary command button                        | ✅                  | ✅                | ✅     | ✅                                       | ✅       |
-| `floatingControl`         | Secondary / floating button                   | `min-h-11`          | ✅                | ❌     | ✅                                       | ✅       |
-| `toolbarButton`           | Square icon button                            | `h-11 w-11`         | ✅                | ❌     | ✅                                       | ✅       |
-| `navPill`                 | Nav / segmented pill                          | `min-h-11`          | ✅                | ❌     | ✅                                       | ✅       |
-| `chatMicroAction`         | Small chat action (copy, retry…)              | `min-h-11 min-w-11` | ✅                | ❌     | ✅                                       | ✅       |
-| `sourceCapsuleHit`        | Citation capsule tap target (button)          | `min-h-11`          | ✅ (drives face)  | ❌     | ✅ (`.source-capsule-hit:focus-visible`) | ❌       |
-| `sourceCapsule`           | Compact visible pill (`.source-capsule-face`) | — (inside hit)      | ✅ (via hit)      | ❌     | ✅ (via hit)                             | ❌       |
-| `sourceCapsuleCountBadge` | Inset count chip inside `sourceCapsule`       | — (non-tap)         | ❌                | ❌     | ❌                                       | ❌       |
-| `chatComposerIconButton`  | Composer icon button                          | `h-11 w-11`         | ✅                | ❌     | ✅                                       | ✅       |
-| `chatSendButton`          | Composer send (accent)                        | `h-11 w-11`         | ✅                | ❌     | ✅                                       | ✅       |
-| `sidebarItem`             | Sidebar nav row                               | `min-h-11`          | ✅                | ❌     | ✅                                       | ✅       |
-| `sidebarToolTile`         | Sidebar tool tile                             | `min-h-[64px]`      | ✅                | ❌     | ✅                                       | ❌       |
-| `shellChip`               | Filter / mode chip                            | `min-h-11`          | ✅                | ❌     | ❌                                       | ❌       |
+| Recipe                    | Purpose                                             | Tap                 | Hover            | Active | Focus-visible                            | Disabled |
+| ------------------------- | --------------------------------------------------- | ------------------- | ---------------- | ------ | ---------------------------------------- | -------- |
+| `primaryControl`          | Primary command button (uses private `controlBase`) | ✅                  | ✅               | ✅     | ✅                                       | ✅       |
+| `floatingControl`         | Secondary / floating button                         | `min-h-11`          | ✅               | ❌     | ✅                                       | ✅       |
+| `toolbarButton`           | Square icon button                                  | `h-11 w-11`         | ✅               | ❌     | ✅                                       | ✅       |
+| `navPill`                 | Nav / segmented pill                                | `min-h-11`          | ✅               | ❌     | ✅                                       | ✅       |
+| `chatMicroAction`         | Small chat action (copy, retry…)                    | `min-h-11 min-w-11` | ✅               | ❌     | ✅                                       | ✅       |
+| `sourceCapsuleHit`        | Citation capsule tap target (button)                | `min-h-11`          | ✅ (drives face) | ❌     | ✅ (`.source-capsule-hit:focus-visible`) | ❌       |
+| `sourceCapsule`           | Compact visible pill (`.source-capsule-face`)       | — (inside hit)      | ✅ (via hit)     | ❌     | ✅ (via hit)                             | ❌       |
+| `sourceCapsuleCountBadge` | Inset count chip inside `sourceCapsule`             | — (non-tap)         | ❌               | ❌     | ❌                                       | ❌       |
+| `chatComposerIconButton`  | Composer icon button                                | `h-11 w-11`         | ✅               | ❌     | ✅                                       | ✅       |
+| `chatSendButton`          | Composer send (accent)                              | `h-11 w-11`         | ✅               | ❌     | ✅                                       | ✅       |
+| `sidebarItem`             | Sidebar nav row                                     | `min-h-11`          | ✅               | ❌     | ✅                                       | ✅       |
+| `shellChip`               | Filter / mode chip                                  | `min-h-11`          | ✅               | ❌     | ❌                                       | ❌       |
 
 ### Form fields
 
@@ -66,30 +72,35 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 | -------------------------------------------- | --------------------------------------------------- | ---------------------------- | ----------------------------------------------- |
 | `fieldControl`                               | Base text input                                     | `focus:` ring+border         | `h-11`, `outline-none`, `placeholder:text-soft` |
 | `fieldControlWithIcon` / `fieldControlPlain` | `fieldControl` + padding for a leading icon / plain | —                            | compose `fieldControl`                          |
-| `commandInput`                               | Large command-bar input                             | `focus:` ring+border         | `min-h-12`, `motion-safe:transition`            |
 | `chatComposerShell`                          | Composer wrapper                                    | `focus-within:border-accent` | `min-h-[56px]` pill container                   |
 | `chatComposerInput`                          | Bare composer input                                 | via shell `focus-within`     | `min-h-11`, `outline-none`                      |
 | `fieldLabel`                                 | Field label (= `eyebrowText`)                       | —                            | —                                               |
 | `fieldIcon`                                  | Absolutely-positioned leading icon                  | —                            | `pointer-events-none`                           |
 
+Removed (zero importers): `commandInput`. Large search/command chrome uses
+`chatComposerShell` / `chatComposerInput` (or page-owned composer classes).
+
 ### Surfaces & cards (non-interactive unless noted)
 
-`raisedCard`, `insetCard`, `glassPanel`, `quietPanel`, `panel`, `panelSubtle`
-(= `quietPanel`), `answerSurface`, `evidenceSurface`, `tableCard`,
-`tableCardHeader`. Interactive exception: **`sourceCard`** = `quietPanel` +
-`hover:border-strong hover:shadow-hover` (a clickable card).
-Overlay: **`sheetSurface`** / `sheetHandle` for the mobile bottom sheet
-(`ui/sheet.tsx`).
+**Exported:** `raisedCard`, `panel`, `panelSubtle`, `answerSurface`, `tableCard`,
+`tableCardHeader`, `glassOverlaySurface`. Interactive exception: **`sourceCard`**
+= `panelSubtle` + `hover:border-strong hover:shadow-hover` (a clickable card).
+
+**Module-private:** `insetCard` (used by `LoadingPanel` only).
+
+Removed (zero importers): `glassPanel`, `evidenceSurface`, former aliases
+`quietPanel` / `sheetSurface` / `sheetHandle`. Mobile sheet chrome lives in
+`ui/sheet.tsx`, not as shared recipe exports.
 
 ### Rows
 
 | Recipe                | Tap                   | Interactive states         |
 | --------------------- | --------------------- | -------------------------- |
-| `evidenceRow`         | `min-h-12`            | hover + focus-visible ✅   |
-| `clinicalNotesRow`    | `min-h-12`            | hover + focus-visible ✅   |
 | `chatActionRow`       | `min-h-11 sm:min-h-8` | layout row (holds actions) |
 | `tableMicroActionRow` | `min-h-11 sm:min-h-9` | layout row                 |
-| `compactMetadataRow`  | —                     | metadata line              |
+
+Removed (zero importers): `evidenceRow`, `clinicalNotesRow`. Metadata lines use
+`SourceProvenance` (private `compactMetadataRow` inside that component).
 
 ### Pills, badges, dots, tones
 
@@ -98,16 +109,19 @@ Overlay: **`sheetSurface`** / `sheetHandle` for the mobile bottom sheet
   `sourceCapsuleCountBadge` for the answer sources disclosure (icon, label,
   tabular count, chevron). The visible pill reads compact while the hit target
   keeps the WCAG touch size.
-- **Status dots:** `statusDotBase` + `statusDotReady` (success) / `statusDotReview`
-  (warning) / `statusDotMuted`.
-- **Semantic tone triads** (border+bg+text, dark-mode-safe): `toneSuccess`,
-  `toneDanger`, `toneInfo`, `toneWarning`, `toneWarningQuiet`, `toneNeutral`.
-  These are the canonical tone source — hand-rolled palette tone helpers were
-  removed in M2; reuse these instead of re-deriving.
+- **Status dots (exported):** `statusDotReady` (success) / `statusDotReview`
+  (warning) / `statusDotMuted`. Shared `statusDotBase` is module-private.
+- **Semantic tone triads** (border+bg+text, dark-mode-safe, exported):
+  `toneSuccess`, `toneDanger`, `toneInfo`, `toneWarning`, `toneNeutral`.
+  Quieter warning (`toneWarningQuiet`) is module-private and only consumed by
+  `SourceDesignationBadge` / `SourceStatusBadge` — import those components
+  instead of re-deriving the quiet tone. These remain the canonical tone source
+  — hand-rolled palette tone helpers were removed in M2.
 
 ### Icon tiles & text
 
-- **Icon tiles** (decorative, `h-9 w-9`): `iconTile`, `iconTilePremium`.
+- **Icon tiles:** export **`iconTilePremium`** for call sites. Plain `iconTile`
+  is module-private (`PanelHeading` only).
 - **Text:** `textMuted`, `eyebrowText` (2xs uppercase, `tracking-[0.06em]`),
   `proseMeasure` (`max-w-[68ch]`), `codeText` (mono tabular for clinical
   codes/IDs), `chatAnswerText`.
@@ -115,13 +129,13 @@ Overlay: **`sheetSurface`** / `sheetHandle` for the mobile bottom sheet
 
 ### React components
 
-| Component           | Variants / states                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `SourceStatusBadge` | tone chosen from `document_status`: `current`→success, `outdated`→danger, `review_due`→warning, else `toneWarningQuiet`. |
-| `SourceProvenance`  | dot-separated validation / review-date / jurisdiction / extraction-quality line; drops unknown segments.                 |
-| `PanelHeading`      | `icon` + `title` + optional `description`.                                                                               |
-| `LoadingPanel`      | `variant: "spinner" \| "skeleton"`, `lines` (skeleton count); `role="status"` + `aria-label`.                            |
-| `EmptyState`        | `icon` + `title` + `body`.                                                                                               |
+| Component           | Variants / states                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `SourceStatusBadge` | tone chosen from `document_status`: `current`→success, `outdated`→danger, `review_due`→warning, else private quiet warning. |
+| `SourceProvenance`  | dot-separated validation / review-date / jurisdiction / extraction-quality line; drops unknown segments.                    |
+| `PanelHeading`      | `icon` + `title` + optional `description`.                                                                                  |
+| `LoadingPanel`      | `variant: "spinner" \| "skeleton"`, `lines` (skeleton count); `role="status"` + `aria-label`.                               |
+| `EmptyState`        | `icon` + `title` + `body`.                                                                                                  |
 
 ## Gaps to reconcile (follow-ups, not yet fixed)
 
@@ -129,13 +143,13 @@ Documenting the contract surfaces where recipes don't meet it. These are
 **a11y/consistency debts**, not covered by this doc's change:
 
 1. ✅ **FIXED (2026-07-03).** `focus-visible` was missing on the core button family
-   — `controlBase`, `primaryControl`, `floatingControl`, `toolbarButton`, `navPill`.
+   — private `controlBase`, `primaryControl`, `floatingControl`, `toolbarButton`, `navPill`.
    Added the standard `focus-visible:outline focus-visible:outline-2
 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
    to `controlBase` (inherited by `primaryControl`), `floatingControl`,
    `toolbarButton`, and `navPill`. Keyboard users now get a visible focus ring on
    the primary buttons, matching the newer recipes (`chatSendButton`, etc.).
-2. **`active:translate-y-px` only on the `controlBase` family** — other buttons
+2. **`active:translate-y-px` only on the private `controlBase` family** — other buttons
    (`toolbarButton`, `chatSendButton`, icon buttons) have no press feedback.
 3. ✅ **FIXED (2026-07-03).** Added `disabled:cursor-not-allowed disabled:opacity-50`
    to `navPill`, `chatMicroAction`, `chatComposerIconButton`, `sidebarItem` — they now
@@ -144,10 +158,10 @@ focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
 4. ✅ **FIXED (2026-07-03).** `shellChip` bumped `min-h-10` → `min-h-11` (40→44px) to
    meet the WCAG tap minimum — it's used on a real `<button>` filter ("All documents"
    in `master-search-header.tsx`).
-5. **Input focus uses `focus:` not `focus-visible:`** (`fieldControl`,
-   `commandInput`) — intentional for text fields (focus ring should show on
-   pointer focus too), but noted so it isn't "corrected" to `focus-visible:`.
+5. **Input focus uses `focus:` not `focus-visible:`** (`fieldControl`) — intentional
+   for text fields (focus ring should show on pointer focus too), but noted so it
+   isn't "corrected" to `focus-visible:`.
 
 Gaps 1, 3, and 4 are now closed. Remaining: **gap 2** (`active:` press feedback
-beyond the `controlBase` family — an aesthetic/design-team call) and **gap 5**
-(inputs intentionally use `focus:`, no change needed).
+beyond the private `controlBase` family — an aesthetic/design-team call).
+**Gap 5** (inputs use `focus:` not `focus-visible:`) is an accepted convention.

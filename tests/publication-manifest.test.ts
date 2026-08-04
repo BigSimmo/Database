@@ -15,6 +15,7 @@ const manifest = {
     {
       documentId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
       expectedOwnerId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      expectedStateDigest: "d".repeat(64),
       decision: "approved",
     },
   ],
@@ -69,5 +70,21 @@ describe("publication manifests", () => {
           .documents[0].decision,
       ).toBe(decision);
     }
+  });
+
+  it("requires a canonical reviewed-state digest for every decision", () => {
+    const withoutDigest = {
+      documentId: manifest.documents[0].documentId,
+      expectedOwnerId: manifest.documents[0].expectedOwnerId,
+      decision: manifest.documents[0].decision,
+    };
+    expect(() => parsePublicationManifest(JSON.stringify({ ...manifest, documents: [withoutDigest] }))).toThrow(
+      /expectedStateDigest/,
+    );
+    expect(() =>
+      parsePublicationManifest(
+        JSON.stringify({ ...manifest, documents: [{ ...manifest.documents[0], expectedStateDigest: "ABC" }] }),
+      ),
+    ).toThrow(/expectedStateDigest/);
   });
 });

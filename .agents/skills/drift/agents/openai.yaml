@@ -1,0 +1,4 @@
+interface:
+  display_name: "Drift"
+  short_description: "Detect Database schema and migration drift"
+  default_prompt: "Use $drift to compare local Database schema sources and isolate drift before any approved live comparison."

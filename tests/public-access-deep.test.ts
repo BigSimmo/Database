@@ -127,7 +127,7 @@ describe("production anonymous retrieval scope", () => {
   });
 
   it("rejects anonymous global retrieval without allowGlobalSearch in production", async () => {
-    vi.doUnmock("@/lib/rag");
+    vi.doUnmock("@/lib/rag/rag");
     vi.stubEnv("NODE_ENV", "production");
     vi.doMock("@/lib/env", () => ({
       env: {
@@ -157,7 +157,7 @@ describe("production anonymous retrieval scope", () => {
       })),
     }));
 
-    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
 
     await expect(
       searchChunksWithTelemetry({
@@ -167,7 +167,7 @@ describe("production anonymous retrieval scope", () => {
   });
 
   it("scopes anonymous global retrieval to public documents when allowGlobalSearch is true", async () => {
-    vi.doUnmock("@/lib/rag");
+    vi.doUnmock("@/lib/rag/rag");
     vi.stubEnv("NODE_ENV", "production");
     vi.doMock("@/lib/env", () => ({
       env: {
@@ -197,7 +197,7 @@ describe("production anonymous retrieval scope", () => {
       })),
     }));
 
-    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
     const result = await searchChunksWithTelemetry({
       query: "clozapine monitoring",
       allowGlobalSearch: true,
@@ -220,7 +220,7 @@ describe("test-runtime anonymous retrieval scope", () => {
   });
 
   it("allows anonymous global retrieval in test runtime where owner scope stays permissive", async () => {
-    vi.doUnmock("@/lib/rag");
+    vi.doUnmock("@/lib/rag/rag");
     vi.doMock("@/lib/env", () => ({
       env: {
         OPENAI_API_KEY: undefined,
@@ -254,7 +254,7 @@ describe("test-runtime anonymous retrieval scope", () => {
       })),
     }));
 
-    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
     const result = await searchChunksWithTelemetry({
       query: "clozapine monitoring",
       allowGlobalSearch: true,

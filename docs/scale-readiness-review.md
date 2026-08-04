@@ -106,13 +106,12 @@ non-inlined hybrid RPCs that showed the same signature (memory-cards 687 ms,
 index-units 444 ms, embedding-fields 520 ms) — same generic-plan cause, same
 one-line fix.
 
-**Full fix (recovers 5.3 s → ~70 ms, ≈75×, still results-identical, larger
-change):** convert the function to `LANGUAGE plpgsql` and run the body via
-`RETURN QUERY EXECUTE '<body>' USING …`. Dynamic `EXECUTE` re-plans per call
-with the actual bound values (a one-shot custom plan), sidestepping the cached
-generic plan entirely. Worth doing given the answer path calls this RPC up to
-three times in parallel (`rag.ts`), but it needs the drifted body reconciled to
-live first.
+**Full fix (recovers 5.3 s → ~70 ms, ≈75×, still results-identical):** convert
+the function to `LANGUAGE plpgsql` and run the body via
+`RETURN QUERY EXECUTE … USING …`. Shipped in migration
+`20260724120000_table_facts_plpgsql_execute.sql` (mirrored in `schema.sql`).
+Dynamic `EXECUTE` re-plans per call with the actual bound values. Re-profile
+live after hosted apply (`#069`); ranking/result predicates are unchanged.
 
 Not runnable from the review environment: applying either fix needs the linked
 `supabase` CLI (operator credentials) — `db push`/`link` are not authenticated

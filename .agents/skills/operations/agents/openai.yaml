@@ -1,0 +1,4 @@
+interface:
+  display_name: "Operations"
+  short_description: "Batch Database operator work safely"
+  default_prompt: "Use $operations to deduplicate and order pending Database operator work with explicit approval gates and rollback."

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Network, Search, ShieldCheck, Sparkles, Waypoints } from "lucide-react";
+import { FileText, Network, Search, Sparkles, Waypoints } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -26,14 +26,14 @@ export function HomeScreen() {
 
   const therapyCountCopy =
     b.therapies.length === 0
-      ? "Search source-grounded therapy records by problem, symptom, skill or population — or jump into a clinical pathway."
-      : `Search ${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} by problem, symptom, skill or population — or jump into a clinical pathway.`;
+      ? "Source-grounded therapy records."
+      : `${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"}.`;
 
   return (
-    <ModeHomeMain testId="therapy-compass-home" className="justify-start sm:justify-center">
+    <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="therapy-compass"
-        title="What therapy are you looking for?"
+        title="Therapy"
         subtitle={therapyCountCopy}
         icon={Search}
         actionsLabel="Therapy workflows"
@@ -66,7 +66,6 @@ export function HomeScreen() {
         }))}
         footer={
           <ModeHomeVerificationFooter
-            icon={ShieldCheck}
             label="Decision support"
             body="Source-grounded — review status before clinical use"
           />

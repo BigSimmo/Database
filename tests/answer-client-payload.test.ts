@@ -108,7 +108,10 @@ describe("toClientAnswerPayload", () => {
     expect(payload.sources![0].content).toBe(source.retrieval_synopsis);
     expect(payload.sources![0].content.length).toBeLessThan(source.content.length);
     expect(payload.safetyWarnings).toHaveLength(1);
-    expect(payload.safetyWarnings![0].citation).not.toHaveProperty("source_metadata");
+    // Issue 9: governance provenance is retained on safety-finding citations so the
+    // safety panel can badge outdated / review-due / unverified sources, consistent
+    // with regular source citations (which already keep source_metadata).
+    expect(payload.safetyWarnings![0].citation).toHaveProperty("source_metadata", { document_status: "current" });
     expect(extractSafetyFindings(payload)).toHaveLength(1);
   });
 

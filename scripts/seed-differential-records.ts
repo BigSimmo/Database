@@ -1,66 +1,30 @@
 import { loadEnvConfig } from "@next/env";
 
 import { confirm } from "./cli-utils";
+import {
+  loadAdminClient,
+  loadRegistryCorpus,
+  parseSeedArgs,
+  preserveReviewedGovernance,
+  reportOwnerRecordCount,
+  requireOwnerId,
+  type SeedArgs,
+} from "./lib/seed-record-cli";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
 import { staleSeededPresentations } from "@/lib/differential-seed";
 
 loadEnvConfig(process.cwd());
 
-type SeedArgs = {
-  ownerId?: string;
-  write: boolean;
-  confirmed: boolean;
-};
-
-async function loadAdminClient() {
-  const { createAdminClient } = await import("@/lib/supabase/admin");
-  return createAdminClient();
-}
-
-async function loadRegistryCorpus() {
-  return import("@/lib/registry-corpus");
-}
-
-function parseArgs(argv: string[]): SeedArgs {
-  const args: SeedArgs = {
-    ownerId: process.env.LOCAL_NO_AUTH_OWNER_ID,
-    write: false,
-    confirmed: false,
-  };
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (token === "--write") {
-      args.write = true;
-      continue;
-    }
-    if (token === "--confirm") {
-      args.confirmed = true;
-      continue;
-    }
-    if (token === "--owner-id") {
-      args.ownerId = argv[index + 1];
-      index += 1;
-      continue;
-    }
-    throw new Error(`Unknown argument: ${token}`);
-  }
-
-  return args;
-}
-
 async function main() {
   const { embedDifferentialRows, embedReloadedOwnerRows, registryCorpusEmbeddingEnabled } = await loadRegistryCorpus();
-  const args = parseArgs(process.argv.slice(2));
-  if (!args.ownerId) {
-    throw new Error("No owner id. Pass --owner-id <uuid> or set LOCAL_NO_AUTH_OWNER_ID.");
-  }
+  const args = parseSeedArgs<SeedArgs>(process.argv.slice(2), {});
+  const ownerId = requireOwnerId(args);
 
   const snapshot = loadDifferentialSnapshot();
-  const rows = buildDefaultDifferentialRows(args.ownerId);
+  const rows = buildDefaultDifferentialRows(ownerId);
 
-  console.log(`[differentials:seed] owner ${args.ownerId}`);
+  console.log(`[differentials:seed] owner ${ownerId}`);
   console.log(
     `[differentials:seed] ${snapshot.presentations.length} presentations, ${snapshot.diagnoses.length} diagnoses (${rows.length} rows)`,
   );
@@ -76,7 +40,7 @@ async function main() {
     return;
   }
   if (!args.confirmed) {
-    const proceed = await confirm(`Upsert ${rows.length} differential records for owner ${args.ownerId}?`);
+    const proceed = await confirm(`Upsert ${rows.length} differential records for owner ${ownerId}?`);
     if (!proceed) {
       console.log("[differentials:seed] Aborted.");
       return;
@@ -87,29 +51,16 @@ async function main() {
   const { data: existing, error: existingError } = await supabase
     .from("differential_records")
     .select("id, kind, slug, source_status, validation_status, last_reviewed_at, review_due_at")
-    .eq("owner_id", args.ownerId);
+    .eq("owner_id", ownerId);
   if (existingError) {
     throw new Error(`Could not read existing governance: ${existingError.message}`);
   }
 
-  const governanceByKey = new Map((existing ?? []).map((row) => [`${row.kind}:${row.slug}`, row] as const));
-  let preserved = 0;
-  const upsertRows = rows.map((row) => {
-    const prior = governanceByKey.get(`${row.kind}:${row.slug}`);
-    if (!prior) return row;
-    const hasReviewedGovernance =
-      Boolean(prior.last_reviewed_at) ||
-      prior.validation_status === "locally_reviewed" ||
-      prior.validation_status === "approved";
-    if (!hasReviewedGovernance) return row;
-    preserved += 1;
-    return {
-      ...row,
-      source_status: prior.source_status,
-      validation_status: prior.validation_status,
-      last_reviewed_at: prior.last_reviewed_at,
-      review_due_at: prior.review_due_at,
-    };
+  const { rows: upsertRows, preserved } = preserveReviewedGovernance({
+    rows,
+    existing: existing ?? [],
+    rowKey: (row) => `${row.kind}:${row.slug}`,
+    priorKey: (prior) => `${prior.kind}:${prior.slug}`,
   });
   if (preserved > 0) {
     console.log(`[differentials:seed] Preserving reviewed governance on ${preserved} existing record(s).`);
@@ -149,19 +100,17 @@ async function main() {
     if (staleRowError) throw new Error(`Stale presentation row cleanup failed: ${staleRowError.message}`);
   }
 
-  const { count, error: countError } = await supabase
-    .from("differential_records")
-    .select("id", { count: "exact", head: true })
-    .eq("owner_id", args.ownerId);
-  if (countError) {
-    console.warn(`[differentials:seed] Upsert succeeded but count check failed: ${countError.message}`);
-  } else {
-    console.log(`[differentials:seed] Done. Owner now has ${count ?? "?"} differential records.`);
-  }
+  await reportOwnerRecordCount({
+    supabase,
+    table: "differential_records",
+    ownerId,
+    logPrefix: "[differentials:seed]",
+    noun: "differential records",
+  });
 
   if (registryCorpusEmbeddingEnabled()) {
     const chunkCount = await embedReloadedOwnerRows(
-      supabase.from("differential_records").select("*").eq("owner_id", args.ownerId),
+      supabase.from("differential_records").select("*").eq("owner_id", ownerId),
       (rows) => embedDifferentialRows(supabase, rows as DifferentialRecordRow[]),
       "differential",
     );

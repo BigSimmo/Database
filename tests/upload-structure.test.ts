@@ -178,8 +178,9 @@ describe("assertUploadStructure — OOXML", () => {
 
   it("rejects high-compression-ratio archives (zip bomb shape)", async () => {
     const zip = buildDocxZip((bomb) => {
-      // 24MB of zeros deflates to a few KB — far beyond the allowed ratio.
-      bomb.file("word/media/zeros.bin", Buffer.alloc(24 * 1024 * 1024));
+      // Highly compressible zeros still clear the 150:1 ratio (~480:1 at 1MB)
+      // without allocating a 24MB buffer that has timed out under CI coverage load.
+      bomb.file("word/media/zeros.bin", Buffer.alloc(1024 * 1024));
     });
     await expectRejection(assertUploadStructure(docxMime, await toBuffer(zip)), "compression ratio");
   });

@@ -1,3 +1,4 @@
+import { contentTermAlternatives, documentLabelAlternatives } from "./clinical-aliases";
 import type { RankingCandidateFeatures } from "./ranking-tuning";
 
 export type ArtifactScoreExplanation = {
@@ -46,6 +47,29 @@ export function labelMatches(text: string, label: string): boolean {
     .map(normalizedTokens)
     .filter(Boolean)
     .some((part) => normalizedText.includes(` ${part} `));
+}
+
+/**
+ * Alias-aware document matching: a candidate identifies the expected document when its
+ * title/file text token-matches the fixture label or any sanctioned document alias. Mirrors
+ * the live eval's documentExpectationAlternatives so snapshot relevance grades agree with the
+ * gates — without this, alias-satisfied hits (e.g. the EMHS agitation guideline) grade as
+ * misses and the tuner learns from mislabeled data.
+ */
+export function documentLabelMatchesWithAliases(documentText: string, label: string): boolean {
+  return documentLabelAlternatives(label).some((alternative) => labelMatches(documentText, alternative));
+}
+
+/**
+ * Alias-aware content matching: artifact content labels are contentExpectationLabel output —
+ * "a OR b" alternates — and each alternate additionally expands through the sanctioned
+ * content aliases (e.g. "ciwa" also matches the corpus's hyphenated "CIWA-Ar").
+ */
+export function contentLabelMatchesWithAliases(contentText: string, label: string): boolean {
+  return label
+    .split(/\s+OR\s+/i)
+    .filter(Boolean)
+    .some((part) => contentTermAlternatives(part).some((alternative) => labelMatches(contentText, alternative)));
 }
 
 function lexicalContribution(coverage: number): number {

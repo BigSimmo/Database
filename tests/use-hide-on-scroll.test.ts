@@ -137,6 +137,70 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("preserves chrome state across a viewport-height change that looks like upward scroll", () => {
+    // Safari toolbar / CI setViewportSize can shrink the viewport and emit a
+    // scroll-looking delta. That must not reveal hidden chrome (#146); the next
+    // genuine user gesture still can.
+    expect(
+      computeScrollHideUpdate({
+        offset: 480,
+        lastOffset: 500,
+        maxOffset: 900,
+        previousMaxOffset: 836,
+        viewportHeightChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 480,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    expect(
+      computeScrollHideUpdate({
+        offset: 500,
+        lastOffset: 480,
+        maxOffset: 900,
+        viewportHeightChanged: true,
+        currentlyHidden: false,
+        direction: "up",
+        directionTravel: 20,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 500,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
+  it("still reveals at the top of the range when the viewport height changes", () => {
+    // The top reveal band is an absolute layout contract and outranks the resize
+    // guard. A resize that lands while the chrome is hidden and the scroller is
+    // clamped to the top (short page, keyboard dismiss, orientation flip) must
+    // not strand the chrome off-screen at offset 0 until the next scroll.
+    expect(
+      computeScrollHideUpdate({
+        offset: 0,
+        lastOffset: 240,
+        maxOffset: 120,
+        previousMaxOffset: 900,
+        viewportHeightChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 0,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("holds the chrome hidden across a multi-frame collapse clamp at the bottom", () => {
     // As the collapsing header hands its height back to the scroll container,
     // maxOffset shrinks frame by frame and the browser clamps scrollTop to it,
@@ -177,6 +241,76 @@ describe("computeScrollHideUpdate", () => {
     });
     expect(revealed.hidden).toBe(false);
     expect(revealed.direction).toBe("up");
+  });
+
+  it("holds chrome hidden across a mid-page viewport range change with a small upward reading (#146)", () => {
+    // Safari toolbar / Playwright setViewportSize shrinks the layout viewport,
+    // growing maxOffset. Under CI load that geometry change can arrive with a
+    // few pixels of upward scroll noise while the user is still deep in the
+    // page — not deliberate reveal intent.
+    expect(
+      computeScrollHideUpdate({
+        offset: 496,
+        lastOffset: 500,
+        maxOffset: 1200,
+        previousMaxOffset: 1100,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 200,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 496,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    // A deliberate upward gesture that already clears revealIntentDistance must
+    // still reveal even when the range changed in the same evaluation.
+    const revealed = computeScrollHideUpdate({
+      offset: 480,
+      lastOffset: 500,
+      maxOffset: 1200,
+      previousMaxOffset: 1100,
+      currentlyHidden: true,
+      direction: "down",
+      directionTravel: 200,
+    });
+    expect(revealed.hidden).toBe(false);
+    expect(revealed.direction).toBe("up");
+  });
+
+  it("reveals when a genuine upward scroll is coalesced with a prior layout clamp", () => {
+    // RAF debouncing coalesces a layout-clamp scroll event with any
+    // immediately-following user scroll into a single RAF evaluation. The hook
+    // reads the FINAL offset (newMaxOffset - userScroll) but lastMaxOffsetRef
+    // still holds the pre-collapse maximum. The net offset is more than
+    // revealIntentDistance (12px) below the new bottom edge, so the clamp
+    // detection must yield to the upward-scroll reveal path.
+    const result = computeScrollHideUpdate({
+      offset: 904, // newMaxOffset (928) - 24px deliberate scroll
+      lastOffset: 1000, // stale: pre-collapse jump-to-bottom offset
+      maxOffset: 928, // new max after 72px in-flow header collapse
+      previousMaxOffset: 1000, // stale: pre-collapse max (lastMaxOffsetRef)
+      currentlyHidden: true,
+      direction: null,
+      directionTravel: 0,
+    });
+    expect(result.hidden).toBe(false);
+    expect(result.direction).toBe("up");
+
+    // A small simultaneous bounce (<= revealIntentDistance) must still be
+    // treated as geometry feedback, not user intent.
+    const stillHidden = computeScrollHideUpdate({
+      offset: 918, // newMaxOffset (928) - 10px (below revealIntentDistance)
+      lastOffset: 1000,
+      maxOffset: 928,
+      previousMaxOffset: 1000,
+      currentlyHidden: true,
+      direction: null,
+      directionTravel: 0,
+    });
+    expect(stillHidden.hidden).toBe(true);
   });
 
   it("does not reveal on a small phantom clamp when the offset stays pinned to the bottom", () => {
@@ -221,6 +355,301 @@ describe("computeScrollHideUpdate", () => {
       direction: null,
       directionTravel: 0,
     });
+  });
+
+  it("reproduces the short-page hide → clamp → tiny-reveal oscillation without a collapse budget", () => {
+    // Real numbers from a phone standalone mode home (390x844, post-#964):
+    // visible-chrome scroll runway maxOffset ≈ 300px; hiding the chrome
+    // releases ~240px (header grid collapse + dock reserve-pad shrink). The
+    // hide decision itself must be what prevents the trap; every guard below
+    // it can only hold state, not restore the lost runway.
+    let state = { hidden: false, lastOffset: 0, direction: null as "down" | "up" | null, directionTravel: 0 };
+    for (const offset of [40, 80, 100]) {
+      state = computeScrollHideUpdate({
+        offset,
+        lastOffset: state.lastOffset,
+        maxOffset: 300,
+        currentlyHidden: state.hidden,
+        direction: state.direction,
+        directionTravel: state.directionTravel,
+      });
+    }
+    // Today the chrome hides at ~100px on a 300px runway…
+    expect(state.hidden).toBe(true);
+
+    // …then the 240px geometry release clamps the offset to the shrinking
+    // bottom edge (held correctly by the bottom-clamp guard)…
+    for (const frame of [90, 75, 60]) {
+      state = computeScrollHideUpdate({
+        offset: frame,
+        lastOffset: state.lastOffset,
+        maxOffset: frame,
+        currentlyHidden: state.hidden,
+        direction: state.direction,
+        directionTravel: state.directionTravel,
+      });
+      expect(state.hidden).toBe(true);
+    }
+
+    // …and a mere 12px upward drag re-reveals, snapping ~240px of geometry
+    // back under the finger — the "locks to the bottom" oscillation.
+    const revealed = computeScrollHideUpdate({
+      offset: 48,
+      lastOffset: state.lastOffset,
+      maxOffset: 60,
+      currentlyHidden: state.hidden,
+      direction: state.direction,
+      directionTravel: state.directionTravel,
+    });
+    expect(revealed.hidden).toBe(false);
+  });
+
+  it("refuses to hide when the collapse budget exceeds the remaining runway", () => {
+    // /formulation at 390x844 (measured pre-fix): maxOffset 266 with chrome
+    // visible; hiding releases 182px (72px header strip + 110px reserve-pad
+    // shrink). At offset 100 only 166px of runway remains — hiding would clamp
+    // the offset straight onto the new bottom edge, so the gate must refuse.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 266,
+        collapseBudget: 182,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 100,
+      direction: "down",
+      directionTravel: 100,
+    });
+  });
+
+  it("keeps combined header and page-dock chrome visible with only 96px of post-collapse runway", () => {
+    // Calculator at 390x844 with an installed-PWA inset: 72px collapsing
+    // header + 59px top inset + 200px page-owned dock reserve. The shell and
+    // calculator reporters schedule independently, so a 96px tail is not
+    // enough for both animated releases without a scrollTop clamp.
+    const collapseBudget = 72 + 59 + 200;
+    expect(
+      computeScrollHideUpdate({
+        offset: 2_323,
+        lastOffset: 2_299,
+        maxOffset: 2_750,
+        collapseBudget,
+        collapseKind: "in-flow",
+        combinedChrome: true,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 96,
+      }).hidden,
+    ).toBe(false);
+  });
+
+  it("allows a reserve-only overlay to hide when its post-collapse range retains deliberate hide intent", () => {
+    // Measured compact Answer result at 390x844 without synthetic content:
+    // 159px visible range - 120px reserve = 39px after hiding. A fixed overlay
+    // can hide after the 8px top band + 24px intent without collapsing in-flow
+    // header geometry or clamping materially.
+    const hidden = computeScrollHideUpdate({
+      offset: 40,
+      lastOffset: 0,
+      maxOffset: 159,
+      collapseBudget: 120,
+      collapseKind: "reserve-only",
+      currentlyHidden: false,
+    });
+    expect(hidden.hidden).toBe(true);
+
+    const clamped = computeScrollHideUpdate({
+      offset: 39,
+      lastOffset: hidden.lastOffset,
+      maxOffset: 39,
+      currentlyHidden: hidden.hidden,
+      direction: hidden.direction,
+      directionTravel: hidden.directionTravel,
+    });
+    expect(clamped.hidden).toBe(true);
+    expect(
+      computeScrollHideUpdate({
+        offset: 20,
+        lastOffset: clamped.lastOffset,
+        maxOffset: 39,
+        currentlyHidden: clamped.hidden,
+        direction: clamped.direction,
+        directionTravel: clamped.directionTravel,
+      }).hidden,
+    ).toBe(false);
+
+    // The same geometry remains protected when an in-flow header participates.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 159,
+        collapseBudget: 120,
+        collapseKind: "in-flow",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
+
+    // A genuinely short reserve-only result would collapse below the deliberate
+    // hide threshold and still risks a top/bottom clamp cycle, so it stays visible.
+    expect(
+      computeScrollHideUpdate({
+        offset: 40,
+        lastOffset: 0,
+        maxOffset: 145,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+      }).hidden,
+    ).toBe(false);
+
+    // Near-bottom hides must stay refused even when the post-collapse range is
+    // long enough: offset 180 would clamp onto 80 and jump content under the finger.
+    expect(
+      computeScrollHideUpdate({
+        offset: 180,
+        lastOffset: 160,
+        maxOffset: 200,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
+  });
+
+  it("uses a shrinking scroll range, not pixel tolerance, to identify a reserve-collapse clamp", () => {
+    // Real PageDown frame from the compact Answer result at 390x844. The
+    // animated reserve shrink moved the browser's maximum from 160px to 127px;
+    // compositor rounding left scrollTop 1.03px below that integer maximum.
+    // This is layout feedback near the new bottom, not upward user intent.
+    expect(
+      computeScrollHideUpdate({
+        offset: 125.9683,
+        lastOffset: 160.5079,
+        maxOffset: 127,
+        previousMaxOffset: 160,
+        collapseBudget: 23.3347,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 160.5079,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 125.9683,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    // The same fractional positions are a genuine upward gesture once the
+    // scroll range is stable; no bottom-edge tolerance may suppress it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 125.9683,
+        lastOffset: 160.5079,
+        maxOffset: 127,
+        previousMaxOffset: 127,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 160.5079,
+      }).hidden,
+    ).toBe(false);
+
+    // Range shrink alone is insufficient: if the old position still fits
+    // inside the new range, the browser did not have to clamp it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 120,
+        maxOffset: 127,
+        previousMaxOffset: 160,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 120,
+      }).hidden,
+    ).toBe(false);
+  });
+
+  it("hides normally when ample runway remains below the collapse release", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 2000,
+        collapseBudget: 240,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("keeps hiding when the collapse budget is not reported (back-compat)", () => {
+    // DocumentViewer / settings-dialog consumers report no budget; their
+    // behavior must be untouched even on a short scroller.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 266,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("does not apply combined-phone runway slack to a zero-budget reporter", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 200,
+        collapseBudget: 0,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("blocks a hide that would land within one micro-drag of the reveal threshold", () => {
+    // runway (500-100) - budget 240 = 160 > 28 → allowed…
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 500,
+        collapseBudget: 240,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+    // …but with 28px or less of post-collapse runway the position would sit
+    // one reveal-intent drag from snapping the geometry back: refused.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 368,
+        collapseBudget: 240,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
   });
 
   it("ignores an upward clamp caused by the viewport growing at the bottom", () => {

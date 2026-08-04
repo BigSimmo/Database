@@ -4,7 +4,7 @@ import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
-import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";
@@ -61,7 +61,13 @@ function parseManualLabel(input: z.infer<typeof manualLabelSchema>) {
     source: "generated",
   });
   if (!normalized) {
-    throw new PublicApiError("Enter a short, specific clinical tag. Generic document-control tags are not allowed.");
+    throw new PublicApiError(
+      "Enter a short, specific clinical tag. Generic document-control tags are not allowed.",
+      400,
+      {
+        code: "invalid_clinical_tag_taxonomy",
+      },
+    );
   }
   return normalized;
 }
@@ -110,7 +116,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const normalized = parseManualLabel(parsed);
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,
@@ -178,7 +184,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsed = await parseJsonBody(request, labelPatchSchema, "Enter a manual tag or label review action.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,
@@ -287,7 +293,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const parsed = await parseJsonBody(request, manualLabelDeleteSchema, "Choose a manual tag to remove.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,

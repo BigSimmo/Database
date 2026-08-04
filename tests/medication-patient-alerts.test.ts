@@ -181,6 +181,42 @@ describe("evaluatePatientAlerts — partial / empty profile and unassessed", () 
   });
 });
 
+describe("evaluatePatientAlerts — bare-renal fail-safe (no false all-clear on partial input)", () => {
+  it("surfaces unassessed when one renal input is missing and the other is present-and-normal", () => {
+    const record = recordWith({ factors: ["renal"], action: "contraindication", match: {} });
+    // eGFR missing, CrCl present and non-firing (>=60): must NOT read as a silent
+    // all-clear — a renal contraindication clears only when BOTH inputs are present.
+    const egfrMissing = evaluatePatientAlerts(record, { crcl: 90 });
+    expect(egfrMissing.considerations).toHaveLength(0);
+    expect(egfrMissing.unassessed).toContain("eGFR or CrCl");
+    // Symmetric: CrCl missing, eGFR present-and-normal.
+    const crclMissing = evaluatePatientAlerts(record, { egfr: 90 });
+    expect(crclMissing.unassessed).toContain("eGFR or CrCl");
+  });
+
+  it("clears only when both renal inputs are present and non-firing", () => {
+    const record = recordWith({ factors: ["renal"], action: "contraindication", match: {} });
+    const result = evaluatePatientAlerts(record, { egfr: 90, crcl: 90 });
+    expect(result.considerations).toHaveLength(0);
+    expect(result.unassessed).toHaveLength(0);
+  });
+
+  it("still fires renal impairment on a low input", () => {
+    const record = recordWith({ factors: ["renal"], action: "contraindication", match: {} });
+    expect(reasons(evaluatePatientAlerts(record, { egfr: 20 }).considerations)).toContain("Renal impairment (eGFR 20)");
+  });
+
+  it("leaves non-contraindication bare-renal rows unchanged (unassessed is contraindication-only)", () => {
+    // This is why the ||-guard is a no-op on the current corpus: every existing
+    // bare-renal row is advisory (monitor/dose-adjust/caution/info), and missingGates
+    // is only promoted to unassessed for contraindication rows.
+    const record = recordWith({ factors: ["renal"], action: "monitor", match: {} });
+    const result = evaluatePatientAlerts(record, { crcl: 90 });
+    expect(result.considerations).toHaveLength(0);
+    expect(result.unassessed).toHaveLength(0);
+  });
+});
+
 describe("evaluatePatientAlerts — real records", () => {
   it("flags celecoxib for both NSAID and sulfa allergy", () => {
     const record = getMedicationRecord("celecoxib");

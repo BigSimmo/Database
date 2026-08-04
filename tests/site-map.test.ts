@@ -72,10 +72,10 @@ describe("tracked sitemap", () => {
       ["/applications", "src/app/applications/route.ts", "/tools"],
       [
         "/differentials/presentations",
-        "src/app/differentials/presentations/route.ts",
+        "src/app/(search-app)/differentials/presentations/route.ts",
         "/differentials/presentations/[workflow-slug]",
       ],
-      ["/medications", "src/app/medications/route.ts", "/?mode=prescribing"],
+      ["/medications", "src/app/(search-app)/medications/route.ts", "/?mode=prescribing"],
     ] as const;
     const redirectSection = siteMap.slice(siteMap.indexOf("## Redirects"));
 

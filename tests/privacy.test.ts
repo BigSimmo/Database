@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
+import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers, redactLogValue } from "../src/lib/privacy";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -19,6 +19,39 @@ describe("privacy-safe logging helpers", () => {
 
     expect(details).toMatchObject({ name: "Error", message: "secret storage path [path]" });
     expect(JSON.stringify(details)).not.toContain("source.pdf");
+  });
+
+  it("redacts clinical search URLs used in support diagnostics", () => {
+    expect(redactLogValue("https://psychiatry.tools/dsm?q=clozapine%20ANC")).toBe("[url]");
+  });
+
+  it("redacts URLs with parentheses in query parameters without leaving suffix unredacted", () => {
+    expect(redactLogValue("https://psychiatry.tools/dsm?q=clozapine%20(ANC)%20Jane")).toBe("[url]");
+    expect(redactLogValue("error at https://example.com/path?param=(value)&data=test")).toBe("error at [url]");
+  });
+
+  // encodeURIComponent does not escape apostrophes, so a clinical query can carry
+  // one verbatim. Excluding `'` from the URL class left the rest of the query in
+  // the clipboard: [url]'s%20suicidal%20thoughts.
+  it("redacts a clinical URL query containing an apostrophe", () => {
+    expect(redactLogValue("https://psychiatry.tools/dsm?q=patient's%20suicidal%20thoughts")).toBe("[url]");
+    expect(redactLogValue("https://psychiatry.tools/dsm?q=patient's%20suicidal%20thoughts")).not.toContain("suicidal");
+  });
+
+  // Non-string fields are JSON-stringified before redaction, and compact JSON has
+  // no whitespace, so a \S+ URL pattern swallowed the closing quote and every
+  // field after it — one URL redacted the whole diagnostic. Stopping at the double
+  // quote keeps the remaining fields readable while still consuming parentheses.
+  it("redacts a URL inside serialized JSON without consuming the fields after it", () => {
+    const redacted = redactLogValue('{"url":"https://psychiatry.tools/dsm?q=clozapine%20(ANC)","code":"23505"}');
+    expect(redacted).toBe('{"url":"[url]","code":"23505"}');
+    expect(redacted).not.toContain("clozapine");
+  });
+
+  it("keeps neighbouring diagnostic fields when a URL is followed by a quoted value", () => {
+    expect(redactLogValue('at https://example.com/a?b=(c) "hint":"check the index"')).toBe(
+      'at [url] "hint":"check the index"',
+    );
   });
 
   it("redacts modern supabase keys in error messages and details", () => {

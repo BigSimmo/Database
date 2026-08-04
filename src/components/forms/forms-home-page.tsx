@@ -22,24 +22,30 @@ import {
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { defaultFormSlug } from "@/lib/forms";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
-const taskCards: ModeHomeAction[] = [
-  {
-    title: "Find a form",
-    description: "Title, purpose, or workflow detail.",
-    icon: Search,
-    href: appModeHomeHref("forms", { focus: true }),
-  },
-  {
-    title: "Readiness checks",
-    description: "Review status, source, and local confirmation.",
-    icon: ClipboardCheck,
-    href: `/forms/${defaultFormSlug() ?? ""}`,
-  },
-  {
+// The default form slug is computed server-side (app/forms/page.tsx) and passed
+// as a prop: a direct `@/lib/forms` value import here would compile the full
+// forms catalog into this client route chunk.
+function buildTaskCards(defaultFormSlug: string | null): ModeHomeAction[] {
+  const cards: ModeHomeAction[] = [
+    {
+      title: "Find a form",
+      description: "Title, purpose, or workflow detail.",
+      icon: Search,
+      href: appModeHomeHref("forms", { focus: true }),
+    },
+  ];
+  if (defaultFormSlug) {
+    cards.push({
+      title: "Readiness checks",
+      description: "Review status, source, and local confirmation.",
+      icon: ClipboardCheck,
+      href: `/forms/${defaultFormSlug}`,
+    });
+  }
+  cards.push({
     title: "Check source status",
     description: "Find records that still need local confirmation.",
     icon: ShieldAlert,
@@ -48,8 +54,9 @@ const taskCards: ModeHomeAction[] = [
       focus: true,
       run: true,
     }),
-  },
-];
+  });
+  return cards;
+}
 
 const commonTasks: ModeHomePill[] = [
   {
@@ -74,10 +81,11 @@ const commonTasks: ModeHomePill[] = [
   },
 ];
 
-export function FormsHomePage() {
+export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: string | null }) {
+  const taskCards = buildTaskCards(defaultFormSlug);
   const registry = useRegistryRecords("form");
   const verifiedCount = countVerifiedRegistryRecords(registry);
-  const registryReady = registry.status === "ready";
+  const registryReady = registry.status === "ready" || registry.status === "refetching";
   const hasRegistryRecords = registryReady && registry.total > 0;
   const registryNotice =
     registry.status === "loading" ? (
@@ -96,7 +104,9 @@ export function FormsHomePage() {
       <ModeHomeStatusNotice
         icon={ShieldAlert}
         title="Could not load forms"
-        body="The forms registry could not be loaded. Try again shortly."
+        body="The forms registry could not be loaded."
+        actionLabel="Try again"
+        onAction={registry.refetch}
       />
     ) : !hasRegistryRecords ? (
       <ModeHomeStatusNotice
@@ -107,11 +117,16 @@ export function FormsHomePage() {
     ) : null;
 
   return (
-    <ModeHomeMain testId="forms-home">
+    <ModeHomeMain
+      testId="forms-home"
+      // Keep loading on startOnPhone so the seeded registry does not jump from
+      // center → top when records arrive. Confirmed empty/error notices stay centred.
+      contentAlign={registry.status === "loading" || hasRegistryRecords ? "startOnPhone" : "center"}
+    >
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"
-        subtitle="The complete WA MHA 2014 forms register. Search by form code, task, authority, clock, or pathway."
+        subtitle="The WA MHA 2014 forms register."
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"
@@ -121,7 +136,6 @@ export function FormsHomePage() {
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
               label="Source catalogue reviewed"
               body="Official-source MHA 2014 forms · verify before use"
               verifiedCount={verifiedCount}

@@ -5,8 +5,6 @@ export const navigationHashes = ["#search", "#quotes", "#images", "#sources"] as
 export const mobileSectionFabMediaQuery =
   "(max-width: 768px), ((max-width: 1023px) and (hover: none) and (pointer: coarse))";
 
-export const recentQueryStorageKey = "clinical-kb-recent-queries";
-
 export type DocumentPagination = {
   limit: number;
   offset: number;

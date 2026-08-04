@@ -1,0 +1,135 @@
+#!/bin/sh
+# Keep generated documentation synchronized before relevant commits. The hook
+# writes generated outputs but never stages them: if anything changes, the
+# commit stops so the author can review and stage the exact diff.
+set -eu
+
+if [ "${SKIP_DOCS_SYNC_HOOK:-}" = "1" ]; then
+  exit 0
+fi
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACMRD)
+working_files=$(
+  {
+    git diff --name-only --diff-filter=ACMRD
+    git ls-files --others --exclude-standard
+  } | sort -u
+)
+
+matches_staged() {
+  printf '%s\n' "$staged_files" | grep -Eq "$1"
+}
+
+sync_sitemap=0
+sync_inventory=0
+check_module_map=0
+
+if matches_staged '^(src/app/|mockups/|src/lib/(app-modes|document-flow-routes|differentials|dsm|formulation|forms|services|specifiers|therapies)\.ts$|scripts/generate-site-map\.ts$|docs/site-map\.md$)'; then
+  sync_sitemap=1
+fi
+if matches_staged '^(scripts/|package\.json$|docs/scripts-index\.md$)'; then
+  sync_inventory=1
+fi
+if matches_staged '^(src/app/|src/lib/|supabase/schema\.sql$|docs/codebase-index\.md$)'; then
+  check_module_map=1
+fi
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ]; then
+  exit 0
+fi
+
+# Generators read the working tree. Refuse to combine staged inputs with other
+# unstaged inputs that could make the generated docs describe the wrong commit.
+mixed_inputs=""
+if [ "$sync_sitemap" = "1" ]; then
+  mixed_inputs=$(printf '%s\n' "$working_files" | grep -E '^(src/app/|mockups/|src/lib/(app-modes|document-flow-routes|differentials|dsm|formulation|forms|services|specifiers|therapies)\.ts$|scripts/generate-site-map\.ts$)' || true)
+fi
+if [ "$sync_inventory" = "1" ]; then
+  inventory_inputs=$(printf '%s\n' "$working_files" | grep -E '^(scripts/|package\.json$)' || true)
+  mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$inventory_inputs" | sed '/^$/d' | sort -u)
+fi
+if [ "$check_module_map" = "1" ]; then
+  module_inputs=$(printf '%s\n' "$working_files" | grep -E '^(src/app/|src/lib/|supabase/schema\.sql$)' || true)
+  mixed_inputs=$(printf '%s\n%s\n' "$mixed_inputs" "$module_inputs" | sed '/^$/d' | sort -u)
+fi
+if [ -n "$mixed_inputs" ]; then
+  echo "[pre-commit] Documentation inputs have unstaged or untracked changes:" >&2
+  printf '%s\n' "$mixed_inputs" >&2
+  echo "[pre-commit] Stage or separate these inputs before regenerating commit documentation." >&2
+  exit 1
+fi
+
+docs_to_check=""
+if [ "$sync_sitemap" = "1" ]; then
+  docs_to_check="$docs_to_check docs/site-map.md"
+fi
+if [ "$sync_inventory" = "1" ]; then
+  docs_to_check="$docs_to_check docs/scripts-index.md"
+fi
+if [ "$check_module_map" = "1" ]; then
+  docs_to_check="$docs_to_check docs/codebase-index.md"
+fi
+
+# Generators rewrite whole files. Refuse before running them when a selected
+# output has an unstaged edit, otherwise regeneration can erase local work and
+# leave the hook looking clean afterward.
+dirty_generated_docs=$(git diff --name-only -- $docs_to_check)
+if [ -n "$dirty_generated_docs" ]; then
+  echo "[pre-commit] Generated documentation has unstaged changes:" >&2
+  printf '%s\n' "$dirty_generated_docs" >&2
+  echo "[pre-commit] Stage or separate these outputs before regeneration." >&2
+  exit 1
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "[pre-commit] npm is required for documentation synchronization." >&2
+  echo "[pre-commit] Install the repository toolchain, or bypass once with SKIP_DOCS_SYNC_HOOK=1." >&2
+  exit 1
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+# core.hooksPath is an absolute path to the primary checkout, so this hook also
+# runs from linked worktrees whose branch predates the sync tooling and therefore
+# does not contain scripts/update-docs-inventory.mjs. Those commits aborted with
+# MODULE_NOT_FOUND before the author could do anything about it. Fail open for
+# that one task instead.
+if [ "$sync_inventory" = "1" ] && [ ! -f scripts/update-docs-inventory.mjs ]; then
+  if git cat-file -e "HEAD:scripts/update-docs-inventory.mjs" 2>/dev/null; then
+    echo "[pre-commit] scripts/update-docs-inventory.mjs was removed or renamed by the pending commit; refusing to skip inventory synchronization." >&2
+    exit 1
+  fi
+  echo "[pre-commit] scripts/update-docs-inventory.mjs is absent from this worktree - skipping inventory sync." >&2
+  sync_inventory=0
+  # `|| true`: grep exits 1 when it filters everything out, which `set -e` would
+  # otherwise treat as a hook failure.
+  docs_to_check=$(printf '%s\n' $docs_to_check | grep -v '^docs/scripts-index\.md$' || true)
+fi
+
+# Re-check after dropping a task: an empty docs_to_check would make the trailing
+# unstaged-docs diff match every modified file in the tree.
+if [ "$sync_sitemap" = "0" ] && [ "$sync_inventory" = "0" ] && [ "$check_module_map" = "0" ]; then
+  exit 0
+fi
+
+echo "[pre-commit] Synchronizing generated documentation..."
+if [ "$sync_sitemap" = "1" ]; then
+  npm run sitemap:update
+fi
+if [ "$sync_inventory" = "1" ]; then
+  node scripts/update-docs-inventory.mjs
+  npm run docs:check-inventory
+fi
+if [ "$check_module_map" = "1" ]; then
+  npm run docs:check-index
+fi
+
+unstaged_docs=$(git diff --name-only -- $docs_to_check)
+if [ -n "$unstaged_docs" ]; then
+  echo "[pre-commit] Documentation changed or remains unstaged:" >&2
+  printf '%s\n' "$unstaged_docs" >&2
+  echo "[pre-commit] Review and stage these files, then commit again." >&2
+  exit 1
+fi
+
+echo "[pre-commit] Documentation is synchronized."

@@ -20,9 +20,14 @@ export const BRAND_HIGHLIGHT_PATH = "M2 16C2 8.3 8.3 2 16 2h16c7.7 0 14 6.3 14 1
 export const BRAND_PULSE_PATH = "M7 26h10.4l2.4-10 4 19 3-9H41";
 export const BRAND_PULSE_WIDTH = 3.3;
 
-/** Brand colours per theme. Light = clinical-teal tile / white ink; dark inverts. */
-export const BRAND_LIGHT = { tile: "#0b6f86", ink: "#ffffff" } as const;
-export const BRAND_DARK = { tile: "#4ccfd0", ink: "#04252a" } as const;
+/** Brand colours per theme. Light = Clinical Sky tile / white ink; dark inverts.
+ *  These mirror --clinical-accent and --clinical-accent-contrast per theme in
+ *  globals.css. They cannot read the tokens (the favicon and the generated PNG
+ *  icon routes render outside any stylesheet), so they must be re-derived by
+ *  hand whenever the accent moves — then `npm run brand:update` regenerates
+ *  app/icon.svg, which `npm run brand:check` verifies in verify:cheap. */
+export const BRAND_LIGHT = { tile: "#1d6fb8", ink: "#ffffff" } as const;
+export const BRAND_DARK = { tile: "#74bdf0", ink: "#08203a" } as const;
 
 export type BrandColors = { tile: string; ink: string };
 

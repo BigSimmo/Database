@@ -1,13 +1,40 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 import { normalizedSchemaSha256 as driftSha } from "../scripts/check-drift";
 import {
   autoMergeVerdict,
   driftVerdict,
+  findPrettierBin,
+  formatGuard,
   normalizedSchemaSha256 as guardSha,
   parsePushRanges,
 } from "../scripts/guard-push.mjs";
 
 const ZERO = "0".repeat(40);
+const created: string[] = [];
+
+afterEach(() => {
+  for (const root of created.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+function dependencyFixture(lockMarker: string, withPrettier = false) {
+  const root = mkdtempSync(join(tmpdir(), "guard-push-dependencies-"));
+  created.push(root);
+  const lock = JSON.stringify({
+    lockfileVersion: 3,
+    marker: lockMarker,
+    packages: { "node_modules/prettier": { version: "3.9.6" } },
+  });
+  writeFileSync(join(root, "package-lock.json"), lock);
+  if (withPrettier) {
+    mkdirSync(join(root, "node_modules", "prettier", "bin"), { recursive: true });
+    writeFileSync(join(root, "node_modules", "prettier", "package.json"), JSON.stringify({ version: "3.9.6" }));
+    writeFileSync(join(root, "node_modules", "prettier", "bin", "prettier.cjs"), "");
+  }
+  return root;
+}
 
 describe("guard-push sha parity", () => {
   it("guard-push's sha is byte-identical to check-drift's (they must never diverge)", () => {
@@ -71,5 +98,27 @@ describe("push-range parsing", () => {
 
   it("ignores blank lines", () => {
     expect(parsePushRanges("\n  \n")).toHaveLength(0);
+  });
+});
+
+describe("format dependency resolution", () => {
+  it("reuses Prettier only from a byte-identical sibling lockfile", () => {
+    const project = dependencyFixture("current");
+    const stale = dependencyFixture("stale", true);
+    const exact = dependencyFixture("current", true);
+
+    expect(findPrettierBin(project, [stale, exact])).toBe(
+      join(exact, "node_modules", "prettier", "bin", "prettier.cjs"),
+    );
+  });
+
+  it("fails closed when no exact-lock Prettier installation is available", () => {
+    const result = formatGuard([{ sha: "abc123", file: "README.md" }], () => {
+      throw new Error("missing fixture dependency");
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("npm ci --include=dev");
+    expect(result.message).toContain("SKIP_FORMAT_GUARD=1");
   });
 });

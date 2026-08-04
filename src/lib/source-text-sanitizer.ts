@@ -125,7 +125,7 @@ function compactWhitespace(value: string) {
   return normalizeExtractedGlyphs(value).replace(/\s+/g, " ").trim();
 }
 
-function readableWhitespace(value: string) {
+export function readableWhitespace(value: string) {
   return normalizeExtractedGlyphs(value)
     .replace(/[ \t]+/g, " ")
     .replace(/[ \t]*\n[ \t]*/g, "\n")

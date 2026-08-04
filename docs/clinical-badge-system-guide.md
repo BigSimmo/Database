@@ -45,18 +45,56 @@ Use these terms consistently.
 
 Static badges must not look clickable. Interactive chips must use proper button or link semantics.
 
+### One Status System — Which Component For Which Job
+
+The four status affordances are not interchangeable. Pick by what the mark answers,
+not by how much room is left.
+
+| Affordance    | Component                                               | Answers                                 | Use when                                                                                             |
+| ------------- | ------------------------------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Badge         | `SourceStatusBadge`, `SourceDesignationBadge`           | "Is this current?" / "Who issued this?" | The state is a clinical-governance fact about the source and must be readable at a glance            |
+| Dot           | `statusDotReady` / `statusDotReview` / `statusDotMuted` | "Is this healthy?"                      | A dense row or list where the label already carries the words; **never** the sole carrier of meaning |
+| Pill          | `metadataPill`, `subtleStatusPill`                      | "What is this value?"                   | Neutral metadata (page count, version, jurisdiction) with no governance verdict                      |
+| Identity chip | `Chip` with a `--type-*` hue                            | "What kind of record is this?"          | Distinguishing record kinds (document, service, form, differential) — identity, not state            |
+
+A dot plus its own visible label is a dot. A dot alone is a colour-only signal and
+fails both forced-colors and fast scanning.
+
+### Enum Vocabularies
+
+These three fields are closed vocabularies, normalized in `src/lib/source-metadata.ts`:
+
+| Field                        | Values                                            | Fallback     |
+| ---------------------------- | ------------------------------------------------- | ------------ |
+| `document_status`            | `current` · `review_due` · `outdated` · `unknown` | `unknown`    |
+| `clinical_validation_status` | `unverified` · `locally_reviewed` · `approved`    | `unverified` |
+| `extraction_quality`         | `good` · `partial` · `poor` · `unknown`           | `unknown`    |
+
+**Off-vocabulary values degrade to the neutral triad.** A value that is present but
+unrecognised — a typo, a renamed enum, a malformed ingest — coerces to the fallback
+above and is traced once, with its field and value, through
+`sourceMetadataDiagnostics.warn`. It must never be rendered raw, guessed at, or
+allowed to throw: an unknown status is a governance signal, and a crash is not.
+
+Note the field name: it is `clinical_validation_status`, **not** `validation_status`.
+The wrong key silently normalizes to "Not locally validated" with no error.
+
+The three axes are independent. Official does not imply current; current does not
+imply locally approved; approved does not imply a good extraction. Never collapse
+two of them into one mark.
+
 ## Master Palette
 
 Use six top-level tones only. Do not add more badge colours.
 
-| Tone              | Meaning                                      | Examples                                                                          | Do not use for                           |
-| ----------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------- |
-| Neutral / slate   | Reference metadata and passive facts         | `333 mg EC tablet`, `Item 8357W`, `Campral`, `p.4`, `PDF`, `Max 1,998 mg/day`     | Urgent risks, actions, or trust state    |
-| Clinical / Aegean | Action to take                               | `666 mg TID`, `Monitor renal`, `Take with food`, `Check baseline`                 | Verified/current/source-backed state     |
-| Success / green   | Confirmed, current, available, source-backed | `Reviewed`, `Current`, `Source-backed`, `PBS streamlined`, `Completed`            | Clinical safety decisions                |
-| Warning / amber   | Pause, check, adjust, uncertain, limited     | `Reduce <60 kg`, `Review due`, `Partial support`, `Limited evidence`, `Avoid >65` | Hard stops or contraindications          |
-| Danger / red      | Stop, avoid, failed, unsafe                  | `Cr >120 avoid`, `Contraindicated`, `Outdated`, `Failed`, `Do not use`            | Routine adverse effects or mild cautions |
-| Info / blue       | System or process information                | `Processing`, `Syncing`, `Pending`, `Importing`                                   | Core clinical meaning                    |
+| Tone            | Meaning                                      | Examples                                                                          | Do not use for                           |
+| --------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------- |
+| Neutral / slate | Reference metadata and passive facts         | `333 mg EC tablet`, `Item 8357W`, `Campral`, `p.4`, `PDF`, `Max 1,998 mg/day`     | Urgent risks, actions, or trust state    |
+| Clinical / Sky  | Action to take                               | `666 mg TID`, `Monitor renal`, `Take with food`, `Check baseline`                 | Verified/current/source-backed state     |
+| Success / green | Confirmed, current, available, source-backed | `Reviewed`, `Current`, `Source-backed`, `PBS streamlined`, `Completed`            | Clinical safety decisions                |
+| Warning / amber | Pause, check, adjust, uncertain, limited     | `Reduce <60 kg`, `Review due`, `Partial support`, `Limited evidence`, `Avoid >65` | Hard stops or contraindications          |
+| Danger / red    | Stop, avoid, failed, unsafe                  | `Cr >120 avoid`, `Contraindicated`, `Outdated`, `Failed`, `Do not use`            | Routine adverse effects or mild cautions |
+| Info / blue     | System or process information                | `Processing`, `Syncing`, `Pending`, `Importing`                                   | Core clinical meaning                    |
 
 Do not add purple, pink, orange, cyan, or extra medication-specific badge colours. Orange collapses into amber. Purple should not be used for clinical badges because it reads as product or AI styling rather than clinical meaning.
 
@@ -64,7 +102,7 @@ Do not add purple, pink, orange, cyan, or extra medication-specific badge colour
 
 Green means trusted, current, reviewed, available, or source-backed. It does not mean clinically safe.
 
-The clinical accent (Aegean blue-teal) means a clinical action or instruction. It does not mean good, safe, or verified.
+The clinical accent (Clinical Sky blue) means a clinical action or instruction. It does not mean good, safe, or verified.
 
 Amber means pause, check, adjust, review, or interpret with caution.
 
@@ -427,14 +465,14 @@ Avoid code-facing colour names such as `green`, `red`, `amber`, or `slate` for n
 
 Map semantic tones to existing tokens:
 
-| Semantic tone | Existing style direction                    |
-| ------------- | ------------------------------------------- |
-| `neutral`     | `toneNeutral` / metadata pill               |
-| `clinical`    | clinical accent token (`--clinical-accent`) |
-| `success`     | `toneSuccess`                               |
-| `warning`     | `toneWarning` or `toneWarningQuiet`         |
-| `danger`      | `toneDanger`                                |
-| `info`        | `toneInfo`                                  |
+| Semantic tone | Existing style direction                                  |
+| ------------- | --------------------------------------------------------- |
+| `neutral`     | `toneNeutral` / metadata pill                             |
+| `clinical`    | clinical accent token (`--clinical-accent`)               |
+| `success`     | `toneSuccess`                                             |
+| `warning`     | `toneWarning` (quiet warning is private to source badges) |
+| `danger`      | `toneDanger`                                              |
+| `info`        | `toneInfo`                                                |
 
 ## Accessibility Requirements
 

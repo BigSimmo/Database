@@ -104,11 +104,64 @@ describe("productivity workflow planning", () => {
     );
   });
 
+  it("keeps reconciliation inventory local and gates the remote refresh", () => {
+    const plan = buildWorkflowPlan("lifecycle", [], { phase: "reconcile" });
+
+    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+      "node scripts/reconciliation-preflight.mjs",
+      "node scripts/reconciliation-evidence-pack.mjs --output .local/reconciliation-evidence/pack.json",
+    ]);
+    expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toEqual([
+      "git fetch --prune origin",
+    ]);
+    expect(plan.proof.join(" ")).toContain("never print raw process command lines");
+    expect(plan.proof.join(" ")).toContain("evidence pack");
+  });
+
+  it("plans a cooperative primary-checkout lease check for start and cleanup", () => {
+    for (const phase of ["start", "cleanup"] as const) {
+      const plan = buildWorkflowPlan("lifecycle", [], { phase });
+      expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+        "node scripts/primary-checkout-lease.mjs --check",
+      ]);
+      expect(plan.proof.join(" ")).toContain("independent feature worktrees");
+    }
+  });
+
   it("classifies common failure signatures", () => {
     expect(analyzeFailureText("Error: Cannot find module 'workflow-status.mjs'").category).toBe("environment");
     expect(analyzeFailureText("OPENAI_API_KEY missing").category).toBe("provider-or-configuration");
     expect(analyzeFailureText("AssertionError: expected 2 received 3").category).toBe("probable-regression");
     expect(analyzeFailureText("TypeError: value is not iterable").category).toBe("probable-regression");
+  });
+
+  it("distinguishes historical eval-canary provider failures from a completed golden regression", () => {
+    const july7OwnerMismatch = [
+      "Golden retrieval eval summary:",
+      "  cases=36",
+      "  retrieval_layer_counts={}",
+      "  failed_cases=36",
+    ].join("\n");
+    const july10ProviderThrottle = "Error: 429 Too Many Requests while creating an embedding";
+    const completedGoldenRegression = [
+      "Golden retrieval eval summary:",
+      "  cases=36",
+      '  retrieval_layer_counts={"lexical":72,"hybrid_vector":36}',
+      "  failed_cases=3",
+    ].join("\n");
+
+    expect(analyzeFailureText(july7OwnerMismatch)).toMatchObject({
+      category: "provider-or-configuration",
+      confidence: "high",
+    });
+    expect(analyzeFailureText(july10ProviderThrottle)).toMatchObject({
+      category: "provider-or-configuration",
+      confidence: "high",
+    });
+    expect(analyzeFailureText(completedGoldenRegression)).toMatchObject({
+      category: "probable-regression",
+      confidence: "high",
+    });
   });
 
   it("extracts only actionable operator markers", () => {

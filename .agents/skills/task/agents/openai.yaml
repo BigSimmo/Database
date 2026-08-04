@@ -1,0 +1,4 @@
+interface:
+  display_name: "Task"
+  short_description: "Manage safe Database task lifecycle transitions"
+  default_prompt: "Use $task to inspect and manage the requested Database task lifecycle phase safely."

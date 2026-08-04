@@ -5,13 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, X } from "lucide-react";
 
 import { mobileSectionFabMediaQuery, navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
-import { cn } from "@/components/ui-primitives";
+import { cn, LoadingPanel } from "@/components/ui-primitives";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { type AppModeId, appModeSearchConfig } from "@/lib/app-modes";
 
 const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((module) => module.ApplicationsLauncherWorkspace),
-  { ssr: false },
+  // ssr: false renders nothing server-side, so /tools would otherwise be blank
+  // until this chunk executes.
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={6} label="Loading tools" /> },
 );
 
 export function ToolsHub({ query, desktopComposerSlotId }: { query: string; desktopComposerSlotId?: string }) {
@@ -240,7 +242,7 @@ export function MobileSectionFab({
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
-          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-150 hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
+          "fixed z-40 grid h-14 w-14 place-items-center rounded-full border border-[color:var(--command)] bg-[color:var(--command)] text-[color:var(--command-contrast)] shadow-[var(--shadow-elevated)] transition motion-safe:duration-[var(--duration-quick)] hover:-translate-y-0.5 hover:bg-[color:var(--command-hover)] active:translate-y-px",
           open && "bg-[color:var(--command-hover)]",
         )}
         style={{
@@ -288,7 +290,7 @@ export function MobileSectionFab({
           />
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
             <div className="min-w-0">
-              <p id={labelId} className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+              <p id={labelId} className="text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                 Answer navigator
               </p>
               <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">

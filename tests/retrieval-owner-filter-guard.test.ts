@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-import ts from "typescript";
+import ts from "@typescript/typescript6";
 import { describe, expect, it } from "vitest";
 
 // Guard for the retrieval owner-scope boundary (48h-review finding #3).
@@ -52,7 +52,11 @@ const SANCTIONED_API_OWNER_SCOPE = [
 // setup-status performs bounded schema/existence probes and never returns table
 // rows. It is intentionally owner-agnostic so a fresh deployment can diagnose
 // missing setup before any user corpus exists.
-const OWNER_SCOPE_EXEMPTIONS = new Set(["setup-status/route.ts:documents", "setup-status/route.ts:import_batches"]);
+const OWNER_SCOPE_EXEMPTIONS = new Set([
+  "setup-status/route.ts:documents",
+  "setup-status/route.ts:import_batches",
+  "setup-status/route.ts:storage_cleanup_jobs",
+]);
 
 // These internal helpers consume owner-authorized capability IDs created by the
 // surrounding route; they are not request-entry reads. Keep the names explicit so

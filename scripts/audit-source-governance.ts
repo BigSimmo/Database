@@ -3,6 +3,11 @@ import { pathToFileURL } from "node:url";
 
 import * as nextEnv from "@next/env";
 import { auditSourceAuthorityDocuments, isRegistryRecordSource } from "@/lib/source-authority-metadata";
+import {
+  BMJ_THIRD_PARTY_ATTESTATION_BASIS,
+  countOperationalUnattestedReviewDebt,
+  type BmjThirdPartyAttestationEvent,
+} from "@/lib/source-review";
 import type { DocumentLabel } from "@/lib/types";
 
 const loadEnvConfig =
@@ -128,7 +133,7 @@ function usage() {
 
 async function fetchAll<T>(
   supabase: SupabaseAdmin,
-  table: "documents" | "document_labels",
+  table: "documents" | "document_labels" | "source_review_events",
   select: string,
   filter?: (query: QueryBuilder<T>) => QueryBuilder<T>,
 ) {
@@ -269,6 +274,19 @@ export async function main(argv = process.argv.slice(2)) {
   );
   const clinicalGovernanceDocuments = documents.filter((document) => !isRegistryRecordSource(document));
   const registryRecordsExcludedFromClinicalMetadataGate = documents.length - clinicalGovernanceDocuments.length;
+  const clinicalGovernanceDocumentIds = new Set(clinicalGovernanceDocuments.map((document) => document.id));
+  // source_review_events is service-role-only. This global operator audit uses
+  // the existing admin client, reads only the fields needed to bind an
+  // attestation, scopes them back to audited documents, and never emits event
+  // evidence in either the JSON report or console output.
+  const bmjAttestationEvents = (
+    await fetchAll<BmjThirdPartyAttestationEvent>(
+      supabase,
+      "source_review_events",
+      "id,document_id,reviewer_id,decision,evidence_references,new_document_status,new_validation_status,review_date,policy_version,reviewer_qualification,created_at",
+      (query) => query.eq("decision", BMJ_THIRD_PARTY_ATTESTATION_BASIS),
+    )
+  ).filter((event) => clinicalGovernanceDocumentIds.has(event.document_id));
 
   const statusCounts = new Map<string, number>();
   const validationCounts = new Map<string, number>();
@@ -309,6 +327,17 @@ export async function main(argv = process.argv.slice(2)) {
     partial_extraction: extractionCounts.get("partial") ?? 0,
     missing_smart_v2_labels: missingSmartV2LabelDocuments.length,
   };
+  // Raw validation telemetry above is intentionally unchanged. This second,
+  // explicitly operational measure removes only complete, current, structured
+  // BMJ attestations from the work queue; review-due or malformed attestations
+  // remain debt and the source remains clinically unverified.
+  const operationalDebtCounts = countOperationalUnattestedReviewDebt(
+    clinicalGovernanceDocuments.map((document) => ({
+      documentId: document.id,
+      metadata: metadataRecord(document.metadata),
+    })),
+    bmjAttestationEvents,
+  );
   const debtPolicyFailures: string[] = [];
 
   if (debtPolicy) {
@@ -389,6 +418,7 @@ export async function main(argv = process.argv.slice(2)) {
       indexed_without_smart_v2_labels: missingSmartV2LabelDocuments.length,
     },
     debt_counts: debtCounts,
+    operational_review_debt_counts: operationalDebtCounts,
     sample_review_due_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).document_status === "review_due")
       .slice(0, 10)
@@ -444,6 +474,9 @@ export async function main(argv = process.argv.slice(2)) {
       `Clinical validation: ${Object.entries(report.clinical_validation_status_counts)
         .map(([value, count]) => `${value}=${count}`)
         .join(", ")}`,
+    );
+    console.log(
+      `Operational unattested review debt: ${report.operational_review_debt_counts.unattested_review_debt} (complete current BMJ attestations: ${report.operational_review_debt_counts.complete_bmj_third_party_attestations}; raw unverified: ${report.operational_review_debt_counts.raw_unverified_validation})`,
     );
     console.log(
       `Extraction quality: ${Object.entries(report.extraction_quality_counts)

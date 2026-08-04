@@ -7,6 +7,7 @@ export type IngestionRecoveryJob = {
     status?: string | null;
     page_count?: number | null;
     chunk_count?: number | null;
+    owner_id?: string | null;
   } | null;
 };
 

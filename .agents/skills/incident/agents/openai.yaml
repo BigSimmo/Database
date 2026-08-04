@@ -1,0 +1,4 @@
+interface:
+  display_name: "Incident"
+  short_description: "Triage recurring Database operational failures"
+  default_prompt: "Use $incident to reconstruct and reproduce this Database canary, CI, runtime, or scheduled failure offline first."

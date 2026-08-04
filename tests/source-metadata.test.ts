@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   clipboardProvenanceLine,
   formatClinicalDate,
+  hasRecordedGovernanceFields,
+  normalizeOptionalSourceMetadata,
   normalizeSourceMetadata,
+  sourceMetadataDiagnostics,
   sourceProvenanceSummary,
   sourceStatusLabel,
   validationStatusLabel,
@@ -18,6 +21,62 @@ describe("source metadata helpers", () => {
     expect(sourceStatusLabel(metadata)).toBe("Review status unknown");
     expect(validationStatusLabel(metadata)).toBe("Not locally validated");
     expect(sourceProvenanceSummary(metadata)).toContain("Review status unknown");
+  });
+
+  it("preserves empty and index-only metadata as unrecorded for optional normalization", () => {
+    expect(hasRecordedGovernanceFields({})).toBe(false);
+    expect(hasRecordedGovernanceFields({ index_generation_id: "gen-1" })).toBe(false);
+    expect(hasRecordedGovernanceFields({ document_status: "   " })).toBe(false);
+    expect(normalizeOptionalSourceMetadata(undefined)).toBeNull();
+    expect(normalizeOptionalSourceMetadata(null)).toBeNull();
+    expect(normalizeOptionalSourceMetadata({})).toBeNull();
+    expect(normalizeOptionalSourceMetadata({ index_generation_id: "gen-1" })).toBeNull();
+    expect(normalizeOptionalSourceMetadata({ clinical_validation_status: "unverified" })).toMatchObject({
+      clinical_validation_status: "unverified",
+    });
+    expect(normalizeOptionalSourceMetadata({ document_status: "current" })).toMatchObject({
+      document_status: "current",
+      clinical_validation_status: "unknown",
+      extraction_quality: "unknown",
+    });
+  });
+
+  it("traces unrecognized enum values while keeping the safe fallback, and stays silent for absent/blank inputs", () => {
+    // Issue 1: a present-but-unrecognized value (data-entry typo) is traced but must
+    // still coerce to the same safe fallback as before, so no downstream
+    // ranking/rendering behaviour changes. Absent/blank inputs are the legitimate
+    // default and must stay silent so the trace signal is not drowned.
+    // The trace goes through a browser-safe seam rather than the server logger: this
+    // module renders client-side, and the logger's `process.env` read is a
+    // ReferenceError in a browser.
+    const warnSpy = vi.spyOn(sourceMetadataDiagnostics, "warn").mockImplementation(() => {});
+    try {
+      const metadata = normalizeSourceMetadata({
+        document_status: "revieww_due",
+        clinical_validation_status: "aproved",
+        extraction_quality: "gud",
+      });
+
+      // Return value is unchanged — the same safe fallbacks as before.
+      expect(metadata.document_status).toBe("unknown");
+      expect(metadata.clinical_validation_status).toBe("unverified");
+      expect(metadata.extraction_quality).toBe("unknown");
+
+      // Each unrecognized non-empty value is traced once, with its field + value.
+      expect(warnSpy).toHaveBeenCalledTimes(3);
+      expect(warnSpy).toHaveBeenCalledWith("document_status", "revieww_due");
+      expect(warnSpy).toHaveBeenCalledWith("clinical_validation_status", "aproved");
+      expect(warnSpy).toHaveBeenCalledWith("extraction_quality", "gud");
+
+      // Absent (null / undefined) and blank/whitespace values are the legitimate
+      // default and never warn.
+      warnSpy.mockClear();
+      normalizeSourceMetadata(null);
+      normalizeSourceMetadata({ document_status: "", clinical_validation_status: "   " });
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("formats dates using Australian date order", () => {

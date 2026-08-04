@@ -4,9 +4,8 @@ let resetModulesAfterTest = false;
 const mockedModuleSpecifiers = [
   "@/lib/demo-data",
   "@/lib/differentials",
-  "@/lib/document-enrichment",
   "@/lib/env",
-  "@/lib/rag",
+  "@/lib/rag/rag",
   "@/lib/supabase/admin",
   "@/lib/tools-catalog",
   "@/lib/universal-search",
@@ -18,6 +17,7 @@ function isolateNextModuleImport() {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   if (resetModulesAfterTest) {
     for (const specifier of mockedModuleSpecifiers) vi.doUnmock(specifier);
@@ -180,7 +180,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     expect(documents?.items[0]?.href).toContain("/documents/");
   });
 
-  it("keeps registry hrefs when document search uses related-document mapping", async () => {
+  it("returns ranked chunk previews directly while preserving registry hrefs", async () => {
     isolateNextModuleImport();
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [
@@ -201,36 +201,13 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
         },
       ],
     }));
-    vi.doMock("@/lib/rag", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("../src/lib/rag")>();
+    vi.doMock("@/lib/rag/rag", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/lib/rag/rag")>();
       return {
         ...actual,
         searchChunksWithTelemetry,
       };
     });
-    const fetchRelatedDocuments = vi.fn(async () => [
-      {
-        document_id: "registry-doc",
-        title: "Crisis service",
-        file_name: "service-crisis-service.registry.json",
-        labels: [],
-        summary: null,
-        best_pages: [1],
-        best_chunk_ids: ["registry-chunk"],
-        image_count: 0,
-        table_count: 0,
-        match_reason: "Matched 1 indexed passage",
-        score: 0.92,
-      },
-    ]);
-    vi.doMock("@/lib/document-enrichment", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("../src/lib/document-enrichment")>();
-      return {
-        ...actual,
-        fetchRelatedDocuments,
-      };
-    });
-
     const { runUniversalSearch } = await loadUniversalSearch();
     const response = await runUniversalSearch({
       query: "crisis service",
@@ -240,13 +217,84 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       supabase: {} as Parameters<typeof runUniversalSearch>[0]["supabase"],
     });
 
-    expect(response.groups[0]?.items[0]?.href).toBe("/services/crisis-service");
+    expect(response.groups[0]?.items[0]).toMatchObject({
+      id: "registry-doc",
+      href: "/services/crisis-service",
+      score: 0.92,
+      meta: "service-crisis-service.registry.json",
+    });
     expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(fetchRelatedDocuments).toHaveBeenCalledWith(
-      expect.objectContaining({ includeVisualCounts: false, signal: expect.any(AbortSignal) }),
+  });
+
+  it("keeps the short document timeout for federated search but allows a focused document search to finish", async () => {
+    isolateNextModuleImport();
+    const searchChunksWithTelemetry = vi.fn(
+      ({ signal }: { signal?: AbortSignal }) =>
+        new Promise<{ results: Array<Record<string, unknown>> }>((resolve, reject) => {
+          const timer = setTimeout(
+            () =>
+              resolve({
+                results: [
+                  {
+                    id: "focused-document-chunk",
+                    document_id: "focused-document",
+                    title: "Focused document",
+                    file_name: "focused-document.pdf",
+                    page_number: 1,
+                    hybrid_score: 0.9,
+                    similarity: 0.9,
+                    images: [],
+                  },
+                ],
+              }),
+            1000,
+          );
+          signal?.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError"));
+            },
+            { once: true },
+          );
+        }),
     );
+    vi.doMock("@/lib/rag/rag", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/lib/rag/rag")>();
+      return { ...actual, searchChunksWithTelemetry };
+    });
+    const { runUniversalSearch } = await loadUniversalSearch();
+    vi.useFakeTimers();
+    const supabase = {} as Parameters<typeof runUniversalSearch>[0]["supabase"];
+
+    const focusedPromise = runUniversalSearch({
+      query: "focused document",
+      limitPerDomain: 3,
+      domains: ["documents"],
+      demo: false,
+      supabase,
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    const focused = await focusedPromise;
+    expect(focused.groups[0]).toMatchObject({ kind: "documents", total: 1 });
+    expect(focused.groups[0]?.error).toBeUndefined();
+
+    const federatedPromise = runUniversalSearch({
+      query: "focused document",
+      limitPerDomain: 3,
+      domains: ["documents", "tools"],
+      demo: false,
+      supabase,
+    });
+    await vi.advanceTimersByTimeAsync(751);
+    const federated = await federatedPromise;
+    expect(federated.groups.find((group) => group.kind === "documents")).toMatchObject({
+      error: true,
+      total: 0,
+    });
+    expect(federated.groups.find((group) => group.kind === "tools")?.error).toBeUndefined();
   });
 });
 

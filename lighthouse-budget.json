@@ -1,0 +1,15 @@
+{
+  "$comment": "Pre-merge Lighthouse budget, graded against a LOCAL production build by scripts/check-lighthouse-budget.mjs. This is a relative gate: absolute web-vitals thresholds are meaningless without network latency, so it compares each route to a committed known-good baseline. Refresh intentionally with `npm run check:lighthouse-budget -- --update` after an intentional, known-good run. Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed origin for ledger #017 and cannot block a merge. Starts with enforce:false and no baseline so the first CI runs report without blocking; set enforce:true once the baseline has held across a few runs.",
+  "enforce": false,
+  "$lighthouseVersion": "Pinned exactly, not `lighthouse@12`: a patch published between a baseline run and its follow-up would silently change the measurement. Kept in step with LIGHTHOUSE_VERSION in .github/workflows/live-web-vitals.yml by tests/check-lighthouse-budget.test.ts so the two Lighthouse entry points cannot drift apart.",
+  "lighthouseVersion": "12.8.2",
+  "routes": ["/", "/therapy-compass", "/documents/search", "/dsm", "/forms"],
+  "strategies": ["mobile", "desktop"],
+  "tolerance": {
+    "lcpMs": { "pct": 20, "minAbsolute": 100 },
+    "tbtMs": { "pct": 30, "minAbsolute": 50 },
+    "cls": { "absolute": 0.02 }
+  },
+  "baseline": null,
+  "updatedAt": null
+}

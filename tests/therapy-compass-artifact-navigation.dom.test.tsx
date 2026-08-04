@@ -76,6 +76,7 @@ function Probe() {
       <button data-testid="open-sheet-both" onClick={() => b.openSheet("with-both")} />
       <button data-testid="open-sheet-none" onClick={() => b.openSheet("no-artifacts")} />
       <button data-testid="open-brief-none" onClick={() => b.openBrief("no-artifacts")} />
+      <button data-testid="go-sheets" onClick={b.goSheets} />
     </div>
   );
 }
@@ -93,7 +94,7 @@ describe("Therapy Compass artifact-route navigation", () => {
     expect(nav.pushes).toContain("/therapy-compass/with-both/sheet");
   });
 
-  it("falls back to the detail page instead of routing to an unavailable brief/sheet subroute (no 404)", () => {
+  it("does not silently route unavailable brief/sheet actions to a different destination", () => {
     nav.pathname = "/therapy-compass/with-both";
     nav.search = "";
     const { getByTestId } = render(
@@ -103,9 +104,21 @@ describe("Therapy Compass artifact-route navigation", () => {
     );
     fireEvent.click(getByTestId("open-sheet-none"));
     fireEvent.click(getByTestId("open-brief-none"));
-    expect(nav.pushes).toContain("/therapy-compass/no-artifacts");
+    expect(nav.pushes).not.toContain("/therapy-compass/no-artifacts");
     expect(nav.pushes).not.toContain("/therapy-compass/no-artifacts/sheet");
     expect(nav.pushes).not.toContain("/therapy-compass/no-artifacts/brief");
+  });
+
+  it("routes patient-sheet navigation to an available sheet instead of an unavailable selected record", () => {
+    nav.pathname = "/therapy-compass/no-artifacts";
+    nav.search = "";
+    const { getByTestId } = render(
+      <TcProvider>
+        <Probe />
+      </TcProvider>,
+    );
+    fireEvent.click(getByTestId("go-sheets"));
+    expect(nav.pushes).toContain("/therapy-compass/with-both/sheet");
   });
 
   it("routes to the artifact subroute when the record ships it", () => {

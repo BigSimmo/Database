@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
-import { answerQuestionWithScope } from "@/lib/rag";
+import { answerQuestionWithScope } from "@/lib/rag/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
@@ -11,6 +11,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
+import { setAgentConversationId } from "@/lib/observability/agent-monitoring";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
@@ -23,7 +24,7 @@ import {
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "@/lib/answer-response";
-import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
+import { answerServerTimingEntries, buildServerTimingHeader, preambleServerTimingEntries } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
@@ -58,47 +59,77 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
 
 export async function POST(request: Request) {
   const interactionId = randomUUID();
+  // Group this request's LLM calls (embedding, generation, verification) into
+  // one Sentry agent-monitoring conversation keyed by the synthetic interaction
+  // UUID — never by query text.
+  setAgentConversationId(interactionId);
   const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {
     const answerBody = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
+    if (answerBody.summaryMode) {
+      return jsonError(
+        new PublicApiError("Document summaries require the streaming answer endpoint.", 400, {
+          code: "summary_mode_stream_required",
+        }),
+        400,
+      );
+    }
     body = answerBody;
     if (isDemoMode()) {
       return NextResponse.json({ ...buildDemoAnswerPayload(answerBody), interactionId });
     }
 
     const supabase = createAdminClient();
+    const authStartedAt = Date.now();
     const access = await publicAccessContext(request, supabase);
+    const authMs = Date.now() - authStartedAt;
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
+    // Admit before scope: resolveSearchScope can enumerate thousands of documents
+    // and labels. Overlapping it with the limiter left that work in flight on 429
+    // (abort cannot undo queries already accepted by PostgREST). Keep the signal
+    // so a client disconnect still cancels scope's paginated queries.
+    const rateLimitStartedAt = Date.now();
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase,
       subject: access.rateLimitSubject,
       bucket: "answer",
       allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
     });
+    const rateLimitMs = Date.now() - rateLimitStartedAt;
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+      return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit, { bucket: "answer" });
     }
 
+    const scopeStartedAt = Date.now();
     const scope = await resolveSearchScope({
       supabase,
       accessScope,
       documentIds: answerBody.documentIds ?? (answerBody.documentId ? [answerBody.documentId] : undefined),
       filters: answerBody.filters,
+      signal: request.signal,
     });
+    const scopeMs = Date.now() - scopeStartedAt;
     if (scope.documentIds?.length === 0) {
-      return NextResponse.json({
-        answer: emptyScopeAnswer,
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        degradedMode: answerDegradedModeSignal(),
-        scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
-        ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
-      });
+      const serverTiming = buildServerTimingHeader([
+        ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+        { name: "total", durMs: Date.now() - routeStartedAt },
+      ]);
+      return NextResponse.json(
+        {
+          answer: emptyScopeAnswer,
+          grounded: false,
+          confidence: "unsupported",
+          citations: [],
+          sources: [],
+          degradedMode: answerDegradedModeSignal(),
+          scope: { ...scope, queryMode: answerBody.queryMode },
+          sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+          ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
+        },
+        serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
+      );
     }
 
     const singleDocumentScope = Boolean(
@@ -127,9 +158,10 @@ export async function POST(request: Request) {
     });
 
     // Durations only — see server-timing.ts for the trust-boundary constraint.
-    const serverTiming = buildServerTimingHeader(
-      answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
-    );
+    const serverTiming = buildServerTimingHeader([
+      ...preambleServerTimingEntries({ authMs, rateLimitMs, scopeMs }),
+      ...answerServerTimingEntries(answer.latencyTimings, Date.now() - routeStartedAt),
+    ]);
     return NextResponse.json(
       {
         ...governedResponse.payload,

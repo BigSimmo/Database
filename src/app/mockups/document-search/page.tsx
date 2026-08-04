@@ -8,9 +8,11 @@ export const metadata: Metadata = {
   description: "Master runnable document-search UX flow for Clinical KB document mode.",
 };
 
+import { DocumentSearchPageSkeleton } from "@/components/mode-home-page-skeleton";
+
 export default function DocumentSearchMockupsIndexRoute() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<DocumentSearchPageSkeleton />}>
       <MasterDocumentIndex />
     </Suspense>
   );

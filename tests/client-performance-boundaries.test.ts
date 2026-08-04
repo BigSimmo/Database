@@ -23,15 +23,33 @@ describe("fixture-free client performance boundaries", () => {
     expect(dashboard).not.toContain('from "@/lib/differentials"');
   });
 
+  it("keeps the cross-mode links consumer on a dynamic catalog import", () => {
+    // The index-module allowlist lives in tests/cross-mode-differentials-index.test.ts.
+    // This locks the dashboard consumer: a static import would pull the catalog (and
+    // any future regression it reintroduces) into the main dashboard chunk.
+    const links = source("src/components/clinical-dashboard/cross-mode-links.tsx");
+    expect(links).toContain('import("@/lib/cross-mode-differentials")');
+    expect(links).not.toContain('from "@/lib/cross-mode-differentials"');
+    expect(links).not.toContain('from "@/lib/differentials"');
+  });
+
   it("keeps initial dashboard rankers on fixture-free entry points", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
-    expect(dashboard).toContain('from "@/lib/form-ranker"');
-    expect(dashboard).toContain('from "@/lib/service-ranker"');
+    const deferredRegistrySearch = source("src/components/clinical-dashboard/use-deferred-registry-search.ts");
+    expect(dashboard).toContain('from "@/components/clinical-dashboard/use-deferred-registry-search"');
+    expect(dashboard).not.toContain('from "@/lib/form-ranker"');
+    expect(dashboard).not.toContain('from "@/lib/service-ranker"');
+    expect(deferredRegistrySearch).toContain('from "@/lib/form-ranker"');
+    expect(deferredRegistrySearch).toContain('from "@/lib/service-ranker"');
+    expect(deferredRegistrySearch).toContain("useDeferredValue");
     expect(source("src/lib/cross-mode-links.ts")).not.toMatch(/@\/lib\/(forms|services)"/);
   });
 
   it("loads administration data only after its source surface opens", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
+    expect(dashboard).not.toContain('from "@/components/clinical-dashboard/DocumentManagerPanel"');
+    expect(dashboard).toContain('from "@/components/clinical-dashboard/document-manager-contracts"');
+    expect(dashboard).toContain('from "@/components/clinical-dashboard/library-health-strip"');
     expect(dashboard).toContain("includeSetup: true, includeDashboardData: false");
     expect(dashboard).toContain("dashboardDataSurfaceVisible && !dashboardDataLoadedRef.current");
     expect(dashboard).toContain("administrationSurfaceVisible && !administrationDataLoadedRef.current");

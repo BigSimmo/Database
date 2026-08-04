@@ -123,7 +123,7 @@ export function ClinicalOutputPanel({
               <CircleCheck aria-hidden="true" className="h-4 w-4" />
             </span>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--primary)]">
+              <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--primary)]">
                 {leadSection.title}
               </p>
               <p className="mt-1 text-base-minus font-semibold leading-6 text-[color:var(--text-heading)]">

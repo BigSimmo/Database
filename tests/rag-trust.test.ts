@@ -4,8 +4,9 @@ import {
   buildRagSourceBlock,
   classifyAnswerIntent,
   parseAnswerJson,
-} from "../src/lib/rag";
-import { buildExtractiveAnswer, finalizeRagAnswerQuality } from "../src/lib/rag-extractive-answer";
+} from "../src/lib/rag/rag";
+import { buildExtractiveAnswer, finalizeRagAnswerQuality } from "../src/lib/rag/rag-extractive-answer";
+import { enrichGroundedReviewCitations } from "../src/lib/rag/rag-quote-verification";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -45,6 +46,17 @@ describe("RAG trust validation", () => {
       "document_lookup",
     );
     expect(classifyAnswerIntent("What is the maximum sertraline dose?", "medication_dose_risk")).toBe("dose");
+    expect(classifyAnswerIntent("What is the dose range for lithium?", "medication_dose_risk")).toBe("dose");
+    expect(classifyAnswerIntent("What is the therapeutic dose range for lithium?", "medication_dose_risk")).toBe(
+      "dose",
+    );
+    expect(classifyAnswerIntent("What range of doses is recommended for lithium?", "medication_dose_risk")).toBe(
+      "dose",
+    );
+    expect(classifyAnswerIntent("What range is used for lithium dosing?", "medication_dose_risk")).toBe("dose");
+    expect(classifyAnswerIntent("What is the target serum level range for lithium?", "medication_dose_risk")).toBe(
+      "monitoring_schedule",
+    );
     expect(classifyAnswerIntent("What are naltrexone contraindications?", "medication_dose_risk")).toBe(
       "contraindication",
     );
@@ -216,7 +228,7 @@ describe("RAG trust validation", () => {
   });
 
   it("rejects hallucinated citations that are not retrieved chunks", () => {
-    const answer = parseAnswerJson(
+    const parsed = parseAnswerJson(
       JSON.stringify({
         answer: "Unsupported",
         grounded: true,
@@ -226,16 +238,16 @@ describe("RAG trust validation", () => {
       [source()],
     );
 
-    expect(answer.citations).toEqual([]);
-    expect(answer.grounded).toBe(false);
-    expect(answer.confidence).toBe("unsupported");
+    expect(parsed.citations).toEqual([]);
+    expect(parsed.grounded).toBe(false);
+    expect(parsed.confidence).toBe("unsupported");
   });
 
   // GEN-C3: a model that cites nothing is the strongest hallucination signal.
   // The system must NOT back-fill all retrieved chunks as citations and stamp the
   // answer grounded; it must drop to ungrounded/unsupported.
   it("treats missing model citations as ungrounded/unsupported (no citation back-fill)", () => {
-    const answer = parseAnswerJson(
+    const parsed = parseAnswerJson(
       JSON.stringify({
         answer: "Supported but uncited",
         grounded: true,
@@ -245,10 +257,10 @@ describe("RAG trust validation", () => {
       [source()],
     );
 
-    expect(answer.citations).toHaveLength(0);
-    expect(answer.grounded).toBe(false);
-    expect(answer.confidence).toBe("unsupported");
-    expect(answer.routingReason).toContain("ungrounded_no_model_citation");
+    expect(parsed.citations).toHaveLength(0);
+    expect(parsed.grounded).toBe(false);
+    expect(parsed.confidence).toBe("unsupported");
+    expect(parsed.routingReason).toContain("ungrounded_no_model_citation");
   });
 
   it("preserves valid citations using retrieved source metadata", () => {
@@ -297,6 +309,533 @@ describe("RAG trust validation", () => {
     expect(answer.citations).toHaveLength(1);
     expect(answer.citations.map((citation) => citation.chunk_id)).toEqual(["chunk-1"]);
     expect(answer.routingReason ?? "").not.toContain("review_citations_enriched");
+  });
+
+  it("adds one independently supporting current chunk with deterministic provenance", () => {
+    const first = source({
+      id: "neuroleptic-1",
+      content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    });
+    const second = source({
+      id: "neuroleptic-2",
+      chunk_index: 1,
+      content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+      source_metadata: {
+        ...first.source_metadata!,
+        clinical_validation_status: "unverified",
+      },
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: first.id }],
+      }),
+      [first, second],
+    );
+
+    expect(answer.citations).toHaveLength(2);
+    expect(answer.citations[0]).toMatchObject({ chunk_id: first.id, provenance: "model_selected" });
+    expect(answer.citations[1]).toMatchObject({ chunk_id: second.id, provenance: "deterministic_support" });
+    expect(answer.routingReason).toContain("review_citations_enriched");
+  });
+
+  it("does not let a direct candidate rescue an unrelated model-selected citation", () => {
+    const unrelated = source({ id: "unrelated", content: "The clinic records routine appointment details." });
+    const direct = source({
+      id: "direct",
+      chunk_index: 1,
+      content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: unrelated.id }],
+      }),
+      [unrelated, direct],
+    );
+
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([unrelated.id]);
+    expect(answer.routingReason ?? "").not.toContain("review_citations_enriched");
+  });
+
+  it("does not enrich a citation from a source with contradictory labelled bands", () => {
+    const first = source({
+      id: "single-band-source",
+      content: "A high LUNSERS score of 81-100 requires escalation to the treating doctor.",
+    });
+    const conflicting = source({
+      id: "conflicting-band-candidate",
+      chunk_index: 1,
+      content:
+        "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). A high LUNSERS score of 81-100 requires escalation to the treating doctor.",
+    });
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: "A high LUNSERS score of 81-100 requires escalation to the treating doctor.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: first.id }],
+      }),
+      [first],
+    );
+    const answer = enrichGroundedReviewCitations(parsed, [first, conflicting], 2);
+
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([first.id]);
+    expect(answer.routingReason ?? "").not.toContain("review_citations_enriched");
+  });
+
+  it("does not enrich a query-bound range citation from a contradictory source", () => {
+    const safe = source({
+      id: "safe-applicable-range",
+      document_id: "safe-applicable-range-document",
+      content: "The applicable range is 81-100.",
+    });
+    const contradictory = source({
+      id: "contradictory-applicable-range",
+      document_id: "contradictory-applicable-range-document",
+      chunk_index: 1,
+      content: "LUNSERS score bands are medium (41-89) and high (81-100). The applicable range is 81-100.",
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "The applicable range is 81-100.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: safe.id }],
+      }),
+      [safe, contradictory],
+      "What is the applicable LUNSERS range?",
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([safe.id]);
+    expect(answer.routingReason ?? "").not.toContain("review_citations_enriched");
+  });
+
+  it("can enrich a different-scale claim from a source containing an unrelated band conflict", () => {
+    const first = source({
+      id: "metabolic-primary",
+      content: "Metabolic monitoring is required.",
+    });
+    const mixed = source({
+      id: "metabolic-with-unrelated-conflict",
+      chunk_index: 1,
+      content: "LUNSERS score bands are medium (41-89) and high (81-100). Metabolic monitoring is required.",
+    });
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: "Metabolic monitoring is required.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: first.id }],
+      }),
+      [first],
+      "Is metabolic monitoring required?",
+    );
+    const answer = enrichGroundedReviewCitations(parsed, [first, mixed], 2);
+
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([first.id, mixed.id]);
+    expect(answer.citations[1]).toMatchObject({ provenance: "deterministic_support" });
+    expect(answer.routingReason).toContain("review_citations_enriched");
+  });
+
+  it.each([
+    ["outdated", "good"],
+    ["current", "poor"],
+    ["current", "partial"],
+  ] as const)("does not promote governed-out evidence (%s/%s)", (documentStatus, extractionQuality) => {
+    const first = source({
+      id: "current-source",
+      content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+    });
+    const governedOut = source({
+      id: "governed-out",
+      chunk_index: 1,
+      content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+      source_metadata: {
+        ...first.source_metadata!,
+        document_status: documentStatus,
+        extraction_quality: extractionQuality,
+      },
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: first.id }],
+      }),
+      [first, governedOut],
+    );
+
+    expect(answer.citations.map((citation) => citation.chunk_id)).toEqual([first.id]);
+  });
+
+  it("adds at most one citation and never exceeds two even when a higher target is requested elsewhere", () => {
+    const results = ["one", "two", "three"].map((id, index) =>
+      source({
+        id,
+        chunk_index: index,
+        content: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+      }),
+    );
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: "Any neuroleptic side effect causing distress should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: results[0]!.id }],
+      }),
+      [results[0]!],
+    );
+    const answer = enrichGroundedReviewCitations(parsed, results, 4);
+
+    expect(answer.citations).toHaveLength(2);
+  });
+
+  it("withholds overlapping score bands but keeps a directly supported nonnumeric alternative", () => {
+    const evidence =
+      "Scores in the medium (41-89), high (81-100), and very high (>101) ranges are escalated to the treating doctor. Any neuroleptic side effect causing distress irrespective of score should be escalated to the treating doctor.";
+    const first = source({ id: "lunsers-1", content: evidence });
+    const second = source({
+      id: "lunsers-2",
+      chunk_index: 1,
+      content:
+        "Any neuroleptic side effect causing distress irrespective of score should be escalated to the treating doctor.",
+    });
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer:
+          "Escalate neuroleptic side effects to the treating doctor when the LUNSERS score is medium (41-89), high (81-100), or very high (>101), or whenever any side effect is causing the patient distress, irrespective of score.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: first.id }],
+        quoteCards: [
+          {
+            chunk_id: first.id,
+            quote: "Scores in the medium (41-89), high (81-100), and very high (>101) ranges",
+          },
+        ],
+      }),
+      [first, second],
+      "When should neuroleptic side effects be escalated?",
+    );
+    const answer = finalizeRagAnswerQuality(
+      parsed,
+      "When should neuroleptic side effects be escalated?",
+      "medication_dose_risk",
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).toBe("medium");
+    expect(answer.answer.replace(/\*\*/g, "")).toBe(
+      "Escalate neuroleptic side effects to the treating doctor whenever any side effect is causing the patient distress, irrespective of score.",
+    );
+    expect(answer.answer).not.toMatch(/41|81|100|101/);
+    expect(answer.citations).toHaveLength(2);
+    expect(answer.citations[1]).toMatchObject({ chunk_id: second.id, provenance: "deterministic_support" });
+    expect(answer.quoteCards).toEqual([]);
+    expect(answer.routingReason).toContain("numeric_band_conflict_nonnumeric_recovery");
+    expect(answer.supportedClaims?.[0]).toMatchObject({ supportStatus: "direct" });
+    expect(answer.conflictsOrGaps).toContainEqual(
+      expect.objectContaining({ type: "conflict", message: expect.stringContaining("withheld those numeric bands") }),
+    );
+  });
+
+  it.each([
+    "Escalate when the score is medium (41-89) or high (81-100).",
+    "Escalate when the score is medium (41-89) or high (81-100), and whenever the patient is distressed.",
+  ])("fails closed when conflicting bands have no safe alternative: %s", (answerText) => {
+    const evidence = source({ id: "conflicted", content: answerText });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: answerText,
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: evidence.id }],
+      }),
+      [evidence],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.citations).toEqual([]);
+    expect(answer.routingReason).toContain("numeric_band_coherence_gate_source_conflict");
+  });
+
+  it("fails closed when packed adjacent context completes a conflicting labelled band", () => {
+    const packedHigh = source({
+      id: "packed-adjacent-lunsers-high",
+      document_id: "packed-adjacent-lunsers-document",
+      page_number: 4,
+      chunk_index: 11,
+      section_heading: null,
+      section_path: ["Outcome measures", "LUNSERS"],
+      content:
+        "A LUNSERS score range of 81-100 is high and should be escalated to the treating doctor. Scores above 101 are very high.",
+      adjacent_context: "LUNSERS score bands use medium (41-89),",
+    });
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: "A LUNSERS score range of 81-100 is high and should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: packedHigh.id }],
+      }),
+      [packedHigh],
+      "When should neuroleptic side effects be escalated based on the LUNSERS score?",
+    );
+    const answer = finalizeRagAnswerQuality(
+      parsed,
+      "When should neuroleptic side effects be escalated based on the LUNSERS score?",
+      "medication_dose_risk",
+      [packedHigh],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.routingReason).toContain("numeric_band_coherence_gate_source_conflict");
+    expect(answer.citations).toEqual([]);
+  });
+
+  it("fails closed when a conflicting labelled band survives only in an answer section", () => {
+    const evidence = source({
+      id: "section-conflict",
+      content:
+        "Escalate neuroleptic side effects causing distress. Severity scores are medium (41-89) or high (81-100).",
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Escalate neuroleptic side effects causing distress.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: evidence.id }],
+        answerSections: [
+          {
+            heading: "Score bands",
+            body: "Severity scores are medium (41-89) or high (81-100).",
+            citation_chunk_ids: [evidence.id],
+          },
+        ],
+      }),
+      [evidence],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.citations).toEqual([]);
+  });
+
+  it("checks a section-only band against that section's contradictory cited source", () => {
+    const top = source({
+      id: "safe-top",
+      content: "Monitor neuroleptic side effects and ask whether they are causing distress.",
+    });
+    const bandSource = source({
+      id: "section-band-source",
+      chunk_index: 1,
+      content:
+        "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). A high score of 81-100 requires escalation.",
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Monitor neuroleptic side effects and ask whether they are causing distress.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: top.id }],
+        answerSections: [
+          {
+            heading: "Escalation",
+            body: "A high LUNSERS score of 81-100 requires escalation.",
+            citation_chunk_ids: [bandSource.id],
+          },
+        ],
+      }),
+      [top, bandSource],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.citations).toEqual([]);
+  });
+
+  it("checks an actionable bare section range against that section's contradictory cited source", () => {
+    const top = source({
+      id: "safe-bare-top",
+      content: "Monitor neuroleptic side effects and ask whether they are causing distress.",
+    });
+    const bandSource = source({
+      id: "bare-section-band-source",
+      chunk_index: 1,
+      content: "LUNSERS score bands are medium (41-89), high (81-100), and very high (>101). Escalate at 81-100.",
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Monitor neuroleptic side effects and ask whether they are causing distress.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: top.id }],
+        answerSections: [
+          {
+            heading: "Escalation",
+            body: "Escalate at 81-100.",
+            citation_chunk_ids: [bandSource.id],
+          },
+        ],
+      }),
+      [top, bandSource],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.answerSections).toEqual([]);
+    expect(answer.citations).toEqual([]);
+  });
+
+  it("fails closed when a generated scalar endpoint cites one half of an adjacent band conflict", () => {
+    const medium = source({
+      id: "adjacent-lunsers-medium",
+      document_id: "adjacent-lunsers-document",
+      page_number: 4,
+      chunk_index: 10,
+      section_heading: null,
+      section_path: ["Outcome measures", "LUNSERS"],
+      content: "LUNSERS score bands are medium (41-89),",
+    });
+    const high = source({
+      id: "adjacent-lunsers-high",
+      document_id: "adjacent-lunsers-document",
+      page_number: 4,
+      chunk_index: 11,
+      section_heading: null,
+      section_path: ["Outcome measures", "LUNSERS"],
+      content: "high (81-100), and very high (>101).",
+    });
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: "A LUNSERS score of 81 is high and should be escalated to the treating doctor.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: high.id }],
+      }),
+      [high],
+      "When should neuroleptic side effects be escalated?",
+    );
+    expect(parsed.grounded).toBe(true);
+    const answer = finalizeRagAnswerQuality(
+      parsed,
+      "When should neuroleptic side effects be escalated?",
+      "medication_dose_risk",
+      [medium, high],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.citations).toEqual([]);
+    expect(answer.routingReason).toContain("numeric_band_coherence_gate_source_conflict");
+    expect(answer.conflictsOrGaps).toContainEqual(
+      expect.objectContaining({
+        source_chunk_ids: expect.arrayContaining([medium.id, high.id]),
+      }),
+    );
+  });
+
+  it.each([90, 100])("fails closed for actionable scalar %s from an affected adjacent band", (score) => {
+    const medium = source({
+      id: "generic-scalar-medium",
+      document_id: "generic-scalar-document",
+      page_number: 4,
+      chunk_index: 10,
+      section_path: ["Outcome measures", "LUNSERS"],
+      content: "LUNSERS score bands are medium (41-89),",
+    });
+    const high = source({
+      id: "generic-scalar-high",
+      document_id: "generic-scalar-document",
+      page_number: 4,
+      chunk_index: 11,
+      section_path: ["Outcome measures", "LUNSERS"],
+      content:
+        "high (81-100), and very high (>101). Neuroleptic side effects at a score of 90 should be escalated to the treating doctor. Neuroleptic side effects at a score of 100 should be escalated to the treating doctor.",
+    });
+    const answerText = `Neuroleptic side effects at a score of ${score} should be escalated to the treating doctor.`;
+    const parsed = parseAnswerJson(
+      JSON.stringify({
+        answer: answerText,
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: high.id }],
+      }),
+      [high],
+      "When should neuroleptic side effects be escalated?",
+    );
+    const answer = finalizeRagAnswerQuality(
+      parsed,
+      "When should neuroleptic side effects be escalated?",
+      "medication_dose_risk",
+      [medium, high],
+    );
+
+    expect(answer).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(answer.citations).toEqual([]);
+  });
+
+  it("keeps an independent named-scale claim and quote from a chunk with another scale conflict", () => {
+    const mixedScaleSource = source({
+      id: "mixed-scale-source",
+      content:
+        "LUNSERS score bands are medium (41-89) and high (81-100). Metabolic risk bands are low (0-9), medium (10-19), and high (>19).",
+    });
+    const metabolicQuote = "Metabolic risk bands are low (0-9), medium (10-19), and high (>19).";
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: "Metabolic risk is high above 19.",
+        grounded: true,
+        confidence: "medium",
+        citations: [{ chunk_id: mixedScaleSource.id }],
+        quoteCards: [
+          {
+            chunk_id: mixedScaleSource.id,
+            quote: "LUNSERS score bands are medium (41-89) and high (81-100).",
+          },
+          { chunk_id: mixedScaleSource.id, quote: metabolicQuote },
+        ],
+      }),
+      [mixedScaleSource],
+      "What is the high metabolic risk band?",
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer).toMatch(/metabolic risk/i);
+    expect(answer.quoteCards?.map((quote) => quote.quote)).toEqual([metabolicQuote]);
+    expect(answer.routingReason).toContain("numeric_band_conflict_quote_withheld");
+  });
+
+  it("removes a later conflicting band quote without removing an earlier non-band quote", () => {
+    const safeQuote = "Monitor symptoms and ask whether they are causing distress.";
+    const conflictingQuote = "LUNSERS score bands are medium (41-89) and high (81-100).";
+    const mixedSource = source({
+      id: "later-conflicting-quote-source",
+      content: `${safeQuote} ${conflictingQuote}`,
+    });
+    const answer = parseAnswerJson(
+      JSON.stringify({
+        answer: safeQuote,
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: mixedSource.id }],
+        quoteCards: [
+          { chunk_id: mixedSource.id, quote: safeQuote },
+          { chunk_id: mixedSource.id, quote: conflictingQuote },
+        ],
+      }),
+      [mixedSource],
+      "How should neuroleptic side effects be monitored?",
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.quoteCards?.map((quote) => quote.quote)).toEqual([safeQuote]);
+    expect(answer.routingReason).toContain("numeric_band_conflict_quote_withheld");
   });
 
   it("strips provenance boilerplate from generated answer and section prose", () => {

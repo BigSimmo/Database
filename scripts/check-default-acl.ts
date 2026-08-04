@@ -5,7 +5,7 @@ function argument(name: string, fallback: string) {
   return index >= 0 && process.argv[index + 1] ? process.argv[index + 1]! : fallback;
 }
 
-const roleName = argument("--role", "supabase_admin");
+const roleName = argument("--role", "postgres");
 const schemaName = argument("--schema", "public");
 if (!process.argv.includes("--confirm-provider-read")) {
   throw new Error("Refusing provider-backed ACL verification without --confirm-provider-read.");

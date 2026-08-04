@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dependencies"
+  short_description: "Maintain Database dependencies safely"
+  default_prompt: "Use $dependencies to review or update Database dependencies with compatibility, lockfile, and verification discipline."

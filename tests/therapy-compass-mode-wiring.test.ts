@@ -1,8 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import {
+  THERAPY_CATALOGUE_ASSETS,
+  THERAPY_CATALOGUE_ASSETS_PREVIOUS,
+} from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
 // real breakages caught in review when the mockup was promoted to a live mode.
@@ -11,9 +15,69 @@ const loaderSrc = readFileSync(
   new URL("../src/components/therapy-compass/data/use-therapy-data.ts", import.meta.url),
   "utf8",
 );
+const bindingsSrc = readFileSync(new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url), "utf8");
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
+const legacyCatalogueAssets = {
+  full: "therapies.json",
+  index: "therapies-index.json",
+  home: "therapies-home.json",
+} as const;
+const therapyMetadataFiles = [
+  "../src/app/(search-app)/therapy-compass/page.tsx",
+  "../src/app/(search-app)/therapy-compass/search/page.tsx",
+  "../src/app/(search-app)/therapy-compass/recommend/page.tsx",
+  "../src/app/(search-app)/therapy-compass/compare/page.tsx",
+  "../src/app/(search-app)/therapy-compass/pathways/page.tsx",
+  "../src/app/(search-app)/therapy-compass/review/page.tsx",
+  "../src/app/(search-app)/therapy-compass/[slug]/page.tsx",
+  "../src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
+  "../src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
+];
 
 describe("Therapy Compass production-mode wiring", () => {
+  it("uses Therapy for user-facing mode copy, search results ribbon, and page metadata", () => {
+    const appModesSrc = readFileSync(new URL("../src/lib/app-modes.ts", import.meta.url), "utf8");
+    const homeSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    const workspaceSrc = readFileSync(
+      new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const searchSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    const sidebarSrc = readFileSync(
+      new URL("../src/components/clinical-dashboard/ClinicalSidebar.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(appModesSrc).toContain('label: "Therapy"');
+    expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
+    expect(homeSrc).toContain('title="Therapy"');
+    // Search route owns filters/results only; the results ribbon is the page h1.
+    expect(searchSrc).toContain("SearchResultsHeaderBand");
+    expect(searchSrc).toContain("headingLevel={1}");
+    expect(searchSrc).not.toContain("Search therapies");
+    expect(searchSrc).not.toContain("Find source-grounded therapy records");
+    expect(workspaceSrc).toContain("Therapy could not load");
+    // Therapy stays out of the six-item sidebar; mode discovery is via Tools/search.
+    expect(sidebarSrc).not.toContain('id: "therapy-compass"');
+    expect(appModesSrc).not.toContain("Therapy mode");
+    expect(homeSrc).not.toContain("Therapy mode");
+    expect(searchSrc).not.toContain("Therapy Search");
+    expect(workspaceSrc).not.toContain("Therapy mode");
+
+    for (const filename of therapyMetadataFiles) {
+      const source = readFileSync(new URL(filename, import.meta.url), "utf8");
+      expect(source, filename).toContain("Therapy");
+      expect(source, filename).not.toContain("Therapy mode");
+      expect(source, filename).not.toContain("Therapy Compass");
+    }
+  });
+
   it("loads its dataset from a non-/mockups path (proxy.ts 404s every /mockups path in production)", () => {
     const base = loaderSrc.match(/const BASE = "([^"]+)"/)?.[1];
     expect(base).toBeTruthy();
@@ -21,8 +85,92 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("ships the dataset at the non-mockups public path the loader points to", () => {
-    for (const file of ["therapies.json", "pathways.json", "reference.json"]) {
+    for (const file of [...Object.values(THERAPY_CATALOGUE_ASSETS), "pathways.json", "reference.json"]) {
       expect(existsSync(new URL(file, dataDir))).toBe(true);
+    }
+  });
+
+  it("keeps unversioned catalogue aliases for clients spanning a deployment", () => {
+    for (const kind of ["full", "index", "home"] as const) {
+      const current = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir));
+      const legacy = readFileSync(new URL(legacyCatalogueAssets[kind], dataDir));
+      expect(legacy.equals(current), legacyCatalogueAssets[kind]).toBe(true);
+    }
+  });
+
+  it("commits no catalogue assets older than the one-deploy grace generation", () => {
+    // Every regeneration mints new hashed filenames. Without pruning, each data
+    // revision strands the previous full catalogue (~2.5 MB) plus both
+    // projections in `public/` permanently — in git history and in every Docker
+    // image. PR #1489 stranded two inside a single pull request and needed a
+    // hand-deletion commit. `check:therapy-data-index` enforces the same rule;
+    // this pins it for anyone who adds a hashed file without rerunning it.
+    // Typed as string: the manifests are `as const`, so an inferred Set would be
+    // keyed to today's exact filenames and reject any other name outright.
+    const manifested = new Set<string>([
+      ...Object.values(THERAPY_CATALOGUE_ASSETS),
+      ...Object.values(THERAPY_CATALOGUE_ASSETS_PREVIOUS),
+    ]);
+    const hashed = readdirSync(dataDir).filter((name) =>
+      /^therapies(?:-(?:home|index))?\.[a-f0-9]{16}\.json$/.test(name),
+    );
+    expect(hashed.length).toBeGreaterThan(0);
+    expect(hashed.filter((name) => !manifested.has(name))).toEqual([]);
+    // Growth is bounded at two generations per stem, not N.
+    expect(hashed.length).toBeLessThanOrEqual(6);
+  });
+
+  it("retains the previous generation on disk so pre-deploy bundles do not 404", () => {
+    // A session that started before the last deploy has the previous
+    // content-addressed URL compiled into its bundle. Pruning it the moment the
+    // catalogue regenerates reintroduces the deployment-straddling 404 the
+    // unversioned aliases exist to prevent, one level down.
+    for (const file of Object.values(THERAPY_CATALOGUE_ASSETS_PREVIOUS)) {
+      expect(existsSync(new URL(file, dataDir)), file).toBe(true);
+    }
+  });
+
+  it("falls back from a stale hashed catalogue URL to the unversioned alias", () => {
+    // Covers bundles older than the grace generation, and mid-rollout clients.
+    expect(loaderSrc).toContain("async function fetchCatalogue");
+    expect(loaderSrc).toContain("CATALOGUE_ALIASES[catalogue]");
+    for (const alias of Object.values(legacyCatalogueAssets)) {
+      expect(loaderSrc, alias).toContain(alias);
+    }
+  });
+
+  it("caches hashed catalogue assets immutably and forces alias revalidation", () => {
+    const nextConfig = readFileSync(new URL("../next.config.ts", import.meta.url), "utf8");
+    expect(nextConfig).toContain(
+      'source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.[a-f0-9]{16}\\\\.json)"',
+    );
+    expect(nextConfig).toContain('value: "public, max-age=31536000, immutable"');
+    expect(nextConfig).toContain('source: "/therapy-compass-data/:asset(therapies(?:-(?:home|index))?\\\\.json)"');
+    expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
+  });
+
+  it("ships a compact browse home/index without narrowing the full-prose search corpus", () => {
+    const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
+    const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
+    const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
+    expect(indexSize).toBeLessThan(fullSize * 0.1);
+    expect(homeSize).toBeLessThanOrEqual(indexSize);
+    // The loader still selects by catalogue kind from the generated manifest —
+    // the lookup moved inside fetchCatalogue when the alias fallback landed, so
+    // pin both halves rather than the old single expression.
+    expect(loaderSrc).toContain("fetchCatalogue(options.catalogue)");
+    expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[catalogue]");
+    expect(bindingsSrc).toContain('screen === "home" ? "home"');
+    expect(bindingsSrc).toContain('screen === "pathways" ? "index"');
+    expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
+  });
+
+  it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
+    // Regression for the old mid-word sk- → s\u006b- rewrite in the generator.
+    for (const kind of ["home", "index"] as const) {
+      const text = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS[kind], dataDir), "utf8");
+      expect(text, kind).toContain('"slug": "task-centred-practice"');
+      expect(text, kind).not.toContain("\\u006b");
     }
   });
 
@@ -34,7 +182,7 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("honors run-enabled deep links by routing to the in-tool search instead of landing on Home", () => {
-    const routeSrc = readFileSync(new URL("../src/app/therapy-compass/page.tsx", import.meta.url), "utf8");
+    const routeSrc = readFileSync(new URL("../src/app/(search-app)/therapy-compass/page.tsx", import.meta.url), "utf8");
     const bindingsSrc = readFileSync(
       new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url),
       "utf8",
@@ -76,6 +224,8 @@ describe("Therapy Compass production-mode wiring", () => {
       "utf8",
     );
     expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
-    expect(shellSrc).toContain('searchMode === "therapy-compass" && pathname === "/therapy-compass"');
+    // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
+    expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
+    expect(isStandaloneModeHomePath("/therapy-compass")).toBe(true);
   });
 });

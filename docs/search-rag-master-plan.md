@@ -38,8 +38,8 @@ Tasks:
 
 Files to inspect:
 
-- `src/lib/rag.ts`
-- `src/lib/rag-routing.ts`
+- `src/lib/rag/rag.ts`
+- `src/lib/rag/rag-routing.ts`
 - `src/lib/smart-rag-api.ts`
 - `src/lib/openai.ts`
 - `src/lib/types.ts`
@@ -391,7 +391,7 @@ Primary skill lens: `performance-review`.
 
 Implemented tasks:
 
-- Detect explicit table, chart, flowchart, figure, appendix, and form lookup intent in `src/lib/rag-routing.ts`.
+- Detect explicit table, chart, flowchart, figure, appendix, and form lookup intent in `src/lib/rag/rag-routing.ts`.
 - Route safe explicit lookup questions to extractive when retrieval has direct title, table, visual, or strong score support.
 - Preserve model synthesis for medication/action/dose/threshold questions that ask for clinical interpretation.
 - Add routing regressions for explicit table lookup versus medication action synthesis.

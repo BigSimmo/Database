@@ -13,10 +13,11 @@
  * dirs), not every file — the index maps modules by theme, so per-file coverage
  * would be pure noise.
  *
- * Advisory: run `npm run docs:check-index`. Not in CI (kept alongside the other
- * docs:* advisory checks). Exit 1 on gaps.
+ * Run: `npm run docs:check-index`. Blocking — runs in `verify:cheap:internal` and in
+ * CI (`.github/workflows/ci.yml`, the "Codebase index coverage" step). Exit 1 on gaps.
  */
 import { readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -38,10 +39,12 @@ function dirsIn(relativeDir) {
 export function coverageCandidates(kind, name) {
   if (kind === "api") return [`/api/${name}`];
   if (kind === "route") return [`/${name}`];
+  if (kind === "root") return [`${name}/`];
   return [`${name}/`, `src/lib/${name}/`];
 }
 
 const SECTION_BOUNDS = {
+  root: ["## Top-level layout", "## Application architecture"],
   route: ["### Product pages (`src/app/`)", "### API routes (`src/app/api/`)"],
   api: ["### API routes (`src/app/api/`)", "## `src/lib/` module map"],
   lib: ["## `src/lib/` module map", "## Supabase"],
@@ -74,7 +77,9 @@ function candidateMatches(span, candidate) {
 
 /** Pure: given the index text and the discovered groups, return the uncovered entries. */
 export function coverageGaps(indexText, groups, allowlist = ALLOWLIST) {
-  const spansByKind = new Map(["lib", "route", "api"].map((kind) => [kind, codeSpans(sectionText(indexText, kind))]));
+  const spansByKind = new Map(
+    ["root", "lib", "route", "api"].map((kind) => [kind, codeSpans(sectionText(indexText, kind))]),
+  );
   const gaps = [];
   for (const { kind, dir, name } of groups) {
     const full = `${dir}/${name}`;
@@ -86,6 +91,19 @@ export function coverageGaps(indexText, groups, allowlist = ALLOWLIST) {
     }
   }
   return gaps;
+}
+
+/** Pure: derive unique repository-root directory names from tracked paths. */
+export function trackedRootDirectoryNames(trackedPaths) {
+  return [
+    ...new Set(
+      trackedPaths
+        .map((trackedPath) => trackedPath.replaceAll("\\", "/").replace(/^\.\//, ""))
+        .filter((trackedPath) => trackedPath.includes("/"))
+        .map((trackedPath) => trackedPath.split("/", 1)[0])
+        .filter(Boolean),
+    ),
+  ].sort();
 }
 
 /** Pure: compare the exhaustive schema-table list in the index with the schema mirror. */
@@ -105,6 +123,15 @@ export function schemaTableGaps(indexText, schemaText) {
 
 function discoverGroups() {
   const groups = [];
+  const trackedPaths = execFileSync("git", ["ls-files", "--cached", "-z"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  })
+    .split("\0")
+    .filter(Boolean);
+  for (const name of trackedRootDirectoryNames(trackedPaths)) {
+    groups.push({ kind: "root", dir: ".", name });
+  }
   for (const name of dirsIn("src/lib")) groups.push({ kind: "lib", dir: "src/lib", name });
   for (const name of dirsIn("src/app")) {
     if (name === "api") continue;
@@ -130,7 +157,7 @@ function main() {
     process.exit(1);
   }
   console.log(
-    `${INDEX_PATH} coverage OK: all ${groups.length} top-level modules/routes and ${tables.missing.length + tables.stale.length === 0 ? "all" : "checked"} schema tables are indexed.`,
+    `${INDEX_PATH} coverage OK: all ${groups.length} repository roots/modules/routes and ${tables.missing.length + tables.stale.length === 0 ? "all" : "checked"} schema tables are indexed.`,
   );
 }
 

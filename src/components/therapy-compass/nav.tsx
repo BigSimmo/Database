@@ -1,17 +1,31 @@
 "use client";
 
-import { useTcBindings } from "./bindings";
+import { Columns3, Search, Sparkles, Waypoints } from "lucide-react";
+
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { ModeNav, type ModeNavItem } from "@/components/mode-nav/mode-nav";
+
+import { MAX_COMPARE, useTcBindings } from "./bindings";
+import { therapyBtn } from "./controls";
 
 /** Core Therapy destinations for non-home screens. */
 export function TherapyCompassNav() {
   const b = useTcBindings();
 
-  return (
-    <div className="tc-topnav tc-no-print tc-nav-001">
-      <nav className="tc-scroll tc-nav-007" aria-label="Therapy sections">
+  const navShell = (
+    <div
+      data-therapy-no-print
+      className="sticky top-0 z-20 flex items-center justify-center gap-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] px-4 py-3 backdrop-blur-md sm:gap-[18px] sm:px-10 sm:py-3.5"
+      data-testid="therapy-compass-section-nav"
+    >
+      <nav
+        data-therapy-scroll
+        className="mx-auto flex w-fit max-w-full min-w-0 flex-[0_1_auto] items-center gap-1.5 overflow-x-auto pb-0.5"
+        aria-label="Therapy sections"
+      >
         <button
           type="button"
-          className={`tc-btn ${b.navHome}`}
+          className={`${therapyBtn} ${b.navHome}`}
           onClick={b.goHome}
           aria-current={b.isHome ? "page" : undefined}
         >
@@ -31,7 +45,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navSearch}`}
+          className={`${therapyBtn} ${b.navSearch}`}
           onClick={b.goSearch}
           aria-current={b.isSearch ? "page" : undefined}
         >
@@ -51,7 +65,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navRecommend}`}
+          className={`${therapyBtn} ${b.navRecommend}`}
           onClick={b.goRecommend}
           aria-current={b.isRecommend ? "page" : undefined}
         >
@@ -71,7 +85,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navCompare}`}
+          className={`${therapyBtn} ${b.navCompare}`}
           onClick={b.goCompare}
           aria-current={b.isCompare ? "page" : undefined}
         >
@@ -92,10 +106,10 @@ export function TherapyCompassNav() {
           </svg>
           Compare
         </button>
-        <span className="tc-nav-008" aria-hidden="true" />
+        <span className="mx-1 h-[22px] w-px flex-none bg-[color:var(--border)]" aria-hidden="true" />
         <button
           type="button"
-          className={`tc-btn ${b.navPathways}`}
+          className={`${therapyBtn} ${b.navPathways}`}
           onClick={b.goPathways}
           aria-current={b.isPathways ? "page" : undefined}
         >
@@ -117,7 +131,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navBrief}`}
+          className={`${therapyBtn} ${b.navBrief}`}
           onClick={b.goBrief}
           aria-current={b.isBrief ? "page" : undefined}
         >
@@ -137,7 +151,7 @@ export function TherapyCompassNav() {
         </button>
         <button
           type="button"
-          className={`tc-btn ${b.navSheets}`}
+          className={`${therapyBtn} ${b.navSheets}`}
           onClick={b.goSheets}
           aria-current={b.isSheets ? "page" : undefined}
         >
@@ -159,4 +173,55 @@ export function TherapyCompassNav() {
       </nav>
     </div>
   );
+
+  // Phones: portal into the collapsing top-bar track so the strip hides/reveals
+  // with the universal header. sm+: keep in-flow sticky inside the workspace.
+  return <PhoneHeaderCollapsePortal>{navShell}</PhoneHeaderCollapsePortal>;
+}
+
+const BASE = "/therapy-compass";
+
+/**
+ * Therapy's pages for the shared `ModeNav`, in declared order.
+ *
+ * Order is load-bearing: at three slots the survivors are the first two, so the
+ * library door and the only destination carrying state are the ones that stay.
+ *
+ * Four destinations, not the seven the pill strip carries. Home duplicates the
+ * mode pill directly above it. Brief intervention and Patient sheet act on a
+ * selected therapy and already exist as availability-guarded buttons on the
+ * record page (`screens/detail-screen.tsx`); in the strip they were both
+ * duplicated and unsafe, silently opening the first catalogue record that
+ * happened to have one when nothing was selected. Review is a governance queue
+ * rather than a step in delivering care, and is reachable from the detail and
+ * pathway screens.
+ */
+function useTherapyNavItems(): ModeNavItem[] {
+  const b = useTcBindings();
+
+  return [
+    { id: "search", label: "Search", href: `${BASE}/search`, icon: Search },
+    {
+      id: "compare",
+      label: "Compare",
+      href: `${BASE}/compare`,
+      icon: Columns3,
+      // Fill, not catalogue size: the basket holds four and the strip never
+      // showed how many were in it.
+      count: `${b.compareSlugs.length}/${MAX_COMPARE}`,
+    },
+    { id: "recommend", label: "Recommend", href: `${BASE}/recommend`, icon: Sparkles },
+    { id: "pathways", label: "Pathways", href: `${BASE}/pathways`, icon: Waypoints },
+  ];
+}
+
+/**
+ * The shared mode bar, pinned inside the universal header at every width.
+ *
+ * Currently rendered on `/therapy-compass/search` only; every other Therapy
+ * route keeps {@link TherapyCompassNav} until the rollout continues.
+ */
+export function TherapyModeNav() {
+  const items = useTherapyNavItems();
+  return <ModeNav items={items} label="Therapy pages" />;
 }

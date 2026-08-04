@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { uploadSizeLimitMessage } from "@/lib/upload-limits";
 
 export class PublicApiError extends Error {
   constructor(
@@ -88,7 +89,7 @@ export function assertAllowedFile(file: File, maxUploadMb: number) {
 
   const maxBytes = maxUploadMb * 1024 * 1024;
   if (file.size > maxBytes) {
-    throw new PublicApiError(`File exceeds ${maxUploadMb} MB upload limit.`, 413, { code: "payload_too_large" });
+    throw new PublicApiError(uploadSizeLimitMessage(maxUploadMb), 413, { code: "payload_too_large" });
   }
 }
 

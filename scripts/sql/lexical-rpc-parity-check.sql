@@ -13,7 +13,8 @@
 --
 -- Usage (scratch container kept from the drift-manifest replay):
 --   npm run drift:manifest -- --keep
---   docker exec -i clinical-kb-drift-manifest psql -U postgres -d postgres \
+--   drift_container='<clinical-kb-drift-... name printed by the command>'
+--   docker exec -i "${drift_container}" psql -U postgres -d postgres \
 --     -v ON_ERROR_STOP=1 -f - < scripts/sql/lexical-rpc-parity-check.sql
 --
 -- Corpus size is configurable: -v docs=2500 -v chunks_per_doc=28 (defaults

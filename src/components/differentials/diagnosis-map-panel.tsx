@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { createBrowserStore } from "@/lib/client-store-factory";
 import Link from "next/link";
 import {
   CircleCheck,
@@ -100,12 +101,10 @@ function subscribeLargeScreen(callback: () => void) {
 }
 
 function getLargeScreenSnapshot() {
-  return typeof window !== "undefined" && window.matchMedia(largeScreenQuery).matches;
+  return window.matchMedia(largeScreenQuery).matches;
 }
 
-function getServerScreenSnapshot() {
-  return false;
-}
+const useLargeScreenStore = createBrowserStore(subscribeLargeScreen, getLargeScreenSnapshot, false);
 
 function nodeLabel(node: SelectedNode, record: DifferentialRecord) {
   return node === "diagnosis" ? record.title : node.label;
@@ -310,7 +309,7 @@ function NodeDetails({
     <section
       data-testid="diagnosis-map-node-details"
       aria-label={`Details for ${title}`}
-      className="grid gap-4 rounded-t-2xl border border-b-0 border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 shadow-[0_-20px_60px_rgb(15_23_42_/_18%)] lg:rounded-2xl lg:border lg:p-5"
+      className="grid gap-4 rounded-t-2xl border border-b-0 border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-elevated)] lg:rounded-2xl lg:border lg:p-5"
     >
       <div className="mx-auto h-1 w-12 rounded-full bg-[color:var(--border-strong)] lg:hidden" aria-hidden />
       <div className="flex items-start justify-between gap-3">
@@ -370,7 +369,7 @@ export function DiagnosisMapPanel({
   const [pan, setPan] = useState<ActivePoint>({ x: 0, y: 0 });
   const [filtered, setFiltered] = useState(false);
   const [addedIds, setAddedIds] = useState<string[]>([]);
-  const isLargeScreen = useSyncExternalStore(subscribeLargeScreen, getLargeScreenSnapshot, getServerScreenSnapshot);
+  const isLargeScreen = useLargeScreenStore();
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const activePointers = useRef(new Map<number, ActivePoint>());
   const lastPointer = useRef<ActivePoint | null>(null);

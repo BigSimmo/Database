@@ -162,4 +162,26 @@ describe("GET /api/health/ready", () => {
     expect(body.cache).toBeUndefined();
     expect(body.coalescing).toBeUndefined();
   });
+
+  it("returns 503 without leaking dependency details when the readiness query fails", async () => {
+    mockEnv({ configured: true });
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth: vi.fn(async () => ({
+        ok: false,
+        checkedAt: "2026-07-22T00:00:00.000Z",
+        message: "Supabase health check failed.",
+        rawMessage: "permission denied",
+      })),
+    }));
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(new Request("http://localhost/api/health/ready"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body.status).toBe("degraded");
+    expect(body.checks).toMatchObject({ supabase: "error" });
+    expect(JSON.stringify(body)).not.toContain("permission denied");
+  });
 });

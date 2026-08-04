@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { polishClinicalAnswerProse } from "@/lib/rag-answer-text";
+import { polishClinicalAnswerProse } from "@/lib/rag/rag-answer-text";
 
 describe("flattened-table run-on separation", () => {
   it("splits an inpatient/community run-on into two sentences without a double comma", () => {

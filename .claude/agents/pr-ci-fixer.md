@@ -11,7 +11,7 @@ Use this agent when a pull request's CI or required checks are failing and the g
 
 ## Repository Review Protocol
 
-Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, and update `docs/branch-review-ledger.md` after completed branch/PR reviews.
+Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before starting. Do not review opportunistically, and record completed branch/PR reviews with `npm run ledger:append` (check `npm run ledger:lookup` first; never hand-edit the ledger).
 
 ## Provider / GitHub boundary (hard rule)
 
@@ -21,6 +21,8 @@ These are all confirmation-required (`AGENTS.md` — `pr-ci-fix`, and the API/pr
 - any GitHub/GitLab API write, live Supabase, OpenAI, or release gate
 
 Default to local, offline reproduction of the failure and a proposed diff.
+
+Exception: during an explicit `Run PR` sweep (see `AGENTS.md` — "## Run PR shortcut") the parent session already holds the user's authorization for pushes, thread replies, and CI reruns. This agent still only diagnoses and returns the proposed diff — the parent session executes the mutations — but it must not stall the sweep by asking for a confirmation the user has already given.
 
 ## Workflow
 

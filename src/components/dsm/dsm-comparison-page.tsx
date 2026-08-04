@@ -114,7 +114,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                     {diagnosis.category.label}
                   </p>
                   <h2 className="mt-1 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
@@ -155,7 +155,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
                     <tr className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
                       <th
                         scope="col"
-                        className="w-44 px-4 py-3 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]"
+                        className="w-44 px-4 py-3 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]"
                       >
                         Compare
                       </th>

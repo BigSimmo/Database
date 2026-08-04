@@ -47,3 +47,13 @@ Use the `.github/pull_request_template.md` clinical governance section for any c
 - Document organization coverage is an operational invariant: after ingestion or generated-label reclassification, run `npm run check:document-label-coverage` and require zero indexed documents missing generated `site` or `document_type` labels.
 - **Application-layer cross-owner denial** (service-role routes enforce `owner_id` scoping in code) is covered by `tests/private-access-routes.test.ts` and `tests/private-rag-access.test.ts` (unowned document detail/signed-url/rename rejected; listing and search scoped to the authenticated owner).
 - **Follow-up:** add a live DB-level RLS integration test that connects as two real authenticated users via the publishable (anon) key and asserts owner B cannot read owner A's rows. This needs a seeded test project/harness and is tracked as a remaining item.
+
+## Source Provenance Taxonomy
+
+Source provenance is an issuer-identity signal only. It is independent from currency, local validation, extraction quality, document type, and clinical relevance; combinations such as `Official · Outdated` and `Trusted · Unverified` are valid and must stay visible as separate caveats.
+
+- **Official**: authenticated documents issued by a recognised Western Australian hospital or WA health-service network, including CAHS, WACHS, EMHS, NMHS, and SMHS. Official does not mean current, locally approved, or clinically relevant.
+- **Trusted**: every other recognised authority, including BMJ, NICE, WHO, Australian national bodies, other Australian state health departments, generic WA Health material, and WA specialty services such as CAMHS.
+- **Unclassified**: unknown authority, ambiguous identity, conflicting metadata, publisher aliases without compatible jurisdiction, or registry summaries. Registry summaries retain their separate identity and never inherit Official or Trusted provenance from linked or nearby authorities.
+
+Authority must come from registered publisher codes or compatible canonical publisher/jurisdiction metadata. Arbitrary title, body, or extracted text claims do not establish source authority.

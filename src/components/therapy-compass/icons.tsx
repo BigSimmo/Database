@@ -81,8 +81,6 @@ export const ExternalLinkIcon = makeIcon(
 export const HeartIcon = makeIcon(
   <path d="M12 20s-7-4.4-9.3-9A4.6 4.6 0 0 1 12 6.2 4.6 4.6 0 0 1 21.3 11C19 15.6 12 20 12 20Z" />,
 );
-// Visually identical to CompassIcon; alias so the two can't drift.
-export const TargetIcon = CompassIcon;
 export const CrosshairIcon = makeIcon(
   <>
     <circle cx="12" cy="12" r="9" />

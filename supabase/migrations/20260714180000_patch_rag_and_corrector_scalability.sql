@@ -36,7 +36,7 @@ create table if not exists public.document_title_words (
   primary key (word, document_id)
 );
 
-create index if not exists document_title_words_word_trgm_idx 
+create index if not exists document_title_words_word_trgm_idx
   on public.document_title_words using gin (word extensions.gin_trgm_ops);
 
 alter table public.document_title_words enable row level security;

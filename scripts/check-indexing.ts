@@ -361,7 +361,7 @@ async function main() {
   ]);
 
   requireServerEnv();
-  requireOpenAIEnv();
+  if (env.RAG_PROVIDER_MODE !== "offline") requireOpenAIEnv();
 
   // IDX-C2 fail-fast: verify the configured embedding dimension matches the schema's
   // vector(N) columns before any indexing/DB work, so a model/dimension misconfiguration

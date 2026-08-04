@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   APP_THEME_COLORS,
   nextTheme,
+  readThemeCookie,
   readThemePreference,
   resolveThemePreference,
   THEME_BOOTSTRAP_SCRIPT,
+  THEME_COOKIE_NAME,
+  THEME_STORAGE_KEY,
 } from "../src/lib/theme";
 
 describe("theme helpers", () => {
@@ -24,7 +27,12 @@ describe("theme helpers", () => {
   });
 
   it("keeps installed-app browser chrome aligned with both application themes", () => {
-    expect(APP_THEME_COLORS).toEqual({ light: "#ffffff", dark: "#060708" });
+    // A deliberate tripwire on the exact values: these paint before any
+    // stylesheet loads, so an accidental edit here is a flash of the wrong page
+    // colour. The pin is only half the story — it went stale when --background
+    // moved and this assertion did not, so the light value tracking
+    // globals.css is enforced in tests/design-token-contract.test.ts.
+    expect(APP_THEME_COLORS).toEqual({ light: "#f1f4f8", dark: "#060708" });
   });
 
   it("still applies the OS dark theme when localStorage is blocked", () => {
@@ -58,5 +66,42 @@ describe("theme helpers", () => {
     expect(readThemePreference(undefined)).toBe("system");
     expect(readThemePreference("system")).toBe("system");
     expect(readThemePreference("sepia")).toBe("system");
+  });
+
+  it("exports stable storage and cookie keys shared with layout + useTheme", () => {
+    expect(THEME_STORAGE_KEY).toBe("clinical-kb-theme");
+    expect(THEME_COOKIE_NAME).toBe("clinical-theme");
+    expect(THEME_BOOTSTRAP_SCRIPT).toContain(THEME_STORAGE_KEY);
+    expect(THEME_BOOTSTRAP_SCRIPT).toContain(THEME_COOKIE_NAME);
+  });
+
+  it("parses an explicit theme pin from the cookie string", () => {
+    expect(readThemeCookie(`${THEME_COOKIE_NAME}=dark`)).toBe("dark");
+    expect(readThemeCookie(`a=1; ${THEME_COOKIE_NAME}=light; b=2`)).toBe("light");
+    expect(readThemeCookie(`${THEME_COOKIE_NAME}=system`)).toBeNull();
+    expect(readThemeCookie("")).toBeNull();
+  });
+
+  it("falls back to the theme cookie when localStorage has no pin", () => {
+    const toggle = vi.fn();
+    const setAttribute = vi.fn();
+    const run = new Function("localStorage", "window", "document", THEME_BOOTSTRAP_SCRIPT);
+
+    run(
+      {
+        getItem() {
+          return null;
+        },
+      },
+      { matchMedia: () => ({ matches: false }) },
+      {
+        cookie: `${THEME_COOKIE_NAME}=dark`,
+        documentElement: { classList: { toggle } },
+        querySelectorAll: () => [{ setAttribute }],
+      },
+    );
+
+    expect(toggle).toHaveBeenCalledWith("dark", true);
+    expect(setAttribute).toHaveBeenCalledWith("content", APP_THEME_COLORS.dark);
   });
 });

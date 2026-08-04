@@ -599,7 +599,7 @@ function PhoneBrowserPreview({
     <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+          <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
             Phone browser mode
           </p>
           <h2 className="mt-1 text-base font-extrabold text-[color:var(--text-heading)]">{title}</h2>

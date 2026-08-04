@@ -327,7 +327,8 @@ describe("detectConflictsOrGaps — cross-source withholding-threshold disagreem
     const found = conflicts(results);
     expect(found).toHaveLength(1);
     expect(found[0].message).toMatch(/ANC/);
-    expect(found[0].message).toMatch(/0\.2 vs 1\.5/);
+    expect(found[0].message).toMatch(/0\.2/);
+    expect(found[0].message).toMatch(/1\.5/);
     expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["real", "poisoned"]));
   });
 
@@ -382,5 +383,141 @@ describe("detectConflictsOrGaps — cross-source withholding-threshold disagreem
       }),
     ];
     expect(conflicts(bandedSingleDoc)).toEqual([]);
+  });
+
+  it("flags opposite comparator directions at the same numeric threshold", () => {
+    const results = [
+      result({
+        id: "above",
+        document_id: "doc-above",
+        content: "Withhold treatment when QTc exceeds 500 ms and arrange urgent review.",
+      }),
+      result({
+        id: "below",
+        document_id: "doc-below",
+        title: "Local ward note",
+        content: "Withhold treatment when QTc is below 500 ms pending specialist advice.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).toMatch(/</);
+    expect(found[0].message).toMatch(/>/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["above", "below"]));
+  });
+
+  it("flags inclusive and exclusive upper bounds at the same numeric threshold", () => {
+    const results = [
+      result({
+        id: "exclusive",
+        document_id: "doc-exclusive",
+        content: "Withhold treatment when QTc > 500 ms and arrange urgent review.",
+      }),
+      result({
+        id: "inclusive",
+        document_id: "doc-inclusive",
+        content: "Withhold treatment when QTc >= 500 ms pending specialist advice.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).toMatch(/> 500/);
+    expect(found[0].message).toMatch(/≥ 500/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["exclusive", "inclusive"]));
+  });
+
+  it("flags inclusive and exclusive lower bounds at the same numeric threshold", () => {
+    const results = [
+      result({
+        id: "exclusive",
+        document_id: "doc-exclusive",
+        content: "Withhold treatment when QTc < 500 ms and arrange urgent review.",
+      }),
+      result({
+        id: "inclusive",
+        document_id: "doc-inclusive",
+        content: "Withhold treatment when QTc <= 500 ms pending specialist advice.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).toMatch(/< 500/);
+    expect(found[0].message).toMatch(/≤ 500/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["exclusive", "inclusive"]));
+  });
+
+  it("does not bind an incidental clozapine dose to a later QTc comparator", () => {
+    const results = [
+      result({
+        id: "qtc-upper",
+        document_id: "doc-qtc-upper",
+        content: "Withhold clozapine 300 mg daily if QTc > 500 ms.",
+      }),
+      result({
+        id: "qtc-lower",
+        document_id: "doc-qtc-lower",
+        content: "Withhold treatment when QTc < 500 ms pending cardiology review.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).not.toMatch(/Clozapine dose/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["qtc-upper", "qtc-lower"]));
+  });
+
+  it("treats a table fact with unknown comparator as compatible with prose at the same value", () => {
+    const results = [
+      result({
+        id: "table-doc",
+        document_id: "doc-table",
+        content: "See the monitoring table.",
+        table_facts: [
+          {
+            id: "tf-1",
+            document_id: "doc-table",
+            source_chunk_id: "table-doc",
+            source_image_id: null,
+            page_number: 1,
+            table_title: "QTc monitoring",
+            row_label: "Red",
+            clinical_parameter: "QTc",
+            threshold_value: "500",
+            action: "Withhold treatment",
+          },
+        ],
+      }),
+      result({
+        id: "prose-doc",
+        document_id: "doc-prose",
+        content: "Withhold treatment when QTc > 500 ms.",
+      }),
+    ];
+
+    expect(conflicts(results)).toEqual([]);
+  });
+
+  it("ignores one internally inconsistent document when another source repeats one side", () => {
+    const results = [
+      result({
+        id: "mixed-doc",
+        document_id: "doc-mixed",
+        content: "Withhold treatment when QTc > 500 ms. Withhold treatment when QTc < 500 ms.",
+      }),
+      result({
+        id: "agreeing-doc",
+        document_id: "doc-agreeing",
+        content: "Withhold treatment when QTc > 500 ms.",
+      }),
+    ];
+
+    expect(conflicts(results)).toEqual([]);
   });
 });

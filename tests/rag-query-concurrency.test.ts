@@ -64,7 +64,7 @@ describe("RAG enrichment query concurrency", () => {
       },
     };
     const supabase = { from: vi.fn(() => query) };
-    const { attachDocumentRankingMetadata } = await import("../src/lib/rag");
+    const { attachDocumentRankingMetadata } = await import("../src/lib/rag/rag");
 
     const pending = attachDocumentRankingMetadata(
       supabase as never,
@@ -108,7 +108,7 @@ describe("RAG enrichment query concurrency", () => {
         return query;
       }),
     };
-    const { attachPageVisualEvidence } = await import("../src/lib/rag");
+    const { attachPageVisualEvidence } = await import("../src/lib/rag/rag");
     const searchResult = result({
       id: "unit-1",
       unit_type: "table",

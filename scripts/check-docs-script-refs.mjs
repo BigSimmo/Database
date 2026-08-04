@@ -15,8 +15,8 @@
  * Scans README.md, AGENTS.md, and docs/**\/*.md excluding docs/archive, docs/audit,
  * and dated point-in-time filenames (historical records). Pass --all to include them.
  *
- * Advisory: run `npm run docs:check-scripts` before doc handoffs. Deliberately NOT
- * in verify:cheap/CI so historical docs cannot block unrelated PRs.
+ * Blocking for maintained docs: runs in verify:cheap and CI. Historical directories
+ * and dated point-in-time records stay excluded unless --all is requested.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";

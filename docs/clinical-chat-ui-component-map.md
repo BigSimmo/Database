@@ -2,7 +2,7 @@
 
 Date: 2026-06-24
 
-> **Revised 2026-07-03 — colour aligned to Clinical White / Aegean Graphite.** The colour aliases in this Phase-2 map have been rewritten in-body onto the role tokens now in `globals.css`: `--command` (graphite) for primary command, `--clinical-accent` (Aegean) for clinical identity, and `--success` (green) for status only. See [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). The component/file mapping and preservation rules are unchanged from the original 2026-06-24 draft.
+> **Revised 2026-07-03 — colour aligned to Clinical White / Sky Graphite.** The colour aliases in this Phase-2 map have been rewritten in-body onto the role tokens now in `globals.css`: `--command` (graphite) for primary command, `--clinical-accent` (Clinical Sky) for clinical identity, and `--success` (green) for status only. See [`redesign/02-design-direction.md`](redesign/02-design-direction.md) and [`redesign/permanent-colour-direction.md`](redesign/permanent-colour-direction.md). The component/file mapping and preservation rules are unchanged from the original 2026-06-24 draft.
 
 ## Purpose
 
@@ -255,9 +255,9 @@ Final role:
 
 Expected changes:
 
-- Use the Clinical White / Aegean Graphite role tokens already defined here; do not reintroduce ad-hoc chat aliases:
+- Use the Clinical White / Sky Graphite role tokens already defined here; do not reintroduce ad-hoc chat aliases:
   - `--command` / `--command-hover` (graphite command)
-  - `--clinical-accent` / `--clinical-accent-soft` / `--clinical-accent-border` (Aegean evidence/selected/send/focus)
+  - `--clinical-accent` / `--clinical-accent-soft` / `--clinical-accent-border` (Clinical Sky evidence/selected/send/focus)
   - `--info` (document/search signal)
   - `--success` / `--warning` / `--danger` (status dots and safety states)
   - neutral `--surface` / `--surface-subtle` / `--surface-inset` for canvas, quiet panels, and table headers

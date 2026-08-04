@@ -206,7 +206,7 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
       className={cn(
         "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
         entry.active
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-rail-active)]"
           : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
         focusRing,
       )}
@@ -274,7 +274,7 @@ export function FavouritesSidebar({
                     className={cn(
                       "relative grid h-tap w-tap place-items-center rounded-lg border transition",
                       entry.active
-                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-rail-active)]"
                         : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
                       focusRing,
                     )}
@@ -317,7 +317,7 @@ export function FavouritesSidebar({
       <nav aria-label="Favourites sections" className="grid gap-5">
         {sections.map((section) => (
           <section key={section.id}>
-            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
               {section.title}
             </h3>
             <div className="grid gap-1">
@@ -505,7 +505,7 @@ export function FavouritesMobileBrowseRail({
 
   return (
     <section className="min-w-0 max-w-full lg:hidden" data-testid="favourites-set-carousel" aria-label="Saved sets">
-      <h2 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+      <h2 className="mb-2 text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Browse sets
       </h2>
       <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:thin] sm:-mx-6 sm:px-6">

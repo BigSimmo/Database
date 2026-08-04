@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skills"
+  short_description: "List and recommend every unique Database skill"
+  default_prompt: "Use $skills to list all unique Database skills, explain each clearly, and recommend the smallest useful set for my request."

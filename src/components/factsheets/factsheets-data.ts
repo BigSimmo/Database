@@ -13,9 +13,15 @@
  * patient information before treating sheets as locally approved.
  */
 
-export type FactsheetCategory = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
+/**
+ * Demonstration/governance status shown on-screen and preserved in the printed /
+ * exported take-away, so a handout is never mistaken for approved local patient
+ * information. Kept as a single source of truth for the disclaimer copy.
+ */
+export const FACTSHEET_DEMO_NOTICE =
+  "Demonstration content — not clinician-approved. Governance-approved patient information must replace it before any clinical use or sharing.";
 
-export type FactsheetKind = "medRich" | "medLite" | "condition" | "therapy" | "procedure";
+export type FactsheetCategory = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
 
 export type FactsheetIconKey =
   | "capsule"
@@ -30,7 +36,7 @@ export type FactsheetIconKey =
   | "pill"
   | "heart";
 
-export type FactsheetSource = {
+type FactsheetSource = {
   n: string;
   title: string;
   org: string;
@@ -63,7 +69,7 @@ type FactsheetBase = {
   sources: FactsheetSource[];
 };
 
-export type MedRichContent = {
+type MedRichContent = {
   kind: "medRich";
   keyFacts: Array<{ k: string; v: string }>;
   whatEasy: string;
@@ -74,13 +80,13 @@ export type MedRichContent = {
   urgentHelp: string;
 };
 
-export type MedLiteContent = {
+type MedLiteContent = {
   kind: "medLite";
   timing: string;
   sections: Array<{ heading: string; body: string }>;
 };
 
-export type ConditionContent = {
+type ConditionContent = {
   kind: "condition";
   intro: string;
   signs: string[];
@@ -89,14 +95,14 @@ export type ConditionContent = {
   support: string;
 };
 
-export type TherapyContent = {
+type TherapyContent = {
   kind: "therapy";
   intro: string;
   steps: Array<{ n: string; h: string; t: string }>;
   expect: Array<{ k: string; v: string }>;
 };
 
-export type ProcedureContent = {
+type ProcedureContent = {
   kind: "procedure";
   why: string;
   prepare: string[];
@@ -683,13 +689,17 @@ export type PrintBlock =
   | { kind: "facts"; heading: string; items: Array<{ k: string; v: string }> }
   | { kind: "sources"; heading: string; items: FactsheetSource[] };
 
-export function printBlocks(sheet: Factsheet): PrintBlock[] {
+export function printBlocks(sheet: Factsheet, readingLevel: "easy" | "standard" = "standard"): PrintBlock[] {
   const sourcesBlock: PrintBlock = { kind: "sources", heading: "Sources", items: sheet.sources };
   switch (sheet.kind) {
     case "medRich":
       return [
         { kind: "facts", heading: "At a glance", items: sheet.keyFacts },
-        { kind: "prose", heading: "What is this medicine?", body: sheet.whatStandard },
+        {
+          kind: "prose",
+          heading: "What is this medicine?",
+          body: readingLevel === "easy" ? sheet.whatEasy : sheet.whatStandard,
+        },
         { kind: "list", heading: "How to take it", items: sheet.howto.map((step) => step.t) },
         { kind: "list", heading: "Common side effects", items: sheet.sideCommon },
         { kind: "list", heading: "Serious — tell your doctor", items: sheet.sideSerious },

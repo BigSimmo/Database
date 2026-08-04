@@ -36,6 +36,12 @@ function triggersDeploy(config: RailwayConfig, filePath: string) {
 describe("Railway config as code", () => {
   const app = readConfig("railway.app.json");
   const worker = readConfig("railway.worker.json");
+  const appDockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+
+  it("ships the local modules imported by next.config.ts in the app runner", () => {
+    expect(appDockerfile).toContain("COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts");
+    expect(appDockerfile).toContain("COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts");
+  });
 
   it("uses the deep readiness endpoint for app rolling deploys", () => {
     expect(app.deploy).toMatchObject({
@@ -44,6 +50,11 @@ describe("Railway config as code", () => {
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 10,
     });
+  });
+
+  it("keeps the queue-draining worker alive after repeated failures", () => {
+    expect(worker.deploy).toMatchObject({ restartPolicyType: "ALWAYS" });
+    expect(worker.deploy).not.toHaveProperty("restartPolicyMaxRetries");
   });
 
   it.each([
@@ -57,7 +68,10 @@ describe("Railway config as code", () => {
     "data/services-snapshot.json",
     "public/logo.svg",
     "src/app/page.tsx",
+    "scripts/run-heavy.mjs",
     "scripts/guard-next-build.mjs",
+    "scripts/check-client-bundle-secrets.mjs",
+    "scripts/check-upload-limit-parity.mjs",
   ])("deploys the app for runtime input %s", (filePath) => {
     expect(triggersDeploy(app, filePath)).toBe(true);
   });
@@ -70,9 +84,10 @@ describe("Railway config as code", () => {
     "tsconfig.json",
     "railway.worker.json",
     "data/services-snapshot.json",
-    "src/lib/rag.ts",
+    "src/lib/rag/rag.ts",
     "worker/main.ts",
     "worker/python/requirements.txt",
+    "scripts/build-worker.mjs",
     "scripts/enable-server-only-stub.mjs",
     "scripts/register-server-only.mjs",
     "scripts/resolve-tsx-cli.mjs",

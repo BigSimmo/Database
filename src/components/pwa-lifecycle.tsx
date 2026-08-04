@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { RefreshCw, Share, SquarePlus, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 const SERVICE_WORKER_URL = "/sw.js";
 const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
@@ -32,9 +34,7 @@ function getConnectivitySnapshot() {
   return navigator.onLine;
 }
 
-function getServerConnectivitySnapshot() {
-  return true;
-}
+const useConnectivityStore = createBrowserStore(subscribeConnectivity, getConnectivitySnapshot, true);
 
 function isStandaloneDisplay() {
   return (
@@ -101,11 +101,77 @@ async function teardownLocalPwa() {
 }
 
 const cardClassName =
-  "pointer-events-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 text-[color:var(--text)] shadow-[var(--shadow-elevated)]";
+  "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-md dark:ring-white/10";
 const primaryButtonClassName =
-  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =
   "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const dismissIconButtonClassName =
+  "absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-full text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+// Leading icon tile: categorical identity per notice type, on the semantic
+// soft/border/ink triads so dark mode and forced-colors resolve via tokens.
+function NoticeIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "accent" | "info" | "warning" | "success" }) {
+  const toneClassName =
+    tone === "accent"
+      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+      : tone === "info"
+        ? "border-[color:var(--border)] bg-[color:var(--info-soft)] text-[color:var(--info)]"
+        : tone === "warning"
+          ? "border-[color:var(--border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+          : "border-[color:var(--border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  return (
+    <span
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] ${toneClassName}`}
+      aria-hidden="true"
+    >
+      <Icon className="h-5 w-5" />
+    </span>
+  );
+}
+
+// Phone install notices read as a native install sheet: grip bar (visual
+// echo of src/components/ui/sheet.tsx; static — notices are transient cards,
+// not draggable dialogs) and the real app icon as the identity mark.
+function InstallSheetGrip() {
+  return (
+    <div className="flex justify-center pb-2 pt-0.5 sm:hidden" aria-hidden="true">
+      <span className="h-1 w-9 rounded-full bg-[color:var(--border-strong)]" />
+    </div>
+  );
+}
+
+function InstallAppIdentity({ title, titleId, tagline }: { title: string; titleId: string; tagline: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3.5">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static same-origin
+          brand asset; next/image adds a client chunk for zero benefit here. */}
+      <img
+        src="/icons/icon-192"
+        alt=""
+        aria-hidden="true"
+        width={56}
+        height={56}
+        className="h-14 w-14 shrink-0 rounded-xl border border-[color:var(--border-lux)] shadow-[var(--shadow-tight)]"
+      />
+      <div className="min-w-0">
+        <p id={titleId} className="text-base font-bold leading-tight text-[color:var(--text-heading)]">
+          {title}
+        </p>
+        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">{tagline}</p>
+      </div>
+    </div>
+  );
+}
+
+function InstallStepChip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <span className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)]">
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
+    </span>
+  );
+}
 
 /**
  * Owns installability, service-worker updates, and cross-route connectivity UI.
@@ -115,9 +181,10 @@ const secondaryButtonClassName =
  * owned caches again.
  */
 export function PwaLifecycle() {
-  const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
+  const isOnline = useConnectivityStore();
   const [connectionRestored, setConnectionRestored] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [offlineNoticeDismissed, setOfflineNoticeDismissed] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [activatedUpdateReady, setActivatedUpdateReady] = useState(false);
@@ -138,6 +205,9 @@ export function PwaLifecycle() {
     const handleOnline = () => {
       if (restoredTimer) window.clearTimeout(restoredTimer);
       setConnectionRestored(true);
+      // Dismissal is per offline episode: the next connectivity drop should
+      // re-surface the notice.
+      setOfflineNoticeDismissed(false);
       restoredTimer = window.setTimeout(() => setConnectionRestored(false), 4_000);
     };
 
@@ -220,6 +290,16 @@ export function PwaLifecycle() {
     const registrationCleanups = new Set<() => void>();
     hasSeenControllerRef.current = Boolean(navigator.serviceWorker.controller);
 
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      broadcastChannel = new BroadcastChannel("pwa_channel");
+      broadcastChannel.addEventListener("message", (event) => {
+        if (event.data === "sw-updated" && !cancelled && !updateDismissedRef.current) {
+          setActivatedUpdateReady(true);
+        }
+      });
+    } catch {}
+
     const exposeWaitingWorker = (worker: ServiceWorker | null) => {
       if (!cancelled && worker && !updateDismissedRef.current) setWaitingWorker(worker);
     };
@@ -254,7 +334,12 @@ export function PwaLifecycle() {
         return;
       }
       setWaitingWorker(null);
-      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) setActivatedUpdateReady(true);
+      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) {
+        setActivatedUpdateReady(true);
+        try {
+          broadcastChannel?.postMessage("sw-updated");
+        } catch {}
+      }
     };
 
     const register = async () => {
@@ -311,6 +396,9 @@ export function PwaLifecycle() {
       document.removeEventListener("visibilitychange", checkForUpdates);
       window.removeEventListener("online", checkForUpdates);
       registrationRef.current = null;
+      try {
+        broadcastChannel?.close();
+      } catch {}
     };
   }, []);
 
@@ -351,83 +439,164 @@ export function PwaLifecycle() {
     setActivatedUpdateReady(false);
   };
 
+  const showOffline = !isOnline && !offlineNoticeDismissed;
   const showUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
   const showInstall = isOnline && !showUpdate && Boolean(installPrompt);
   const showIosInstallHint = isOnline && !showUpdate && !showInstall && showIosHint;
-  if (isOnline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
+  if (!showOffline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
 
   return (
     <div className="pwa-notice-stack">
-      {!isOnline ? (
+      {showOffline ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-offline-title" aria-live="polite">
-          <p id="pwa-offline-title" className="text-sm font-semibold">
-            You appear to be offline
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            Clinical search, answers, private documents, uploads, and account data require a connection.
-          </p>
-          <button type="button" className={`${secondaryButtonClassName} mt-3`} onClick={() => window.location.reload()}>
-            Try again
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss offline notice"
+            onClick={() => setOfflineNoticeDismissed(true)}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
+          <div className="flex items-start gap-3 pr-12">
+            <NoticeIcon icon={WifiOff} tone="warning" />
+            <div className="min-w-0">
+              <p id="pwa-offline-title" className="text-sm font-bold text-[color:var(--text-heading)]">
+                You appear to be offline
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                Clinical search, answers, private documents, uploads, and account data require a connection.
+              </p>
+              <button
+                type="button"
+                className={`${secondaryButtonClassName} mt-3`}
+                onClick={() => window.location.reload()}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
         </section>
       ) : null}
 
       {connectionRestored ? (
         <section className={cardClassName} role="status">
-          <p className="text-sm font-semibold">Connection restored</p>
+          <div className="flex items-center gap-3">
+            <NoticeIcon icon={Wifi} tone="success" />
+            <p className="text-sm font-bold text-[color:var(--text-heading)]">Connection restored</p>
+          </div>
         </section>
       ) : null}
 
       {showUpdate ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-update-title" aria-live="polite">
-          <p id="pwa-update-title" className="text-sm font-semibold">
-            An update is ready
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            Refresh when convenient to use the latest Clinical KB version.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className={primaryButtonClassName} onClick={applyUpdate}>
-              Refresh now
-            </button>
-            <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
-              Later
-            </button>
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss update notice"
+            onClick={dismissUpdate}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-start gap-3 pr-12">
+            <NoticeIcon icon={RefreshCw} tone="info" />
+            <div className="min-w-0">
+              <p id="pwa-update-title" className="text-sm font-bold text-[color:var(--text-heading)]">
+                An update is ready
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                Refresh when convenient to use the latest Clinical KB version.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className={primaryButtonClassName} onClick={applyUpdate}>
+                  Refresh now
+                </button>
+                <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
+                  Later
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
 
       {showIosInstallHint ? (
-        <section className={cardClassName} role="region" aria-labelledby="pwa-ios-install-title" aria-live="polite">
-          <p id="pwa-ios-install-title" className="text-sm font-semibold">
-            Install Clinical KB
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
-              Not now
-            </button>
+        <section
+          className={`${cardClassName} pwa-install-sheet`}
+          role="region"
+          aria-labelledby="pwa-ios-install-title"
+          aria-live="polite"
+        >
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss install hint"
+            onClick={dismissIosHint}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <InstallSheetGrip />
+          <div className="pr-12 sm:pr-10">
+            <InstallAppIdentity
+              title="Install Clinical KB"
+              titleId="pwa-ios-install-title"
+              tagline="Clinical guidelines on your home screen."
+            />
+            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+              In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
+            </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2" aria-hidden="true">
+              <InstallStepChip icon={Share} label="1. Tap Share" />
+              <InstallStepChip icon={SquarePlus} label="2. Add to Home Screen" />
+            </div>
+            <div className="mt-3.5 flex flex-wrap gap-2">
+              <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
+                Not now
+              </button>
+            </div>
           </div>
         </section>
       ) : null}
 
       {showInstall ? (
-        <section className={cardClassName} role="region" aria-labelledby="pwa-install-title" aria-live="polite">
-          <p id="pwa-install-title" className="text-sm font-semibold">
-            Install Clinical KB
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            Open it from your device like an app. Private clinical features still require a connection.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className={primaryButtonClassName} onClick={() => void requestInstall()}>
-              Install app
-            </button>
-            <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
-              Not now
-            </button>
+        <section
+          className={`${cardClassName} pwa-install-sheet`}
+          role="region"
+          aria-labelledby="pwa-install-title"
+          aria-live="polite"
+        >
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss install prompt"
+            onClick={dismissInstall}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <InstallSheetGrip />
+          <div className="pr-12 sm:pr-10">
+            <InstallAppIdentity
+              title="Install Clinical KB"
+              titleId="pwa-install-title"
+              tagline="Clinical guidelines on your home screen."
+            />
+            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+              Open it from your device like an app. Private clinical features still require a connection.
+            </p>
+            <p className="mt-1.5 text-xs font-semibold tracking-[0.01em] text-[color:var(--text-soft)]">
+              Free · No app store · Takes a few seconds
+            </p>
+            <div className="mt-3.5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`${primaryButtonClassName} max-sm:flex-1`}
+                onClick={() => void requestInstall()}
+              >
+                Install app
+              </button>
+              <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
+                Not now
+              </button>
+            </div>
           </div>
         </section>
       ) : null}

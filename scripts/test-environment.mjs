@@ -60,4 +60,18 @@ export function requireProviderTestPermission(environment = process.env) {
   }
 }
 
+/** @param {Record<string, string | undefined>} environment */
+export function providerFreeCloudLiveTestGap(environment = process.env) {
+  const providerFree =
+    environment.ALLOW_PROVIDER_TESTS === "true" &&
+    environment.CODEX_CLOUD === "1" &&
+    (environment.CODEX_CLOUD_ACCESS_PROFILE ?? "offline") === "offline";
+  if (!providerFree) return null;
+  return (
+    "Live provider test capability gap: ALLOW_PROVIDER_TESTS is authorized, but agent-phase provider " +
+    "credentials are intentionally unavailable in CODEX_CLOUD_ACCESS_PROFILE=offline. Run this check " +
+    "locally/operator-side or in an explicitly provisioned connected Cloud profile."
+  );
+}
+
 export { offlineUrlValues, providerEnvironmentKeys };

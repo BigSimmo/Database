@@ -354,7 +354,7 @@ function ResultRow({ document, dense = false }: { document: DocumentFixture; den
           className={cn("hidden min-w-[4.25rem] rounded-md text-right sm:block", focusRing)}
         >
           <p className="nums text-sm font-extrabold text-[color:var(--text-heading)]">{document.page}</p>
-          <p className="mt-1 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Open</p>
+          <p className="mt-1 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Open</p>
           <ExternalLink className="ml-auto mt-2 h-4 w-4 text-[color:var(--text-soft)] transition group-hover:text-[color:var(--clinical-accent)]" />
         </Link>
       </div>
@@ -394,7 +394,7 @@ function MockupHeader({ copy }: { copy: VariantCopy }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <IconTile icon={FileText} />
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+            <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
               {copy.eyebrow}
             </p>
           </div>
@@ -406,7 +406,7 @@ function MockupHeader({ copy }: { copy: VariantCopy }) {
           </p>
         </div>
         <div className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+          <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
             Design priorities
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -452,7 +452,7 @@ function CommandMockup({ copy }: { copy: VariantCopy }) {
               priority
               overlay={
                 <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)]/95 p-3 shadow-[var(--shadow-tight)] backdrop-blur">
-                  <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+                  <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                     Active source preview
                   </p>
                   <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
@@ -493,7 +493,7 @@ function MobileShell({ title, children }: { title: string; children: ReactNode }
       <div className="mx-auto max-w-[25rem] rounded-[2rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-chrome)] p-3 shadow-[var(--shadow-lux)]">
         <div className="overflow-hidden rounded-[1.45rem] border border-[color:var(--border)] bg-[color:var(--background)]">
           <div className="border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
-            <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+            <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
               Documents
             </p>
             <h3 className="mt-1 text-lg font-extrabold text-[color:var(--text-heading)]">{title}</h3>
@@ -572,7 +572,7 @@ function EvidenceLensMockup({ copy }: { copy: VariantCopy }) {
             <div className="flex items-center gap-2">
               <IconTile icon={Sparkles} />
               <div>
-                <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                   Why this result
                 </p>
                 <h3 className="text-base font-extrabold text-[color:var(--text-heading)]">Direct source support</h3>
@@ -626,7 +626,7 @@ function EvidenceTile({
 function ReasonRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">{label}</p>
       <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">{value}</p>
     </div>
   );
@@ -637,9 +637,7 @@ function MobileEvidencePreview() {
     <MobileShell title="Evidence lens">
       <ResultRow document={documents[0]} dense />
       <div className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] p-3">
-        <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
-          Preview
-        </p>
+        <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">Preview</p>
         <p className="mt-1 text-sm font-bold leading-5 text-[color:var(--text-heading)]">
           p.12 table, source text, and review note are stacked before the PDF opens.
         </p>

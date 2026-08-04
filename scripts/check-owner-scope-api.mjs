@@ -59,6 +59,12 @@ export const OWNER_SCOPE_ALLOWLIST = [
     reason:
       "Global setup/health diagnostic: a `.limit(1)` existence probe for schema provisioning, not an owner-data read. Same local-origin-gated status route — see docs/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
   },
+  {
+    file: "src/app/api/setup-status/route.ts",
+    table: "storage_cleanup_jobs",
+    reason:
+      "Global setup/health diagnostic: a head-count existence probe for pending cleanup rows (schema/ops posture), not an owner-data read. Same local-origin-gated status route — see docs/tenancy-defense-in-depth-review.md §3 (TEN-N1).",
+  },
 ];
 
 /** Extract table names that declare an `owner_id` column from supabase/schema.sql. */

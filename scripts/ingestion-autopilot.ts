@@ -39,6 +39,7 @@ export type IngestionAssessment = {
   reasons: string[];
   failedJobs: number;
   staleProcessingJobs: number;
+  strandedQueuedDocuments: number;
 };
 
 /**
@@ -55,7 +56,14 @@ export function assessIngestionHealth(
   const now = options.now ?? Date.now();
 
   if (health.ok === false || health.status === "supabase_unavailable") {
-    return { available: false, stuck: false, reasons: ["supabase unavailable"], failedJobs: 0, staleProcessingJobs: 0 };
+    return {
+      available: false,
+      stuck: false,
+      reasons: ["supabase unavailable"],
+      failedJobs: 0,
+      staleProcessingJobs: 0,
+      strandedQueuedDocuments: 0,
+    };
   }
 
   const reasons: string[] = [];
@@ -75,6 +83,10 @@ export function assessIngestionHealth(
   if (staleProcessingJobs > 0) {
     reasons.push(`${staleProcessingJobs} processing job(s) locked > ${staleAfterMinutes}m (stale worker)`);
   }
+  const strandedQueuedDocuments = Number(health.counts?.documents_stranded_queued ?? 0) || 0;
+  if (strandedQueuedDocuments > 0) {
+    reasons.push(`${strandedQueuedDocuments} stranded queued document(s)`);
+  }
 
   return {
     available: true,
@@ -82,6 +94,7 @@ export function assessIngestionHealth(
     reasons,
     failedJobs,
     staleProcessingJobs,
+    strandedQueuedDocuments,
   };
 }
 
@@ -101,6 +114,7 @@ function runTsxScript(script: string, args: string[] = []) {
 
 function main() {
   const apply = process.argv.includes("--apply");
+  const alertOnStuck = process.argv.includes("--alert-on-stuck");
   const staleAfterMinutes = parseIntFlag("--stale-after-minutes", 30);
   const limit = parseIntFlag("--limit", 20);
 
@@ -134,9 +148,13 @@ function main() {
   if (!apply) {
     console.log(
       `[autopilot] DRY RUN — would run: npm run recover:ingestion -- --apply --yes ` +
-        `--stale-after-minutes ${staleAfterMinutes} --limit ${limit}\n` +
+        `--include-stranded-queued --stale-after-minutes ${staleAfterMinutes} --limit ${limit}\n` +
         `[autopilot] pass --apply to recover.`,
     );
+    if (alertOnStuck) {
+      console.error("[autopilot] scheduled probe detected recoverable ingestion work — alerting.");
+      process.exitCode = 2;
+    }
     return;
   }
 
@@ -144,6 +162,7 @@ function main() {
   const recover = runTsxScript("scripts/recover-ingestion-queue.ts", [
     "--apply",
     "--yes",
+    "--include-stranded-queued",
     "--stale-after-minutes",
     String(staleAfterMinutes),
     "--limit",

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page } from "playwright/test";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 
 const readySetupChecks = [
@@ -8,6 +8,39 @@ const readySetupChecks = [
   { id: "search", label: "Search RPC and vector indexes", status: "ready", detail: "Test search ready." },
   { id: "openai", label: "Answer provider", status: "ready", detail: "Mock stream ready." },
 ];
+
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onSubmit") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
+async function fillHydratedAnswerQuestion(page: Page, value: string) {
+  const input = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+  const submit = page.locator('[aria-label="Generate source-backed answer"]:visible');
+
+  await expect(async () => {
+    await expect(input).toHaveCount(1, { timeout: 30_000 });
+    await expect(submit).toHaveCount(1, { timeout: 30_000 });
+    const form = input.locator("xpath=ancestor::form[1]");
+    await waitForReactEventHandler(input, "onChange");
+    await waitForReactEventHandler(form, "onSubmit");
+    await input.fill(value);
+    await expect(input).toHaveValue(value);
+    await expect(submit).toBeEnabled();
+  }).toPass({ timeout: 30_000 });
+
+  return submit;
+}
 
 async function mockDashboardApis(page: Page) {
   await page.route("**/*", async (route) => {
@@ -195,10 +228,7 @@ test("answer progress remains user-safe through fallback and keeps a compact com
   await installTimedAnswerStream(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
 
-  const input = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
-  const submit = page.locator('[aria-label="Generate source-backed answer"]:visible').first();
-  await expect(input).toBeEditable({ timeout: 30_000 });
-  await input.fill("Lithium dosing");
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
 
   const progress = page.getByTestId("answer-progress-stepper");
@@ -234,17 +264,14 @@ test("a completion frame cannot mark a previous answer complete when final is in
   await installSuccessfulThenInvalidAnswerStreams(page);
   await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
 
-  const input = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
-  const submit = page.locator('[aria-label="Generate source-backed answer"]:visible').first();
-  await expect(input).toBeEditable({ timeout: 30_000 });
-  await input.fill("Lithium dosing");
+  const submit = await fillHydratedAnswerQuestion(page, "Lithium dosing");
   await submit.click();
 
   await expect(page.getByText(/In the synthetic lithium document/i)).toBeVisible({ timeout: 8_000 });
   await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
 
-  await input.fill("What about monitoring?");
-  await submit.click();
+  const followUpSubmit = await fillHydratedAnswerQuestion(page, "What about monitoring?");
+  await followUpSubmit.click();
 
   await expect(page.getByTestId("answer-error")).toContainText("Answer stream returned an invalid final payload", {
     timeout: 10_000,

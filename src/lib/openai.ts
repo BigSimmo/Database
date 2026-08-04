@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import type { ZodType } from "zod";
 import { env, requireOpenAIEnv } from "@/lib/env";
+import { instrumentOpenAIClientForAgentMonitoring } from "@/lib/observability/agent-monitoring";
 import { assessClinicalImageUse } from "@/lib/image-filtering";
 import { PublicApiError } from "@/lib/http";
 import {
@@ -61,7 +62,13 @@ export type OpenAIParsedTextResult<T> = OpenAITextResult & { parsed: T };
 
 let openAIClient: OpenAI | null = null;
 const queryEmbeddingCache = new Map<string, number[]>();
-const queryEmbeddingInflight = new Map<string, Promise<number[]>>();
+type QueryEmbeddingInflight = {
+  promise: Promise<number[]>;
+  controller: AbortController;
+  waiters: number;
+  settled: boolean;
+};
+const queryEmbeddingInflight = new Map<string, QueryEmbeddingInflight>();
 
 export function createOpenAIClient() {
   try {
@@ -72,11 +79,15 @@ export function createOpenAIClient() {
     });
   }
 
-  openAIClient ??= new OpenAI({
-    apiKey: env.OPENAI_API_KEY,
-    timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
-    maxRetries: env.OPENAI_MAX_RETRIES,
-  });
+  // Metadata-only Sentry agent monitoring (model, latency, token usage — never
+  // inputs/outputs); inert unless the runtime initialized Sentry with tracing on.
+  openAIClient ??= instrumentOpenAIClientForAgentMonitoring(
+    new OpenAI({
+      apiKey: env.OPENAI_API_KEY,
+      timeout: env.OPENAI_REQUEST_TIMEOUT_MS,
+      maxRetries: env.OPENAI_MAX_RETRIES,
+    }),
+  );
   return openAIClient;
 }
 
@@ -359,7 +370,11 @@ function isTimeoutError(error: unknown) {
 }
 
 export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
-  if (error instanceof PublicApiError) return error;
+  if (
+    error instanceof PublicApiError ||
+    (error && typeof error === "object" && "name" in error && error.name === "PublicApiError")
+  )
+    return error as PublicApiError;
 
   const status = getErrorStatus(error);
   const code = getErrorCode(error) ?? "openai_request_failed";
@@ -527,6 +542,9 @@ export function openAISafetyIdentifier(ownerId: string | null | undefined) {
 
 export function clearOpenAICaches() {
   queryEmbeddingCache.clear();
+  for (const entry of queryEmbeddingInflight.values()) {
+    if (!entry.settled) entry.controller.abort();
+  }
   queryEmbeddingInflight.clear();
   openAIClient = null;
 }
@@ -545,8 +563,9 @@ export function chunkIntoBatches<T>(items: T[], size: number): T[][] {
   return batches;
 }
 
-export async function embedTexts(texts: string[]) {
+export async function embedTexts(texts: string[], options?: { signal?: AbortSignal }) {
   if (texts.length === 0) return [];
+  options?.signal?.throwIfAborted();
 
   const uniqueTexts: string[] = [];
   const uniqueIndexByText = new Map<string, number>();
@@ -570,48 +589,84 @@ export async function embedTexts(texts: string[]) {
     // embedding of an unrelated text, even across batch boundaries (extends IDX-C1).
     const byIndex = new Array<number[]>(uniqueTexts.length);
     const batches = chunkIntoBatches(uniqueTexts, env.OPENAI_EMBEDDING_BATCH_SIZE);
-    let batchStart = 0;
-    for (const batch of batches) {
-      const response = await client.embeddings.create(
-        {
-          model: env.OPENAI_EMBEDDING_MODEL,
-          input: batch,
-          // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
-          dimensions: env.EMBEDDING_DIMENSIONS,
-        },
-        requestOptions({ operation: "embedding" }),
-      );
 
-      // IDX-C2: a short response means some inputs silently produced no embedding.
-      if (response.data.length !== batch.length) {
-        throw new PublicApiError(
-          `OpenAI returned ${response.data.length} embeddings for ${batch.length} inputs.`,
-          502,
-          { code: "openai_embedding_count_mismatch" },
-        );
-      }
+    // IDX-C3: a single embeddings request is capped at 2048 inputs / ~300k tokens, so a
+    // full-corpus re-embed must be split. To maximize throughput while respecting rate
+    // limits, batches run concurrently up to env.OPENAI_EMBEDDING_CONCURRENCY_LIMIT (default: 5).
+    // Reassembly uses the GLOBAL index (task.offset + item.index) so a chunk is never stored with the
+    // embedding of an unrelated text, even across batch/concurrency boundaries (extends IDX-C1).
+    let currentOffset = 0;
+    const tasks = batches.map((batch) => {
+      const offset = currentOffset;
+      currentOffset += batch.length;
+      return { batch, offset };
+    });
 
-      // IDX-C1: the embeddings API does not guarantee response order; each item carries
-      // an explicit `index` into the request's input array. Reassemble by that index
-      // (offset to the global position) so embeddings are never mismatched to chunks.
-      for (const item of response.data) {
-        if (item.index < 0 || item.index >= batch.length) {
-          throw new PublicApiError(`OpenAI returned an out-of-range embedding index ${item.index}.`, 502, {
-            code: "openai_embedding_index_range",
-          });
-        }
-        // IDX-C2: guard against a model whose dimension does not match the schema.
-        if (item.embedding.length !== env.EMBEDDING_DIMENSIONS) {
-          throw new PublicApiError(
-            `OpenAI embedding has ${item.embedding.length} dimensions; expected ${env.EMBEDDING_DIMENSIONS}. ` +
-              `Check OPENAI_EMBEDDING_MODEL and EMBEDDING_DIMENSIONS match supabase/schema.sql.`,
-            502,
-            { code: "openai_embedding_dimension_mismatch" },
+    const concurrencyLimit = env.OPENAI_EMBEDDING_CONCURRENCY_LIMIT;
+    let nextTaskIndex = 0;
+    let firstError: unknown = null;
+
+    const worker = async () => {
+      while (nextTaskIndex < tasks.length && !firstError) {
+        if (options?.signal?.aborted) break;
+
+        const task = tasks[nextTaskIndex++];
+        if (!task) break;
+
+        try {
+          const response = await client.embeddings.create(
+            {
+              model: env.OPENAI_EMBEDDING_MODEL,
+              input: task.batch,
+              // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
+              dimensions: env.EMBEDDING_DIMENSIONS,
+            },
+            requestOptions({ operation: "embedding", signal: options?.signal }),
           );
+
+          // IDX-C2: a short response means some inputs silently produced no embedding.
+          if (response.data.length !== task.batch.length) {
+            throw new PublicApiError(
+              `OpenAI returned ${response.data.length} embeddings for ${task.batch.length} inputs.`,
+              502,
+              { code: "openai_embedding_count_mismatch" },
+            );
+          }
+
+          // IDX-C1: the embeddings API does not guarantee response order; each item carries
+          // an explicit `index` into the request's input array. Reassemble by that index
+          // (offset to the global position) so embeddings are never mismatched to chunks.
+          for (const item of response.data) {
+            if (item.index < 0 || item.index >= task.batch.length) {
+              throw new PublicApiError(`OpenAI returned an out-of-range embedding index ${item.index}.`, 502, {
+                code: "openai_embedding_index_range",
+              });
+            }
+            // IDX-C2: guard against a model whose dimension does not match the schema.
+            if (item.embedding.length !== env.EMBEDDING_DIMENSIONS) {
+              throw new PublicApiError(
+                `OpenAI embedding has ${item.embedding.length} dimensions; expected ${env.EMBEDDING_DIMENSIONS}. ` +
+                  `Check OPENAI_EMBEDDING_MODEL and EMBEDDING_DIMENSIONS match supabase/schema.sql.`,
+                502,
+                { code: "openai_embedding_dimension_mismatch" },
+              );
+            }
+            byIndex[task.offset + item.index] = item.embedding;
+          }
+        } catch (err) {
+          if (!firstError) {
+            firstError = err;
+          }
+          break;
         }
-        byIndex[batchStart + item.index] = item.embedding;
       }
-      batchStart += batch.length;
+    };
+
+    const workers = Array.from({ length: Math.min(concurrencyLimit, tasks.length) }, worker);
+    await Promise.all(workers);
+
+    if (firstError) {
+      throw firstError;
     }
 
     return outputIndexes.map((index) => byIndex[index]);
@@ -620,40 +675,97 @@ export async function embedTexts(texts: string[]) {
   }
 }
 
-export async function embedText(text: string) {
-  const { embedding } = await embedTextWithTelemetry(text);
+export async function embedText(text: string, options?: { signal?: AbortSignal }) {
+  const { embedding } = await embedTextWithTelemetry(text, options);
   return embedding;
 }
 
-export async function embedTextWithTelemetry(text: string) {
+function callerAbortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function awaitWithCallerSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(callerAbortReason(signal));
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(callerAbortReason(signal));
+    };
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
+}
+
+async function awaitInflightEmbedding(key: string, entry: QueryEmbeddingInflight, signal?: AbortSignal) {
+  entry.waiters += 1;
+  try {
+    return await awaitWithCallerSignal(entry.promise, signal);
+  } finally {
+    entry.waiters -= 1;
+    // Drop the map entry immediately on last-waiter abort so a new healthy
+    // caller cannot join the dying promise before the producer's .finally runs.
+    if (entry.waiters === 0 && !entry.settled) {
+      entry.controller.abort();
+      if (queryEmbeddingInflight.get(key) === entry) queryEmbeddingInflight.delete(key);
+    }
+  }
+}
+
+export async function embedTextWithTelemetry(text: string, options?: { signal?: AbortSignal }) {
+  options?.signal?.throwIfAborted();
   const cached = getCachedQueryEmbedding(text);
   if (cached) {
     return { embedding: cached, cacheHit: true };
   }
 
   const key = queryEmbeddingCacheKey(text);
-  const inflight = queryEmbeddingInflight.get(key);
-  if (inflight) {
-    return { embedding: await inflight, cacheHit: true };
+  let inflight = queryEmbeddingInflight.get(key);
+  // Skip a flight already aborted by its last waiter (owner-catalogue pattern).
+  if (inflight?.controller.signal.aborted) {
+    if (queryEmbeddingInflight.get(key) === inflight) queryEmbeddingInflight.delete(key);
+    inflight = undefined;
   }
-
-  const embeddingPromise = embedTexts([text])
-    .then((embeddings) => {
-      const embedding = embeddings[0];
-      if (!embedding) {
-        throw new PublicApiError("OpenAI returned no embedding for the query.", 502, {
-          code: "openai_empty_embedding",
-        });
-      }
-      setCachedQueryEmbeddingByKey(key, embedding);
-      return embedding;
-    })
-    .finally(() => {
-      queryEmbeddingInflight.delete(key);
-    });
-
-  queryEmbeddingInflight.set(key, embeddingPromise);
-  return { embedding: await embeddingPromise, cacheHit: false };
+  let cacheHit = true;
+  if (!inflight) {
+    cacheHit = false;
+    const controller = new AbortController();
+    const entry: QueryEmbeddingInflight = {
+      promise: Promise.resolve([]),
+      controller,
+      waiters: 0,
+      settled: false,
+    };
+    entry.promise = embedTexts([text], { signal: controller.signal })
+      .then((embeddings) => {
+        const embedding = embeddings[0];
+        if (!embedding) {
+          throw new PublicApiError("OpenAI returned no embedding for the query.", 502, {
+            code: "openai_empty_embedding",
+          });
+        }
+        setCachedQueryEmbeddingByKey(key, embedding);
+        return embedding;
+      })
+      .finally(() => {
+        entry.settled = true;
+        if (queryEmbeddingInflight.get(key) === entry) queryEmbeddingInflight.delete(key);
+      });
+    queryEmbeddingInflight.set(key, entry);
+    inflight = entry;
+  }
+  return { embedding: await awaitInflightEmbedding(key, inflight, options?.signal), cacheHit };
 }
 
 export async function generateTextResult(

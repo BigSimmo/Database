@@ -1,4 +1,4 @@
-import { BookOpenCheck, GitCompareArrows, ListChecks, Search, ShieldCheck } from "lucide-react";
+import { BookOpenCheck, GitCompareArrows, ListChecks, Search } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { dsmCategories, dsmDiagnoses } from "@/lib/dsm";
@@ -11,11 +11,11 @@ const featuredCategories = dsmCategories
 
 export function DsmHomePage() {
   return (
-    <ModeHomeMain testId="dsm-home-main">
+    <ModeHomeMain testId="dsm-home-main" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="dsm-home"
         title="DSM-5 Diagnosis"
-        subtitle="Find diagnostic criteria, review specifiers, compare diagnoses, and clarify differential considerations."
+        subtitle="Criteria, specifiers, and comparisons."
         icon={BookOpenCheck}
         actionsLabel="DSM-5 Diagnosis actions"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
@@ -51,7 +51,6 @@ export function DsmHomePage() {
         }))}
         footer={
           <ModeHomeVerificationFooter
-            icon={ShieldCheck}
             label={`${dsmDiagnoses.length} diagnoses`}
             body="Local reference content · Clinical review required"
           />

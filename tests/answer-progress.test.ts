@@ -31,6 +31,48 @@ describe("answer progress events", () => {
     expect(publicEvent).not.toHaveProperty("usedSupplementaryFallback");
   });
 
+  it("maps every supported internal stage to stable public copy", () => {
+    const publicCopy = (stage: string, extra: Record<string, unknown> = {}) =>
+      toPublicAnswerProgressEvent({ stage, message: "private internal detail", ...extra });
+
+    expect(publicCopy("scoping")).toEqual({ stage: "scoping", message: "Preparing the clinical search scope." });
+    expect(publicCopy("retrieving")).toEqual({
+      stage: "retrieving",
+      message: "Searching indexed clinical documents.",
+    });
+    expect(publicCopy("retrieved", { resultCount: 1 })).toEqual({
+      stage: "retrieved",
+      message: "Found 1 candidate source passage.",
+      resultCount: 1,
+    });
+    expect(publicCopy("retrieved", { resultCount: 7 })?.message).toBe("Found 7 candidate source passages.");
+    expect(publicCopy("retrieved")?.message).toBe("Source passages found.");
+    // Internal routing and finalizing stages collapse into the public stages that describe them.
+    expect(publicCopy("routing")?.stage).toBe("ranking");
+    expect(publicCopy("finalizing")).toEqual({
+      stage: "verifying",
+      message: "Checking citations, clinical numbers, and source metadata.",
+    });
+    expect(publicCopy("generating")?.message).toBe("Drafting a cited answer from the selected passages.");
+    expect(publicCopy("retrying")?.message).toContain("revising it against the evidence");
+    expect(publicCopy("fallback")?.message).toBe("Building a source-backed answer from the selected passages.");
+    expect(publicCopy("cached")).toEqual({ stage: "cached", message: "Loading a recent cited answer." });
+    expect(publicCopy("complete", { elapsedMs: 1200.7 })).toEqual({
+      stage: "complete",
+      message: "Answer ready.",
+      elapsedMs: 1200,
+    });
+  });
+
+  it("rejects progress payloads that carry no recognized stage", () => {
+    expect(toPublicAnswerProgressEvent(null)).toBeNull();
+    expect(toPublicAnswerProgressEvent("retrieving")).toBeNull();
+    expect(toPublicAnswerProgressEvent({ stage: "internal-debug", message: "private" })).toBeNull();
+    expect(toPublicAnswerProgressEvent({ stage: "retrieved", resultCount: Number.NaN })).not.toHaveProperty(
+      "resultCount",
+    );
+  });
+
   it("accepts legacy message-only progress while rendering stable copy", () => {
     const progress = normalizeAnswerProgressEvent({ message: "Selected fast route using private-model-marker." });
 

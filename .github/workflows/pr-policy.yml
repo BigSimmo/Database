@@ -2,7 +2,7 @@ name: PR Policy
 
 on:
   pull_request_target:
-    branches: [main]
+    branches: [main, "release/**"]
     types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
   merge_group:
 
@@ -31,7 +31,7 @@ jobs:
       # head or persist credentials.
       - name: Checkout trusted policy
         if: github.event_name == 'pull_request_target'
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
@@ -45,8 +45,27 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
             const { evaluatePullRequestPolicy } = await import(moduleUrl);
             const pr = context.payload.pull_request;
+            if (!pr?.number) {
+              core.setFailed("Missing pull_request.number in pull_request_target payload.");
+              return;
+            }
+            let latestPr;
+            try {
+              latestPr = (
+                await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                })
+              ).data;
+            } catch (error) {
+              core.setFailed(
+                `Unable to fetch latest PR metadata for PR #${pr.number}: ${error instanceof Error ? error.message : String(error)}. If this was transient, rerun the job; if it persists, verify this workflow still has pull-request read access.`,
+              );
+              return;
+            }
 
-            if (pr.draft) {
+            if (latestPr.draft) {
               core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
               return;
             }
@@ -58,20 +77,32 @@ jobs:
               per_page: 100,
             });
             const result = evaluatePullRequestPolicy({
-              title: pr.title,
-              body: pr.body || "",
-              headRef: pr.head.ref,
+              title: latestPr.title,
+              body: latestPr.body || "",
+              headRef: latestPr.head.ref,
               files: changedFiles.map((file) => file.filename),
             });
 
+            const warnings = result.warnings || [];
             await core.summary
               .addHeading("PR policy")
               .addRaw(`Clinical risk: ${result.classification.clinicalRisk ? "yes" : "no"}<br>`)
               .addRaw(`Operational risk: ${result.classification.operationalRisk ? "yes" : "no"}<br>`)
               .addRaw(`UI change: ${result.classification.ui ? "yes" : "no"}<br>`)
+              .addRaw(`Blocking issues: ${result.errors.length}<br>`)
+              .addRaw(`Advisory warnings: ${warnings.length}<br>`)
               .write();
+
+            // Advisory metadata nudges (title/summary/verification/UI/risk) are
+            // surfaced but never fail the check. Two conditions block the merge: a
+            // clinical-risk PR with an incomplete Clinical Governance Preflight, and a
+            // RAG-ranking-surface PR without an explicit `RAG impact:` declaration
+            // (docs/rag-behaviour/safeguards.md).
+            for (const warning of warnings) core.warning(warning);
 
             if (!result.ok) {
               for (const error of result.errors) core.error(error);
-              core.setFailed(`PR policy found ${result.errors.length} issue(s). Edit the PR title/body and rerun.`);
+              core.setFailed(
+                `PR policy found ${result.errors.length} blocking issue(s) — see the errors above (Clinical Governance Preflight and/or the RAG impact declaration), fix the PR body, and rerun.`,
+              );
             }

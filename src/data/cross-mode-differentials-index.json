@@ -1,0 +1,1188 @@
+{
+  "diagnoses": [
+    {
+      "slug": "acute-dystonia",
+      "title": "Acute dystonia",
+      "clinicalHinge": "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+    },
+    {
+      "slug": "acute-psychosis",
+      "title": "Acute psychosis",
+      "clinicalHinge": "Subjective bodily torment and urge to move dominate. Mood or psychosis may be absent."
+    },
+    {
+      "slug": "acute-stress-reaction-adjustment-after-trauma",
+      "title": "Acute stress reaction",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "adhd",
+      "title": "ADHD",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "adjustment-crisis-demoralisation-severe-medical-suffering",
+      "title": "Adjustment crisis",
+      "clinicalHinge": "Sustained wish to die or escape, often with cognitive constriction and pessimism."
+    },
+    {
+      "slug": "adverse-effect-driven-non-adherence",
+      "title": "Adverse-effect-driven non-adherence",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "akathisia",
+      "title": "Akathisia",
+      "clinicalHinge": "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+    },
+    {
+      "slug": "alcohol",
+      "title": "Alcohol",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "alcohol-withdrawal",
+      "title": "Alcohol withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "alcohol-related-brain-injury-korsakoff-pattern",
+      "title": "Alcohol-related brain injury",
+      "clinicalHinge": "Acute and fluctuating with inattention = delirium (medical/toxic cause)."
+    },
+    {
+      "slug": "alzheimer-vascular-ftd-with-psychosis",
+      "title": "Alzheimer",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "alzheimer-disease",
+      "title": "Alzheimer disease",
+      "clinicalHinge": "Acute and fluctuating with inattention = delirium (medical/toxic cause)."
+    },
+    {
+      "slug": "anorexia-nervosa",
+      "title": "Anorexia nervosa",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "anticholinergic-burden-toxicity",
+      "title": "Anticholinergic burden",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "antidepressant-discontinuation-syndrome",
+      "title": "Antidepressant discontinuation syndrome",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "antidepressant-induced-switching",
+      "title": "Antidepressant-induced switching",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "antipsychotic-adverse-effects",
+      "title": "Antipsychotic adverse effects",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "antisocial-personality-disorder",
+      "title": "Antisocial personality disorder",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "arfid",
+      "title": "ARFID",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "autism-intellectual-disability-sensory-overload",
+      "title": "Autism",
+      "clinicalHinge": "Aggression is often fear- or belief-driven rather than predatory."
+    },
+    {
+      "slug": "autism-id-communication-disorder",
+      "title": "Autism",
+      "clinicalHinge": "Formal thought disorder plus broader psychotic syndrome and functional deterioration."
+    },
+    {
+      "slug": "autism-intellectual-disability-baseline",
+      "title": "Autism",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "autism-developmental-social-communication-difference",
+      "title": "Autism",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "autism-spectrum-disorder",
+      "title": "Autism spectrum disorder",
+      "clinicalHinge": "Developmental onset and restricted/repetitive or sensory features are central."
+    },
+    {
+      "slug": "autism-with-overload-shutdown-meltdown",
+      "title": "Autism with overload",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "autistic-shutdown-regression-catatonia-on-developmental-baseline",
+      "title": "Autistic shutdown",
+      "clinicalHinge": "Developmental onset and restricted/repetitive or sensory features are central."
+    },
+    {
+      "slug": "autoimmune-encephalitis-autoimmune-psychosis",
+      "title": "Autoimmune encephalitis",
+      "clinicalHinge": "Inattention and fluctuation dominate. Psychotic content is often fragmented or changeable."
+    },
+    {
+      "slug": "autoimmune-encephalitis-anti-nmda-syndrome",
+      "title": "Autoimmune encephalitis",
+      "clinicalHinge": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate."
+    },
+    {
+      "slug": "benzodiazepine-withdrawal",
+      "title": "Benzodiazepine withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "benzodiazepines",
+      "title": "Benzodiazepines",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "bipolar-depression-mixed-state",
+      "title": "Bipolar depression",
+      "clinicalHinge": "Sustained wish to die or escape, often with cognitive constriction and pessimism."
+    },
+    {
+      "slug": "bipolar-depression",
+      "title": "Bipolar depression",
+      "clinicalHinge": "Sustained mood syndrome with guilt, hopelessness, reduced energy, impaired concentration, change in sleep/appetite."
+    },
+    {
+      "slug": "bipolar-disorder",
+      "title": "Bipolar disorder",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "bipolar-disorder-or-psychosis-mistaken-for-personality",
+      "title": "Bipolar disorder or psychosis mistaken for personality",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "bipolar-disorder-with-psychosis",
+      "title": "Bipolar disorder with psychosis",
+      "clinicalHinge": "Inattention and fluctuation dominate. Psychotic content is often fragmented or changeable."
+    },
+    {
+      "slug": "bipolar-i-mania",
+      "title": "Bipolar I mania",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "bipolar-mania-hypomania",
+      "title": "Bipolar mania",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "bipolar-mania-mixed-state",
+      "title": "Bipolar mania",
+      "clinicalHinge": "Subjective bodily torment and urge to move dominate. Mood or psychosis may be absent."
+    },
+    {
+      "slug": "bipolar-mania-with-psychosis",
+      "title": "Bipolar mania with psychosis",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "bipolar-relapse-postpartum-mania",
+      "title": "Bipolar relapse",
+      "clinicalHinge": "Psychotic or manic syndrome with abrupt change from baseline in the postpartum period."
+    },
+    {
+      "slug": "body-dysmorphic-disorder",
+      "title": "Body dysmorphic disorder",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "borderline-trauma-reactive-escalation",
+      "title": "Borderline",
+      "clinicalHinge": "Aggression is often fear- or belief-driven rather than predatory."
+    },
+    {
+      "slug": "borderline-affective-instability-adhd-trait-impulsivity",
+      "title": "Borderline affective instability",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "borderline-personality-stress-micropsychosis",
+      "title": "Borderline personality",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "borderline-personality-disorder",
+      "title": "Borderline personality disorder",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "borderline-personality-pathway-recurrent-self-harm",
+      "title": "Borderline personality pathway",
+      "clinicalHinge": "Sustained wish to die or escape, often with cognitive constriction and pessimism."
+    },
+    {
+      "slug": "borderline-stress-dissociation",
+      "title": "Borderline stress-dissociation",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "bpsd-as-unmet-need-delirium-pain-mimic",
+      "title": "BPSD as unmet need",
+      "clinicalHinge": "Acute and fluctuating with inattention = delirium (medical/toxic cause)."
+    },
+    {
+      "slug": "bulimia-nervosa-binge-purge-pattern",
+      "title": "Bulimia nervosa",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "cannabis",
+      "title": "Cannabis",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "cannabis-withdrawal",
+      "title": "Cannabis withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "catatonia-severe-psychomotor-shutdown",
+      "title": "Catatonia",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "catatonia-dementia-dysphagia-apraxia",
+      "title": "Catatonia",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "catatonia",
+      "title": "Catatonia",
+      "clinicalHinge": "Motor syndrome with characteristic catatonic signs. Not simply very depressed or non-engaging."
+    },
+    {
+      "slug": "catatonia-in-mood-disorder",
+      "title": "Catatonia in mood disorder",
+      "clinicalHinge": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate."
+    },
+    {
+      "slug": "catatonia-in-psychotic-disorder",
+      "title": "Catatonia in psychotic disorder",
+      "clinicalHinge": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate."
+    },
+    {
+      "slug": "catatonic-excitement",
+      "title": "Catatonic excitement",
+      "clinicalHinge": "Subjective bodily torment and urge to move dominate. Mood or psychosis may be absent."
+    },
+    {
+      "slug": "clozapine-specific-adverse-effects-toxicity",
+      "title": "Clozapine-specific adverse effects",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "cognitive-impairment-id-dementia",
+      "title": "Cognitive impairment",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "command-phenomena-and-internal-parts-experiences",
+      "title": "Command phenomena and internal \"parts\" experiences",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "complex-ptsd",
+      "title": "Complex PTSD",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "complex-ptsd-ptsd",
+      "title": "Complex PTSD",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "cyclothymia-subthreshold-bipolarity",
+      "title": "Cyclothymia",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "delirium",
+      "title": "Delirium",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    },
+    {
+      "slug": "delusional-disorder",
+      "title": "Delusional disorder",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "dementia-neurocognitive-disorder",
+      "title": "Dementia",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "dementia-apathy-neurocognitive-disorder",
+      "title": "Dementia",
+      "clinicalHinge": "Motor syndrome with characteristic catatonic signs. Not simply very depressed or non-engaging."
+    },
+    {
+      "slug": "dementia-with-lewy-bodies-parkinson-disease-dementia",
+      "title": "Dementia with Lewy bodies",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "dementia-with-superimposed-delirium",
+      "title": "Dementia with superimposed delirium",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    },
+    {
+      "slug": "depression",
+      "title": "Depression",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "depression-anxiety-with-bodily-amplification",
+      "title": "Depression",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "depression-due-to-medical-condition",
+      "title": "Depression due to medical condition",
+      "clinicalHinge": "Sustained mood syndrome with guilt, hopelessness, reduced energy, impaired concentration, change in sleep/appetite."
+    },
+    {
+      "slug": "depression-related-cognitive-syndrome",
+      "title": "Depression-related cognitive syndrome",
+      "clinicalHinge": "Acute and fluctuating with inattention = delirium (medical/toxic cause)."
+    },
+    {
+      "slug": "depression-related-poor-intake",
+      "title": "Depression-related poor intake",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "dissociative-disorder",
+      "title": "Dissociative disorder",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "dissociative-shutdown-freeze",
+      "title": "Dissociative shutdown",
+      "clinicalHinge": "Motor syndrome with characteristic catatonic signs. Not simply very depressed or non-engaging."
+    },
+    {
+      "slug": "drug-induced-parkinsonism",
+      "title": "Drug-induced parkinsonism",
+      "clinicalHinge": "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+    },
+    {
+      "slug": "factitious-malingering",
+      "title": "Factitious",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "factitious-disorder-malingering",
+      "title": "Factitious disorder",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "frontal-disinhibition-bvftd-intoxication",
+      "title": "Frontal disinhibition",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "frontal-lobe-syndrome-bvftd-neurological-disorder",
+      "title": "Frontal lobe syndrome",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "frontal-syndrome-bvftd-neurological-disinhibition",
+      "title": "Frontal syndrome",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "frontotemporal-dementia",
+      "title": "Frontotemporal dementia",
+      "clinicalHinge": "Acute and fluctuating with inattention = delirium (medical/toxic cause)."
+    },
+    {
+      "slug": "functional-neurological-disorder",
+      "title": "Functional neurological disorder",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "functional-neurological-symptom-disorder",
+      "title": "Functional neurological symptom disorder",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "gad-worry-depressive-rumination",
+      "title": "GAD worry",
+      "clinicalHinge": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent."
+    },
+    {
+      "slug": "generalised-anxiety-disorder",
+      "title": "Generalised anxiety disorder",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "generalised-anxiety-disorder-panic",
+      "title": "Generalised anxiety disorder",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "genuine-neurological-or-medical-disease",
+      "title": "Genuine neurological or medical disease",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "genuine-violent-homicidal-intent",
+      "title": "Genuine violent",
+      "clinicalHinge": "Separates perinatal intrusive thoughts from postpartum psychosis and genuine harm intent."
+    },
+    {
+      "slug": "ghb",
+      "title": "GHB",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "ghb-withdrawal",
+      "title": "GHB withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "grief-prolonged-grief-adjustment-depression",
+      "title": "Grief",
+      "clinicalHinge": "Sustained mood syndrome with guilt, hopelessness, reduced energy, impaired concentration, change in sleep/appetite."
+    },
+    {
+      "slug": "hallucinogens",
+      "title": "Hallucinogens",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "hepatic-encephalopathy",
+      "title": "Hepatic encephalopathy",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    },
+    {
+      "slug": "histrionic-personality-disorder",
+      "title": "Histrionic personality disorder",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "hypoactive-delirium",
+      "title": "Hypoactive delirium",
+      "clinicalHinge": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate."
+    },
+    {
+      "slug": "hypomania",
+      "title": "Hypomania",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "iatrogenic-environment-driven-escalation",
+      "title": "Iatrogenic",
+      "clinicalHinge": "Aggression is often fear- or belief-driven rather than predatory."
+    },
+    {
+      "slug": "illness-anxiety-disorder",
+      "title": "Illness anxiety disorder",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "inhalants-volatile-substances",
+      "title": "Inhalants",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "intellectual-disability",
+      "title": "Intellectual disability",
+      "clinicalHinge": "Developmental onset and restricted/repetitive or sensory features are central."
+    },
+    {
+      "slug": "late-life-psychotic-depression-bipolar-disorder",
+      "title": "Late-life psychotic depression",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "lewy-body-dementia-parkinson-disease-dementia",
+      "title": "Lewy body dementia",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "lithium-physiological-withdrawal-tremor",
+      "title": "Lithium",
+      "clinicalHinge": "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+    },
+    {
+      "slug": "lithium-adverse-effects-toxicity",
+      "title": "Lithium adverse effects",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "major-depressive-disorder",
+      "title": "Major depressive disorder",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "malingering-strategic-refusal",
+      "title": "Malingering",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "mania-mixed-state",
+      "title": "Mania",
+      "clinicalHinge": "Aggression is often fear- or belief-driven rather than predatory."
+    },
+    {
+      "slug": "mania",
+      "title": "Mania",
+      "clinicalHinge": "Formal thought disorder plus broader psychotic syndrome and functional deterioration."
+    },
+    {
+      "slug": "mania-hypomania",
+      "title": "Mania",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "medical-gi-endocrine-painful-organic-cause",
+      "title": "Medical",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "medical-or-physiological-mimic",
+      "title": "Medical or physiological mimic",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "medication-over-sedation-drug-effect",
+      "title": "Medication over-sedation",
+      "clinicalHinge": "Motor syndrome with characteristic catatonic signs. Not simply very depressed or non-engaging."
+    },
+    {
+      "slug": "medication-sedation-drug-induced-parkinsonism",
+      "title": "Medication sedation",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "medication-toxicity-anticholinergic-burden-dopaminergic-or-steroid-psychosis",
+      "title": "Medication toxicity",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "methamphetamine-stimulant",
+      "title": "Methamphetamine",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "mixed-state",
+      "title": "Mixed state",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "mixed-state-agitated-depression",
+      "title": "Mixed state",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "narcissistic-personality-disorder",
+      "title": "Narcissistic personality disorder",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "neuroleptic-malignant-syndrome",
+      "title": "Neuroleptic malignant syndrome",
+      "clinicalHinge": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate."
+    },
+    {
+      "slug": "nicotine-withdrawal",
+      "title": "Nicotine withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "ocd",
+      "title": "OCD",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "ocd-rigidity-mimic",
+      "title": "OCD",
+      "clinicalHinge": "Developmental onset and restricted/repetitive or sensory features are central."
+    },
+    {
+      "slug": "opioid-withdrawal",
+      "title": "Opioid withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "opioids",
+      "title": "Opioids",
+      "clinicalHinge": "Toxidrome clues: pupils, respiratory rate, nystagmus, tremor, diaphoresis, sympathetic overdrive."
+    },
+    {
+      "slug": "organic-late-onset-mania",
+      "title": "Organic late-onset \"mania\"",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "osa-restless-legs-parasomnia",
+      "title": "OSA",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "overvalued-idea",
+      "title": "Overvalued idea",
+      "clinicalHinge": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent."
+    },
+    {
+      "slug": "panic-trauma-hyperarousal-dissociation",
+      "title": "Panic",
+      "clinicalHinge": "Subjective bodily torment and urge to move dominate. Mood or psychosis may be absent."
+    },
+    {
+      "slug": "panic-hyperventilation-trauma-arousal-with-bodily-symptoms",
+      "title": "Panic",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "panic-disorder",
+      "title": "Panic disorder",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "paranoid-personality-disorder-overvalued-suspiciousness",
+      "title": "Paranoid personality disorder",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "paranoid-personality-disorder",
+      "title": "Paranoid personality disorder",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "perinatal-ocd-intrusive-infant-harm-thoughts",
+      "title": "Perinatal OCD",
+      "clinicalHinge": "Separates perinatal intrusive thoughts from postpartum psychosis and genuine harm intent."
+    },
+    {
+      "slug": "persistent-depressive-disorder",
+      "title": "Persistent depressive disorder",
+      "clinicalHinge": "Sustained mood syndrome with guilt, hopelessness, reduced energy, impaired concentration, change in sleep/appetite."
+    },
+    {
+      "slug": "personality-crisis-dissociation-trauma-overload",
+      "title": "Personality crisis",
+      "clinicalHinge": "Formal thought disorder plus broader psychotic syndrome and functional deterioration."
+    },
+    {
+      "slug": "post-ictal-confusion",
+      "title": "Post-ictal state",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    },
+    {
+      "slug": "postnatal-depression",
+      "title": "Postnatal depression",
+      "clinicalHinge": "Psychotic or manic syndrome with abrupt change from baseline in the postpartum period."
+    },
+    {
+      "slug": "postpartum-psychosis",
+      "title": "Postpartum psychosis",
+      "clinicalHinge": "Separates perinatal intrusive thoughts from postpartum psychosis and genuine harm intent."
+    },
+    {
+      "slug": "primary-insomnia-circadian-rhythm-disorder",
+      "title": "Primary insomnia",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "psychosis-emerging-on-developmental-baseline",
+      "title": "Psychosis emerging on developmental baseline",
+      "clinicalHinge": "Developmental onset and restricted/repetitive or sensory features are central."
+    },
+    {
+      "slug": "psychosis-driven-suicidality",
+      "title": "Psychosis-driven suicidality",
+      "clinicalHinge": "Sustained wish to die or escape, often with cognitive constriction and pessimism."
+    },
+    {
+      "slug": "psychosis-related-food-refusal",
+      "title": "Psychosis-related food refusal",
+      "clinicalHinge": "Weight/shape psychopathology is the key psychological discriminator."
+    },
+    {
+      "slug": "psychosis-related-poor-insight",
+      "title": "Psychosis-related poor insight",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "psychotic-delusion",
+      "title": "Psychotic delusion",
+      "clinicalHinge": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent."
+    },
+    {
+      "slug": "psychotic-depression",
+      "title": "Psychotic depression",
+      "clinicalHinge": "Sustained mood syndrome with guilt, hopelessness, reduced energy, impaired concentration, change in sleep/appetite."
+    },
+    {
+      "slug": "psychotic-depression-severe-melancholic-depression",
+      "title": "Psychotic depression",
+      "clinicalHinge": "Motor syndrome with characteristic catatonic signs. Not simply very depressed or non-engaging."
+    },
+    {
+      "slug": "psychotic-depression-with-infant-harm-delusions",
+      "title": "Psychotic depression with infant-harm delusions",
+      "clinicalHinge": "Separates perinatal intrusive thoughts from postpartum psychosis and genuine harm intent."
+    },
+    {
+      "slug": "ptsd-dissociation-linked-risk",
+      "title": "PTSD",
+      "clinicalHinge": "Sustained wish to die or escape, often with cognitive constriction and pessimism."
+    },
+    {
+      "slug": "ptsd-dissociation-flashback-aggression",
+      "title": "PTSD",
+      "clinicalHinge": "Aggression is often fear- or belief-driven rather than predatory."
+    },
+    {
+      "slug": "ptsd-trauma-re-experiencing",
+      "title": "PTSD",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "ptsd",
+      "title": "PTSD",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "ptsd-hyperarousal-nightmares",
+      "title": "PTSD",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "ptsd-complex-trauma",
+      "title": "PTSD",
+      "clinicalHinge": "Interpersonal sensitivity, fear of abandonment, identity disturbance, recurrent dysregulation."
+    },
+    {
+      "slug": "ptsd-after-traumatic-birth-dissociative-state",
+      "title": "PTSD after traumatic birth",
+      "clinicalHinge": "Psychotic or manic syndrome with abrupt change from baseline in the postpartum period."
+    },
+    {
+      "slug": "ptsd-after-traumatic-birth-dissociation",
+      "title": "PTSD after traumatic birth",
+      "clinicalHinge": "Separates perinatal intrusive thoughts from postpartum psychosis and genuine harm intent."
+    },
+    {
+      "slug": "ptsd-hyperarousal-mislabelled-as-anxiety",
+      "title": "PTSD hyperarousal mislabelled as anxiety",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "ptsd-hypervigilance-trauma-mistrust",
+      "title": "PTSD hypervigilance",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "ptsd-intrusive-memories-flashbacks",
+      "title": "PTSD intrusive memories",
+      "clinicalHinge": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent."
+    },
+    {
+      "slug": "qt-prolongation-ris\u006b-state",
+      "title": "QT prolongation risk state",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "schizophrenia",
+      "title": "Schizophrenia",
+      "clinicalHinge": "Formal thought disorder plus broader psychotic syndrome and functional deterioration."
+    },
+    {
+      "slug": "schizophrenia-negative-syndrome",
+      "title": "Schizophrenia negative syndrome",
+      "clinicalHinge": "Motor syndrome with characteristic catatonic signs. Not simply very depressed or non-engaging."
+    },
+    {
+      "slug": "schizophrenia-spectrum-delusions",
+      "title": "Schizophrenia-spectrum delusions",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "schizophrenia-spectrum-disorder",
+      "title": "Schizophrenia-spectrum disorder",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "sedation-hypoarousal",
+      "title": "Sedation",
+      "clinicalHinge": "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+    },
+    {
+      "slug": "seizure-related-structural-later-life-neurological-psychosis",
+      "title": "Seizure-related",
+      "clinicalHinge": "Inattention and fluctuation dominate. Psychotic content is often fragmented or changeable."
+    },
+    {
+      "slug": "sensory-impairment-charles-bonnet-hearing-related-misinterpretation",
+      "title": "Sensory impairment",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "serotonin-syndrome",
+      "title": "Serotonin syndrome",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "serotonin-toxicity",
+      "title": "Serotonin toxicity",
+      "clinicalHinge": "Characteristic motor syndrome rather than simple low mood, psychosis, or \"behavioural refusal\". Mood disorders are a very common substrate."
+    },
+    {
+      "slug": "sleep-related-hallucinations-charles-bonnet-syndrome",
+      "title": "Sleep-related hallucinations",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "social-anxiety-disorder",
+      "title": "Social anxiety disorder",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "somatic-symptom-disorder-illness-anxiety-disorder",
+      "title": "Somatic symptom disorder",
+      "clinicalHinge": "Trauma-linked clusters dominate and often worsen with reminders."
+    },
+    {
+      "slug": "somatic-symptom-disorder",
+      "title": "Somatic symptom disorder",
+      "clinicalHinge": "Driven by excessive time, energy, and distress around symptoms, not by symptoms being fake."
+    },
+    {
+      "slug": "ssri-snri-adverse-effects",
+      "title": "SSRI",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "stigma-identity-conflict-cultural-meaning",
+      "title": "Stigma",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "stimulant-intoxication-withdrawal",
+      "title": "Stimulant intoxication",
+      "clinicalHinge": "Subjective bodily torment and urge to move dominate. Mood or psychosis may be absent."
+    },
+    {
+      "slug": "stimulant-withdrawal-crash",
+      "title": "Stimulant withdrawal",
+      "clinicalHinge": "Timing after last drink plus autonomic overdrive and tremor are classic."
+    },
+    {
+      "slug": "structural-neurological-autoimmune-endocrine-seizure",
+      "title": "Structural",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "substance-intoxication",
+      "title": "Substance intoxication",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    },
+    {
+      "slug": "substance-intoxication-or-withdrawal",
+      "title": "Substance intoxication or withdrawal",
+      "clinicalHinge": "Shifts are reactive, brief, and relationship-linked rather than sustained episodic elevation with reduced need for sleep."
+    },
+    {
+      "slug": "substance-use-disorder",
+      "title": "Substance use disorder",
+      "clinicalHinge": "Chronicity and psychosis history support primary negative symptoms."
+    },
+    {
+      "slug": "substance-withdrawal",
+      "title": "Substance withdrawal",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    },
+    {
+      "slug": "substance-or-medication-induced-anxiety",
+      "title": "Substance- or medication-induced anxiety",
+      "clinicalHinge": "Abrupt peak over minutes, recurrent unexpected attacks, anticipatory anxiety or avoidance."
+    },
+    {
+      "slug": "substance-or-medication-induced-depression",
+      "title": "Substance- or medication-induced depression",
+      "clinicalHinge": "Sustained mood syndrome with guilt, hopelessness, reduced energy, impaired concentration, change in sleep/appetite."
+    },
+    {
+      "slug": "substance-or-medication-related-insomnia",
+      "title": "Substance- or medication-related insomnia",
+      "clinicalHinge": "Sleep disturbance sits inside a broader syndrome. Reduced need for sleep is one of the most decisive bipolar bedside clues."
+    },
+    {
+      "slug": "substance-induced-hallucinations",
+      "title": "Substance-induced hallucinations",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "substance-induced-mania-activation",
+      "title": "Substance-induced mania",
+      "clinicalHinge": "Sustained episodic activation plus decreased need for sleep are the key separators."
+    },
+    {
+      "slug": "substance-induced-psychosis",
+      "title": "Substance-induced psychosis",
+      "clinicalHinge": "Inattention and fluctuation dominate. Psychotic content is often fragmented or changeable."
+    },
+    {
+      "slug": "substance-induced-threat-beliefs",
+      "title": "Substance-induced threat beliefs",
+      "clinicalHinge": "Often fixed, systematised, accompanied by hallucinations, thought disorder, or negative symptoms."
+    },
+    {
+      "slug": "substance-related-chaotic-non-adherence",
+      "title": "Substance-related chaotic non-adherence",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "substance-related-suicidality",
+      "title": "Substance-related suicidality",
+      "clinicalHinge": "Sustained wish to die or escape, often with cognitive constriction and pessimism."
+    },
+    {
+      "slug": "tardive-dyskinesia-tardive-syndromes",
+      "title": "Tardive dyskinesia",
+      "clinicalHinge": "Subjective inner restlessness is the key feature, often with observable motor restlessness."
+    },
+    {
+      "slug": "temporal-lobe-epilepsy-neurological-aura",
+      "title": "Temporal lobe epilepsy",
+      "clinicalHinge": "Usually chronic, internally generated but experienced as alien, embedded in broader psychotic syndrome."
+    },
+    {
+      "slug": "temporal-lobe-epilepsy-neurological-speech-disturbance",
+      "title": "Temporal lobe epilepsy",
+      "clinicalHinge": "Formal thought disorder plus broader psychotic syndrome and functional deterioration."
+    },
+    {
+      "slug": "trauma-or-coercion-related-refusal",
+      "title": "Trauma- or coercion-related refusal",
+      "clinicalHinge": "Altered reality testing drives refusal rather than simple preference."
+    },
+    {
+      "slug": "trauma-or-personality-linked-psychotic-like-symptoms",
+      "title": "Trauma- or personality-linked psychotic-like symptoms",
+      "clinicalHinge": "Inattention and fluctuation dominate. Psychotic content is often fragmented or changeable."
+    },
+    {
+      "slug": "valproate-adverse-effects-toxicity",
+      "title": "Valproate adverse effects",
+      "clinicalHinge": "Temporal association with antipsychotic initiation, dose change, or depot timing."
+    },
+    {
+      "slug": "vascular-dementia-vascular-cognitive-disorder",
+      "title": "Vascular dementia",
+      "clinicalHinge": "Acute and fluctuating with inattention = delirium (medical/toxic cause)."
+    },
+    {
+      "slug": "very-late-onset-schizophrenia-like-psychosis-delusional-disorder",
+      "title": "Very-late-onset schizophrenia-like psychosis",
+      "clinicalHinge": "Inattention and fluctuating awareness are the key separators; psychotic content is often fragmentary."
+    },
+    {
+      "slug": "wernicke-encephalopathy",
+      "title": "Wernicke encephalopathy",
+      "clinicalHinge": "Inattention plus altered awareness/arousal are the key separators. Usually precipitated by acute illness, surgery, injury, retention, constipation, pain, or medicines."
+    }
+  ],
+  "presentations": [
+    {
+      "id": "acute-confusion-encephalopathy",
+      "title": "Delirium / Acute Confusion / Encephalopathy",
+      "subtitle": "Delirium and its encephalopathic mimics are acute medical emergencies needing same-hour vitals, glucose and precipitant work-up."
+    },
+    {
+      "id": "psychosis-first-episode-medical-psychosis",
+      "title": "Psychosis / First-Episode Medical Psychosis",
+      "subtitle": "First-episode psychosis needs same-day assessment to exclude medical/substance causes; graded urgent unless medical instability or delirium escalates it to emergent."
+    },
+    {
+      "id": "catatonia-psychomotor-shutdown-malignant-syndromes",
+      "title": "Catatonia / Psychomotor Shutdown / Malignant Syndromes",
+      "subtitle": "Malignant catatonia, NMS and serotonin toxicity are life-threatening; catatonia risks dehydration, VTE and autonomic instability."
+    },
+    {
+      "id": "suicidal-ideation-suicide-attempt-self-harm",
+      "title": "Suicidal Ideation / Suicide Attempt / Self-Harm",
+      "subtitle": "Active suicidality or a recent attempt requires urgent safety review and medical clearance."
+    },
+    {
+      "id": "aggression-violence-homicidal-ideation",
+      "title": "Aggression / Violence / Homicidal Ideation",
+      "subtitle": "Acute aggression or homicidal intent threatens immediate safety and may signal delirium, intoxication or mania."
+    },
+    {
+      "id": "mania-hypomania-mixed-states",
+      "title": "Mania / Hypomania / Mixed States",
+      "subtitle": "Acute mania carries high risk from impaired judgement, exhaustion and behavioural dyscontrol; mixed states elevate suicide risk."
+    },
+    {
+      "id": "substance-intoxication",
+      "title": "Substance Intoxication",
+      "subtitle": "Significant intoxication can cause airway compromise, hyperthermia or trauma and needs immediate ABC and toxidrome assessment."
+    },
+    {
+      "id": "substance-withdrawal",
+      "title": "Substance Withdrawal",
+      "subtitle": "Alcohol and benzodiazepine withdrawal can progress to seizures and delirium tremens within hours."
+    },
+    {
+      "id": "medication-side-effects-iatrogenic-toxicity-qt-risk",
+      "title": "Medication Side Effects / Iatrogenic Toxicity / QT Risk",
+      "subtitle": "Lithium toxicity, clozapine adverse effects, serotonin syndrome, NMS and QT prolongation are time-critical iatrogenic emergencies."
+    },
+    {
+      "id": "akathisia-epse-tremor-sedation",
+      "title": "Akathisia / EPSE / Tremor / Sedation",
+      "subtitle": "Akathisia and EPSE cause marked distress and adherence breakdown and elevate suicide risk; acute dystonia can need faster intervention."
+    },
+    {
+      "id": "hallucinations",
+      "title": "Hallucinations",
+      "subtitle": "New hallucinations need same-day assessment to separate delirium and substance causes from primary disorders."
+    },
+    {
+      "id": "delusions-paranoia-thought-interference-command-phenomena",
+      "title": "Delusions / Paranoia / Thought Interference / Command Phenomena",
+      "subtitle": "Delusions / Paranoia / Thought Interference / Command Phenomena"
+    },
+    {
+      "id": "disorganised-behaviour-disorganised-thought-or-speech",
+      "title": "Disorganised Behaviour / Disorganised Thought or Speech",
+      "subtitle": "Disorganised Behaviour / Disorganised Thought or Speech"
+    },
+    {
+      "id": "depression",
+      "title": "Depression",
+      "subtitle": "Depression"
+    },
+    {
+      "id": "anxiety-panic-obsessions-health-anxiety",
+      "title": "Anxiety / Panic / Obsessions / Health Anxiety",
+      "subtitle": "Anxiety / Panic / Obsessions / Health Anxiety"
+    },
+    {
+      "id": "dissociation-trauma-response-somatisation-functional-neurological-symptoms",
+      "title": "Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms",
+      "subtitle": "Dissociation / Trauma Response / Somatisation / Functional Neurological Symptoms"
+    },
+    {
+      "id": "sleep-disturbance-insomnia-reduced-need-for-sleep",
+      "title": "Sleep Disturbance / Insomnia / Reduced Need for Sleep",
+      "subtitle": "Sleep Disturbance / Insomnia / Reduced Need for Sleep"
+    },
+    {
+      "id": "mood-lability-emotional-dysregulation",
+      "title": "Mood Lability / Emotional Dysregulation",
+      "subtitle": "Mood Lability / Emotional Dysregulation"
+    },
+    {
+      "id": "cognitive-impairment-memory-dementia-bpsd",
+      "title": "Cognitive Impairment / Memory / Dementia / BPSD",
+      "subtitle": "Cognitive Impairment / Memory / Dementia / BPSD"
+    },
+    {
+      "id": "poor-functioning-neglect-negative-symptoms-poor-judgement-poor-rapport",
+      "title": "Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport",
+      "subtitle": "Poor Functioning / Neglect / Negative Symptoms / Poor Judgement / Poor Rapport"
+    },
+    {
+      "id": "treatment-refusal-non-adherence-poor-insight",
+      "title": "Treatment Refusal / Non-Adherence / Poor Insight",
+      "subtitle": "Treatment Refusal / Non-Adherence / Poor Insight"
+    },
+    {
+      "id": "autism-intellectual-disability-adhd-developmental-overlap",
+      "title": "Autism / Intellectual Disability / ADHD / Developmental Overlap",
+      "subtitle": "Autism / Intellectual Disability / ADHD / Developmental Overlap"
+    },
+    {
+      "id": "food-refusal-not-eating-eating-disorder-spectrum",
+      "title": "Food Refusal / Not Eating / Eating Disorder Spectrum",
+      "subtitle": "Food Refusal / Not Eating / Eating Disorder Spectrum"
+    },
+    {
+      "id": "perinatal-acute-psychiatry",
+      "title": "Perinatal Acute Psychiatry",
+      "subtitle": "Perinatal Acute Psychiatry"
+    },
+    {
+      "id": "personality-related-interpersonal-conflict-antisocial-conduct",
+      "title": "Personality-Related Interpersonal Conflict / Antisocial Conduct",
+      "subtitle": "Personality-Related Interpersonal Conflict / Antisocial Conduct"
+    },
+    {
+      "id": "older-adult-first-presentation-psychosis-traps",
+      "title": "Older-Adult First-Presentation Psychosis Traps",
+      "subtitle": "Older-Adult First-Presentation Psychosis Traps"
+    },
+    {
+      "id": "focused-comparator-perinatal",
+      "title": "Focused comparator (perinatal)",
+      "subtitle": "Separates perinatal intrusive thoughts from postpartum psychosis and genuine harm intent."
+    },
+    {
+      "id": "psychomotor-agitation",
+      "title": "Psychomotor Agitation",
+      "subtitle": "Psychomotor Agitation"
+    },
+    {
+      "id": "psychomotor-retardation-mutism-severe-withdrawal",
+      "title": "Psychomotor Retardation / Mutism / Severe Withdrawal",
+      "subtitle": "Psychomotor Retardation / Mutism / Severe Withdrawal"
+    },
+    {
+      "id": "somatic-symptoms-illness-anxiety-functional-neurological-symptoms-factitious-presentation",
+      "title": "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation",
+      "subtitle": "Somatic Symptoms / Illness Anxiety / Functional Neurological Symptoms / Factitious Presentation"
+    },
+    {
+      "id": "focused-diagnostic-trap-tables",
+      "title": "Focused Diagnostic Trap Tables",
+      "subtitle": "Distinguishes intrusive/obsessional phenomena from psychotic or violent intent."
+    }
+  ],
+  "aliases": {
+    "agitation": ["aggression", "akathisia", "restless"],
+    "agitated": ["agitation", "aggression", "restless"],
+    "psychosis": ["delusion", "hallucination", "paranoia"],
+    "psychotic": ["psychosis", "delusion", "hallucination"],
+    "paranoia": ["delusion", "psychosis", "suspicious"],
+    "suicide": ["suicidal", "self-harm", "ideation", "attempt"],
+    "suicidal": ["suicide", "self-harm", "ideation", "attempt"],
+    "delirium": ["confusion", "fluctuation", "encephalopathy"],
+    "confused": ["confusion", "delirium", "encephalopathy"],
+    "withdrawal": ["detox", "tremor", "autonomic"],
+    "intoxicated": ["intoxication", "substance", "toxicity"],
+    "mania": ["hypomania", "mixed", "activation"],
+    "trauma": ["ptsd", "dissociation", "functional"],
+    "older": ["older-adult", "neurocognitive", "dementia"],
+    "perinatal": ["postpartum", "pregnancy", "infant"],
+    "medication": ["iatrogenic", "toxicity", "qt", "adverse"],
+    "medicine": ["medication", "iatrogenic", "toxicity"],
+    "qt": ["qtc", "arrhythmia", "toxicity"],
+    "catatonia": ["mutism", "shutdown", "stupor"],
+    "field": ["weight"]
+  }
+}

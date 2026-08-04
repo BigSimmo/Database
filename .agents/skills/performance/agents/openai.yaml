@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance"
+  short_description: "Profile Database performance with local evidence"
+  default_prompt: "Use $performance to baseline, isolate, and verify this Database performance issue with reproducible local evidence."

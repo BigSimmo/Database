@@ -75,7 +75,7 @@ function DocumentTagChip({
 }) {
   const Icon = groupIcon[tag.group];
   const tagClassName = cn(
-    "inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)]",
+    "relative inline-flex max-w-full items-center gap-1 rounded-md border font-semibold shadow-[var(--shadow-inset)] before:absolute before:-inset-y-2 before:-inset-x-1 before:content-['']",
     compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs",
     groupToneClass(tag.group),
     tag.queryMatched && "ring-2 ring-[color:var(--focus)]/25",
@@ -137,7 +137,7 @@ export function DocumentTagCloud({
           const Icon = groupIcon[group];
           return (
             <section key={group} className="min-w-0">
-              <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 <Icon className="h-3.5 w-3.5 text-[color:var(--primary)]" />
                 {group}
               </h3>

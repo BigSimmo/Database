@@ -1,10 +1,10 @@
 <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
   <style>
-    .tile { fill: #0b6f86; }
+    .tile { fill: #1d6fb8; }
     .pulse { stroke: #ffffff; }
     @media (prefers-color-scheme: dark) {
-      .tile { fill: #4ccfd0; }
-      .pulse { stroke: #04252a; }
+      .tile { fill: #74bdf0; }
+      .pulse { stroke: #08203a; }
     }
   </style>
   <rect class="tile" x="2" y="2" width="44" height="44" rx="14" />

@@ -7,89 +7,117 @@ name: Docker image build
 # Desktop OOMs on this build; GitHub runners and Railway's remote builder have
 # enough headroom).
 #
-# Non-blocking: this is a standalone workflow, not part of the required `verify`
-# check. Nothing is pushed to a registry — the build either succeeds or fails.
-# Runs on main/release pushes, the weekly schedule, manual dispatch, and PRs that
-# touch container-affecting files (Dockerfiles, deps, engine/build guards) — not
-# every src-only PR, since `verify` already runs `next build` for those.
+# Pull requests and merge queues call this workflow from CI when the repository's
+# container scope changes, so the result feeds the required `pr-required`
+# aggregate. Standalone runs cover main/release pushes, the weekly schedule, and
+# manual dispatch. Nothing is pushed to a registry.
 
 on:
+  workflow_call:
   push:
     branches: [main, "release/**"]
-  # PRs only rebuild the images when a container-affecting file changes — the
-  # `verify` job already runs `next build` for src changes, so this stays focused
-  # on containerization (Dockerfiles, dependency install, engine guard, OCR deps)
-  # and does not rebuild on every src-only PR.
-  pull_request:
-    branches: [main, "release/**"]
-    paths:
-      - "Dockerfile"
-      - "Dockerfile.worker"
-      - ".dockerignore"
-      - "package.json"
-      - "package-lock.json"
-      - ".npmrc"
-      - ".nvmrc"
-      - "next.config.ts"
-      - "railway.app.json"
-      - "railway.worker.json"
-      - "worker/python/requirements.txt"
-      - "scripts/check-node-engine.cjs"
-      - "scripts/guard-next-build.mjs"
-      - "scripts/build-worker.mjs"
-      - ".github/workflows/docker-image.yml"
   workflow_dispatch:
   schedule:
     - cron: "0 18 * * 0"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Use a workflow-specific literal. In a reusable invocation `github.workflow`
+  # is the caller's name, which would collide with and cancel the parent CI run.
+  group: docker-image-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  app-image:
+  build-and-verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
-      - name: Build app image (no push)
+      - name: Build app image (load, no push)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile
+          tags: clinical-kb-app:ci
           push: false
-          # The publishable key is public-by-design and only inlines into the
-          # client bundle, so the CI placeholder is enough to validate the build.
-          # Real production images are built with the real key at deploy time.
+          load: true
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
+            MAX_UPLOAD_MB=50
+            NEXT_PUBLIC_MAX_UPLOAD_MB=50
+            ALLOW_LOW_RAM_BUILD=1
+          cache-from: type=gha,scope=clinical-kb-app,timeout=2m
+          cache-to: type=gha,scope=clinical-kb-app,mode=max,timeout=2m,ignore-error=true
 
-  worker-image:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          persist-credentials: false
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
-      - name: Build worker image (no push)
+      - name: Build worker image (load, no push)
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: Dockerfile.worker
+          tags: clinical-kb-worker:ci
           push: false
+          load: true
+          cache-from: type=gha,scope=clinical-kb-worker,timeout=2m
+          cache-to: type=gha,scope=clinical-kb-worker,mode=max,timeout=2m,ignore-error=true
+
+      - name: Verify image content contract
+        run: node scripts/check-image-content-contract.mjs
+
+      - name: Run app container smoke (provider-free, cap-drop)
+        run: node scripts/app-container-smoke.mjs
+
+      - name: Run worker runtime validation (provider-free, network-isolated)
+        run: docker run --rm --network=none --entrypoint node clinical-kb-worker:ci dist/worker/validate-runtime.mjs
+
+      - name: Read-only runtime check (advisory)
+        run: |
+          docker run --rm --read-only --cap-drop=ALL --security-opt no-new-privileges:true \
+            -e NODE_ENV=production \
+            -e NEXT_PUBLIC_DEMO_MODE=false \
+            -e NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co \
+            -e SUPABASE_SERVICE_ROLE_KEY=smoke-test-placeholder \
+            -e RAG_QUERY_HASH_SECRET=smoke-test-hash-secret \
+            -e RAG_PROVIDER_MODE=offline \
+            -e NEXT_TELEMETRY_DISABLED=1 \
+            clinical-kb-app:ci \
+            node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>r.json()).then(j=>{if(j.status!=='ok')throw new Error(JSON.stringify(j));console.log(j)}).catch(e=>{console.error(e);process.exit(1)})" || true
+        continue-on-error: true
+
+      - name: Generate SBOMs
+        # Advisory: docker-save of both loaded images can ENOSPC on small runners.
+        # Free BuildKit cache first; do not fail the required gate on scanner disk pressure.
+        continue-on-error: true
+        run: |
+          docker builder prune -af || true
+          df -h || true
+          node scripts/trivy-image-scan.mjs clinical-kb-app:ci --sbom sbom-app.cdx.json
+          node scripts/trivy-image-scan.mjs clinical-kb-worker:ci --sbom sbom-worker.cdx.json
+
+      - name: Upload SBOMs
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: sboms
+          path: |
+            sbom-app.cdx.json
+            sbom-worker.cdx.json
+          if-no-files-found: warn
+
+      - name: Vulnerability scan (HIGH,CRITICAL)
+        # Non-blocking by design — findings are reported, not merge-gating.
+        continue-on-error: true
+        run: |
+          docker builder prune -af || true
+          node scripts/trivy-image-scan.mjs clinical-kb-app:ci
+          node scripts/trivy-image-scan.mjs clinical-kb-worker:ci

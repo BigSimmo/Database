@@ -303,7 +303,7 @@ function DetailPanel({ tool, variant }: { tool: ToolFixture; variant: RefinedVar
           <IconBox icon={Icon} active />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--clinical-accent)] px-2 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent-contrast)]">
+              <span className="inline-flex min-h-7 items-center rounded-md bg-[color:var(--clinical-accent)] px-2 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent-contrast)]">
                 {copy.detailTitle}
               </span>
               <StatusBadge tool={tool} />
@@ -378,7 +378,7 @@ function PhonePopup({
     <aside className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] xl:sticky xl:top-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Phone</p>
+          <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">Phone</p>
           <h2 className="mt-1 text-base font-extrabold text-[color:var(--text-heading)]">{copy.phoneTitle}</h2>
         </div>
         <span className="inline-flex min-h-7 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs font-bold text-[color:var(--clinical-accent)]">
@@ -466,7 +466,7 @@ function PhonePopup({
                   <SourceBadge tool={tool} />
                 </div>
                 <div className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2">
-                  <p className="text-3xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                  <p className="text-3xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
                     Use when
                   </p>
                   <p className="mt-1 text-xs font-bold leading-4 text-[color:var(--text-heading)]">{notes.when[0]}</p>
@@ -526,7 +526,7 @@ function MobileViewportSheet({
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3">
             <IconBox icon={Icon} active />
             <div className="min-w-0">
-              <p className="text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">
+              <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
                 {copy.phoneTitle}
               </p>
               <h2 id="mobile-tool-sheet-title" className="mt-1 text-xl font-extrabold text-[color:var(--text-heading)]">

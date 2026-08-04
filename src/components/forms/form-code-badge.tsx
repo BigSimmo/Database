@@ -42,8 +42,11 @@ const containerByVariant: Record<FormCodeBadgeVariant, string> = {
 };
 
 const qualifierSizeByVariant: Record<FormCodeBadgeVariant, string> = {
-  sm: "text-4xs",
-  md: "text-4xs",
+  // The 8px `text-4xs` step these used is retired — indefensible at any density
+  // in a clinical product. `text-3xs` (10px) is the dense-metadata floor and is
+  // what the hero variant already starts from.
+  sm: "text-3xs",
+  md: "text-3xs",
   hero: "text-3xs sm:text-2xs",
 };
 
