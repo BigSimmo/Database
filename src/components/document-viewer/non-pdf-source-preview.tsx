@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useId, useRef, useState } from "react";
 import { CircleAlert, Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
@@ -106,10 +106,17 @@ function InlineImagePreview({
   title: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const announcementSourceId = useId();
+  const failureTransition = useRef(0);
 
   useEffect(() => {
-    if (failed) announce("Image preview could not load", { priority: "assertive" });
-  }, [failed]);
+    if (!failed) return;
+    failureTransition.current += 1;
+    announce("Image preview could not load", {
+      priority: "assertive",
+      eventId: `non-pdf-image-preview:${announcementSourceId}:${failureTransition.current}`,
+    });
+  }, [announcementSourceId, failed]);
 
   if (failed) {
     return (
