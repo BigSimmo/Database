@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
@@ -12,6 +13,7 @@ import {
   NaturalLanguageAnswer,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import {
   AnswerSupportSummaryCard,
   answerSupportPriority,
@@ -24,8 +26,11 @@ import {
   primaryVisualTable,
   SafetyFindingsListContent,
 } from "@/components/clinical-dashboard/evidence-panels";
+import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { CanonicalAnswerTables, MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 import { Sheet } from "@/components/ui/sheet";
+import { VerificationNotice } from "@/components/ui/verification-notice";
 import { answerSurface, cn, iconTilePremium, subtleStatusPill } from "@/components/ui-primitives";
 import { type AnswerRenderModel } from "@/lib/answer-render-policy";
 import { type AppModeId } from "@/lib/app-modes";
@@ -99,6 +104,7 @@ function StagedAnswerResultSurfaceImpl({
   crossModeQueries?: Array<string | null | undefined>;
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
 }) {
+  const router = useRouter();
   const noteCount = clinicalNotesCount(answer);
   const showClinicalNotes =
     safetyFindings.length > 0 ||
@@ -178,9 +184,25 @@ function StagedAnswerResultSurfaceImpl({
       setCopiedQuotes(false);
     }
   }, [renderModel.quoteCards]);
+  /**
+   * PR 13 answer adoption. The design system's projection of the same payload,
+   * built here so the live support-priority caution and the DS
+   * `RetrievalStateBanner` are two renderings of one state rather than two
+   * independent readings of the same fields.
+   *
+   * Goes through `answerStateForAnswer` so empty `answer.sources` still falls
+   * back to the search-result set — the same resolution the clipboard path uses.
+   * `weakEvidence` is passed through rather than re-derived — render trust is
+   * the render policy's decision, not this layer's.
+   */
+  const answerState = useMemo(
+    () => answerStateForAnswer({ answer, sources, weakEvidence }),
+    [answer, sources, weakEvidence],
+  );
   const priority = answerSupportPriority(answer, safeAnswerSections, centralVisualEvidence, safetyFindings, {
     grounded: answerGrounded,
     weakEvidence,
+    answerState,
   });
   const inlineEvidenceSummary = compactEvidenceSummary(answer, sources, sourceSummary, renderModel);
   const evidenceTrustLabel = inlineEvidenceSummary.split(" · ")[0] || "Review support";
@@ -202,6 +224,51 @@ function StagedAnswerResultSurfaceImpl({
           )}
         >
           <div className="min-w-0 space-y-3">
+            {/* PR 13 answer adoption. System-owned verification wording above the
+                prose, in document order, on screen and on print alike — the call
+                site chooses the state, never the words. The degraded banner sits
+                directly under it and carries the one-click route back to the
+                cited page, so a caution is never raised with nowhere to go. */}
+            {/* One count, not two. The notice and the banner are the two
+                governance statements on this surface and they sit adjacent, so
+                reading "Based on 3 cited sources." directly above "2 of 7
+                sources for this answer are past their review date" leaves a
+                clinician unable to tell how much of the evidence base is
+                overdue. Both now come from the projection. `source_only` is the
+                one kind that carries no count, hence the `in` guard. */}
+            <VerificationNotice
+              state={answerState.kind}
+              // From the quality tier, never from the state kind: #207
+              // precedence lets stale/partial/ungrounded outrank source_only, so
+              // keying on the kind announced "AI-generated" directly above the
+              // Source-only disclosure saying no model wrote it (#228).
+              attribution={answer.answerQualityTier === "source_only" ? "extractive" : "model"}
+              sourceCount={"sourceCount" in answerState ? answerState.sourceCount : sourceCount}
+            />
+            {/* Only where the banner says something the notice cannot. For
+                `stale_evidence` it names which sources are overdue and for
+                `partial_retrieval` how much was missed; for `ungrounded` and
+                `source_only` it restates the notice almost word for word, and
+                the live "Review source match" card below the answer states it a
+                third time. Measured on a one-sentence answer: three renderings
+                of one warning, eleven lines of caution around one line of
+                answer, 147px of scroll where the phone budget is 8
+                (tests/ui-smoke.spec.ts:2056, ledger #227). Three identical
+                alarms teach a reader to skip all three, so the duplicate is the
+                dangerous one, not the missing one. */}
+            {answerState.kind === "stale_evidence" || answerState.kind === "partial_retrieval" ? (
+              <RetrievalStateBanner
+                state={answerState}
+                // Navigate to the cited page — do not reuse onScopeDocument.
+                // That handler only replaces selectedDocumentIds and leaves the
+                // clinician on the answer screen with a silent filter change
+                // while the button is labelled "Open <source>, p. N".
+                onOpenSource={(sourceId, locator) => {
+                  const href = citedDocumentHref(sourceId, locator, [...sources, ...(answer.sources ?? [])]);
+                  if (href) router.push(href);
+                }}
+              />
+            ) : null}
             <NaturalLanguageAnswer
               text={answer.answer}
               query={query}

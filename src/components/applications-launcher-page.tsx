@@ -32,7 +32,8 @@ import {
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
-import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import { cn, EmptyState } from "@/components/ui-primitives";
+import { Chip, type ChipTone } from "@/components/ui/chip";
 import { Sheet } from "@/components/ui/sheet";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -205,22 +206,28 @@ function ToolIcon({ app, size = "md" }: { app: LauncherApp; size?: "sm" | "md" |
   );
 }
 
-function StatusChip({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "source" | "safety" | "high" }) {
+// Launcher status vocabulary mapped onto the design-system `Chip`. The tone and
+// icon choices are the launcher's; the chip geometry, tone palette, and truncation
+// are the design system's, so this no longer carries a second copy of the recipe.
+type StatusChipTone = "neutral" | "source" | "safety" | "high";
+
+const statusChipTone: Record<StatusChipTone, ChipTone> = {
+  neutral: "neutral",
+  source: "success",
+  safety: "warning",
+  high: "info",
+};
+
+const statusChipIcon: Partial<Record<StatusChipTone, LucideIcon>> = {
+  source: ShieldCheck,
+  safety: Sparkles,
+};
+
+function StatusChip({ label, tone = "neutral" }: { label: string; tone?: StatusChipTone }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-bold leading-none",
-        tone === "source" && toneSuccess,
-        tone === "safety" && toneWarning,
-        tone === "high" && toneInfo,
-        tone === "neutral" &&
-          "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-      )}
-    >
-      {tone === "source" ? <ShieldCheck className="h-3 w-3" aria-hidden /> : null}
-      {tone === "safety" ? <Sparkles className="h-3 w-3" aria-hidden /> : null}
+    <Chip tone={statusChipTone[tone]} icon={statusChipIcon[tone]}>
       {label}
-    </span>
+    </Chip>
   );
 }
 
@@ -856,10 +863,10 @@ export function ApplicationsLauncherWorkspace({
 
         <div id="launcher-results-panel" role="group" aria-label={resultsPanelLabel} className="grid grid-cols-1 gap-4">
           {filteredApps.length === 0 ? (
-            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
-              <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[color:var(--text-muted)]">{copy.emptyBody}</p>
-            </div>
+            // The filter/query that empties this list is applied without a navigation,
+            // so the state is introduced dynamically and keeps EmptyState's polite
+            // announcement rather than appearing silently.
+            <EmptyState icon={Search} title={copy.emptyTitle} body={copy.emptyBody} />
           ) : (
             <>
               <div className="hidden grid-cols-2 gap-4 lg:grid xl:grid-cols-3">

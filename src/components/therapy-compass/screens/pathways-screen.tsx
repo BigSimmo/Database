@@ -58,7 +58,7 @@ export function PathwaysScreen() {
                 <button
                   key={p.slug}
                   type="button"
-                  className={`${therapyBtn} transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:border-l-[3px] aria-pressed:border-l-[color:var(--clinical-accent)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
+                  className={`${therapyBtn} transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex w-full items-center gap-3.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3.5 text-left aria-pressed:border-[color:var(--clinical-accent-border)] aria-pressed:border-l-[3px] aria-pressed:border-l-[color:var(--clinical-accent)] aria-pressed:bg-[color:var(--clinical-accent-soft)]`}
                   onClick={() => b.selectPathway(p.slug)}
                   aria-pressed={active}
                 >
@@ -126,7 +126,7 @@ export function PathwaysScreen() {
                   >
                     {i + 1}
                   </span>
-                  <div className="transition-colors duration-100 hover:bg-[color:var(--surface-subtle)] flex-1 min-w-0 flex items-center gap-3.5 py-3.5 px-4 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)]">
+                  <div className="transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] flex-1 min-w-0 flex items-center gap-3.5 py-3.5 px-4 border border-[color:var(--border)] rounded-lg bg-[color:var(--surface)]">
                     <span className="inline-flex items-center justify-center w-[34px] h-[34px] rounded-md bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] flex-none">
                       <ScaleIcon size={17} strokeWidth={1.6} />
                     </span>

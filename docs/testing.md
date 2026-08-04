@@ -27,7 +27,10 @@ explicit `run-authenticated-live-tests` dispatch confirmation, records the run a
 guard and live-test steps. The secret-bearing job runs only from `refs/heads/main` and
 checks out that trusted ref; it never runs on a push, pull request, or schedule. This suite
 is not read-only: the confirmation explicitly authorizes bounded E2E-user sign-in/sign-out,
-test requests, and production rate-limit row updates.
+test requests, and production rate-limit row updates. A connected-only GitHub PAT exception
+does not authorize provider tests, provider credentials, deployment, or production data access;
+it is limited to the documented, exact GitHub connector-gap operation in
+`docs/codex-cloud.md`.
 
 ## Commands
 

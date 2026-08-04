@@ -43,29 +43,9 @@ import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prere
 import { annotateChunkAssertions, defaultAssertionTargets } from "./assertion-tagging";
 import { buildTableFactRows } from "./table-facts";
 import { enrichmentRepairDecision, ingestionFailureDecision } from "./behavior";
-
-type JobDocument = {
-  id: string;
-  owner_id: string | null;
-  title: string;
-  file_name: string;
-  file_type: string;
-  storage_path: string;
-  content_hash?: string | null;
-  source_path?: string | null;
-  import_batch_id?: string | null;
-  status?: string | null;
-  metadata: Record<string, unknown> | null;
-};
-
-type JobRow = {
-  id: string;
-  document_id: string;
-  batch_id: string | null;
-  attempt_count: number;
-  max_attempts: number;
-  documents: JobDocument;
-};
+import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
+import { runWorkerLoop } from "./run-loop";
+import type { JobDocument, JobRow } from "./types";
 
 const supabase = createAdminClient();
 const workerId = `${os.hostname()}-${process.pid}-${randomUUID().slice(0, 8)}`;
@@ -1906,8 +1886,10 @@ async function processJob(job: JobRow) {
 
 async function main() {
   const once = process.argv.includes("--once");
+  const controller = new WorkerRuntimeControl();
+  controller.attachSignals();
+
   const prereqs = await checkPythonPdfPrerequisites();
-  let consecutiveClaimFailures = 0;
   console.log(`Clinical KB worker started. worker=${workerId}`);
   if (!prereqs.ok) {
     console.warn(`PDF/OCR prerequisite warning: ${prereqs.detail}`);
@@ -1919,62 +1901,31 @@ async function main() {
     }
   }
 
-  while (true) {
-    let jobs: JobRow[] = [];
-    try {
-      const health = await probeSupabaseHealth(supabase);
-      if (!health.ok) {
-        console.warn("Supabase health check failed; worker is backing off", { message: health.message });
-        if (once) {
-          process.exitCode = 1;
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
-        continue;
-      }
-      jobs = await claimJobs();
-      consecutiveClaimFailures = 0;
-    } catch (error) {
-      consecutiveClaimFailures += 1;
-      console.warn("Ingestion job claim failed", safeErrorLogDetails(error));
-      // Report only on the threshold transition: a single transient claim
-      // failure is normal, and a sustained outage must not spam Sentry on
-      // every subsequent poll after the retry budget is spent.
-      if (consecutiveClaimFailures === env.WORKER_MAX_CLAIM_FAILURES) {
-        captureWorkerException(error, "claim");
-      }
-      if (once) throw error;
-      if (consecutiveClaimFailures >= env.WORKER_MAX_CLAIM_FAILURES) {
-        await new Promise((resolve) => setTimeout(resolve, env.WORKER_HEALTH_BACKOFF_MS));
-        continue;
-      }
-      await new Promise((resolve) => setTimeout(resolve, workerBackoffMs(consecutiveClaimFailures)));
-      continue;
-    }
-
-    if (jobs.length > 0) {
-      await Promise.all(
-        jobs.map(async (job) => {
-          console.log(safeIngestionJobLog(job.id));
-          try {
-            await processJob(job);
-          } catch (error) {
-            console.error("Ingestion job processing failed", safeErrorLogDetails(error));
-            captureWorkerException(error, "process");
-          }
-        }),
-      );
-      if (once) break;
-      continue;
-    }
-
-    if (once) break;
-    await new Promise((resolve) => setTimeout(resolve, env.WORKER_POLL_MS));
-  }
+  await runWorkerLoop({
+    once,
+    pollMs: env.WORKER_POLL_MS,
+    healthBackoffMs: env.WORKER_HEALTH_BACKOFF_MS,
+    maxClaimFailures: env.WORKER_MAX_CLAIM_FAILURES,
+    claim: claimJobs,
+    process: processJob,
+    probe: () => probeSupabaseHealth(supabase),
+    backoff: workerBackoffMs,
+    controller,
+    log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
+    captureException: captureWorkerException,
+  });
+  console.log("Clinical KB worker stopped gracefully");
+  // Flush before exit so any buffered claim/process events are not dropped.
+  await flushWorkerErrorTracking();
+  process.exit(0);
 }
 
 main().catch(async (error) => {
-  console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
+  const abort = error instanceof WorkerAbortError ? error : null;
+  console.error(
+    abort ? "Clinical KB worker aborted" : "Clinical KB worker stopped unexpectedly",
+    safeErrorLogDetails(error),
+  );
   captureWorkerException(error, "fatal");
   if (env.WORKER_FAILURE_WEBHOOK_URL) {
     try {
@@ -1982,7 +1933,7 @@ main().catch(async (error) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: `CRITICAL: Clinical KB worker stopped unexpectedly. Error: ${error instanceof Error ? error.message : String(error)}`,
+          text: `CRITICAL: Clinical KB worker ${abort ? "aborted" : "stopped unexpectedly"}. Error: ${error instanceof Error ? error.message : String(error)}`,
         }),
       });
     } catch (webhookError) {
@@ -1991,5 +1942,5 @@ main().catch(async (error) => {
   }
   // Flush last: the process is about to exit and buffered events would be lost.
   await flushWorkerErrorTracking();
-  process.exitCode = 1;
+  process.exit(abort?.exitCode ?? 1);
 });

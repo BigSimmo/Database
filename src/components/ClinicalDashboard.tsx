@@ -186,6 +186,7 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
+import { buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
@@ -3241,7 +3242,17 @@ export function ClinicalDashboard({
   });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
   const handleCopyAnswer = useEventCallback(() => {
-    copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
+    // #208: the render-policy string stays the primary payload — it carries the
+    // warnings, trust line and numbered sources the UI already decided the
+    // clinician must see. The composer only adds what leaves the app with it:
+    // attribution, the AnswerState caveat, and the provenance audit line. A copy
+    // is read in a record long after the banner is gone.
+    const renderCopyText = answerRenderModel?.copyText || safeAnswerText || answer?.answer || "";
+    if (!answer || !renderCopyText) {
+      copyText("answer", renderCopyText);
+      return;
+    }
+    copyText("answer", buildAnswerClipboardText({ answer, sources, weakEvidence, renderCopyText }));
   });
   // The answer thread's prior-query list, memoized so it isn't a fresh array on
   // every keystroke (it feeds two memoized surfaces below).

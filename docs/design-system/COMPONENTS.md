@@ -25,7 +25,7 @@ an asserted-but-untested behaviour is _worse_ than `—` and is called out.
 | Component                              | Tier                   | Preview | Direct test                     | Dark | HCM | 320px | Print | Product imports | Stability                   |
 | -------------------------------------- | ---------------------- | ------- | ------------------------------- | ---- | --- | ----- | ----- | --------------- | --------------------------- |
 | AccessibleTable                        | main (+branch changes) | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)               |
-| AnswerCard                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                |
+| AnswerCard                             | branch                 | ✓       | ✓ (PR 6)                        | —    | —   | —     | —     | 0               | experimental                |
 | AnswerFooter                           | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
 | AsyncButton                            | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | deprecated → `Button`       |
 | Breadcrumb                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                |
@@ -55,33 +55,43 @@ an asserted-but-untested behaviour is _worse_ than `—` and is called out.
 
 **[verified:** register and previews from `EXPORT_MANIFEST.md`; direct-test coverage from the
 master handover's audit of the shipped test set; `main` presence from this worktree
-(`src/components/ui/` on main holds only `OverlayProvider`, `badge`, `card`, `sheet`; the
+(`src/components/ui/sheet.tsx` is the live main-tier overlay primitive in this worktree; the
 branch deletes the dead `badge`/`card`).**]** Product-import counts for `main` components are
 **[assumed: >0** for live shared components; exact counts belong to the adoption tracker, not
 this document**]**.
 
 ### 0.2 Built, not registered (15 public symbols across 8 modules — `branch` only)
 
-| Symbols                                                      | Direct test | Notes                                                                          |
-| ------------------------------------------------------------ | ----------- | ------------------------------------------------------------------------------ |
-| `Checkbox`, `RadioGroup`                                     | —           | Native inputs, real fieldset/legend; RadioGroup contract defect (PR 4).        |
-| `Citation`, `CitationList`                                   | —           | Contract defect: enabled-inert possible (PR 4).                                |
-| `Disclosure`, `DisclosureGroup`                              | —           | Hardcoded `<h3>`; `hidden`/Ctrl-F claim retracted.                             |
-| `Progress`, `StageList`                                      | —           | Width animation; live-region defects (PR 9 / PR 8).                            |
-| `Quantity`                                                   | —           | Strongest addition; consumes a retiring type step (fix in retirement tranche). |
-| `Select`                                                     | —           | Shares the field-shell defects (PR 7 folds into `FormField`).                  |
-| `StatusMark`                                                 | —           | Forced-colour survival **asserted, not proven**.                               |
-| `TextLink`, `ExternalTextLink`, `DownloadLink`, `LinkAction` | —           | `tone` leaks to DOM; `gap` animation (PR 9).                                   |
+| Symbols                                                           | Direct test | Notes                                                                                                        |
+| ----------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
+| `VerificationNotice`                                              | ✓ (PR 6)    | System-owned wording; no children/text prop exists. §1.                                                      |
+| `AnswerState`, `RetrievalStateBanner`, `answerStateFromRetrieval` | ✓ (PR 6)    | §2. Five kinds since PR 13 Phase 1 (`ungrounded`); `partial_retrieval` is buildable but unproduced — see §2. |
+| `MissingValue`                                                    | ✓ (PR 6)    | Four phrases, never a dash. §3.                                                                              |
+| `DateDisplay`                                                     | ✓ (PR 6)    | ISO in, `<time>` out; agrees with `formatClinicalDate()`. §8.                                                |
+| `FormField`, `FieldHint`, `FieldError`, `ErrorSummary`            | ✓ (PR 7)    | The shared field shell. Existing controls fold onto it at adoption. §4.                                      |
+| `LiveAnnouncer`, `RouteAnnouncer`, `announce`                     | ✓ (PR 8)    | Singleton; the only `aria-live` in the system. §5.                                                           |
+| `Checkbox`, `RadioGroup`                                          | —           | Native inputs, real fieldset/legend; RadioGroup contract defect (PR 4).                                      |
+| `Citation`, `CitationList`                                        | —           | Contract defect: enabled-inert possible (PR 4).                                                              |
+| `Disclosure`, `DisclosureGroup`                                   | —           | Hardcoded `<h3>`; `hidden`/Ctrl-F claim retracted.                                                           |
+| `Progress`, `StageList`                                           | —           | Width animation; live-region defects (PR 9 / PR 8).                                                          |
+| `Quantity`                                                        | —           | Strongest addition; consumes a retiring type step (fix in retirement tranche).                               |
+| `Select`                                                          | —           | Shares the field-shell defects (PR 7 folds into `FormField`).                                                |
+| `StatusMark`                                                      | —           | Forced-colour survival **asserted, not proven**.                                                             |
+| `TextLink`, `ExternalTextLink`, `DownloadLink`, `LinkAction`      | —           | `tone` leaks to DOM; `gap` animation (PR 9).                                                                 |
 
-Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow),
-`OverlayProvider`/`useOverlay` (`main`, **zero imports** — superseded by `OverlayRoot`, §7),
-`sheet-focus` stack (`branch`; folds into `OverlayRoot`).
+Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow) and the
+`sheet-focus` stack (`branch`; powers the live `Sheet` path and is intended to fold into
+`OverlayRoot`).
 
 ### 0.3 Specified, not built
 
-_The eight in this document:_ `VerificationNotice` · `AnswerState`/`RetrievalStateBanner` ·
-`MissingValue` · `FormField`+`FieldHint`+`FieldError`+`ErrorSummary` ·
-`LiveAnnouncer`/`RouteAnnouncer` · `DocumentFrame` · `OverlayRoot` · `DateDisplay`.
+_Remaining from the eight in this document:_ `DocumentFrame` (PR 11) · `OverlayRoot` (PR 10).
+
+_Built in PRs 6–8, listed in §0.2 above:_ `VerificationNotice` ·
+`AnswerState`/`RetrievalStateBanner` · `MissingValue` · `DateDisplay` ·
+`FormField`+`FieldHint`+`FieldError`+`ErrorSummary` · `LiveAnnouncer`/`RouteAnnouncer`.
+They are **built, not registered** — registration waits for PR 13 per SPEC §13,
+so their preview state matrices and product adoption are still open.
 
 _P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` · `FilterBar`/
 `AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
@@ -107,10 +117,10 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 | TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A)           | PR 7                         |
 | Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                                  | PR 7                         |
 | Citation/CitationList        | interactive requires `onActivate`; static form uses `aria-label` on span · index keys · unstructured data                                              | follow-on                    |
-| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                         | PR 6                         |
+| DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                                         | **done** (PR 6)              |
 | StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                                     | PR 12                        |
-| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                             | PR 6                         |
-| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                                        | PR 6                         |
+| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                             | **done** (PR 6)              |
+| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                                        | **done** (PR 6)              |
 | PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                               | PR 7-adjacent layout fix     |
 | Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order · split `SegmentedControl`                                       | PR 4-adjacent, own tranche   |
 | Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                                 | PR 8                         |
@@ -135,7 +145,7 @@ must own the words; the call site may only choose the state it is in.
 ```ts
 type VerificationNoticeProps = {
   /** Drives the approved wording variant. Never free text. */
-  state: "ready" | "stale_evidence" | "partial_retrieval" | "source_only";
+  state: "ready" | "stale_evidence" | "partial_retrieval" | "ungrounded" | "source_only";
   /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
   audience?: "clinician" | "plain";
   /** Print rendering is self-contained: no wording may depend on the live link. */
@@ -156,7 +166,10 @@ factsheet preview parity.
 **States.** One approved wording per `state`. `ready` still carries the verification
 disclaimer — ready is not verified. `stale_evidence` and `partial_retrieval` wording names
 the degradation category; the specific sources are `RetrievalStateBanner`'s job, not this
-component's.
+component's. `ungrounded` (added in PR 13 Phase 1, ledger `#207`) says the cited sources
+could not be shown to support every claim and names the claim class to check in the
+passages; it wears the caution role, matching the live "Review source match" the product
+paints amber today. It never says the answer is wrong — unsupported is not refuted.
 
 **Keyboard & screen reader.** Static text in document order, above answer actions. Not a
 live region, not focusable; its icon is `aria-hidden`. On print it always renders, first in
@@ -174,6 +187,12 @@ elided or truncated in print (print CSS may not hide it; gate planned).
 interpolate model names, vendor names, or percentages into the wording; don't let tone vary
 by mode.
 
+**Built in PR 6.** Eight approved strings (four states × two audiences) live in the
+component; there is no children prop and no text prop, so a call site cannot supply
+wording. `tests/ui-v2-answer-safety.dom.test.tsx` asserts all eight are distinct, that
+`ready` still carries the verification disclaimer, that no wording matches a model or
+vendor name or a percentage, and that only the caution state wears the warning role.
+
 ---
 
 ## 2 · `AnswerState` + `RetrievalStateBanner`
@@ -184,13 +203,33 @@ sees, so the degraded invariants (SPEC §2.5 corollary, §10) are unrepresentabl
 
 ```ts
 type SourceRef = { sourceId: string; title: string; locator?: string };
-type OverdueSource = SourceRef & { reviewDueOn: string /* ISO */ };
+/**
+ * `reviewDueOn` was drafted as a required `string` and was widened to
+ * `string | null` when this was built (PR 6). Governance can mark a source
+ * `review_due`/`outdated` without a recorded review date; dropping such a source
+ * from the banner to satisfy the narrower type would hide the most alarming case
+ * — known past review, with no review commitment recorded at all. `DateDisplay`
+ * renders the absence as `Not recorded` rather than inventing a date.
+ *
+ * `status` was added when this was built (PR 6). Collapsing `outdated`
+ * (superseded) into the `review_due` vocabulary tells a clinician a withdrawn
+ * guideline is merely due for review. It is carried, and drives both the
+ * `StatusMark` shape and the wording.
+ */
+type OverdueSource = SourceRef & {
+  reviewDueOn: string | null /* ISO */;
+  status: "review_due" | "outdated";
+};
+
+/** Why an answer is not grounded in the sources it cites, broadest consequence first. */
+type UngroundedReason = "grounded_false" | "confidence_unsupported" | "unverified_numeric" | "weak_evidence";
 
 /** States an AnswerCard may render. */
 type AnswerState =
   | { kind: "ready"; sourceCount: number }
   | { kind: "stale_evidence"; overdue: OverdueSource[]; sourceCount: number }
   | { kind: "partial_retrieval"; retrieved: number; requested: number; missing: SourceRef[] }
+  | { kind: "ungrounded"; reason: UngroundedReason; sourceCount: number }
   | { kind: "source_only"; reason: "generation_failed" | "quality_gate" };
 
 /** Deliberately NOT an AnswerState: no card may render it. */
@@ -218,8 +257,23 @@ type RetrievalStateBannerProps = {
   review date (`DateDisplay`) and an open-at-cited-page action; the answer remains readable —
   caution, never a gate (DECISIONS §Q1). When every cited source is overdue, the banner
   states totality: "Every source for this answer is past its review date."
+- **A source is a document, not a chunk.** `RagAnswer.sources` is chunk-level and several
+  chunks of one document is the normal case, so `answerStateFromRetrieval()` dedupes and
+  counts by `document_id`. Chunk-level counting is wrong in both directions, and the
+  direction that inflates the denominator under-warns. Where chunks of one document disagree
+  on governance status, the more severe reading wins.
+- **An empty `overdue` list is a defect, not a state.** `stale_evidence` with no named
+  overdue source would render "0 of 3 sources are past their review date" — a caution
+  arguing against itself. The banner throws in development (mirroring the
+  `partial_retrieval`/`missing` guard) and, in production, states the caution without a
+  count. Same rule in `answerClipboardText()`.
 - `partial_retrieval` names the gap ("2 of 5 sources unavailable") and lists missing sources
   as unavailable rows — never silently omitted.
+- `ungrounded` names which check fired — one headline per `reason` under the group label
+  "Source match status" — and gives the same instruction in all four cases: read the cited
+  passages and confirm the numbers there. It is the DS carrier for the live product's
+  "Review source match" caution (`evidence-panels.tsx`, `answer-thread-turn.tsx`), so
+  adoption cannot retire that warning by accident.
 - `source_only` says it is a fallback and why that is safe (sources are real and cited);
   this is expected product behaviour, not an apology.
 - Announcements go through `LiveAnnouncer` once on settle ("Answer ready, 4 sources" /
@@ -229,7 +283,10 @@ type RetrievalStateBannerProps = {
   (`src/lib/source-metadata.ts`) — one audit path, no parallel implementation.
 
 **States and colour channels.** `stale_evidence` wears the warning (source-currency) role on
-the spine and banner. `partial_retrieval` and `source_only` are **operational** severity:
+the spine and banner, and `ungrounded` joins it — not because grounding is a currency fact,
+but because the live product already paints "Review source match" amber, and adoption that
+demoted it to the neutral role would lose the signal `#207` exists to preserve.
+`partial_retrieval` and `source_only` are **operational** severity:
 neutral/info treatment plus explicit text — amber is reserved for source currency
 (SPEC §11 severity vocabularies). Dose values inside a stale answer demote to label weight
 with the unit unchanged.
@@ -246,6 +303,27 @@ sources is a data defect, and inventing "0 sources" copy would mask it).
 **Do:** keep state derivation in the RAG layer; this component only renders what it is
 told. **Don't:** infer staleness in the component from dates — the review policy lives in
 `src/lib/source-review.ts`.
+
+**Built in PR 6, with one state unproduced.** `answerStateFromRetrieval()` projects the
+app-facing payload onto this union by reading fields the retrieval layer has already
+decided — `source_metadata.document_status` for currency, `answerQualityTier` +
+`fallbackReason` for the fallback discriminator — so no date comparison happens here.
+`partial_retrieval` **has no producer**: nothing app-facing names which expected sources
+were unavailable, so adoption can emit only `ready`, `stale_evidence`, `ungrounded` and
+`source_only` until a separate RAG contract PR adds a named missing-source signal. Do not
+synthesise one from candidate counts. Precedence when states overlap is by clinical
+consequence — `stale_evidence` > `partial_retrieval` > `ungrounded` > `source_only` >
+`ready` — and the source-only disclosure still reaches the reader through `AnswerCard`'s
+separate `verification` prop. `tests/answer-state-contract.test.ts` pins all of this.
+
+**`ungrounded` added in PR 13 Phase 1 (ledger `#207`).** It reads `grounded`, `confidence`
+and `unverifiedNumericTokens` — fields the payload already carried and the live product
+already gated on — plus an optional caller-derived `weakEvidence` for adoption sites that
+compute one from render trust. Nothing is derived here: absent grounding fields are not
+ungrounding, so a call site that has not been widened does not acquire a caution on every
+answer. Ungrounded outranks `source_only` (an unsupported source-only answer must not read
+as "evidence complete, synthesis weak"), and `stale_evidence` stays the outer kind when an
+answer is both, so one answer never stacks two alarms.
 
 ---
 
@@ -282,6 +360,9 @@ throws — enum resilience per SPEC §7).
 **Don't:** use it for loading (that is `Skeleton`) or for failed requests (that is
 `ErrorState` — "no result count is available" is not a missing value).
 
+**Built in PR 6**, and already composed inside `AnswerFooter` and `DateDisplay`.
+`AccessibleTable`'s bare-dash cells are adoption work (PR 13), not part of this build.
+
 ---
 
 ## 4 · `FormField` + `FieldHint` + `FieldError` + `ErrorSummary`
@@ -297,6 +378,9 @@ type FormFieldRenderProps = {
   describedBy: string | undefined; // merged: caller + hint + error, space-joined
   invalid: boolean;
   required: boolean;
+  // Added when this was built (PR 7): the draft carried autoComplete on
+  // FormFieldProps only, so the control the caller renders had no way to apply it.
+  autoComplete: string | undefined;
 };
 
 type FormFieldProps = {
@@ -348,6 +432,11 @@ colour alone · overwriting caller `describedBy` (merge is the only path).
 **Don't:** add per-control bespoke hint/error markup again; don't put block content in the
 hint (string type is deliberate).
 
+**Built in PR 7; the fold is adoption work.** The shell exists and is tested, but
+`TextField`/`SearchField`/`Select`/`Checkbox`/`RadioGroup` still carry their own field
+shells — rewriting live controls belongs in PR 13's per-surface adoption, where each
+surface gets its own visual diff, rather than in a safety-structure PR.
+
 ---
 
 ## 5 · `LiveAnnouncer` + `RouteAnnouncer`
@@ -392,6 +481,15 @@ scrolls without focus.
 
 **Do:** route all announcements here. **Don't:** put `aria-live` on any visible content
 node anywhere in the product — that is the anti-pattern this component exists to end.
+
+**Built in PR 8; the existing live regions are still live.** `announce()` dedupes an
+identical message inside a one-second window and spaces queued messages so one cannot cut
+into the previous sentence; `RouteAnnouncer` skips the first render (arrival is not a
+navigation), moves focus to the new `<h1>` unless focus sits inside a dialog or a
+`data-preserve-focus` workflow, and announces the page title once. Retiring the visible
+`aria-live` nodes that remain in production — `document-search-results.tsx`, `StageList`,
+`AnswerProgressStepper`, `EmptyState`'s default — is adoption work in PR 13, because each
+one needs its own surface diff. Until then two announcement mechanisms coexist.
 
 ---
 
@@ -448,25 +546,14 @@ page dimming per surface; don't let a mode add its own scrim "just here".
 
 ## 7 · `OverlayRoot`
 
-**Problem.** Two overlay models coexist (`OverlayProvider` on main with zero imports, plus
-the `sheet-focus` stack on the branch); Tooltip has no portal; Toast portals nowhere and
-hardcodes a z below its own token; Sheet defaults `portal: false`. One overlay architecture
-must own stacking, focus, escape, and inertness.
+**Problem.** The live `Sheet` and its `sheet-focus` stack own modal behaviour today, while
+Tooltip has no portal, Toast portals nowhere, and Sheet defaults `portal: false`. One overlay
+architecture must own stacking, focus, escape, and inertness.
 
 ```ts
 type OverlayLayer = "overlay" | "popover" | "modal" | "toast";
 
 function OverlayRoot(): JSX.Element; // single portal host at the app root
-
-type UseOverlayOptions = {
-  layer: OverlayLayer;
-  open: boolean;
-  onEscape?: () => void; // topmost-only delivery
-  trapFocus?: boolean; // modal layers default true
-  restoreFocus?: boolean; // default true
-  inertBackground?: boolean; // modal layers default true
-};
-function useOverlay(options: UseOverlayOptions): { portal: (node: ReactNode) => ReactPortal };
 ```
 
 **Behaviour.**
@@ -479,8 +566,10 @@ function useOverlay(options: UseOverlayOptions): { portal: (node: ReactNode) => 
   Background becomes inert (`inert`/`aria-hidden`) for modal layers; scroll is locked.
 - Popover/tooltip layers get collision-aware positioning on this foundation (Menu/Popover,
   P1, build here — not another model).
-- `OverlayProvider` (main, unused) is deleted when this lands; `Sheet`, `ConfirmDialog`,
-  `Tooltip`, `Toast` migrate onto it (PR 10).
+- `Sheet` is the live modal path during Arch; `ConfirmDialog`, `Tooltip`, and `Toast`
+  converge on `OverlayRoot` in the later overlay adoption tranche.
+- `calculator-sheet` remains a parallel `--z-modal` surface deferred past Arch. It is not
+  absorbed into `OverlayRoot` or `Sheet` in this PR.
 
 **States.** Per-consumer; the root itself has none.
 
@@ -544,6 +633,14 @@ phrase).
 **Do:** compose inside `AnswerFooter`, `RetrievalStateBanner`, provenance rows, print
 headers. **Don't:** format a date anywhere else in product code; don't localise the machine
 layer.
+
+**Built in PR 6.** `kind: "generated"` renders date **and** time — a generation stamp
+without its time is not a stamp — while `review`/`event` render the date alone. The
+relative companion is client-only, so server and client render the same absolute date and
+hydration cannot mismatch on a clock tick. `formatClinicalDate()` in
+`src/lib/source-metadata.ts` remains the formatter for provenance _strings_ (the clipboard
+audit line cannot contain an element); a test pins that the two agree, so the string and
+element paths cannot drift apart.
 
 ---
 
@@ -644,9 +741,15 @@ the type-retirement tranche (PR 13-adjacent), tracked so it cannot ship into ado
 **Purpose.** Ledger row for dose data. **Contract.** Composes `Quantity` — never
 reimplements its typography; takes a structured dose model (value/range, frequency,
 route, maximum, source), never a preformatted string; dose column right-aligned so
-numerals stack. **Overdue behaviour (Q1).** Amber per-row rule **plus** visible text
-("Source review overdue") **plus** a non-colour mark, and the row's open-source-at-page
-action — caution and affordance, never a gate. **Open defects → PR.** all of the above →
+numerals stack. `status: DocumentStatus` is **required** — this is the
+highest-consequence surface in the system and a row must not read clean because a call
+site omitted a flag; an overdue `status` additionally requires `source`, so "warned, with
+nowhere to go" is unrepresentable. **Overdue behaviour (Q1).** Amber per-row rule **plus**
+visible text ("Source review overdue" / "Source superseded") **plus** a non-colour mark
+whose shape differs per state, and the row's open-source-at-page action — caution and
+affordance, never a gate. Both overdue states wear amber, not danger: SPEC §11 reserves
+amber for source currency and red for clinical hazard, and the mark plus the word
+"superseded" carry the severity difference. **Open defects → PR.** all of the above →
 PR 6.
 
 ### 9.11 `StatusMark`
@@ -675,7 +778,16 @@ trusted — never for validation status).
 `verification: VerificationNoticeProps` are **required**; body/query echo/source
 summary/actions are structured props, not free `ReactNode` slots; the system owns the
 wording. Never `bg-transparent`; prose at `--text-md`/`--leading-prose`/`--measure`.
-**Open defects → PR.** unrestricted slots, no required safety props → PR 6.
+**Clipboard.** `answerClipboardText()` carries attribution and the verify instruction on
+**every** state including `ready` — a copied answer loses the banner, the notice and the
+links, and unattributed clinical prose in a record reads as clinician-endorsed. It is
+**not** a replacement for `formatAnswerRenderCopyText()`: the product path composes the
+two through `composeAnswerClipboardText()` (`src/lib/answer-clipboard.ts`, ledger `#208`),
+which keeps the render-policy string primary and adds attribution, the `AnswerState`
+caveat and the provenance line. Both callers share one implementation of each of those
+three rules. See SPEC §13 blocker 1 for the decision. **Open defects → PR.** unrestricted slots, no required safety props → PR 6;
+ungrounded-answer channel → **fixed** in PR 13 Phase 1 as the fifth `AnswerState` kind
+(ledger `#207`, SPEC §13 blocker 2).
 
 ### 9.14 `AnswerFooter`
 
@@ -837,8 +949,3 @@ never restate a token value. The 2026-07-31 icon regression (lucide imports repl
 with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
 this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
 tests to run.
-
-### 9.34 `OverlayProvider` — superseded
-
-`main`-tier, zero imports. Deleted when `OverlayRoot` (§7) lands in PR 10. Do not adopt
-it in the interim.
