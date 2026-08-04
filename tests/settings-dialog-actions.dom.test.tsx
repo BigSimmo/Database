@@ -159,7 +159,7 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(createButtons[0]).toHaveAttribute("aria-pressed", "false");
     expect(signInButtons[1]).toHaveAttribute("aria-pressed", "true");
     expect(createButtons[1]).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByLabelText("Email address")).toBeVisible();
+    expect(screen.getByLabelText(/Email address/)).toBeVisible();
   });
 
   it("signs in with an entered email address", () => {
