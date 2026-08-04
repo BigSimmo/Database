@@ -56,8 +56,8 @@ function declarations(block: string) {
 
 const light = declarations(lightBlock);
 const dark = declarations(darkBlock);
-const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2"));
-const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2"));
+const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2.ckb-v2"));
+const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2.ckb-v2"));
 const themes = [
   { name: "light", tokens: light },
   { name: "dark", tokens: dark },
