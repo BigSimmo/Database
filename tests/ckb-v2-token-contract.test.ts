@@ -31,7 +31,7 @@ function remOf(value: string | undefined) {
 }
 
 function block(selector: string) {
-  // After the cascade port there are two top-level `.ckb-v2` blocks (structural
+  // After the cascade port there are two top-level `.ckb-v2.ckb-v2` blocks (structural
   // and light shell) and the dark block opens with a grouped selector. Collect
   // every top-level block whose selector line starts with the given selector.
   const opener = `\n${selector} {`;
@@ -56,9 +56,9 @@ function declarations(source: string) {
   return map;
 }
 
-const structural = declarations(block(".ckb-v2"));
-const lightShell = structural; // structural + light now share the .ckb-v2 selector
-const darkShell = declarations(block(".dark .ckb-v2"));
+const structural = declarations(block(".ckb-v2.ckb-v2"));
+const lightShell = structural; // structural + light share the specificity-lifted scope
+const darkShell = declarations(block(".dark .ckb-v2.ckb-v2"));
 
 function hexOf(tokens: Map<string, string>, name: string) {
   const value = tokens.get(name);
@@ -95,6 +95,13 @@ describe("ckb-v2 layer stays scoped", () => {
   it("is imported by globals.css so the layer actually ships", () => {
     const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
     expect(globals).toContain('@import "./ckb-v2-tokens.css";');
+  });
+
+  it("outranks the later compatibility :root without promoting v2 values into it", () => {
+    expect(stylesheet).toMatch(/^\.ckb-v2\.ckb-v2\s*\{/m);
+    expect(stylesheet).not.toMatch(/^\.ckb-v2\s*\{/m);
+    expect(stylesheet).toContain(".dark .ckb-v2.ckb-v2,");
+    expect(stylesheet).toContain(".ckb-v2.dark.ckb-v2");
   });
 
   it("keeps --text-placeholder on the compatibility layer for rollback", () => {
@@ -226,9 +233,9 @@ describe("ckb-v2 forced-colours block (PR 2)", () => {
     const start = stylesheet.indexOf("@media (forced-colors: active)");
     expect(start).toBeGreaterThan(-1);
     const block = stylesheet.slice(start, stylesheet.indexOf("\n}", stylesheet.lastIndexOf("--spine-stale")) + 2);
-    expect(block).toContain(".ckb-v2,");
-    expect(block).toContain(".dark .ckb-v2,");
-    expect(block).toContain(".ckb-v2.dark");
+    expect(block).toContain(".ckb-v2.ckb-v2,");
+    expect(block).toContain(".dark .ckb-v2.ckb-v2,");
+    expect(block).toContain(".ckb-v2.dark.ckb-v2");
     expect(block).toMatch(/--command:\s*ButtonFace/);
     expect(block).toMatch(/--command-contrast:\s*ButtonText/);
     expect(block).toMatch(/--danger-solid:\s*Mark/);

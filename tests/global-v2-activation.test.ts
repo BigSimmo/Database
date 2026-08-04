@@ -70,11 +70,11 @@ describe("global v2 activation", () => {
   );
 
   it("keeps v2 dark and forced-colour scopes available at the root", () => {
-    expect(v2).toMatch(/\.dark \.ckb-v2,\s*\n\.ckb-v2\.dark\s*\{/);
+    expect(v2).toMatch(/\.dark \.ckb-v2\.ckb-v2,\s*\n\.ckb-v2\.dark\.ckb-v2\s*\{/);
     const forcedColours = v2.slice(v2.indexOf("@media (forced-colors: active)"));
-    expect(forcedColours).toContain(".ckb-v2,");
-    expect(forcedColours).toContain(".dark .ckb-v2,");
-    expect(forcedColours).toContain(".ckb-v2.dark");
+    expect(forcedColours).toContain(".ckb-v2.ckb-v2,");
+    expect(forcedColours).toContain(".dark .ckb-v2.ckb-v2,");
+    expect(forcedColours).toContain(".ckb-v2.dark.ckb-v2");
     expect(forcedColours).toContain("--background: Canvas;");
   });
 

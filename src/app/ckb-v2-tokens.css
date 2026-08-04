@@ -21,7 +21,11 @@
  *     `--ring-hairline` for their edge.
  *   - No raw pixels in component markup: use the semantic space tokens.
  */
-.ckb-v2 {
+/* Repeat the scope class deliberately. This file is imported before the live
+   compatibility tokens in globals.css; a single class ties :root specificity
+   and therefore loses by source order. The repeated class keeps both root and
+   reversible subtree mounts scoped while making the canonical v2 values win. */
+.ckb-v2.ckb-v2 {
   /* Space - 4px base, one scale */
   --space-0: 0;
   --space-1: 0.25rem; /* 4 */
@@ -179,7 +183,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ckb-v2 {
+  .ckb-v2.ckb-v2 {
     --duration-instant: 0ms;
     --duration-fast: 0ms;
     --duration-quick: 0ms;
@@ -193,7 +197,7 @@
 /* Crisp white light shell (#10, #24) + blue command colour (#1, #12).
    Light is the default on .ckb-v2 itself - never :not(.dark), which matched a
    subtree inside html.dark and overrode the inherited dark values (DS-01). */
-.ckb-v2 {
+.ckb-v2.ckb-v2 {
   --background: #ffffff;
   --surface: #ffffff;
   --surface-chrome: #ffffff;
@@ -261,8 +265,8 @@
 
 /* Dark ramp (#8, #19): four surfaces >=4 L* apart, lighter as they rise.
    Both forms: production puts .dark on documentElement (ancestor form). */
-.dark .ckb-v2,
-.ckb-v2.dark {
+.dark .ckb-v2.ckb-v2,
+.ckb-v2.dark.ckb-v2 {
   --background: #0b0e11;
   --surface: #12161a;
   --surface-chrome: #0e1216;
@@ -326,9 +330,9 @@
    any file position; the bare `.ckb-v2` tie is won by this block sitting last
    in this file. Elevation flattens to none; roles map to system colours. */
 @media (forced-colors: active) {
-  .ckb-v2,
-  .dark .ckb-v2,
-  .ckb-v2.dark {
+  .ckb-v2.ckb-v2,
+  .dark .ckb-v2.ckb-v2,
+  .ckb-v2.dark.ckb-v2 {
     --background: Canvas;
     --surface: Canvas;
     --surface-chrome: Canvas;
