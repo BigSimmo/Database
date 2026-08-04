@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "baseline": {
     "targetLayer": "v2",
     "liveLayer": "compatibility",
@@ -16,10 +16,12 @@
   },
   "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
   "proofPolicy": {
-    "applicabilityByDisposition": {
-      "owned": "required",
-      "shared-shell": "required",
-      "legacy-redirect": "not-applicable"
+    "defaultApplicability": "required",
+    "nonVisualRoutes": {
+      "documents-source-legacy-redirect": {
+        "route": "src/app/(search-app)/documents/source/page.tsx",
+        "kind": "next-redirect-only"
+      }
     },
     "evidence": {
       "testFileSuffixes": [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
@@ -28,7 +30,13 @@
     },
     "visualBaseline": {
       "requiredPrefix": "tests/__screenshots__/linux/",
-      "allowedExtensions": [".png"]
+      "allowedExtensions": [".png"],
+      "provenanceFile": "tests/__screenshots__/linux/provenance.json",
+      "provenanceSchemaVersion": 1,
+      "requiredPlatform": "linux",
+      "requiredRunnerImage": "ubuntu-24.04",
+      "requiredReviewStatus": "approved",
+      "requiredCandidateCount": 6
     }
   },
   "components": [
@@ -1391,6 +1399,7 @@
         "src/components/document-viewer/section-nav.tsx",
         "src/components/DocumentManagementActions.tsx",
         "src/components/DocumentViewer.tsx",
+        "src/components/mode-nav/mode-nav.tsx",
         "src/components/therapy-compass/filter-sheet.tsx"
       ],
       "designSync": {
@@ -1442,6 +1451,9 @@
         "src/components/mode-home-page-skeleton.tsx"
       ],
       "productImportFiles": [
+        "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
+        "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
+        "src/app/(search-app)/medications/[slug]/loading.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
         "src/components/mode-home-page-skeleton.tsx"
       ],
@@ -1451,7 +1463,7 @@
         "preview": ".design-sync/previews/Skeleton.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-adoption.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
@@ -1837,7 +1849,9 @@
       "disposition": "shared-shell",
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes.",
       "routes": ["src/app/(search-app)/page.tsx"],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -1934,7 +1948,9 @@
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2112,7 +2128,9 @@
         "src/app/(search-app)/differentials/page.tsx",
         "src/app/(search-app)/differentials/presentations/[slug]/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2201,7 +2219,9 @@
         "src/app/(search-app)/formulation/map/page.tsx",
         "src/app/(search-app)/formulation/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2300,7 +2320,9 @@
         "src/app/(search-app)/specifiers/map/page.tsx",
         "src/app/(search-app)/specifiers/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2403,7 +2425,9 @@
         "src/app/(search-app)/therapy-compass/review/page.tsx",
         "src/app/(search-app)/therapy-compass/search/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2550,7 +2574,9 @@
         "src/app/(search-app)/documents/search/page.tsx",
         "src/app/(search-app)/documents/source/evidence/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2633,7 +2659,22 @@
       "disposition": "legacy-redirect",
       "documentedDisposition": "Legacy source URLs validate the document id and redirect to the canonical /documents/[id] route; they do not own a visual surface.",
       "routes": ["src/app/(search-app)/documents/source/page.tsx"],
+      "routeRoots": false,
       "proofApplicability": "not-applicable",
+      "nonVisualRoute": {
+        "contract": {
+          "route": "src/app/(search-app)/documents/source/page.tsx",
+          "kind": "next-redirect-only"
+        },
+        "source": {
+          "importsNextRedirect": true,
+          "hasDefaultFunction": true,
+          "hasJsx": false,
+          "terminalOutcomes": ["redirect"],
+          "redirectOnly": true
+        },
+        "topologyMatches": true
+      },
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2675,7 +2716,9 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": ["src/app/(search-app)/favourites/page.tsx"],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2728,7 +2771,9 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": ["src/app/(search-app)/calculators/page.tsx", "src/app/(search-app)/tools/page.tsx"],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2795,7 +2840,9 @@
         "src/app/reference/colour-coding/page.tsx",
         "src/app/safety-plan/page.tsx"
       ],
+      "routeRoots": true,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2868,7 +2915,9 @@
       "disposition": "shared-shell",
       "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above.",
       "routes": [],
+      "routeRoots": false,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2921,7 +2970,9 @@
       "disposition": "shared-shell",
       "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route.",
       "routes": [],
+      "routeRoots": false,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -2984,7 +3035,9 @@
       "disposition": "shared-shell",
       "documentedDisposition": "Source preview is a shell-owned overlay launched from answer and search surfaces, not a page route.",
       "routes": [],
+      "routeRoots": false,
       "proofApplicability": "required",
+      "nonVisualRoute": null,
       "declaredShellState": "compatibility",
       "observedShellState": "v2",
       "v2ShellMounted": true,
@@ -3148,6 +3201,7 @@
     "previewCount": 53,
     "productImportedComponentCount": 27,
     "rootCount": 55,
-    "productionRouteCount": 47
+    "productionRouteCount": 47,
+    "nextUiEntryCount": 99
   }
 }

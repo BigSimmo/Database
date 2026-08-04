@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
+import { inflateSync } from "node:zlib";
 import ts from "@typescript/typescript6";
 import prettier from "prettier";
 
@@ -19,11 +21,7 @@ const TRACKED_FILE_CACHE = new Map();
 const CANONICAL_GLOBAL_SHELL_ROOT = Object.freeze({ file: "src/app/layout.tsx", element: "html" });
 const PROOF_APPLICABILITY = new Set(["required", "not-applicable"]);
 const V2_MOUNT_MODES = new Set(["none", "inherited-global-root", "direct-literal"]);
-const CANONICAL_PROOF_APPLICABILITY = Object.freeze({
-  owned: "required",
-  "shared-shell": "required",
-  "legacy-redirect": "not-applicable",
-});
+const CANONICAL_DEFAULT_PROOF_APPLICABILITY = "required";
 const CANONICAL_PROOF_EVIDENCE_POLICY = Object.freeze({
   testFileSuffixes: [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
   evidenceDirectory: "docs/design-system/evidence/",
@@ -32,8 +30,32 @@ const CANONICAL_PROOF_EVIDENCE_POLICY = Object.freeze({
 const CANONICAL_VISUAL_BASELINE_POLICY = Object.freeze({
   requiredPrefix: "tests/__screenshots__/linux/",
   allowedExtensions: [".png"],
+  provenanceFile: "tests/__screenshots__/linux/provenance.json",
+  provenanceSchemaVersion: 1,
+  requiredPlatform: "linux",
+  requiredRunnerImage: "ubuntu-24.04",
+  requiredReviewStatus: "approved",
+  requiredCandidateCount: 6,
 });
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const NEXT_UI_ENTRY_BASENAMES = new Set([
+  "page",
+  "layout",
+  "template",
+  "loading",
+  "error",
+  "global-error",
+  "not-found",
+  "default",
+  "forbidden",
+  "unauthorized",
+]);
+const CANONICAL_NON_VISUAL_ROUTES = Object.freeze({
+  "documents-source-legacy-redirect": {
+    route: "src/app/(search-app)/documents/source/page.tsx",
+    kind: "next-redirect-only",
+  },
+});
 
 const toPosix = (value) => value.split(path.sep).join("/");
 const read = (relativePath, root = ROOT) => {
@@ -49,6 +71,125 @@ function trackedFilesForRoot(root = ROOT) {
     TRACKED_FILE_CACHE.set(root, new Set(output.split("\0").filter(Boolean).map(toPosix)));
   }
   return TRACKED_FILE_CACHE.get(root);
+}
+
+const CRC32_TABLE = Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit += 1) value = value & 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+  return value >>> 0;
+});
+
+function crc32(buffer) {
+  let value = 0xffffffff;
+  for (const byte of buffer) value = CRC32_TABLE[(value ^ byte) & 0xff] ^ (value >>> 8);
+  return (value ^ 0xffffffff) >>> 0;
+}
+
+export function inspectPng(buffer) {
+  const failures = [];
+  if (!Buffer.isBuffer(buffer) || buffer.length < PNG_SIGNATURE.length || !buffer.subarray(0, 8).equals(PNG_SIGNATURE))
+    return { valid: false, width: 0, height: 0, failures: ["must contain a PNG file signature"] };
+
+  let offset = PNG_SIGNATURE.length;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colourType = -1;
+  let interlace = -1;
+  let sawIhdr = false;
+  let sawIend = false;
+  const idatChunks = [];
+  const allowedBitDepths = new Map([
+    [0, new Set([1, 2, 4, 8, 16])],
+    [2, new Set([8, 16])],
+    [3, new Set([1, 2, 4, 8])],
+    [4, new Set([8, 16])],
+    [6, new Set([8, 16])],
+  ]);
+  const channelsByColourType = new Map([
+    [0, 1],
+    [2, 3],
+    [3, 1],
+    [4, 2],
+    [6, 4],
+  ]);
+
+  while (offset < buffer.length) {
+    if (offset + 12 > buffer.length) {
+      failures.push("PNG chunk header is truncated");
+      break;
+    }
+    const length = buffer.readUInt32BE(offset);
+    const typeStart = offset + 4;
+    const dataStart = typeStart + 4;
+    const dataEnd = dataStart + length;
+    const chunkEnd = dataEnd + 4;
+    if (chunkEnd > buffer.length) {
+      failures.push("PNG chunk data is truncated");
+      break;
+    }
+    const type = buffer.toString("ascii", typeStart, dataStart);
+    const data = buffer.subarray(dataStart, dataEnd);
+    const expectedCrc = buffer.readUInt32BE(dataEnd);
+    const actualCrc = crc32(buffer.subarray(typeStart, dataEnd));
+    if (expectedCrc !== actualCrc) failures.push(`PNG ${type} chunk has an invalid CRC`);
+
+    if (!sawIhdr) {
+      if (type !== "IHDR" || length !== 13) failures.push("PNG must begin with a 13-byte IHDR chunk");
+      else {
+        sawIhdr = true;
+        width = data.readUInt32BE(0);
+        height = data.readUInt32BE(4);
+        bitDepth = data[8];
+        colourType = data[9];
+        interlace = data[12];
+        if (width < 16 || height < 16 || width > 20_000 || height > 20_000 || width * height > 100_000_000)
+          failures.push("PNG dimensions must be between 16 and 20000 pixels with a sane total area");
+        if (!allowedBitDepths.get(colourType)?.has(bitDepth))
+          failures.push("PNG colour type and bit depth are invalid");
+        if (data[10] !== 0 || data[11] !== 0) failures.push("PNG compression and filter methods must be standard");
+        if (interlace !== 0) failures.push("PNG visual baselines must be non-interlaced");
+      }
+    } else if (type === "IHDR") {
+      failures.push("PNG contains more than one IHDR chunk");
+    }
+
+    if (type === "IDAT") idatChunks.push(data);
+    if (type === "IEND") {
+      if (length !== 0) failures.push("PNG IEND chunk must be empty");
+      sawIend = true;
+      offset = chunkEnd;
+      break;
+    }
+    offset = chunkEnd;
+  }
+
+  if (!sawIhdr) failures.push("PNG is missing IHDR");
+  if (idatChunks.length === 0) failures.push("PNG is missing image data");
+  if (!sawIend) failures.push("PNG is missing IEND");
+  if (sawIend && offset !== buffer.length) failures.push("PNG contains trailing bytes after IEND");
+
+  if (failures.length === 0) {
+    try {
+      const channels = channelsByColourType.get(colourType);
+      const rowBytes = Math.ceil((width * channels * bitDepth) / 8);
+      const expectedBytes = (rowBytes + 1) * height;
+      const decoded = inflateSync(Buffer.concat(idatChunks), { maxOutputLength: expectedBytes + 1 });
+      if (decoded.length !== expectedBytes) failures.push("PNG decoded byte length does not match its dimensions");
+      else {
+        for (let row = 0; row < height; row += 1) {
+          if (decoded[row * (rowBytes + 1)] > 4) {
+            failures.push("PNG contains an invalid row filter");
+            break;
+          }
+        }
+      }
+    } catch {
+      failures.push("PNG image data cannot be decoded");
+    }
+  }
+
+  return { valid: failures.length === 0, width, height, failures };
 }
 
 export function validateAdoptionArtifactPath(
@@ -104,20 +245,107 @@ export function validateAdoptionArtifactPath(
       failures.push("must be a Linux visual baseline under tests/__screenshots__/linux/");
     if (!CANONICAL_VISUAL_BASELINE_POLICY.allowedExtensions.includes(path.posix.extname(normalized)))
       failures.push("must be a PNG visual baseline");
+    if (/(?:^|[-_.])(win32|windows|darwin|macos)(?:[-_.]|$)/i.test(path.posix.basename(normalized)))
+      failures.push("visual baseline filename must not claim a non-Linux platform");
     if (regularFile) {
-      const handle = fs.openSync(absolutePath, "r");
-      try {
-        const signature = Buffer.alloc(PNG_SIGNATURE.length);
-        const bytesRead = fs.readSync(handle, signature, 0, signature.length, 0);
-        if (bytesRead !== PNG_SIGNATURE.length || !signature.equals(PNG_SIGNATURE))
-          failures.push("must contain a PNG file signature");
-      } finally {
-        fs.closeSync(handle);
-      }
+      failures.push(...inspectPng(fs.readFileSync(absolutePath)).failures);
     }
+  } else if (kind === "baseline-provenance") {
+    if (normalized !== CANONICAL_VISUAL_BASELINE_POLICY.provenanceFile)
+      failures.push(`must use ${CANONICAL_VISUAL_BASELINE_POLICY.provenanceFile}`);
+    if (path.posix.extname(normalized) !== ".json") failures.push("must be a JSON provenance manifest");
   } else {
     failures.push(`has unknown artifact kind: ${String(kind)}`);
   }
+  return failures;
+}
+
+export function validateLinuxVisualBaselineSet(
+  baselinePaths,
+  { root = ROOT, trackedFiles = trackedFilesForRoot(root) } = {},
+) {
+  const declaredPaths = [...new Set(baselinePaths)].sort();
+  if (declaredPaths.length === 0) return [];
+  const failures = [];
+  const provenancePath = CANONICAL_VISUAL_BASELINE_POLICY.provenanceFile;
+  for (const reason of validateAdoptionArtifactPath(provenancePath, {
+    root,
+    trackedFiles,
+    kind: "baseline-provenance",
+  }))
+    failures.push(`visual baseline provenance ${provenancePath}: ${reason}`);
+  if (!exists(provenancePath, root) || !fs.statSync(path.join(root, provenancePath)).isFile()) return failures;
+
+  let provenance;
+  try {
+    provenance = JSON.parse(read(provenancePath, root));
+  } catch {
+    failures.push("visual baseline provenance must contain valid JSON");
+    return failures;
+  }
+  if (provenance.schemaVersion !== CANONICAL_VISUAL_BASELINE_POLICY.provenanceSchemaVersion)
+    failures.push("visual baseline provenance has an unsupported schema version");
+  if (provenance.platform !== CANONICAL_VISUAL_BASELINE_POLICY.requiredPlatform)
+    failures.push("visual baseline provenance platform must be linux");
+  if (provenance.runnerImage !== CANONICAL_VISUAL_BASELINE_POLICY.requiredRunnerImage)
+    failures.push("visual baseline provenance runnerImage must be ubuntu-24.04");
+  if (!/^[0-9a-f]{40}$/.test(provenance.reviewedHead ?? ""))
+    failures.push("visual baseline provenance reviewedHead must be a full Git SHA");
+  if (
+    provenance.review?.status !== CANONICAL_VISUAL_BASELINE_POLICY.requiredReviewStatus ||
+    provenance.review?.reviewerType !== "human" ||
+    typeof provenance.review?.reviewedBy !== "string" ||
+    provenance.review.reviewedBy.trim() === "" ||
+    typeof provenance.review?.reviewedAt !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(provenance.review.reviewedAt) ||
+    Number.isNaN(Date.parse(provenance.review.reviewedAt))
+  ) {
+    failures.push("visual baseline provenance requires an approved timestamped human review");
+  }
+  const runId = provenance.source?.runId;
+  if (
+    provenance.source?.kind !== "hosted-ci-artifact" ||
+    typeof runId !== "string" ||
+    !/^\d+$/.test(runId) ||
+    provenance.source?.artifactName !== `visual-baseline-${runId}`
+  ) {
+    failures.push("visual baseline provenance requires a matching hosted-CI artifact source");
+  }
+
+  const candidates = Array.isArray(provenance.candidates) ? provenance.candidates : [];
+  if (candidates.length !== CANONICAL_VISUAL_BASELINE_POLICY.requiredCandidateCount)
+    failures.push(
+      `visual baseline provenance must contain exactly ${CANONICAL_VISUAL_BASELINE_POLICY.requiredCandidateCount} candidates`,
+    );
+  const candidatePaths = candidates.map((candidate) => candidate?.path).filter((entry) => typeof entry === "string");
+  if (new Set(candidatePaths).size !== candidatePaths.length)
+    failures.push("visual baseline provenance candidate paths must be unique");
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate.path !== "string") {
+      failures.push("visual baseline provenance candidate is missing a path");
+      continue;
+    }
+    const pathFailures = validateAdoptionArtifactPath(candidate.path, {
+      root,
+      trackedFiles,
+      kind: "visual-baseline",
+    });
+    for (const reason of pathFailures)
+      failures.push(`visual baseline provenance candidate ${candidate.path}: ${reason}`);
+    if (pathFailures.length > 0) continue;
+    const image = fs.readFileSync(path.join(root, candidate.path));
+    const inspected = inspectPng(image);
+    const sha256 = createHash("sha256").update(image).digest("hex");
+    if (candidate.sha256 !== sha256)
+      failures.push(`visual baseline provenance candidate ${candidate.path} has a SHA-256 mismatch`);
+    if (candidate.width !== inspected.width || candidate.height !== inspected.height)
+      failures.push(`visual baseline provenance candidate ${candidate.path} dimensions do not match the PNG`);
+  }
+
+  const sortedCandidatePaths = [...candidatePaths].sort();
+  if (JSON.stringify(sortedCandidatePaths) !== JSON.stringify(declaredPaths))
+    failures.push("committed surface baselines must exactly match the six reviewed Linux provenance candidates");
   return failures;
 }
 
@@ -141,6 +369,115 @@ export function productionPageRoutes(root = ROOT) {
         !relativePath.includes("/mockups/"),
     )
     .sort();
+}
+
+export function productionNextUiEntries(root = ROOT) {
+  return walk(path.join(root, "src", "app"), root)
+    .filter(
+      (relativePath) =>
+        !relativePath.includes("/api/") &&
+        !relativePath.includes("/mockups/") &&
+        NEXT_UI_ENTRY_BASENAMES.has(path.posix.basename(relativePath).replace(/\.tsx?$/, "")),
+    )
+    .sort();
+}
+
+export function analyzeNextRedirectOnlyRoute(relativePath, sourceText) {
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const redirectNames = new Set();
+  let hasJsx = false;
+  let defaultFunction = null;
+
+  function hasModifier(node, kind) {
+    return ts.canHaveModifiers(node) && ts.getModifiers(node)?.some((modifier) => modifier.kind === kind);
+  }
+
+  for (const statement of source.statements) {
+    if (
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text === "next/navigation" &&
+      statement.importClause?.namedBindings &&
+      ts.isNamedImports(statement.importClause.namedBindings)
+    ) {
+      for (const element of statement.importClause.namedBindings.elements) {
+        if ((element.propertyName ?? element.name).text === "redirect") redirectNames.add(element.name.text);
+      }
+    }
+    if (
+      ts.isFunctionDeclaration(statement) &&
+      hasModifier(statement, ts.SyntaxKind.DefaultKeyword) &&
+      hasModifier(statement, ts.SyntaxKind.ExportKeyword)
+    ) {
+      defaultFunction = statement;
+    }
+  }
+
+  function collectJsx(node) {
+    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node) || ts.isJsxFragment(node)) hasJsx = true;
+    ts.forEachChild(node, collectJsx);
+  }
+  collectJsx(source);
+
+  function isRedirectCall(expression) {
+    const current = unwrapExpression(expression);
+    return (
+      ts.isCallExpression(current) && ts.isIdentifier(current.expression) && redirectNames.has(current.expression.text)
+    );
+  }
+
+  function statementOutcomes(statement) {
+    if (ts.isExpressionStatement(statement) && isRedirectCall(statement.expression)) return new Set(["redirect"]);
+    if (ts.isReturnStatement(statement))
+      return new Set([statement.expression && isRedirectCall(statement.expression) ? "redirect" : "other-terminal"]);
+    if (ts.isThrowStatement(statement)) return new Set(["other-terminal"]);
+    if (ts.isBlock(statement)) return statementsOutcomes(statement.statements);
+    if (ts.isIfStatement(statement)) {
+      const outcomes = statementOutcomes(statement.thenStatement);
+      const otherwise = statement.elseStatement ? statementOutcomes(statement.elseStatement) : new Set(["continue"]);
+      return new Set([...outcomes, ...otherwise]);
+    }
+    // Complex control flow is not accepted as redirect-only without a dedicated proof.
+    if (
+      ts.isSwitchStatement(statement) ||
+      ts.isTryStatement(statement) ||
+      ts.isForStatement(statement) ||
+      ts.isForInStatement(statement) ||
+      ts.isForOfStatement(statement) ||
+      ts.isWhileStatement(statement) ||
+      ts.isDoStatement(statement)
+    ) {
+      return new Set(["continue", "other-terminal"]);
+    }
+    return new Set(["continue"]);
+  }
+
+  function statementsOutcomes(statements) {
+    let outcomes = new Set(["continue"]);
+    for (const statement of statements) {
+      const next = new Set();
+      for (const outcome of outcomes) {
+        if (outcome === "continue") for (const result of statementOutcomes(statement)) next.add(result);
+        else next.add(outcome);
+      }
+      outcomes = next;
+    }
+    return outcomes;
+  }
+
+  const outcomes = defaultFunction?.body ? [...statementsOutcomes(defaultFunction.body.statements)].sort() : [];
+  return {
+    importsNextRedirect: redirectNames.size > 0,
+    hasDefaultFunction: Boolean(defaultFunction?.body),
+    hasJsx,
+    terminalOutcomes: outcomes,
+    redirectOnly:
+      redirectNames.size > 0 &&
+      Boolean(defaultFunction?.body) &&
+      !hasJsx &&
+      outcomes.length === 1 &&
+      outcomes[0] === "redirect",
+  };
 }
 
 function sourceFile(relativePath, root = ROOT) {
@@ -822,7 +1159,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
     observedShellState: globalShellUsage.literalCkbV2 ? "v2" : "compatibility",
   };
   const productionReachableFiles = reachableSourceFiles(
-    [globalShell.file, ...contract.productionSurfaces.flatMap(surfaceRootFiles)],
+    [globalShell.file, ...productionNextUiEntries(root), ...contract.productionSurfaces.flatMap(surfaceRootFiles)],
     { root },
   );
   const componentInventory = Object.keys(contract.componentFamilies)
@@ -864,6 +1201,20 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
     });
   const surfaces = contract.productionSurfaces.map((surface) => {
     const rootFiles = surfaceRootFiles(surface);
+    const nonVisualContract = contract.nonVisualRouteContracts?.[surface.id] ?? null;
+    const nonVisualSource =
+      nonVisualContract?.route && exists(nonVisualContract.route, root)
+        ? analyzeNextRedirectOnlyRoute(nonVisualContract.route, read(nonVisualContract.route, root))
+        : null;
+    const nonVisualTopologyMatches = Boolean(
+      nonVisualContract &&
+      nonVisualContract.kind === "next-redirect-only" &&
+      surface.routes.length === 1 &&
+      surface.routes[0] === nonVisualContract.route &&
+      !surface.routeRoots &&
+      (surface.roots ?? []).length === 0 &&
+      nonVisualSource?.redirectOnly,
+    );
     const roots = rootFiles.map((rootFile) => {
       const sourceText = exists(rootFile, root) ? read(rootFile, root) : "";
       const imports = importFacts(rootFile, sourceMap, root);
@@ -886,7 +1237,15 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       disposition: surface.disposition,
       documentedDisposition: surface.documentedDisposition ?? null,
       routes: [...surface.routes].sort(),
-      proofApplicability: contract.proofApplicabilityByDisposition?.[surface.disposition] ?? null,
+      routeRoots: Boolean(surface.routeRoots),
+      proofApplicability: nonVisualTopologyMatches ? "not-applicable" : contract.defaultProofApplicability,
+      nonVisualRoute: nonVisualContract
+        ? {
+            contract: nonVisualContract,
+            source: nonVisualSource,
+            topologyMatches: nonVisualTopologyMatches,
+          }
+        : null,
       declaredShellState: surface.expectedShellState,
       ...observation,
       proof: Object.fromEntries(
@@ -956,7 +1315,8 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
     globalShell,
     requiredProofCategories: [...contract.requiredProofCategories],
     proofPolicy: {
-      applicabilityByDisposition: contract.proofApplicabilityByDisposition,
+      defaultApplicability: contract.defaultProofApplicability,
+      nonVisualRoutes: contract.nonVisualRouteContracts,
       evidence: contract.proofEvidencePolicy,
       visualBaseline: contract.visualBaselinePolicy,
     },
@@ -982,6 +1342,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       productImportedComponentCount: components.filter((component) => component.productImportFiles.length > 0).length,
       rootCount: surfaces.flatMap((surface) => surface.roots).length,
       productionRouteCount: discoveredRoutes.length,
+      nextUiEntryCount: productionNextUiEntries(root).length,
     },
   };
 }
@@ -992,14 +1353,17 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
   const globalShellDeclaration = contract.globalShellRoot ?? {};
   if (JSON.stringify(globalShellDeclaration) !== JSON.stringify(CANONICAL_GLOBAL_SHELL_ROOT))
     failures.push("globalShellRoot must remain src/app/layout.tsx / html");
-  if (JSON.stringify(contract.proofApplicabilityByDisposition) !== JSON.stringify(CANONICAL_PROOF_APPLICABILITY))
-    failures.push("proof applicability policy drifted from the canonical disposition contract");
+  if (contract.defaultProofApplicability !== CANONICAL_DEFAULT_PROOF_APPLICABILITY)
+    failures.push("default proof applicability must remain required");
+  if (JSON.stringify(contract.nonVisualRouteContracts) !== JSON.stringify(CANONICAL_NON_VISUAL_ROUTES))
+    failures.push("non-visual route contracts drifted from the canonical redirect-only route");
   if (JSON.stringify(contract.proofEvidencePolicy) !== JSON.stringify(CANONICAL_PROOF_EVIDENCE_POLICY))
     failures.push("proof evidence path policy drifted from the canonical contract");
   if (JSON.stringify(contract.visualBaselinePolicy) !== JSON.stringify(CANONICAL_VISUAL_BASELINE_POLICY))
     failures.push("Linux visual baseline path policy drifted from the canonical contract");
   const expectedProofPolicy = {
-    applicabilityByDisposition: contract.proofApplicabilityByDisposition,
+    defaultApplicability: contract.defaultProofApplicability,
+    nonVisualRoutes: contract.nonVisualRouteContracts,
     evidence: contract.proofEvidencePolicy,
     visualBaseline: contract.visualBaselinePolicy,
   };
@@ -1030,7 +1394,32 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
     if (!component.designSync.previewValid) failures.push(`${component.name} is missing a valid design-sync preview`);
     if (component.testFiles.length === 0) failures.push(`${component.name} has no direct test proof`);
   }
+  const contractSurfacesById = new Map(contract.productionSurfaces.map((surface) => [surface.id, surface]));
+  const manifestSurfaceIds = manifest.surfaces.map((surface) => surface.id);
+  if (new Set(manifestSurfaceIds).size !== manifestSurfaceIds.length)
+    failures.push("generated adoption surfaces contain duplicate ids");
+  for (const contractSurface of contract.productionSurfaces)
+    if (!manifestSurfaceIds.includes(contractSurface.id))
+      failures.push(`generated adoption surface is missing: ${contractSurface.id}`);
+  const committedBaselinePaths = [];
   for (const surface of manifest.surfaces) {
+    const contractSurface = contractSurfacesById.get(surface.id);
+    if (!contractSurface) {
+      failures.push(`generated adoption surface is undeclared: ${surface.id}`);
+    } else {
+      if (surface.disposition !== contractSurface.disposition)
+        failures.push(`${surface.id} disposition drifted from the adoption contract`);
+      if (JSON.stringify(surface.routes) !== JSON.stringify([...contractSurface.routes].sort()))
+        failures.push(`${surface.id} routes drifted from the adoption contract`);
+      if (surface.routeRoots !== Boolean(contractSurface.routeRoots))
+        failures.push(`${surface.id} route-root ownership drifted from the adoption contract`);
+      const expectedRootFiles = surfaceRootFiles(contractSurface);
+      const observedRootFiles = surface.roots.map((rootFact) => rootFact.file).sort();
+      if (JSON.stringify(observedRootFiles) !== JSON.stringify(expectedRootFiles))
+        failures.push(`${surface.id} roots drifted from the adoption contract`);
+      if (surface.documentedDisposition !== (contractSurface.documentedDisposition ?? null))
+        failures.push(`${surface.id} documented disposition drifted from the adoption contract`);
+    }
     if (!new Set(["compatibility", "v2"]).has(surface.declaredShellState))
       failures.push(`${surface.id} has invalid declared shell state: ${String(surface.declaredShellState)}`);
     if (!new Set(["compatibility", "v2"]).has(surface.observedShellState))
@@ -1048,18 +1437,33 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
     }
     if (surface.declaredShellState === "v2" && !surface.v2ShellMounted)
       failures.push(`${surface.id} declares v2 but no literal source mount was observed`);
-    const expectedProofApplicability = contract.proofApplicabilityByDisposition?.[surface.disposition] ?? null;
+    const nonVisualContract = contract.nonVisualRouteContracts?.[surface.id] ?? null;
+    const nonVisualSource =
+      nonVisualContract?.route && exists(nonVisualContract.route, root)
+        ? analyzeNextRedirectOnlyRoute(nonVisualContract.route, read(nonVisualContract.route, root))
+        : null;
+    const nonVisualTopologyMatches = Boolean(
+      contractSurface &&
+      nonVisualContract &&
+      nonVisualContract.kind === "next-redirect-only" &&
+      contractSurface.routes.length === 1 &&
+      contractSurface.routes[0] === nonVisualContract.route &&
+      !contractSurface.routeRoots &&
+      (contractSurface.roots ?? []).length === 0 &&
+      nonVisualSource?.redirectOnly,
+    );
+    const expectedProofApplicability = nonVisualTopologyMatches
+      ? "not-applicable"
+      : CANONICAL_DEFAULT_PROOF_APPLICABILITY;
     if (!PROOF_APPLICABILITY.has(surface.proofApplicability))
       failures.push(`${surface.id} has invalid proof applicability: ${String(surface.proofApplicability)}`);
     if (surface.proofApplicability !== expectedProofApplicability)
-      failures.push(`${surface.id} proof applicability drifted from its ${surface.disposition} disposition`);
-    const proofNotApplicable = surface.proofApplicability === "not-applicable";
-    if (
-      proofNotApplicable &&
-      (surface.disposition !== "legacy-redirect" || surface.roots.length !== 0 || !surface.documentedDisposition)
-    ) {
-      failures.push(`${surface.id} may omit visual proof only as a documented rootless legacy redirect`);
-    }
+      failures.push(`${surface.id} proof applicability disagrees with its source-derived route topology`);
+    const proofNotApplicable = nonVisualTopologyMatches && surface.proofApplicability === "not-applicable";
+    if (surface.proofApplicability === "not-applicable" && !nonVisualTopologyMatches)
+      failures.push(`${surface.id} may omit visual proof only when the pinned route is statically redirect-only`);
+    if (nonVisualContract && !nonVisualSource?.redirectOnly)
+      failures.push(`${surface.id} non-visual route source is not statically redirect-only`);
     const proof = surface.proof && typeof surface.proof === "object" ? surface.proof : {};
     const requiredProofCategories = Array.isArray(contract.requiredProofCategories)
       ? contract.requiredProofCategories
@@ -1108,6 +1512,7 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
       if (surface.baseline.status === "committed" && (!validBaselineFiles || surface.baseline.files.length === 0))
         failures.push(`${surface.id} surface baseline is committed without files`);
       if (surface.baseline.status === "committed" && validBaselineFiles) {
+        committedBaselinePaths.push(...surface.baseline.files);
         for (const baselinePath of surface.baseline.files) {
           for (const reason of validateAdoptionArtifactPath(baselinePath, {
             root,
@@ -1138,6 +1543,7 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
     if (surface.disposition !== "owned" && !surface.documentedDisposition)
       failures.push(`${surface.id} ${surface.disposition} disposition is undocumented`);
   }
+  failures.push(...validateLinuxVisualBaselineSet(committedBaselinePaths, { root, trackedFiles }));
   for (const route of manifest.routeCoverage.undeclared) failures.push(`production page route is undeclared: ${route}`);
   for (const route of manifest.routeCoverage.missing)
     failures.push(`declared production page route is missing: ${route}`);

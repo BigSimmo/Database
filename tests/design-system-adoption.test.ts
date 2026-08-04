@@ -1,18 +1,23 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
 import {
   analyzeCkbV2ClassUsage,
+  analyzeNextRedirectOnlyRoute,
   buildAdoptionManifest,
   checkAdoptionManifest,
   checkGeneratedAdoptionDocuments,
   deriveSurfaceV2Observation,
+  inspectPng,
   productionPageRoutes,
+  productionNextUiEntries,
   reachableSourceFiles,
   validateAdoptionArtifactPath,
+  validateLinuxVisualBaselineSet,
 } from "../scripts/generate-design-system-adoption.mjs";
 
 const root = path.resolve(__dirname, "..");
@@ -38,8 +43,72 @@ function createCheckerFixture() {
   return fixtureRoot;
 }
 
+const validPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAGklEQVQ4jWP4TyFgGDXg/2gY/B8Ng//DIgwAXXj8LuMlDaEAAAAASUVORK5CYII=",
+  "base64",
+);
+const baselineNames = [
+  "dashboard-shell.png",
+  "dashboard-shell-phone.png",
+  "search-results-band.png",
+  "search-results-band-phone.png",
+  "document-viewer.png",
+  "therapy-compass-home.png",
+];
+
+function writeBaselineSet(
+  fixtureRoot: string,
+  {
+    platform = "linux",
+    reviewStatus = "approved",
+    candidateNames = baselineNames,
+    hashOverride,
+  }: {
+    platform?: string;
+    reviewStatus?: string;
+    candidateNames?: string[];
+    hashOverride?: string;
+  } = {},
+) {
+  const paths = candidateNames.map((name) => `tests/__screenshots__/linux/${name}`);
+  for (const baselinePath of paths) writeFixtureFile(fixtureRoot, baselinePath, validPng);
+  const candidates = paths.map((baselinePath, index) => ({
+    path: baselinePath,
+    sha256: index === 0 && hashOverride ? hashOverride : createHash("sha256").update(validPng).digest("hex"),
+    width: 16,
+    height: 16,
+  }));
+  const provenance = {
+    schemaVersion: 1,
+    platform,
+    runnerImage: "ubuntu-24.04",
+    reviewedHead: "a".repeat(40),
+    review: {
+      status: reviewStatus,
+      reviewerType: "human",
+      reviewedBy: "fixture-reviewer",
+      reviewedAt: "2026-08-05T00:00:00.000Z",
+    },
+    source: {
+      kind: "hosted-ci-artifact",
+      runId: "12345",
+      artifactName: "visual-baseline-12345",
+    },
+    candidates,
+  };
+  writeFixtureFile(
+    fixtureRoot,
+    "tests/__screenshots__/linux/provenance.json",
+    `${JSON.stringify(provenance, null, 2)}\n`,
+  );
+  return {
+    paths,
+    provenance,
+    trackedFiles: new Set([...paths, "tests/__screenshots__/linux/provenance.json"]),
+  };
+}
+
 describe("design-system adoption manifest", () => {
-  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   it.each([
     {
       name: "literal class",
@@ -212,6 +281,60 @@ describe("design-system adoption manifest", () => {
     });
   });
 
+  it("derives redirect-only proof from every terminal path in the route source", () => {
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/redirect/page.tsx",
+        `import { redirect as nextRedirect } from "next/navigation";
+         export default async function RedirectPage({ valid }: { valid: boolean }) {
+           await Promise.resolve();
+           if (!valid) nextRedirect("/search");
+           nextRedirect("/detail");
+         }`,
+      ),
+    ).toMatchObject({
+      importsNextRedirect: true,
+      hasDefaultFunction: true,
+      hasJsx: false,
+      terminalOutcomes: ["redirect"],
+      redirectOnly: true,
+    });
+
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/redirect/page.tsx",
+        `import { redirect } from "next/navigation";
+         export default function RedirectPage({ valid }: { valid: boolean }) {
+           if (valid) redirect("/detail");
+           return null;
+         }`,
+      ).redirectOnly,
+    ).toBe(false);
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/redirect/page.tsx",
+        `import { redirect } from "next/navigation";
+         export default function RedirectPage() { return <main>Visual route</main>; }`,
+      ).redirectOnly,
+    ).toBe(false);
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/redirect/page.tsx",
+        `function redirect(path: string): never { throw new Error(path); }
+         export default function RedirectPage() { redirect("/detail"); }`,
+      ).redirectOnly,
+    ).toBe(false);
+  });
+
+  it("recognises the pinned legacy source route as redirect-only", () => {
+    expect(
+      analyzeNextRedirectOnlyRoute(
+        "src/app/(search-app)/documents/source/page.tsx",
+        read("src/app/(search-app)/documents/source/page.tsx"),
+      ).redirectOnly,
+    ).toBe(true);
+  });
+
   it("fails the adoption contract when a declared root constructs ckb-v2", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const manifest = {
@@ -267,6 +390,42 @@ describe("design-system adoption manifest", () => {
     );
   });
 
+  it("does not let a visual catalogue opt out by relabelling itself as a legacy redirect", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const catalogue = current.surfaces.find((surface: { id: string }) => surface.id === "catalogues-forms-and-info");
+    const relabelled = {
+      ...catalogue,
+      disposition: "legacy-redirect",
+      routes: ["src/app/(search-app)/documents/source/page.tsx"],
+      routeRoots: false,
+      roots: [],
+      documentedDisposition: "Relabelled to suppress visual proof.",
+      proofApplicability: "not-applicable",
+      proof: Object.fromEntries(
+        current.requiredProofCategories.map((category: string) => [
+          category,
+          { status: "not-applicable", evidence: [] },
+        ]),
+      ),
+      baseline: { status: "not-applicable", files: [] },
+    };
+    const failures = checkAdoptionManifest({
+      ...current,
+      surfaces: current.surfaces.map((surface: { id: string }) =>
+        surface.id === relabelled.id ? relabelled : surface,
+      ),
+    });
+
+    expect(failures).toContain("catalogues-forms-and-info disposition drifted from the adoption contract");
+    expect(failures).toContain("catalogues-forms-and-info routes drifted from the adoption contract");
+    expect(failures).toContain(
+      "catalogues-forms-and-info proof applicability disagrees with its source-derived route topology",
+    );
+    expect(failures).toContain(
+      "catalogues-forms-and-info may omit visual proof only when the pinned route is statically redirect-only",
+    );
+  });
+
   it("fails closed when a v2-adopted surface omits required proof", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const { browser: _browser, ...incompleteProof } = current.surfaces[0].proof;
@@ -309,7 +468,12 @@ describe("design-system adoption manifest", () => {
     const fixtureRoot = createCheckerFixture();
     try {
       writeFixtureFile(fixtureRoot, "tests/proof.test.ts");
-      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/surface.png", pngSignature);
+      writeFixtureFile(
+        fixtureRoot,
+        "src/app/(search-app)/documents/source/page.tsx",
+        read("src/app/(search-app)/documents/source/page.tsx"),
+      );
+      const baselineSet = writeBaselineSet(fixtureRoot);
       const proof = Object.fromEntries(
         current.requiredProofCategories.map((category: string) => [
           category,
@@ -318,7 +482,7 @@ describe("design-system adoption manifest", () => {
       );
       const promoted = {
         ...current,
-        surfaces: current.surfaces.map((surface: { proofApplicability: string }) =>
+        surfaces: current.surfaces.map((surface: { proofApplicability: string }, index: number) =>
           surface.proofApplicability === "not-applicable"
             ? { ...surface, declaredShellState: "v2" }
             : {
@@ -327,14 +491,14 @@ describe("design-system adoption manifest", () => {
                 proof,
                 baseline: {
                   status: "committed",
-                  files: ["tests/__screenshots__/linux/surface.png"],
+                  files: [baselineSet.paths[index % baselineSet.paths.length]],
                 },
               },
         ),
       };
       const failures = checkAdoptionManifest(promoted, {
         root: fixtureRoot,
-        trackedFiles: new Set(["tests/proof.test.ts", "tests/__screenshots__/linux/surface.png"]),
+        trackedFiles: new Set(["tests/proof.test.ts", ...baselineSet.trackedFiles]),
       });
 
       expect(failures).toEqual([]);
@@ -358,8 +522,10 @@ describe("design-system adoption manifest", () => {
     };
     const failures = checkAdoptionManifest({ ...current, surfaces: [surface] });
 
-    expect(failures).toContain(`${surface.id} proof applicability drifted from its owned disposition`);
-    expect(failures).toContain(`${surface.id} may omit visual proof only as a documented rootless legacy redirect`);
+    expect(failures).toContain(`${surface.id} proof applicability disagrees with its source-derived route topology`);
+    expect(failures).toContain(
+      `${surface.id} may omit visual proof only when the pinned route is statically redirect-only`,
+    );
   });
 
   it("requires classified tracked regular files for proof and Linux visual baselines", () => {
@@ -369,8 +535,9 @@ describe("design-system adoption manifest", () => {
       writeFixtureFile(fixtureRoot, "tests/proof.test.ts");
       writeFixtureFile(fixtureRoot, "tests/README.md");
       writeFixtureFile(fixtureRoot, "tests/untracked.test.ts");
-      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/surface.png", pngSignature);
+      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/surface.png", validPng);
       writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/not-a-png.png");
+      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/surface-windows.png", validPng);
       writeFixtureFile(fixtureRoot, "public/arbitrary.png");
       const trackedFiles = new Set([
         "AGENTS.md",
@@ -378,6 +545,7 @@ describe("design-system adoption manifest", () => {
         "tests/README.md",
         "tests/__screenshots__/linux/surface.png",
         "tests/__screenshots__/linux/not-a-png.png",
+        "tests/__screenshots__/linux/surface-windows.png",
         "public/arbitrary.png",
       ]);
 
@@ -427,8 +595,84 @@ describe("design-system adoption manifest", () => {
           kind: "visual-baseline",
         }),
       ).toContain("must contain a PNG file signature");
+      expect(
+        validateAdoptionArtifactPath("tests/__screenshots__/linux/surface-windows.png", {
+          root: fixtureRoot,
+          trackedFiles,
+          kind: "visual-baseline",
+        }),
+      ).toContain("visual baseline filename must not claim a non-Linux platform");
     } finally {
       fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects PNG headers, corrupt images and impossible dimensions", () => {
+    expect(inspectPng(validPng)).toMatchObject({ valid: true, width: 16, height: 16, failures: [] });
+    expect(inspectPng(validPng.subarray(0, 8)).failures).toContain("PNG is missing IHDR");
+    expect(inspectPng(validPng.subarray(0, validPng.length - 4)).valid).toBe(false);
+    const zeroDimensions = Buffer.from(validPng);
+    zeroDimensions.fill(0, 16, 24);
+    expect(inspectPng(zeroDimensions).failures).toContain(
+      "PNG dimensions must be between 16 and 20000 pixels with a sane total area",
+    );
+  });
+
+  it("requires exact hosted-Linux provenance for all six committed visual baselines", () => {
+    const validRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-valid-"));
+    const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-missing-"));
+    const hashRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-hash-"));
+    const platformRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-platform-"));
+    const reviewRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-review-"));
+    const countRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-count-"));
+    try {
+      const valid = writeBaselineSet(validRoot);
+      expect(
+        validateLinuxVisualBaselineSet(valid.paths, { root: validRoot, trackedFiles: valid.trackedFiles }),
+      ).toEqual([]);
+
+      for (const baselinePath of baselineNames.map((name) => `tests/__screenshots__/linux/${name}`))
+        writeFixtureFile(missingRoot, baselinePath, validPng);
+      expect(
+        validateLinuxVisualBaselineSet(
+          baselineNames.map((name) => `tests/__screenshots__/linux/${name}`),
+          { root: missingRoot, trackedFiles: new Set() },
+        ),
+      ).toContain(
+        "visual baseline provenance tests/__screenshots__/linux/provenance.json: must reference an existing regular file",
+      );
+
+      const badHash = writeBaselineSet(hashRoot, { hashOverride: "0".repeat(64) });
+      expect(
+        validateLinuxVisualBaselineSet(badHash.paths, { root: hashRoot, trackedFiles: badHash.trackedFiles }),
+      ).toContain(`visual baseline provenance candidate ${badHash.paths[0]} has a SHA-256 mismatch`);
+
+      const wrongPlatform = writeBaselineSet(platformRoot, { platform: "win32" });
+      expect(
+        validateLinuxVisualBaselineSet(wrongPlatform.paths, {
+          root: platformRoot,
+          trackedFiles: wrongPlatform.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance platform must be linux");
+
+      const unreviewed = writeBaselineSet(reviewRoot, { reviewStatus: "pending" });
+      expect(
+        validateLinuxVisualBaselineSet(unreviewed.paths, {
+          root: reviewRoot,
+          trackedFiles: unreviewed.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance requires an approved timestamped human review");
+
+      const fiveCandidates = writeBaselineSet(countRoot, { candidateNames: baselineNames.slice(0, 5) });
+      expect(
+        validateLinuxVisualBaselineSet(fiveCandidates.paths, {
+          root: countRoot,
+          trackedFiles: fiveCandidates.trackedFiles,
+        }),
+      ).toContain("visual baseline provenance must contain exactly 6 candidates");
+    } finally {
+      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+        fs.rmSync(fixtureRoot, { force: true, recursive: true });
     }
   });
 
@@ -475,6 +719,34 @@ describe("design-system adoption manifest", () => {
     }
   });
 
+  it("discovers all Next UI convention entries while excluding api and mockup trees", () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-next-entries-"));
+    try {
+      const productionEntries = [
+        "src/app/page.tsx",
+        "src/app/layout.tsx",
+        "src/app/loading.tsx",
+        "src/app/error.tsx",
+        "src/app/not-found.tsx",
+        "src/app/nested/layout.tsx",
+        "src/app/nested/template.tsx",
+        "src/app/nested/default.tsx",
+        "src/app/nested/forbidden.ts",
+      ];
+      for (const entry of [
+        ...productionEntries,
+        "src/app/api/demo/loading.tsx",
+        "src/app/mockups/demo/loading.tsx",
+        "src/app/nested/helper.tsx",
+      ])
+        writeFixtureFile(fixtureRoot, entry, "export default function Entry() { return null; }\n");
+
+      expect(productionNextUiEntries(fixtureRoot)).toEqual(productionEntries.sort());
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
   it("derives component reachability from production entries rather than reference imports", () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-reachability-"));
     try {
@@ -513,7 +785,7 @@ describe("design-system adoption manifest", () => {
   it("is deterministic and separates observed global v2 from the pending contract", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
-    expect(manifest.schemaVersion).toBe(5);
+    expect(manifest.schemaVersion).toBe(6);
     expect(manifest.globalShell).toMatchObject({
       file: "src/app/layout.tsx",
       element: "html",
@@ -544,6 +816,15 @@ describe("design-system adoption manifest", () => {
     expect(
       manifest.components.find((component: { name: string }) => component.name === "Quantity").directImportFiles,
     ).toContain("src/components/ui/answer-card.tsx");
+    const skeleton = manifest.components.find((component: { name: string }) => component.name === "Skeleton");
+    expect(skeleton.productImportFiles).toEqual(
+      expect.arrayContaining([
+        "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
+        "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
+        "src/app/(search-app)/medications/[slug]/loading.tsx",
+      ]),
+    );
+    expect(skeleton.v2ShellMounted).toBe(true);
     expect(
       manifest.surfaces.every(
         (surface: { declaredShellState: string; observedShellState: string; v2MountMode: string }) =>

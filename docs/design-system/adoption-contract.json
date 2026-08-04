@@ -1,11 +1,13 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
   "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
   "globalShellRoot": { "file": "src/app/layout.tsx", "element": "html" },
-  "proofApplicabilityByDisposition": {
-    "owned": "required",
-    "shared-shell": "required",
-    "legacy-redirect": "not-applicable"
+  "defaultProofApplicability": "required",
+  "nonVisualRouteContracts": {
+    "documents-source-legacy-redirect": {
+      "route": "src/app/(search-app)/documents/source/page.tsx",
+      "kind": "next-redirect-only"
+    }
   },
   "proofEvidencePolicy": {
     "testFileSuffixes": [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
@@ -14,7 +16,13 @@
   },
   "visualBaselinePolicy": {
     "requiredPrefix": "tests/__screenshots__/linux/",
-    "allowedExtensions": [".png"]
+    "allowedExtensions": [".png"],
+    "provenanceFile": "tests/__screenshots__/linux/provenance.json",
+    "provenanceSchemaVersion": 1,
+    "requiredPlatform": "linux",
+    "requiredRunnerImage": "ubuntu-24.04",
+    "requiredReviewStatus": "approved",
+    "requiredCandidateCount": 6
   },
   "productionSurfaces": [
     {
