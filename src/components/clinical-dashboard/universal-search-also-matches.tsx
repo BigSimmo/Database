@@ -167,7 +167,7 @@ export function UniversalSearchAlsoMatches({
           )}
           aria-hidden
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4" aria-hidden="true" />
         </span>
       </button>
       <div
