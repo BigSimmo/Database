@@ -28,6 +28,31 @@ describe("EmptyState", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Answer unavailable");
   });
+
+  // `headingLevel` is opt-in on purpose: a state nested inside a card that
+  // already owns its region's heading would otherwise inject an outline level
+  // the page never declared. Both branches are pinned because the default is
+  // what every existing call site relies on.
+  it("renders the title as a paragraph unless a heading level is asked for", () => {
+    render(<EmptyState title="No matching documents" body="Try another term." />);
+
+    expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.getByText("No matching documents").tagName).toBe("P");
+  });
+
+  it("promotes the title to the requested heading level without losing the announcement", () => {
+    render(<EmptyState title="No matching documents" body="Try another term." headingLevel={3} testId="docs-empty" />);
+
+    const heading = screen.getByRole("heading", { level: 3, name: "No matching documents" });
+    expect(heading.tagName).toBe("H3");
+    expect(screen.getByTestId("docs-empty")).toHaveAttribute("role", "status");
+  });
+
+  it("honours a level other than the default consumer's", () => {
+    render(<EmptyState title="No diagnosis matches" headingLevel={2} />);
+
+    expect(screen.getByRole("heading", { level: 2, name: "No diagnosis matches" })).toBeVisible();
+  });
 });
 
 describe("AsyncButton", () => {

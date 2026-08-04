@@ -541,6 +541,7 @@ export function LoadingPanel({
 export function EmptyState({
   icon: Icon,
   title,
+  headingLevel,
   body,
   description,
   actions,
@@ -550,6 +551,17 @@ export function EmptyState({
 }: {
   icon?: IconComponent;
   title: string;
+  /**
+   * Render the title as a heading at this level instead of a paragraph.
+   *
+   * Deliberately opt-in and deliberately un-defaulted. Most adopted call sites
+   * sit inside a card that already owns the heading for that region, so
+   * promoting every title would insert a level into the document outline that
+   * the surrounding page never declared. The states that DO own their region —
+   * the main document-search empty state, `/dsm/search` — pass the level the
+   * surrounding outline requires, and their heading is pinned by a test.
+   */
+  headingLevel?: 2 | 3 | 4 | 5 | 6;
   /** Supporting copy. `PanelHeading` calls the same slot `description`. */
   body?: string;
   /**
@@ -567,6 +579,7 @@ export function EmptyState({
   tone?: "neutral" | "info" | "danger";
   testId?: string;
 }) {
+  const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   return (
     <div
       data-testid={testId}
@@ -590,7 +603,7 @@ export function EmptyState({
           </span>
         )}
         <div className="min-w-0">
-          <p className="font-semibold text-[color:var(--text)]">{title}</p>
+          <Title className="font-semibold text-[color:var(--text)]">{title}</Title>
           {(body ?? description) ? <p className={cn("mt-1 leading-6", textMuted)}>{body ?? description}</p> : null}
           {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
         </div>
