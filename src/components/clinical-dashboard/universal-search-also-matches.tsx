@@ -124,7 +124,7 @@ export function UniversalSearchAlsoMatches({
         "basis-full rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)]",
         // Extra phone bottom clearance: hidden dock reserve collapses to 0rem,
         // so a modest margin keeps the disclosure tappable above the home indicator.
-        "max-sm:mb-3",
+        "max-sm:mb-4",
         className,
       )}
       aria-label="Matches in other modes"
