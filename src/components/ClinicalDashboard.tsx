@@ -3035,10 +3035,16 @@ export function ClinicalDashboard({
     answerProgressEvents.length > 0 &&
     (loading || (Boolean(answer) && answerProgressCompleted));
   const universalAlsoMatchesQuery = activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : query;
+  // Answer-mode also-matches wait for a completed generation (`answer && !loading`)
+  // so the panel never sits under the drafting skeleton/stepper. Tools/Favourites
+  // still mount on submission. Follow-ups hide the panel while loading so stale
+  // matches for the prior query do not compete with the new Drafting stepper.
   const showUniversalAlsoMatches =
     (modeSearchSubmitted || activeModeResultKind === "tools" || activeModeResultKind === "favourites") &&
     Boolean(universalAlsoMatchesQuery.trim()) &&
-    (activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites");
+    (activeModeResultKind === "tools" ||
+      activeModeResultKind === "favourites" ||
+      (activeModeResultKind === "answer" && Boolean(answer) && !loading));
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
