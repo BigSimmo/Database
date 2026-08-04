@@ -1,8 +1,10 @@
 # Secret-free, project-scoped MCP registrations for trusted Codex hosts.
 # OAuth credentials remain in each host credential store — never commit them here.
 #
-# checked-in policy:
-# - enabled = false so ordinary/offline Codex sessions do not initialize providers
+# isolated activation test policy:
+# - enabled = true so a fresh Cloud task can prove whether project-scoped MCPs
+#   are loaded before setup; this branch is not intended for main
+# - required = false keeps an unavailable or unauthorised provider from blocking startup
 # - production Supabase uses "prompt" so every metadata/read operation requires
 #   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
@@ -11,22 +13,26 @@
 
 [mcp_servers.figma_cloud]
 url = "https://mcp.figma.com/mcp"
-enabled = false
+enabled = true
+required = false
 default_tools_approval_mode = "writes"
 
 [mcp_servers.supabase_cloud]
 # Production project, read_only=true, docs/development metadata only; database and debugging groups are excluded.
 # OAuth scopes come from the hosted Supabase consent screen; do not broaden this URL.
 url = "https://mcp.supabase.com/mcp?project_ref=sjrfecxgysukkwxsowpy&read_only=true&features=docs%2Cdevelopment"
-enabled = false
+enabled = true
+required = false
 default_tools_approval_mode = "prompt"
 
 [mcp_servers.railway_cloud]
 url = "https://mcp.railway.com"
-enabled = false
+enabled = true
+required = false
 default_tools_approval_mode = "writes"
 
 [mcp_servers.sentry_cloud]
 url = "https://mcp.sentry.dev/mcp"
-enabled = false
+enabled = true
+required = false
 default_tools_approval_mode = "writes"
