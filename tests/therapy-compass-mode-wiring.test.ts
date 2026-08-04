@@ -228,4 +228,25 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
     expect(isStandaloneModeHomePath("/therapy-compass")).toBe(true);
   });
+
+  it("keeps the results-band shelf Clear filter-only so it cannot delete the query", () => {
+    // Shipped defect (PR #1555): the shelf is labelled "Filtered by" and its
+    // trailing Clear was wired to `clearSearch`, which resets EMPTY_SEARCH —
+    // including `query: ""`. So Clear silently deleted the search term the user
+    // was reading, while the code comment beside it claimed the query was
+    // deliberately excluded. The sheet's own "Clear all" still resets
+    // everything on purpose; only the shelf is filter-only.
+    const searchScreenSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(searchScreenSrc).toContain("onClearFilters={b.clearSearchFilters}");
+    expect(searchScreenSrc).not.toContain("onClearFilters={b.clearSearch}");
+    // The binding must preserve the query rather than reset the whole shape.
+    expect(bindingsSrc).toContain(
+      "clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }))",
+    );
+    // The sheet keeps the full reset.
+    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
+  });
 });
