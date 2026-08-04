@@ -70,7 +70,9 @@ describe("IndexedTextPanel condensed reveal", () => {
 
     const panel = screen.getByTestId("source-chunk-indexed-text-panel") as HTMLDetailsElement;
     expect(panel.open).toBe(true);
-    expect(screen.getByTestId("highlighted-indexed-source-chunk")).toBeVisible();
+    const highlighted = screen.getByTestId("highlighted-indexed-source-chunk") as HTMLDetailsElement;
+    expect(highlighted).toBeVisible();
+    await waitFor(() => expect(highlighted.open).toBe(true));
     expect(panel.querySelector("summary")).toHaveAttribute("aria-disabled", "true");
 
     fireEvent.click(panel.querySelector("summary")!);
@@ -82,6 +84,7 @@ describe("IndexedTextPanel condensed reveal", () => {
     });
     await waitFor(() => expect(panel.open).toBe(true));
     expect(screen.getByTestId("highlighted-indexed-source-chunk")).toBeVisible();
+    expect(highlighted.open).toBe(true);
   });
 
   it("keeps in-document search results revealed without a selected chunk", async () => {
@@ -126,6 +129,39 @@ describe("IndexedTextPanel condensed reveal", () => {
     });
     await waitFor(() => expect(panel.open).toBe(true));
     expect(screen.getByText("Hit 1 of 1")).toBeVisible();
+  });
+
+  it("keeps the deep-linked nested chunk disclosure open under condensed view", async () => {
+    const props = {
+      loading: false,
+      selectedPage: basePage,
+      chunks: [
+        baseChunk,
+        {
+          ...baseChunk,
+          id: "chunk-2",
+          chunk_index: 1,
+          content: "Lithium levels are checked 5 to 7 days after initiation",
+        },
+      ],
+      search: "",
+      documentSearchResults: [] as [],
+      searchingDocument: false,
+      documentSearchError: null,
+      idPrefix: "source-chunk",
+      sectionId: "source-text" as const,
+      selectedChunkId: "chunk-1",
+      onSearchChange: vi.fn(),
+      compact: true,
+    };
+    const { rerender } = render(<IndexedTextPanel {...props} />);
+
+    const highlighted = screen.getByTestId("highlighted-indexed-source-chunk") as HTMLDetailsElement;
+    await waitFor(() => expect(highlighted.open).toBe(true));
+
+    // A re-render must not collapse the React-controlled deep-link disclosure.
+    rerender(<IndexedTextPanel {...props} />);
+    expect(highlighted.open).toBe(true);
   });
 
   it("allows plain condensed panels to collapse and stay collapsed", async () => {
