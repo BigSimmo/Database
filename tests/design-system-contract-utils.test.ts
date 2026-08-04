@@ -63,6 +63,56 @@ describe("design-system contract helpers", () => {
     ]);
   });
 
+  it("resolves same-name edge recipes within their declaring function", () => {
+    const safeThenConflict = [
+      "function Safe() {",
+      '  const edge = "bg-red-500";',
+      '  return <div className={cn(edge, active && "ring-2")} />;',
+      "}",
+      "function Conflict() {",
+      '  const edge = "border";',
+      '  return <div className={cn(edge, active && "ring-2")} />;',
+      "}",
+    ].join("\n");
+    const conflictThenSafe = [
+      "function Conflict() {",
+      '  const edge = "border";',
+      '  return <div className={cn(edge, active && "ring-2")} />;',
+      "}",
+      "function Safe() {",
+      '  const edge = "bg-red-500";',
+      '  return <div className={cn(edge, active && "ring-2")} />;',
+      "}",
+    ].join("\n");
+
+    expect(findJsxEdgeOwnershipConflictsInSource("src/example.tsx", safeThenConflict)).toEqual(["src/example.tsx:7"]);
+    expect(findJsxEdgeOwnershipConflictsInSource("src/example.tsx", conflictThenSafe)).toEqual(["src/example.tsx:3"]);
+  });
+
+  it("honours nested edge shadows and blocks later declarations from leaking backwards", () => {
+    const nestedShadow = [
+      'const edge = "border";',
+      "function Component() {",
+      '  const outer = <div className={cn(edge, active && "ring-2")} />;',
+      "  {",
+      '    const edge = "bg-red-500";',
+      '    const nested = <div className={cn(edge, active && "ring-2")} />;',
+      "  }",
+      "  return outer;",
+      "}",
+    ].join("\n");
+    const declarationAfterUse = [
+      "function Component() {",
+      '  const before = <div className={cn(edge, active && "ring-2")} />;',
+      '  const edge = "border";',
+      "  return before;",
+      "}",
+    ].join("\n");
+
+    expect(findJsxEdgeOwnershipConflictsInSource("src/example.tsx", nestedShadow)).toEqual(["src/example.tsx:3"]);
+    expect(findJsxEdgeOwnershipConflictsInSource("src/example.tsx", declarationAfterUse)).toEqual([]);
+  });
+
   it("blocks Chip and metadata density overrides while allowing layout-only classes", () => {
     const source = [
       'const ok = <Chip className="whitespace-nowrap shrink-0" />;',
@@ -80,6 +130,39 @@ describe("design-system contract helpers", () => {
       "src/example.tsx:5 (h-8, text-sm)",
       "src/example.tsx:6 (h-8)",
     ]);
+  });
+
+  it("resolves metadataPill aliases lexically across functions and nested blocks", () => {
+    const source = [
+      'import { metadataPillDensity as pillDensity } from "@/components/ui";',
+      "function Safe() {",
+      '  const pill = "text-red-500";',
+      '  return <span className={cn(pill, "h-8")} />;',
+      "}",
+      "function Conflict() {",
+      "  const pill = pillDensity.compact;",
+      '  const outer = <span className={cn(pill, "h-8")} />;',
+      "  {",
+      '    const pill = "text-red-500";',
+      '    const nested = <span className={cn(pill, "h-8")} />;',
+      "  }",
+      "  return outer;",
+      "}",
+    ].join("\n");
+
+    expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual(["src/example.tsx:8 (h-8)"]);
+  });
+
+  it("does not resolve a metadataPill alias declared after its use", () => {
+    const source = [
+      "function Component() {",
+      '  const before = <span className={cn(pill, "h-8")} />;',
+      "  const pill = metadataPill.compact;",
+      "  return before;",
+      "}",
+    ].join("\n");
+
+    expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual([]);
   });
 
   it("finds hardcoded motion utilities but accepts named duration tokens", () => {

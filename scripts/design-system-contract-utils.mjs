@@ -216,10 +216,41 @@ function classExpressionAnalyzer(relativePath, sourceText) {
   if (!/\.[cm]?[jt]sx?$/.test(relativePath)) return null;
   const kind = relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, kind);
-  const variables = new Map();
-  const densityAliases = new Set(["metadataPill", "metadataPillDensity"]);
+  const scopeByNode = new WeakMap();
+  const rootScope = { bindings: new Map(), functionScope: true, parent: null };
+  const blockedBinding = Symbol("blocked binding");
 
-  function collectBindings(node) {
+  function addBinding(scope, name, binding) {
+    const existing = scope.bindings.get(name) ?? [];
+    existing.push(binding);
+    scope.bindings.set(name, existing);
+  }
+
+  function bindingScopeForVariable(node, scope) {
+    const declarationList = node.parent;
+    if (!ts.isVariableDeclarationList(declarationList)) return scope;
+    if (declarationList.flags & ts.NodeFlags.BlockScoped) return scope;
+    let target = scope;
+    while (target.parent && !target.functionScope) target = target.parent;
+    return target;
+  }
+
+  function createsScope(node) {
+    if (ts.isFunctionLike(node)) return { functionScope: true };
+    if (ts.isBlock(node) && !ts.isFunctionLike(node.parent)) return { functionScope: false };
+    if (ts.isCatchClause(node) || ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node)) {
+      return { functionScope: false };
+    }
+    return null;
+  }
+
+  function collectBindings(node, parentScope) {
+    const scopeKind = node === source ? null : createsScope(node);
+    const scope = scopeKind
+      ? { bindings: new Map(), functionScope: scopeKind.functionScope, parent: parentScope }
+      : parentScope;
+    scopeByNode.set(node, scope);
+
     if (
       ts.isImportDeclaration(node) &&
       node.importClause?.namedBindings &&
@@ -227,15 +258,47 @@ function classExpressionAnalyzer(relativePath, sourceText) {
     ) {
       for (const specifier of node.importClause.namedBindings.elements) {
         const imported = specifier.propertyName?.text ?? specifier.name.text;
-        if (imported === "metadataPill" || imported === "metadataPillDensity") densityAliases.add(specifier.name.text);
+        addBinding(scope, specifier.name.text, {
+          declaration: specifier,
+          densityRecipe: imported === "metadataPill" || imported === "metadataPillDensity",
+          initializer: null,
+          start: specifier.name.getStart(source),
+        });
       }
     }
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      variables.set(node.name.text, node.initializer);
+    if (ts.isParameter(node) && ts.isIdentifier(node.name)) {
+      addBinding(scope, node.name.text, {
+        declaration: node,
+        densityRecipe: false,
+        initializer: node.initializer ?? null,
+        start: node.name.getStart(source),
+      });
     }
-    ts.forEachChild(node, collectBindings);
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      addBinding(bindingScopeForVariable(node, scope), node.name.text, {
+        declaration: node,
+        densityRecipe: false,
+        initializer: node.initializer ?? null,
+        start: node.name.getStart(source),
+      });
+    }
+    ts.forEachChild(node, (child) => collectBindings(child, scope));
   }
-  collectBindings(source);
+  collectBindings(source, rootScope);
+
+  function resolveBinding(identifier) {
+    let scope = scopeByNode.get(identifier) ?? rootScope;
+    const referenceStart = identifier.getStart(source);
+    while (scope) {
+      const candidates = scope.bindings.get(identifier.text);
+      if (candidates?.length) {
+        const preceding = candidates.filter((candidate) => candidate.start <= referenceStart).at(-1);
+        return preceding ?? blockedBinding;
+      }
+      scope = scope.parent;
+    }
+    return null;
+  }
 
   const empty = () => [{ usesDensityRecipe: false, tokens: [] }];
 
@@ -316,41 +379,59 @@ function classExpressionAnalyzer(relativePath, sourceText) {
       return entries;
     }
     if (ts.isIdentifier(node)) {
-      if (densityAliases.has(node.text)) return [{ usesDensityRecipe: true, tokens: [] }];
-      const initializer = variables.get(node.text);
-      if (!initializer || resolving.has(node.text)) return empty();
+      const binding = resolveBinding(node);
+      if (binding === blockedBinding) return empty();
+      if (!binding && (node.text === "metadataPill" || node.text === "metadataPillDensity")) {
+        return [{ usesDensityRecipe: true, tokens: [] }];
+      }
+      if (!binding) return empty();
+      if (binding.densityRecipe) return [{ usesDensityRecipe: true, tokens: [] }];
+      if (!binding.initializer || resolving.has(binding)) return empty();
       const next = new Set(resolving);
-      next.add(node.text);
-      return possibilities(initializer, next);
+      next.add(binding);
+      return possibilities(binding.initializer, next);
     }
     if (ts.isPropertyAccessExpression(node)) {
-      if (ts.isIdentifier(node.expression) && densityAliases.has(node.expression.text)) {
+      const expressionPossibilities = possibilities(node.expression, resolving);
+      if (expressionPossibilities.some((entry) => entry.usesDensityRecipe)) {
         return [{ usesDensityRecipe: true, tokens: [] }];
       }
       if (ts.isIdentifier(node.expression)) {
-        const initializer = variables.get(node.expression.text);
-        if (initializer && ts.isObjectLiteralExpression(initializer)) {
-          const property = initializer.properties.find(
-            (candidate) =>
-              ts.isPropertyAssignment(candidate) &&
-              ((ts.isIdentifier(candidate.name) && candidate.name.text === node.name.text) ||
-                (ts.isStringLiteralLike(candidate.name) && candidate.name.text === node.name.text)),
-          );
-          if (property && ts.isPropertyAssignment(property)) return possibilities(property.initializer, resolving);
+        const binding = resolveBinding(node.expression);
+        if (binding && binding !== blockedBinding && binding.initializer && !resolving.has(binding)) {
+          const initializer = binding.initializer;
+          const unwrapped = ts.isAsExpression(initializer) ? initializer.expression : initializer;
+          const property = ts.isObjectLiteralExpression(unwrapped)
+            ? unwrapped.properties.find(
+                (candidate) =>
+                  ts.isPropertyAssignment(candidate) &&
+                  ((ts.isIdentifier(candidate.name) && candidate.name.text === node.name.text) ||
+                    (ts.isStringLiteralLike(candidate.name) && candidate.name.text === node.name.text)),
+              )
+            : null;
+          if (property && ts.isPropertyAssignment(property)) {
+            const next = new Set(resolving);
+            next.add(binding);
+            return possibilities(property.initializer, next);
+          }
         }
       }
       return empty();
     }
     if (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression)) {
-      const initializer = variables.get(node.expression.text);
-      if (!initializer || !ts.isObjectLiteralExpression(initializer)) return empty();
+      const binding = resolveBinding(node.expression);
+      if (!binding || binding === blockedBinding || !binding.initializer || resolving.has(binding)) return empty();
+      const initializer = ts.isAsExpression(binding.initializer) ? binding.initializer.expression : binding.initializer;
+      if (!ts.isObjectLiteralExpression(initializer)) return empty();
       const requested = ts.isStringLiteralLike(node.argumentExpression) ? node.argumentExpression.text : null;
+      const next = new Set(resolving);
+      next.add(binding);
       return initializer.properties.flatMap((property) => {
         if (!ts.isPropertyAssignment(property)) return [];
         const propertyName =
           ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name) ? property.name.text : null;
         if (requested !== null && propertyName !== requested) return [];
-        return possibilities(property.initializer, resolving);
+        return possibilities(property.initializer, next);
       });
     }
     return empty();
