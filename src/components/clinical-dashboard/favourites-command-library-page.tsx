@@ -32,6 +32,7 @@ import {
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn, EmptyState } from "@/components/ui-primitives";
+import { Chip, type ChipAppearance } from "@/components/ui/chip";
 import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
@@ -80,20 +81,15 @@ type FavouriteSet = {
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
-const typeStyles: Record<FavouriteType, string> = {
-  Medication:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-  Document:
-    "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
-  Table: "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
-  "Saved search":
-    "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
-  Source: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-  Service:
-    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
-  Form: "border-[color:var(--type-form-border)] bg-[color:var(--type-form-soft)] text-[color:var(--type-form)]",
-  Differential:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+const typeAppearance: Record<FavouriteType, ChipAppearance> = {
+  Medication: { kind: "information", tone: "accent" },
+  Document: { kind: "category", tone: "document" },
+  Table: { kind: "category", tone: "table" },
+  "Saved search": { kind: "category", tone: "search" },
+  Source: { kind: "category", tone: "source" },
+  Service: { kind: "category", tone: "service" },
+  Form: { kind: "category", tone: "form" },
+  Differential: { kind: "information", tone: "accent" },
 };
 
 const lastUsedByItemId: Record<string, string> = {
@@ -289,16 +285,11 @@ function MiniIconTile({
   );
 }
 
-function SmallChip({ children, className }: { children: React.ReactNode; className?: string }) {
+function SmallChip({ children, appearance }: { children: React.ReactNode; appearance: ChipAppearance }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-md border px-2 text-2xs font-semibold leading-none",
-        className,
-      )}
-    >
+    <Chip size="compact" appearance={appearance}>
       {children}
-    </span>
+    </Chip>
   );
 }
 
@@ -555,11 +546,9 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
           {item.description}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+          <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
           {isSourceBacked(item) ? (
-            <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
-              Source-backed
-            </SmallChip>
+            <SmallChip appearance={{ kind: "status", tone: "success" }}>Source-backed</SmallChip>
           ) : null}
         </div>
       </div>
@@ -606,6 +595,7 @@ function FavouritesEmptyMatches() {
       title="No favourites match"
       body="Clear filters or search to show saved clinical work."
       testId="favourites-empty-matches"
+      live="polite"
     />
   );
 }
@@ -761,7 +751,7 @@ function FavouritesTable({
                     </Link>
                   </td>
                   <td className="px-3 align-middle">
-                    <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+                    <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
                   </td>
                   <td className="px-3 align-middle">
                     <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
@@ -859,11 +849,9 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
           <div className="min-w-0 flex-1">
             <h3 className="text-lg-minus font-bold leading-tight text-[color:var(--text-heading)]">{item.title}</h3>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
+              <SmallChip appearance={typeAppearance[item.type]}>{item.type}</SmallChip>
               {isSourceBacked(item) ? (
-                <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
-                  Source-backed
-                </SmallChip>
+                <SmallChip appearance={{ kind: "status", tone: "success" }}>Source-backed</SmallChip>
               ) : null}
             </div>
           </div>

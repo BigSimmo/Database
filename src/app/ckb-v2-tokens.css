@@ -233,6 +233,10 @@
   --command-hover: #185c99;
   --command-active: #164a7a;
   --command-contrast: #ffffff;
+  --danger-solid: #a3190f;
+  --danger-solid-hover: #85140d;
+  --danger-solid-active: #6f120c;
+  --danger-solid-contrast: #ffffff;
 
   --clinical-accent-soft: #f2f8fe;
   --clinical-accent-border: #cfe2f6;
@@ -296,6 +300,10 @@
   --command-hover: #4a91d2;
   --command-active: #1d6fb8;
   --command-contrast: #06121e;
+  --danger-solid: #b42318;
+  --danger-solid-hover: #d92d20;
+  --danger-solid-active: #912018;
+  --danger-solid-contrast: #ffffff;
 
   --clinical-accent-soft: #123556;
   --clinical-accent-border: #235a7d;
@@ -359,6 +367,8 @@
     --warning: CanvasText;
     --danger: Mark;
     --danger-solid: Mark;
+    --danger-solid-hover: Mark;
+    --danger-solid-active: Mark;
     --danger-solid-contrast: MarkText;
     --focus: Highlight;
     --ring-hairline: 0 0 0 1px CanvasText;

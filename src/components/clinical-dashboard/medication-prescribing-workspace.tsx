@@ -502,6 +502,7 @@ function MedicationResults({
               icon={SearchX}
               title={`No ${activeFilterLabel.toLowerCase()} matches for this search`}
               body="None of the current results carry this signal. Show all matches to keep browsing."
+              live="polite"
             />
             <button
               type="button"
@@ -517,6 +518,7 @@ function MedicationResults({
               icon={SearchX}
               title="No prescribing matches"
               body="Try a different medication name, class, or indication."
+              live="polite"
             />
           </div>
         )

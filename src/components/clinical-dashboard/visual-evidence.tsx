@@ -38,7 +38,7 @@ import {
   EmptyState,
   floatingControl,
   iconTilePremium,
-  metadataPill,
+  metadataPillDensity,
   sourceCard,
   tableCard,
   tableCardHeader,
@@ -164,7 +164,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-2xs")}>
+                        <span key={`${item.id}:${label}`} className={metadataPillDensity.compact}>
                           {label}
                         </span>
                       ))}
@@ -184,9 +184,7 @@ function VisualEvidenceStrip({
                     {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-                      {item.image_type.replaceAll("_", " ")}
-                    </span>
+                    <span className={metadataPillDensity.dense}>{item.image_type.replaceAll("_", " ")}</span>
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
                   <Link href={item.viewer_href} className={cn(floatingControl, "min-h-tap px-4 text-xs")}>

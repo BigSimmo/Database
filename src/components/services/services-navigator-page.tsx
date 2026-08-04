@@ -22,6 +22,7 @@ import {
 import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { Chip as DesignChip, type ChipStatusTone } from "@/components/ui/chip";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
   MobileResultFilterControl,
@@ -53,15 +54,9 @@ function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
 }
 
-function chipTone(tone: ServiceStatusChip["tone"] | undefined | null) {
-  if (tone === "danger")
-    return "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
-  if (tone === "info") return "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]";
-  if (tone === "warning")
-    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  if (tone === "success")
-    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
-  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
+function chipTone(tone: ServiceStatusChip["tone"] | undefined | null): ChipStatusTone {
+  if (tone === "danger" || tone === "info" || tone === "warning" || tone === "success") return tone;
+  return "neutral";
 }
 
 function serviceChipLabel(chip: ServiceStatusChip) {
@@ -111,15 +106,9 @@ function Stepper() {
 
 function Chip({ chip }: { chip: ServiceStatusChip }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-2xs font-bold",
-        chipTone(chip.tone),
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+    <DesignChip size="compact" appearance={{ kind: "status", tone: chipTone(chip.tone) }} dot>
       {serviceChipLabel(chip)}
-    </span>
+    </DesignChip>
   );
 }
 

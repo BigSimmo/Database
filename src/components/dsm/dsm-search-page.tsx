@@ -445,6 +445,7 @@ export function DsmSearchPage({
             title="No diagnosis matches"
             headingLevel={2}
             body="Try a diagnosis name, ICD code, symptom phrase, or a broader category."
+            live="polite"
             actions={
               <Link
                 href="/dsm/search"

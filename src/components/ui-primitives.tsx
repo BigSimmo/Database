@@ -73,8 +73,19 @@ export const fieldIcon =
 export const shellChip =
   "inline-flex min-h-tap items-center gap-2 rounded-lg border px-3 text-xs font-semibold shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)]";
 export const navPill = `inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border ${controlDisabled}`;
-export const metadataPill =
-  "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]";
+const metadataPillBase =
+  "inline-flex items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]";
+export const metadataPillDensity = {
+  compact: `${metadataPillBase} min-h-6 px-2 text-2xs`,
+  dense: `${metadataPillBase} min-h-7 px-2 text-2xs`,
+  standard: `${metadataPillBase} min-h-7 px-2 text-xs`,
+  roomyCompact: `${metadataPillBase} min-h-8 px-2.5 text-2xs`,
+  comfortable: `${metadataPillBase} min-h-8 px-2.5 text-xs`,
+  roomy: `${metadataPillBase} min-h-8 px-3 text-xs`,
+  tap: `${metadataPillBase} min-h-tap px-3 text-xs`,
+} as const;
+/** Standard metadata density. Use `metadataPillDensity` when a different named density is intentional. */
+export const metadataPill = metadataPillDensity.standard;
 export const subtleStatusPill =
   "inline-flex min-h-7 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-wash)] px-2 text-xs font-semibold text-[color:var(--text-muted)]";
 export const clinicalDivider = "border-t border-[color:var(--border)]/80";
@@ -509,10 +520,12 @@ export function LoadingPanel({
   label,
   variant = "spinner",
   lines = 3,
+  layout = "panel",
 }: {
   label: string;
   variant?: "spinner" | "skeleton";
   lines?: number;
+  layout?: "panel" | "centered";
 }) {
   if (variant === "skeleton") {
     return (
@@ -527,11 +540,22 @@ export function LoadingPanel({
 
   return (
     <div
-      className={`${insetCard} mt-3 grid min-h-28 place-items-center p-4 text-center text-sm font-semibold text-[color:var(--text-muted)]`}
+      className={cn(
+        layout === "centered"
+          ? "flex min-h-[280px] flex-col items-center justify-center gap-3 text-center text-sm font-medium text-[color:var(--text-muted)]"
+          : `${insetCard} mt-3 grid min-h-28 place-items-center p-4 text-center text-sm font-semibold text-[color:var(--text-muted)]`,
+      )}
       role="status"
+      aria-live="polite"
     >
-      <div>
-        <Loader2 aria-hidden="true" className="mx-auto mb-2 h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
+      <div className={cn(layout === "centered" && "flex flex-col items-center gap-3")}>
+        <Loader2
+          aria-hidden="true"
+          className={cn(
+            "animate-spin text-[color:var(--clinical-accent)] motion-reduce:animate-none",
+            layout === "centered" ? "h-[34px] w-[34px]" : "mx-auto mb-2 h-4 w-4",
+          )}
+        />
         {label}
       </div>
     </div>
@@ -545,11 +569,14 @@ export function EmptyState({
   body,
   description,
   actions,
-  live = "polite",
+  live = "off",
   tone = "neutral",
   testId,
+  align = "start",
+  iconNode,
 }: {
   icon?: IconComponent;
+  iconNode?: ReactNode;
   title: string;
   /**
    * Render the title as a heading at this level instead of a paragraph.
@@ -575,9 +602,11 @@ export function EmptyState({
   /** Optional controls stay within the shared state surface rather than becoming a second panel. */
   actions?: ReactNode;
   /** Announce a state transition only when the state is introduced dynamically. */
-  live?: "polite" | "assertive";
+  live?: "off" | "polite" | "assertive";
   tone?: "neutral" | "info" | "danger";
   testId?: string;
+  /** Centred presentation for full-panel no-result states; semantics stay identical. */
+  align?: "start" | "center";
 }) {
   const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   return (
@@ -585,26 +614,50 @@ export function EmptyState({
       data-testid={testId}
       role={live === "assertive" ? "alert" : live === "polite" ? "status" : undefined}
       className={cn(
-        "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5",
+        align === "center"
+          ? "flex flex-col items-center gap-2.5 rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-6 py-12 text-center"
+          : "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5",
         tone === "info" && "border-[color:var(--info-border)] bg-[color:var(--info-soft)]",
         tone === "danger" && "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]",
       )}
     >
-      <div className="flex items-start gap-3">
-        {Icon && (
+      <div className={cn(align === "center" ? "contents" : "flex items-start gap-3")}>
+        {(Icon || iconNode) && (
           <span
             className={cn(
-              "grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+              "grid shrink-0 place-items-center bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+              align === "center" ? "mb-0.5 h-13 w-13 rounded-xl" : "h-10 w-10 rounded-lg",
               tone === "info" && "bg-[color:var(--info-soft)] text-[color:var(--info)]",
               tone === "danger" && "bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
             )}
           >
-            <Icon className="size-icon-md sm:size-icon-lg" />
+            {Icon ? (
+              <Icon className={align === "center" ? "h-[26px] w-[26px]" : "size-icon-md sm:size-icon-lg"} />
+            ) : (
+              iconNode
+            )}
           </span>
         )}
-        <div className="min-w-0">
-          <Title className="font-semibold text-[color:var(--text)]">{title}</Title>
-          {(body ?? description) ? <p className={cn("mt-1 leading-6", textMuted)}>{body ?? description}</p> : null}
+        <div className={cn("min-w-0", align === "center" && "contents")}>
+          <Title
+            className={cn(
+              "font-semibold text-[color:var(--text)]",
+              align === "center" && "text-lg-minus font-bold text-[color:var(--text-heading)]",
+            )}
+          >
+            {title}
+          </Title>
+          {(body ?? description) ? (
+            <p
+              className={cn(
+                "mt-1 leading-6",
+                textMuted,
+                align === "center" && "m-0 max-w-[44ch] text-sm-minus leading-normal",
+              )}
+            >
+              {body ?? description}
+            </p>
+          ) : null}
           {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
         </div>
       </div>

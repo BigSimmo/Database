@@ -58,7 +58,7 @@ import {
   EmptyState,
   floatingControl,
   LoadingPanel,
-  metadataPill,
+  metadataPillDensity,
   sourceCard,
   textMuted,
 } from "@/components/ui-primitives";
@@ -801,39 +801,6 @@ function DocumentSearchHome({
   );
 }
 
-export function MatchExplanationChips({ source }: { source: SearchResult }) {
-  const explanation = source.match_explanation;
-  const reasons = explanation?.reasons?.length
-    ? explanation.reasons
-    : [
-        source.score_explanation?.titleBoost ? "title" : "",
-        source.score_explanation?.textRank ? "text" : "",
-        source.score_explanation?.vectorScore ? "vector" : "",
-        source.source_metadata?.document_status ? `status:${source.source_metadata.document_status}` : "",
-      ].filter(Boolean);
-  const score = source.score_explanation?.finalScore ?? source.hybrid_score ?? source.similarity;
-  const chips = [
-    ...reasons.slice(0, 5),
-    Number.isFinite(score) ? `score:${Number(score).toFixed(2)}` : "",
-    explanation?.indexQualityScore !== undefined && explanation.indexQualityScore !== null
-      ? `index:${Number(explanation.indexQualityScore).toFixed(2)}`
-      : "",
-    explanation?.indexQualityIssues?.length ? "index warning" : "",
-    explanation?.tableHit ? "table fact" : "",
-    explanation?.indexUnitType ? `unit:${explanation.indexUnitType.replaceAll("_", " ")}` : "",
-  ].filter(Boolean);
-  if (chips.length === 0) return null;
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {chips.slice(0, 7).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-          {chip}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 function SearchRecordResults({
   matches,
   query,
@@ -866,7 +833,7 @@ function SearchRecordResults({
             </p>
           </div>
         </div>
-        <span className={cn(metadataPill, "min-h-8 px-2.5 text-2xs")}>{copy.chip}</span>
+        <span className={metadataPillDensity.roomyCompact}>{copy.chip}</span>
       </div>
 
       <div className="grid gap-3">
@@ -920,7 +887,7 @@ function SearchRecordResults({
               {chips.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {chips.slice(0, 5).map((chip) => (
-                    <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+                    <span key={chip} className={metadataPillDensity.dense}>
                       {chip}
                     </span>
                   ))}
@@ -1296,6 +1263,7 @@ function DocumentSearchResultsPanelImpl({
             title="No matching documents"
             headingLevel={3}
             body={`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
+            live="polite"
           />
         ) : (
           <DocumentSearchHome
@@ -1334,7 +1302,7 @@ function DocumentSearchResultsPanelImpl({
               apart from the trigger's badge, so the reader needs the count to
               explain why the list is shorter than the ribbon's total. */}
           {activeFilterCount > 0 && !filterPanelOpen ? (
-            <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
+            <div className={cn(metadataPillDensity.roomyCompact, "w-fit max-w-full")}>
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}
@@ -1350,6 +1318,7 @@ function DocumentSearchResultsPanelImpl({
                   icon={Funnel}
                   title="No document matches include all selected filters."
                   testId="document-filter-empty-results"
+                  live="polite"
                 />
               ) : null}
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">

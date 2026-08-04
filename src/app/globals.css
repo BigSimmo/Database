@@ -286,6 +286,8 @@
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
   --danger-solid: #a3190f;
+  --danger-solid-hover: #85140d;
+  --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -320,6 +322,10 @@
   --disabled: #8794a8;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
+  --z-overlay: 80;
+  --z-popover: 95;
+  --z-modal: 100;
+  --z-toast: 110;
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
   /* Motion primitives (shared by both themes). The duration values live with
@@ -532,6 +538,8 @@
   --danger-bg: #401c24;
   --danger-border: #7f2e36;
   --danger-solid: #b42318;
+  --danger-solid-hover: #d92d20;
+  --danger-solid-active: #912018;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -3032,6 +3040,8 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --danger: Mark;
     --danger-soft: Canvas;
     --danger-solid: Mark;
+    --danger-solid-hover: Mark;
+    --danger-solid-active: Mark;
     /* Mark's palette-paired foreground — ButtonText is not guaranteed to
        contrast a Mark fill in arbitrary user schemes. */
     --danger-solid-contrast: MarkText;

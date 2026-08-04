@@ -41,13 +41,14 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
         className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
       >
         <div
+          data-testid="progress-fill"
           className={cn(
-            "h-full rounded-full bg-[color:var(--command)]",
+            "h-full origin-left rounded-full bg-[color:var(--command)]",
             determinate
-              ? "transition-[width] duration-[var(--duration-base)] motion-reduce:transition-none"
+              ? "w-full transition-transform duration-[var(--duration-base)] motion-reduce:transition-none"
               : "w-1/3 animate-[shimmer_1.4s_ease-in-out_infinite] motion-reduce:w-full motion-reduce:animate-none",
           )}
-          style={determinate ? { width: `${clamped}%` } : undefined}
+          style={determinate ? { transform: `scaleX(${(clamped ?? 0) / 100})`, transformOrigin: "left" } : undefined}
         />
       </div>
     </div>

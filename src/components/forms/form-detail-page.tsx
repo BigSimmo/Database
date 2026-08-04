@@ -32,6 +32,7 @@ import {
   codeText,
   floatingControl,
   metadataPill,
+  metadataPillDensity,
   primaryControl,
   textMuted,
   toneDanger,
@@ -835,7 +836,9 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
-                  <span className={cn(metadataPill, "rounded-full text-2xs uppercase", toneWarning)}>Governance</span>
+                  <span className={cn(metadataPillDensity.dense, "rounded-full uppercase", toneWarning)}>
+                    Governance
+                  </span>
                 </div>
                 <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                   {displayText(
@@ -946,7 +949,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             {relatedTags.length ? (
               <div className="flex flex-wrap gap-1.5">
                 {relatedTags.map((tag) => (
-                  <span key={tag} className={cn(metadataPill, "rounded-full text-2xs")}>
+                  <span key={tag} className={cn(metadataPillDensity.dense, "rounded-full")}>
                     {tag}
                   </span>
                 ))}

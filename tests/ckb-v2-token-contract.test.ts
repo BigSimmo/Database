@@ -232,6 +232,8 @@ describe("ckb-v2 forced-colours block (PR 2)", () => {
     expect(block).toMatch(/--command:\s*ButtonFace/);
     expect(block).toMatch(/--command-contrast:\s*ButtonText/);
     expect(block).toMatch(/--danger-solid:\s*Mark/);
+    expect(block).toMatch(/--danger-solid-hover:\s*Mark/);
+    expect(block).toMatch(/--danger-solid-active:\s*Mark/);
     expect(block).toMatch(/--danger-solid-contrast:\s*MarkText/);
     expect(block).toMatch(/--focus:\s*Highlight/);
     expect(block).toMatch(/--disabled:\s*GrayText/);

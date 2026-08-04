@@ -100,7 +100,7 @@ export function CitationList({
   emptyNote = "No source supports this statement.",
   className,
 }: {
-  citations: ReactNode[];
+  citations: Array<{ id: string; citation: ReactNode }>;
   label?: string;
   /**
    * Shown when there are zero citations. An ungrounded statement in a clinical
@@ -128,9 +128,9 @@ export function CitationList({
       aria-label={`${label} (${citations.length})`}
       className={cn("m-0 flex list-none flex-wrap items-center gap-1.5 p-0", className)}
     >
-      {citations.map((citation, index) => (
-        <li key={index} className="contents">
-          {citation}
+      {citations.map((citation) => (
+        <li key={citation.id} data-citation-id={citation.id} className="contents">
+          {citation.citation}
         </li>
       ))}
     </ul>

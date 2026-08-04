@@ -49,6 +49,7 @@ import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface }
 import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
@@ -568,6 +569,7 @@ export function SettingsDialog({
                   <SegmentedControl
                     ariaLabelledBy="settings-answer-style-label"
                     ariaDescribedBy="settings-clinical-defaults-note"
+                    layout="equal"
                     value={preferences.answerStyle}
                     onChange={(value) => setPreference("answerStyle", value)}
                     options={ANSWER_STYLE_OPTIONS}
@@ -588,6 +590,7 @@ export function SettingsDialog({
                 >
                   <SegmentedControl
                     ariaLabelledBy="settings-appearance-label"
+                    layout="equal"
                     value={themePreference}
                     onChange={setThemePreference}
                     options={APPEARANCE_OPTIONS}
@@ -596,6 +599,7 @@ export function SettingsDialog({
                 <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-density-label"
+                    layout="equal"
                     value={preferences.density}
                     onChange={(value) => setPreference("density", value)}
                     options={DENSITY_OPTIONS}
@@ -604,6 +608,7 @@ export function SettingsDialog({
                 <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-landing-label"
+                    layout="equal"
                     value={preferences.landing}
                     onChange={(value) => setPreference("landing", value)}
                     options={LANDING_OPTIONS}
@@ -881,55 +886,6 @@ function SettingsField({
           {valueText}
         </span>
       ) : null}
-    </div>
-  );
-}
-
-function SegmentedControl<T extends string>({
-  value,
-  onChange,
-  options,
-  ariaLabelledBy,
-  ariaDescribedBy,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
-  ariaLabelledBy?: string;
-  ariaDescribedBy?: string;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-labelledby={ariaLabelledBy}
-      aria-describedby={ariaDescribedBy}
-      // Segments size to their content and wrap onto a second row on narrow
-      // screens rather than truncating long labels ("Comprehensive"); each row's
-      // items grow to fill the width so the control still reads as a unit.
-      className="flex w-full flex-wrap gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {options.map((option) => {
-        const checked = option.value === value;
-        const Icon = option.icon;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={checked}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
-              checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {Icon ? <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span>{option.label}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }

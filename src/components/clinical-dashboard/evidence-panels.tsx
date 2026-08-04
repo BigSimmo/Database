@@ -50,7 +50,7 @@ import {
   codeText,
   EmptyState,
   iconTilePremium,
-  metadataPill,
+  metadataPillDensity,
   panelSubtle,
   proseMeasure,
   sourceCard,
@@ -1157,7 +1157,7 @@ export function AnswerFeedbackPanel({
           </p>
         </div>
         {pending ? (
-          <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+          <span className={metadataPillDensity.dense}>
             <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
             Saving
           </span>

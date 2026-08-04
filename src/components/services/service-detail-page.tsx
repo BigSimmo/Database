@@ -29,7 +29,7 @@ import { useState, type ReactNode } from "react";
 import {
   cn,
   floatingControl,
-  metadataPill,
+  metadataPillDensity,
   primaryControl,
   textMuted,
   toneDanger,
@@ -421,7 +421,7 @@ function TagList({ items, emptyLabel }: { items: string[]; emptyLabel: string })
   return (
     <div className="flex flex-wrap gap-1.5">
       {uniqueItems.map((item) => (
-        <span key={normalizeTagForList(item)} className={cn(metadataPill, "min-h-7 rounded-full text-2xs")}>
+        <span key={normalizeTagForList(item)} className={cn(metadataPillDensity.dense, "rounded-full")}>
           {item}
         </span>
       ))}
@@ -616,7 +616,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             </div>
             <div className="border-t border-[color:var(--border)] pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
               <p className="text-xs font-semibold text-[color:var(--text-muted)]">Confidence</p>
-              <span className={cn(metadataPill, "mt-2 inline-flex min-h-7 rounded-full", toneWarning)}>
+              <span className={cn(metadataPillDensity.standard, "mt-2 inline-flex rounded-full", toneWarning)}>
                 {service.verification?.confidence ?? "Unknown"}
               </span>
             </div>
@@ -650,8 +650,8 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
                 title="Referral criteria"
                 action={
                   <div className="flex flex-wrap gap-2">
-                    <span className={cn(metadataPill, "min-h-8 rounded-full px-3", toneSuccess)}>{meetCount} meet</span>
-                    <span className={cn(metadataPill, "min-h-8 rounded-full px-3", toneWarning)}>
+                    <span className={cn(metadataPillDensity.roomy, "rounded-full", toneSuccess)}>{meetCount} meet</span>
+                    <span className={cn(metadataPillDensity.roomy, "rounded-full", toneWarning)}>
                       {cautionCount} caution
                     </span>
                   </div>

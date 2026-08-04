@@ -16,7 +16,7 @@ import {
   simpleClinicalTableProps,
   sortClinicalDetailSections,
 } from "@/components/clinical-dashboard/clinical-output-helpers";
-import { cn, iconTilePremium, metadataPill, panelSubtle, subtleStatusPill } from "@/components/ui-primitives";
+import { cn, iconTilePremium, metadataPillDensity, panelSubtle, subtleStatusPill } from "@/components/ui-primitives";
 import type { RagAnswer } from "@/lib/types";
 import {
   type AnswerEvidenceMapRow,
@@ -178,7 +178,7 @@ export function ClinicalOutputPanel({
                       </h3>
                     </div>
                   </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-2xs")}>{itemCount}</span>
+                  <span className={cn(metadataPillDensity.dense, "shrink-0")}>{itemCount}</span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">

@@ -31,6 +31,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
+import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
@@ -336,17 +337,13 @@ function Chip({
   density?: "default" | "comfortable";
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-        density === "comfortable"
-          ? "px-2.5 py-1 text-xs font-semibold leading-snug"
-          : "px-2 text-2xs font-bold leading-none",
-        className,
-      )}
+    <DesignChip
+      size={density === "comfortable" ? "standard" : "compact"}
+      appearance={{ kind: "information", tone: "quiet" }}
+      className={cn("min-w-0 max-w-full", className)}
     >
-      <span className="min-w-0 truncate">{children}</span>
-    </span>
+      {children}
+    </DesignChip>
   );
 }
 

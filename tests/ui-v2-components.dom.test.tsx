@@ -6,11 +6,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AnswerFooter, DoseLine } from "@/components/ui/answer-card";
 import { Button } from "@/components/ui/button";
-import { Citation } from "@/components/ui/citation";
+import { Citation, CitationList } from "@/components/ui/citation";
 import { Chip } from "@/components/ui/chip";
 import { Checkbox, RadioGroup } from "@/components/ui/choice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Disclosure } from "@/components/ui/disclosure";
+import { OverlayPortal, OverlayRoot } from "@/components/ui/overlay-root";
 import { Pagination } from "@/components/ui/pagination";
+import { Progress } from "@/components/ui/progress";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField, TextField } from "@/components/ui/text-field";
@@ -34,6 +38,14 @@ describe("Button", () => {
   it("defaults to type=button so it cannot submit a surrounding form by accident", () => {
     render(<Button>Save</Button>);
     expect(screen.getByRole("button")).toHaveAttribute("type", "button");
+  });
+
+  it("uses semantic danger hover and active tokens without brightness filters", () => {
+    render(<Button variant="danger">Delete source</Button>);
+    const classes = screen.getByRole("button").className;
+    expect(classes).toContain("--danger-solid-hover");
+    expect(classes).toContain("--danger-solid-active");
+    expect(classes).not.toContain("brightness-");
   });
 });
 
@@ -125,6 +137,23 @@ describe("Chip", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove Current only" }));
     expect(onRemove).toHaveBeenCalledOnce();
   });
+
+  it("keeps compact and standard geometry explicit while the remove target stays 48px", () => {
+    render(
+      <Chip
+        size="compact"
+        appearance={{ kind: "category", tone: "source" }}
+        onRemove={() => {}}
+        removeLabel="Remove source"
+      >
+        Source
+      </Chip>,
+    );
+
+    expect(screen.getByTestId("chip")).toHaveAttribute("data-size", "compact");
+    expect(screen.getByTestId("chip")).toHaveAttribute("data-appearance", "category");
+    expect(screen.getByRole("button", { name: "Remove source" })).toHaveClass("h-tap", "w-tap");
+  });
 });
 
 describe("Citation", () => {
@@ -139,6 +168,86 @@ describe("Citation", () => {
     render(<Citation index={2} label="NICE" interactive={false} />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByTestId("citation")).toHaveAttribute("aria-label", expect.stringContaining("NICE"));
+  });
+
+  it("keeps list identity stable when citations reorder", () => {
+    const first = {
+      id: "source-ranzcp-12",
+      citation: <Citation index={1} label="RANZCP" locator="p. 12" interactive={false} />,
+    };
+    const second = {
+      id: "source-nice-4",
+      citation: <Citation index={2} label="NICE" locator="p. 4" interactive={false} />,
+    };
+    const { rerender } = render(<CitationList citations={[first, second]} />);
+
+    rerender(<CitationList citations={[second, first]} />);
+
+    expect(screen.getAllByRole("listitem").map((item) => item.dataset.citationId)).toEqual([
+      "source-nice-4",
+      "source-ranzcp-12",
+    ]);
+  });
+});
+
+describe("Disclosure / Progress", () => {
+  it("uses the contextual disclosure heading level", () => {
+    render(
+      <Disclosure title="Monitoring" headingLevel={4}>
+        Review ECG and electrolytes.
+      </Disclosure>,
+    );
+    expect(screen.getByRole("heading", { level: 4, name: "Monitoring" })).toBeVisible();
+  });
+
+  it("animates determinate progress with scaleX rather than width", () => {
+    render(<Progress value={42} label="Indexing" />);
+    const fill = screen.getByTestId("progress-fill");
+    expect(fill).toHaveStyle({ transform: "scaleX(0.42)", transformOrigin: "left" });
+    expect(fill.style.width).toBe("");
+  });
+});
+
+describe("SegmentedControl", () => {
+  const options = [
+    { value: "brief", label: "Brief" },
+    { value: "standard", label: "Standard", disabled: true },
+    { value: "comprehensive", label: "Comprehensive" },
+  ] as const;
+
+  function Harness() {
+    const [value, setValue] = useState("brief");
+    return <SegmentedControl label="Answer style" value={value} onChange={setValue} options={options} layout="equal" />;
+  }
+
+  it("roves one radio through enabled options with wrap and disabled skipping", async () => {
+    render(<Harness />);
+    const radios = screen.getAllByRole("radio");
+    expect(radios.filter((radio) => radio.tabIndex === 0)).toHaveLength(1);
+    radios[0].focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Brief" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.keyboard("{End}");
+    expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
+  });
+});
+
+describe("OverlayRoot", () => {
+  it("provides named layer hosts for portalled consumers", async () => {
+    render(
+      <>
+        <OverlayRoot />
+        <OverlayPortal layer="popover">
+          <span>Portalled hint</span>
+        </OverlayPortal>
+      </>,
+    );
+
+    const host = document.querySelector('[data-overlay-host="popover"]');
+    expect(host).not.toBeNull();
+    expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(host);
   });
 });
 
@@ -453,6 +562,35 @@ describe("Toast", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Dismiss: Source indexed" }));
     expect(within(region).queryByText("Source indexed")).not.toBeInTheDocument();
+  });
+
+  it("deduplicates outcomes and caps the visible queue", async () => {
+    function QueueHarness() {
+      const { push } = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            push({ tone: "info", title: "Repeated", duration: 0 });
+            push({ tone: "info", title: "Repeated", duration: 0 });
+            for (let index = 0; index < 8; index += 1) {
+              push({ tone: "success", title: `Outcome ${index}`, duration: 0 });
+            }
+          }}
+        >
+          Fill queue
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <QueueHarness />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fill queue" }));
+    expect(screen.getAllByTestId("toast")).toHaveLength(5);
+    expect(screen.queryByText("Repeated")).not.toBeInTheDocument();
   });
 });
 

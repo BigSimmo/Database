@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 
-import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
+import { Chip, type ChipAppearance } from "@/components/ui/chip";
+import {
+  cn,
+  EmptyState as SharedEmptyState,
+  LoadingPanel,
+  toneInfo,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 
 import { AlertIcon, ShieldCheckIcon } from "./icons";
 import { reviewStatusMeta } from "./data/select";
@@ -46,15 +54,18 @@ export function tagTone(tag: string): Tone {
 }
 
 export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
+  const appearance: ChipAppearance =
+    tone === "purple"
+      ? { kind: "category", tone: "source" }
+      : tone === "accent"
+        ? { kind: "information", tone: "accent" }
+        : tone === "success" || tone === "warning" || tone === "info"
+          ? { kind: "status", tone }
+          : { kind: "information", tone: "inset" };
   return (
-    <span
-      className={cn(
-        "inline-flex items-center whitespace-nowrap rounded-md border px-2.5 py-0.5 text-2xs font-semibold",
-        TONE_SURFACE[tone],
-      )}
-    >
+    <Chip size="compact" appearance={appearance} className="whitespace-nowrap">
       {children}
-    </span>
+    </Chip>
   );
 }
 
@@ -120,24 +131,8 @@ export function IconTile({
 
 // ---- loading / empty ----------------------------------------------------
 
-/**
- * Therapy keeps its own centred loading/empty states rather than the shared
- * `LoadingPanel`/`EmptyState`, which are left-aligned inset panels. Deliberate: the
- * stylesheet teardown was scoped to remove the parallel CSS without changing how the
- * mode looks. The spinner needs no in-app motion gate — `html[data-motion="reduced"] *`
- * in globals.css already suppresses every animation.
- */
 export function LoadingState({ label = "Loading therapy library…" }: { label?: string }) {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex min-h-[280px] flex-col items-center justify-center gap-3 text-[color:var(--text-soft)]"
-    >
-      <span className="h-[34px] w-[34px] animate-spin rounded-full border-[3px] border-[color:var(--border)] border-t-[color:var(--clinical-accent)] motion-reduce:animate-none" />
-      <span className="text-sm font-medium">{label}</span>
-    </div>
-  );
+  return <LoadingPanel label={label} layout="centered" />;
 }
 
 export function EmptyState({
@@ -152,14 +147,15 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-2.5 rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-6 py-12 text-center">
-      <span className="mb-0.5 inline-flex h-13 w-13 items-center justify-center rounded-xl bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-        <Icon size={26} />
-      </span>
-      <div className="text-lg-minus font-bold text-[color:var(--text-heading)]">{title}</div>
-      <p className="m-0 max-w-[44ch] text-sm-minus leading-normal text-[color:var(--text-muted)]">{body}</p>
-      {action ? <div className="mt-2">{action}</div> : null}
-    </div>
+    <SharedEmptyState
+      title={title}
+      body={body}
+      actions={action}
+      iconNode={<Icon size={26} />}
+      align="center"
+      live="polite"
+      tone="info"
+    />
   );
 }
 

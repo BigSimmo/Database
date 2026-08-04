@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ExternalLink, FileText, Filter, Search } from "lucide-react";
-import { cn, floatingControl, metadataPill, primaryControl } from "@/components/ui-primitives";
+import { cn, floatingControl, metadataPill, metadataPillDensity, primaryControl } from "@/components/ui-primitives";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { CrossModeLink } from "@/lib/cross-mode-links";
 import type { SearchResult, Citation } from "@/lib/types";
@@ -55,7 +55,7 @@ export function SourceActionRow({
         <span className="hidden sm:inline">Add scope</span>
       </button>
       {imageCount > 0 && (
-        <span className={cn(metadataPill, "min-h-tap rounded-lg px-3")}>
+        <span className={cn(metadataPillDensity.tap, "rounded-lg")}>
           {imageCount} indexed image{imageCount === 1 ? "" : "s"}
         </span>
       )}
