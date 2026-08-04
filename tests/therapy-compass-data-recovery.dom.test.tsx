@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
+import { useTcBindings } from "@/components/therapy-compass/bindings";
 import { clearTherapyDataCache } from "@/components/therapy-compass/data/use-therapy-data";
 import {
   THERAPY_CATALOGUE_ASSETS,
@@ -32,6 +33,11 @@ function response(body: unknown, ok = true, status = 200) {
     status,
     json: vi.fn().mockResolvedValue(body),
   };
+}
+
+function RichRouteProbe({ readyLabel }: { readyLabel: string }) {
+  const bindings = useTcBindings();
+  return bindings.loading ? <div role="status">Loading Therapy…</div> : <div>{readyLabel}</div>;
 }
 
 afterEach(() => {
@@ -141,6 +147,68 @@ describe("Therapy Compass required data recovery", () => {
 
     expect(await screen.findByText("Detail ready")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows current loading rather than a stale error after Home re-enables catalogue loading", async () => {
+    navigation.pathname = "/therapy-compass/search";
+    let recover = false;
+    let releaseRecovery!: () => void;
+    const recoveryGate = new Promise<void>((resolve) => {
+      releaseRecovery = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith(`/${THERAPY_CATALOGUE_ASSETS.full}`)) {
+        if (!recover) return response(null, false, 503);
+        await recoveryGate;
+        return response([therapy]);
+      }
+      if (path.endsWith("/therapies.json")) return response(null, false, 503);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(
+      <TherapyCompassWorkspace>
+        <RichRouteProbe readyLabel="Search ready" />
+      </TherapyCompassWorkspace>,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Therapy could not load");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    navigation.pathname = "/therapy-compass";
+    view.rerender(
+      <TherapyCompassWorkspace>
+        <HomeScreen />
+      </TherapyCompassWorkspace>,
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Therapy" })).toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    recover = true;
+    navigation.pathname = "/therapy-compass/recommend";
+    view.rerender(
+      <TherapyCompassWorkspace>
+        <RichRouteProbe readyLabel="Recommend ready" />
+      </TherapyCompassWorkspace>,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Loading Therapy");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Recommend ready")).not.toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+
+    releaseRecovery();
+
+    expect(await screen.findByText("Recommend ready")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("loads full therapy records only on a record-rich route", async () => {

@@ -128,6 +128,14 @@ export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataSta
   useEffect(() => {
     if (!resolved.enabled) {
       settleRetryWaiters();
+      // Home deliberately masks catalogue state and performs no I/O. Retain a
+      // settled success so a later rich route can reuse the immutable cached
+      // dataset, but invalidate a settled failure: its request was removed from
+      // `cache`, so it cannot describe the automatic replacement request that
+      // starts when catalogue loading is enabled again.
+      setState((previous) =>
+        previous.error ? { requestKey: null, data: null, loading: false, error: null } : previous,
+      );
       return;
     }
     let active = true;
