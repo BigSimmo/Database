@@ -336,6 +336,10 @@ at the **end** of adoption, with its own visual-regression pass (≈663 type cal
 - completion condition — no semantic difference remains between live and v2 roles on adopted
   surfaces
 
+**Current truth.** The target layer is built, but the declared product roots remain on the live
+compatibility layer. `adoption-manifest.json` is generated locally from those roots; it is the
+adoption count, not an inference from a token file or a remote design-project claim.
+
 ### 4.12 Print is a theme
 
 Print forces light tokens **regardless of active theme** · flattens shadows and glass ·

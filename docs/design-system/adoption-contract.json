@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "requiredProofCategories": ["source", "exports", "productImports", "designSync", "preview", "tests", "baseline"],
+  "productionSurfaces": [
+    {
+      "id": "forms",
+      "roots": ["src/components/forms/form-detail-page.tsx"],
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "expectedShellState": "compatibility",
+      "sanctionedSpecialPatterns": ["ModeHomeHero"]
+    },
+    {
+      "id": "search-results",
+      "roots": ["src/components/clinical-dashboard/search-results-header-band.tsx"],
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "expectedShellState": "compatibility",
+      "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"]
+    },
+    {
+      "id": "answers",
+      "roots": ["src/components/clinical-dashboard/answer-thread-turn.tsx"],
+      "permittedComponentFamilies": ["answer", "feedback", "layout", "source"],
+      "expectedShellState": "compatibility",
+      "sanctionedSpecialPatterns": ["AnswerResultSurface", "AnswerCard"]
+    },
+    {
+      "id": "documents",
+      "roots": ["src/components/DocumentViewer.tsx"],
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "expectedShellState": "compatibility",
+      "sanctionedSpecialPatterns": ["DocumentViewer"]
+    },
+    {
+      "id": "source-preview",
+      "roots": ["src/components/clinical-dashboard/source-preview-popover.tsx"],
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "expectedShellState": "compatibility",
+      "sanctionedSpecialPatterns": ["SourcePreviewPopover"]
+    }
+  ],
+  "componentFamilies": {
+    "Button": "controls",
+    "TextField": "controls",
+    "SearchField": "controls",
+    "Chip": "controls",
+    "ToastRegion": "feedback",
+    "Tabs": "controls",
+    "Tooltip": "feedback",
+    "Pagination": "controls",
+    "ConfirmDialog": "layout",
+    "PageHeader": "layout",
+    "Breadcrumb": "layout",
+    "AnswerCard": "answer",
+    "DoseLine": "answer",
+    "AnswerFooter": "answer",
+    "VerificationNotice": "answer",
+    "AsyncButton": "controls",
+    "IconButton": "controls",
+    "Skeleton": "feedback",
+    "SourceDesignationBadge": "source",
+    "InlineNotice": "feedback",
+    "ToggleSwitch": "controls",
+    "SourceStatusBadge": "source",
+    "SourceProvenance": "source",
+    "PanelHeading": "layout",
+    "LoadingPanel": "feedback",
+    "EmptyState": "feedback",
+    "Sheet": "layout",
+    "SafeBoldText": "layout",
+    "AccessibleTable": "source"
+  },
+  "baseline": {
+    "targetLayer": "v2",
+    "liveLayer": "compatibility",
+    "remoteStatus": "unverified"
+  }
+}

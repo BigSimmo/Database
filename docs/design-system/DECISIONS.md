@@ -86,6 +86,10 @@ surface at a time. The cost — carrying the transitional two-layer architecture
 (SPEC §4.11) a while longer — is bounded and already documented; an uncommanded repaint is
 neither.
 
+**Current status.** Class scoping is still a target-layer contract, not evidence that a product
+surface has adopted it. The local adoption manifest records literal root opt-ins; remote design
+status remains unverified unless an authorised remote check says otherwise.
+
 ---
 
 ## C4 · The v2 forced-colours block covers the descendant form

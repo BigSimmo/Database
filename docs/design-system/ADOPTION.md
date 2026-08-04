@@ -12,8 +12,8 @@ that touches a file outside its surface's allowlist is rejected whole rather tha
   [DECISIONS.md](DECISIONS.md) · [GATES.md](GATES.md) · [TOKENS.md](TOKENS.md)
 
 **Registration means** a component has a proof surface and is product-ready — not that it
-exists on disk. COMPONENTS §0.1 lists 28 already-registered components; §0.2 lists what is
-built but unregistered. A surface may only import a component that is registered by the time
+exists on disk. COMPONENTS §0.1 lists 29 locally registered design-sync components; its remote
+design-project status is unverified. §0.2 lists what is built but unregistered. A surface may only import a component that is registered by the time
 that surface's commit lands.
 
 ---
@@ -115,8 +115,8 @@ src/components/therapy-compass/screens/home-screen.tsx
 ```
 
 Complete empty/loading gaps with `EmptyState` and `LoadingPanel`; converge local chip
-duplicates onto DS `Chip`. **`FilterBar`, `SegmentedControl` and `DataTable` are specified,
-not built — do not invent them.**
+duplicates onto DS `Chip`. **`FilterBar` and `DataTable` are retired names; `SegmentedControl`
+is specified but not built — do not invent a lookalike.**
 
 **Coordination:** catalogues share the results ribbon and `search-band` pins with headers.
 `search-results-header-band.tsx` belongs to **headers**; a catalogue commit that needs a ribbon
@@ -238,16 +238,16 @@ that gap is closed in the forms commit, not deferred past it.
 
 ## 4 · Exclusions
 
-| Excluded                                                          | Reason                                                                            |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `src/app/mockups/**`, `*-mockups.tsx`                             | Design scratch; 404 in production; gate-exempt. Never "fixed"                     |
-| `src/lib/rag/**` and the other RAG-ranking protected surfaces     | Read-only; not an adoption surface                                                |
-| Wrapping or remounting `GlobalSearchShell`                        | One production mount exists (`shared-search-app-shell.tsx`); a second is a defect |
-| Half-component adoption                                           | SPEC §13 invariant — a surface adopts a component whole                           |
-| Replacing the product copy path with bare `answerClipboardText()` | `#208`; drops the render policy's warnings                                        |
-| Adopting the answer surface before `#207`                         | SPEC §13 blocker 2                                                                |
-| `SegmentedControl`, `FilterBar`, `DataTable`, `DocumentFrame`     | Specified, not built — do not approximate                                         |
-| `#209` warning-as-body-text contrast                              | P3; not a Phase 1 blocker and not in this wave's scope                            |
+| Excluded                                                          | Reason                                                                                                  |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `src/app/mockups/**`, `*-mockups.tsx`                             | Design scratch; 404 in production; gate-exempt. Never "fixed"                                           |
+| `src/lib/rag/**` and the other RAG-ranking protected surfaces     | Read-only; not an adoption surface                                                                      |
+| Wrapping or remounting `GlobalSearchShell`                        | One production mount exists (`shared-search-app-shell.tsx`); a second is a defect                       |
+| Half-component adoption                                           | SPEC §13 invariant — a surface adopts a component whole                                                 |
+| Replacing the product copy path with bare `answerClipboardText()` | `#208`; drops the render policy's warnings                                                              |
+| Adopting the answer surface before `#207`                         | SPEC §13 blocker 2                                                                                      |
+| `SegmentedControl`, `FilterBar`, `DataTable`, `DocumentFrame`     | `FilterBar` and `DataTable` are retired names; the others are specified, not built — do not approximate |
+| `#209` warning-as-body-text contrast                              | P3; not a Phase 1 blocker and not in this wave's scope                                                  |
 
 ---
 
@@ -303,3 +303,15 @@ chrome differs between them.
 | docs       | `/documents/search` results + filter shelf · a document detail with section nav · the clinical summary toggle and indexed source panel · a fault/empty search state                                            |
 | provenance | the document-admin source metadata block · the answer support caution (pre-adoption baseline) · a differentials source-status chip · the source preview popover                                                |
 | answer     | a ready grounded answer · an **ungrounded** answer showing the preserved caution (`#207`) · stale-evidence and source-only banners · a copied-clipboard sample (`#208`) · progress / empty / error / streaming |
+
+<!-- adoption-manifest:adoption:start -->
+
+## Generated adoption truth
+
+Registered public components: 29
+Declared product roots: 5
+Roots with a literal `.ckb-v2` opt-in: 0
+Dynamic `ckb-v2` constructions: 0
+
+The live product remains on the compatibility layer until a declared root opts into the v2 class literally.
+<!-- adoption-manifest:adoption:end -->

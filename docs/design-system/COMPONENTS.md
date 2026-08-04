@@ -20,38 +20,39 @@ but no component has dark proof until the cascade port lands — the branch copy
 `.ckb-v2:not(.dark)`). **HCM** = forced-colours proof. All proofs absent are marked `—`;
 an asserted-but-untested behaviour is _worse_ than `—` and is called out.
 
-### 0.1 Registered components (28 — published to the design project)
+### 0.1 Registered components (29 — local design-sync contract; remote status unverified)
 
-| Component                              | Tier                   | Preview | Direct test                     | Dark | HCM | 320px | Print | Product imports | Stability                   |
-| -------------------------------------- | ---------------------- | ------- | ------------------------------- | ---- | --- | ----- | ----- | --------------- | --------------------------- |
-| AccessibleTable                        | main (+branch changes) | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)               |
-| AnswerCard                             | branch                 | ✓       | ✓ (PR 6)                        | —    | —   | —     | —     | 0               | experimental                |
-| AnswerFooter                           | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| AsyncButton                            | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | deprecated → `Button`       |
-| Breadcrumb                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                |
-| Button                                 | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| Chip                                   | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| ConfirmDialog                          | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| DoseLine                               | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| EmptyState                             | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)               |
-| IconButton                             | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)               |
-| InlineNotice                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)               |
-| LoadingPanel                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)               |
-| PageHeader                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                |
-| Pagination                             | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| PanelHeading                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)               |
-| SafeBoldText                           | main                   | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)               |
-| SearchField                            | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| Sheet                                  | main (+branch)         | ✓       | — (no standalone contract test) | —    | —   | —     | —     | yes             | stable (live), defects open |
-| Skeleton                               | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)               |
-| SourceDesignationBadge                 | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)               |
-| SourceProvenance                       | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)               |
-| SourceStatusBadge                      | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)               |
-| Tabs                                   | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| TextField                              | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
-| ToastRegion (+ ToastProvider/useToast) | branch                 | ✓       | ✓ (provider flow)               | —    | —   | —     | —     | 0               | experimental                |
-| ToggleSwitch                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live), defects open |
-| Tooltip                                | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                |
+| Component                              | Tier                   | Preview | Direct test                     | Dark | HCM | 320px | Print | Product imports | Stability                    |
+| -------------------------------------- | ---------------------- | ------- | ------------------------------- | ---- | --- | ----- | ----- | --------------- | ---------------------------- |
+| AccessibleTable                        | main (+branch changes) | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
+| AnswerCard                             | branch                 | ✓       | ✓ (PR 6)                        | —    | —   | —     | —     | 0               | experimental                 |
+| AnswerFooter                           | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| AsyncButton                            | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | deprecated → `Button`        |
+| Breadcrumb                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                 |
+| Button                                 | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| Chip                                   | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| ConfirmDialog                          | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| DoseLine                               | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| EmptyState                             | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
+| IconButton                             | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
+| InlineNotice                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
+| LoadingPanel                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
+| PageHeader                             | branch                 | ✓       | —                               | —    | —   | —     | —     | 0               | experimental                 |
+| Pagination                             | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| PanelHeading                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
+| SafeBoldText                           | main                   | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
+| SearchField                            | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| Sheet                                  | main (+branch)         | ✓       | — (no standalone contract test) | —    | —   | —     | —     | yes             | stable (live), defects open  |
+| Skeleton                               | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live)                |
+| SourceDesignationBadge                 | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
+| SourceProvenance                       | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
+| SourceStatusBadge                      | main (+branch)         | ✓       | ✓                               | —    | —   | —     | —     | yes             | stable (live)                |
+| Tabs                                   | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| TextField                              | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| ToastRegion (+ ToastProvider/useToast) | branch                 | ✓       | ✓ (provider flow)               | —    | —   | —     | —     | 0               | experimental                 |
+| ToggleSwitch                           | main (+branch)         | ✓       | —                               | —    | —   | —     | —     | yes             | stable (live), defects open  |
+| Tooltip                                | branch                 | ✓       | ✓                               | —    | —   | —     | —     | 0               | experimental                 |
+| VerificationNotice                     | branch                 | ✓       | ✓                               | —    | —   | —     | —     | yes             | reference, not shell-adopted |
 
 **[verified:** register and previews from `EXPORT_MANIFEST.md`; direct-test coverage from the
 master handover's audit of the shipped test set; `main` presence from this worktree
@@ -64,7 +65,6 @@ this document**]**.
 
 | Symbols                                                           | Direct test | Notes                                                                                                        |
 | ----------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------ |
-| `VerificationNotice`                                              | ✓ (PR 6)    | System-owned wording; no children/text prop exists. §1.                                                      |
 | `AnswerState`, `RetrievalStateBanner`, `answerStateFromRetrieval` | ✓ (PR 6)    | §2. Five kinds since PR 13 Phase 1 (`ungrounded`); `partial_retrieval` is buildable but unproduced — see §2. |
 | `MissingValue`                                                    | ✓ (PR 6)    | Four phrases, never a dash. §3.                                                                              |
 | `DateDisplay`                                                     | ✓ (PR 6)    | ISO in, `<time>` out; agrees with `formatClinicalDate()`. §8.                                                |
@@ -87,17 +87,20 @@ Support APIs, unregistered: `ToastProvider`/`useToast` (tested via provider flow
 
 _Remaining from the eight in this document:_ `DocumentFrame` (PR 11) · `OverlayRoot` (PR 10).
 
-_Built in PRs 6–8, listed in §0.2 above:_ `VerificationNotice` ·
-`AnswerState`/`RetrievalStateBanner` · `MissingValue` · `DateDisplay` ·
+_Built in PRs 6–8, listed in §0.2 above:_ `AnswerState`/`RetrievalStateBanner` ·
+`MissingValue` · `DateDisplay` ·
 `FormField`+`FieldHint`+`FieldError`+`ErrorSummary` · `LiveAnnouncer`/`RouteAnnouncer`.
 They are **built, not registered** — registration waits for PR 13 per SPEC §13,
 so their preview state matrices and product adoption are still open.
 
-_P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` · `FilterBar`/
+_P1 reusable (specified in outline only):_ `Menu`/`Popover` · `KeyValue` ·
 `AppliedFilters`/`FilterSheet` · `ResponsiveActionGroup` · `ScrollableStrip`/
-`ScrollAffordance` · `SourceLink` · `DataTable` · `Banner` · `CopyButton`/`CopyField` ·
+`ScrollAffordance` · `SourceLink` · `Banner` · `CopyButton`/`CopyField` ·
 state family (`ErrorState`, `OfflineState`, `PermissionDeniedState`, `NotFoundState`,
 `UnavailableState`).
+
+`FilterBar` and `DataTable` are retired names, not future component contracts. Use a
+surface-owned filter pattern or the canonical `AccessibleTable`; do not revive either name.
 
 _P2 clinical and governance:_ `LifecycleTrack` · `ConfidenceMeter` · `EvidenceGutter` ·
 `Dropzone` · `AuditTimeline` · `VersionDiff` · `ProvenancePanel` · `ClinicalCallout` ·
@@ -148,6 +151,8 @@ type VerificationNoticeProps = {
   state: "ready" | "stale_evidence" | "partial_retrieval" | "ungrounded" | "source_only";
   /** "plain" is the lay-reader variant for patient/carer-facing prints (factsheets). */
   audience?: "clinician" | "plain";
+  /** Preserves extractive provenance when a caution state outranks source_only. */
+  attribution?: "model" | "extractive";
   /** Print rendering is self-contained: no wording may depend on the live link. */
   medium?: "screen" | "print";
   sourceCount?: number;
@@ -187,9 +192,9 @@ elided or truncated in print (print CSS may not hide it; gate planned).
 interpolate model names, vendor names, or percentages into the wording; don't let tone vary
 by mode.
 
-**Built in PR 6.** Eight approved strings (four states × two audiences) live in the
+**Built in PR 6, completed in Phase 1.** Five approved state variants × two audiences live in the
 component; there is no children prop and no text prop, so a call site cannot supply
-wording. `tests/ui-v2-answer-safety.dom.test.tsx` asserts all eight are distinct, that
+wording. `tests/ui-v2-answer-safety.dom.test.tsx` asserts the state/audience variants are distinct, that
 `ready` still carries the verification disclaimer, that no wording matches a model or
 vendor name or a percentage, and that only the caution state wears the warning role.
 
@@ -228,7 +233,12 @@ type UngroundedReason = "grounded_false" | "confidence_unsupported" | "unverifie
 type AnswerState =
   | { kind: "ready"; sourceCount: number }
   | { kind: "stale_evidence"; overdue: OverdueSource[]; sourceCount: number }
-  | { kind: "partial_retrieval"; retrieved: number; requested: number; missing: SourceRef[] }
+  | {
+      kind: "partial_retrieval";
+      retrieved: number;
+      requested: number;
+      missing: SourceRef[];
+    }
   | { kind: "ungrounded"; reason: UngroundedReason; sourceCount: number }
   | { kind: "source_only"; reason: "generation_failed" | "quality_gate" };
 
@@ -432,10 +442,10 @@ colour alone · overwriting caller `describedBy` (merge is the only path).
 **Don't:** add per-control bespoke hint/error markup again; don't put block content in the
 hint (string type is deliberate).
 
-**Built in PR 7; the fold is adoption work.** The shell exists and is tested, but
-`TextField`/`SearchField`/`Select`/`Checkbox`/`RadioGroup` still carry their own field
-shells — rewriting live controls belongs in PR 13's per-surface adoption, where each
-surface gets its own visual diff, rather than in a safety-structure PR.
+**Current field contract.** `TextField` and `SearchField` now consume `FormField`: `id`,
+`hint`, `error`, `required`, `autoComplete`, and caller `aria-describedby` are public field
+contracts. Their hints/errors are strings because assistive technology receives them as one
+description. `Select`/choice controls remain separate adoption work.
 
 ---
 
@@ -789,6 +799,10 @@ three rules. See SPEC §13 blocker 1 for the decision. **Open defects → PR.** 
 ungrounded-answer channel → **fixed** in PR 13 Phase 1 as the fifth `AnswerState` kind
 (ledger `#207`, SPEC §13 blocker 2).
 
+**Reference status.** `AnswerCard` is registered in the local design-sync contract and has a
+valid reference preview. It has no direct product import in the generated adoption manifest, so
+it is not evidence of answer-shell adoption.
+
 ### 9.14 `AnswerFooter`
 
 **Purpose.** Always-visible provenance: publisher · version · review date · generated
@@ -906,7 +920,8 @@ PR.** whole-list live region, step-0, silent failure → PR 8.
 
 **Contract.** `live` defaults **off** — a static empty page is not a status region;
 callers opt in only for dynamically-introduced emptiness · offers a real next action ·
-neutral treatment (the offline/no-answer state rides this component, SPEC §10). **Open
+neutral treatment (the offline/no-answer state rides this component, SPEC §10). `headingLevel`
+is opt-in and limited to `h2`–`h6`; `testId` is the stable focused-test hook. **Open
 defects → PR.** polite-by-default → PR 8.
 
 ### 9.29 `LoadingPanel` / `Skeleton`
@@ -918,7 +933,7 @@ resolves to content, an empty state, or an error state.
 
 ### 9.30 `AccessibleTable`
 
-**Purpose.** The clinical table. Stacked-card `compact` strategy, tested numeric
+**Purpose.** The canonical clinical table. Stacked-card `compact` strategy, tested numeric
 alignment, expander `aria-controls`, and the unverified-extraction treatment are its
 strengths — keep them. **Contract.** A semantic `<caption>` is required (visually styled,
 not a `<div>` + `aria-label`); dense headers are sentence case; missing cells render
@@ -949,3 +964,14 @@ never restate a token value. The 2026-07-31 icon regression (lucide imports repl
 with glyph spans by an unverified merge, repaired in `0b0f393c7`) is the cautionary case:
 this file is load-bearing for the icon vocabulary; changes to it require the focused DOM
 tests to run.
+
+<!-- adoption-manifest:maturity:start -->
+
+## Generated maturity snapshot
+
+Registered public components: 29
+Components with a valid design-sync preview: 29
+Components with product imports: 20
+
+This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
+<!-- adoption-manifest:maturity:end -->

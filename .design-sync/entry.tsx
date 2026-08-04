@@ -20,6 +20,8 @@ export { Pagination } from "@/components/ui/pagination";
 export { ConfirmDialog } from "@/components/ui/confirm-dialog";
 export { PageHeader, Breadcrumb } from "@/components/ui/page-header";
 export { AnswerCard, AnswerFooter, DoseLine } from "@/components/ui/answer-card";
+export { VerificationNotice } from "@/components/ui/verification-notice";
+export type { AnswerState } from "@/components/ui/answer-state";
 
 // Curated lucide-react icon set: consumers of the synced bundle have no
 // lucide-react install, so the icons PanelHeading/EmptyState-style `icon`

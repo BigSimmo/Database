@@ -10,16 +10,18 @@
   "extraFonts": [".design-sync/fonts.css"],
   "readmeHeader": ".design-sync/conventions.md",
   "guidelinesGlob": [
-    "docs/design-system.md",
-    "docs/clinical-badge-system-guide.md",
-    "docs/redesign/02-design-direction.md",
-    "docs/redesign/09-ui-primitives-recipes.md",
-    "docs/redesign/permanent-colour-direction.md"
+    "docs/design-system/README.md",
+    "docs/design-system/SPEC.md",
+    "docs/design-system/TOKENS.md",
+    "docs/design-system/COMPONENTS.md",
+    "docs/design-system/DECISIONS.md",
+    "docs/design-system/GATES.md",
+    "docs/design-system/ADOPTION.md"
   ],
   "dtsPropsFor": {
     "Button": "variant?: \"primary\" | \"secondary\" | \"toolbar\" | \"ghost\" | \"danger\"; size?: \"sm\" | \"md\" | \"lg\"; children: React.ReactNode; icon?: LucideIcon; trailingIcon?: LucideIcon; block?: boolean; busy?: boolean; busyLabel?: string; disabled?: boolean; className?: string; type?: \"button\" | \"submit\" | \"reset\"; onClick?: () => void;",
-    "TextField": "label: string; hint?: React.ReactNode; error?: React.ReactNode; hideLabel?: boolean; icon?: LucideIcon; fieldClassName?: string; className?: string; placeholder?: string; value?: string; defaultValue?: string; disabled?: boolean; onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;",
-    "SearchField": "label: string; hint?: React.ReactNode; error?: React.ReactNode; hideLabel?: boolean; onClear?: () => void; clearLabel?: string; fieldClassName?: string; className?: string; placeholder?: string; value?: string; onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;",
+    "TextField": "label: string; id?: string; hint?: string; error?: string; hideLabel?: boolean; icon?: LucideIcon; fieldClassName?: string; ref?: React.Ref<HTMLInputElement>; className?: string; placeholder?: string; value?: string | number | readonly string[]; defaultValue?: string | number | readonly string[]; disabled?: boolean; required?: boolean; autoComplete?: string; aria-describedby?: string; onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;",
+    "SearchField": "label: string; id?: string; hint?: string; error?: string; hideLabel?: boolean; onClear?: () => void; clearLabel?: string; fieldClassName?: string; ref?: React.Ref<HTMLInputElement>; className?: string; placeholder?: string; value?: string | number | readonly string[]; defaultValue?: string | number | readonly string[]; disabled?: boolean; required?: boolean; autoComplete?: string; aria-describedby?: string; onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;",
     "Chip": "children: React.ReactNode; tone?: \"neutral\" | \"info\" | \"success\" | \"warning\" | \"danger\"; dot?: boolean; icon?: LucideIcon; onRemove?: () => void; removeLabel?: string; className?: string;",
     "ToastRegion": "",
     "Tabs": "items: Array<{ id: string; label: string; icon?: LucideIcon; count?: number; disabled?: boolean }>; value: string; onChange: (id: string) => void; label: string; variant?: \"tabs\" | \"segmented\"; className?: string; children?: React.ReactNode;",
@@ -28,7 +30,8 @@
     "ConfirmDialog": "open: boolean; onCancel: () => void; onConfirm: () => void; title: string; description: React.ReactNode; confirmLabel?: string; cancelLabel?: string; tone?: \"danger\" | \"primary\"; busy?: boolean; busyLabel?: string; confirmPhrase?: string; confirmPhraseLabel?: React.ReactNode;",
     "PageHeader": "title: string; eyebrow?: string; description?: React.ReactNode; icon?: LucideIcon; breadcrumb?: Array<{ label: string; href?: string }>; actions?: React.ReactNode; meta?: React.ReactNode; className?: string;",
     "Breadcrumb": "items: Array<{ label: string; href?: string }>; className?: string;",
-    "AnswerCard": "state: { kind: \"ready\"; sourceCount: number } | { kind: \"stale_evidence\"; overdue: Array<{ sourceId: string; title: string; locator?: string; reviewDueOn: string | null; status: \"review_due\" | \"outdated\" }>; sourceCount: number } | { kind: \"partial_retrieval\"; retrieved: number; requested: number; missing: Array<{ sourceId: string; title: string; locator?: string }> } | { kind: \"source_only\"; reason: \"generation_failed\" | \"quality_gate\" }; verification: { state: \"ready\" | \"stale_evidence\" | \"partial_retrieval\" | \"source_only\"; audience?: \"clinician\" | \"plain\"; medium?: \"screen\" | \"print\"; sourceCount?: number; printedAt?: string; printedBy?: string; className?: string }; query?: string; children: React.ReactNode; provenance?: { publisher?: string | null; version?: string | null; reviewDate?: string | null; generatedAt?: string | null; className?: string }; actions?: Array<{ id: string; label: string; onActivate: () => void }>; onOpenSource?: (sourceId: string, locator?: string) => void; className?: string;",
+    "AnswerCard": "state: { kind: \"ready\"; sourceCount: number } | { kind: \"stale_evidence\"; overdue: Array<{ sourceId: string; title: string; locator?: string; reviewDueOn: string | null; status: \"review_due\" | \"outdated\" }>; sourceCount: number } | { kind: \"partial_retrieval\"; retrieved: number; requested: number; missing: Array<{ sourceId: string; title: string; locator?: string }> } | { kind: \"ungrounded\"; reason: \"grounded_false\" | \"confidence_unsupported\" | \"unverified_numeric\" | \"weak_evidence\"; sourceCount: number } | { kind: \"source_only\"; reason: \"generation_failed\" | \"quality_gate\" }; verification: VerificationNoticeProps; query?: string; children: React.ReactNode; provenance?: AnswerFooterProps; actions?: Array<{ id: string; label: string; onActivate: () => void }>; onOpenSource?: (sourceId: string, locator?: string) => void; className?: string;",
+    "VerificationNotice": "state: \"ready\" | \"stale_evidence\" | \"partial_retrieval\" | \"ungrounded\" | \"source_only\"; audience?: \"clinician\" | \"plain\"; attribution?: \"model\" | \"extractive\"; medium?: \"screen\" | \"print\"; sourceCount?: number; printedAt?: string; printedBy?: string; className?: string;",
     "DoseLine": "rows: Array<{ id: string; drug: string; qualifier?: string; dose: { value: string; unit?: string }; frequency?: string; route?: string; maximum?: { value: string; unit?: string }; status: \"current\" | \"unknown\" | \"review_due\" | \"outdated\"; source?: { sourceId: string; title: string; locator?: string } }>; caption?: string; onOpenSource: (sourceId: string, locator?: string) => void; className?: string;",
     "AnswerFooter": "publisher?: string | null; version?: string | null; reviewDate?: string | null; generatedAt?: string | null; className?: string;",
     "InlineNotice": "tone: \"success\" | \"info\" | \"warning\" | \"danger\" | \"neutral\"; children?: React.ReactNode; onDismiss?: () => void; dismissLabel?: string; animated?: boolean; className?: string;",
@@ -41,10 +44,10 @@
     "SourceProvenance": "metadata?: { clinical_validation_status?: \"unverified\" | \"locally_reviewed\" | \"approved\"; review_date?: string; jurisdiction?: string; extraction_quality?: \"good\" | \"partial\" | \"poor\" | \"unknown\" };",
     "PanelHeading": "icon?: React.ComponentType<{ className?: string }>; title: string; description?: string;",
     "LoadingPanel": "label: string; variant?: \"spinner\" | \"skeleton\"; lines?: number;",
-    "EmptyState": "icon?: React.ComponentType<{ className?: string }>; title: string; body?: string; /** @deprecated alias for body */ description?: string; actions?: React.ReactNode; live?: \"polite\" | \"assertive\"; tone?: \"neutral\" | \"info\" | \"danger\";",
-    "Sheet": "open: boolean; onClose: () => void; title?: string; description?: string; children?: React.ReactNode; footer?: React.ReactNode; closeLabel?: string; headerActions?: React.ReactNode; placement?: \"default\" | \"left\"; mobilePlacement?: \"bottom\" | \"top\" | \"fullscreen\"; mobileSize?: \"content\" | \"viewport\"; portal?: boolean; contentClassName?: string; bodyClassName?: string;",
+    "EmptyState": "icon?: React.ComponentType<{ className?: string }>; title: string; body?: string; /** @deprecated alias for body */ description?: string; actions?: React.ReactNode; live?: \"polite\" | \"assertive\"; tone?: \"neutral\" | \"info\" | \"danger\"; headingLevel?: 2 | 3 | 4 | 5 | 6; testId?: string;",
+    "Sheet": "open: boolean; onClose: () => void; title?: string; description?: string; children: React.ReactNode; footer?: React.ReactNode; closeLabel?: string; labelledBy?: string; initialFocusRef?: React.RefObject<HTMLElement | null>; returnFocusRef?: React.RefObject<HTMLElement | null>; headerLeading?: React.ReactNode; titleAccessory?: React.ReactNode; descriptionContent?: React.ReactNode; headerActions?: React.ReactNode; headerClassName?: string; titleClassName?: string; closeButtonClassName?: string; contentClassName?: string; contentStyle?: React.CSSProperties; bodyClassName?: string; placement?: \"default\" | \"left\"; mobilePlacement?: \"bottom\" | \"top\" | \"fullscreen\"; mobileSize?: \"content\" | \"viewport\"; portal?: boolean; desktopBackdropClassName?: string; testId?: string; id?: string;",
     "SafeBoldText": "text: string;",
-    "AccessibleTable": "caption?: string | null; markdown?: string | null; rows?: string[][] | null; columns?: string[] | null; compact?: boolean; expandOnMobile?: boolean; previewRows?: number; hidePreviewCaption?: boolean; hidePreviewRowCount?: boolean; densePreview?: boolean; dialogTitle?: string | null; clinicalOnly?: boolean; rowActions?: Array<React.ReactNode | null>; actionsHeader?: string; lowConfidenceFallback?: React.ReactNode; columnAlign?: Array<\"start\" | \"end\" | \"auto\">; numericColumns?: number[];"
+    "AccessibleTable": "caption?: string | null; markdown?: string | null; rows?: string[][] | null; columns?: string[] | null; normalizedTable?: NormalizedAccessibleTable | null; compact?: boolean; expandOnMobile?: boolean; previewRows?: number; hidePreviewCaption?: boolean; hidePreviewRowCount?: boolean; densePreview?: boolean; dialogTitle?: string | null; clinicalOnly?: boolean; rowActions?: Array<React.ReactNode | null>; actionsHeader?: string; lowConfidenceFallback?: React.ReactNode; columnAlign?: Array<\"start\" | \"end\" | \"auto\">; numericColumns?: number[];"
   },
   "overrides": {
     "Sheet": { "cardMode": "single", "primaryStory": "OpenDialog", "viewport": "480x640" },
@@ -70,6 +73,7 @@
     "AnswerCard": "src/components/ui/answer-card.tsx",
     "DoseLine": "src/components/ui/answer-card.tsx",
     "AnswerFooter": "src/components/ui/answer-card.tsx",
+    "VerificationNotice": "src/components/ui/verification-notice.tsx",
     "AsyncButton": "src/components/ui-primitives.tsx",
     "IconButton": "src/components/ui-primitives.tsx",
     "Skeleton": "src/components/ui-primitives.tsx",

@@ -1,0 +1,804 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "targetLayer": "v2",
+    "liveLayer": "compatibility",
+    "remoteStatus": "unverified"
+  },
+  "requiredProofCategories": ["source", "exports", "productImports", "designSync", "preview", "tests", "baseline"],
+  "components": [
+    {
+      "name": "AccessibleTable",
+      "family": "source",
+      "source": "src/components/AccessibleTable.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/output-panel.tsx",
+        "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/document-viewer/source-panels.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AccessibleTable.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/accessible-table-alignment.dom.test.tsx",
+        "tests/accessible-table-fallback.test.ts",
+        "tests/accessible-table-normalization.test.ts",
+        "tests/accessible-table.dom.test.tsx",
+        "tests/ward-output.test.ts"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "AnswerCard",
+      "family": "answer",
+      "source": "src/components/ui/answer-card.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AnswerCard.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/answer-state-contract.test.ts",
+        "tests/answer-support-priority.dom.test.tsx",
+        "tests/design-sync-contract.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "AnswerFooter",
+      "family": "answer",
+      "source": "src/components/ui/answer-card.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AnswerFooter.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-answer-safety.dom.test.tsx", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "AsyncButton",
+      "family": "controls",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/search-results-header-band.tsx",
+        "src/components/DocumentManagementActions.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/AsyncButton.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-primitives.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Breadcrumb",
+      "family": "layout",
+      "source": "src/components/ui/page-header.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/information-page-shell.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Breadcrumb.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/information-page-shell.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Button",
+      "family": "controls",
+      "source": "src/components/ui/button.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/ui/confirm-dialog.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Button.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Chip",
+      "family": "controls",
+      "source": "src/components/ui/chip.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/applications-launcher-page.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Chip.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "ConfirmDialog",
+      "family": "layout",
+      "source": "src/components/ui/confirm-dialog.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ConfirmDialog.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "DoseLine",
+      "family": "answer",
+      "source": "src/components/ui/answer-card.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/DoseLine.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-answer-safety.dom.test.tsx", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "EmptyState",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
+        "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
+        "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/dsm/dsm-search-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/EmptyState.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/design-sync-contract.test.ts",
+        "tests/dsm-search-empty-state.dom.test.tsx",
+        "tests/ui-primitives.dom.test.tsx"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "IconButton",
+      "family": "controls",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/navigation-back-button.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/IconButton.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/icon-button.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "InlineNotice",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/ClinicalDashboard.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/DocumentViewer.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/InlineNotice.tsx",
+        "previewValid": true
+      },
+      "testFiles": [],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "LoadingPanel",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/clinical-dashboard-lazy.tsx",
+        "src/components/clinical-dashboard/dashboard-nav.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/medication-record-page.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/source-panels.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/LoadingPanel.tsx",
+        "previewValid": true
+      },
+      "testFiles": [],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "PageHeader",
+      "family": "layout",
+      "source": "src/components/ui/page-header.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/dsm/dsm-page-header.tsx", "src/components/information-page-shell.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/PageHeader.tsx",
+        "previewValid": true
+      },
+      "testFiles": [],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Pagination",
+      "family": "controls",
+      "source": "src/components/ui/pagination.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Pagination.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "PanelHeading",
+      "family": "layout",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/document-viewer/source-panels.tsx", "src/components/DocumentViewer.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/PanelHeading.tsx",
+        "previewValid": true
+      },
+      "testFiles": [],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "SafeBoldText",
+      "family": "layout",
+      "source": "src/components/SafeBoldText.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/clinical-dashboard/document-results.tsx",
+        "src/components/clinical-dashboard/output-panel.tsx",
+        "src/components/document-viewer/document-clinical-summary.tsx",
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/source-panels.tsx",
+        "src/components/DocumentViewer.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SafeBoldText.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/display-text.test.ts"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "SearchField",
+      "family": "controls",
+      "source": "src/components/ui/text-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SearchField.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Sheet",
+      "family": "layout",
+      "source": "src/components/ui/sheet.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/AccessibleTable.tsx",
+        "src/components/applications-launcher-page.tsx",
+        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/clinical-dashboard/ClinicalSidebar.tsx",
+        "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/clinical-dashboard/master-search-header.tsx",
+        "src/components/clinical-dashboard/mode-action-popup.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/differentials/diagnosis-map-panel.tsx",
+        "src/components/document-viewer/document-clinical-summary.tsx",
+        "src/components/document-viewer/section-nav.tsx",
+        "src/components/DocumentManagementActions.tsx",
+        "src/components/DocumentViewer.tsx",
+        "src/components/mode-nav/mode-nav.tsx",
+        "src/components/therapy-compass/filter-sheet.tsx",
+        "src/components/ui/confirm-dialog.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Sheet.tsx",
+        "previewValid": true
+      },
+      "testFiles": [
+        "tests/document-filter-panel.dom.test.tsx",
+        "tests/document-organization.test.ts",
+        "tests/mode-nav.dom.test.tsx",
+        "tests/rag-answer-fallback.test.ts",
+        "tests/settings-dialog-actions.dom.test.tsx",
+        "tests/sheet-focus-stress.dom.test.tsx",
+        "tests/sheet-focus.dom.test.tsx",
+        "tests/sheet.dom.test.tsx",
+        "tests/ui-accessibility.spec.ts",
+        "tests/ui-overlay-css-contract.test.ts",
+        "tests/ui-phone-scroll-page-owned.spec.ts",
+        "tests/ui-smoke.spec.ts",
+        "tests/xlsx-extraction-budget.test.ts"
+      ],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Skeleton",
+      "family": "feedback",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/app/(search-app)/differentials/diagnoses/[slug]/loading.tsx",
+        "src/app/(search-app)/differentials/presentations/[slug]/loading.tsx",
+        "src/app/(search-app)/medications/[slug]/loading.tsx",
+        "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/mode-home-page-skeleton.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Skeleton.tsx",
+        "previewValid": true
+      },
+      "testFiles": [],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "SourceDesignationBadge",
+      "family": "source",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SourceDesignationBadge.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/source-badges-off-vocab.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "SourceProvenance",
+      "family": "source",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SourceProvenance.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/source-badges-off-vocab.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "SourceStatusBadge",
+      "family": "source",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/SourceStatusBadge.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/source-badges-off-vocab.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Tabs",
+      "family": "controls",
+      "source": "src/components/ui/tabs.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Tabs.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-tools.spec.ts", "tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "TextField",
+      "family": "controls",
+      "source": "src/components/ui/text-field.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/formulation/formulation-builder-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/TextField.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "ToastRegion",
+      "family": "feedback",
+      "source": "src/components/ui/toast.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ToastRegion.tsx",
+        "previewValid": true
+      },
+      "testFiles": [],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "ToggleSwitch",
+      "family": "controls",
+      "source": "src/components/ui-primitives.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/forms/forms-search-results-page.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/ToggleSwitch.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-primitives.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "Tooltip",
+      "family": "feedback",
+      "source": "src/components/ui/tooltip.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/Tooltip.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/ui-v2-components.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    },
+    {
+      "name": "VerificationNotice",
+      "family": "answer",
+      "source": "src/components/ui/verification-notice.tsx",
+      "sourceExported": true,
+      "entryExported": true,
+      "productImportFiles": [
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
+        "src/components/ui/answer-card.tsx"
+      ],
+      "designSync": {
+        "listedInSourceMap": true,
+        "listedInDtsProps": true,
+        "preview": ".design-sync/previews/VerificationNotice.tsx",
+        "previewValid": true
+      },
+      "testFiles": ["tests/design-sync-contract.test.ts", "tests/ui-v2-answer-safety.dom.test.tsx"],
+      "baseline": {
+        "targetLayer": "v2",
+        "liveLayer": "compatibility",
+        "remoteStatus": "unverified"
+      }
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "forms",
+      "shellState": "compatibility",
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "sanctionedSpecialPatterns": ["ModeHomeHero"],
+      "roots": [
+        {
+          "file": "src/components/forms/form-detail-page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "sanctionedPatternsPresent": []
+        }
+      ]
+    },
+    {
+      "id": "search-results",
+      "shellState": "compatibility",
+      "permittedComponentFamilies": ["controls", "feedback", "layout"],
+      "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
+      "roots": [
+        {
+          "file": "src/components/clinical-dashboard/search-results-header-band.tsx",
+          "exists": true,
+          "imports": ["AsyncButton"],
+          "importedFamilies": ["controls"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "sanctionedPatternsPresent": ["SearchResultsHeaderBand"]
+        }
+      ]
+    },
+    {
+      "id": "answers",
+      "shellState": "compatibility",
+      "permittedComponentFamilies": ["answer", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["AnswerCard", "AnswerResultSurface"],
+      "roots": [
+        {
+          "file": "src/components/clinical-dashboard/answer-thread-turn.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "sanctionedPatternsPresent": []
+        }
+      ]
+    },
+    {
+      "id": "documents",
+      "shellState": "compatibility",
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["DocumentViewer"],
+      "roots": [
+        {
+          "file": "src/components/DocumentViewer.tsx",
+          "exists": true,
+          "imports": ["InlineNotice", "PanelHeading", "SafeBoldText", "Sheet"],
+          "importedFamilies": ["feedback", "layout"],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "sanctionedPatternsPresent": ["DocumentViewer"]
+        }
+      ]
+    },
+    {
+      "id": "source-preview",
+      "shellState": "compatibility",
+      "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
+      "sanctionedSpecialPatterns": ["SourcePreviewPopover"],
+      "roots": [
+        {
+          "file": "src/components/clinical-dashboard/source-preview-popover.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "sanctionedPatternsPresent": ["SourcePreviewPopover"]
+        }
+      ]
+    }
+  ],
+  "adoption": {
+    "literalCkbV2RootCount": 0,
+    "dynamicCkbV2RootCount": 0
+  },
+  "summary": {
+    "registeredComponentCount": 29,
+    "previewCount": 29,
+    "productImportedComponentCount": 20,
+    "rootCount": 5
+  }
+}
