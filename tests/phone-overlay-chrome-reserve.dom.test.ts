@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  phoneOverlayReserveGeometryQuietWindowMs,
   readPhoneOverlayChromeReservePx,
   usePhoneOverlayChromeReserve,
 } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
@@ -127,11 +128,14 @@ describe("readPhoneOverlayChromeReservePx", () => {
       expect(notifyResize).toBeTypeOf("function");
       notifyResize!([], {} as ResizeObserver);
     };
-    const flushFrame = () => {
+    const currentFrameCallback = () => {
       expect(pendingFrames.size).toBe(1);
-      const [frameId, callback] = pendingFrames.entries().next().value!;
+      return pendingFrames.entries().next().value! as [number, FrameRequestCallback];
+    };
+    const flushFrame = (timestamp: number) => {
+      const [frameId, callback] = currentFrameCallback();
       pendingFrames.delete(frameId);
-      callback(0);
+      callback(timestamp);
     };
 
     const { unmount } = renderHook(() => usePhoneOverlayChromeReserve());
@@ -139,14 +143,29 @@ describe("readPhoneOverlayChromeReservePx", () => {
     // The synchronous layout read sees a transient expanded stack. Publishing
     // it would create the recorded CSS seed -> 200px -> 72px CLS round trip.
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+    expect(phoneOverlayReserveGeometryQuietWindowMs).toBeGreaterThan(60);
 
     act(deliverResize);
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+    act(() => flushFrame(0));
+    act(() => flushFrame(16));
+    act(() => flushFrame(59));
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
 
+    const [, stale200Frame] = currentFrameCallback();
     stackHeight = 72;
     act(deliverResize);
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
-    act(flushFrame);
+    // A callback captured before the 72px observer delivery cannot publish its
+    // superseded 200px candidate even if the platform invokes it after cancel.
+    act(() => stale200Frame(60));
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+    expect(pendingFrames.size).toBe(1);
+
+    act(() => flushFrame(61));
+    act(() => flushFrame(61 + phoneOverlayReserveGeometryQuietWindowMs - 1));
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+    act(() => flushFrame(61 + phoneOverlayReserveGeometryQuietWindowMs));
 
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
 
@@ -155,23 +174,35 @@ describe("readPhoneOverlayChromeReservePx", () => {
     stackHeight = 96;
     act(deliverResize);
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
-    act(flushFrame);
+    act(() => flushFrame(200));
+    act(() => flushFrame(200 + phoneOverlayReserveGeometryQuietWindowMs - 1));
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
+    act(() => flushFrame(200 + phoneOverlayReserveGeometryQuietWindowMs));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("96px");
 
-    // A transient zero keeps the last confirmed positive value.
+    // A transient zero invalidates a pending positive candidate and keeps the
+    // last confirmed value; its stale callback cannot revive that candidate.
+    stackHeight = 104;
+    act(deliverResize);
+    const [, staleBeforeZero] = currentFrameCallback();
     stackHeight = 0;
     collapseHeight = 0;
     act(deliverResize);
+    act(() => staleBeforeZero(400));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("96px");
     expect(pendingFrames.size).toBe(0);
 
     // Desktop owns an explicit zero. Returning to phone releases that inline
     // override back to the CSS seed until a new height is confirmed.
+    stackHeight = 80;
+    collapseHeight = 72;
+    act(deliverResize);
+    const [, staleBeforeDesktop] = currentFrameCallback();
     mediaMatches = false;
     act(() => notifyMediaChange!(new Event("change")));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("0px");
-    stackHeight = 80;
-    collapseHeight = 72;
+    act(() => staleBeforeDesktop(500));
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("0px");
     act(deliverResize);
     expect(pendingFrames.size).toBe(0);
 
@@ -179,15 +210,19 @@ describe("readPhoneOverlayChromeReservePx", () => {
     act(() => notifyMediaChange!(new Event("change")));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
     act(deliverResize);
-    act(flushFrame);
+    act(() => flushFrame(600));
+    act(() => flushFrame(600 + phoneOverlayReserveGeometryQuietWindowMs));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("80px");
 
     // Cleanup cancels an outstanding confirmation and removes the inline value.
     stackHeight = 88;
     act(deliverResize);
     expect(pendingFrames.size).toBe(1);
+    const [, staleAfterUnmount] = currentFrameCallback();
     unmount();
     expect(pendingFrames.size).toBe(0);
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+    act(() => staleAfterUnmount(800));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
   });
 });

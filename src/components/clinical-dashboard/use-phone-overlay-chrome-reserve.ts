@@ -9,6 +9,14 @@ const collapseSelector = '[data-testid="universal-header-collapse"]';
 const reserveProperty = "--phone-overlay-chrome-h";
 
 /**
+ * #147 recorded the provisional 200px stack correcting to 72px 15–60ms later.
+ * Require 80ms of unchanged frame-sampled geometry: strictly beyond that
+ * observed window, with one nominal 60Hz frame of margin. This is elapsed
+ * rendering time, not a timer sleep; every geometry signal restarts the window.
+ */
+export const phoneOverlayReserveGeometryQuietWindowMs = 80;
+
+/**
  * Reads the phone overlay header stack height that `--phone-overlay-chrome-h`
  * should publish. Returns 0 when the stack is temporarily unmeasurable
  * (`display: contents`, mid-unmount) so callers can keep the previous value
@@ -46,49 +54,80 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
  *
  * On phone, a synchronous layout read is only provisional. Responsive layout
  * can briefly report the wide stack (observed as 200px) before settling to the
- * 72px phone stack. Keep the server-stable CSS seed until an observer candidate
- * remains unchanged across a later layout frame; otherwise hydration publishes
- * the transient value and then corrects it one frame later, creating avoidable
- * CLS. A transient `0` observer measurement likewise keeps the seed or last
- * positive reserve (Production UI #147; same failure class as PR #1562 / #146).
+ * 72px phone stack 15–60ms later. Keep the server-stable CSS seed until an
+ * observer candidate remains unchanged across the evidence-calibrated geometry
+ * quiet window; otherwise hydration can publish the transient value and then
+ * correct it, creating avoidable CLS. A transient `0` observer measurement
+ * likewise keeps the seed or last positive reserve (Production UI #147; same
+ * failure class as PR #1562 / #146).
  */
 export function usePhoneOverlayChromeReserve(): void {
   useLayoutEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia(phoneMediaQuery);
     let pendingHeight: number | null = null;
+    let quietSinceFrameMs: number | null = null;
     let confirmationFrame: number | null = null;
+    let confirmationGeneration = 0;
 
-    const cancelPendingConfirmation = () => {
+    const invalidatePendingConfirmation = () => {
+      confirmationGeneration += 1;
       pendingHeight = null;
+      quietSinceFrameMs = null;
       if (confirmationFrame === null) return;
       window.cancelAnimationFrame(confirmationFrame);
       confirmationFrame = null;
     };
 
-    const confirmPendingReserve = () => {
-      confirmationFrame = null;
-      if (!media.matches || pendingHeight === null) return;
+    const scheduleConfirmation = (expectedGeneration: number) => {
+      const frameId = window.requestAnimationFrame((frameTimestamp) => {
+        if (expectedGeneration !== confirmationGeneration) return;
+        if (confirmationFrame === frameId) confirmationFrame = null;
+        confirmPendingReserve(frameTimestamp, expectedGeneration);
+      });
+      confirmationFrame = frameId;
+    };
+
+    const stageCandidate = (height: number) => {
+      invalidatePendingConfirmation();
+      pendingHeight = height;
+      scheduleConfirmation(confirmationGeneration);
+    };
+
+    function confirmPendingReserve(frameTimestamp: DOMHighResTimeStamp, expectedGeneration: number) {
+      if (expectedGeneration !== confirmationGeneration || !media.matches || pendingHeight === null) {
+        return;
+      }
 
       const confirmed = readPhoneOverlayChromeReservePx();
       if (confirmed <= 0) {
-        pendingHeight = null;
+        invalidatePendingConfirmation();
         return;
       }
       if (confirmed !== pendingHeight) {
-        // Layout changed without (or before) another observer delivery. Treat
-        // the new value as provisional and confirm it on the next frame.
-        pendingHeight = confirmed;
-        confirmationFrame = window.requestAnimationFrame(confirmPendingReserve);
+        // A frame read can see new geometry before its observer delivery. Give
+        // that value a fresh full quiet window rather than inheriting time.
+        stageCandidate(confirmed);
         return;
       }
 
-      root.style.setProperty(reserveProperty, `${confirmed}px`);
-      pendingHeight = null;
-    };
+      if (quietSinceFrameMs === null) {
+        quietSinceFrameMs = frameTimestamp;
+        scheduleConfirmation(expectedGeneration);
+        return;
+      }
+      if (frameTimestamp - quietSinceFrameMs < phoneOverlayReserveGeometryQuietWindowMs) {
+        scheduleConfirmation(expectedGeneration);
+        return;
+      }
+
+      const stableHeight = confirmed;
+      invalidatePendingConfirmation();
+      root.style.setProperty(reserveProperty, `${stableHeight}px`);
+    }
 
     const syncBreakpoint = () => {
-      cancelPendingConfirmation();
+      invalidatePendingConfirmation();
       if (media.matches) {
         // A previous desktop match owns an inline `0px`. Remove it when
         // entering phone layout so the CSS seed remains authoritative until
@@ -102,22 +141,21 @@ export function usePhoneOverlayChromeReserve(): void {
     };
 
     const publishObservedReserve = () => {
-      if (!media.matches) return;
+      if (!media.matches) {
+        invalidatePendingConfirmation();
+        return;
+      }
       const measured = readPhoneOverlayChromeReservePx();
       if (measured <= 0) {
         // Keep the CSS seed (or the last positive inline value) rather than
         // publishing 0px on a one-frame miss during resize / remount.
-        cancelPendingConfirmation();
+        invalidatePendingConfirmation();
         return;
       }
       // Observer delivery proves that layout changed, not that it has settled.
-      // Stage the candidate and confirm it against a later layout frame. A
-      // newer observer delivery replaces the candidate and its scheduled read.
-      pendingHeight = measured;
-      if (confirmationFrame !== null) {
-        window.cancelAnimationFrame(confirmationFrame);
-      }
-      confirmationFrame = window.requestAnimationFrame(confirmPendingReserve);
+      // Every delivery restarts the measured quiet window, while a generation
+      // guard makes an already-cancelled callback harmless if it still runs.
+      stageCandidate(measured);
     };
 
     // Do not publish the synchronous layout read. During hydration or a
@@ -137,7 +175,7 @@ export function usePhoneOverlayChromeReserve(): void {
     media.addEventListener("change", syncBreakpoint);
 
     return () => {
-      cancelPendingConfirmation();
+      invalidatePendingConfirmation();
       resizeObserver?.disconnect();
       media.removeEventListener("change", syncBreakpoint);
       root.style.removeProperty(reserveProperty);
