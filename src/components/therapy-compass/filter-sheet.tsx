@@ -153,8 +153,17 @@ export function TherapyFilterTrigger({
       className={softControl}
     >
       <SlidersIcon size={15} strokeWidth={1.8} />
-      Filter
-      {activeCount > 0 ? <span className="nums">{activeCount}</span> : null}
+      {/* The label is the first thing to go when the line is tight — below 430px
+          the count and the query need every pixel and a badged glyph is
+          unambiguous. The accessible name below is unchanged either way. */}
+      <span className="max-[429px]:sr-only">Filter</span>
+      {activeCount > 0 ? (
+        // A tinted pill, not a solid disc: a saturated filled circle is the
+        // loudest signal on a bar that is otherwise hairlines and type.
+        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color-mix(in_oklab,var(--clinical-accent)_16%,transparent)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
+          {activeCount}
+        </span>
+      ) : null}
       <span className="sr-only">
         {activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "No filters active"}
       </span>

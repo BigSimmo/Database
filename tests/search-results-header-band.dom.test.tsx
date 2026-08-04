@@ -170,16 +170,102 @@ describe("SearchResultsHeaderBand", () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  // The accent used to be an absolutely-positioned bar inside an overflow:hidden
-  // rounded card, so the corner arc sliced its ends and it tapered away from the
-  // corner while the 1px border curved past it. It is now the card's own
-  // border-top, which mitres into the side borders by construction.
-  it("carries the accent as a border rather than a clipped overlay bar", () => {
+  // The accent was first an absolutely-positioned bar inside an overflow:hidden
+  // rounded card, so the corner arc sliced its ends; then the card's own
+  // border-top; and now an 18px lead mark inside the padding, because at 58px a
+  // line across the full width reads as a divider between the composer and the
+  // results rather than as the band's accent. Still in flow, never absolute —
+  // that is what the clipping fix bought and it must not be spent again.
+  it("carries the accent as an in-flow lead rule, not a clipped overlay bar", () => {
     render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={10} />);
 
     const region = screen.getByRole("region", { name: "Search results for CMHT" });
     expect(region).toHaveClass("search-band");
     expect(region.querySelector("span.absolute")).toBeNull();
+    const lead = region.querySelector(".search-band-lead");
+    expect(lead).not.toBeNull();
+    expect(lead).toHaveAttribute("data-tone", "accent");
+    expect(lead).toHaveAttribute("aria-hidden");
+  });
+
+  // The tile is gone, and with it the shape channel it carried: alert when the
+  // search faulted, a spinner while one ran. The mockup encoded those as colour
+  // alone, which makes a failed search identical to a successful one for a
+  // reader who cannot separate the hues — so state keeps a shape here, on three
+  // independent non-chromatic channels: the mark's stroke count, a glyph that
+  // renders only when something is wrong, and the absence of a number.
+  it.each([
+    ["error" as const, "warning", "Couldn’t search"],
+    ["unauthorized" as const, "warning", "Sign in to search"],
+    ["partial" as const, "warning", "6 services"],
+    ["ready" as const, "accent", "6 services"],
+    ["refetching" as const, "accent", "6 services"],
+  ])("carries %s state as shape, not only hue", (status, tone, text) => {
+    render(<SearchResultsHeaderBand modeId="services" query="CMHT" matchCount={6} status={status} />);
+
+    const region = screen.getByRole("region", { name: "Search results for CMHT" });
+    expect(region.querySelector(".search-band-lead")).toHaveAttribute("data-tone", tone);
+    expect(screen.getByRole("status")).toHaveTextContent(text);
+
+    // The clinical invariant, restated where the shape is: a faulted search has
+    // no count to report, so no digit may reach the DOM.
+    if (status === "error" || status === "unauthorized") {
+      expect(screen.getByRole("status").textContent ?? "").not.toMatch(/\d/);
+    }
+  });
+
+  it("pins Filter and Retry outside the scrolling track so neither can be swiped away", () => {
+    render(
+      <SearchResultsHeaderBand
+        modeId="favourites"
+        query="ward round"
+        matchCount={3}
+        status="partial"
+        onRetry={vi.fn()}
+        onSortChange={vi.fn()}
+        mobileControlsPlacement="inline"
+        mobileControls={<button type="button">Filter</button>}
+      />,
+    );
+
+    const utilities = screen.getByTestId("search-query-ribbon-utilities");
+    const track = screen.getByTestId("search-query-ribbon-utility-track");
+    const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
+
+    // Only the optional controls scroll. Sort is inside the track; Filter and
+    // Retry are siblings after it. Before this, Filter was the track's last
+    // child, so it was the first control to fall off the right edge once a mode
+    // added anything — the one control carrying filter state.
+    expect(track.contains(screen.getByRole("group", { name: "Sort results" }))).toBe(true);
+    expect(track.contains(pageFilters)).toBe(false);
+    expect(track.contains(screen.getByRole("button", { name: "Retry" }))).toBe(false);
+    expect(track.className).toContain("overflow-x-auto");
+    // Still the last child of the group: `ui-tools` asserts that placement,
+    // because the right edge is where the thumb already is.
+    expect(utilities.lastElementChild).toBe(pageFilters);
+  });
+
+  it("keeps a full-width phone control on its own row unless the page says otherwise", () => {
+    const control = <button type="button">Wide filter</button>;
+
+    const { rerender } = render(
+      <SearchResultsHeaderBand modeId="formulation" query="pattern" matchCount={4} mobileControls={control} />,
+    );
+    // Six modes pass a `w-full` native select here — two of them pass a pair in
+    // a two-column grid — and pinning one into a 58px line at 320px makes it
+    // unreadable. Unannounced page controls therefore keep today's own row.
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("w-full");
+
+    rerender(
+      <SearchResultsHeaderBand
+        modeId="documents"
+        query="pattern"
+        matchCount={4}
+        mobileControlsPlacement="inline"
+        mobileControls={control}
+      />,
+    );
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).not.toContain("w-full");
   });
 
   it("lets an explicit status override the deprecated loading shim", () => {

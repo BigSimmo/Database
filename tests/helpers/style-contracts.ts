@@ -192,20 +192,28 @@ export type StyleEffectContract = {
  */
 export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
   {
-    className: "search-band",
-    description: "search band accent rail is a live border",
+    className: "search-band-lead",
+    description: "search band accent lead rule is a live border",
     route: "/services?q=CMHT&run=1",
-    selector: '[data-testid="search-query-ribbon"]:visible',
-    // The exact regression: `border-top: 2px solid var(--clinical-accent)` painted
-    // nothing while the rule was layered.
-    computed: { borderTopWidth: "2px", borderTopStyle: "solid" },
-    nonInert: ["borderTopColor"],
-    colorToken: { property: "borderTopColor", token: "--clinical-accent" },
+    // The mark moved inside the padding when the band collapsed to one line: a
+    // 2px line across the full width read as a divider between the composer and
+    // the results rather than as the band's own accent.
+    selector: '[data-testid="search-query-ribbon"]:visible .search-band-lead',
+    // The exact regression, unchanged in kind: the accent is an unlayered rule
+    // that has to beat Tailwind's utilities layer, and when it loses it degrades
+    // to something that still passes every class-presence assertion — before, a
+    // neutral 1px border; now, a zero-width box. Assert computed style.
+    computed: { borderLeftWidth: "2px", borderLeftStyle: "solid" },
+    nonInert: ["borderLeftColor"],
+    colorToken: { property: "borderLeftColor", token: "--clinical-accent" },
     distinct: [
-      ["borderTopColor", "borderRightColor"],
-      ["borderTopWidth", "borderRightWidth"],
+      ["borderLeftColor", "borderTopColor"],
+      ["borderLeftWidth", "borderTopWidth"],
     ],
-    forcedColors: { borderTopWidth: "3px" },
+    // Under forced colors the mark survives as stroke count, not hue:
+    // --clinical-accent resolves to LinkText and --warning is not remapped at
+    // all, so a healthy search is one stroke and a degraded one is two.
+    forcedColors: { borderLeftWidth: "2px", borderLeftStyle: "solid" },
     // NOTE: an attribute-variant assertion (`[data-status="error"]` re-colours the
     // rail via `--warning`) was written and removed again. It failed in CI and then
     // reproduced locally, so it is NOT a timing race — the computed border colour

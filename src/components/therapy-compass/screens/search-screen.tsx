@@ -58,6 +58,8 @@ export function SearchScreen() {
         appliedFilters={appliedFilters}
         onClearFilters={b.clearSearchFilters}
         filterLabel="Filter therapy results"
+        // A compact badged trigger, so it shares the count line.
+        mobileControlsPlacement="inline"
         mobileControls={
           <TherapyFilterTrigger
             panelId={filterPanelId}

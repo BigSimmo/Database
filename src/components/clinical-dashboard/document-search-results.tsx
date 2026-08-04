@@ -630,15 +630,25 @@ function DocumentFilterTrigger({
       title="Filter documents"
       className={cn(
         floatingControl,
-        "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
+        // 10px leading, 11px trailing. Symmetric padding measures right and looks
+        // wrong here: a filled pill reads flush to its own edge while a stroked
+        // funnel reads inset from its box, so equal values put the badge visibly
+        // closer to the border than the glyph is.
+        "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] pl-2.5 pr-[0.6875rem] text-xs shadow-none sm:min-h-10 sm:min-w-10",
         activeCount > 0 &&
           "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
       )}
     >
       <Funnel aria-hidden="true" className="size-icon-md shrink-0" />
-      <span>Filter</span>
+      {/* The label is the first thing to go when the line is tight. Below 430px
+          the count and the query need every pixel, and a funnel carrying a badge
+          is unambiguous; the accessible name is unchanged either way. */}
+      <span className="max-[429px]:sr-only">Filter</span>
       {activeCount > 0 ? (
-        <span className="nums rounded bg-[color:var(--clinical-accent)] px-1 text-2xs font-bold text-[color:var(--surface)]">
+        // A tinted pill, not a solid disc: a saturated filled circle is the single
+        // loudest signal on a bar that is otherwise hairlines and type, and it
+        // reads as an alert rather than as a count.
+        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color-mix(in_oklab,var(--clinical-accent)_16%,transparent)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
           {activeCount}
         </span>
       ) : null}
@@ -1478,6 +1488,9 @@ function DocumentSearchResultsPanelImpl({
           filterLabel="Filter documents"
           // The same trigger goes in both slots: the ribbon shows `mobileControls`
           // below `sm` and `filterControls` from `sm` up, never both at once.
+          // The phone control here is a compact badged trigger, not a full-width
+          // select, so it shares the count line rather than taking a row of its own.
+          mobileControlsPlacement="inline"
           mobileControls={renderFilterTrigger("document-filter-trigger-phone")}
           filterControls={renderFilterTrigger("document-filter-trigger-wide")}
         />
