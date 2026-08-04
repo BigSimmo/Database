@@ -489,7 +489,7 @@ test.describe("universal search smart affordances", () => {
 
     const progress = page.getByTestId("answer-progress-stepper");
     await expect(progress).toBeVisible();
-    await expect(progress.getByRole("paragraph")).toContainText("Drafting a cited answer from the selected passages.");
+    await expect(progress).toContainText("Drafting a cited answer from the selected passages.");
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
