@@ -117,11 +117,12 @@ const EXTRACTIVE_WORDING: Record<"clinician" | "plain", Partial<Record<Verificat
 
 const RESPONSIVE_COMPACT_WORDING: Record<"model" | "extractive", Record<VerificationState, string>> = {
   model: {
-    ready: "AI-generated. Verify every clinical claim in the cited sources before acting.",
+    ready: "AI-generated. Verify every clinical claim against the cited sources before acting.",
     stale_evidence: "AI-generated; some cited sources are overdue. Re-verify every clinical claim before acting.",
     partial_retrieval:
       "AI-generated from incomplete sources and may omit guidance. Verify against cited sources before acting.",
-    ungrounded: "AI-generated; citations do not support every claim. Check each dose, number, timing and threshold.",
+    ungrounded:
+      "AI-generated. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     source_only: "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
   },
   extractive: {
@@ -129,13 +130,14 @@ const RESPONSIVE_COMPACT_WORDING: Record<"model" | "extractive", Record<Verifica
     stale_evidence: "Copied from cited sources; some are overdue. Re-verify every clinical claim before acting.",
     partial_retrieval:
       "Copied from incomplete sources and may omit guidance. Verify against cited sources before acting.",
-    ungrounded: "Copied from sources that do not support every claim. Check each dose, number, timing and threshold.",
+    ungrounded:
+      "Copied from cited sources without model synthesis. Sources could not be shown to support every claim. Check each dose, number, timing and threshold before acting.",
     source_only: "Copied from cited sources without model synthesis. Verify against the cited sources before acting.",
   },
 };
 
 const UNKNOWN_RESPONSIVE_COMPACT_WORDING =
-  "Answer provenance is unknown. Treat it as unverified and check every clinical claim in the cited sources before acting.";
+  "Answer provenance is unknown. Treat it as unverified and check every clinical claim against the cited sources before acting.";
 
 /**
  * Wording for a state this build does not recognise — a newer producer, a bad
@@ -174,6 +176,21 @@ function recordUnknownState(key: string): boolean {
   }
   loggedUnknownStates.add(key);
   return true;
+}
+
+/** Test-only seam for the bounded process-local unknown-state diagnostic recorder. */
+export function recordUnknownVerificationNoticeStateForTests(key: string): boolean {
+  return recordUnknownState(key);
+}
+
+/** Test-only seam for asserting FIFO eviction without exposing diagnostic state to callers. */
+export function recordedUnknownVerificationNoticeStateKeysForTests(): string[] {
+  return [...loggedUnknownStates];
+}
+
+/** Test-only reset for the process-local unknown-state diagnostic recorder. */
+export function resetRecordedUnknownVerificationNoticeStatesForTests() {
+  loggedUnknownStates.clear();
 }
 
 function wordingFor(
@@ -238,13 +255,13 @@ export function VerificationNotice({
       // document text above the answer actions, not an event. Print CSS may
       // never hide or clamp it, so no line-clamp and no print:hidden here.
       //
-      // Compact on phones, full size from `sm`. Every word survives at every
-      // width — the notice is the safety content and is never clamped, never
-      // collapsed behind a disclosure, and never dropped on a small screen.
-      // What changes is only the type scale, because at `text-sm` this block
-      // costs 160px above the prose on a 390px phone and pushes the answer's
-      // scroll runway past the in-flow chrome activation band
-      // (tests/ui-smoke.spec.ts:2224, ledger #226).
+      // Responsive compact renders its separately approved clinician wording on
+      // phones; the complete governed wording returns from `sm` and in print.
+      // Neither variant is clamped, collapsed behind a disclosure, or dropped
+      // on a small screen. At `text-sm`, the complete block costs 160px above
+      // the prose on a 390px phone and pushes the answer's scroll runway past
+      // the in-flow chrome activation band (tests/ui-smoke.spec.ts:2224,
+      // ledger #226).
       className={cn(
         "flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6",
         caution ? "text-[color:var(--warning)]" : null,

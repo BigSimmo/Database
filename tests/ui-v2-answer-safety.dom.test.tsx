@@ -7,7 +7,12 @@ import type { AnswerState, OverdueSource } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
 import { MissingValue, type MissingValueReason } from "@/components/ui/missing-value";
 import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
-import { VerificationNotice } from "@/components/ui/verification-notice";
+import {
+  VerificationNotice,
+  recordedUnknownVerificationNoticeStateKeysForTests,
+  recordUnknownVerificationNoticeStateForTests,
+  resetRecordedUnknownVerificationNoticeStatesForTests,
+} from "@/components/ui/verification-notice";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 const readyState: AnswerState = { kind: "ready", sourceCount: 4 };
@@ -150,10 +155,14 @@ describe("VerificationNotice", () => {
 
   it("preserves attribution and every state-specific instruction in responsive compact wording", () => {
     const cases = [
-      ["ready", "model", /AI-generated.*Verify every clinical claim/i],
+      ["ready", "model", /AI-generated.*Verify every clinical claim against the cited sources before acting/i],
       ["stale_evidence", "model", /some cited sources are overdue.*Re-verify every clinical claim/i],
       ["partial_retrieval", "model", /incomplete sources and may omit guidance.*Verify against cited sources/i],
-      ["ungrounded", "model", /citations do not support every claim.*dose, number, timing and threshold/i],
+      [
+        "ungrounded",
+        "model",
+        /Sources could not be shown to support every claim.*Check each dose, number, timing and threshold before acting/i,
+      ],
       [
         "source_only",
         "extractive",
@@ -168,7 +177,7 @@ describe("VerificationNotice", () => {
       [
         "ungrounded",
         "extractive",
-        /Copied from sources that do not support every claim.*dose, number, timing and threshold/i,
+        /Sources could not be shown to support every claim.*Check each dose, number, timing and threshold before acting/i,
       ],
     ] as const;
 
@@ -287,11 +296,38 @@ describe("VerificationNotice", () => {
     // Failing open to the neutral variant on a verification notice would weaken
     // the one disclaimer a clinician reads before acting.
     const state = "provenance_unavailable" as unknown as "ready";
-    render(<VerificationNotice state={state} />);
+    render(<VerificationNotice state={state} presentation="responsive-compact" />);
     const notice = screen.getByTestId("verification-notice");
     expect(notice).toHaveTextContent(/could not be established/i);
     expect(notice).toHaveTextContent(/unverified/i);
+    expect(screen.getByTestId("verification-notice-compact")).toHaveTextContent(
+      /check every clinical claim against the cited sources before acting/i,
+    );
     expect(notice.className).toContain("var(--warning)");
+  });
+
+  it("bounds unknown-state diagnostic records and re-logs evicted keys", () => {
+    resetRecordedUnknownVerificationNoticeStatesForTests();
+    const initialKeys = Array.from({ length: 32 }, (_, index) => `unknown:${index}`);
+
+    for (const key of initialKeys) {
+      expect(recordUnknownVerificationNoticeStateForTests(key)).toBe(true);
+    }
+    expect(recordUnknownVerificationNoticeStateForTests(initialKeys[0])).toBe(false);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toEqual(initialKeys);
+
+    expect(recordUnknownVerificationNoticeStateForTests("unknown:32")).toBe(true);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toHaveLength(32);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toEqual([...initialKeys.slice(1), "unknown:32"]);
+
+    expect(recordUnknownVerificationNoticeStateForTests(initialKeys[0])).toBe(true);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toHaveLength(32);
+    expect(recordedUnknownVerificationNoticeStateKeysForTests()).toEqual([
+      ...initialKeys.slice(2),
+      "unknown:32",
+      initialKeys[0],
+    ]);
+    resetRecordedUnknownVerificationNoticeStatesForTests();
   });
 });
 
