@@ -340,7 +340,7 @@ export function ModeHomeTemplate({
               {pillsAction}
             </div>
           ) : null}
-          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-2.5">
+          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0">
             {pills.map((pill) => {
               const PillIcon = pill.icon;
               const displayLabel = pill.shortLabel ?? pill.label;
