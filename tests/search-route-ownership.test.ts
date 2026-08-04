@@ -145,7 +145,11 @@ describe("shared-search route ownership", () => {
     expect(headerSource).toContain("desktopComposerPortalFallback");
     expect(headerSource).toContain("const homePortalPending = Boolean(desktopHomeComposerSlotId)");
     expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
-    expect(headerSource).toContain("window.performance.now() - portalRetryStartedAt");
+    expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
+    expect(headerSource).toContain("portalFailureStartedAt = null");
+    expect(headerSource).toContain("portalFailureStartedAt ??= now");
+    expect(headerSource).toContain("now - portalFailureStartedAt");
+    expect(headerSource).not.toContain("portalRetryStartedAt");
     expect(headerSource).not.toContain("portalRetryCount");
     expect(headerSource).toMatch(
       /desktopComposerPortalActive && desktopComposerPortalHost\s*\?\s*null\s*:\s*homePortalPending\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,

@@ -1085,7 +1085,7 @@ export function MasterSearchHeader({
     );
 
     let retryTimeout: number | null = null;
-    const portalRetryStartedAt = window.performance.now();
+    let portalFailureStartedAt: number | null = null;
     const portalFallbackDelayMs = 8_000;
     // Runs synchronously off the MutationObserver (which already coalesces
     // records into a microtask) rather than behind requestAnimationFrame.
@@ -1104,6 +1104,7 @@ export function MasterSearchHeader({
           window.clearTimeout(retryTimeout);
           retryTimeout = null;
         }
+        portalFailureStartedAt = null;
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
@@ -1111,8 +1112,19 @@ export function MasterSearchHeader({
       } else {
         host.parentNode?.removeChild(host);
         setDesktopComposerPortalActive(false);
-        const fallbackDelayRemaining = portalFallbackDelayMs - (window.performance.now() - portalRetryStartedAt);
-        if (mediaQuery.matches && fallbackDelayRemaining > 0) {
+        if (!mediaQuery.matches) {
+          if (retryTimeout !== null) {
+            window.clearTimeout(retryTimeout);
+            retryTimeout = null;
+          }
+          portalFailureStartedAt = null;
+          setDesktopComposerPortalFallback(false);
+          return;
+        }
+        const now = window.performance.now();
+        portalFailureStartedAt ??= now;
+        const fallbackDelayRemaining = portalFallbackDelayMs - (now - portalFailureStartedAt);
+        if (fallbackDelayRemaining > 0) {
           // Body mutations may arrive continuously while a route hydrates. They
           // must not consume the retry budget or reset its deadline; only one
           // elapsed-time poll is scheduled at once.
@@ -1125,7 +1137,7 @@ export function MasterSearchHeader({
               Math.min(200, fallbackDelayRemaining),
             );
           }
-        } else if (mediaQuery.matches) {
+        } else {
           // A missing/unhydrated page slot must not remove search forever. Home
           // routes suppress the header fallback during the bounded retry window
           // because ModeHomeTemplate already reserves the settled hero geometry;
