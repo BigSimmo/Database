@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page, type Route } from "playwright/test";
+import { demoAnswer } from "../src/lib/demo-data";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectSingleSettledOwner } from "./playwright-settlement";
 
@@ -376,27 +377,25 @@ const smartPayload = {
 };
 
 test.describe("universal search smart affordances", () => {
+  const syntheticAnswer = { ...demoAnswer("lithium dosing"), demoMode: true };
+
   async function mockSmartSearch(page: Page) {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       await fulfillUniversalSearch(route, smartPayload);
     });
     await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
-      const answer = {
-        answer: "Synthetic answer for the universal-search navigation check.",
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        demoMode: true,
-      };
       if (new URL(route.request().url()).pathname.endsWith("/stream")) {
         await route.fulfill({
-          body: `event: final\ndata: ${JSON.stringify(answer)}\n\n`,
+          body: [
+            `event: progress\ndata: ${JSON.stringify({ stage: "complete", message: "Answer ready.", elapsedMs: 40 })}`,
+            `event: final\ndata: ${JSON.stringify(syntheticAnswer)}`,
+            "",
+          ].join("\n\n"),
           contentType: "text/event-stream; charset=utf-8",
         });
         return;
       }
-      await route.fulfill({ json: answer });
+      await route.fulfill({ json: syntheticAnswer });
     });
   }
 
@@ -440,14 +439,6 @@ test.describe("universal search smart affordances", () => {
       await fulfillUniversalSearch(route, smartPayload);
     });
 
-    const answer = {
-      answer: "Synthetic answer for the deferred also-matches check.",
-      grounded: false,
-      confidence: "unsupported",
-      citations: [],
-      sources: [],
-      demoMode: true,
-    };
     await page.addInitScript(
       ({ payload }) => {
         const originalFetch = window.fetch.bind(window);
@@ -489,15 +480,16 @@ test.describe("universal search smart affordances", () => {
           );
         };
       },
-      { payload: answer },
+      { payload: syntheticAnswer },
     );
 
     const input = await openComposer(page, "/?mode=answer&focus=1");
     await input.fill("acamprosat");
     await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
-    await expect(page.getByTestId("answer-progress-stepper")).toBeVisible();
-    await expect(page.getByText("Drafting a cited answer from the selected passages.")).toBeVisible();
+    const progress = page.getByTestId("answer-progress-stepper");
+    await expect(progress).toBeVisible();
+    await expect(progress.getByRole("paragraph")).toContainText("Drafting a cited answer from the selected passages.");
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible({ timeout: 15_000 });
