@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Info } from "lucide-react";
 import { createRef, useState } from "react";
@@ -138,20 +138,30 @@ describe("Chip", () => {
     expect(onRemove).toHaveBeenCalledOnce();
   });
 
-  it("keeps compact and standard geometry explicit while the remove target stays 48px", () => {
+  it("pins compact to 24px/11px and standard to 28px/12px while the remove target stays 48px", () => {
     render(
-      <Chip
-        size="compact"
-        appearance={{ kind: "category", tone: "source" }}
-        onRemove={() => {}}
-        removeLabel="Remove source"
-      >
-        Source
-      </Chip>,
+      <>
+        <Chip
+          size="compact"
+          appearance={{ kind: "category", tone: "source" }}
+          onRemove={() => {}}
+          removeLabel="Remove source"
+        >
+          Source
+        </Chip>
+        <Chip size="standard">Long standard content</Chip>
+      </>,
     );
 
-    expect(screen.getByTestId("chip")).toHaveAttribute("data-size", "compact");
-    expect(screen.getByTestId("chip")).toHaveAttribute("data-appearance", "category");
+    const [compact, standard] = screen.getAllByTestId("chip");
+    expect(compact).toHaveAttribute("data-size", "compact");
+    expect(compact).toHaveAttribute("data-appearance", "category");
+    expect(compact).toHaveClass("h-6", "text-2xs");
+    expect(compact).not.toHaveClass("min-h-6");
+    expect(standard).toHaveAttribute("data-size", "standard");
+    expect(standard).toHaveClass("h-7", "text-xs");
+    expect(standard).not.toHaveClass("min-h-7");
+    expect(within(standard).getByText("Long standard content")).toHaveClass("max-h-full", "overflow-hidden");
     expect(screen.getByRole("button", { name: "Remove source" })).toHaveClass("h-tap", "w-tap");
   });
 });
@@ -487,6 +497,42 @@ describe("Tooltip", () => {
     await userEvent.keyboard("{Escape}");
     expect(onKeyDown).toHaveBeenCalled();
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
+  it("caps and clamps viewport-sized content inside a 320px viewport", async () => {
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 320 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 240 });
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return (
+        this.getAttribute("role") === "tooltip"
+          ? { x: 0, y: 0, left: 0, top: 0, right: 320, bottom: 500, width: 320, height: 500 }
+          : { x: 300, y: 220, left: 300, top: 220, right: 316, bottom: 236, width: 16, height: 16 }
+      ) as DOMRect;
+    });
+
+    try {
+      render(
+        <Tooltip content="A very long tooltip that must stay inside the phone viewport." placement="bottom">
+          <button type="button">Edge trigger</button>
+        </Tooltip>,
+      );
+      screen.getByRole("button", { name: "Edge trigger" }).focus();
+      const tooltip = await screen.findByRole("tooltip");
+      await waitFor(() => {
+        expect(tooltip.style.maxWidth).toBe("304px");
+        expect(tooltip.style.maxHeight).toBe("224px");
+        expect(tooltip.style.left).toBe("8px");
+        expect(tooltip.style.top).toBe("8px");
+      });
+    } finally {
+      rect.mockRestore();
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalHeight });
+    }
   });
 });
 

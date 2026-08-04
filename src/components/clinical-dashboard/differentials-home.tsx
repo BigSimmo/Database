@@ -328,11 +328,11 @@ function MatchBadge({ label }: { label: string }) {
 
 function Chip({
   children,
-  className,
+  fixed = false,
   density = "default",
 }: {
   children: string;
-  className?: string;
+  fixed?: boolean;
   /** Comfortable chips use a single exclusive type scale — never dual text-* via cn(). */
   density?: "default" | "comfortable";
 }) {
@@ -340,7 +340,7 @@ function Chip({
     <DesignChip
       size={density === "comfortable" ? "standard" : "compact"}
       appearance={{ kind: "information", tone: "quiet" }}
-      className={cn("min-w-0 max-w-full", className)}
+      className={cn("min-w-0 max-w-full", fixed && "shrink-0")}
     >
       {children}
     </DesignChip>
@@ -501,13 +501,11 @@ function MobileResultCard({
       </div>
       <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
-          <Chip key={`${result.id}-${tag}`} density="comfortable" className="max-w-full">
+          <Chip key={`${result.id}-${tag}`} density="comfortable">
             {tag}
           </Chip>
         ))}
-        {result.tags.length > 2 ? (
-          <Chip density="comfortable" className="shrink-0">{`+${result.tags.length - 2}`}</Chip>
-        ) : null}
+        {result.tags.length > 2 ? <Chip density="comfortable" fixed>{`+${result.tags.length - 2}`}</Chip> : null}
       </div>
     </article>
   );
@@ -593,12 +591,12 @@ function BestAnswerCard({
       </p>
       <div className={cn("flex min-w-0 max-w-full flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
         {visibleTags.map((tag) => (
-          <Chip key={tag} density={compact ? "comfortable" : "default"} className={compact ? "max-w-full" : undefined}>
+          <Chip key={tag} density={compact ? "comfortable" : "default"}>
             {tag}
           </Chip>
         ))}
         {hiddenTagCount > 0 ? (
-          <Chip density={compact ? "comfortable" : "default"} className={compact ? "shrink-0" : undefined}>
+          <Chip density={compact ? "comfortable" : "default"} fixed={compact}>
             {`+${hiddenTagCount}`}
           </Chip>
         ) : null}

@@ -83,6 +83,7 @@ export const metadataPillDensity = {
   comfortable: `${metadataPillBase} min-h-8 px-2.5 text-xs`,
   roomy: `${metadataPillBase} min-h-8 px-3 text-xs`,
   tap: `${metadataPillBase} min-h-tap px-3 text-xs`,
+  interactiveCompact: `${metadataPillBase} min-h-tap px-2.5 text-2xs sm:min-h-9 sm:px-3`,
 } as const;
 /** Standard metadata density. Use `metadataPillDensity` when a different named density is intentional. */
 export const metadataPill = metadataPillDensity.standard;
@@ -574,6 +575,7 @@ export function EmptyState({
   testId,
   align = "start",
   iconNode,
+  centeredTreatment = "neutral",
 }: {
   icon?: IconComponent;
   iconNode?: ReactNode;
@@ -607,6 +609,8 @@ export function EmptyState({
   testId?: string;
   /** Centred presentation for full-panel no-result states; semantics stay identical. */
   align?: "start" | "center";
+  /** Clinical-centred states retain a neutral panel with an accent icon and compact action offset. */
+  centeredTreatment?: "neutral" | "clinical";
 }) {
   const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   return (
@@ -625,10 +629,16 @@ export function EmptyState({
         {(Icon || iconNode) && (
           <span
             className={cn(
-              "grid shrink-0 place-items-center bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+              "shrink-0",
               align === "center" ? "mb-0.5 h-13 w-13 rounded-xl" : "h-10 w-10 rounded-lg",
-              tone === "info" && "bg-[color:var(--info-soft)] text-[color:var(--info)]",
-              tone === "danger" && "bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+              align === "center" && centeredTreatment === "clinical"
+                ? "inline-flex items-center justify-center bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : cn(
+                    "grid place-items-center",
+                    "bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+                    tone === "info" && "bg-[color:var(--info-soft)] text-[color:var(--info)]",
+                    tone === "danger" && "bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+                  ),
             )}
           >
             {Icon ? (
@@ -658,7 +668,15 @@ export function EmptyState({
               {body ?? description}
             </p>
           ) : null}
-          {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
+          {actions ? (
+            <div
+              className={cn(
+                align === "center" && centeredTreatment === "clinical" ? "mt-2" : "mt-3 flex flex-wrap gap-2",
+              )}
+            >
+              {actions}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -48,8 +48,8 @@ const INFORMATION: Record<ChipInformationTone, string> = {
 };
 
 const SIZE: Record<ChipSize, string> = {
-  compact: "min-h-6 px-2 text-2xs",
-  standard: "min-h-7 px-2.5 text-xs",
+  compact: "h-6 px-2 text-2xs",
+  standard: "h-7 px-2.5 text-xs",
 };
 
 function appearanceClasses(appearance: ChipAppearance) {
@@ -108,7 +108,7 @@ export function Chip({
     >
       {dot ? <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dotClasses(appearance))} /> : null}
       {Icon ? <Icon aria-hidden="true" className="size-icon-xs shrink-0" /> : null}
-      <span className="min-w-0 truncate" title={fullLabel}>
+      <span className="max-h-full min-w-0 overflow-hidden truncate" title={fullLabel}>
         {children}
       </span>
       {onRemove ? (

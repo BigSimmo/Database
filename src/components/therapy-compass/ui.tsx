@@ -154,7 +154,7 @@ export function EmptyState({
       iconNode={<Icon size={26} />}
       align="center"
       live="polite"
-      tone="info"
+      centeredTreatment="clinical"
     />
   );
 }

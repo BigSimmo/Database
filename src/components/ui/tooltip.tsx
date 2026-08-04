@@ -21,7 +21,13 @@ export type TooltipProps = {
   className?: string;
 };
 
-type Position = { left: number; top: number; placement: "top" | "bottom" };
+type Position = {
+  left: number;
+  top: number;
+  placement: "top" | "bottom";
+  maxWidth?: number;
+  maxHeight?: number;
+};
 
 export function Tooltip({ children, content, placement = "top", className }: TooltipProps) {
   const id = useId();
@@ -38,21 +44,27 @@ export function Tooltip({ children, content, placement = "top", className }: Too
     const tooltipRect = tooltip.getBoundingClientRect();
     const gap = 6;
     const margin = 8;
-    const roomAbove = triggerRect.top - margin;
-    const roomBelow = window.innerHeight - triggerRect.bottom - margin;
+    const horizontalMargin = Math.min(margin, Math.max(0, window.innerWidth / 2));
+    const verticalMargin = Math.min(margin, Math.max(0, window.innerHeight / 2));
+    const maxWidth = Math.max(0, Math.min(320, window.innerWidth - horizontalMargin * 2));
+    const maxHeight = Math.max(0, window.innerHeight - verticalMargin * 2);
+    const width = Math.min(tooltipRect.width, maxWidth);
+    const height = Math.min(tooltipRect.height, maxHeight);
+    const roomAbove = triggerRect.top - verticalMargin;
+    const roomBelow = window.innerHeight - triggerRect.bottom - verticalMargin;
     const resolvedPlacement =
-      placement === "top" && roomAbove < tooltipRect.height + gap && roomBelow > roomAbove
+      placement === "top" && roomAbove < height + gap && roomBelow > roomAbove
         ? "bottom"
-        : placement === "bottom" && roomBelow < tooltipRect.height + gap && roomAbove > roomBelow
+        : placement === "bottom" && roomBelow < height + gap && roomAbove > roomBelow
           ? "top"
           : placement;
-    const unclampedLeft = triggerRect.left + triggerRect.width / 2 - tooltipRect.width / 2;
-    const left = Math.max(margin, Math.min(unclampedLeft, window.innerWidth - tooltipRect.width - margin));
-    const top =
-      resolvedPlacement === "top"
-        ? Math.max(margin, triggerRect.top - tooltipRect.height - gap)
-        : Math.min(window.innerHeight - tooltipRect.height - margin, triggerRect.bottom + gap);
-    setPosition({ left, top, placement: resolvedPlacement });
+    const unclampedLeft = triggerRect.left + triggerRect.width / 2 - width / 2;
+    const maximumLeft = Math.max(horizontalMargin, window.innerWidth - width - horizontalMargin);
+    const left = Math.max(horizontalMargin, Math.min(unclampedLeft, maximumLeft));
+    const desiredTop = resolvedPlacement === "top" ? triggerRect.top - height - gap : triggerRect.bottom + gap;
+    const maximumTop = Math.max(verticalMargin, window.innerHeight - height - verticalMargin);
+    const top = Math.max(verticalMargin, Math.min(desiredTop, maximumTop));
+    setPosition({ left, top, placement: resolvedPlacement, maxWidth, maxHeight });
   }, [placement]);
 
   useEffect(() => {
@@ -100,7 +112,14 @@ export function Tooltip({ children, content, placement = "top", className }: Too
             id={id}
             data-testid="tooltip"
             data-placement={position.placement}
-            style={{ position: "fixed", left: position.left, top: position.top }}
+            style={{
+              position: "fixed",
+              left: position.left,
+              top: position.top,
+              maxWidth: position.maxWidth ?? "min(20rem, calc(100vw - 1rem))",
+              maxHeight: position.maxHeight ?? "calc(100vh - 1rem)",
+              overflowY: "auto",
+            }}
             className={cn(
               "pointer-events-none w-max max-w-xs rounded-md bg-[color:var(--surface-raised)] px-2 py-1 text-xs text-[color:var(--text)] shadow-[var(--shadow-hover)] ring-1 ring-[color:var(--border-lux)]",
               className,
