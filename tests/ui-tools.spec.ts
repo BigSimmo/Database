@@ -417,9 +417,13 @@ test.describe("Clinical KB tools launcher", () => {
         const categorySelect = page.getByTestId("tool-category-select");
         await expect(categorySelect).toBeVisible();
         await expect(categorySelect).toHaveAccessibleName("Filter by tool category");
-        await categorySelect.selectOption("assessment");
+        await categorySelect.click();
+        await page.getByRole("menuitemradio", { name: "Assess" }).click();
+        await expect(categorySelect).toHaveAttribute("data-value", "assessment");
         await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "Assess tools");
-        await categorySelect.selectOption("all");
+        await categorySelect.click();
+        await page.getByRole("menuitemradio", { name: "All tools" }).click();
+        await expect(categorySelect).toHaveAttribute("data-value", "all");
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
         await expect(selectedSheet).toBeVisible();
@@ -816,7 +820,8 @@ test.describe("Clinical KB tools launcher", () => {
     const quickFilter = page.getByTestId("service-quick-filter-select");
     await expect(quickFilter).toBeVisible();
     await expect(quickFilter).toHaveAccessibleName("Apply a quick service filter");
-    await quickFilter.selectOption("crisis");
+    await quickFilter.click();
+    await page.getByRole("menuitemradio", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
@@ -1598,15 +1603,18 @@ test.describe("Clinical KB tools launcher", () => {
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
     await expect(typeSelect).toHaveAccessibleName("Filter by result type");
-    await expect(typeSelect).toHaveValue("all");
-    await typeSelect.selectOption("diagnosis");
-    await expect(typeSelect).toHaveValue("diagnosis");
-    await typeSelect.selectOption("all");
+    await expect(typeSelect).toHaveAttribute("data-value", "all");
+    await typeSelect.click();
+    await page.getByRole("menuitemradio", { name: /Diagnoses/ }).click();
+    await expect(typeSelect).toHaveAttribute("data-value", "diagnosis");
+    await typeSelect.click();
+    await page.getByRole("menuitemradio", { name: /^All / }).click();
+    await expect(typeSelect).toHaveAttribute("data-value", "all");
 
-    // Sort is a segmented group and the page filter is a select. They no longer
-    // sit paired: Sort is inboard and the page filter renders last, hard against
-    // the ribbon's right edge. What still has to hold is that both keep a matched
-    // phone tap height, and that the utility rail owns any overflow.
+    // Sort is a segmented group and the page filter is a soft value button. They
+    // no longer sit paired: Sort is inboard and the page filter renders last, hard
+    // against the ribbon's right edge. What still has to hold is that both keep a
+    // matched phone tap height, and that the utility rail owns any overflow.
     const utilities = page.getByTestId("search-query-ribbon-utilities");
     const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
     const railMetrics = await utilities.evaluate((element) => ({
@@ -1705,15 +1713,18 @@ test.describe("Clinical KB tools launcher", () => {
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
     await expect(typeSelect).toHaveAccessibleName("Filter by result type");
-    await expect(typeSelect).toHaveValue("all");
-    await typeSelect.selectOption("presentation");
-    await expect(typeSelect).toHaveValue("presentation");
-    await typeSelect.selectOption("all");
+    await expect(typeSelect).toHaveAttribute("data-value", "all");
+    await typeSelect.click();
+    await page.getByRole("menuitemradio", { name: /Presentations/ }).click();
+    await expect(typeSelect).toHaveAttribute("data-value", "presentation");
+    await typeSelect.click();
+    await page.getByRole("menuitemradio", { name: /^All / }).click();
+    await expect(typeSelect).toHaveAttribute("data-value", "all");
 
-    // Sort is a segmented group and the page filter is a select. They no longer
-    // sit paired: Sort is inboard and the page filter renders last, hard against
-    // the ribbon's right edge. What still has to hold is that both keep a matched
-    // phone tap height, and that the utility rail owns any overflow.
+    // Sort is a segmented group and the page filter is a soft value button. They
+    // no longer sit paired: Sort is inboard and the page filter renders last, hard
+    // against the ribbon's right edge. What still has to hold is that both keep a
+    // matched phone tap height, and that the utility rail owns any overflow.
     const utilities = page.getByTestId("search-query-ribbon-utilities");
     const pageFilters = page.getByTestId("search-query-ribbon-mobile-controls");
     const railMetrics = await utilities.evaluate((element) => ({

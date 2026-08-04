@@ -915,10 +915,9 @@ export function CategoryFilterDirectionsMockupsPage() {
 
       <footer className="mt-12 border-t border-[color:var(--border)] pt-6 text-sm text-[color:var(--text-muted)]">
         <p>
-          Recommendation lean: ship <strong className="font-semibold text-[color:var(--text)]">A</strong> as the shared{" "}
-          <code className="text-xs font-semibold">MobileResultFilterControl</code> replacement (soft button + panel), or{" "}
-          <strong className="font-semibold text-[color:var(--text)]">B</strong> on Tools only if phone should match the
-          desktop chip row exactly. C is the lowest-risk visual swap if the Category label must stay.
+          Direction <strong className="font-semibold text-[color:var(--text)]">A</strong> is now shipped as the shared{" "}
+          <code className="text-xs font-semibold">MobileResultFilterControl</code> (soft value button + portaled menu).
+          Keep this study for comparison; B remains the alternate if Tools should match the desktop chip row exactly.
         </p>
       </footer>
     </main>

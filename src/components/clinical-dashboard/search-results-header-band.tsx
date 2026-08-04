@@ -2,7 +2,8 @@
 
 import {
   Bookmark,
-  ChevronsUpDown,
+  Check,
+  ChevronDown,
   CircleAlert,
   Funnel,
   LayoutList,
@@ -11,10 +12,22 @@ import {
   Table2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
 
@@ -604,6 +617,13 @@ export function ResultSortControl({
   );
 }
 
+/**
+ * Phone Category / Show / Filter control. Soft value button + custom menu —
+ * never a native `<select>`, which painted a harsh system-blue highlight over
+ * the selected value on mobile. Selection state uses the clinical-accent soft
+ * wash (open or non-default value); keyboard behaviour mirrors the DSM
+ * category filter (ArrowUp/Down open, roving focus, Escape dismisses).
+ */
 export function MobileResultFilterControl<Value extends string>({
   label,
   ariaLabel,
@@ -621,39 +641,197 @@ export function MobileResultFilterControl<Value extends string>({
   testId?: string;
   className?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const [menuBox, setMenuBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const menuId = useId();
+  const activeIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
+  );
+  const activeLabel = options[activeIndex]?.label ?? value;
+  const defaultValue = options[0]?.value;
+  const isFiltered = Boolean(defaultValue !== undefined && value !== defaultValue);
+
+  useDismissableLayer({
+    enabled: open,
+    refs: [rootRef, menuRef],
+    restoreFocusRef: triggerRef,
+    onDismiss: () => setOpen(false),
+  });
+
+  // The search-results band is `overflow-hidden`, so the menu is portaled and
+  // fixed to the trigger's viewport box instead of being clipped inside the band.
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuBox(null);
+      return undefined;
+    }
+    function syncMenuBox() {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      setMenuBox({
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: Math.max(rect.width, 12 * 16),
+      });
+    }
+    syncMenuBox();
+    window.addEventListener("resize", syncMenuBox);
+    window.addEventListener("scroll", syncMenuBox, true);
+    return () => {
+      window.removeEventListener("resize", syncMenuBox);
+      window.removeEventListener("scroll", syncMenuBox, true);
+    };
+  }, [open]);
+
+  function focusOption(index: number) {
+    const total = options.length;
+    if (total === 0) return;
+    const next = ((index % total) + total) % total;
+    optionRefs.current[next]?.focus();
+  }
+
+  function openMenu(focusIndex: number) {
+    setOpen(true);
+    window.requestAnimationFrame(() => focusOption(focusIndex));
+  }
+
+  function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      openMenu(activeIndex);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openMenu(options.length - 1);
+    }
+  }
+
+  function handleOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusOption(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusOption(options.length - 1);
+    }
+  }
+
+  function handleBlur(event: ReactFocusEvent<HTMLElement>) {
+    if (!open) return;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && (rootRef.current?.contains(nextTarget) || menuRef.current?.contains(nextTarget))) {
+      return;
+    }
+    setOpen(false);
+  }
+
+  const menu =
+    open && menuBox && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={menuRef}
+            id={menuId}
+            role="menu"
+            aria-label={ariaLabel}
+            onBlur={handleBlur}
+            style={{ top: menuBox.top, left: menuBox.left, width: menuBox.width }}
+            className="fixed z-[95] max-h-[min(18rem,50vh)] overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
+          >
+            {options.map((option, index) => {
+              const isActive = option.value === value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  ref={(element) => {
+                    optionRefs.current[index] = element;
+                  }}
+                  role="menuitemradio"
+                  aria-checked={isActive}
+                  aria-disabled={option.disabled || undefined}
+                  disabled={option.disabled}
+                  tabIndex={-1}
+                  data-value={option.value}
+                  onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                  onClick={() => {
+                    if (option.disabled) return;
+                    onChange(option.value);
+                    setOpen(false);
+                    window.requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
+                  }}
+                  className={cn(
+                    "flex min-h-tap w-full items-center justify-between gap-2 rounded-lg px-2.5 text-left text-sm font-semibold",
+                    focusRing,
+                    option.disabled
+                      ? "cursor-not-allowed text-[color:var(--text-soft)] opacity-60"
+                      : isActive
+                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                        : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+                  )}
+                >
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  {isActive ? <Check className="h-4 w-4 shrink-0" aria-hidden /> : null}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <label
-      className={cn(
-        "relative inline-flex min-h-tap w-full min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
-        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
-        className,
-      )}
-    >
-      <span className="shrink-0 text-[color:var(--text-soft)] max-[359px]:sr-only">{label}</span>
-      {/* Two things keep this readable. `truncate` ends a long option ("Current
-          search", a service name) in an ellipsis instead of the mid-word cut it used
-          to get. And the weight steps down to semibold because the size cannot: the
-          unlayered iOS anti-zoom rule in globals.css pins every native select to 16px
-          below `sm`, so weight and colour are the only hierarchy left against the
-          18px query heading. */}
-      <select
+    <div ref={rootRef} onBlur={handleBlur} className={cn("relative min-w-0", className)}>
+      <button
+        type="button"
+        ref={triggerRef}
         data-testid={testId}
-        value={value}
-        onChange={(event) => onChange(event.target.value as Value)}
+        data-value={value}
         aria-label={ariaLabel}
-        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onKeyDown={handleTriggerKeyDown}
+        onClick={() => (open ? setOpen(false) : openMenu(activeIndex))}
+        className={cn(
+          "inline-flex min-h-tap w-full min-w-0 items-center gap-1.5 rounded-xl border px-2.5 text-left text-xs font-bold transition",
+          focusRing,
+          open || isFiltered
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)]",
+        )}
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
-        aria-hidden
-      />
-    </label>
+        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)] max-[359px]:sr-only">
+          {label}
+        </span>
+        <span
+          className={cn(
+            "min-w-0 flex-1 truncate text-sm font-bold",
+            open || isFiltered ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
+          )}
+        >
+          {activeLabel}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      {menu}
+    </div>
   );
 }
 

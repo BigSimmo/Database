@@ -118,11 +118,14 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
 
-  await familySelect.selectOption("course-onset");
-  await expect(familySelect).toHaveValue("course-onset");
+  await familySelect.click();
+  await page.getByRole("menuitemradio", { name: "Course" }).click();
+  await expect(familySelect).toHaveAttribute("data-value", "course-onset");
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
 
-  await diagnosisSelect.selectOption("depressive");
+  await diagnosisSelect.click();
+  await page.getByRole("menuitemradio", { name: "Depressive" }).click();
+  await expect(diagnosisSelect).toHaveAttribute("data-value", "depressive");
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 

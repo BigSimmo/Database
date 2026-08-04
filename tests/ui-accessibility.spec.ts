@@ -465,15 +465,17 @@ test.describe("Clinical KB accessibility coverage", () => {
     const filterSelect = page.getByTestId("differential-result-type-select");
     await expect(filterSelect).toBeVisible();
     await expect(filterSelect).toHaveAccessibleName("Filter by result type");
-    await expect(filterSelect).toHaveValue("all");
+    await expect(filterSelect).toHaveAttribute("data-value", "all");
     await expect(page.getByRole("tab")).toHaveCount(0);
 
     await filterSelect.focus();
     await expect(filterSelect).toBeFocused();
-    await filterSelect.selectOption("presentation");
-    await expect(filterSelect).toHaveValue("presentation");
-    await filterSelect.selectOption("diagnosis");
-    await expect(filterSelect).toHaveValue("diagnosis");
+    await filterSelect.click();
+    await page.getByRole("menuitemradio", { name: /Presentations/ }).click();
+    await expect(filterSelect).toHaveAttribute("data-value", "presentation");
+    await filterSelect.click();
+    await page.getByRole("menuitemradio", { name: /Diagnoses/ }).click();
+    await expect(filterSelect).toHaveAttribute("data-value", "diagnosis");
   });
 
   test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {

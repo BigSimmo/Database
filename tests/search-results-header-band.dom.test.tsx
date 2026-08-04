@@ -345,7 +345,10 @@ describe("SearchResultsHeaderBand", () => {
     const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
     expect(utilities.lastElementChild).toBe(pageFilters);
     await user.click(within(utilities).getByRole("button", { name: "A–Z" }));
-    await user.selectOptions(within(pageFilters).getByLabelText("Filter by result type"), "diagnosis");
+    const filterTrigger = within(pageFilters).getByRole("button", { name: "Filter by result type" });
+    await user.click(filterTrigger);
+    // Menu is portaled to document.body so it is not clipped by the band.
+    await user.click(screen.getByRole("menuitemradio", { name: "Diagnoses (7)" }));
 
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
