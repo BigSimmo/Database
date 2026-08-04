@@ -14,6 +14,8 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   BookOpen,
+  Check,
+  ChevronDown,
   Clock3,
   Copy,
   ExternalLink,
@@ -27,6 +29,7 @@ import {
   MoreHorizontal,
   Pill,
   Route,
+  Search,
   Shield,
   ShieldAlert,
   Sparkles,
@@ -192,6 +195,8 @@ function DocumentFilterPanel({
   onToggle,
   onClear,
   resultCount,
+  documentCount,
+  onOpenLibrary,
   onDone,
 }: {
   open: boolean;
@@ -204,10 +209,50 @@ function DocumentFilterPanel({
   onToggle: (facet: SmartDocumentTagFacet) => void;
   onClear: () => void;
   resultCount: number;
+  /** The whole indexed corpus, for the readout and for Browse. */
+  documentCount: number;
+  /** Reach rather than refinement — see the footer. */
+  onOpenLibrary: () => void;
   onDone: () => void;
 }) {
   const active = new Set(activeKeys);
   const showSourceType = resultTabs.length > 1;
+  const searchId = useId();
+  const [needle, setNeedle] = useState("");
+  // Collapsed by default, because eleven groups in one phone column means
+  // reaching Document type is a scroll past ten sections. A group that carries a
+  // selection stays open: the reader put it there and it is the first thing they
+  // will want to undo.
+  const [expanded, setExpanded] = useState<ReadonlySet<SmartDocumentTagGroup>>(() => new Set());
+  const trimmedNeedle = needle.trim().toLowerCase();
+
+  const ordered = useMemo(
+    () =>
+      smartDocumentFacetGroups
+        .map((group) => groups.find((item) => item.group === group))
+        .filter((item): item is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(item))
+        .map(({ group, facets }) => ({
+          group,
+          facets: trimmedNeedle
+            ? facets.filter(
+                (facet) =>
+                  facet.label.toLowerCase().includes(trimmedNeedle) || group.toLowerCase().includes(trimmedNeedle),
+              )
+            : facets,
+        }))
+        .filter(({ facets }) => facets.length > 0),
+    [groups, trimmedNeedle],
+  );
+
+  // Both the find-a-filter field and collapse-by-default are answers to *eleven*
+  // groups in one phone column, and neither is worth its cost below that. A
+  // sheet showing two groups that are both shut is a scroll saved that did not
+  // exist and two taps added that did. Same threshold for both, so the sheet
+  // never search-but-does-not-collapse or the reverse.
+  const dense = groups.length > 3;
+  const showNeedle = dense;
+  const matchedFacets = trimmedNeedle ? ordered.reduce((total, item) => total + item.facets.length, 0) : 0;
+
   if (groups.length === 0 && !showSourceType) return null;
 
   return (
@@ -227,44 +272,149 @@ function DocumentFilterPanel({
             className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}
           >
             <X aria-hidden="true" className="h-3.5 w-3.5" />
-            Clear all
+            Clear filters
           </button>
         ) : null
       }
       footer={
-        // The count is the point of the panel: it tells the reader whether the
-        // combination they have built still returns anything before they dismiss
-        // it. `aria-live` is deliberate — the number changes under them as they
-        // toggle, and the sheet covers the results it describes.
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <span aria-live="polite" className={cn("nums mr-auto text-2xs font-semibold", textMuted)}>
-            {resultCount} document{resultCount === 1 ? "" : "s"}
-          </span>
+        <div className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {/* The count is the point of the panel: it tells the reader whether the
+                combination they have built still returns anything before they
+                dismiss it. `aria-live` is deliberate — the number changes under
+                them as they toggle, and the sheet covers the results it
+                describes. The bare repeat of the number beside the button is gone;
+                the button carries it, and the readout at the top carries the
+                proportion. */}
+            <span aria-live="polite" className="sr-only">
+              {resultCount} document{resultCount === 1 ? "" : "s"} match the current filters
+            </span>
+            <button
+              type="button"
+              onClick={onDone}
+              data-testid="document-filter-done"
+              className={cn(
+                "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              )}
+            >
+              Show {resultCount} document{resultCount === 1 ? "" : "s"}
+            </button>
+          </div>
+          {/* Below a rule, and phrased as reach rather than refinement. Library
+              spent the utility rail competing with Filter for the same edge while
+              answering a different question — Filter narrows what this query
+              returned, Library opens the whole corpus. Here it is the actual next
+              step, and it keeps the in-context route that stopped it being
+              deleted: the documents action menu clears the query. */}
           <button
             type="button"
-            onClick={onDone}
-            data-testid="document-filter-done"
+            onClick={onOpenLibrary}
+            data-testid="document-filter-browse-library"
             className={cn(
-              "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:min-h-12",
-              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              floatingControl,
+              "min-h-tap justify-start gap-2 rounded-lg border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
             )}
           >
-            Show {resultCount} document{resultCount === 1 ? "" : "s"}
+            <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+            <span>Browse all sources</span>
+            {documentCount > 0 ? (
+              <span className="nums ml-auto text-2xs text-[color:var(--text-soft)]">
+                {documentCount.toLocaleString()}
+              </span>
+            ) : null}
           </button>
         </div>
       }
     >
+      {/* The proportion, once, at the top. A meter rather than a second number:
+          "12 of 2,014" is a ratio the reader is judging, not a figure they are
+          reading off. It goes to `--warning` at zero so the state that needs
+          explaining is the one that looks different. */}
+      <div className="min-w-0">
+        <div
+          className="h-1 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+          role="presentation"
+          aria-hidden="true"
+        >
+          <span
+            className={cn(
+              "block h-full rounded-full",
+              resultCount === 0 ? "bg-[color:var(--warning)]" : "bg-[color:var(--clinical-accent)]",
+            )}
+            style={{
+              width:
+                documentCount > 0
+                  ? `${Math.max(resultCount === 0 ? 0 : 1.5, Math.min(100, (resultCount / documentCount) * 100))}%`
+                  : "0%",
+            }}
+          />
+        </div>
+        <p className={cn("nums mt-1.5 text-xs font-semibold", resultCount === 0 ? "text-[color:var(--warning)]" : "")}>
+          <span className={resultCount === 0 ? "" : "text-[color:var(--text-heading)]"}>{resultCount}</span>{" "}
+          <span className={resultCount === 0 ? "" : textMuted}>
+            of {documentCount > 0 ? documentCount.toLocaleString() : "—"} documents shown
+          </span>
+        </p>
+      </div>
+
+      {showNeedle ? (
+        <div className="mt-3 min-w-0">
+          <label htmlFor={searchId} className="sr-only">
+            Find a filter
+          </label>
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
+            <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-soft)]" />
+            <input
+              id={searchId}
+              type="search"
+              value={needle}
+              onChange={(event) => setNeedle(event.target.value)}
+              placeholder="Find a filter…"
+              data-testid="document-filter-find"
+              className="min-h-10 min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-soft)] sm:min-h-9"
+            />
+            {needle ? (
+              <button
+                type="button"
+                onClick={() => setNeedle("")}
+                aria-label="Clear the filter search"
+                className="grid min-h-tap min-w-tap place-items-center text-[color:var(--text-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
+              >
+                <X aria-hidden="true" className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
+          <p aria-live="polite" className="sr-only">
+            {trimmedNeedle ? `${matchedFacets} filter${matchedFacets === 1 ? "" : "s"} match “${needle.trim()}”` : ""}
+          </p>
+        </div>
+      ) : null}
+
       {showSourceType ? (
-        <section className="min-w-0">
-          <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-            <BookOpen aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
-            Source type
-          </h3>
+        <section className="mt-4 min-w-0">
+          <div className="flex items-baseline justify-between gap-2">
+            <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+              <BookOpen aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
+              Source type
+            </h3>
+            {/* Stated, because the shape alone still has to be learned once.
+                Source type replaces; the facets below accumulate. */}
+            <span className="text-2xs font-semibold text-[color:var(--clinical-accent)]">one only</span>
+          </div>
           {/* Radio semantics, not toggles: picking one source type replaces the
               last, so `aria-pressed` on four buttons would describe a state the
-              filter cannot be in. */}
-          <div role="radiogroup" aria-label="Source type" className="mt-2 flex flex-wrap gap-1.5">
-            {resultTabs.map((tab) => {
+              filter cannot be in. Now it also LOOKS exclusive — a joined
+              segmented control reads as one-of on sight, where four separate
+              chips of the same size and radius as the additive facets below made
+              the OR-within-group, AND-across-groups model something you had to
+              discover by experiment. */}
+          <div
+            role="radiogroup"
+            aria-label="Source type"
+            className="mt-2 inline-flex max-w-full flex-wrap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)]"
+          >
+            {resultTabs.map((tab, index) => {
               const selected = tab.key === activeResultType;
               const Icon = resultTypeIcons[tab.key];
               return (
@@ -275,18 +425,17 @@ function DocumentFilterPanel({
                   aria-checked={selected}
                   onClick={() => onResultTypeChange(tab.key)}
                   className={cn(
-                    "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    "inline-flex min-h-tap max-w-full items-center gap-1.5 px-3 text-2xs font-semibold transition motion-reduce:transition-none sm:min-h-9 lg:min-h-8",
+                    index > 0 && "border-l border-[color:var(--border)]",
+                    "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                     selected
-                      ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                      : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
                   )}
                 >
                   <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{tab.label}</span>
-                  <span className="nums rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
-                    {tab.count}
-                  </span>
+                  <span className="nums text-[color:var(--text-soft)]">{tab.count}</span>
                 </button>
               );
             })}
@@ -294,19 +443,73 @@ function DocumentFilterPanel({
         </section>
       ) : null}
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {smartDocumentFacetGroups
-          .map((group) => groups.find((item) => item.group === group))
-          .filter((group): group is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(group))
-          .map(({ group, facets }) => {
-            const Icon = documentFacetIcons[group];
-            return (
-              <section key={group} className="min-w-0">
-                <h3 className="flex items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-                  <Icon className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
-                  {group}
-                </h3>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-2 grid gap-0 lg:grid-cols-2 lg:gap-x-5 xl:grid-cols-3">
+        {ordered.map(({ group, facets }) => {
+          const Icon = documentFacetIcons[group];
+          const selectedCount = facets.filter((facet) => active.has(facet.key)).length;
+          // A search expands what it matched; otherwise a group opens because it
+          // holds a selection, or because there are few enough groups that
+          // collapsing them buys nothing.
+          const isOpen = !dense || Boolean(trimmedNeedle) || expanded.has(group) || selectedCount > 0;
+          const groupPanelId = `${panelId}-${group.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+          return (
+            <section key={group} className="min-w-0 border-t border-[color:var(--border)] py-1">
+              <h3>
+                {/* A heading is only a disclosure control where there is
+                    something to disclose. Below the density threshold every
+                    group is open and permanently so, and a button advertising a
+                    collapse that never happens is a control that does nothing. */}
+                {dense ? (
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={groupPanelId}
+                    onClick={() =>
+                      setExpanded((current) => {
+                        const next = new Set(current);
+                        if (isOpen) next.delete(group);
+                        else next.add(group);
+                        return next;
+                      })
+                    }
+                    className={cn(
+                      "flex min-h-tap w-full items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                    )}
+                  >
+                    <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
+                    <span className="truncate">{group}</span>
+                    {/* The count is what makes a collapsed group honest: a closed
+                        section that is silently narrowing the list is worse than
+                        the scroll it saves. */}
+                    {selectedCount > 0 ? (
+                      <span className="nums ml-auto text-2xs font-semibold text-[color:var(--clinical-accent)]">
+                        {selectedCount} selected
+                      </span>
+                    ) : null}
+                    <ChevronDown
+                      aria-hidden="true"
+                      className={cn(
+                        "size-icon-sm shrink-0 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                        selectedCount > 0 ? "ml-1.5" : "ml-auto",
+                        isOpen ? "rotate-0" : "-rotate-90",
+                      )}
+                    />
+                  </button>
+                ) : (
+                  <span className="flex min-h-9 w-full items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+                    <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
+                    <span className="truncate">{group}</span>
+                    {selectedCount > 0 ? (
+                      <span className="nums ml-auto text-2xs font-semibold text-[color:var(--clinical-accent)]">
+                        {selectedCount} selected
+                      </span>
+                    ) : null}
+                  </span>
+                )}
+              </h3>
+              <div id={groupPanelId} hidden={!isOpen}>
+                <div className="flex flex-wrap gap-2 pb-2.5 sm:gap-1.5">
                   {facets.map((facet) => {
                     const selected = active.has(facet.key);
                     // Zero-count unselected facets stay visible so the list does not
@@ -339,7 +542,13 @@ function DocumentFilterPanel({
                             : `Filter to ${facet.label}`
                         }
                         className={cn(
-                          "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
+                          // 28px was the sheet's whole interactive surface on the
+                          // device it exists for, packed at `gap-1.5` so a
+                          // neighbouring mis-tap was likely. The floor is the tap
+                          // token here too, relaxing to compact density from `sm`
+                          // where a pointer is likely.
+                          "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border px-2.5 text-2xs font-semibold shadow-[var(--shadow-inset)] transition motion-reduce:transition-none sm:min-h-9 sm:gap-1 sm:px-2 lg:min-h-8",
+                          "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                           // Three mutually exclusive branches, not a base plus an
                           // override: `cn` is a plain join, so two competing
                           // `border-[color:…]` utilities would both reach the DOM
@@ -360,22 +569,27 @@ function DocumentFilterPanel({
                               : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                         )}
                       >
+                        {selected ? <Check aria-hidden="true" className="h-3 w-3 shrink-0" /> : null}
                         <span className="truncate">{facet.label}</span>
                         {deadEnd ? (
                           <span id={deadEndDescId} className="sr-only">
                             No documents match this with the current filters.
                           </span>
                         ) : null}
-                        <span className="rounded bg-[color:var(--surface)] px-1 text-2xs text-[color:var(--text-muted)]">
-                          {facet.count}
-                        </span>
+                        <span className="nums text-[color:var(--text-soft)]">{facet.count}</span>
                       </button>
                     );
                   })}
                 </div>
-              </section>
-            );
-          })}
+              </div>
+            </section>
+          );
+        })}
+        {trimmedNeedle && ordered.length === 0 ? (
+          <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+            No filter matches “{needle.trim()}”.
+          </p>
+        ) : null}
       </div>
     </Sheet>
   );
@@ -1243,30 +1457,22 @@ function DocumentSearchResultsPanelImpl({
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
           sortValue={sortValue}
           onSortChange={matches.length > 0 ? setSortValue : undefined}
-          // Kept in the ribbon rather than deferred to the documents action
-          // menu: that menu item routes through `onSearchModeChange`, which
-          // clears the query and the submitted flag, so reaching the library
-          // that way would discard the search the reader is looking at. This is
-          // the only in-context route to it. Its old name ("Open source
-          // filters" / "Filter and browse sources") is what made it read as a
-          // second filter next to Filter — browsing is not refining.
-          utilityControls={
-            !loading && !shouldShowHome ? (
-              <button
-                type="button"
-                onClick={onOpenLibrary}
-                aria-label="Open source library"
-                title="Browse all indexed sources"
-                className={cn(
-                  floatingControl,
-                  "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
-                )}
-              >
-                <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
-                <span>Library</span>
-              </button>
-            ) : null
-          }
+          // Library has left the rail. It sat adjacent to Filter while answering
+          // a different question — Filter narrows what this query returned,
+          // Library opens the whole indexed corpus — and that proximity is what
+          // made the old name ("Filter and browse sources") read as a second
+          // filter; renaming treated the symptom. It also occupied the rail
+          // space the pinned Filter needs, and was the reason the phone rail
+          // could overflow at all: without it documents carries only Sort and
+          // Filter.
+          //
+          // It is moved, not removed. The requirement the old comment here was
+          // protecting still holds — the documents action menu routes through
+          // `onSearchModeChange`, which calls `setQuery("")`, so reaching the
+          // library that way discards the search being read. Both of its new
+          // homes are in-context and preserve the query: the filter sheet's
+          // footer, and the zero-result state, which are the two moments
+          // browsing is actually the next step.
           appliedFilters={appliedFilters}
           onClearFilters={clearAllFilters}
           filterLabel="Filter documents"
@@ -1343,6 +1549,8 @@ function DocumentSearchResultsPanelImpl({
               onToggle={toggleTagFacet}
               onClear={clearAllFilters}
               resultCount={sortedMatches.length}
+              documentCount={documentCount}
+              onOpenLibrary={onOpenLibrary}
               onDone={() => setFilterPanelState({ query, open: false })}
             />
           ) : null}
