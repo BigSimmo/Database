@@ -209,6 +209,10 @@ const strategies = budget.strategies ?? ["mobile", "desktop"];
  * The env override exists for a deliberate one-off comparison, not for CI.
  */
 const LIGHTHOUSE_VERSION = process.env.LIGHTHOUSE_VERSION ?? budget.lighthouseVersion ?? "12.8.2";
+// Node's Windows process launcher does not resolve PowerShell's `npx.ps1` from a
+// bare `npx` command. Use the cmd shim explicitly so a complete build cannot be
+// followed by ten silent ENOENT measurements and an empty evidence directory.
+const npxExecutable = process.platform === "win32" ? "npx.cmd" : "npx";
 
 if (routes.length === 0) {
   console.error("run-lighthouse-budget: lighthouse-budget.json lists no routes to measure.");
@@ -296,7 +300,7 @@ try {
       const output = path.join(reportDirectory, `${strategy}-${slugFor(route)}.json`);
       console.log(`Measuring ${strategy} ${route}`);
       const result = spawnSync(
-        "npx",
+        npxExecutable,
         [
           "--yes",
           `lighthouse@${LIGHTHOUSE_VERSION}`,

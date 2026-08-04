@@ -315,6 +315,14 @@ describe("committed lighthouse-budget.json", () => {
   it("names a strategy set the grader understands", () => {
     expect(committed.strategies).toEqual(["mobile", "desktop"]);
   });
+
+  it("uses the executable npx shim on Windows", () => {
+    const runner = readFileSync(path.join(process.cwd(), "scripts", "run-lighthouse-budget.mjs"), "utf8");
+
+    expect(runner).toContain('const npxExecutable = process.platform === "win32" ? "npx.cmd" : "npx";');
+    expect(runner).toMatch(/spawnSync\(\s*npxExecutable,/);
+    expect(runner).not.toMatch(/spawnSync\(\s*"npx",/);
+  });
 });
 
 describe("renderBudgetTable", () => {
