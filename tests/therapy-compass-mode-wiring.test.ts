@@ -56,6 +56,8 @@ describe("Therapy Compass production-mode wiring", () => {
     );
 
     expect(appModesSrc).toContain('label: "Therapy"');
+    expect(appModesSrc).toContain('placeholder: "Search therapies…"');
+    expect(appModesSrc).toContain('inputAriaLabel: "Search therapies by problem, symptom, skill, or population"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
     expect(homeSrc).toContain('title="Therapy"');
     // Search route owns filters/results only; the results ribbon is the page h1.

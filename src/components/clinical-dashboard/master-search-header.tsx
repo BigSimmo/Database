@@ -360,8 +360,7 @@ export function MasterSearchHeader({
   // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
-  // The default/inline composer stays mounted until the portal host is attached.
-  // Dual composers may coexist briefly during handoff; search never vanishes.
+  const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -1057,6 +1056,7 @@ export function MasterSearchHeader({
         if (cancelled) return;
         setDesktopComposerPortalActive(false);
         setDesktopComposerPortalHost(null);
+        setDesktopComposerPortalFallback(false);
       });
       return () => {
         cancelled = true;
@@ -1107,12 +1107,19 @@ export function MasterSearchHeader({
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
+        setDesktopComposerPortalFallback(false);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopComposerPortalActive(false);
         if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
+        } else if (mediaQuery.matches) {
+          // A missing/unhydrated page slot must not remove search forever. Home
+          // routes suppress the header fallback during the bounded retry window
+          // because ModeHomeTemplate already reserves the settled hero geometry;
+          // only surface the fallback after portal adoption has genuinely failed.
+          setDesktopComposerPortalFallback(true);
         }
       }
     };
@@ -1133,6 +1140,7 @@ export function MasterSearchHeader({
       host.parentNode?.removeChild(host);
       setDesktopComposerPortalActive(false);
       setDesktopComposerPortalHost(null);
+      setDesktopComposerPortalFallback(false);
     };
   }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint]);
 
@@ -2076,12 +2084,19 @@ export function MasterSearchHeader({
   );
 
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
+  const homePortalPending = Boolean(desktopHomeComposerSlotId) && !desktopComposerPortalFallback;
   const searchComposer = searchComposerVisible ? (
     <>
-      {/* Keep the default composer visible until the portal host is actually
-          attached. Suppressing on slotId alone left a null gap while the
-          mode-home/page slot remounted or MutationObserver rebound. */}
-      {desktopComposerPortalActive && desktopComposerPortalHost ? null : renderSearchComposer("default")}
+      {/* ModeHomeTemplate reserves the final hero-composer height in SSR, so a
+          temporary header fallback would make the stack 204px and move all main
+          content up 132px when the portal attaches. Generic page slots do not
+          reserve geometry and retain the immediate fallback. A failed home
+          adoption restores it after the bounded retry window above. */}
+      {desktopComposerPortalActive && desktopComposerPortalHost
+        ? null
+        : homePortalPending
+          ? null
+          : renderSearchComposer("default")}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? createPortal(renderSearchComposer(portalPlacement), desktopComposerPortalHost)
         : null}

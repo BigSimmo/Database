@@ -267,13 +267,17 @@ try {
   }
 
   await browser.close();
+  mkdirSync(path.dirname(outFile), { recursive: true });
   writeFileSync(outFile, `${JSON.stringify(results, null, 2)}\n`, "utf8");
   console.log(`[cls] wrote ${path.relative(projectRoot, outFile)}`);
 
   const allZero = Object.values(results).every((result) => result.total === 0);
-  if (allZero) {
+  const instrumentationMissing = Object.values(results).every(
+    (result) => result.entries.length === 0 && result.reserveTimeline.length === 0,
+  );
+  if (allZero && instrumentationMissing) {
     console.error(
-      "::error::every route reported CLS 0 with no shift entries. That is the known " +
+      "::error::every route reported CLS 0 with no shift entries or reserve timeline. That is the known " +
         "instrumentation failure, not a clean result — check the init script installed correctly.",
     );
     process.exitCode = 1;

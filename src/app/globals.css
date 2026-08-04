@@ -59,6 +59,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Mode-home composer slots reserve their settled portal geometry before the
+     client host adopts them. Without this structural reserve, Therapy moved the
+     entire action stack when hydration relocated the composer (CLS 0.248).
+     These are layout tokens, not a second v2 colour/theme source. */
+  --spacing-mode-home-composer-phone: 7.625rem;
+  --spacing-mode-home-composer-wide: 5.5rem;
+
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
      scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
      and so a step can carry a responsive variant: `size-icon-md sm:size-icon-lg`.
