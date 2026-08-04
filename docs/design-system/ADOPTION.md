@@ -321,22 +321,24 @@ Dynamic `ckb-v2` constructions: 0
 Declared production page routes: 47/47
 
 The live product remains on the compatibility layer until a declared root opts into the v2 class literally.
+The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
+A v2 shell declaration fails closed unless every proof is passed with evidence and its visual baseline is committed.
 
-| Surface                            | Disposition     | Routes | Roots | Expected shell |
-| ---------------------------------- | --------------- | -----: | ----: | -------------- |
-| `root-shell-and-settings`          | shared-shell    |      1 |     4 | compatibility  |
-| `catalogues-forms-and-info`        | owned           |     13 |    13 | compatibility  |
-| `differentials`                    | owned           |      4 |     4 | compatibility  |
-| `formulation`                      | owned           |      5 |     5 | compatibility  |
-| `specifiers`                       | owned           |      5 |     5 | compatibility  |
-| `therapy-compass`                  | owned           |      9 |    10 | compatibility  |
-| `documents-and-source-evidence`    | owned           |      3 |     4 | compatibility  |
-| `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | compatibility  |
-| `favourites`                       | owned           |      1 |     1 | compatibility  |
-| `tools-and-calculators`            | owned           |      2 |     2 | compatibility  |
-| `privacy-safety-and-reference`     | owned           |      3 |     3 | compatibility  |
-| `search-results-shared`            | shared-shell    |      0 |     1 | compatibility  |
-| `answers-shared`                   | shared-shell    |      0 |     2 | compatibility  |
-| `source-preview-shared`            | shared-shell    |      0 |     1 | compatibility  |
+| Surface                            | Disposition     | Routes | Roots | Expected shell | Proof          | Baseline       |
+| ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------- | -------------- |
+| `root-shell-and-settings`          | shared-shell    |      1 |     4 | compatibility  | unverified     | not-committed  |
+| `catalogues-forms-and-info`        | owned           |     13 |    13 | compatibility  | unverified     | not-committed  |
+| `differentials`                    | owned           |      4 |     4 | compatibility  | unverified     | not-committed  |
+| `formulation`                      | owned           |      5 |     5 | compatibility  | unverified     | not-committed  |
+| `specifiers`                       | owned           |      5 |     5 | compatibility  | unverified     | not-committed  |
+| `therapy-compass`                  | owned           |      9 |    10 | compatibility  | unverified     | not-committed  |
+| `documents-and-source-evidence`    | owned           |      3 |     4 | compatibility  | unverified     | not-committed  |
+| `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | compatibility  | not-applicable | not-applicable |
+| `favourites`                       | owned           |      1 |     1 | compatibility  | unverified     | not-committed  |
+| `tools-and-calculators`            | owned           |      2 |     2 | compatibility  | unverified     | not-committed  |
+| `privacy-safety-and-reference`     | owned           |      3 |     3 | compatibility  | unverified     | not-committed  |
+| `search-results-shared`            | shared-shell    |      0 |     1 | compatibility  | unverified     | not-committed  |
+| `answers-shared`                   | shared-shell    |      0 |     2 | compatibility  | unverified     | not-committed  |
+| `source-preview-shared`            | shared-shell    |      0 |     1 | compatibility  | unverified     | not-committed  |
 
 <!-- adoption-manifest:adoption:end -->

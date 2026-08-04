@@ -51,38 +51,49 @@ function previewIsValid(name, config) {
 }
 
 function previewTypeFailures(componentNames, config) {
-  const configPath = path.join(ROOT, "tsconfig.json");
-  const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, ts.sys);
+  const configPath = path.join(ROOT, config.tsconfig);
+  const parsed = ts.getParsedCommandLineOfConfigFile(configPath, { noEmit: true }, ts.sys);
   if (!parsed) return [`unable to parse ${configPath} for preview validation`];
-  const previewRoot = `${path.sep}.design-sync${path.sep}previews${path.sep}`;
+  const canonicalPath = (fileName) => path.resolve(fileName).replaceAll("\\", "/").toLowerCase();
+  const previewRoot = "/.design-sync/previews/";
+  const expectedPreviews = new Set(
+    componentNames.map((name) => canonicalPath(path.join(ROOT, ".design-sync", "previews", `${name}.tsx`))),
+  );
+  const configuredPreviews = new Set(
+    parsed.fileNames.map(canonicalPath).filter((fileName) => fileName.includes(previewRoot)),
+  );
+  const configFailures = parsed.errors.map(
+    (diagnostic) => `${config.tsconfig}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`,
+  );
+  const missingPreviews = [...expectedPreviews]
+    .filter((fileName) => !configuredPreviews.has(fileName))
+    .map((fileName) => `${fileName} is not included by ${config.tsconfig}`);
   const program = ts.createProgram({
-    rootNames: componentNames.map((name) => path.join(ROOT, ".design-sync", "previews", `${name}.tsx`)),
-    options: {
-      ...parsed.options,
-      baseUrl: ROOT,
-      noEmit: true,
-      paths: {
-        ...(parsed.options.paths ?? {}),
-        [config.pkg]: [path.join(ROOT, ENTRY_PATH)],
-      },
-    },
+    rootNames: parsed.fileNames,
+    options: parsed.options,
   });
-  return ts
-    .getPreEmitDiagnostics(program)
-    .filter((diagnostic) => diagnostic.file?.fileName.includes(previewRoot))
-    .map((diagnostic) => {
-      const file = diagnostic.file;
-      const position = file && diagnostic.start != null ? file.getLineAndCharacterOfPosition(diagnostic.start) : null;
-      const location = file
-        ? `${path.relative(ROOT, file.fileName)}${position ? `:${position.line + 1}:${position.character + 1}` : ""}`
-        : "design-sync preview";
-      return `${location}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
-    });
+  return configFailures.concat(
+    missingPreviews,
+    ts
+      .getPreEmitDiagnostics(program)
+      .filter((diagnostic) => diagnostic.file && canonicalPath(diagnostic.file.fileName).includes(previewRoot))
+      .map((diagnostic) => {
+        const file = diagnostic.file;
+        const position = file && diagnostic.start != null ? file.getLineAndCharacterOfPosition(diagnostic.start) : null;
+        const location = file
+          ? `${path.relative(ROOT, file.fileName)}${position ? `:${position.line + 1}:${position.character + 1}` : ""}`
+          : "design-sync preview";
+        return `${location}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
+      }),
+  );
 }
 
 function main() {
   const config = JSON.parse(read(CONFIG_PATH));
   const failures = [];
+  if (config.tsconfig !== ".design-sync/tsconfig.previews.json")
+    failures.push("design-sync must use the committed preview TypeScript configuration");
+  if (!hasFile(config.tsconfig)) failures.push(`missing preview TypeScript configuration: ${config.tsconfig}`);
   if (JSON.stringify(config.guidelinesGlob) !== JSON.stringify(REQUIRED_GUIDELINES))
     failures.push("guidelinesGlob must enumerate the seven design-system documents in reading order");
   for (const guideline of REQUIRED_GUIDELINES)

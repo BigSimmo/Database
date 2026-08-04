@@ -103,6 +103,8 @@ function importFacts(relativePath, sourceMap, root = ROOT) {
 const UNKNOWN_CLASS_FRAGMENT = "\u0000";
 const CLASS_NAME_HELPERS = new Set(["cn", "clsx", "classnames", "classNames", "cx", "cva", "twMerge"]);
 const MAX_CLASS_PATTERNS = 64;
+const SURFACE_PROOF_STATUSES = new Set(["passed", "pending", "unverified", "not-applicable"]);
+const BASELINE_STATUSES = new Set(["committed", "not-committed", "not-applicable"]);
 
 function classTokenPresent(value) {
   return value.split(/\s+/).includes("ckb-v2");
@@ -277,6 +279,13 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   function arrayElements(expression, seen) {
     const current = unwrapExpression(expression);
     if (ts.isArrayLiteralExpression(current)) return [...current.elements];
+    if (
+      ts.isCallExpression(current) &&
+      ts.isPropertyAccessExpression(current.expression) &&
+      current.expression.name.text === "filter"
+    ) {
+      return arrayElements(current.expression.expression, seen);
+    }
     if (ts.isIdentifier(current)) {
       const binding = resolveBinding(current);
       if (binding?.declaration.initializer && !seen.has(binding.declaration)) {
@@ -284,6 +293,17 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
       }
     }
     return null;
+  }
+
+  function unresolvedCallHasCkbV2Evidence(call) {
+    const evidence = [];
+    function collectEvidence(node) {
+      if (ts.isStringLiteralLike(node) || ts.isIdentifier(node)) evidence.push(node.text.toLowerCase());
+      ts.forEachChild(node, collectEvidence);
+    }
+    collectEvidence(call);
+    const staticText = evidence.join(" ");
+    return staticText.includes("ckb") && staticText.includes("v2");
   }
 
   function patternsFor(expression, seen = new Set()) {
@@ -330,6 +350,35 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
       }
     }
     if (ts.isCallExpression(current)) {
+      if (ts.isPropertyAccessExpression(current.expression) && current.expression.name.text === "replace") {
+        const receivers = patternsFor(current.expression.expression, seen);
+        const searches = current.arguments[0]
+          ? patternsFor(current.arguments[0], seen)
+          : [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
+        const replacements = current.arguments[1]
+          ? patternsFor(current.arguments[1], seen)
+          : [{ value: "undefined", constructed: false }];
+        const results = [];
+        for (const receiver of receivers) {
+          for (const search of searches) {
+            for (const replacement of replacements) {
+              const resolvable = ![receiver.value, search.value, replacement.value].some((value) =>
+                value.includes(UNKNOWN_CLASS_FRAGMENT),
+              );
+              results.push({
+                value: resolvable
+                  ? receiver.value.replace(search.value, replacement.value)
+                  : unresolvedCallHasCkbV2Evidence(current)
+                    ? "ckb-v2"
+                    : UNKNOWN_CLASS_FRAGMENT,
+                constructed: true,
+              });
+              if (results.length >= MAX_CLASS_PATTERNS) return results;
+            }
+          }
+        }
+        return results;
+      }
       if (ts.isPropertyAccessExpression(current.expression) && current.expression.name.text === "join") {
         const elements = arrayElements(current.expression.expression, seen);
         if (elements) {
@@ -361,7 +410,12 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
           " ",
         );
       }
-      return [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
+      return [
+        {
+          value: unresolvedCallHasCkbV2Evidence(current) ? "ckb-v2" : UNKNOWN_CLASS_FRAGMENT,
+          constructed: unresolvedCallHasCkbV2Evidence(current),
+        },
+      ];
     }
     if (ts.isArrayLiteralExpression(current)) {
       return combineClassPatterns(
@@ -398,7 +452,7 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
 function manifestSections(manifest) {
   const componentRows = manifest.components.map(
     (component) =>
-      `| \`${component.name}\` | ${component.family} | ${component.entryExported ? "yes" : "no"} | ${component.designSync.previewValid ? "yes" : "no"} | ${component.testFiles.length > 0 ? "yes" : "no"} | ${component.productImportFiles.length} |`,
+      `| \`${component.name}\` | ${component.family} | ${component.built ? "yes" : "no"} | ${component.locallyRegistered ? "yes" : "no"} | ${component.v2ShellMounted ? "yes" : "no"} | ${component.proofDeclared ? "yes" : "no"} | ${component.baselineCommitted ? "yes" : "no"} | ${component.productImportFiles.length} |`,
   );
   const maturity = [
     "<!-- adoption-manifest:maturity:start -->",
@@ -410,15 +464,15 @@ function manifestSections(manifest) {
     "",
     "This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.",
     "",
-    "| Component | Family | Entry export | Preview | Direct test | Product imports |",
-    "| --- | --- | --- | --- | --- | ---: |",
+    "| Component | Family | Built | Locally registered | v2 shell mounted | Proof declared | Baseline committed | Product imports |",
+    "| --- | --- | --- | --- | --- | --- | --- | ---: |",
     ...componentRows,
     "<!-- adoption-manifest:maturity:end -->",
   ].join("\n");
-  const surfaceRows = manifest.surfaces.map(
-    (surface) =>
-      `| \`${surface.id}\` | ${surface.disposition} | ${surface.routes.length} | ${surface.roots.length} | ${surface.shellState} |`,
-  );
+  const surfaceRows = manifest.surfaces.map((surface) => {
+    const proofStatuses = [...new Set(Object.values(surface.proof).map((declaration) => declaration.status))];
+    return `| \`${surface.id}\` | ${surface.disposition} | ${surface.routes.length} | ${surface.roots.length} | ${surface.shellState} | ${proofStatuses.join(", ")} | ${surface.baseline.status} |`;
+  });
   const adoption = [
     "<!-- adoption-manifest:adoption:start -->",
     "## Generated adoption truth",
@@ -436,9 +490,11 @@ function manifestSections(manifest) {
     `Declared production page routes: ${manifest.routeCoverage.declared.length}/${manifest.routeCoverage.discovered.length}`,
     "",
     "The live product remains on the compatibility layer until a declared root opts into the v2 class literally.",
+    "The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.",
+    "A v2 shell declaration fails closed unless every proof is passed with evidence and its visual baseline is committed.",
     "",
-    "| Surface | Disposition | Routes | Roots | Expected shell |",
-    "| --- | --- | ---: | ---: | --- |",
+    "| Surface | Disposition | Routes | Roots | Expected shell | Proof | Baseline |",
+    "| --- | --- | ---: | ---: | --- | --- | --- |",
     ...surfaceRows,
     "<!-- adoption-manifest:adoption:end -->",
   ].join("\n");
@@ -459,7 +515,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   const sourceFiles = walk(path.join(root, "src"), root);
   const testFiles = walk(path.join(root, "tests"), root);
   const entry = read(".design-sync/entry.tsx", root);
-  const components = Object.keys(contract.componentFamilies)
+  const componentInventory = Object.keys(contract.componentFamilies)
     .sort()
     .map((name) => {
       const source = sourceMap[name] ?? null;
@@ -519,9 +575,37 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       documentedDisposition: surface.documentedDisposition ?? null,
       routes: [...surface.routes].sort(),
       shellState: surface.expectedShellState,
+      proof: Object.fromEntries(
+        Object.entries(surface.proof ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+      ),
+      baseline: surface.baseline
+        ? { status: surface.baseline.status, files: [...(surface.baseline.files ?? [])].sort() }
+        : null,
       permittedComponentFamilies: [...surface.permittedComponentFamilies].sort(),
       sanctionedSpecialPatterns: [...surface.sanctionedSpecialPatterns].sort(),
       roots,
+    };
+  });
+  const components = componentInventory.map((component) => {
+    const built = Boolean(component.source && component.sourceExported);
+    const locallyRegistered = Boolean(
+      component.entryExported &&
+      component.designSync.listedInSourceMap &&
+      component.designSync.listedInDtsProps &&
+      component.designSync.previewValid,
+    );
+    const v2ShellMounted = surfaces.some(
+      (surface) =>
+        surface.shellState === "v2" &&
+        surface.roots.some((rootFact) => rootFact.literalCkbV2 && rootFact.imports.includes(component.name)),
+    );
+    return {
+      ...component,
+      built,
+      locallyRegistered,
+      v2ShellMounted,
+      proofDeclared: component.testFiles.length > 0,
+      baselineCommitted: component.baseline.visualBaselineStatus === "committed",
     };
   });
   const literalCkbV2RootCount = surfaces
@@ -574,6 +658,8 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
   const contract = JSON.parse(read(CONTRACT_PATH, root));
   const failures = [];
   for (const component of manifest.components) {
+    for (const fact of ["built", "locallyRegistered", "v2ShellMounted", "proofDeclared", "baselineCommitted"])
+      if (typeof component[fact] !== "boolean") failures.push(`${component.name} is missing boolean ${fact} fact`);
     if (!component.source || !component.sourceExported)
       failures.push(`${component.name} is not exported from its declared source`);
     if (!component.entryExported) failures.push(`${component.name} is missing from .design-sync/entry.tsx`);
@@ -582,6 +668,53 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
     if (component.testFiles.length === 0) failures.push(`${component.name} has no direct test proof`);
   }
   for (const surface of manifest.surfaces) {
+    const proof = surface.proof && typeof surface.proof === "object" ? surface.proof : {};
+    const requiredProofCategories = Array.isArray(contract.requiredProofCategories)
+      ? contract.requiredProofCategories
+      : [];
+    for (const category of requiredProofCategories) {
+      const declaration = proof[category];
+      if (!declaration || typeof declaration !== "object") {
+        failures.push(`${surface.id} surface proof is missing ${category}`);
+        continue;
+      }
+      if (!SURFACE_PROOF_STATUSES.has(declaration.status))
+        failures.push(`${surface.id} ${category} proof has invalid status: ${String(declaration.status)}`);
+      const validEvidence =
+        Array.isArray(declaration.evidence) && declaration.evidence.every((entry) => typeof entry === "string");
+      if (!validEvidence) failures.push(`${surface.id} ${category} proof evidence must be a string array`);
+      if (declaration.status === "passed" && (!validEvidence || declaration.evidence.length === 0))
+        failures.push(`${surface.id} ${category} proof is passed without evidence`);
+      if (declaration.status === "passed" && validEvidence) {
+        for (const evidencePath of declaration.evidence)
+          if (!exists(evidencePath, root))
+            failures.push(`${surface.id} ${category} proof evidence is missing: ${evidencePath}`);
+      }
+      if (surface.shellState === "v2" && declaration.status !== "passed")
+        failures.push(`${surface.id} v2 adoption requires passed ${category} proof`);
+    }
+    for (const category of Object.keys(proof)) {
+      if (!requiredProofCategories.includes(category))
+        failures.push(`${surface.id} declares unknown surface proof category: ${category}`);
+    }
+    if (!surface.baseline || typeof surface.baseline !== "object") {
+      failures.push(`${surface.id} surface baseline declaration is missing`);
+    } else {
+      if (!BASELINE_STATUSES.has(surface.baseline.status))
+        failures.push(`${surface.id} surface baseline has invalid status: ${String(surface.baseline.status)}`);
+      const validBaselineFiles =
+        Array.isArray(surface.baseline.files) && surface.baseline.files.every((entry) => typeof entry === "string");
+      if (!validBaselineFiles) failures.push(`${surface.id} surface baseline files must be a string array`);
+      if (surface.baseline.status === "committed" && (!validBaselineFiles || surface.baseline.files.length === 0))
+        failures.push(`${surface.id} surface baseline is committed without files`);
+      if (surface.baseline.status === "committed" && validBaselineFiles) {
+        for (const baselinePath of surface.baseline.files)
+          if (!exists(baselinePath, root))
+            failures.push(`${surface.id} surface baseline file is missing: ${baselinePath}`);
+      }
+      if (surface.shellState === "v2" && surface.baseline.status !== "committed")
+        failures.push(`${surface.id} v2 adoption requires a committed visual baseline`);
+    }
     for (const rootFact of surface.roots) {
       if (!rootFact.exists) failures.push(`${surface.id} root is missing: ${rootFact.file}`);
       if (rootFact.dynamicCkbV2) failures.push(`${surface.id} root dynamically constructs ckb-v2: ${rootFact.file}`);

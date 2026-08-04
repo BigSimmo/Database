@@ -60,18 +60,18 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 
 | Component                    | Open defects (compressed)                                                                                                                    | Closes in                |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| Button                       | brightness hover/active bypass tokens · 44px comment · no ref · needless client boundary (danger contrast landed #1538)                      | follow-on                |
+| Button                       | danger hover/active tokens and the 48px comment are resolved; ref forwarding and the client boundary remain                                  | follow-on                |
 | AsyncButton                  | `type` applied after spread (default `button`; explicit `submit` preserved). Prefer `Button` busy API for new sites.                         | **done** (PR-A)          |
 | IconButton                   | disabled encoding uses `controlDisabled` (opacity retired in PR-A)                                                                           | **done** (PR-A)          |
 | ToggleSwitch                 | operable branch requires `aria-label`; opacity disabled retired; knob still animates `left`/`right`                                          | PR 9 (motion)            |
 | Chip                         | final `appearance`/size API, removable label contract, tap target and full-value title                                                       | **done**                 |
 | TextField/SearchField/Select | hint dropped on error (comment promises otherwise) · describedBy overwritten · no external id/refs (placeholder off decoration tier in PR-A) | PR 7                     |
 | Checkbox/RadioGroup          | RadioGroup controlled/uncontrolled union done; raw dimensions · unsanitised ids · no group hint/error                                        | PR 7                     |
-| Citation/CitationList        | interactive requires `onActivate`; static form uses `aria-label` on span · index keys · unstructured data                                    | follow-on                |
+| Citation/CitationList        | required interactive handler and stable-id list keys are resolved; static span labelling and route/source modes remain                       | follow-on                |
 | DoseLine                     | must compose `Quantity` · structured dose model · overdue text + non-colour mark + open action                                               | **done** (PR 6)          |
 | StatusMark                   | app-type coupling · inline styles/raw geometry · HCM token remaps proven (computed suite); mark shape still visual                           | PR 12                    |
-| AnswerCard                   | unrestricted slots — no required verification/answer state                                                                                   | **done** (PR 6)          |
-| AnswerFooter                 | accepts preformatted strings; must take machine values + compose `DateDisplay` + `MissingValue`                                              | **done** (PR 6)          |
+| AnswerCard                   | required verification/state, structured actions and five-state vocabulary landed                                                             | **done** (PR 6)          |
+| AnswerFooter                 | machine ISO values composed through `DateDisplay` + `MissingValue` landed                                                                    | **done** (PR 6)          |
 | PageHeader/Breadcrumb        | `<h1>` truncates · actions starve title · eyebrow ink moved off decoration (PR 3); layout starve remains                                     | PR 7-adjacent layout fix |
 | Tabs                         | `aria-controls` to unrendered panels · invalid selected value can empty the tab order                                                        | PR 4-adjacent            |
 | Pagination                   | unclamped props · 320px overflow · opacity disabled retired · no focus/announce policy                                                       | PR 8                     |
@@ -79,10 +79,10 @@ print primitives (`PrintHeader`, `PrintFooter`, `CitationFootnote`, `PrintOnly`,
 | Tooltip                      | composed handlers/description, string content, OverlayRoot portal, collision and delay contract                                              | **done** (PR 10)         |
 | Toast                        | independent tone/priority/persistence, OverlayRoot portal, pause, dedupe and queue contract                                                  | **done** (PR 10)         |
 | Sheet/ConfirmDialog          | required names/action labels, portal default, tokened layers/duration and wrapping titles                                                    | **done** (PR 10)         |
-| Disclosure                   | hardcoded `<h3>` · no print behaviour · truncation                                                                                           | PR 11                    |
-| Progress/StageList           | width animation · "step 0 of N" · whole-list live region                                                                                     | PR 8, PR 9               |
+| Disclosure                   | configurable heading level is resolved; print behaviour and truncation remain                                                                | PR 11                    |
+| Progress/StageList           | determinate width animation is resolved via `scaleX`; hardcoded indeterminate timing, "step 0 of N" and whole-list live region remain        | PR 8, PR 9               |
 | EmptyState                   | static live-off default with explicit polite/assertive opt-in                                                                                | **done** (PR 8)          |
-| AccessibleTable              | required semantic caption landed; remaining dense headers, missing-cell, widths and expander convergence                                     | PR 6/PR 12 remainder     |
+| AccessibleTable              | required semantic caption and `MissingValue` cells landed; dense headers, content-role widths and Button-based expander remain               | PR 6/PR 12 remainder     |
 | ui-primitives.tsx            | 572-line module mixing recipes/actions/feedback/clinical — split                                                                             | PR 12                    |
 
 ---
@@ -287,9 +287,10 @@ answer is both, so one answer never stacks two alarms.
 
 ## 3 · `MissingValue`
 
-**Problem.** Missing clinical data renders as a bare dash (`AccessibleTable` today), which
-cannot distinguish _not recorded_ from _not applicable_ from _unable to extract_ — and in
-clinical data a dash reads as a negative result.
+**Problem addressed.** Missing clinical data previously rendered as a bare dash in
+`AccessibleTable`, which could not distinguish _not recorded_ from _not applicable_ from
+_unable to extract_. The canonical table now composes `MissingValue`; remaining legacy call
+sites must converge on the same explicit vocabulary because a dash can read as a negative result.
 
 ```ts
 type MissingValueProps = {
@@ -621,8 +622,8 @@ tab order, never removes its accessible name); disabled via `controlBase` encodi
 **Tokens.** command triplet + contrast · danger pair · `--radius-md` · tap utilities ·
 `--focus` outline only. **Rules.** Verb-first specific labels, never "OK"/bare "Confirm" ·
 hover/active from semantic tokens, never `brightness-*` filters · one filled command per
-surface. **Open defects → PR.** danger contrast token, brightness hover, stale 44px
-comment, missing ref, needless client boundary → PR 3, PR 4.
+surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-floor comment.
+**Open defects → PR.** ref forwarding and the needless client boundary → follow-on.
 
 ### 9.2 `IconButton`
 
@@ -682,8 +683,9 @@ enabled-inert citation is unrepresentable. **Data.** Structured `CitationData` w
 stable `id` (never index keys); status via `StatusMark` with the label adjacent. **Rules.**
 A static citation is text with visible content, not an `aria-label` on a bare span · list
 identity survives reorder · deep source destinations (page, table, image) go through the
-`SourceLink` pattern when it lands. **Open defects → PR.** boolean `interactive`, optional
-handler, index keys, `ReactNode[]` items → PR 4.
+`SourceLink` pattern when it lands. **Landed.** The interactive branch requires `onActivate`,
+and `CitationList` keys rows by stable `citation.id`. **Open defects → PR.** static span
+labelling and the richer internal/source destination modes → follow-on.
 
 ### 9.9 `Quantity`
 
@@ -743,8 +745,8 @@ links, and unattributed clinical prose in a record reads as clinician-endorsed. 
 two through `composeAnswerClipboardText()` (`src/lib/answer-clipboard.ts`, ledger `#208`),
 which keeps the render-policy string primary and adds attribution, the `AnswerState`
 caveat and the provenance line. Both callers share one implementation of each of those
-three rules. See SPEC §13 blocker 1 for the decision. **Open defects → PR.** unrestricted slots, no required safety props → PR 6;
-ungrounded-answer channel → **fixed** in PR 13 Phase 1 as the fifth `AnswerState` kind
+three rules. See SPEC §13 blocker 1 for the decision. **Publication status.** Required
+verification/state props, structured actions and the fifth `ungrounded` state are implemented
 (ledger `#207`, SPEC §13 blocker 2).
 
 **Reference status.** `AnswerCard` is registered in the local design-sync contract and has a
@@ -755,8 +757,8 @@ it is not evidence of answer-shell adoption.
 
 **Purpose.** Always-visible provenance: publisher · version · review date · generated
 timestamp. **Contract.** Machine values only (ISO in), rendered through `DateDisplay`;
-absent fields render `MissingValue`, never silently drop. **Open defects → PR.** accepts
-preformatted strings → PR 6.
+absent fields render `MissingValue`, never silently drop. **Publication status.** The component
+accepts machine values and the reference previews now pass ISO dates/timestamps.
 
 ### 9.15 `InlineNotice`
 
@@ -849,14 +851,16 @@ source-derived and its reference preview exercises the typed confirmation path.
 **not** find-in-page reachable via plain `hidden` (retracted claim); evaluate
 `hidden="until-found"` where discoverability matters · print-relevant disclosures expand
 under the print theme (PR 11) · the group supports controlled and default-open ids.
-**Open defects → PR.** hardcoded heading, no print behaviour, truncation → PR 11.
+**Landed.** `headingLevel` drives `h2`–`h6` for both components. **Open defects → PR.** print
+behaviour and truncation → PR 11.
 
 ### 9.26 `Progress`
 
 **Contract.** Determinate progress is `transform: scaleX()` with `transform-origin:
-left` — never `width` · indeterminate uses tokened duration; reduced motion shows a
-static state · the track/fill pair follows the edge rule. **Open defects → PR.** width
-animation, inline width, hardcoded timing → PR 9.
+left` — never `width` · indeterminate must use tokened duration; reduced motion shows a
+static state · the track/fill pair follows the edge rule. **Landed.** Determinate fill uses
+`scaleX()` and tokened transition duration. **Open defects → PR.** the indeterminate animation
+still carries a hardcoded `1.4s` timing → PR 9.
 
 ### 9.27 `StageList`
 
@@ -890,8 +894,9 @@ not a `<div>` + `aria-label`); dense headers are sentence case; missing cells re
 `MissingValue`, never a bare dash; column widths follow content roles, not imposed
 equal-width inline styles; the expand control composes `Button` and the outline rule.
 **Publication status.** `caption` is required in the exported props and the preview renders the
-canonical semantic table path. Remaining implementation convergence is tracked separately from
-the publication contract.
+canonical semantic table path; missing cells already render `MissingValue`, never a bare dash.
+Dense-header casing, content-role widths and Button-based expander convergence remain tracked
+separately from the publication contract.
 
 ### 9.31 `PanelHeading`
 
@@ -926,60 +931,60 @@ Components with product imports: 31
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
-| Component                | Family   | Entry export | Preview | Direct test | Product imports |
-| ------------------------ | -------- | ------------ | ------- | ----------- | --------------: |
-| `AccessibleTable`        | source   | yes          | yes     | yes         |               4 |
-| `AnswerCard`             | answer   | yes          | yes     | yes         |               0 |
-| `AnswerFooter`           | answer   | yes          | yes     | yes         |               0 |
-| `AsyncButton`            | controls | yes          | yes     | yes         |               4 |
-| `Breadcrumb`             | layout   | yes          | yes     | yes         |               1 |
-| `Button`                 | controls | yes          | yes     | yes         |               1 |
-| `Checkbox`               | controls | yes          | yes     | yes         |               0 |
-| `Chip`                   | controls | yes          | yes     | yes         |               3 |
-| `Citation`               | source   | yes          | yes     | yes         |               0 |
-| `CitationList`           | source   | yes          | yes     | yes         |               0 |
-| `ConfirmDialog`          | layout   | yes          | yes     | yes         |               0 |
-| `DateDisplay`            | source   | yes          | yes     | yes         |               3 |
-| `Disclosure`             | layout   | yes          | yes     | yes         |               0 |
-| `DisclosureGroup`        | layout   | yes          | yes     | yes         |               0 |
-| `DoseLine`               | answer   | yes          | yes     | yes         |               0 |
-| `DownloadLink`           | controls | yes          | yes     | yes         |               0 |
-| `EmptyState`             | feedback | yes          | yes     | yes         |              13 |
-| `ErrorSummary`           | feedback | yes          | yes     | yes         |               0 |
-| `ExternalTextLink`       | controls | yes          | yes     | yes         |               0 |
-| `FieldError`             | feedback | yes          | yes     | yes         |               1 |
-| `FieldHint`              | feedback | yes          | yes     | yes         |               1 |
-| `FormField`              | controls | yes          | yes     | yes         |               2 |
-| `IconButton`             | controls | yes          | yes     | yes         |               2 |
-| `InlineNotice`           | feedback | yes          | yes     | yes         |               6 |
-| `LinkAction`             | controls | yes          | yes     | yes         |               0 |
-| `LoadingPanel`           | feedback | yes          | yes     | yes         |               7 |
-| `MissingValue`           | feedback | yes          | yes     | yes         |               3 |
-| `OverlayRoot`            | layout   | yes          | yes     | yes         |               1 |
-| `PageHeader`             | layout   | yes          | yes     | yes         |               2 |
-| `Pagination`             | controls | yes          | yes     | yes         |               0 |
-| `PanelHeading`           | layout   | yes          | yes     | yes         |               2 |
-| `Progress`               | feedback | yes          | yes     | yes         |               0 |
-| `Quantity`               | answer   | yes          | yes     | yes         |               1 |
-| `RadioGroup`             | controls | yes          | yes     | yes         |               0 |
-| `RetrievalStateBanner`   | answer   | yes          | yes     | yes         |               2 |
-| `SafeBoldText`           | layout   | yes          | yes     | yes         |               8 |
-| `SearchField`            | controls | yes          | yes     | yes         |               0 |
-| `SegmentedControl`       | controls | yes          | yes     | yes         |               2 |
-| `Select`                 | controls | yes          | yes     | yes         |               2 |
-| `Sheet`                  | layout   | yes          | yes     | yes         |              20 |
-| `Skeleton`               | feedback | yes          | yes     | yes         |               5 |
-| `SourceDesignationBadge` | source   | yes          | yes     | yes         |               1 |
-| `SourceProvenance`       | source   | yes          | yes     | yes         |               1 |
-| `SourceStatusBadge`      | source   | yes          | yes     | yes         |               1 |
-| `StageList`              | feedback | yes          | yes     | yes         |               0 |
-| `StatusMark`             | source   | yes          | yes     | yes         |               3 |
-| `Tabs`                   | controls | yes          | yes     | yes         |               0 |
-| `TextField`              | controls | yes          | yes     | yes         |               3 |
-| `TextLink`               | controls | yes          | yes     | yes         |               0 |
-| `ToastRegion`            | feedback | yes          | yes     | yes         |               0 |
-| `ToggleSwitch`           | controls | yes          | yes     | yes         |               2 |
-| `Tooltip`                | feedback | yes          | yes     | yes         |               0 |
-| `VerificationNotice`     | answer   | yes          | yes     | yes         |               2 |
+| Component                | Family   | Built | Locally registered | v2 shell mounted | Proof declared | Baseline committed | Product imports |
+| ------------------------ | -------- | ----- | ------------------ | ---------------- | -------------- | ------------------ | --------------: |
+| `AccessibleTable`        | source   | yes   | yes                | no               | yes            | no                 |               4 |
+| `AnswerCard`             | answer   | yes   | yes                | no               | yes            | no                 |               0 |
+| `AnswerFooter`           | answer   | yes   | yes                | no               | yes            | no                 |               0 |
+| `AsyncButton`            | controls | yes   | yes                | no               | yes            | no                 |               4 |
+| `Breadcrumb`             | layout   | yes   | yes                | no               | yes            | no                 |               1 |
+| `Button`                 | controls | yes   | yes                | no               | yes            | no                 |               1 |
+| `Checkbox`               | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `Chip`                   | controls | yes   | yes                | no               | yes            | no                 |               3 |
+| `Citation`               | source   | yes   | yes                | no               | yes            | no                 |               0 |
+| `CitationList`           | source   | yes   | yes                | no               | yes            | no                 |               0 |
+| `ConfirmDialog`          | layout   | yes   | yes                | no               | yes            | no                 |               0 |
+| `DateDisplay`            | source   | yes   | yes                | no               | yes            | no                 |               3 |
+| `Disclosure`             | layout   | yes   | yes                | no               | yes            | no                 |               0 |
+| `DisclosureGroup`        | layout   | yes   | yes                | no               | yes            | no                 |               0 |
+| `DoseLine`               | answer   | yes   | yes                | no               | yes            | no                 |               0 |
+| `DownloadLink`           | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `EmptyState`             | feedback | yes   | yes                | no               | yes            | no                 |              13 |
+| `ErrorSummary`           | feedback | yes   | yes                | no               | yes            | no                 |               0 |
+| `ExternalTextLink`       | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `FieldError`             | feedback | yes   | yes                | no               | yes            | no                 |               1 |
+| `FieldHint`              | feedback | yes   | yes                | no               | yes            | no                 |               1 |
+| `FormField`              | controls | yes   | yes                | no               | yes            | no                 |               2 |
+| `IconButton`             | controls | yes   | yes                | no               | yes            | no                 |               2 |
+| `InlineNotice`           | feedback | yes   | yes                | no               | yes            | no                 |               6 |
+| `LinkAction`             | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `LoadingPanel`           | feedback | yes   | yes                | no               | yes            | no                 |               7 |
+| `MissingValue`           | feedback | yes   | yes                | no               | yes            | no                 |               3 |
+| `OverlayRoot`            | layout   | yes   | yes                | no               | yes            | no                 |               1 |
+| `PageHeader`             | layout   | yes   | yes                | no               | yes            | no                 |               2 |
+| `Pagination`             | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `PanelHeading`           | layout   | yes   | yes                | no               | yes            | no                 |               2 |
+| `Progress`               | feedback | yes   | yes                | no               | yes            | no                 |               0 |
+| `Quantity`               | answer   | yes   | yes                | no               | yes            | no                 |               1 |
+| `RadioGroup`             | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `RetrievalStateBanner`   | answer   | yes   | yes                | no               | yes            | no                 |               2 |
+| `SafeBoldText`           | layout   | yes   | yes                | no               | yes            | no                 |               8 |
+| `SearchField`            | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `SegmentedControl`       | controls | yes   | yes                | no               | yes            | no                 |               2 |
+| `Select`                 | controls | yes   | yes                | no               | yes            | no                 |               2 |
+| `Sheet`                  | layout   | yes   | yes                | no               | yes            | no                 |              20 |
+| `Skeleton`               | feedback | yes   | yes                | no               | yes            | no                 |               5 |
+| `SourceDesignationBadge` | source   | yes   | yes                | no               | yes            | no                 |               1 |
+| `SourceProvenance`       | source   | yes   | yes                | no               | yes            | no                 |               1 |
+| `SourceStatusBadge`      | source   | yes   | yes                | no               | yes            | no                 |               1 |
+| `StageList`              | feedback | yes   | yes                | no               | yes            | no                 |               0 |
+| `StatusMark`             | source   | yes   | yes                | no               | yes            | no                 |               3 |
+| `Tabs`                   | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `TextField`              | controls | yes   | yes                | no               | yes            | no                 |               3 |
+| `TextLink`               | controls | yes   | yes                | no               | yes            | no                 |               0 |
+| `ToastRegion`            | feedback | yes   | yes                | no               | yes            | no                 |               0 |
+| `ToggleSwitch`           | controls | yes   | yes                | no               | yes            | no                 |               2 |
+| `Tooltip`                | feedback | yes   | yes                | no               | yes            | no                 |               0 |
+| `VerificationNotice`     | answer   | yes   | yes                | no               | yes            | no                 |               2 |
 
 <!-- adoption-manifest:maturity:end -->

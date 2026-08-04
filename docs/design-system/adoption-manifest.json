@@ -1,11 +1,12 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "baseline": {
     "targetLayer": "v2",
     "liveLayer": "compatibility",
-    "remoteStatus": "unverified"
+    "remoteStatus": "unverified",
+    "visualBaselineStatus": "not-committed"
   },
-  "requiredProofCategories": ["source", "exports", "productImports", "designSync", "preview", "tests", "baseline"],
+  "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
   "components": [
     {
       "name": "AccessibleTable",
@@ -31,13 +32,20 @@
         "tests/accessible-table-normalization.test.ts",
         "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
         "tests/ward-output.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "AnswerCard",
@@ -57,13 +65,20 @@
         "tests/answer-support-priority.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "AnswerFooter",
@@ -79,6 +94,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
@@ -86,8 +102,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "AsyncButton",
@@ -111,8 +133,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Breadcrumb",
@@ -131,8 +159,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Button",
@@ -151,8 +185,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Checkbox",
@@ -171,8 +211,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Chip",
@@ -199,8 +245,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Citation",
@@ -228,8 +280,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "CitationList",
@@ -248,8 +306,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "ConfirmDialog",
@@ -268,8 +332,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "DateDisplay",
@@ -292,8 +362,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Disclosure",
@@ -312,8 +388,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "DisclosureGroup",
@@ -332,8 +414,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "DoseLine",
@@ -356,8 +444,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "DownloadLink",
@@ -376,8 +470,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "EmptyState",
@@ -416,8 +516,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "ErrorSummary",
@@ -436,8 +542,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "ExternalTextLink",
@@ -456,8 +568,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "FieldError",
@@ -476,8 +594,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "FieldHint",
@@ -496,8 +620,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "FormField",
@@ -521,8 +651,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "IconButton",
@@ -544,8 +680,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "InlineNotice",
@@ -571,8 +713,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "LinkAction",
@@ -591,8 +739,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "LoadingPanel",
@@ -619,8 +773,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "MissingValue",
@@ -639,12 +799,22 @@
         "preview": ".design-sync/previews/MissingValue.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-answer-safety.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "OverlayRoot",
@@ -667,8 +837,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "PageHeader",
@@ -687,8 +863,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Pagination",
@@ -707,8 +889,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "PanelHeading",
@@ -727,8 +915,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Progress",
@@ -747,8 +941,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Quantity",
@@ -767,8 +967,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "RadioGroup",
@@ -787,8 +993,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "RetrievalStateBanner",
@@ -814,8 +1026,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "SafeBoldText",
@@ -843,8 +1061,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "SearchField",
@@ -863,8 +1087,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "SegmentedControl",
@@ -886,8 +1116,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Select",
@@ -916,8 +1152,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Sheet",
@@ -972,8 +1214,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Skeleton",
@@ -998,8 +1246,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "SourceDesignationBadge",
@@ -1018,8 +1272,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "SourceProvenance",
@@ -1038,8 +1298,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "SourceStatusBadge",
@@ -1058,8 +1324,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "StageList",
@@ -1078,8 +1350,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "StatusMark",
@@ -1102,8 +1380,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Tabs",
@@ -1126,8 +1410,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "TextField",
@@ -1150,8 +1440,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "TextLink",
@@ -1170,8 +1466,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "ToastRegion",
@@ -1190,8 +1492,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "ToggleSwitch",
@@ -1213,8 +1521,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "Tooltip",
@@ -1233,8 +1547,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     },
     {
       "name": "VerificationNotice",
@@ -1260,8 +1580,14 @@
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
-        "remoteStatus": "unverified"
-      }
+        "remoteStatus": "unverified",
+        "visualBaselineStatus": "not-committed"
+      },
+      "built": true,
+      "locallyRegistered": true,
+      "v2ShellMounted": false,
+      "proofDeclared": true,
+      "baselineCommitted": false
     }
   ],
   "surfaces": [
@@ -1271,6 +1597,32 @@
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes.",
       "routes": ["src/app/(search-app)/page.tsx"],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["ClinicalDashboard", "OverlayRoot", "SettingsDialog"],
       "roots": [
@@ -1332,6 +1684,32 @@
         "src/app/(search-app)/services/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["DetailPage", "ModeHome", "SearchPage"],
       "roots": [
@@ -1465,6 +1843,32 @@
         "src/app/(search-app)/differentials/presentations/[slug]/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["Differential"],
       "roots": [
@@ -1518,6 +1922,32 @@
         "src/app/(search-app)/formulation/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["Formulation"],
       "roots": [
@@ -1580,6 +2010,32 @@
         "src/app/(search-app)/specifiers/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["Specifier"],
       "roots": [
@@ -1646,6 +2102,32 @@
         "src/app/(search-app)/therapy-compass/search/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["TherapyCompass"],
       "roots": [
@@ -1751,6 +2233,32 @@
         "src/app/(search-app)/documents/source/evidence/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"],
       "roots": [
@@ -1798,6 +2306,32 @@
       "documentedDisposition": "Legacy source URLs validate the document id and redirect to the canonical /documents/[id] route; they do not own a visual surface.",
       "routes": ["src/app/(search-app)/documents/source/page.tsx"],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "dark": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "print": {
+          "status": "not-applicable",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-applicable",
+        "files": []
+      },
       "permittedComponentFamilies": [],
       "sanctionedSpecialPatterns": [],
       "roots": []
@@ -1808,6 +2342,32 @@
       "documentedDisposition": null,
       "routes": ["src/app/(search-app)/favourites/page.tsx"],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["FavouritesCommandLibraryPage"],
       "roots": [
@@ -1828,6 +2388,32 @@
       "documentedDisposition": null,
       "routes": ["src/app/(search-app)/calculators/page.tsx", "src/app/(search-app)/tools/page.tsx"],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"],
       "roots": [
@@ -1861,6 +2447,32 @@
         "src/app/safety-plan/page.tsx"
       ],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["ColourCodingReferencePage", "PatientSafetyPlan", "PrivacyPage"],
       "roots": [
@@ -1899,6 +2511,32 @@
       "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above.",
       "routes": [],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
       "roots": [
@@ -1919,6 +2557,32 @@
       "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route.",
       "routes": [],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["AnswerResultSurface", "RetrievalStateBanner", "VerificationNotice"],
       "roots": [
@@ -1948,6 +2612,32 @@
       "documentedDisposition": "Source preview is a shell-owned overlay launched from answer and search surfaces, not a page route.",
       "routes": [],
       "shellState": "compatibility",
+      "proof": {
+        "browser": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "dark": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "unverified",
+          "evidence": []
+        },
+        "print": {
+          "status": "unverified",
+          "evidence": []
+        }
+      },
+      "baseline": {
+        "status": "not-committed",
+        "files": []
+      },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "sanctionedSpecialPatterns": ["SourcePreviewPopover"],
       "roots": [

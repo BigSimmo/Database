@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 2,
-  "requiredProofCategories": ["source", "exports", "productImports", "designSync", "preview", "tests", "baseline"],
+  "schemaVersion": 3,
+  "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
   "productionSurfaces": [
     {
       "id": "root-shell-and-settings",
@@ -14,6 +14,14 @@
       ],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source", "answer"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["OverlayRoot", "ClinicalDashboard", "SettingsDialog"],
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes."
     },
@@ -39,6 +47,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["ModeHome", "SearchPage", "DetailPage"]
     },
     {
@@ -54,6 +70,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["Differential"]
     },
     {
@@ -70,6 +94,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["Formulation"]
     },
     {
@@ -86,6 +118,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["Specifier"]
     },
     {
@@ -106,6 +146,14 @@
       "roots": ["src/components/therapy-compass/ui.tsx"],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["TherapyCompass"]
     },
     {
@@ -120,6 +168,14 @@
       "roots": ["src/components/DocumentViewer.tsx"],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"]
     },
     {
@@ -130,6 +186,14 @@
       "roots": [],
       "permittedComponentFamilies": [],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "not-applicable", "evidence": [] },
+        "forcedColours": { "status": "not-applicable", "evidence": [] },
+        "compact320": { "status": "not-applicable", "evidence": [] },
+        "print": { "status": "not-applicable", "evidence": [] },
+        "browser": { "status": "not-applicable", "evidence": [] }
+      },
+      "baseline": { "status": "not-applicable", "files": [] },
       "sanctionedSpecialPatterns": [],
       "documentedDisposition": "Legacy source URLs validate the document id and redirect to the canonical /documents/[id] route; they do not own a visual surface."
     },
@@ -141,6 +205,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["FavouritesCommandLibraryPage"]
     },
     {
@@ -151,6 +223,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"]
     },
     {
@@ -165,6 +245,14 @@
       "roots": [],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["PrivacyPage", "ColourCodingReferencePage", "PatientSafetyPlan"]
     },
     {
@@ -175,6 +263,14 @@
       "roots": ["src/components/clinical-dashboard/search-results-header-band.tsx"],
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
       "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above."
     },
@@ -189,6 +285,14 @@
       ],
       "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["AnswerResultSurface", "VerificationNotice", "RetrievalStateBanner"],
       "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route."
     },
@@ -200,6 +304,14 @@
       "roots": ["src/components/clinical-dashboard/source-preview-popover.tsx"],
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "compatibility",
+      "proof": {
+        "dark": { "status": "unverified", "evidence": [] },
+        "forcedColours": { "status": "unverified", "evidence": [] },
+        "compact320": { "status": "unverified", "evidence": [] },
+        "print": { "status": "unverified", "evidence": [] },
+        "browser": { "status": "unverified", "evidence": [] }
+      },
+      "baseline": { "status": "not-committed", "files": [] },
       "sanctionedSpecialPatterns": ["SourcePreviewPopover"],
       "documentedDisposition": "Source preview is a shell-owned overlay launched from answer and search surfaces, not a page route."
     }
@@ -262,6 +374,7 @@
   "baseline": {
     "targetLayer": "v2",
     "liveLayer": "compatibility",
-    "remoteStatus": "unverified"
+    "remoteStatus": "unverified",
+    "visualBaselineStatus": "not-committed"
   }
 }

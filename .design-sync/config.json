@@ -4,7 +4,7 @@
   "globalName": "ClinicalKB",
   "shape": "package",
   "srcDir": "src",
-  "tsconfig": "tsconfig.json",
+  "tsconfig": ".design-sync/tsconfig.previews.json",
   "buildCmd": "node .ds-sync/node_modules/@tailwindcss/cli/dist/index.mjs -i src/app/globals.css -o .design-sync/.cache/compiled.css && cat .design-sync/font-vars.css >> .design-sync/.cache/compiled.css",
   "cssEntry": ".design-sync/.cache/compiled.css",
   "extraFonts": [".design-sync/fonts.css"],

@@ -50,6 +50,21 @@ describe("design-system adoption manifest", () => {
       expected: { literalCkbV2: false, dynamicCkbV2: true },
     },
     {
+      name: "string replace",
+      source: `export function Root() { return <main className={"ckb_v2".replace("_", "-")} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
+      name: "filtered array join",
+      source: `export function Root() { return <main className={["ckb-v2"].filter(Boolean).join(" ")} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
+      name: "unresolved call with static token evidence",
+      source: `export function Root() { return <main className={normalise("ckb", "v2")} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
       name: "sibling function shadowing",
       source:
         `export function First({ version }: { version: string }) { const shell = "ckb-" + version; return <main className={shell} />; } ` +
@@ -142,6 +157,24 @@ describe("design-system adoption manifest", () => {
     );
   });
 
+  it("fails closed when a v2-adopted surface omits required proof", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const { browser: _browser, ...incompleteProof } = current.surfaces[0].proof;
+    const manifest = {
+      ...current,
+      surfaces: [
+        {
+          ...current.surfaces[0],
+          id: "fixture-v2",
+          shellState: "v2",
+          proof: incompleteProof,
+        },
+      ],
+    };
+
+    expect(checkAdoptionManifest(manifest)).toContain("fixture-v2 surface proof is missing browser");
+  });
+
   it("discovers production pages while excluding api and mockup trees", () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-routes-"));
     try {
@@ -163,11 +196,28 @@ describe("design-system adoption manifest", () => {
     });
 
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
-    expect(manifest.schemaVersion).toBe(2);
+    expect(manifest.schemaVersion).toBe(3);
     expect(manifest.adoption.literalCkbV2RootCount).toBe(0);
+    expect(
+      manifest.components.every(
+        (component: Record<string, unknown>) =>
+          typeof component.built === "boolean" &&
+          typeof component.locallyRegistered === "boolean" &&
+          typeof component.v2ShellMounted === "boolean" &&
+          typeof component.proofDeclared === "boolean" &&
+          typeof component.baselineCommitted === "boolean",
+      ),
+    ).toBe(true);
     expect(manifest.surfaces.every((surface: { shellState: string }) => surface.shellState === "compatibility")).toBe(
       true,
     );
+    expect(
+      manifest.surfaces.every(
+        (surface: { proof: Record<string, unknown>; baseline: { status: string } }) =>
+          Object.keys(surface.proof).sort().join("|") === "browser|compact320|dark|forcedColours|print" &&
+          ["not-committed", "not-applicable"].includes(surface.baseline.status),
+      ),
+    ).toBe(true);
     expect(manifest.routeCoverage.discovered).toHaveLength(47);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
@@ -181,10 +231,22 @@ describe("design-system adoption manifest", () => {
     expect(read("docs/design-system/COMPONENTS.md")).toContain(expected);
     expect(read("docs/design-system/ADOPTION.md")).toContain(expected);
     expect(read("docs/design-system/COMPONENTS.md")).toMatch(
-      /\|\s*Component\s*\|\s*Family\s*\|\s*Entry export\s*\|\s*Preview\s*\|/,
+      /\|\s*Component\s*\|\s*Family\s*\|\s*Built\s*\|\s*Locally registered\s*\|/,
     );
     expect(read("docs/design-system/ADOPTION.md")).toMatch(
       /\|\s*Surface\s*\|\s*Disposition\s*\|\s*Routes\s*\|\s*Roots\s*\|/,
     );
+  });
+
+  it("keeps the AnswerCard and AccessibleTable gate prose aligned with landed contracts", () => {
+    const components = read("docs/design-system/COMPONENTS.md");
+    const gates = read("docs/design-system/GATES.md");
+    expect(components).toMatch(
+      /Required\s+verification\/state props, structured actions and the fifth `ungrounded` state are implemented/,
+    );
+    expect(components).toMatch(/missing cells already render `MissingValue`, never a bare dash/);
+    expect(components).not.toContain("Missing clinical data renders as a bare dash (`AccessibleTable` today)");
+    expect(gates).toMatch(/Render `AnswerCard` without[\s\S]*implemented-blocking in `AnswerCard`/);
+    expect(gates).toMatch(/Use a bare dash[\s\S]*implemented-partial — `AccessibleTable` composes `MissingValue`/);
   });
 });
