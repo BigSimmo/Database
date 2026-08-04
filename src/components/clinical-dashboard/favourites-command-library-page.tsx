@@ -601,7 +601,12 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
 // so the shared primitive's polite announcement is the right default here.
 function FavouritesEmptyMatches() {
   return (
-    <EmptyState icon={Search} title="No favourites match" body="Clear filters or search to show saved clinical work." />
+    <EmptyState
+      icon={Search}
+      title="No favourites match"
+      body="Clear filters or search to show saved clinical work."
+      testId="favourites-empty-matches"
+    />
   );
 }
 
@@ -676,7 +681,7 @@ function FavouritesTable({
         </div>
       </div>
 
-      <div className="hidden overflow-x-auto sm:block">
+      <div className={tableRows.length === 0 ? "hidden" : "hidden overflow-x-auto sm:block"}>
         <table aria-label="Saved favourites" className="w-full min-w-[34rem] table-fixed border-collapse text-left">
           <thead>
             <tr className="h-9 border-b border-[color:var(--border)] bg-[color:var(--surface-wash)] text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -799,33 +804,25 @@ function FavouritesTable({
                 </tr>
               );
             })}
-            {tableRows.length === 0 ? (
-              <tr>
-                {/* Compact (workspace open) always hides Evidence, so stay at 5 columns.
-                    Otherwise Evidence appears only from 2xl, so span 5 below 2xl and 6 at 2xl+. */}
-                {(compact
-                  ? [{ colSpan: 5, className: "px-4 py-10 text-center" }]
-                  : [
-                      { colSpan: 5, className: "px-4 py-10 text-center 2xl:hidden" },
-                      { colSpan: 6, className: "hidden px-4 py-10 text-center 2xl:table-cell" },
-                    ]
-                ).map(({ colSpan, className }) => (
-                  <td key={`${compact ? "compact" : "full"}-${colSpan}`} colSpan={colSpan} className={className}>
-                    <FavouritesEmptyMatches />
-                  </td>
-                ))}
-              </tr>
-            ) : null}
           </tbody>
         </table>
       </div>
 
-      <div className="grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden">
+      <div
+        className={
+          tableRows.length === 0 ? "hidden" : "grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden"
+        }
+      >
         {tableRows.map((item) => (
           <FavouriteMobileCard key={item.id} item={item} />
         ))}
-        {tableRows.length === 0 ? <FavouritesEmptyMatches /> : null}
       </div>
+
+      {tableRows.length === 0 ? (
+        <div className="bg-[color:var(--surface-wash)] p-3 sm:p-4">
+          <FavouritesEmptyMatches />
+        </div>
+      ) : null}
     </section>
   );
 }

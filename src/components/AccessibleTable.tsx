@@ -4,6 +4,7 @@ import { Maximize2, TriangleAlert } from "lucide-react";
 import { type ReactNode, useCallback, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { MissingValue } from "@/components/ui/missing-value";
 import { normalizeAccessibleTable, type NormalizedAccessibleTable } from "@/lib/accessible-table-normalization";
 import { normalizeExtractedGlyphs } from "@/lib/source-text-sanitizer";
 
@@ -121,7 +122,7 @@ function AccessibleTableMarkup({
   actionsHeader = "Actions",
   alignEnd,
 }: {
-  caption?: string | null;
+  caption: string;
   header: string[];
   body: string[][];
   compact: boolean;
@@ -149,8 +150,9 @@ function AccessibleTableMarkup({
         expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
-      {caption && !(hidePreviewCaption && !expanded) ? (
+      {!(hidePreviewCaption && !expanded) ? (
         <div
+          aria-hidden="true"
           className={cn(
             "border-b border-[color:var(--border)] px-3 py-2 text-left font-semibold",
             expanded ? "text-sm text-[color:var(--text-heading)]" : `text-xs ${textMuted}`,
@@ -161,7 +163,6 @@ function AccessibleTableMarkup({
       ) : null}
       <div className={cn("overflow-x-auto", expanded && "flex-1 min-h-0")}>
         <table
-          aria-label={caption ?? undefined}
           className={cn(
             // Non-dense tables use auto layout so columns size to their content
             // (min-content = longest word) and wrap at word boundaries; a table
@@ -173,6 +174,7 @@ function AccessibleTableMarkup({
             renderDensePreview ? "min-w-full table-fixed text-2xs" : expanded ? "text-base-minus" : "text-sm",
           )}
         >
+          <caption className="sr-only">{caption}</caption>
           <colgroup className="hidden md:table-column-group">
             {header.map((cell, index) => (
               <col key={`${cell}:col:${index}`} style={{ width: `${100 / columnCount}%` }} />
@@ -288,7 +290,7 @@ function AccessibleTableMarkup({
                               : "text-sm leading-6 md:text-inherit md:leading-inherit",
                           )}
                         >
-                          {cell || <span className={textMuted}>-</span>}
+                          {cell || <MissingValue reason="not_recorded" density="cell" />}
                         </span>
                       </td>
                     );
@@ -314,7 +316,7 @@ function AccessibleTableMarkup({
                       >
                         {actionsHeader}
                       </span>
-                      {displayActions[rowIndex] || <span className={textMuted}>-</span>}
+                      {displayActions[rowIndex] || <span className={textMuted}>No action available</span>}
                     </td>
                   ) : null}
                 </tr>
@@ -423,7 +425,7 @@ export function AccessibleTable({
   columnAlign,
   numericColumns,
 }: {
-  caption?: string | null;
+  caption: string;
   markdown?: string | null;
   rows?: string[][] | null;
   columns?: string[] | null;
@@ -483,8 +485,8 @@ export function AccessibleTable({
   if (!normalized) return null;
 
   const { header, body } = normalized;
-  const displayCaption = clinicalOnly && caption ? cleanClinicalTableText(caption) : caption;
-  const title = dialogTitle || displayCaption || "Clinical table";
+  const displayCaption = (clinicalOnly ? cleanClinicalTableText(caption) : caption.trim()) || "Clinical table";
+  const title = dialogTitle?.trim() || displayCaption;
   const lowConfidence = Boolean(normalized.lowConfidence);
   const showFallback = lowConfidence && Boolean(lowConfidenceFallback);
   const table = (

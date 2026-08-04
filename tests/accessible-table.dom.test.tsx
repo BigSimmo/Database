@@ -25,6 +25,52 @@ describe("AccessibleTable (jsdom)", () => {
     expect(screen.queryByTestId("table-expand-button")).not.toBeInTheDocument();
   });
 
+  it("uses one semantic caption as the table name while keeping visual caption chrome silent", () => {
+    render(<AccessibleTable caption="Clozapine monitoring" columns={columns} rows={rows} />);
+
+    const table = screen.getByRole("table", { name: "Clozapine monitoring" });
+    expect(table).not.toHaveAttribute("aria-label");
+    expect(table.querySelectorAll("caption")).toHaveLength(1);
+    expect(table.querySelector("caption")).toHaveTextContent("Clozapine monitoring");
+
+    const visualCaption = screen
+      .getAllByText("Clozapine monitoring")
+      .find((element) => element.tagName.toLowerCase() === "div");
+    expect(visualCaption).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps the semantic caption when preview caption chrome is hidden", () => {
+    render(<AccessibleTable caption="Clozapine monitoring" columns={columns} rows={rows} hidePreviewCaption />);
+
+    const table = screen.getByRole("table", { name: "Clozapine monitoring" });
+    expect(table.querySelector("caption")).toHaveTextContent("Clozapine monitoring");
+    expect(screen.getAllByText("Clozapine monitoring")).toHaveLength(1);
+  });
+
+  it("renders explicit missing values and action text instead of ambiguous dashes", () => {
+    render(
+      <AccessibleTable
+        caption="Clozapine monitoring"
+        columns={columns}
+        rows={[
+          ["0", ""],
+          ["1", "Review observations"],
+        ]}
+        rowActions={[
+          null,
+          <button key="review" type="button" onClick={() => {}}>
+            Review
+          </button>,
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByTestId("missing-value")).toHaveLength(1);
+    expect(screen.getByTestId("missing-value")).toHaveTextContent("Not recorded");
+    expect(screen.getByText("No action available")).toBeInTheDocument();
+    expect(screen.queryByText("-")).not.toBeInTheDocument();
+  });
+
   it("opens the full-screen dialog when the mobile expand control is clicked", async () => {
     setMatchMedia(true); // emulate the mobile/coarse-pointer breakpoint that enables expansion
     const user = userEvent.setup();

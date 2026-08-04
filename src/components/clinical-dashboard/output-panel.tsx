@@ -185,7 +185,7 @@ export function ClinicalOutputPanel({
                     {section.tables.map((table) => (
                       <div key={table.id} data-testid="clinical-detail-table" className="min-w-0 space-y-2">
                         <AccessibleTable
-                          caption={table.caption}
+                          caption={table.caption?.trim() || `${section.title} table`}
                           markdown={table.markdown}
                           rows={table.rows}
                           columns={table.columns}

@@ -8,6 +8,7 @@ import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
 import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/lib/theme";
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
+import { AppAnnouncements } from "@/components/app-announcements";
 import "./globals.css";
 
 /**
@@ -149,6 +150,7 @@ export default async function RootLayout({
         </a>
         <WebVitalsReporter />
         <PwaLifecycle />
+        <AppAnnouncements />
         <AuthProvider>
           <AccountDataProvider>
             <MobileKeyboardProvider>{children}</MobileKeyboardProvider>

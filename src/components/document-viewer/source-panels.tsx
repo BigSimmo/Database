@@ -640,7 +640,7 @@ function IndexedSourceText({
           return (
             <AccessibleTable
               key={block.id}
-              caption={block.caption}
+              caption={block.caption?.trim() || "Document table"}
               rows={block.rows}
               compact={false}
               expandOnMobile

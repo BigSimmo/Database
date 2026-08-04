@@ -294,7 +294,7 @@ export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRec
       ) : null}
       <div className="p-1.5 sm:p-2">
         <AccessibleTable
-          caption={table.title}
+          caption={table.title?.trim() || "Clinical table"}
           normalizedTable={normalizedTable}
           compact
           expandOnMobile

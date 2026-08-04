@@ -2,10 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { memo, useState } from "react";
-import { CircleAlert, Download, ExternalLink, FileText } from "lucide-react";
+import { memo, useEffect, useState } from "react";
+import { CircleAlert, Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
+import { announce } from "@/components/ui/live-announcer";
 
 const secondaryButton = floatingControl;
 
@@ -106,14 +107,22 @@ function InlineImagePreview({
 }) {
   const [failed, setFailed] = useState(false);
 
+  useEffect(() => {
+    if (failed) announce("Image preview could not load", { priority: "assertive" });
+  }, [failed]);
+
   if (failed) {
     return (
-      <div className={placeholderSurface} role="status" aria-live="polite">
+      <div className={placeholderSurface}>
         <div className="max-w-md">
           <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-8 w-8 text-[color:var(--warning)]" />
           <p className="font-semibold text-[color:var(--text)]">Image preview could not load</p>
           <p className="mt-1">The preview link may have expired. Open the image in a new tab or download it.</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <button type="button" onClick={() => setFailed(false)} className={cn(secondaryButton, "min-h-tap")}>
+              <RefreshCw aria-hidden="true" className="h-4 w-4" />
+              Retry image preview
+            </button>
             <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-tap")}>
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
               Open
