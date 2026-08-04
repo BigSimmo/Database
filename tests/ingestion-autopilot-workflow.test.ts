@@ -14,10 +14,10 @@ describe("ingestion autopilot workflow secret handling", () => {
     // step-scoped env under Preflight / Run autopilot should inject the secret.
     expect(workflow).not.toMatch(/^(?: {0,6})env:\n(?: {2,8}[^\n]+\n)* {2,8}SUPABASE_SERVICE_ROLE_KEY:/m);
 
-    expect(workflow).toContain(
-      "if: ${{ github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch }}",
-    );
-    expect(workflow).toContain("ref: ${{ github.event.repository.default_branch }}");
+    expect(workflow).not.toMatch(/^  workflow_dispatch:/m);
+    expect(workflow).toContain("repository_dispatch:");
+    expect(workflow).toContain("types: [ingestion-autopilot]");
+    expect(workflow).toContain("APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}");
 
     const secretLines = workflow.split("\n").filter((line) => line.includes("SUPABASE_SERVICE_ROLE_KEY:"));
     expect(secretLines).toEqual([

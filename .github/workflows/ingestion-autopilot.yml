@@ -4,20 +4,20 @@
 # or an explicitly requested recovery fails.
 #
 # ENABLED IN DRY-RUN: the 6-hourly schedule is active, but recovery only APPLIES when
-# BOTH the dispatch input `apply=true` AND repo variable INGESTION_AUTOPILOT_APPLY ==
+# BOTH the dispatch payload `apply=true` AND repo variable INGESTION_AUTOPILOT_APPLY ==
 # "true". The variable is intentionally unset, so scheduled runs are read-only probes
 # that alert on detected stuck/stranded work, unreachable Supabase, or (with apply)
 # failed recovery. To allow real recovery after reviewing a dry-run, set
-# INGESTION_AUTOPILOT_APPLY=true and dispatch with apply=true.
+# INGESTION_AUTOPILOT_APPLY=true and send an `ingestion-autopilot`
+# repository dispatch with `client_payload.apply=true`.
 name: Ingestion Autopilot
 
 on:
-  workflow_dispatch:
-    inputs:
-      apply:
-        description: "Apply recovery (requires repo var INGESTION_AUTOPILOT_APPLY=true)"
-        required: false
-        default: "false"
+  # repository_dispatch always loads this workflow from the trusted default
+  # branch. Do not replace it with workflow_dispatch: manual branch selection
+  # would let same-repository writers alter a secret-bearing workflow definition.
+  repository_dispatch:
+    types: [ingestion-autopilot]
   schedule:
     # Every 6 hours.
     - cron: "0 */6 * * *"
@@ -38,16 +38,12 @@ env:
 
 jobs:
   ingestion-autopilot:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.ref_name == github.event.repository.default_branch }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Manual dispatch can select a same-repository branch; always execute the
-          # trusted default-branch code before exposing production credentials.
-          ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Preflight required secrets
@@ -76,8 +72,8 @@ jobs:
         id: autopilot
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # Apply only when BOTH the dispatch input and the repo variable allow it.
-          APPLY_REQUESTED: ${{ github.event.inputs.apply }}
+          # Apply only when BOTH the trusted dispatch payload and repo variable allow it.
+          APPLY_REQUESTED: ${{ github.event.client_payload.apply || 'false' }}
           APPLY_ALLOWED: ${{ vars.INGESTION_AUTOPILOT_APPLY }}
         run: |
           if [ "$APPLY_REQUESTED" = "true" ] && [ "$APPLY_ALLOWED" = "true" ]; then
@@ -87,7 +83,7 @@ jobs:
             echo "Scheduled dry-run; alert if recoverable work is detected."
             npm run ingestion:autopilot -- --alert-on-stuck
           else
-            echo "Dry-run (set repo var INGESTION_AUTOPILOT_APPLY=true and dispatch apply=true to recover)."
+            echo "Dry-run (set repo var INGESTION_AUTOPILOT_APPLY=true and dispatch client_payload.apply=true to recover)."
             npm run ingestion:autopilot
           fi
 
