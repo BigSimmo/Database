@@ -1,4 +1,5 @@
 import ts from "@typescript/typescript6";
+import postcss from "postcss";
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
 
@@ -116,21 +117,40 @@ const RING_WIDTH_UTILITY = /^ring(?:-(?:0|1|2|4|8|\[(?!color:)[^\]]+\]))?$/;
 const DENSITY_HEIGHT_UTILITY = /^(?:h|min-h|max-h|size)-/;
 const DENSITY_TEXT_UTILITY = /^text-(?:2xs|xs|sm-minus|sm|base|lg|xl|[2-9]xl|\[[^\]]*(?:px|rem|em|clamp\()[^\]]*\])$/;
 const HARDCODED_MOTION_UTILITY = /^(?:duration|delay)-(?:\d+|\[(?!var\(--duration-)[^\]]+\])$/;
+const LITERAL_SHADOW_UTILITY = /^shadow-\[(?!var\()[^\]]+\]$/;
+const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const LEGACY_PALETTE_UTILITY =
   /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:white|black|(?:slate|gray|zinc|neutral|stone)-\d{2,3})(?:\/\d{1,3})?$/;
-const COLOR_UTILITY =
-  /^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(?:\[[^\]]+\]|[a-z]+(?:-[a-z]+)*(?:-\d{2,3})?)(?:\/\d{1,3})?$/;
+const COLOR_VALUE =
+  /^(?:inherit|current|transparent|black|white|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})(?:\/\d{1,3})?$/;
 const ALLOWED_Z_INDEX_RUNGS = new Set([0, 5, 10, 20, 30, 40, 60, 80, 81, 82, 83, 84, 85, 95, 100, 110]);
-const LAYOUT_TRANSITION_PROPERTIES = new Set([
-  "width",
-  "height",
-  "grid-template-columns",
-  "grid-template-rows",
-  "top",
-  "left",
-  "gap",
-  "padding-bottom",
+const ALLOWED_Z_INDEX_TOKENS = new Set([
+  "--z-raised",
+  "--z-chrome",
+  "--z-overlay",
+  "--z-popover",
+  "--z-modal",
+  "--z-toast",
 ]);
+const SAFE_TRANSITION_PROPERTIES = new Set([
+  "none",
+  "color",
+  "background-color",
+  "border-color",
+  "text-decoration-color",
+  "fill",
+  "stroke",
+  "opacity",
+  "box-shadow",
+  "transform",
+  "filter",
+  "backdrop-filter",
+  "visibility",
+  "scrollbar-color",
+]);
+const CLASS_COMPOSERS = new Set(["cn", "clsx", "cva"]);
+const CLASS_UTILITY_PREFIX =
+  /^(?:-?(?:m|p)[trblxy]?|h|w|min-h|max-h|min-w|max-w|size|text|font|leading|tracking|bg|border|ring|outline|shadow|rounded|opacity|z|top|right|bottom|left|inset|gap|space|grid|flex|block|inline|hidden|relative|absolute|fixed|sticky|overflow|overscroll|object|cursor|select|pointer-events|transition|duration|delay|animate|transform|translate|scale|rotate|skew|origin|items|justify|content|self|place|order|grow|shrink|basis|whitespace|break|truncate|line-clamp|decoration|underline|fill|stroke|from|via|to|backdrop|blur|filter|appearance|sr-only|not-sr-only)(?:-|$)/;
 
 function splitUtilityTokens(text) {
   return text.split(/\s+/).filter(Boolean);
@@ -164,193 +184,370 @@ function utilityVariants(token) {
   return splitTailwindVariants(token).slice(0, -1);
 }
 
-function staticUtilityTokensInSource(relativePath, sourceText) {
-  if (!/\.[cm]?[jt]sx?$/.test(relativePath)) return [];
-  const kind = relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
-  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, kind);
-  const tokens = [];
-
-  function visit(node) {
-    if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) {
-      const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
-      for (const token of splitUtilityTokens(node.text)) tokens.push({ token, line });
-    }
-    ts.forEachChild(node, visit);
-  }
-
-  visit(source);
-  return tokens;
+function jsxClassAttribute(node, source) {
+  return jsxClassAttributes(node, source)[0];
 }
 
-function jsxClassAttribute(node, source) {
-  return node.attributes.properties.find(
-    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
+function jsxClassAttributes(node, source) {
+  return node.attributes.properties.filter(
+    (attribute) => ts.isJsxAttribute(attribute) && /(?:^|[A-Z])className$/i.test(attribute.name.getText(source)),
   );
 }
 
-export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
-  if (!relativePath.endsWith(".tsx")) return [];
-  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const findings = [];
-
-  function visit(node) {
-    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const classAttribute = jsxClassAttribute(node, source);
-      if (classAttribute && ts.isJsxAttribute(classAttribute)) {
-        // Inspect each literal segment independently. Combining all branches of a
-        // conditional class expression would report border/ring pairs that can
-        // never be present on the element at the same time.
-        const conflicts = jsxClassSegments(classAttribute).filter((segment) => {
-          const bases = splitUtilityTokens(segment).map(utilityBase);
-          return (
-            bases.some((token) => BORDER_WIDTH_UTILITY.test(token)) &&
-            bases.some((token) => RING_WIDTH_UTILITY.test(token))
-          );
-        });
-        if (conflicts.length > 0) {
-          const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
-          findings.push(`${relativePath}:${line}`);
-        }
-      }
-    }
-    ts.forEachChild(node, visit);
-  }
-
-  visit(source);
-  return findings;
+function combinePossibilities(left, right) {
+  return left.flatMap((leftEntry) =>
+    right.map((rightEntry) => ({
+      usesDensityRecipe: leftEntry.usesDensityRecipe || rightEntry.usesDensityRecipe,
+      tokens: [...leftEntry.tokens, ...rightEntry.tokens],
+    })),
+  );
 }
 
-export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
-  if (!relativePath.endsWith(".tsx")) return [];
-  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const findings = [];
+function tokenEntries(node, source) {
+  const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+  return splitUtilityTokens(node.text).map((token, index) => ({
+    id: `${node.getStart(source)}:${index}:${token}`,
+    line,
+    token,
+  }));
+}
 
-  const combine = (left, right) =>
-    left.flatMap((leftEntry) =>
-      right.map((rightEntry) => ({
-        usesDensityRecipe: leftEntry.usesDensityRecipe || rightEntry.usesDensityRecipe,
-        tokens: [...leftEntry.tokens, ...rightEntry.tokens],
-      })),
-    );
+function classExpressionAnalyzer(relativePath, sourceText) {
+  if (!/\.[cm]?[jt]sx?$/.test(relativePath)) return null;
+  const kind = relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, kind);
+  const variables = new Map();
+  const densityAliases = new Set(["metadataPill", "metadataPillDensity"]);
 
-  function classPossibilities(node) {
-    if (!node) return [{ usesDensityRecipe: false, tokens: [] }];
+  function collectBindings(node) {
+    if (
+      ts.isImportDeclaration(node) &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings)
+    ) {
+      for (const specifier of node.importClause.namedBindings.elements) {
+        const imported = specifier.propertyName?.text ?? specifier.name.text;
+        if (imported === "metadataPill" || imported === "metadataPillDensity") densityAliases.add(specifier.name.text);
+      }
+    }
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      variables.set(node.name.text, node.initializer);
+    }
+    ts.forEachChild(node, collectBindings);
+  }
+  collectBindings(source);
+
+  const empty = () => [{ usesDensityRecipe: false, tokens: [] }];
+
+  function possibilities(node, resolving = new Set()) {
+    if (!node) return empty();
     if (
       ts.isParenthesizedExpression(node) ||
       ts.isAsExpression(node) ||
       ts.isTypeAssertionExpression(node) ||
       ts.isNonNullExpression(node)
     ) {
-      return classPossibilities(node.expression);
+      return possibilities(node.expression, resolving);
     }
     if (ts.isConditionalExpression(node)) {
-      return [...classPossibilities(node.whenTrue), ...classPossibilities(node.whenFalse)];
+      return [...possibilities(node.whenTrue, resolving), ...possibilities(node.whenFalse, resolving)];
     }
     if (ts.isBinaryExpression(node)) {
       if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
-        return [{ usesDensityRecipe: false, tokens: [] }, ...classPossibilities(node.right)];
+        return [...empty(), ...possibilities(node.right, resolving)];
       }
       if (
         node.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
         node.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
       ) {
-        return [...classPossibilities(node.left), ...classPossibilities(node.right)];
+        return [...possibilities(node.left, resolving), ...possibilities(node.right, resolving)];
       }
-      return combine(classPossibilities(node.left), classPossibilities(node.right));
+      return combinePossibilities(possibilities(node.left, resolving), possibilities(node.right, resolving));
     }
     if (ts.isCallExpression(node)) {
+      const callee = ts.isIdentifier(node.expression) ? node.expression.text : "";
+      if (
+        ts.isPropertyAccessExpression(node.expression) &&
+        (node.expression.name.text === "filter" || node.expression.name.text === "join")
+      ) {
+        return possibilities(node.expression.expression, resolving);
+      }
+      if (!CLASS_COMPOSERS.has(callee)) return empty();
       return node.arguments.reduce(
-        (possibilities, argument) => combine(possibilities, classPossibilities(argument)),
-        [{ usesDensityRecipe: false, tokens: [] }],
+        (entries, argument) => combinePossibilities(entries, possibilities(argument, resolving)),
+        empty(),
       );
     }
     if (ts.isArrayLiteralExpression(node)) {
       return node.elements.reduce(
-        (possibilities, element) => combine(possibilities, classPossibilities(element)),
-        [{ usesDensityRecipe: false, tokens: [] }],
+        (entries, element) => combinePossibilities(entries, possibilities(element, resolving)),
+        empty(),
       );
     }
+    if (ts.isObjectLiteralExpression(node)) {
+      return node.properties.reduce((entries, property) => {
+        if (ts.isSpreadAssignment(property))
+          return combinePossibilities(entries, possibilities(property.expression, resolving));
+        if (ts.isShorthandPropertyAssignment(property)) {
+          return combinePossibilities(entries, possibilities(property.name, resolving));
+        }
+        if (!ts.isPropertyAssignment(property)) return entries;
+        const name = property.name;
+        const keyEntries =
+          ts.isStringLiteralLike(name) || ts.isIdentifier(name)
+            ? [{ usesDensityRecipe: false, tokens: tokenEntries(name, source) }]
+            : ts.isComputedPropertyName(name)
+              ? possibilities(name.expression, resolving)
+              : empty();
+        return combinePossibilities(entries, [...empty(), ...keyEntries]);
+      }, empty());
+    }
     if (ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      return [{ usesDensityRecipe: false, tokens: splitUtilityTokens(node.text).map(utilityBase) }];
+      return [{ usesDensityRecipe: false, tokens: tokenEntries(node, source) }];
     }
     if (ts.isTemplateExpression(node)) {
-      const tokens = [node.head.text, ...node.templateSpans.map((span) => span.literal.text)]
-        .flatMap(splitUtilityTokens)
-        .map(utilityBase);
-      return [{ usesDensityRecipe: false, tokens }];
-    }
-    const expressionText = node.getText(source);
-    return [{ usesDensityRecipe: /\bmetadataPill(?:Density)?\b/.test(expressionText), tokens: [] }];
-  }
-
-  function visit(node) {
-    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const classAttribute = jsxClassAttribute(node, source);
-      if (!classAttribute || !ts.isJsxAttribute(classAttribute)) {
-        ts.forEachChild(node, visit);
-        return;
+      let entries = [{ usesDensityRecipe: false, tokens: tokenEntries(node.head, source) }];
+      for (const span of node.templateSpans) {
+        entries = combinePossibilities(entries, possibilities(span.expression, resolving));
+        entries = combinePossibilities(entries, [
+          { usesDensityRecipe: false, tokens: tokenEntries(span.literal, source) },
+        ]);
       }
-      const initializer = classAttribute.initializer;
-      const expression = initializer && ts.isJsxExpression(initializer) ? initializer.expression : initializer;
-      const tag = node.tagName.getText(source);
-      const conflicting = classPossibilities(expression).flatMap((possibility) => {
-        if (tag !== "Chip" && !possibility.usesDensityRecipe) return [];
-        return possibility.tokens.filter(
-          (token) => DENSITY_HEIGHT_UTILITY.test(token) || DENSITY_TEXT_UTILITY.test(token),
-        );
+      return entries;
+    }
+    if (ts.isIdentifier(node)) {
+      if (densityAliases.has(node.text)) return [{ usesDensityRecipe: true, tokens: [] }];
+      const initializer = variables.get(node.text);
+      if (!initializer || resolving.has(node.text)) return empty();
+      const next = new Set(resolving);
+      next.add(node.text);
+      return possibilities(initializer, next);
+    }
+    if (ts.isPropertyAccessExpression(node)) {
+      if (ts.isIdentifier(node.expression) && densityAliases.has(node.expression.text)) {
+        return [{ usesDensityRecipe: true, tokens: [] }];
+      }
+      if (ts.isIdentifier(node.expression)) {
+        const initializer = variables.get(node.expression.text);
+        if (initializer && ts.isObjectLiteralExpression(initializer)) {
+          const property = initializer.properties.find(
+            (candidate) =>
+              ts.isPropertyAssignment(candidate) &&
+              ((ts.isIdentifier(candidate.name) && candidate.name.text === node.name.text) ||
+                (ts.isStringLiteralLike(candidate.name) && candidate.name.text === node.name.text)),
+          );
+          if (property && ts.isPropertyAssignment(property)) return possibilities(property.initializer, resolving);
+        }
+      }
+      return empty();
+    }
+    if (ts.isElementAccessExpression(node) && ts.isIdentifier(node.expression)) {
+      const initializer = variables.get(node.expression.text);
+      if (!initializer || !ts.isObjectLiteralExpression(initializer)) return empty();
+      const requested = ts.isStringLiteralLike(node.argumentExpression) ? node.argumentExpression.text : null;
+      return initializer.properties.flatMap((property) => {
+        if (!ts.isPropertyAssignment(property)) return [];
+        const propertyName =
+          ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name) ? property.name.text : null;
+        if (requested !== null && propertyName !== requested) return [];
+        return possibilities(property.initializer, resolving);
       });
-      if (conflicting.length > 0) {
-        const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
-        findings.push(`${relativePath}:${line} (${[...new Set(conflicting)].join(", ")})`);
-      }
     }
-    ts.forEachChild(node, visit);
+    return empty();
   }
 
-  visit(source);
-  return findings;
+  function looksLikeClassExpression(node) {
+    const tokens = [];
+    function collect(candidate) {
+      if (ts.isStringLiteralLike(candidate) || ts.isTemplateLiteralToken(candidate)) {
+        tokens.push(...splitUtilityTokens(candidate.text).map(utilityBase));
+      }
+      ts.forEachChild(candidate, collect);
+    }
+    collect(node);
+    if (tokens.length === 0) return false;
+    const utilityCount = tokens.filter((token) => CLASS_UTILITY_PREFIX.test(token)).length;
+    return utilityCount >= 1 && utilityCount / tokens.length >= 0.5;
+  }
+
+  const classRoots = [];
+  function collectClassRoots(node, insideClassAttribute = false) {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      for (const attribute of jsxClassAttributes(node, source)) {
+        if (!ts.isJsxAttribute(attribute) || !attribute.initializer) continue;
+        const expression = ts.isJsxExpression(attribute.initializer)
+          ? attribute.initializer.expression
+          : attribute.initializer;
+        if (expression) classRoots.push({ expression, owner: node, tag: node.tagName.getText(source) });
+      }
+    }
+    if (ts.isCallExpression(node)) {
+      const callee = ts.isIdentifier(node.expression) ? node.expression.text : "";
+      if (CLASS_COMPOSERS.has(callee) && !insideClassAttribute)
+        classRoots.push({ expression: node, owner: node, tag: callee });
+    }
+    if (ts.isVariableDeclaration(node) && node.initializer && looksLikeClassExpression(node.initializer)) {
+      const statement = node.parent?.parent;
+      const exported =
+        statement &&
+        ts.isVariableStatement(statement) &&
+        statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+      const recipeName =
+        ts.isIdentifier(node.name) &&
+        /(?:class|classes|recipe|control|surface|pill|chip|button)$/i.test(node.name.text);
+      if (exported || recipeName) classRoots.push({ expression: node.initializer, owner: node, tag: "recipe" });
+    }
+    const nextInside =
+      insideClassAttribute || (ts.isJsxAttribute(node) && /(?:^|[A-Z])className$/i.test(node.name.getText(source)));
+    if (ts.isReturnStatement(node) && node.expression && looksLikeClassExpression(node.expression)) {
+      let owner = node.parent;
+      while (
+        owner &&
+        !ts.isFunctionDeclaration(owner) &&
+        !ts.isFunctionExpression(owner) &&
+        !ts.isArrowFunction(owner)
+      ) {
+        owner = owner.parent;
+      }
+      const functionName =
+        owner && ts.isFunctionDeclaration(owner)
+          ? owner.name?.text
+          : owner?.parent && ts.isVariableDeclaration(owner.parent) && ts.isIdentifier(owner.parent.name)
+            ? owner.parent.name.text
+            : "";
+      if (/(?:class|classes|recipe|style)$/i.test(functionName ?? "")) {
+        classRoots.push({ expression: node.expression, owner: node, tag: "recipe" });
+      }
+    }
+    ts.forEachChild(node, (child) => collectClassRoots(child, nextInside));
+  }
+  collectClassRoots(source);
+
+  return { classRoots, possibilities, source };
+}
+
+function isColorUtility(base) {
+  const match = base.match(/^(?:bg|text|border|ring|outline|fill|stroke|placeholder|from|via|to)-(.+)$/);
+  if (!match) return false;
+  const value = match[1];
+  return COLOR_VALUE.test(value) || /^\[(?:color:)?(?:var\(|#|rgb|hsl|oklch)/.test(value);
+}
+
+function uniqueTokenEntries(possibilities) {
+  const tokens = new Map();
+  for (const possibility of possibilities) {
+    for (const entry of possibility.tokens) tokens.set(entry.id, entry);
+  }
+  return [...tokens.values()];
+}
+
+export function analyzeClassContractsInSource(relativePath, sourceText) {
+  const analyzer = classExpressionAnalyzer(relativePath, sourceText);
+  const result = {
+    darkColorOverrides: [],
+    densityOverrides: [],
+    edgeOwnershipConflicts: [],
+    hardcodedMotionClasses: [],
+    layoutTransitions: [],
+    legacyShadowAliases: [],
+    legacyTapClasses: [],
+    legacyPaletteUtilities: [],
+    literalShadowClasses: [],
+    unapprovedZIndices: [],
+  };
+  if (!analyzer) return result;
+
+  const allTokens = new Map();
+  for (const root of analyzer.classRoots) {
+    const possibilities = analyzer.possibilities(root.expression);
+    const densityConflictsForRoot = new Set();
+    for (const possibility of possibilities) {
+      const bases = possibility.tokens.map(({ token }) => utilityBase(token));
+      if (
+        bases.some((token) => BORDER_WIDTH_UTILITY.test(token)) &&
+        bases.some((token) => RING_WIDTH_UTILITY.test(token))
+      ) {
+        const line = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
+        result.edgeOwnershipConflicts.push(`${relativePath}:${line}`);
+        break;
+      }
+      const densityConflicts = possibility.tokens.filter(({ token }) => {
+        const base = utilityBase(token);
+        return DENSITY_HEIGHT_UTILITY.test(base) || DENSITY_TEXT_UTILITY.test(base);
+      });
+      if ((root.tag === "Chip" || possibility.usesDensityRecipe) && densityConflicts.length > 0) {
+        for (const { token } of densityConflicts) densityConflictsForRoot.add(utilityBase(token));
+      }
+    }
+    if (densityConflictsForRoot.size > 0) {
+      const line = analyzer.source.getLineAndCharacterOfPosition(root.owner.getStart(analyzer.source)).line + 1;
+      result.densityOverrides.push(`${relativePath}:${line} (${[...densityConflictsForRoot].join(", ")})`);
+    }
+    for (const entry of uniqueTokenEntries(possibilities)) allTokens.set(entry.id, entry);
+  }
+
+  for (const { token, line } of allTokens.values()) {
+    const base = utilityBase(token);
+    const variants = utilityVariants(token);
+    if (base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base)) {
+      result.hardcodedMotionClasses.push(`${relativePath}:${line} (${token})`);
+    }
+    if (LITERAL_SHADOW_UTILITY.test(base)) result.literalShadowClasses.push(`${relativePath}:${line} (${token})`);
+    if (hasLegacyTapClass(token)) result.legacyTapClasses.push(`${relativePath}:${line} (${token})`);
+    for (const match of token.matchAll(LEGACY_SHADOW_ALIAS)) {
+      result.legacyShadowAliases.push(`${relativePath}:${line} (${match[0]})`);
+    }
+    const transition = base.match(/^transition-\[([^\]]+)\]$/);
+    if (transition) {
+      const properties = transition[1].split(/[,_]/).filter(Boolean);
+      for (const property of properties) {
+        if (!SAFE_TRANSITION_PROPERTIES.has(property)) result.layoutTransitions.push({ relativePath, line, property });
+      }
+    }
+    if (/^-?z-(?:\[|\(|\$|$)/.test(base) || /^-?z-\d+$/.test(base)) {
+      const numeric = base.match(/^(-?)z-(?:\[(-?\d+)\]|(-?\d+))$/);
+      const tokenMatch = base.match(/^z-(?:\[var\((--z-[a-z-]+)\)\]|\((--z-[a-z-]+)\))$/);
+      const numericAllowed = numeric && ALLOWED_Z_INDEX_RUNGS.has(Number(`${numeric[1]}${numeric[2] ?? numeric[3]}`));
+      const tokenAllowed = tokenMatch && ALLOWED_Z_INDEX_TOKENS.has(tokenMatch[1] ?? tokenMatch[2]);
+      if (!numericAllowed && !tokenAllowed) result.unapprovedZIndices.push(`${relativePath}:${line} (${token})`);
+    }
+    if (LEGACY_PALETTE_UTILITY.test(base)) result.legacyPaletteUtilities.push(`${relativePath}:${line} (${token})`);
+    if (variants.includes("dark") && isColorUtility(base)) {
+      result.darkColorOverrides.push(`${relativePath}:${line} (${token})`);
+    }
+  }
+
+  result.edgeOwnershipConflicts = [...new Set(result.edgeOwnershipConflicts)];
+  result.densityOverrides = [...new Set(result.densityOverrides)];
+  return result;
+}
+
+export function findJsxEdgeOwnershipConflictsInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).edgeOwnershipConflicts;
+}
+
+export function findDensityRecipeOverridesInSource(relativePath, sourceText) {
+  return analyzeClassContractsInSource(relativePath, sourceText).densityOverrides;
 }
 
 export function findHardcodedMotionClassesInSource(relativePath, sourceText) {
-  return staticUtilityTokensInSource(relativePath, sourceText)
-    .filter(({ token }) => {
-      const base = utilityBase(token);
-      return base === "transition-all" || HARDCODED_MOTION_UTILITY.test(base);
-    })
-    .map(({ token, line }) => `${relativePath}:${line} (${token})`);
+  return analyzeClassContractsInSource(relativePath, sourceText).hardcodedMotionClasses;
 }
 
 export function findLayoutTransitionClassesInSource(relativePath, sourceText) {
-  return staticUtilityTokensInSource(relativePath, sourceText).flatMap(({ token, line }) => {
-    const match = utilityBase(token).match(/^transition-\[([^\]]+)\]$/);
-    if (!match) return [];
-    return match[1]
-      .split(/[,_]/)
-      .filter((property) => LAYOUT_TRANSITION_PROPERTIES.has(property))
-      .map((property) => ({ relativePath, line, property }));
-  });
+  return analyzeClassContractsInSource(relativePath, sourceText).layoutTransitions;
 }
 
 export function findUnapprovedZIndexClassesInSource(relativePath, sourceText) {
-  return staticUtilityTokensInSource(relativePath, sourceText).flatMap(({ token, line }) => {
-    const match = utilityBase(token).match(/^(-?)z-(?:\[(-?\d+)\]|(-?\d+))$/);
-    if (!match) return [];
-    const value = Number(`${match[1]}${match[2] ?? match[3]}`);
-    return ALLOWED_Z_INDEX_RUNGS.has(value) ? [] : [`${relativePath}:${line} (${token})`];
-  });
+  return analyzeClassContractsInSource(relativePath, sourceText).unapprovedZIndices;
 }
 
 export function countLegacyPaletteUtilitiesInSource(relativePath, sourceText) {
-  return staticUtilityTokensInSource(relativePath, sourceText).filter(({ token }) =>
-    LEGACY_PALETTE_UTILITY.test(utilityBase(token)),
-  ).length;
+  return analyzeClassContractsInSource(relativePath, sourceText).legacyPaletteUtilities.length;
 }
 
 export function countDarkColorOverridesInSource(relativePath, sourceText) {
-  return staticUtilityTokensInSource(relativePath, sourceText).filter(({ token }) => {
-    const variants = utilityVariants(token);
-    return variants.includes("dark") && COLOR_UTILITY.test(utilityBase(token));
-  }).length;
+  return analyzeClassContractsInSource(relativePath, sourceText).darkColorOverrides.length;
 }
 
 function splitCssShadowLayers(value) {
@@ -394,46 +591,79 @@ function layerHasOnePixelSpread(layer) {
   return lengths.length >= 4 && lengths[3] === "1px";
 }
 
+function cssDeclarations(sourceText) {
+  const declarations = [];
+  postcss.parse(sourceText).walkDecls((declaration) => declarations.push(declaration));
+  return declarations;
+}
+
+function transitionProperties(declaration) {
+  if (declaration.prop === "transition-property") return declaration.value.split(",").map((value) => value.trim());
+  if (declaration.prop !== "transition") return [];
+  return splitCssShadowLayers(declaration.value)
+    .map((layer) => topLevelCssTokens(layer)[0])
+    .filter(Boolean);
+}
+
+export function analyzeCssContractsInSource(relativePath, sourceText) {
+  const result = {
+    hardcodedMotionDurations: [],
+    layoutTransitions: [],
+    legacyShadowAliases: [],
+    onePixelShadowSpreads: [],
+    rawZIndices: [],
+  };
+  for (const declaration of cssDeclarations(sourceText)) {
+    const line = declaration.source?.start?.line ?? 1;
+    const prop = declaration.prop.toLowerCase();
+    for (const match of declaration.value.matchAll(LEGACY_SHADOW_ALIAS)) {
+      result.legacyShadowAliases.push(`${relativePath}:${line} (${prop} ${match[0]})`);
+    }
+    if (prop === "box-shadow" || /^--(?:e[0-4]|shadow-[a-z0-9-]+)$/.test(prop)) {
+      splitCssShadowLayers(declaration.value).forEach((layer, index) => {
+        if (layerHasOnePixelSpread(layer)) {
+          result.onePixelShadowSpreads.push(`${relativePath}:${line} (${prop} layer ${index + 1})`);
+        }
+      });
+    }
+    if (/^(?:transition|animation)(?:-duration|-delay)?$/.test(prop)) {
+      for (const duration of declaration.value.matchAll(/(?<![-\w])\d*\.?\d+(?:ms|s)\b/g)) {
+        result.hardcodedMotionDurations.push(`${relativePath}:${line} (${prop} ${duration[0]})`);
+      }
+    }
+    for (const property of transitionProperties(declaration)) {
+      if (!SAFE_TRANSITION_PROPERTIES.has(property)) result.layoutTransitions.push({ relativePath, line, property });
+    }
+    if (prop === "z-index" && /^-?\d+$/.test(declaration.value.trim())) {
+      result.rawZIndices.push(`${relativePath}:${line} (${declaration.value.trim()})`);
+    }
+  }
+  return result;
+}
+
 export function countOnePixelShadowSpreadsInSource(sourceText) {
-  let count = 0;
-  const declaration = /(?:box-shadow|--(?:e[0-4]|shadow-[a-z0-9-]+))\s*:\s*([^;{}]+);/gi;
-  for (const match of sourceText.matchAll(declaration)) {
-    count += splitCssShadowLayers(match[1]).filter(layerHasOnePixelSpread).length;
-  }
-  const arbitraryShadow = /shadow-\[([^\]]+)\]/g;
-  for (const match of sourceText.matchAll(arbitraryShadow)) {
-    count += splitCssShadowLayers(match[1].replaceAll("_", " ")).filter(layerHasOnePixelSpread).length;
-  }
-  return count;
+  return analyzeCssContractsInSource("source.css", sourceText).onePixelShadowSpreads.length;
 }
 
 export function countHardcodedCssMotionDurations(sourceText) {
-  let count = 0;
-  const declaration = /(?:transition|animation)(?:-duration|-delay)?\s*:\s*([^;{}]+);/gi;
-  for (const match of sourceText.matchAll(declaration)) {
-    const value = match[1];
-    for (const duration of value.matchAll(/(?<![-\w])\d*\.?\d+(?:ms|s)\b/g)) {
-      count += 1;
-    }
-  }
-  return count;
+  return analyzeCssContractsInSource("source.css", sourceText).hardcodedMotionDurations.length;
 }
 
 export function findCssLayoutTransitionsInSource(relativePath, sourceText) {
-  const findings = [];
-  const declaration = /transition(?:-property)?\s*:\s*([^;{}]+);/gi;
-  for (const match of sourceText.matchAll(declaration)) {
-    const line = sourceText.slice(0, match.index).split(/\r?\n/).length;
-    for (const property of LAYOUT_TRANSITION_PROPERTIES) {
-      const pattern = new RegExp(`(?:^|[,\\s])${property.replaceAll("-", "\\-")}(?=[,\\s]|$)`);
-      if (pattern.test(match[1])) findings.push({ relativePath, line, property });
-    }
-  }
-  return findings;
+  return analyzeCssContractsInSource(relativePath, sourceText).layoutTransitions;
 }
 
 export function countRawCssZIndicesInSource(sourceText) {
-  return [...sourceText.matchAll(/z-index\s*:\s*(?:-?\d+)\s*;/gi)].length;
+  return analyzeCssContractsInSource("source.css", sourceText).rawZIndices.length;
+}
+
+export function findDebtPathRegressions(metric, currentByPath, baselineByPath) {
+  return Object.entries(currentByPath)
+    .filter(([relativePath, count]) => count > (baselineByPath?.[relativePath] ?? 0))
+    .map(
+      ([relativePath, count]) =>
+        `${metric} at ${relativePath} increased from ${baselineByPath?.[relativePath] ?? 0} to ${count}`,
+    );
 }
 
 function maskRanges(source, ranges) {

@@ -4,20 +4,11 @@ import process from "node:process";
 import ts from "@typescript/typescript6";
 
 import {
-  LEGACY_TAP_CLASS,
   RAW_COLOR_EXEMPTIONS,
-  countDarkColorOverridesInSource,
-  countHardcodedCssMotionDurations,
-  countLegacyPaletteUtilitiesInSource,
-  countOnePixelShadowSpreadsInSource,
-  countRawCssZIndicesInSource,
-  findCssLayoutTransitionsInSource,
-  findDensityRecipeOverridesInSource,
-  findHardcodedMotionClassesInSource,
+  analyzeClassContractsInSource,
+  analyzeCssContractsInSource,
+  findDebtPathRegressions,
   findInteractiveTapLiteralsInSource,
-  findJsxEdgeOwnershipConflictsInSource,
-  findLayoutTransitionClassesInSource,
-  findUnapprovedZIndexClassesInSource,
   hasLegacyTapClass,
   jsxClassText,
   rawColorContractSource,
@@ -27,22 +18,11 @@ const ROOT = process.cwd();
 const SRC_ROOT = path.join(ROOT, "src");
 const BASELINE_PATH = path.join(ROOT, "scripts", "design-system-contract-baseline.json");
 const PRINT_METRICS = process.argv.includes("--print-metrics");
+const PRINT_BASELINE = process.argv.includes("--print-debt-baseline");
 const SOURCE_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
-const LITERAL_SHADOW_CLASS = /shadow-\[(?!var\()[^\]]+\]/g;
-const LEGACY_SHADOW_ALIAS = /var\(--shadow-(?:tight|card|soft|hover|elevated|lux|lift)\)/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
-const APPROVED_LAYOUT_TRANSITION_COUNTS = new Map([
-  // These are existing, interaction-specific exceptions rather than a general
-  // license for layout animation. Any additional property/path pair fails.
-  ["src/app/globals.css|padding-bottom", 4],
-  ["src/components/calculators/guided-flow.tsx|width", 1],
-  ["src/components/clinical-dashboard/master-search-header.tsx|grid-template-rows", 3],
-  ["src/components/clinical-dashboard/master-search-header.tsx|height", 1],
-  ["src/components/document-viewer/section-nav.tsx|height", 1],
-  ["src/components/secondary-navigation.tsx|top", 1],
-]);
 
 const toPosix = (value) => value.split(path.sep).join("/");
 
@@ -132,9 +112,14 @@ const metrics = {
   legacyPaletteUtilities: 0,
   darkColorOverrides: 0,
   legacyShadowAliases: 0,
+  layoutTransitionExceptions: 0,
+};
+const debtByPath = Object.fromEntries(Object.keys(metrics).map((metric) => [metric, {}]));
+const recordDebt = (metric, relativePath, count) => {
+  metrics[metric] += count;
+  if (count > 0) debtByPath[metric][relativePath] = (debtByPath[metric][relativePath] ?? 0) + count;
 };
 
-const edgeOwnershipFindings = [];
 const densityOverrideFindings = [];
 const hardcodedMotionClassFindings = [];
 const layoutTransitionFindings = [];
@@ -142,29 +127,30 @@ const unapprovedZIndexFindings = [];
 
 for (const file of files) {
   const source = textAt(file.relativePath);
-  const contractSource = withoutComments(source);
   const rawColorSource = withoutComments(
     rawColorContractSource(file.relativePath, source, (message) => assert(false, message)),
   );
-  metrics.rawColorLiterals += countMatches(rawColorSource, RAW_COLOR);
-  metrics.literalShadowClasses += countMatches(contractSource, LITERAL_SHADOW_CLASS);
-  metrics.legacyTapClasses += countMatches(contractSource, LEGACY_TAP_CLASS);
-  const fileEdgeFindings = findJsxEdgeOwnershipConflictsInSource(file.relativePath, source);
-  edgeOwnershipFindings.push(...fileEdgeFindings);
-  metrics.edgeOwnershipConflicts += fileEdgeFindings.length;
-  metrics.onePixelShadowSpreads += countOnePixelShadowSpreadsInSource(contractSource);
-  metrics.hardcodedCssMotionDurations += countHardcodedCssMotionDurations(contractSource);
-  metrics.rawCssZIndices += countRawCssZIndicesInSource(contractSource);
-  metrics.legacyPaletteUtilities += countLegacyPaletteUtilitiesInSource(file.relativePath, source);
-  metrics.darkColorOverrides += countDarkColorOverridesInSource(file.relativePath, source);
-  metrics.legacyShadowAliases += countMatches(contractSource, LEGACY_SHADOW_ALIAS);
-  densityOverrideFindings.push(...findDensityRecipeOverridesInSource(file.relativePath, source));
-  hardcodedMotionClassFindings.push(...findHardcodedMotionClassesInSource(file.relativePath, source));
-  layoutTransitionFindings.push(...findLayoutTransitionClassesInSource(file.relativePath, source));
+  recordDebt("rawColorLiterals", file.relativePath, countMatches(rawColorSource, RAW_COLOR));
+  const classAnalysis = analyzeClassContractsInSource(file.relativePath, source);
+  recordDebt("literalShadowClasses", file.relativePath, classAnalysis.literalShadowClasses.length);
+  recordDebt("legacyTapClasses", file.relativePath, classAnalysis.legacyTapClasses.length);
+  const fileEdgeFindings = classAnalysis.edgeOwnershipConflicts;
+  recordDebt("edgeOwnershipConflicts", file.relativePath, fileEdgeFindings.length);
+  recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);
+  recordDebt("darkColorOverrides", file.relativePath, classAnalysis.darkColorOverrides.length);
+  recordDebt("legacyShadowAliases", file.relativePath, classAnalysis.legacyShadowAliases.length);
+  densityOverrideFindings.push(...classAnalysis.densityOverrides);
+  hardcodedMotionClassFindings.push(...classAnalysis.hardcodedMotionClasses);
+  layoutTransitionFindings.push(...classAnalysis.layoutTransitions);
+  unapprovedZIndexFindings.push(...classAnalysis.unapprovedZIndices);
   if (file.relativePath.endsWith(".css")) {
-    layoutTransitionFindings.push(...findCssLayoutTransitionsInSource(file.relativePath, contractSource));
+    const cssAnalysis = analyzeCssContractsInSource(file.relativePath, source);
+    recordDebt("onePixelShadowSpreads", file.relativePath, cssAnalysis.onePixelShadowSpreads.length);
+    recordDebt("hardcodedCssMotionDurations", file.relativePath, cssAnalysis.hardcodedMotionDurations.length);
+    recordDebt("rawCssZIndices", file.relativePath, cssAnalysis.rawZIndices.length);
+    recordDebt("legacyShadowAliases", file.relativePath, cssAnalysis.legacyShadowAliases.length);
+    layoutTransitionFindings.push(...cssAnalysis.layoutTransitions);
   }
-  unapprovedZIndexFindings.push(...findUnapprovedZIndexClassesInSource(file.relativePath, source));
   for (const match of source.matchAll(CUSTOM_CONTROL_CLASS_PROP)) {
     assert(
       !hasLegacyTapClass(match[1] ?? match[2] ?? ""),
@@ -186,24 +172,9 @@ assert(
   `Tailwind z-index utilities bypass the named ladder: ${unapprovedZIndexFindings.join(", ")}`,
 );
 
-const layoutTransitionCounts = new Map();
-const unapprovedLayoutTransitions = [];
-for (const finding of layoutTransitionFindings) {
-  const key = `${finding.relativePath}|${finding.property}`;
-  if (!APPROVED_LAYOUT_TRANSITION_COUNTS.has(key)) {
-    unapprovedLayoutTransitions.push(`${finding.relativePath}:${finding.line} (${finding.property})`);
-    continue;
-  }
-  layoutTransitionCounts.set(key, (layoutTransitionCounts.get(key) ?? 0) + 1);
+for (const [relativePath, findings] of Map.groupBy(layoutTransitionFindings, (finding) => finding.relativePath)) {
+  recordDebt("layoutTransitionExceptions", relativePath, findings.length);
 }
-for (const [key, count] of layoutTransitionCounts) {
-  const approved = APPROVED_LAYOUT_TRANSITION_COUNTS.get(key) ?? 0;
-  if (count > approved) unapprovedLayoutTransitions.push(`${key} increased from ${approved} to ${count}`);
-}
-assert(
-  unapprovedLayoutTransitions.length === 0,
-  `unapproved layout-property transitions found: ${unapprovedLayoutTransitions.join(", ")}`,
-);
 
 const interactiveTapFindings = files.flatMap(findInteractiveTapLiterals);
 assert(
@@ -324,14 +295,22 @@ for (const target of [
   assert(!/\bring-white\b|\bbg-white\b/.test(textAt(target)), `${target} bypasses the shared glass/toggle recipes`);
 }
 
-if (!PRINT_METRICS) {
+if (!PRINT_METRICS && !PRINT_BASELINE) {
   assert(fs.existsSync(BASELINE_PATH), "design-system contract baseline is missing");
   if (fs.existsSync(BASELINE_PATH)) {
     const baseline = JSON.parse(fs.readFileSync(BASELINE_PATH, "utf8"));
     for (const [metric, value] of Object.entries(metrics)) {
-      assert(value <= baseline[metric], `${metric} increased from ${baseline[metric]} to ${value}`);
+      assert(value <= baseline.metrics?.[metric], `${metric} increased from ${baseline.metrics?.[metric]} to ${value}`);
+      for (const regression of findDebtPathRegressions(metric, debtByPath[metric], baseline.debtByPath?.[metric])) {
+        assert(false, regression);
+      }
     }
   }
+}
+
+if (PRINT_BASELINE) {
+  console.log(JSON.stringify({ metrics, debtByPath }, null, 2));
+  process.exit(failures.length === 0 ? 0 : 1);
 }
 
 if (PRINT_METRICS) {
@@ -349,6 +328,6 @@ console.log(
   `Design-system contract passed (${files.length} production files; raw colors ${metrics.rawColorLiterals}; literal shadows ${metrics.literalShadowClasses}; legacy tap classes ${metrics.legacyTapClasses}; edge conflicts ${metrics.edgeOwnershipConflicts}; 1px shadow spreads ${metrics.onePixelShadowSpreads}).`,
 );
 console.log(
-  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}.`,
+  `Motion/z/palette ratchets: hardcoded CSS durations ${metrics.hardcodedCssMotionDurations}; layout transitions ${metrics.layoutTransitionExceptions}; raw CSS z-index ${metrics.rawCssZIndices}; legacy palette utilities ${metrics.legacyPaletteUtilities}; dark color overrides ${metrics.darkColorOverrides}; legacy shadow aliases ${metrics.legacyShadowAliases}.`,
 );
 console.log(`Raw-color exemptions: ${RAW_COLOR_EXEMPTIONS.map(({ category }) => category).join(", ")}.`);

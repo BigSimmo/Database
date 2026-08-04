@@ -6,6 +6,7 @@ import {
   countLegacyPaletteUtilitiesInSource,
   countOnePixelShadowSpreadsInSource,
   countRawCssZIndicesInSource,
+  findDebtPathRegressions,
   findCssLayoutTransitionsInSource,
   findDensityRecipeOverridesInSource,
   findHardcodedMotionClassesInSource,
@@ -41,11 +42,25 @@ describe("design-system contract helpers", () => {
         "src/example.tsx",
         [
           '<button className="border border-[color:var(--border)] focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]" />',
+          '<button className={cn("border", active && "ring-2")} />',
+          '<div className={`border ${active ? "ring-2" : ""}`} />',
+          '<div className={clsx("border", { "ring-2": active })} />',
+          '<div className={clsx("border", { ...{ "ring-2": active } })} />',
           '<button className={active ? "border" : "ring-1"} />',
           '<span className="ring-1 ring-[color:var(--border)]" />',
+          'const base = "border";',
+          'const stateEdge = active && "ring-2";',
+          "<div className={cn(base, stateEdge)} />",
         ].join("\n"),
       ),
-    ).toEqual(["src/example.tsx:1"]);
+    ).toEqual([
+      "src/example.tsx:1",
+      "src/example.tsx:2",
+      "src/example.tsx:3",
+      "src/example.tsx:4",
+      "src/example.tsx:5",
+      "src/example.tsx:10",
+    ]);
   });
 
   it("blocks Chip and metadata density overrides while allowing layout-only classes", () => {
@@ -53,24 +68,31 @@ describe("design-system contract helpers", () => {
       'const ok = <Chip className="whitespace-nowrap shrink-0" />;',
       'const badChip = <Chip className={cn("h-6", active && "text-xs")} />;',
       'const badPill = <span className={cn(metadataPillDensity.compact, "sm:min-h-8")} />;',
+      "const pill = metadataPillDensity.compact;",
+      'const badAlias = <span className={clsx(pill, "h-8 text-sm")} />;',
+      'const badObject = <span className={cn(metadataPillDensity.compact, { "h-8": active })} />;',
+      'const exclusive = <span className={active ? metadataPillDensity.compact : "h-8 text-sm"} />;',
     ].join("\n");
 
     expect(findDensityRecipeOverridesInSource("src/example.tsx", source)).toEqual([
       "src/example.tsx:2 (h-6, text-xs)",
       "src/example.tsx:3 (min-h-8)",
+      "src/example.tsx:5 (h-8, text-sm)",
+      "src/example.tsx:6 (h-8)",
     ]);
   });
 
   it("finds hardcoded motion utilities but accepts named duration tokens", () => {
     const source = [
-      'const good = "transition-transform duration-[var(--duration-fast)]";',
-      'const bad = "transition-all duration-200 delay-[75ms]";',
+      'export const help = "Do not use transition-all or duration-200 in components";',
+      'const good = <div className="transition-transform duration-[var(--duration-fast)]" />;',
+      'const bad = <div className="transition-all duration-200 delay-[75ms]" />;',
     ].join("\n");
 
     expect(findHardcodedMotionClassesInSource("src/example.tsx", source)).toEqual([
-      "src/example.tsx:2 (transition-all)",
-      "src/example.tsx:2 (duration-200)",
-      "src/example.tsx:2 (delay-[75ms])",
+      "src/example.tsx:3 (transition-all)",
+      "src/example.tsx:3 (duration-200)",
+      "src/example.tsx:3 (delay-[75ms])",
     ]);
   });
 
@@ -78,7 +100,7 @@ describe("design-system contract helpers", () => {
     expect(
       findLayoutTransitionClassesInSource(
         "src/example.tsx",
-        'const classes = "transition-[height,background-color] sm:transition-[grid-template-rows] transition-transform";',
+        '<div className="transition-[height,background-color] sm:transition-[grid-template-rows] transition-transform" />;',
       ),
     ).toEqual([
       { relativePath: "src/example.tsx", line: 1, property: "height" },
@@ -87,7 +109,11 @@ describe("design-system contract helpers", () => {
     expect(
       findCssLayoutTransitionsInSource(
         "src/example.css",
-        ".a { transition: padding-bottom var(--duration-fast) ease; }\n.b { transition-property: opacity, top; }",
+        [
+          ".a { transition: padding-bottom var(--duration-fast) ease }",
+          ".b { transition-property: opacity, top }",
+          '.c { --menu-transition: height 100ms; content: "transition: bottom 2s;" }',
+        ].join("\n"),
       ),
     ).toEqual([
       { relativePath: "src/example.css", line: 1, property: "padding-bottom" },
@@ -95,17 +121,36 @@ describe("design-system contract helpers", () => {
     ]);
   });
 
+  it("rejects arbitrary layout transitions outside the paint-safe allowlist", () => {
+    expect(
+      findLayoutTransitionClassesInSource(
+        "src/example.tsx",
+        '<div className="transition-[max-height] transition-[min-width] transition-[margin] transition-[padding-left] transition-[right] transition-[bottom] transition-[inset] transition-[flex-basis] transition-[opacity,transform]" />',
+      ).map(({ property }) => property),
+    ).toEqual(["max-height", "min-width", "margin", "padding-left", "right", "bottom", "inset", "flex-basis"]);
+  });
+
   it("enforces named z-index rungs across standard and arbitrary utilities", () => {
     expect(
       findUnapprovedZIndexClassesInSource(
         "src/example.tsx",
-        'const classes = "z-40 z-[95] sm:z-[77] hover:z-50 -z-10";',
+        '<div className="z-40 z-[95] z-[var(--z-modal)] z-(--z-toast) sm:z-[77] hover:z-50 -z-10 z-[calc(90+1)] z-[var(--arbitrary)]" />',
       ),
-    ).toEqual(["src/example.tsx:1 (sm:z-[77])", "src/example.tsx:1 (hover:z-50)", "src/example.tsx:1 (-z-10)"]);
+    ).toEqual([
+      "src/example.tsx:1 (sm:z-[77])",
+      "src/example.tsx:1 (hover:z-50)",
+      "src/example.tsx:1 (-z-10)",
+      "src/example.tsx:1 (z-[calc(90+1)])",
+      "src/example.tsx:1 (z-[var(--arbitrary)])",
+    ]);
+    expect(
+      findUnapprovedZIndexClassesInSource("src/example.tsx", "const dynamic = <div className={`z-[${level}]`} />;"),
+    ).toEqual(["src/example.tsx:1 (z-[)"]);
   });
 
   it("counts legacy palette utilities and dark color overrides from static class strings", () => {
-    const source = 'const classes = "bg-white text-slate-700 dark:bg-black/50 hover:bg-[color:var(--surface)]";';
+    const source =
+      '<div className="bg-white text-slate-700 dark:bg-black/50 dark:text-center dark:text-balance dark:border-collapse hover:bg-[color:var(--surface)]" />;';
     expect(countLegacyPaletteUtilitiesInSource("src/example.tsx", source)).toBe(3);
     expect(countDarkColorOverridesInSource("src/example.tsx", source)).toBe(1);
   });
@@ -113,11 +158,11 @@ describe("design-system contract helpers", () => {
   it("counts only a true fourth 1px shadow length as a forbidden spread", () => {
     const source = [
       ".a { box-shadow: 0 1px 2px rgb(0 0 0 / 20%); }",
-      ".b { box-shadow: inset 0 0 0 1px var(--border), 0 2px 4px -1px black; }",
+      ".b { box-shadow: inset 0 0 0 1px var(--border), 0 2px 4px -1px black }",
       ".c { --shadow-card: 0 0 1px rgb(0 0 0 / 20%); }",
-      'const classes = "shadow-[0_0_0_1px_rgb(0_0_0_/_20%)]";',
+      '.d { --menu-shadow: 0 0 0 1px red; content: "box-shadow: 0 0 0 1px" }',
     ].join("\n");
-    expect(countOnePixelShadowSpreadsInSource(source)).toBe(2);
+    expect(countOnePixelShadowSpreadsInSource(source)).toBe(1);
   });
 
   it("counts hardcoded CSS durations and delays, including reduced-motion sentinels", () => {
@@ -125,16 +170,26 @@ describe("design-system contract helpers", () => {
       ".a { transition: opacity 150ms ease, transform var(--duration-fast) ease; }",
       ".b { animation-duration: 0.01ms !important; }",
       ".c { transition-duration: 0.2s; }",
-      ".d { transition-delay: 75ms; }",
+      ".d { transition-delay: 75ms }",
+      '.e { --menu-transition: height 100ms; content: "transition: height 2s" }',
     ].join("\n");
     expect(countHardcodedCssMotionDurations(source)).toBe(4);
   });
 
   it("counts numeric CSS z-index declarations but not auto or token values", () => {
     expect(
-      countRawCssZIndicesInSource(".a{z-index:95}.b{z-index: -1;}.c{z-index:auto;}.d{z-index:var(--z-modal);}"),
-    ).toBe(1);
+      countRawCssZIndicesInSource(
+        '.a{z-index:95}.b{z-index: -1}.c{z-index:auto}.d{z-index:var(--z-modal)}.e{--menu-z-index:999;content:"z-index: 999"}',
+      ),
+    ).toBe(2);
     expect(countRawCssZIndicesInSource(".a{z-index: 95;}.b{z-index:-1;}")).toBe(2);
+  });
+
+  it("rejects debt moved to a new path even when its global total is unchanged", () => {
+    expect(findDebtPathRegressions("legacy", { "src/new.tsx": 1 }, { "src/old.tsx": 1 })).toEqual([
+      "legacy at src/new.tsx increased from 0 to 1",
+    ]);
+    expect(findDebtPathRegressions("legacy", { "src/old.tsx": 1 }, { "src/old.tsx": 2 })).toEqual([]);
   });
 
   it("masks raw colours only inside the fixed-paper factsheet rendering scope", () => {
