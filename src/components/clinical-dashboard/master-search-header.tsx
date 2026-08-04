@@ -1085,7 +1085,8 @@ export function MasterSearchHeader({
     );
 
     let retryTimeout: number | null = null;
-    let portalRetryCount = 0;
+    const portalRetryStartedAt = window.performance.now();
+    const portalFallbackDelayMs = 8_000;
     // Runs synchronously off the MutationObserver (which already coalesces
     // records into a microtask) rather than behind requestAnimationFrame.
     // Headless CI throttles/pauses rAF whenever the page is not actively
@@ -1097,13 +1098,12 @@ export function MasterSearchHeader({
     // their React segment hydrates. Adopting the slot before that injects a
     // display:contents host into still-unhydrated RSC HTML (React #418).
     const syncTarget = () => {
-      if (retryTimeout !== null) {
-        window.clearTimeout(retryTimeout);
-        retryTimeout = null;
-      }
       const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
       if (slot && isDesktopComposerSlotReady(slot)) {
-        portalRetryCount = 0;
+        if (retryTimeout !== null) {
+          window.clearTimeout(retryTimeout);
+          retryTimeout = null;
+        }
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
@@ -1111,9 +1111,20 @@ export function MasterSearchHeader({
       } else {
         host.parentNode?.removeChild(host);
         setDesktopComposerPortalActive(false);
-        if (mediaQuery.matches && portalRetryCount < 24) {
-          portalRetryCount += 1;
-          retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
+        const fallbackDelayRemaining = portalFallbackDelayMs - (window.performance.now() - portalRetryStartedAt);
+        if (mediaQuery.matches && fallbackDelayRemaining > 0) {
+          // Body mutations may arrive continuously while a route hydrates. They
+          // must not consume the retry budget or reset its deadline; only one
+          // elapsed-time poll is scheduled at once.
+          if (retryTimeout === null) {
+            retryTimeout = window.setTimeout(
+              () => {
+                retryTimeout = null;
+                syncTarget();
+              },
+              Math.min(200, fallbackDelayRemaining),
+            );
+          }
         } else if (mediaQuery.matches) {
           // A missing/unhydrated page slot must not remove search forever. Home
           // routes suppress the header fallback during the bounded retry window

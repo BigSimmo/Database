@@ -5,9 +5,12 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("../scripts/measure-cls-attribution.mjs", import.meta.url), "utf8");
 
 describe("CLS attribution evidence contract", () => {
-  it("accepts a zero-shift route when the reserve timeline proves instrumentation ran", () => {
+  it("accepts zero-shift routes only when both observers report successful installation", () => {
     expect(source).toContain("const routesMissingInstrumentation = Object.entries(results)");
-    expect(source).toContain("result.entries.length === 0 && result.reserveTimeline.length === 0");
+    expect(source).toContain("window.__clsObserverReady = true");
+    expect(source).toContain("window.__reserveObserverReady = true");
+    expect(source).toContain("!result.instrumentation.clsObserverReady");
+    expect(source).toContain("!result.instrumentation.reserveObserverReady");
     expect(source).toContain("if (routesMissingInstrumentation.length > 0)");
     expect(source).toContain("Treat those routes as failed evidence");
   });

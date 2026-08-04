@@ -114,6 +114,8 @@ function waitForServer(url, child) {
 const PAGE_INSTRUMENTATION = () => {
   window.__clsEntries = [];
   window.__reserveTimeline = [];
+  window.__clsObserverReady = false;
+  window.__reserveObserverReady = false;
 
   let lastReserve = null;
   const recordReserve = () => {
@@ -140,6 +142,7 @@ const PAGE_INSTRUMENTATION = () => {
       attributes: true,
       attributeFilter: ["style"],
     });
+    window.__reserveObserverReady = true;
     recordReserve();
     return true;
   };
@@ -171,7 +174,7 @@ const PAGE_INSTRUMENTATION = () => {
     };
   };
 
-  new PerformanceObserver((list) => {
+  const clsObserver = new PerformanceObserver((list) => {
     for (const entry of list.getEntries()) {
       // CLS excludes shifts within 500ms of user input; so does this.
       if (entry.hadRecentInput) continue;
@@ -185,7 +188,9 @@ const PAGE_INSTRUMENTATION = () => {
         })),
       });
     }
-  }).observe({ type: "layout-shift", buffered: true });
+  });
+  clsObserver.observe({ type: "layout-shift", buffered: true });
+  window.__clsObserverReady = true;
 };
 
 console.log(`[cls] building offline production app (${relativeRunRoot})`);
@@ -235,6 +240,10 @@ try {
     await page.waitForTimeout(settleMs);
     const entries = await page.evaluate(() => window.__clsEntries || []);
     const timeline = await page.evaluate(() => window.__reserveTimeline || []);
+    const instrumentation = await page.evaluate(() => ({
+      clsObserverReady: window.__clsObserverReady === true,
+      reserveObserverReady: window.__reserveObserverReady === true,
+    }));
     await context.close();
 
     const total = entries.reduce((sum, entry) => sum + entry.value, 0);
@@ -258,6 +267,7 @@ try {
       sources: [...bySource.entries()].sort((a, b) => b[1].value - a[1].value).slice(0, 8),
       entries,
       reserveTimeline: timeline,
+      instrumentation,
     };
 
     console.log(`[cls] ${route.padEnd(20)} CLS=${total.toFixed(3)}  shifts=${entries.length}`);
@@ -272,7 +282,7 @@ try {
   console.log(`[cls] wrote ${path.relative(projectRoot, outFile)}`);
 
   const routesMissingInstrumentation = Object.entries(results)
-    .filter(([, result]) => result.entries.length === 0 && result.reserveTimeline.length === 0)
+    .filter(([, result]) => !result.instrumentation.clsObserverReady || !result.instrumentation.reserveObserverReady)
     .map(([route]) => route);
   if (routesMissingInstrumentation.length > 0) {
     console.error(
