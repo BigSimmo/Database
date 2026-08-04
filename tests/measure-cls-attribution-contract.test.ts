@@ -6,9 +6,10 @@ const source = readFileSync(new URL("../scripts/measure-cls-attribution.mjs", im
 
 describe("CLS attribution evidence contract", () => {
   it("accepts a zero-shift route when the reserve timeline proves instrumentation ran", () => {
-    expect(source).toContain("const instrumentationMissing");
+    expect(source).toContain("const routesMissingInstrumentation = Object.entries(results)");
     expect(source).toContain("result.entries.length === 0 && result.reserveTimeline.length === 0");
-    expect(source).toContain("if (allZero && instrumentationMissing)");
+    expect(source).toContain("if (routesMissingInstrumentation.length > 0)");
+    expect(source).toContain("Treat those routes as failed evidence");
   });
 
   it("creates a requested nested evidence directory before writing", () => {
