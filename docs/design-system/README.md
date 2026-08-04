@@ -18,8 +18,10 @@ Reading order:
 5. [GATES.md](GATES.md) — every rule paired with its enforcement status. A prohibition
    with no row there is a suggestion.
 
-Canonical code: `src/app/ckb-v2-tokens.css` is the **v2 target layer**; `globals.css` remains
-the live **compatibility layer** until a declared product root opts into `.ckb-v2`. The generated
-[adoption manifest](adoption-manifest.json) is the local, source-derived record of that boundary.
-It currently records no literal product-root opt-ins. Design project `08d6f126-3fd0-4764-aedf-0062a467280a`
-is not verified by this repository; local design-sync parity is not remote publication proof.
+Canonical code: `src/app/ckb-v2-tokens.css` is the **v2 target layer** and `globals.css` remains
+the compatibility layer. The source now mounts `.ckb-v2` literally on the global `<html>`, so every
+production surface is observed under v2. The generated [adoption manifest](adoption-manifest.json)
+records that observation separately from the still-pending adoption declaration, proof and Linux
+visual baselines; the mismatch intentionally keeps the contract check red. Design project
+`08d6f126-3fd0-4764-aedf-0062a467280a` is not verified by this repository; local design-sync parity
+is not remote publication proof.

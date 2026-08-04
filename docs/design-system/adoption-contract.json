@@ -1,6 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
+  "globalShellRoot": { "file": "src/app/layout.tsx", "element": "html" },
   "productionSurfaces": [
     {
       "id": "root-shell-and-settings",

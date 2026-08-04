@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,7 +6,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   analyzeCkbV2ClassUsage,
+  buildAdoptionManifest,
   checkAdoptionManifest,
+  deriveSurfaceV2Observation,
   productionPageRoutes,
 } from "../scripts/generate-design-system-adoption.mjs";
 
@@ -108,6 +109,46 @@ describe("design-system adoption manifest", () => {
     expect(analyzeCkbV2ClassUsage("src/components/fixture-root.tsx", source)).toEqual(expected);
   });
 
+  it("scopes the global observation to the declared html element", () => {
+    const source =
+      `const nested = { className: "ckb-v2" }; ` +
+      `export function Root() { return <html className="page"><body className="ckb-v2" {...nested} /></html>; }`;
+    expect(analyzeCkbV2ClassUsage("src/app/layout.tsx", source, { elementName: "html" })).toEqual({
+      literalCkbV2: false,
+      dynamicCkbV2: false,
+    });
+  });
+
+  it("distinguishes direct literal mounts from global-root inheritance", () => {
+    const globalShell = { file: "src/app/layout.tsx", literalCkbV2: true };
+    expect(
+      deriveSurfaceV2Observation({
+        globalShell,
+        roots: [
+          { file: "src/app/first/page.tsx", literalCkbV2: false },
+          { file: "src/components/direct.tsx", literalCkbV2: true },
+        ],
+      }),
+    ).toEqual({
+      observedShellState: "v2",
+      v2ShellMounted: true,
+      v2MountMode: "inherited-global-root",
+      inheritedFrom: "src/app/layout.tsx",
+      directV2MountFiles: ["src/components/direct.tsx"],
+    });
+
+    expect(
+      deriveSurfaceV2Observation({
+        globalShell: { file: "src/app/layout.tsx", literalCkbV2: false },
+        roots: [{ file: "src/components/direct.tsx", literalCkbV2: true }],
+      }),
+    ).toMatchObject({
+      observedShellState: "v2",
+      v2MountMode: "direct-literal",
+      inheritedFrom: null,
+    });
+  });
+
   it("fails the adoption contract when a declared root constructs ckb-v2", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const manifest = {
@@ -172,13 +213,32 @@ describe("design-system adoption manifest", () => {
         {
           ...current.surfaces[0],
           id: "fixture-v2",
-          shellState: "v2",
+          declaredShellState: "v2",
           proof: incompleteProof,
         },
       ],
     };
 
     expect(checkAdoptionManifest(manifest)).toContain("fixture-v2 surface proof is missing browser");
+  });
+
+  it("requires passed evidence and a committed existing baseline for declared v2", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const declaredV2 = {
+      ...current.surfaces[0],
+      id: "fixture-v2",
+      declaredShellState: "v2",
+      proof: {
+        ...current.surfaces[0].proof,
+        dark: { status: "passed", evidence: [] },
+      },
+      baseline: { status: "not-committed", files: [] },
+    };
+    const failures = checkAdoptionManifest({ ...current, surfaces: [declaredV2] });
+
+    expect(failures).toContain("fixture-v2 dark proof is passed without evidence");
+    expect(failures).toContain("fixture-v2 v2 adoption requires passed browser proof");
+    expect(failures).toContain("fixture-v2 v2 adoption requires a committed visual baseline");
   });
 
   it("discovers production pages while excluding api and mockup trees", () => {
@@ -195,15 +255,19 @@ describe("design-system adoption manifest", () => {
     }
   });
 
-  it("is deterministic and records the compatibility-layer baseline", () => {
-    execFileSync(process.execPath, ["scripts/generate-design-system-adoption.mjs", "--check"], {
-      cwd: root,
-      stdio: "pipe",
-    });
-
+  it("is deterministic and separates observed global v2 from the pending contract", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
-    expect(manifest.schemaVersion).toBe(3);
-    expect(manifest.adoption.literalCkbV2RootCount).toBe(0);
+    expect(manifest).toEqual(buildAdoptionManifest({ root }));
+    expect(manifest.schemaVersion).toBe(4);
+    expect(manifest.globalShell).toMatchObject({
+      file: "src/app/layout.tsx",
+      element: "html",
+      literalCkbV2: true,
+      observedShellState: "v2",
+    });
+    expect(manifest.adoption.literalCkbV2RootCount).toBe(1);
+    expect(manifest.adoption.v2MountedSurfaceCount).toBe(manifest.surfaces.length);
+    expect(manifest.adoption.declaredV2SurfaceCount).toBe(0);
     expect(
       manifest.components.every(
         (component: Record<string, unknown>) =>
@@ -214,9 +278,22 @@ describe("design-system adoption manifest", () => {
           typeof component.baselineCommitted === "boolean",
       ),
     ).toBe(true);
-    expect(manifest.surfaces.every((surface: { shellState: string }) => surface.shellState === "compatibility")).toBe(
-      true,
-    );
+    expect(
+      manifest.surfaces.every(
+        (surface: { declaredShellState: string; observedShellState: string; v2MountMode: string }) =>
+          surface.declaredShellState === "compatibility" &&
+          surface.observedShellState === "v2" &&
+          surface.v2MountMode === "inherited-global-root",
+      ),
+    ).toBe(true);
+    expect(
+      manifest.components.every(
+        (component: { productImportFiles: string[]; v2ShellMounted: boolean; v2MountMode: string }) =>
+          component.productImportFiles.length > 0
+            ? component.v2ShellMounted && component.v2MountMode === "inherited-global-root"
+            : !component.v2ShellMounted && component.v2MountMode === "none",
+      ),
+    ).toBe(true);
     expect(
       manifest.surfaces.every(
         (surface: { proof: Record<string, unknown>; baseline: { status: string } }) =>
@@ -229,6 +306,21 @@ describe("design-system adoption manifest", () => {
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
     expect(manifest.routeCoverage.duplicates).toEqual([]);
+  });
+
+  it("keeps the real source/contract mismatch intentionally blocking", () => {
+    const manifest = buildAdoptionManifest({ root });
+    const failures = checkAdoptionManifest(manifest, { root });
+    expect(failures).toContain(
+      "root-shell-and-settings declares compatibility but observes v2 through global root src/app/layout.tsx",
+    );
+    expect(
+      manifest.surfaces.every((surface: { id: string }) =>
+        failures.includes(
+          `${surface.id} declares compatibility but observes v2 through global root src/app/layout.tsx`,
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("keeps generated adoption sections synchronized with the manifest", () => {

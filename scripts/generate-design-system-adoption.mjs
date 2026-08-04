@@ -174,7 +174,7 @@ function combineClassPatterns(groups, separator, constructed = false) {
  * opt-in; any concatenation/template/join that can synthesize that token is a
  * dynamic opt-in and fails the adoption contract.
  */
-export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
+export function analyzeCkbV2ClassUsage(relativePath, sourceText, { elementName = null } = {}) {
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const bindings = [];
   const classExpressions = [];
@@ -247,11 +247,20 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
       bindings.push({ declaration: node, scope, depth: scopeDepth(scope) });
     }
     if (ts.isJsxAttribute(node) && ["class", "className"].includes(node.name.getText(source))) {
+      const openingElement = node.parent.parent;
+      const ownerName =
+        ts.isJsxOpeningElement(openingElement) || ts.isJsxSelfClosingElement(openingElement)
+          ? openingElement.tagName.getText(source)
+          : null;
+      if (elementName && ownerName !== elementName) {
+        ts.forEachChild(node, collect);
+        return;
+      }
       if (node.initializer && ts.isStringLiteral(node.initializer)) classExpressions.push(node.initializer);
       if (node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression)
         classExpressions.push(node.initializer.expression);
     }
-    if (ts.isPropertyAssignment(node) && ["class", "className"].includes(propertyName(node.name))) {
+    if (!elementName && ts.isPropertyAssignment(node) && ["class", "className"].includes(propertyName(node.name))) {
       classExpressions.push(node.initializer);
     }
     ts.forEachChild(node, collect);
@@ -461,10 +470,26 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
   return { literalCkbV2, dynamicCkbV2 };
 }
 
+export function deriveSurfaceV2Observation({ globalShell, roots }) {
+  const directV2MountFiles = roots
+    .filter((rootFact) => rootFact.literalCkbV2)
+    .map((rootFact) => rootFact.file)
+    .sort();
+  const inheritsGlobalV2 = Boolean(globalShell.literalCkbV2);
+  const v2ShellMounted = inheritsGlobalV2 || directV2MountFiles.length > 0;
+  return {
+    observedShellState: v2ShellMounted ? "v2" : "compatibility",
+    v2ShellMounted,
+    v2MountMode: inheritsGlobalV2 ? "inherited-global-root" : directV2MountFiles.length > 0 ? "direct-literal" : "none",
+    inheritedFrom: inheritsGlobalV2 ? globalShell.file : null,
+    directV2MountFiles,
+  };
+}
+
 function manifestSections(manifest) {
   const componentRows = manifest.components.map(
     (component) =>
-      `| \`${component.name}\` | ${component.family} | ${component.built ? "yes" : "no"} | ${component.locallyRegistered ? "yes" : "no"} | ${component.v2ShellMounted ? "yes" : "no"} | ${component.proofDeclared ? "yes" : "no"} | ${component.baselineCommitted ? "yes" : "no"} | ${component.productImportFiles.length} |`,
+      `| \`${component.name}\` | ${component.family} | ${component.built ? "yes" : "no"} | ${component.locallyRegistered ? "yes" : "no"} | ${component.v2ShellMounted ? component.v2MountMode : "no"} | ${component.proofDeclared ? "yes" : "no"} | ${component.baselineCommitted ? "yes" : "no"} | ${component.productImportFiles.length} |`,
   );
   const maturity = [
     "<!-- adoption-manifest:maturity:start -->",
@@ -476,14 +501,14 @@ function manifestSections(manifest) {
     "",
     "This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.",
     "",
-    "| Component | Family | Built | Locally registered | v2 shell mounted | Proof declared | Baseline committed | Product imports |",
+    "| Component | Family | Built | Locally registered | Observed v2 mount | Proof declared | Baseline committed | Product imports |",
     "| --- | --- | --- | --- | --- | --- | --- | ---: |",
     ...componentRows,
     "<!-- adoption-manifest:maturity:end -->",
   ].join("\n");
   const surfaceRows = manifest.surfaces.map((surface) => {
     const proofStatuses = [...new Set(Object.values(surface.proof).map((declaration) => declaration.status))];
-    return `| \`${surface.id}\` | ${surface.disposition} | ${surface.routes.length} | ${surface.roots.length} | ${surface.shellState} | ${proofStatuses.join(", ")} | ${surface.baseline.status} |`;
+    return `| \`${surface.id}\` | ${surface.disposition} | ${surface.routes.length} | ${surface.roots.length} | ${surface.declaredShellState} | ${surface.observedShellState} (${surface.v2MountMode}) | ${proofStatuses.join(", ")} | ${surface.baseline.status} |`;
   });
   const adoption = [
     "<!-- adoption-manifest:adoption:start -->",
@@ -498,15 +523,17 @@ function manifestSections(manifest) {
     `Registered public components: ${manifest.summary.registeredComponentCount}`,
     `Declared product roots: ${manifest.summary.rootCount}`,
     `Roots with a literal \`.ckb-v2\` opt-in: ${manifest.adoption.literalCkbV2RootCount}`,
+    `Roots inheriting \`.ckb-v2\` from the global \`<html>\`: ${manifest.adoption.inheritedCkbV2RootCount}`,
+    `Production surfaces observed under v2: ${manifest.adoption.v2MountedSurfaceCount}/${manifest.surfaces.length}`,
     `Dynamic \`ckb-v2\` constructions: ${manifest.adoption.dynamicCkbV2RootCount}`,
     `Declared production page routes: ${manifest.routeCoverage.declared.length}/${manifest.routeCoverage.discovered.length}`,
     "",
-    "The live product remains on the compatibility layer until a declared root opts into the v2 class literally.",
+    "Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.",
     "The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.",
-    "A v2 shell declaration fails closed unless every proof is passed with evidence and its visual baseline is committed.",
+    "Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed.",
     "",
-    "| Surface | Disposition | Routes | Roots | Expected shell | Proof | Baseline |",
-    "| --- | --- | ---: | ---: | --- | --- | --- |",
+    "| Surface | Disposition | Routes | Roots | Declared shell | Observed shell (mount) | Proof | Baseline |",
+    "| --- | --- | ---: | ---: | --- | --- | --- | --- |",
     ...surfaceRows,
     "<!-- adoption-manifest:adoption:end -->",
   ].join("\n");
@@ -527,6 +554,21 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   const sourceFiles = walk(path.join(root, "src"), root);
   const testFiles = walk(path.join(root, "tests"), root);
   const entry = read(".design-sync/entry.tsx", root);
+  const globalShellDeclaration = contract.globalShellRoot ?? {
+    file: "src/app/layout.tsx",
+    element: "html",
+  };
+  const globalShellSource = exists(globalShellDeclaration.file, root) ? read(globalShellDeclaration.file, root) : "";
+  const globalShellUsage = analyzeCkbV2ClassUsage(globalShellDeclaration.file, globalShellSource, {
+    elementName: globalShellDeclaration.element,
+  });
+  const globalShell = {
+    file: globalShellDeclaration.file,
+    element: globalShellDeclaration.element,
+    exists: Boolean(globalShellSource),
+    ...globalShellUsage,
+    observedShellState: globalShellUsage.literalCkbV2 ? "v2" : "compatibility",
+  };
   const componentInventory = Object.keys(contract.componentFamilies)
     .sort()
     .map((name) => {
@@ -578,15 +620,18 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
         importedFamilies,
         literalCkbV2,
         dynamicCkbV2,
+        v2MountMode: literalCkbV2 ? "direct-literal" : globalShell.literalCkbV2 ? "inherited-global-root" : "none",
         sanctionedPatternsPresent: surface.sanctionedSpecialPatterns.filter((pattern) => sourceText.includes(pattern)),
       };
     });
+    const observation = deriveSurfaceV2Observation({ globalShell, roots });
     return {
       id: surface.id,
       disposition: surface.disposition,
       documentedDisposition: surface.documentedDisposition ?? null,
       routes: [...surface.routes].sort(),
-      shellState: surface.expectedShellState,
+      declaredShellState: surface.expectedShellState,
+      ...observation,
       proof: Object.fromEntries(
         Object.entries(surface.proof ?? {}).sort(([left], [right]) => left.localeCompare(right)),
       ),
@@ -606,16 +651,19 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       component.designSync.listedInDtsProps &&
       component.designSync.previewValid,
     );
-    const v2ShellMounted = surfaces.some(
+    const inheritedGlobalMount = globalShell.literalCkbV2 && component.productImportFiles.length > 0;
+    const directSurfaceMount = surfaces.some(
       (surface) =>
-        surface.shellState === "v2" &&
+        surface.v2MountMode === "direct-literal" &&
         surface.roots.some((rootFact) => rootFact.literalCkbV2 && rootFact.imports.includes(component.name)),
     );
+    const v2ShellMounted = inheritedGlobalMount || directSurfaceMount;
     return {
       ...component,
       built,
       locallyRegistered,
       v2ShellMounted,
+      v2MountMode: inheritedGlobalMount ? "inherited-global-root" : directSurfaceMount ? "direct-surface" : "none",
       proofDeclared: component.testFiles.length > 0,
       baselineCommitted: component.baseline.visualBaselineStatus === "committed",
     };
@@ -626,6 +674,9 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   const dynamicCkbV2RootCount = surfaces
     .flatMap((surface) => surface.roots)
     .filter((rootFact) => rootFact.dynamicCkbV2).length;
+  const inheritedCkbV2RootCount = surfaces
+    .flatMap((surface) => surface.roots)
+    .filter((rootFact) => rootFact.v2MountMode === "inherited-global-root").length;
   const discoveredRoutes = productionPageRoutes(root);
   const routeOwners = new Map();
   for (const surface of contract.productionSurfaces) {
@@ -645,6 +696,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   return {
     schemaVersion: contract.schemaVersion,
     baseline: contract.baseline,
+    globalShell,
     requiredProofCategories: [...contract.requiredProofCategories],
     components,
     surfaces,
@@ -655,7 +707,13 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       missing: missingRoutes,
       duplicates: duplicateRoutes,
     },
-    adoption: { literalCkbV2RootCount, dynamicCkbV2RootCount },
+    adoption: {
+      literalCkbV2RootCount,
+      inheritedCkbV2RootCount,
+      dynamicCkbV2RootCount,
+      v2MountedSurfaceCount: surfaces.filter((surface) => surface.v2ShellMounted).length,
+      declaredV2SurfaceCount: surfaces.filter((surface) => surface.declaredShellState === "v2").length,
+    },
     summary: {
       registeredComponentCount: components.length,
       previewCount: components.filter((component) => component.designSync.previewValid).length,
@@ -669,9 +727,28 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
 export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
   const contract = JSON.parse(read(CONTRACT_PATH, root));
   const failures = [];
+  const globalShellDeclaration = contract.globalShellRoot ?? {
+    file: "src/app/layout.tsx",
+    element: "html",
+  };
+  if (!manifest.globalShell || typeof manifest.globalShell !== "object") {
+    failures.push("global shell observation is missing");
+  } else {
+    if (!manifest.globalShell.exists) failures.push(`global shell root is missing: ${globalShellDeclaration.file}`);
+    if (manifest.globalShell.file !== globalShellDeclaration.file)
+      failures.push("global shell root drifted from adoption contract");
+    if (manifest.globalShell.element !== globalShellDeclaration.element)
+      failures.push("global shell element drifted from adoption contract");
+    if (manifest.globalShell.dynamicCkbV2)
+      failures.push(`global shell dynamically constructs ckb-v2: ${manifest.globalShell.file}`);
+  }
   for (const component of manifest.components) {
     for (const fact of ["built", "locallyRegistered", "v2ShellMounted", "proofDeclared", "baselineCommitted"])
       if (typeof component[fact] !== "boolean") failures.push(`${component.name} is missing boolean ${fact} fact`);
+    if (!new Set(["none", "inherited-global-root", "direct-surface"]).has(component.v2MountMode))
+      failures.push(`${component.name} has invalid v2 mount mode: ${String(component.v2MountMode)}`);
+    if (component.v2ShellMounted !== (component.v2MountMode !== "none"))
+      failures.push(`${component.name} v2 mount boolean and mode disagree`);
     if (!component.source || !component.sourceExported)
       failures.push(`${component.name} is not exported from its declared source`);
     if (!component.entryExported) failures.push(`${component.name} is missing from .design-sync/entry.tsx`);
@@ -680,6 +757,23 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
     if (component.testFiles.length === 0) failures.push(`${component.name} has no direct test proof`);
   }
   for (const surface of manifest.surfaces) {
+    if (!new Set(["compatibility", "v2"]).has(surface.declaredShellState))
+      failures.push(`${surface.id} has invalid declared shell state: ${String(surface.declaredShellState)}`);
+    if (!new Set(["compatibility", "v2"]).has(surface.observedShellState))
+      failures.push(`${surface.id} has invalid observed shell state: ${String(surface.observedShellState)}`);
+    if (!new Set(["none", "inherited-global-root", "direct-literal"]).has(surface.v2MountMode))
+      failures.push(`${surface.id} has invalid v2 mount mode: ${String(surface.v2MountMode)}`);
+    if (surface.v2ShellMounted !== (surface.observedShellState === "v2"))
+      failures.push(`${surface.id} observed shell state and mount boolean disagree`);
+    if (surface.declaredShellState === "compatibility" && surface.v2ShellMounted) {
+      const source =
+        surface.v2MountMode === "inherited-global-root"
+          ? `global root ${surface.inheritedFrom}`
+          : `direct root ${surface.directV2MountFiles.join(", ")}`;
+      failures.push(`${surface.id} declares compatibility but observes v2 through ${source}`);
+    }
+    if (surface.declaredShellState === "v2" && !surface.v2ShellMounted)
+      failures.push(`${surface.id} declares v2 but no literal source mount was observed`);
     const proof = surface.proof && typeof surface.proof === "object" ? surface.proof : {};
     const requiredProofCategories = Array.isArray(contract.requiredProofCategories)
       ? contract.requiredProofCategories
@@ -702,7 +796,7 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
           if (!exists(evidencePath, root))
             failures.push(`${surface.id} ${category} proof evidence is missing: ${evidencePath}`);
       }
-      if (surface.shellState === "v2" && declaration.status !== "passed")
+      if (surface.declaredShellState === "v2" && declaration.status !== "passed")
         failures.push(`${surface.id} v2 adoption requires passed ${category} proof`);
     }
     for (const category of Object.keys(proof)) {
@@ -724,14 +818,12 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
           if (!exists(baselinePath, root))
             failures.push(`${surface.id} surface baseline file is missing: ${baselinePath}`);
       }
-      if (surface.shellState === "v2" && surface.baseline.status !== "committed")
+      if (surface.declaredShellState === "v2" && surface.baseline.status !== "committed")
         failures.push(`${surface.id} v2 adoption requires a committed visual baseline`);
     }
     for (const rootFact of surface.roots) {
       if (!rootFact.exists) failures.push(`${surface.id} root is missing: ${rootFact.file}`);
       if (rootFact.dynamicCkbV2) failures.push(`${surface.id} root dynamically constructs ckb-v2: ${rootFact.file}`);
-      if (surface.shellState === "compatibility" && rootFact.literalCkbV2)
-        failures.push(`${surface.id} declares compatibility but opts into ckb-v2: ${rootFact.file}`);
       for (const family of rootFact.importedFamilies) {
         if (!surface.permittedComponentFamilies.includes(family))
           failures.push(`${surface.id} imports an unpermitted ${family} component`);

@@ -337,9 +337,11 @@ at the **end** of adoption, with its own visual-regression pass (≈663 type cal
 - completion condition — no semantic difference remains between live and v2 roles on adopted
   surfaces
 
-**Current truth.** The target layer is built, but the declared product roots remain on the live
-compatibility layer. `adoption-manifest.json` is generated locally from those roots; it is the
-adoption count, not an inference from a token file or a remote design-project claim.
+**Current truth.** The target layer is built and the source mounts it literally on the global
+`<html>`, so production surfaces inherit v2. The contract still declares those surfaces as
+compatibility until their required proof and committed Linux visual baselines are approved.
+`adoption-manifest.json` records observed mounting and declared adoption independently; it is not
+an inference from a token file or a remote design-project claim.
 
 ### 4.12 Print is a theme
 

@@ -316,29 +316,31 @@ redirect. Shared shell/component roots carry their own explicit `shared-shell` d
 
 Registered public components: 53
 Declared product roots: 55
-Roots with a literal `.ckb-v2` opt-in: 0
+Roots with a literal `.ckb-v2` opt-in: 1
+Roots inheriting `.ckb-v2` from the global `<html>`: 54
+Production surfaces observed under v2: 14/14
 Dynamic `ckb-v2` constructions: 0
 Declared production page routes: 47/47
 
-The live product remains on the compatibility layer until a declared root opts into the v2 class literally.
+Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
-A v2 shell declaration fails closed unless every proof is passed with evidence and its visual baseline is committed.
+Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed.
 
-| Surface                            | Disposition     | Routes | Roots | Expected shell | Proof          | Baseline       |
-| ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------- | -------------- |
-| `root-shell-and-settings`          | shared-shell    |      1 |     4 | compatibility  | unverified     | not-committed  |
-| `catalogues-forms-and-info`        | owned           |     13 |    13 | compatibility  | unverified     | not-committed  |
-| `differentials`                    | owned           |      4 |     4 | compatibility  | unverified     | not-committed  |
-| `formulation`                      | owned           |      5 |     5 | compatibility  | unverified     | not-committed  |
-| `specifiers`                       | owned           |      5 |     5 | compatibility  | unverified     | not-committed  |
-| `therapy-compass`                  | owned           |      9 |    10 | compatibility  | unverified     | not-committed  |
-| `documents-and-source-evidence`    | owned           |      3 |     4 | compatibility  | unverified     | not-committed  |
-| `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | compatibility  | not-applicable | not-applicable |
-| `favourites`                       | owned           |      1 |     1 | compatibility  | unverified     | not-committed  |
-| `tools-and-calculators`            | owned           |      2 |     2 | compatibility  | unverified     | not-committed  |
-| `privacy-safety-and-reference`     | owned           |      3 |     3 | compatibility  | unverified     | not-committed  |
-| `search-results-shared`            | shared-shell    |      0 |     1 | compatibility  | unverified     | not-committed  |
-| `answers-shared`                   | shared-shell    |      0 |     2 | compatibility  | unverified     | not-committed  |
-| `source-preview-shared`            | shared-shell    |      0 |     1 | compatibility  | unverified     | not-committed  |
+| Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
+| ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
+| `root-shell-and-settings`          | shared-shell    |      1 |     4 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `catalogues-forms-and-info`        | owned           |     13 |    13 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `differentials`                    | owned           |      4 |     4 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `formulation`                      | owned           |      5 |     5 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `specifiers`                       | owned           |      5 |     5 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `therapy-compass`                  | owned           |      9 |    10 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `documents-and-source-evidence`    | owned           |      3 |     4 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | compatibility  | v2 (inherited-global-root) | not-applicable | not-applicable |
+| `favourites`                       | owned           |      1 |     1 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `tools-and-calculators`            | owned           |      2 |     2 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `privacy-safety-and-reference`     | owned           |      3 |     3 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `search-results-shared`            | shared-shell    |      0 |     1 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `answers-shared`                   | shared-shell    |      0 |     2 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
+| `source-preview-shared`            | shared-shell    |      0 |     1 | compatibility  | v2 (inherited-global-root) | unverified     | not-committed  |
 
 <!-- adoption-manifest:adoption:end -->
