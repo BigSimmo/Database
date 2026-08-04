@@ -319,8 +319,9 @@ throws — enum resilience per SPEC §7).
 **Don't:** use it for loading (that is `Skeleton`) or for failed requests (that is
 `ErrorState` — "no result count is available" is not a missing value).
 
-**Built in PR 6**, and already composed inside `AnswerFooter` and `DateDisplay`.
-`AccessibleTable`'s bare-dash cells are adoption work (PR 13), not part of this build.
+**Built in PR 6**, and already composed inside `AnswerFooter`, `DateDisplay`, and
+`AccessibleTable`. All three render explicit missing-value phrases; no bare-dash or dropped-segment
+convergence remains for these components.
 
 ---
 

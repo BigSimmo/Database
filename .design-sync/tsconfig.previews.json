@@ -1,11 +1,11 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": "..",
     "incremental": false,
+    "types": ["node"],
     "paths": {
-      "@/*": ["src/*"],
-      "prompt-for-codex-medical-knowledge-base": [".design-sync/entry.tsx"]
+      "@/*": ["../src/*"],
+      "prompt-for-codex-medical-knowledge-base": ["./entry.tsx"]
     }
   },
   "include": ["entry.tsx", "previews/**/*.tsx"],

@@ -96,6 +96,7 @@
       "testFiles": [
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -358,7 +359,11 @@
         "preview": ".design-sync/previews/DateDisplay.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/ui-v2-answer-safety.dom.test.tsx"],
+      "testFiles": [
+        "tests/design-sync-visual-exports.test.ts",
+        "tests/design-system-adoption.test.ts",
+        "tests/ui-v2-answer-safety.dom.test.tsx"
+      ],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "compatibility",
@@ -800,6 +805,7 @@
         "previewValid": true
       },
       "testFiles": [
+        "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx"

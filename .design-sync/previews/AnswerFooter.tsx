@@ -11,8 +11,8 @@ export const Complete = () => (
   </div>
 );
 
-// Missing segments are dropped rather than filled with "Unknown" - except the
-// review date, which stays explicit because its absence is itself a signal.
+// Missing metadata renders explicit MissingValue phrases for every absent field;
+// nothing is silently dropped from the provenance strip.
 export const SparseMetadata = () => (
   <div className="w-[40rem] overflow-hidden rounded-lg border border-[color:var(--border)]">
     <AnswerFooter publisher="RANZCP" generatedAt="2026-07-31T13:04:00+08:00" />

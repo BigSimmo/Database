@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import ts from "@typescript/typescript6";
 
 import { deriveDesignSyncProps } from "./generate-design-sync-contract.mjs";
@@ -50,14 +51,14 @@ function previewIsValid(name, config) {
   );
 }
 
-function previewTypeFailures(componentNames, config) {
-  const configPath = path.join(ROOT, config.tsconfig);
+export function previewTypeFailures(componentNames, config, { root = ROOT } = {}) {
+  const configPath = path.join(root, config.tsconfig);
   const parsed = ts.getParsedCommandLineOfConfigFile(configPath, { noEmit: true }, ts.sys);
   if (!parsed) return [`unable to parse ${configPath} for preview validation`];
   const canonicalPath = (fileName) => path.resolve(fileName).replaceAll("\\", "/").toLowerCase();
   const previewRoot = "/.design-sync/previews/";
   const expectedPreviews = new Set(
-    componentNames.map((name) => canonicalPath(path.join(ROOT, ".design-sync", "previews", `${name}.tsx`))),
+    componentNames.map((name) => canonicalPath(path.join(root, ".design-sync", "previews", `${name}.tsx`))),
   );
   const configuredPreviews = new Set(
     parsed.fileNames.map(canonicalPath).filter((fileName) => fileName.includes(previewRoot)),
@@ -74,17 +75,14 @@ function previewTypeFailures(componentNames, config) {
   });
   return configFailures.concat(
     missingPreviews,
-    ts
-      .getPreEmitDiagnostics(program)
-      .filter((diagnostic) => diagnostic.file && canonicalPath(diagnostic.file.fileName).includes(previewRoot))
-      .map((diagnostic) => {
-        const file = diagnostic.file;
-        const position = file && diagnostic.start != null ? file.getLineAndCharacterOfPosition(diagnostic.start) : null;
-        const location = file
-          ? `${path.relative(ROOT, file.fileName)}${position ? `:${position.line + 1}:${position.character + 1}` : ""}`
-          : "design-sync preview";
-        return `${location}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
-      }),
+    ts.getPreEmitDiagnostics(program).map((diagnostic) => {
+      const file = diagnostic.file;
+      const position = file && diagnostic.start != null ? file.getLineAndCharacterOfPosition(diagnostic.start) : null;
+      const location = file
+        ? `${path.relative(root, file.fileName)}${position ? `:${position.line + 1}:${position.character + 1}` : ""}`
+        : "design-sync preview compiler";
+      return `${location}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
+    }),
   );
 }
 
@@ -152,4 +150,4 @@ function main() {
   );
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

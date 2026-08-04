@@ -246,6 +246,8 @@ describe("design-system adoption manifest", () => {
     );
     expect(components).toMatch(/missing cells already render `MissingValue`, never a bare dash/);
     expect(components).not.toContain("Missing clinical data renders as a bare dash (`AccessibleTable` today)");
+    expect(components).not.toContain("`AccessibleTable`'s bare-dash cells are adoption work");
+    expect(components).toMatch(/already composed inside `AnswerFooter`, `DateDisplay`, and\s+`AccessibleTable`/);
     expect(gates).toMatch(/Render `AnswerCard` without[\s\S]*implemented-blocking in `AnswerCard`/);
     expect(gates).toMatch(/Use a bare dash[\s\S]*implemented-partial — `AccessibleTable` composes `MissingValue`/);
   });
