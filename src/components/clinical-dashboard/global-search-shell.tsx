@@ -121,6 +121,11 @@ type GlobalSearchShellProps = {
 type PendingModeNavigation = {
   mode: AppModeId;
   pathname: string;
+  /** Destination search string (no leading `?`) so same-pathname homes wait for query clear. */
+  searchParamString: string;
+  /** URL at the moment the mode push was issued — used to detect superseding navigations. */
+  sourcePathname: string;
+  sourceSearchParamString: string;
 };
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
@@ -485,15 +490,23 @@ function GlobalStandaloneSearchShellBody({
   // Imperative mode-menu navigation does not have Link's immediate pending UI:
   // Next keeps the previous RSC page visible while it waits for the destination
   // payload. Replace that stale page with the neutral route skeleton as soon as
-  // a mode is chosen, then release it only when both the destination path and
-  // URL-derived mode have landed. Checking both matters for `/` modes such as
-  // Answer, Documents, and Medication, whose navigation changes only `?mode=`.
-  if (
-    pendingModeNavigation &&
-    pathname === pendingModeNavigation.pathname &&
-    resolvedSearchMode === pendingModeNavigation.mode
-  ) {
-    setPendingModeNavigation(null);
+  // a mode is chosen, then release it when the destination lands — or when any
+  // other committed URL change supersedes the in-flight mode push (Back, New
+  // chat, sidebar link, a second mode pick). Destination checks include the
+  // query string so same-pathname returns (e.g. `/services?q=&run=1` → `/services`)
+  // keep the skeleton until the home URL actually commits; mode is still checked
+  // for `/` modes such as Answer, Documents, and Medication.
+  if (pendingModeNavigation) {
+    const reachedDestination =
+      pathname === pendingModeNavigation.pathname &&
+      resolvedSearchMode === pendingModeNavigation.mode &&
+      searchParamString === pendingModeNavigation.searchParamString;
+    const supersededWhilePending =
+      pathname !== pendingModeNavigation.sourcePathname ||
+      searchParamString !== pendingModeNavigation.sourceSearchParamString;
+    if (reachedDestination || supersededWhilePending) {
+      setPendingModeNavigation(null);
+    }
   }
 
   useEffect(() => {
@@ -646,13 +659,38 @@ function GlobalStandaloneSearchShellBody({
       openAccountSetup("favourites");
       return;
     }
-    if (mode === searchMode) return;
-    setQuery("");
+    // Same-mode picks are load-bearing: the checked mode-menu option and every
+    // ModeActionPopup quick action route through changeMode to leave a detail /
+    // submitted URL and land on the clean mode home. Skip only a true no-op
+    // (already exactly on that home) when nothing else is in flight.
+    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
+    const destination = new URL(href, window.location.origin);
+    const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
+    const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;
+
     setMobileMenuOpen(false);
+
+    if (alreadyOnDestination) {
+      // Re-selecting the current mode while a different mode push is in flight
+      // must cancel the pending skeleton and re-affirm the current home so the
+      // in-flight navigation does not leave the user on the wrong page.
+      if (pendingModeNavigation && pendingModeNavigation.mode !== mode) {
+        setPendingModeNavigation(null);
+        router.push(href);
+      }
+      return;
+    }
+
+    setQuery("");
     // Let the URL sync (render-time) own searchMode. Optimistic setSearchMode
     // before pathname updates was the namespaced mode-switch reserve flip.
-    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
-    setPendingModeNavigation({ mode, pathname: new URL(href, window.location.origin).pathname });
+    setPendingModeNavigation({
+      mode,
+      pathname: destination.pathname,
+      searchParamString: destinationSearch,
+      sourcePathname: pathname,
+      sourceSearchParamString: searchParamString,
+    });
     router.push(href);
   }
 
