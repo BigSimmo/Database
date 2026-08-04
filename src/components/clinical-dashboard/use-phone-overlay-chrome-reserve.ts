@@ -46,18 +46,49 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
  *
  * On phone, a synchronous layout read is only provisional. Responsive layout
  * can briefly report the wide stack (observed as 200px) before settling to the
- * 72px phone stack. Keep the server-stable CSS seed until ResizeObserver
- * confirms the laid-out height; otherwise hydration publishes the transient
- * value and then corrects it one frame later, creating avoidable CLS. A
- * transient `0` observer measurement likewise keeps the seed or last positive
- * reserve (Production UI #147; same failure class as PR #1562 / #146).
+ * 72px phone stack. Keep the server-stable CSS seed until an observer candidate
+ * remains unchanged across a later layout frame; otherwise hydration publishes
+ * the transient value and then corrects it one frame later, creating avoidable
+ * CLS. A transient `0` observer measurement likewise keeps the seed or last
+ * positive reserve (Production UI #147; same failure class as PR #1562 / #146).
  */
 export function usePhoneOverlayChromeReserve(): void {
   useLayoutEffect(() => {
     const root = document.documentElement;
     const media = window.matchMedia(phoneMediaQuery);
+    let pendingHeight: number | null = null;
+    let confirmationFrame: number | null = null;
+
+    const cancelPendingConfirmation = () => {
+      pendingHeight = null;
+      if (confirmationFrame === null) return;
+      window.cancelAnimationFrame(confirmationFrame);
+      confirmationFrame = null;
+    };
+
+    const confirmPendingReserve = () => {
+      confirmationFrame = null;
+      if (!media.matches || pendingHeight === null) return;
+
+      const confirmed = readPhoneOverlayChromeReservePx();
+      if (confirmed <= 0) {
+        pendingHeight = null;
+        return;
+      }
+      if (confirmed !== pendingHeight) {
+        // Layout changed without (or before) another observer delivery. Treat
+        // the new value as provisional and confirm it on the next frame.
+        pendingHeight = confirmed;
+        confirmationFrame = window.requestAnimationFrame(confirmPendingReserve);
+        return;
+      }
+
+      root.style.setProperty(reserveProperty, `${confirmed}px`);
+      pendingHeight = null;
+    };
 
     const syncBreakpoint = () => {
+      cancelPendingConfirmation();
       if (media.matches) {
         // A previous desktop match owns an inline `0px`. Remove it when
         // entering phone layout so the CSS seed remains authoritative until
@@ -76,9 +107,17 @@ export function usePhoneOverlayChromeReserve(): void {
       if (measured <= 0) {
         // Keep the CSS seed (or the last positive inline value) rather than
         // publishing 0px on a one-frame miss during resize / remount.
+        cancelPendingConfirmation();
         return;
       }
-      root.style.setProperty(reserveProperty, `${measured}px`);
+      // Observer delivery proves that layout changed, not that it has settled.
+      // Stage the candidate and confirm it against a later layout frame. A
+      // newer observer delivery replaces the candidate and its scheduled read.
+      pendingHeight = measured;
+      if (confirmationFrame !== null) {
+        window.cancelAnimationFrame(confirmationFrame);
+      }
+      confirmationFrame = window.requestAnimationFrame(confirmPendingReserve);
     };
 
     // Do not publish the synchronous layout read. During hydration or a
@@ -98,6 +137,7 @@ export function usePhoneOverlayChromeReserve(): void {
     media.addEventListener("change", syncBreakpoint);
 
     return () => {
+      cancelPendingConfirmation();
       resizeObserver?.disconnect();
       media.removeEventListener("change", syncBreakpoint);
       root.style.removeProperty(reserveProperty);
