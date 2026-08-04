@@ -229,6 +229,8 @@ export const providerCredentialVariables = Object.freeze([
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
   "CROSS_TENANT_SERVICE_ROLE_KEY",
+  "SENTRY_AUTH_TOKEN",
+  "SENTRY_DSN",
 ]);
 
 function read(relativePath) {
@@ -664,6 +666,19 @@ export function validateCodexCloudSetup() {
     ],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
+    [/unset SENTRY_AUTH_TOKEN SENTRY_DSN/, "Cloud setup must scrub supported Sentry credentials from the agent shell."],
+    [
+      /CODEX_CLOUD_ENABLE_FIGMA/,
+      "Connected Cloud setup must gate optional Figma MCP registration behind an explicit opt-in.",
+    ],
+    [
+      /CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST/,
+      "Connected Cloud setup must gate optional Frontend Checklist MCP registration behind an explicit opt-in.",
+    ],
+    [
+      /CODEX_CLOUD_ENABLE_SENTRY/,
+      "Connected Cloud setup must gate optional Sentry MCP registration behind an explicit opt-in.",
+    ],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
     [/@railway\/cli/, "Cloud setup must install the Railway CLI."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],

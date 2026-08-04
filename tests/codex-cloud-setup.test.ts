@@ -71,6 +71,8 @@ const requiredPolicyExcludes = [
   "CODEX_TRIGGER_TOKEN",
   "HEALTH_DEEP_PROBE_SECRET",
   "INDEXING_V3_AGENT_SECRET",
+  "SENTRY_AUTH_TOKEN",
+  "SENTRY_DSN",
   "E2E_AUTH_ENABLED",
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
@@ -554,22 +556,43 @@ describe("Codex Cloud environment contract", () => {
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
     const connectedConfig = readCodexConfig(connectedHome);
-    expect(connectedConfig).toContain("[mcp_servers.figma_connected]");
-    expect(connectedConfig).toContain('url = "https://mcp.figma.com/mcp"');
-    expect(connectedConfig).toContain("[mcp_servers.frontendchecklist_connected]");
-    expect(connectedConfig).toContain('url = "https://mcp.frontendchecklist.io"');
+    // Restricted connected profile: Railway + Supabase only unless opted in.
     expect(connectedConfig).toContain("[mcp_servers.railway_connected]");
     expect(connectedConfig).toContain("[mcp_servers.supabase_connected]");
-    expect(connectedConfig).toContain("[mcp_servers.sentry_connected]");
-    expect(connectedConfig).toContain('url = "https://mcp.sentry.dev/mcp"');
     expect(connectedConfig).toContain("features=docs%2Cdevelopment");
-    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(5);
-    expect(connectedConfig.match(/^default_tools_approval_mode = "writes"$/gm)).toHaveLength(3);
-    expect(connectedConfig.match(/^default_tools_approval_mode = "prompt"$/gm)).toHaveLength(2);
-    expect(connectedConfig).toContain('default_tools_approval_mode = "prompt"');
+    expect(connectedConfig).not.toContain("[mcp_servers.figma_connected]");
+    expect(connectedConfig).not.toContain("[mcp_servers.frontendchecklist_connected]");
+    expect(connectedConfig).not.toContain("[mcp_servers.sentry_connected]");
+    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(2);
+    expect(connectedConfig.match(/^default_tools_approval_mode = "writes"$/gm)).toHaveLength(1);
+    expect(connectedConfig.match(/^default_tools_approval_mode = "prompt"$/gm)).toHaveLength(1);
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
+    expect(connectedProfile).toContain("unset SENTRY_AUTH_TOKEN SENTRY_DSN");
+
+    const optedInHome = temporaryDirectory("codex-cloud-connected-opt-in-");
+    const optedIn = runSetupPolicyOnly(optedInHome, {
+      CODEX_CLOUD_ACCESS_PROFILE: "connected",
+      RAG_PROVIDER_MODE: "offline",
+      CODEX_CLOUD_ENABLE_FIGMA: "1",
+      CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST: "1",
+      CODEX_CLOUD_ENABLE_SENTRY: "1",
+    });
+    expect(optedIn.status, optedIn.stderr || optedIn.stdout).toBe(0);
+    const optedInConfig = readCodexConfig(optedInHome);
+    expect(optedInConfig).toContain("[mcp_servers.figma_connected]");
+    expect(optedInConfig).toContain('url = "https://mcp.figma.com/mcp"');
+    expect(optedInConfig).toContain("[mcp_servers.frontendchecklist_connected]");
+    expect(optedInConfig).toContain('url = "https://mcp.frontendchecklist.io"');
+    expect(optedInConfig).toContain("[mcp_servers.railway_connected]");
+    expect(optedInConfig).toContain("[mcp_servers.supabase_connected]");
+    expect(optedInConfig).toContain("[mcp_servers.sentry_connected]");
+    expect(optedInConfig).toContain('url = "https://mcp.sentry.dev/mcp"');
+    expect(optedInConfig.match(/^enabled = true$/gm)).toHaveLength(5);
+    // Railway keeps writes; Figma, Frontend Checklist, Supabase, and Sentry use prompt.
+    expect(optedInConfig.match(/^default_tools_approval_mode = "writes"$/gm)).toHaveLength(1);
+    expect(optedInConfig.match(/^default_tools_approval_mode = "prompt"$/gm)).toHaveLength(4);
 
     const unmanagedHome = temporaryDirectory("codex-cloud-unmanaged-");
     mkdirSync(path.join(unmanagedHome, ".codex"), { recursive: true });

@@ -134,6 +134,7 @@ unset CROSS_TENANT_SERVICE_ROLE_KEY
 unset RAILWAY_API_TOKEN RAILWAY_TOKEN
 unset GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN CODEX_CLOUD_GITHUB_PAT
 unset HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
+unset SENTRY_AUTH_TOKEN SENTRY_DSN
 unset E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 if [ "\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]; then
   export RAG_PROVIDER_MODE="${rag_provider_mode}"
@@ -162,6 +163,7 @@ codex_shell_policy_excludes=(
   RAILWAY_API_TOKEN RAILWAY_TOKEN
   GH_TOKEN GITHUB_TOKEN GITLAB_TOKEN GLAB_TOKEN CODEX_TRIGGER_TOKEN CODEX_CLOUD_GITHUB_PAT
   HEALTH_DEEP_PROBE_SECRET INDEXING_V3_AGENT_SECRET
+  SENTRY_AUTH_TOKEN SENTRY_DSN
   E2E_AUTH_ENABLED E2E_USER_EMAIL E2E_USER_PASSWORD ALLOW_PROVIDER_TESTS
 )
 codex_exclude_toml=""
@@ -209,14 +211,8 @@ trap 'rm -f "$codex_config_candidate"' EXIT
   printf 'ignore_default_excludes = false\n'
   printf 'exclude = [%s]\n' "$codex_exclude_toml"
   if [[ "$access_profile" = "connected" ]]; then
-    printf '\n%s\n' '[mcp_servers.figma_connected]'
-    printf '%s\n' 'url = "https://mcp.figma.com/mcp"'
-    printf '%s\n' 'enabled = true'
-    printf '%s\n' 'default_tools_approval_mode = "writes"'
-    printf '\n%s\n' '[mcp_servers.frontendchecklist_connected]'
-    printf '%s\n' 'url = "https://mcp.frontendchecklist.io"'
-    printf '%s\n' 'enabled = true'
-    printf '%s\n' 'default_tools_approval_mode = "prompt"'
+    # Baseline connected providers: Railway + constrained Supabase.
+    # Optional OAuth-backed providers stay off unless the task explicitly opts in.
     printf '\n%s\n' '[mcp_servers.railway_connected]'
     printf '%s\n' 'url = "https://mcp.railway.com"'
     printf '%s\n' 'enabled = true'
@@ -225,10 +221,26 @@ trap 'rm -f "$codex_config_candidate"' EXIT
     printf 'url = "%s"\n' "$connected_supabase_mcp_url"
     printf '%s\n' 'enabled = true'
     printf '%s\n' 'default_tools_approval_mode = "prompt"'
-    printf '\n%s\n' '[mcp_servers.sentry_connected]'
-    printf '%s\n' 'url = "https://mcp.sentry.dev/mcp"'
-    printf '%s\n' 'enabled = true'
-    printf '%s\n' 'default_tools_approval_mode = "writes"'
+    if [[ "${CODEX_CLOUD_ENABLE_FIGMA:-0}" = "1" ]]; then
+      printf '\n%s\n' '[mcp_servers.figma_connected]'
+      printf '%s\n' 'url = "https://mcp.figma.com/mcp"'
+      printf '%s\n' 'enabled = true'
+      # prompt: Figma file reads stay confirmation-gated, not auto-approved.
+      printf '%s\n' 'default_tools_approval_mode = "prompt"'
+    fi
+    if [[ "${CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST:-0}" = "1" ]]; then
+      printf '\n%s\n' '[mcp_servers.frontendchecklist_connected]'
+      printf '%s\n' 'url = "https://mcp.frontendchecklist.io"'
+      printf '%s\n' 'enabled = true'
+      printf '%s\n' 'default_tools_approval_mode = "prompt"'
+    fi
+    if [[ "${CODEX_CLOUD_ENABLE_SENTRY:-0}" = "1" ]]; then
+      printf '\n%s\n' '[mcp_servers.sentry_connected]'
+      printf '%s\n' 'url = "https://mcp.sentry.dev/mcp"'
+      printf '%s\n' 'enabled = true'
+      # prompt: Sentry issue/event reads can include request/user context.
+      printf '%s\n' 'default_tools_approval_mode = "prompt"'
+    fi
   fi
   printf '%s\n' "$codex_policy_end"
 } > "$codex_config_candidate"

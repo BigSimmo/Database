@@ -877,10 +877,14 @@ Use `docs/codex-cloud.md` as the environment contract:
   canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
   `test:live`, `check:supabase-project`) still need explicit confirmation. Project
   `.codex/config.toml` keeps MCP entries `enabled = false` so ordinary/offline hosts do not
-  initialize them. Connected setup writes enabled Railway and constrained Supabase entries to the
-  host `$CODEX_HOME/config.toml`; actual availability still requires the installed host
-  plugin/connector to complete OAuth and a fresh task to prove the callable inventory with
-  read-only identity calls. Root `.mcp.json` is a static cross-client template, not runtime proof.
+  initialize them. Connected setup writes enabled Railway (`writes` approval) and constrained
+  Supabase (`prompt` approval) entries to the host `$CODEX_HOME/config.toml` by default.
+  Optional Figma, Frontend Checklist, and Sentry hosted entries stay off unless the task sets
+  `CODEX_CLOUD_ENABLE_FIGMA=1`, `CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`, or
+  `CODEX_CLOUD_ENABLE_SENTRY=1`; when enabled they use `prompt` approval so reads stay
+  confirmation-gated. Actual availability still requires the installed host plugin/connector to
+  complete OAuth and a fresh task to prove the callable inventory with read-only identity calls.
+  Root `.mcp.json` is a static cross-client template, not runtime proof.
 - Cloud has no Windows task-start script. Report that exact fact, then perform equivalent
   read-only identity, branch, status, worktree, and Git-operation checks. Proceed only in a
   clean disposable checkout on a task-specific non-protected branch.
