@@ -106,6 +106,7 @@ export type TcBindings = {
   toggleSheetOnly: () => void;
   toggleReviewedOnly: () => void;
   clearSearch: () => void;
+  clearSearchFilters: () => void;
 
   // ---- compare --------------------------------------------------------
   compareSlugs: string[];
@@ -434,6 +435,10 @@ export function TcProvider({ children }: { children: ReactNode }) {
       toggleSheetOnly: () => setSearch((prev) => ({ ...prev, sheetOnly: !prev.sheetOnly })),
       toggleReviewedOnly: () => setSearch((prev) => ({ ...prev, reviewedOnly: !prev.reviewedOnly })),
       clearSearch: () => setSearch(EMPTY_SEARCH),
+      // Filter-only clear. The results-band shelf lists filters and says so
+      // ("Filtered by"), so its Clear must not delete the search term the user
+      // is reading — that is a control doing more than it advertises.
+      clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query })),
 
       compareSlugs,
       compareTherapies,
