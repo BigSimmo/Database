@@ -11,16 +11,32 @@ describe("eval canary workflow input", () => {
   });
 
   it("validates the dispatch limit outside shell source and passes it as one quoted argument", () => {
-    expect(workflow).toContain("ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '44' }}");
+    expect(workflow).toContain("ANSWER_CASE_LIMIT: ${{ github.event.client_payload.answer_case_limit || '44' }}");
     expect(workflow).toContain('[[ ! "$ANSWER_CASE_LIMIT" =~ ^[0-9]+$ ]]');
     expect(workflow).toContain("ANSWER_CASE_LIMIT < 1 || ANSWER_CASE_LIMIT > 100");
     expect(workflow).toContain('--limit "$ANSWER_CASE_LIMIT"');
-    expect(workflow).not.toMatch(/run:.*github\.event\.inputs\.answer_case_limit/);
+    expect(workflow).not.toMatch(/run:.*github\.event\.client_payload\.answer_case_limit/);
   });
 
-  it("records the actual checked-out tree for optional-ref comparisons", () => {
-    expect(workflow).toContain("ref: ${{ github.event.inputs.ref || '' }}");
+  it("loads on-demand evaluations from the trusted default branch", () => {
+    expect(workflow).not.toMatch(/^  workflow_dispatch:/m);
+    expect(workflow).toContain("repository_dispatch:");
+    expect(workflow).toContain("types: [eval-canary]");
+    expect(workflow).not.toMatch(/^\s+ref:\s+\$\{\{/m);
     expect(workflow).toContain('echo "EVAL_GIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"');
+  });
+
+  it("scopes production provider secrets to the live steps", () => {
+    expect(workflow).not.toMatch(
+      /^(?: {0,6})env:\n(?: {2,8}[^\n]+\n)* {2,8}(?:SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY):/m,
+    );
+
+    const installStart = workflow.indexOf("      - name: Install dependencies");
+    const projectGuardStart = workflow.indexOf("      - name: Guard Supabase project identity");
+    expect(installStart).toBeGreaterThan(-1);
+    expect(projectGuardStart).toBeGreaterThan(installStart);
+    expect(workflow.slice(installStart, projectGuardStart)).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(workflow.slice(installStart, projectGuardStart)).not.toContain("OPENAI_API_KEY");
   });
 
   it("distinguishes provider outages from retrieval regressions in the failure issue", () => {
