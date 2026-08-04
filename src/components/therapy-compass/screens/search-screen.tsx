@@ -98,7 +98,15 @@ export function SearchScreen() {
             <button
               type="button"
               className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-soft)] text-sm-minus font-medium cursor-pointer`}
-              onClick={b.clearSearch}
+              // `clearSearchFilters`, not `clearSearch`. This control sits at the
+              // end of the quick-filter chip row and is labelled `Clear`, so it
+              // reads as "clear these filters" — but `clearSearch` also wipes the
+              // query, deleting the search the reader is looking at. Same defect
+              // #1611 fixed on the shelf's Clear; the binding it introduced
+              // (`bindings.tsx:441`) is reused rather than duplicated.
+              // The sheet's `Clear all` is deliberately different and stays on
+              // `clearSearch` — it is labelled for what it does.
+              onClick={b.clearSearchFilters}
             >
               <XIcon size={15} strokeWidth={1.8} />
               Clear

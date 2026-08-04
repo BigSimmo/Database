@@ -249,4 +249,27 @@ describe("Therapy Compass production-mode wiring", () => {
     // The sheet keeps the full reset.
     expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
+
+  it("keeps the quick-filter row's Clear filter-only too", () => {
+    // The sibling of the defect above, missed when #1555 was reviewed. This
+    // Clear sits at the end of the quick-filter chip row — among Reviewed only,
+    // Brief available and the topic tags — so it reads as "clear these", but it
+    // was wired to `clearSearch` and wiped the query with them. There are three
+    // `clearSearch`-family call sites in this file and only ONE of them should
+    // reset the query: the sheet's `Clear all`, which says so.
+    const searchScreenSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(searchScreenSrc).toContain("onClick={b.clearSearchFilters}");
+    // The chip row must no longer hold a full reset. The sheet's `onClear` still
+    // does, and so does the empty state's action until F11 replaces that block
+    // with separate `Remove "X"` / `Clear all filters` routes — at which point
+    // the sheet is the only full reset left.
+    const chipRow = searchScreenSrc.slice(0, searchScreenSrc.indexOf("<TherapyFilterSheet"));
+    expect(
+      chipRow.includes("b.clearSearch\n") || /onClick=\{b\.clearSearch\}/.test(chipRow),
+      "A control in the quick-filter row promising to clear filters must not delete the query.",
+    ).toBe(false);
+  });
 });

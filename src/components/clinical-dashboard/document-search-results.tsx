@@ -337,11 +337,24 @@ function DocumentFilterPanel({
                         }
                         className={cn(
                           "inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)] transition",
+                          // Three mutually exclusive branches, not a base plus an
+                          // override: `cn` is a plain join, so two competing
+                          // `border-[color:…]` utilities would both reach the DOM
+                          // and the winner would be decided by stylesheet order
+                          // rather than by intent.
                           selected
                             ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                          deadEnd &&
-                            "cursor-default opacity-50 hover:border-[color:var(--border-lux)] hover:text-[color:var(--text-muted)]",
+                            : deadEnd
+                              ? // Not `opacity-50`. Transparency multiplies against
+                                // an already-muted foreground and lands at 2.34:1 —
+                                // the disabled state was least readable exactly when
+                                // it most needed explaining. A real muted pair plus a
+                                // dashed border measures 4.72:1 and reads as a
+                                // different KIND of thing rather than a faded one,
+                                // which also survives forced colors: border-style is
+                                // preserved there and opacity is not.
+                                "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]"
+                              : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                         )}
                       >
                         <span className="truncate">{facet.label}</span>

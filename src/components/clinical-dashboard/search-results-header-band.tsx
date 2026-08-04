@@ -234,6 +234,10 @@ export function SearchResultsHeaderBand({
   );
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
+  // The shelf gets its own instance rather than sharing the rail's. They overflow
+  // independently — a mode can have five chips and one utility control, or the
+  // reverse — and a shared flag would fade an edge that is not actually clipped.
+  const { ref: shelfTrackRef, overflowing: shelfOverflowing } = useRailOverflow<HTMLDivElement>();
 
   return (
     <section
@@ -482,36 +486,71 @@ export function SearchResultsHeaderBand({
           data-testid="search-query-ribbon-shelf"
           role="group"
           aria-label="Applied filters"
-          className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:gap-2 sm:px-3"
         >
-          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
-          {appliedFilters.map((filter) => (
-            <button
-              key={filter.id}
-              type="button"
-              onClick={filter.onRemove}
-              aria-label={`Remove ${filter.label} filter`}
-              data-selected="true"
-              className={cn(
-                // Hover deepens the chip's own accent rather than swapping to the
-                // neutral border the surface controls use — an accent-soft chip
-                // going grey on hover reads as losing its active state.
-                "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
-                focusRing,
-              )}
-            >
-              <span className="truncate">{filter.label}</span>
-              <X className="h-3 w-3 shrink-0" aria-hidden />
-            </button>
-          ))}
-          <span className="min-w-1 flex-1" aria-hidden />
+          {/* A funnel on a phone, the wordmark from `sm`. A prefixed chip costs
+              roughly 215px of a 350px bar, so every character the label spends is
+              a chip the reader cannot see; the glyph says the same thing in 16px.
+              The group's accessible name is "Applied filters" either way, so both
+              forms are decorative and neither is the label of record. */}
+          <Funnel className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] sm:hidden" aria-hidden />
+          <span className="search-band-shelf-label hidden shrink-0 uppercase text-[color:var(--text-soft)] sm:block">
+            Filtered by
+          </span>
+          {/* The chips get their own scroll track so `Clear` can sit outside it.
+              Previously the whole row scrolled and `Clear` trailed a `flex-1`
+              spacer, so four or five chips collapsed the spacer and pushed the
+              row's only global action past the right edge — reachable only by
+              swiping a row whose scrollbar is hidden. That is the same defect
+              this shelf was built to avoid for the chips themselves. */}
+          <div
+            ref={shelfTrackRef}
+            data-testid="search-query-ribbon-shelf-track"
+            data-overflowing={shelfOverflowing ? "true" : undefined}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto",
+              "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              // The rail's mask, on the same overflow condition, so a clipped
+              // chip row signals more content the way the rail already does.
+              // Held at `lg:` to match the rail: below it the row can genuinely
+              // clip, above it there is width to spare.
+              "data-[overflowing=true]:[mask-image:linear-gradient(to_right,#000_calc(100%-1.75rem),transparent)] lg:data-[overflowing=true]:[mask-image:none]",
+            )}
+          >
+            {appliedFilters.map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                onClick={filter.onRemove}
+                aria-label={`Remove ${filter.label} filter`}
+                title={filter.label}
+                data-selected="true"
+                className={cn(
+                  // Hover deepens the chip's own accent rather than swapping to the
+                  // neutral border the surface controls use — an accent-soft chip
+                  // going grey on hover reads as losing its active state.
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-[7px] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-[color:var(--clinical-accent)] search-band-chip hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
+                  focusRing,
+                )}
+              >
+                <span className="truncate">{filter.label}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden />
+              </button>
+            ))}
+          </div>
           {onClearFilters && appliedFilters.length > 1 ? (
             <button
               type="button"
               onClick={onClearFilters}
               data-testid="search-query-ribbon-shelf-clear"
               className={cn(
-                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
+                // Matched to the chips rather than kept small. It was `px-2 py-1`
+                // — about 26px beside 48px chips — which made the row's only
+                // global action its hardest target. It stays quiet through weight
+                // and an underline instead. 48px, not the 44px a generic tap rule
+                // would suggest: `min-h-11` reintroduces a fixed `ui-smoke`
+                // sub-pixel flake, and `--spacing-tap` is this repo's floor.
+                "search-band-ghost inline-flex min-h-tap shrink-0 items-center rounded-md px-2 text-[color:var(--text-soft)] underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current sm:min-h-10",
                 focusRing,
               )}
             >
