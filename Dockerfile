@@ -18,7 +18,7 @@
 # NEVER baked into the image — inject them at run time from the host's
 # secret store.
 
-FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node-base
+FROM node:26-bookworm-slim@sha256:9e6f9357d371591e32ab6f2d8a26d63bdd0d17c29eee3f4f3e7e454d9634bf73 AS node-base
 
 FROM node-base AS deps
 WORKDIR /app
