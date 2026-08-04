@@ -41,6 +41,35 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
+  const surround = page.getByTestId("document-frame-surround");
+  const content = page.getByTestId("document-frame-content");
+  await expect(surround).toBeVisible();
+  await expect(content).toBeVisible();
+  await expect(owner).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const [surroundGeometry, contentBox, ownerBox] = await Promise.all([
+        surround.evaluate((element) => {
+          const style = window.getComputedStyle(element);
+          return {
+            clientWidth: element.clientWidth,
+            paddingLeft: Number.parseFloat(style.paddingLeft),
+            paddingRight: Number.parseFloat(style.paddingRight),
+          };
+        }),
+        content.boundingBox(),
+        owner.boundingBox(),
+      ]);
+      if (!contentBox || !ownerBox) return Number.POSITIVE_INFINITY;
+      const availableWidth =
+        surroundGeometry.clientWidth - surroundGeometry.paddingLeft - surroundGeometry.paddingRight;
+      return Math.max(Math.abs(contentBox.width - availableWidth), Math.abs(ownerBox.width - availableWidth));
+    })
+    .toBeLessThanOrEqual(2);
+}
+
 async function revealPhoneHeaderControl(page: Page, control: Locator) {
   const { scrollTop } = await readPrimaryScrollGeometry(page);
   if (scrollTop > 0) await scrollPrimarySurface(page, Math.max(0, scrollTop - 48));
@@ -3708,6 +3737,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(downloadButton).toBeEnabled();
     await downloadButton.dblclick();
     await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
+  });
+
+  test("document frame stretches canvas and native owners at phone and desktop", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await mockDemoApi(page);
+    await gotoApp(
+      page,
+      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+    );
+
+    const canvasOwner = page.getByTestId("pdf-fullscreen-root");
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "native");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    const nativeOwner = page.getByTestId("native-pdf-embed");
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expectDocumentOwnerFillsFrame(page, nativeOwner);
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("clinical-kb:pdf-viewer-mode", "canvas");
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("pdf-canvas-scroll").locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expectDocumentOwnerFillsFrame(page, canvasOwner);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {

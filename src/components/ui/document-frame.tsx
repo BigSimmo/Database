@@ -230,7 +230,7 @@ export function DocumentFrame({
         ) : (
           <div
             data-testid="document-frame-content"
-            className="relative min-w-0 max-w-full break-inside-avoid print:break-inside-avoid"
+            className="relative w-full min-w-0 max-w-full break-inside-avoid print:break-inside-avoid"
           >
             {children}
           </div>

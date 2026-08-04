@@ -111,7 +111,7 @@ describe("DocumentFrame", () => {
     expect(frame).toHaveAttribute("data-viewing-aid", "off");
     expect(viewingAid).toBeDisabled();
     expect(viewingAid).toHaveAttribute("aria-pressed", "false");
-    expect(content).toHaveClass("break-inside-avoid", "print:break-inside-avoid");
+    expect(content).toHaveClass("w-full", "min-w-0", "max-w-full", "break-inside-avoid", "print:break-inside-avoid");
     expect(content.getAttribute("style") ?? "").toBe("");
     expect(content.className).not.toMatch(/(?:invert|filter|color-scheme)/);
   });
