@@ -1,7 +1,21 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
   "globalShellRoot": { "file": "src/app/layout.tsx", "element": "html" },
+  "proofApplicabilityByDisposition": {
+    "owned": "required",
+    "shared-shell": "required",
+    "legacy-redirect": "not-applicable"
+  },
+  "proofEvidencePolicy": {
+    "testFileSuffixes": [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
+    "evidenceDirectory": "docs/design-system/evidence/",
+    "evidenceExtensions": [".json", ".md"]
+  },
+  "visualBaselinePolicy": {
+    "requiredPrefix": "tests/__screenshots__/linux/",
+    "allowedExtensions": [".png"]
+  },
   "productionSurfaces": [
     {
       "id": "root-shell-and-settings",

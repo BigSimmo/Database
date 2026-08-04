@@ -8,8 +8,11 @@ import {
   analyzeCkbV2ClassUsage,
   buildAdoptionManifest,
   checkAdoptionManifest,
+  checkGeneratedAdoptionDocuments,
   deriveSurfaceV2Observation,
   productionPageRoutes,
+  reachableSourceFiles,
+  validateAdoptionArtifactPath,
 } from "../scripts/generate-design-system-adoption.mjs";
 
 const root = path.resolve(__dirname, "..");
@@ -18,7 +21,25 @@ function read(relativePath: string) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function writeFixtureFile(fixtureRoot: string, relativePath: string, content: string | Buffer = "fixture\n") {
+  const absolutePath = path.join(fixtureRoot, relativePath);
+  fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
+  fs.writeFileSync(absolutePath, content);
+}
+
+function createCheckerFixture() {
+  const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-adoption-check-"));
+  writeFixtureFile(
+    fixtureRoot,
+    "docs/design-system/adoption-contract.json",
+    read("docs/design-system/adoption-contract.json"),
+  );
+  writeFixtureFile(fixtureRoot, ".design-sync/config.json", read(".design-sync/config.json"));
+  return fixtureRoot;
+}
+
 describe("design-system adoption manifest", () => {
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   it.each([
     {
       name: "literal class",
@@ -117,6 +138,48 @@ describe("design-system adoption manifest", () => {
       literalCkbV2: false,
       dynamicCkbV2: false,
     });
+  });
+
+  it.each([
+    {
+      name: "inline literal spread",
+      source: `export function Root() { return <html {...{ className: "ckb-v2" }} />; }`,
+      expected: { literalCkbV2: true, dynamicCkbV2: false },
+    },
+    {
+      name: "bound literal spread",
+      source: `const props = { className: "ckb-v2" }; export function Root() { return <html {...props} />; }`,
+      expected: { literalCkbV2: true, dynamicCkbV2: false },
+    },
+    {
+      name: "dynamic spread",
+      source:
+        `const props = { className: ["ckb", "v2"].join("-") }; ` +
+        `export function Root() { return <html {...props} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
+      name: "unresolved spread",
+      source: `export function Root(props: object) { return <html {...props} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: true },
+    },
+    {
+      name: "safe object spread",
+      source: `const props = { lang: "en" }; export function Root() { return <html {...props} />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: false },
+    },
+    {
+      name: "body-only spread",
+      source: `export function Root() { return <html><body {...{ className: "ckb-v2" }} /></html>; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: false },
+    },
+    {
+      name: "wrong element literal",
+      source: `export function Root() { return <section className="ckb-v2" />; }`,
+      expected: { literalCkbV2: false, dynamicCkbV2: false },
+    },
+  ])("classifies global html $name", ({ source, expected }) => {
+    expect(analyzeCkbV2ClassUsage("src/app/layout.tsx", source, { elementName: "html" })).toEqual(expected);
   });
 
   it("distinguishes direct literal mounts from global-root inheritance", () => {
@@ -241,6 +304,163 @@ describe("design-system adoption manifest", () => {
     expect(failures).toContain("fixture-v2 v2 adoption requires a committed visual baseline");
   });
 
+  it("allows the documented non-visual redirect to declare v2 without fabricated visual proof", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const fixtureRoot = createCheckerFixture();
+    try {
+      writeFixtureFile(fixtureRoot, "tests/proof.test.ts");
+      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/surface.png", pngSignature);
+      const proof = Object.fromEntries(
+        current.requiredProofCategories.map((category: string) => [
+          category,
+          { status: "passed", evidence: ["tests/proof.test.ts"] },
+        ]),
+      );
+      const promoted = {
+        ...current,
+        surfaces: current.surfaces.map((surface: { proofApplicability: string }) =>
+          surface.proofApplicability === "not-applicable"
+            ? { ...surface, declaredShellState: "v2" }
+            : {
+                ...surface,
+                declaredShellState: "v2",
+                proof,
+                baseline: {
+                  status: "committed",
+                  files: ["tests/__screenshots__/linux/surface.png"],
+                },
+              },
+        ),
+      };
+      const failures = checkAdoptionManifest(promoted, {
+        root: fixtureRoot,
+        trackedFiles: new Set(["tests/proof.test.ts", "tests/__screenshots__/linux/surface.png"]),
+      });
+
+      expect(failures).toEqual([]);
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects not-applicable proof on a visual surface", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const surface = {
+      ...current.surfaces.find((candidate: { disposition: string }) => candidate.disposition === "owned"),
+      proofApplicability: "not-applicable",
+      proof: Object.fromEntries(
+        current.requiredProofCategories.map((category: string) => [
+          category,
+          { status: "not-applicable", evidence: [] },
+        ]),
+      ),
+      baseline: { status: "not-applicable", files: [] },
+    };
+    const failures = checkAdoptionManifest({ ...current, surfaces: [surface] });
+
+    expect(failures).toContain(`${surface.id} proof applicability drifted from its owned disposition`);
+    expect(failures).toContain(`${surface.id} may omit visual proof only as a documented rootless legacy redirect`);
+  });
+
+  it("requires classified tracked regular files for proof and Linux visual baselines", () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-adoption-artifacts-"));
+    try {
+      writeFixtureFile(fixtureRoot, "AGENTS.md");
+      writeFixtureFile(fixtureRoot, "tests/proof.test.ts");
+      writeFixtureFile(fixtureRoot, "tests/README.md");
+      writeFixtureFile(fixtureRoot, "tests/untracked.test.ts");
+      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/surface.png", pngSignature);
+      writeFixtureFile(fixtureRoot, "tests/__screenshots__/linux/not-a-png.png");
+      writeFixtureFile(fixtureRoot, "public/arbitrary.png");
+      const trackedFiles = new Set([
+        "AGENTS.md",
+        "tests/proof.test.ts",
+        "tests/README.md",
+        "tests/__screenshots__/linux/surface.png",
+        "tests/__screenshots__/linux/not-a-png.png",
+        "public/arbitrary.png",
+      ]);
+
+      expect(
+        validateAdoptionArtifactPath("tests/proof.test.ts", { root: fixtureRoot, trackedFiles, kind: "proof" }),
+      ).toEqual([]);
+      expect(
+        validateAdoptionArtifactPath("tests/__screenshots__/linux/surface.png", {
+          root: fixtureRoot,
+          trackedFiles,
+          kind: "visual-baseline",
+        }),
+      ).toEqual([]);
+      expect(validateAdoptionArtifactPath(".", { root: fixtureRoot, trackedFiles, kind: "proof" })).toContain(
+        "must reference an existing regular file",
+      );
+      expect(
+        validateAdoptionArtifactPath("../outside.md", { root: fixtureRoot, trackedFiles, kind: "proof" }),
+      ).toContain("must stay within the repository root");
+      expect(validateAdoptionArtifactPath("AGENTS.md", { root: fixtureRoot, trackedFiles, kind: "proof" })).toContain(
+        "must be a test/spec or a design-system evidence document",
+      );
+      expect(
+        validateAdoptionArtifactPath("tests/README.md", { root: fixtureRoot, trackedFiles, kind: "proof" }),
+      ).toContain("must be a test/spec or a design-system evidence document");
+      expect(
+        validateAdoptionArtifactPath("tests/untracked.test.ts", { root: fixtureRoot, trackedFiles, kind: "proof" }),
+      ).toContain("must reference a Git-tracked file");
+      expect(
+        validateAdoptionArtifactPath("tests/missing.test.ts", {
+          root: fixtureRoot,
+          trackedFiles: new Set(["tests/missing.test.ts"]),
+          kind: "proof",
+        }),
+      ).toContain("must reference an existing regular file");
+      expect(
+        validateAdoptionArtifactPath("public/arbitrary.png", {
+          root: fixtureRoot,
+          trackedFiles,
+          kind: "visual-baseline",
+        }),
+      ).toContain("must be a Linux visual baseline under tests/__screenshots__/linux/");
+      expect(
+        validateAdoptionArtifactPath("tests/__screenshots__/linux/not-a-png.png", {
+          root: fixtureRoot,
+          trackedFiles,
+          kind: "visual-baseline",
+        }),
+      ).toContain("must contain a PNG file signature");
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
+  it("pins the global shell declaration even if a manifest and edited contract agree", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const fixtureRoot = createCheckerFixture();
+    try {
+      const contract = JSON.parse(
+        fs.readFileSync(path.join(fixtureRoot, "docs/design-system/adoption-contract.json"), "utf8"),
+      );
+      contract.globalShellRoot = { file: "src/app/not-the-root.tsx", element: "body" };
+      fs.writeFileSync(
+        path.join(fixtureRoot, "docs/design-system/adoption-contract.json"),
+        `${JSON.stringify(contract, null, 2)}\n`,
+      );
+      const manifest = {
+        ...current,
+        globalShell: {
+          ...current.globalShell,
+          file: contract.globalShellRoot.file,
+          element: contract.globalShellRoot.element,
+        },
+      };
+
+      expect(checkAdoptionManifest(manifest, { root: fixtureRoot, trackedFiles: new Set() })).toContain(
+        "globalShellRoot must remain src/app/layout.tsx / html",
+      );
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
   it("discovers production pages while excluding api and mockup trees", () => {
     const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-routes-"));
     try {
@@ -255,10 +475,45 @@ describe("design-system adoption manifest", () => {
     }
   });
 
+  it("derives component reachability from production entries rather than reference imports", () => {
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-reachability-"));
+    try {
+      writeFixtureFile(
+        fixtureRoot,
+        "src/app/page.tsx",
+        `import { Mounted } from "@/components/mounted"; export default function Page() { return <Mounted />; }\n`,
+      );
+      writeFixtureFile(
+        fixtureRoot,
+        "src/components/mounted.tsx",
+        `import { Leaf } from "./leaf"; export function Mounted() { return <Leaf />; }\n`,
+      );
+      writeFixtureFile(fixtureRoot, "src/components/leaf.tsx", `export function Leaf() { return null; }\n`);
+      writeFixtureFile(
+        fixtureRoot,
+        "src/components/reference-only.tsx",
+        `import { ReferenceLeaf } from "./reference-leaf"; export function ReferenceOnly() { return <ReferenceLeaf />; }\n`,
+      );
+      writeFixtureFile(
+        fixtureRoot,
+        "src/components/reference-leaf.tsx",
+        `export function ReferenceLeaf() { return null; }\n`,
+      );
+
+      expect([...reachableSourceFiles(["src/app/page.tsx"], { root: fixtureRoot })].sort()).toEqual([
+        "src/app/page.tsx",
+        "src/components/leaf.tsx",
+        "src/components/mounted.tsx",
+      ]);
+    } finally {
+      fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
   it("is deterministic and separates observed global v2 from the pending contract", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
-    expect(manifest.schemaVersion).toBe(4);
+    expect(manifest.schemaVersion).toBe(5);
     expect(manifest.globalShell).toMatchObject({
       file: "src/app/layout.tsx",
       element: "html",
@@ -278,6 +533,17 @@ describe("design-system adoption manifest", () => {
           typeof component.baselineCommitted === "boolean",
       ),
     ).toBe(true);
+    for (const name of ["Button", "ConfirmDialog", "Quantity", "AnswerCard"]) {
+      const component = manifest.components.find((candidate: { name: string }) => candidate.name === name);
+      expect(component.productImportFiles, `${name} should remain reference-only`).toEqual([]);
+      expect(component.v2ShellMounted, `${name} should not claim a production v2 mount`).toBe(false);
+    }
+    expect(
+      manifest.components.find((component: { name: string }) => component.name === "Button").directImportFiles,
+    ).toContain("src/components/ui/confirm-dialog.tsx");
+    expect(
+      manifest.components.find((component: { name: string }) => component.name === "Quantity").directImportFiles,
+    ).toContain("src/components/ui/answer-card.tsx");
     expect(
       manifest.surfaces.every(
         (surface: { declaredShellState: string; observedShellState: string; v2MountMode: string }) =>
@@ -311,29 +577,43 @@ describe("design-system adoption manifest", () => {
   it("keeps the real source/contract mismatch intentionally blocking", () => {
     const manifest = buildAdoptionManifest({ root });
     const failures = checkAdoptionManifest(manifest, { root });
-    expect(failures).toContain(
-      "root-shell-and-settings declares compatibility but observes v2 through global root src/app/layout.tsx",
-    );
-    expect(
-      manifest.surfaces.every((surface: { id: string }) =>
-        failures.includes(
+    expect(failures).toEqual(
+      manifest.surfaces.map(
+        (surface: { id: string }) =>
           `${surface.id} declares compatibility but observes v2 through global root src/app/layout.tsx`,
-        ),
       ),
-    ).toBe(true);
+    );
   });
 
   it("keeps generated adoption sections synchronized with the manifest", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const componentsDocument = read("docs/design-system/COMPONENTS.md");
+    const adoptionDocument = read("docs/design-system/ADOPTION.md");
+    expect(checkGeneratedAdoptionDocuments(manifest, { componentsDocument, adoptionDocument })).toEqual([]);
     const expected = `Registered public components: ${manifest.summary.registeredComponentCount}`;
-    expect(read("docs/design-system/COMPONENTS.md")).toContain(expected);
-    expect(read("docs/design-system/ADOPTION.md")).toContain(expected);
-    expect(read("docs/design-system/COMPONENTS.md")).toMatch(
-      /\|\s*Component\s*\|\s*Family\s*\|\s*Built\s*\|\s*Locally registered\s*\|/,
-    );
-    expect(read("docs/design-system/ADOPTION.md")).toMatch(
-      /\|\s*Surface\s*\|\s*Disposition\s*\|\s*Routes\s*\|\s*Roots\s*\|/,
-    );
+    expect(componentsDocument).toContain(expected);
+    expect(adoptionDocument).toContain(expected);
+    expect(componentsDocument).toMatch(/\|\s*Component\s*\|\s*Family\s*\|\s*Built\s*\|\s*Locally registered\s*\|/);
+    expect(adoptionDocument).toMatch(/\|\s*Surface\s*\|\s*Disposition\s*\|\s*Routes\s*\|\s*Roots\s*\|/);
+
+    expect(
+      checkGeneratedAdoptionDocuments(manifest, {
+        componentsDocument: componentsDocument.replace(
+          /(<!-- adoption-manifest:maturity:start -->[\s\S]*?)`Button`/,
+          "$1`BogusButton`",
+        ),
+        adoptionDocument,
+      }),
+    ).toContain("docs/design-system/COMPONENTS.md generated maturity section is out of date");
+    expect(
+      checkGeneratedAdoptionDocuments(manifest, {
+        componentsDocument,
+        adoptionDocument: adoptionDocument.replace(
+          /(<!-- adoption-manifest:adoption:start -->[\s\S]*?)`root-shell-and-settings`/,
+          "$1`bogus-surface`",
+        ),
+      }),
+    ).toContain("docs/design-system/ADOPTION.md generated adoption section is out of date");
   });
 
   it("keeps the AnswerCard and AccessibleTable gate prose aligned with landed contracts", () => {

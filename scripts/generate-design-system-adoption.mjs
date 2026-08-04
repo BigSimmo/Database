@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import ts from "@typescript/typescript6";
 import prettier from "prettier";
@@ -13,6 +14,26 @@ const SOURCE_EXTENSIONS = new Set([".ts", ".tsx"]);
 const TEXT_CACHE = new Map();
 const SOURCE_FILE_CACHE = new Map();
 const IMPORT_FACT_CACHE = new Map();
+const SOURCE_IMPORT_CACHE = new Map();
+const TRACKED_FILE_CACHE = new Map();
+const CANONICAL_GLOBAL_SHELL_ROOT = Object.freeze({ file: "src/app/layout.tsx", element: "html" });
+const PROOF_APPLICABILITY = new Set(["required", "not-applicable"]);
+const V2_MOUNT_MODES = new Set(["none", "inherited-global-root", "direct-literal"]);
+const CANONICAL_PROOF_APPLICABILITY = Object.freeze({
+  owned: "required",
+  "shared-shell": "required",
+  "legacy-redirect": "not-applicable",
+});
+const CANONICAL_PROOF_EVIDENCE_POLICY = Object.freeze({
+  testFileSuffixes: [".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"],
+  evidenceDirectory: "docs/design-system/evidence/",
+  evidenceExtensions: [".json", ".md"],
+});
+const CANONICAL_VISUAL_BASELINE_POLICY = Object.freeze({
+  requiredPrefix: "tests/__screenshots__/linux/",
+  allowedExtensions: [".png"],
+});
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const toPosix = (value) => value.split(path.sep).join("/");
 const read = (relativePath, root = ROOT) => {
@@ -21,6 +42,84 @@ const read = (relativePath, root = ROOT) => {
   return TEXT_CACHE.get(key);
 };
 const exists = (relativePath, root = ROOT) => fs.existsSync(path.join(root, relativePath));
+
+function trackedFilesForRoot(root = ROOT) {
+  if (!TRACKED_FILE_CACHE.has(root)) {
+    const output = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" });
+    TRACKED_FILE_CACHE.set(root, new Set(output.split("\0").filter(Boolean).map(toPosix)));
+  }
+  return TRACKED_FILE_CACHE.get(root);
+}
+
+export function validateAdoptionArtifactPath(
+  relativePath,
+  { root = ROOT, trackedFiles = trackedFilesForRoot(root), kind },
+) {
+  const failures = [];
+  if (
+    typeof relativePath !== "string" ||
+    !relativePath ||
+    path.isAbsolute(relativePath) ||
+    relativePath.includes("\\")
+  ) {
+    return ["must be a non-empty repository-relative POSIX path"];
+  }
+  const normalized = path.posix.normalize(relativePath);
+  const absolutePath = path.resolve(root, normalized);
+  const relativeToRoot = path.relative(root, absolutePath);
+  if (
+    normalized !== relativePath ||
+    relativeToRoot === ".." ||
+    relativeToRoot.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativeToRoot)
+  ) {
+    return ["must stay within the repository root"];
+  }
+  let regularFile = false;
+  try {
+    regularFile = fs.statSync(absolutePath).isFile();
+  } catch {
+    // Report the same stable failure for missing paths and non-files.
+  }
+  if (!regularFile) failures.push("must reference an existing regular file");
+  if (regularFile) {
+    const realRoot = fs.realpathSync(root);
+    const realFile = fs.realpathSync(absolutePath);
+    const realRelative = path.relative(realRoot, realFile);
+    if (realRelative === ".." || realRelative.startsWith(`..${path.sep}`) || path.isAbsolute(realRelative))
+      failures.push("must resolve to a file within the repository root");
+  }
+  if (!trackedFiles.has(normalized)) failures.push("must reference a Git-tracked file");
+
+  if (kind === "proof") {
+    const testEvidence =
+      normalized.startsWith("tests/") &&
+      CANONICAL_PROOF_EVIDENCE_POLICY.testFileSuffixes.some((suffix) => normalized.endsWith(suffix));
+    const evidenceDocument =
+      normalized.startsWith(CANONICAL_PROOF_EVIDENCE_POLICY.evidenceDirectory) &&
+      CANONICAL_PROOF_EVIDENCE_POLICY.evidenceExtensions.includes(path.posix.extname(normalized));
+    if (!testEvidence && !evidenceDocument) failures.push("must be a test/spec or a design-system evidence document");
+  } else if (kind === "visual-baseline") {
+    if (!normalized.startsWith(CANONICAL_VISUAL_BASELINE_POLICY.requiredPrefix))
+      failures.push("must be a Linux visual baseline under tests/__screenshots__/linux/");
+    if (!CANONICAL_VISUAL_BASELINE_POLICY.allowedExtensions.includes(path.posix.extname(normalized)))
+      failures.push("must be a PNG visual baseline");
+    if (regularFile) {
+      const handle = fs.openSync(absolutePath, "r");
+      try {
+        const signature = Buffer.alloc(PNG_SIGNATURE.length);
+        const bytesRead = fs.readSync(handle, signature, 0, signature.length, 0);
+        if (bytesRead !== PNG_SIGNATURE.length || !signature.equals(PNG_SIGNATURE))
+          failures.push("must contain a PNG file signature");
+      } finally {
+        fs.closeSync(handle);
+      }
+    }
+  } else {
+    failures.push(`has unknown artifact kind: ${String(kind)}`);
+  }
+  return failures;
+}
 
 function walk(directory, root = ROOT) {
   if (!fs.existsSync(directory)) return [];
@@ -70,11 +169,15 @@ function exportedNames(relativePath, root = ROOT) {
   return [...names].sort();
 }
 
-function resolveImport(importer, specifier) {
-  if (specifier.startsWith("@/")) return `src/${specifier.slice(2)}${path.extname(specifier) ? "" : ".tsx"}`;
-  if (!specifier.startsWith(".")) return null;
-  const candidate = toPosix(path.normalize(path.join(path.dirname(importer), specifier)));
-  return path.extname(candidate) ? candidate : `${candidate}.tsx`;
+function resolveImport(importer, specifier, root = ROOT) {
+  let candidate;
+  if (specifier.startsWith("@/")) candidate = `src/${specifier.slice(2)}`;
+  else if (specifier.startsWith(".")) candidate = toPosix(path.normalize(path.join(path.dirname(importer), specifier)));
+  else return null;
+  const candidates = path.extname(candidate)
+    ? [candidate]
+    : [`${candidate}.ts`, `${candidate}.tsx`, `${candidate}/index.ts`, `${candidate}/index.tsx`];
+  return candidates.find((entry) => exists(entry, root)) ?? (path.extname(candidate) ? candidate : `${candidate}.tsx`);
 }
 
 function importFacts(relativePath, sourceMap, root = ROOT) {
@@ -85,7 +188,7 @@ function importFacts(relativePath, sourceMap, root = ROOT) {
   const facts = [];
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
-    const resolved = resolveImport(relativePath, statement.moduleSpecifier.text);
+    const resolved = resolveImport(relativePath, statement.moduleSpecifier.text, root);
     const imported =
       statement.importClause?.namedBindings && ts.isNamedImports(statement.importClause.namedBindings)
         ? statement.importClause.namedBindings.elements.map((element) => element.name.text).sort()
@@ -98,6 +201,54 @@ function importFacts(relativePath, sourceMap, root = ROOT) {
   const result = [...new Set(facts)].sort();
   IMPORT_FACT_CACHE.set(cacheKey, result);
   return result;
+}
+
+function sourceImports(relativePath, root = ROOT) {
+  if (!exists(relativePath, root)) return [];
+  const cacheKey = `${root}:${relativePath}`;
+  if (SOURCE_IMPORT_CACHE.has(cacheKey)) return SOURCE_IMPORT_CACHE.get(cacheKey);
+  const source = sourceFile(relativePath, root);
+  const specifiers = [];
+  function collect(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      specifiers.push(node.moduleSpecifier.text);
+    }
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      specifiers.push(node.arguments[0].text);
+    }
+    ts.forEachChild(node, collect);
+  }
+  collect(source);
+  const result = [
+    ...new Set(
+      specifiers
+        .map((specifier) => resolveImport(relativePath, specifier, root))
+        .filter((resolved) => resolved && exists(resolved, root)),
+    ),
+  ].sort();
+  SOURCE_IMPORT_CACHE.set(cacheKey, result);
+  return result;
+}
+
+export function reachableSourceFiles(entryFiles, { root = ROOT } = {}) {
+  const reachable = new Set();
+  const pending = [...new Set(entryFiles)].filter((file) => exists(file, root));
+  while (pending.length) {
+    const file = pending.pop();
+    if (reachable.has(file)) continue;
+    reachable.add(file);
+    for (const dependency of sourceImports(file, root)) if (!reachable.has(dependency)) pending.push(dependency);
+  }
+  return reachable;
 }
 
 const UNKNOWN_CLASS_FRAGMENT = "\u0000";
@@ -178,6 +329,7 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText, { elementName =
   const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const bindings = [];
   const classExpressions = [];
+  const classSpreadExpressions = [];
 
   function propertyName(node) {
     if (ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNumericLiteral(node)) return node.text;
@@ -259,6 +411,14 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText, { elementName =
       if (node.initializer && ts.isStringLiteral(node.initializer)) classExpressions.push(node.initializer);
       if (node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression)
         classExpressions.push(node.initializer.expression);
+    }
+    if (ts.isJsxSpreadAttribute(node)) {
+      const openingElement = node.parent.parent;
+      const ownerName =
+        ts.isJsxOpeningElement(openingElement) || ts.isJsxSelfClosingElement(openingElement)
+          ? openingElement.tagName.getText(source)
+          : null;
+      if (elementName && ownerName === elementName) classSpreadExpressions.push(node.expression);
     }
     if (!elementName && ts.isPropertyAssignment(node) && ["class", "className"].includes(propertyName(node.name))) {
       classExpressions.push(node.initializer);
@@ -447,9 +607,53 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText, { elementName =
     return [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
   }
 
+  function classExpressionsFromSpread(expression, seen = new Set()) {
+    const current = unwrapExpression(expression);
+    if (ts.isIdentifier(current)) {
+      const binding = resolveBinding(current);
+      if (!binding?.declaration.initializer || seen.has(binding.declaration))
+        return { expressions: [], unresolved: true };
+      return classExpressionsFromSpread(binding.declaration.initializer, new Set(seen).add(binding.declaration));
+    }
+    if (ts.isConditionalExpression(current)) {
+      const whenTrue = classExpressionsFromSpread(current.whenTrue, seen);
+      const whenFalse = classExpressionsFromSpread(current.whenFalse, seen);
+      return {
+        expressions: [...whenTrue.expressions, ...whenFalse.expressions],
+        unresolved: whenTrue.unresolved || whenFalse.unresolved,
+      };
+    }
+    if (!ts.isObjectLiteralExpression(current)) return { expressions: [], unresolved: true };
+
+    const expressions = [];
+    let unresolved = false;
+    for (const property of current.properties) {
+      if (ts.isSpreadAssignment(property)) {
+        const nested = classExpressionsFromSpread(property.expression, seen);
+        expressions.push(...nested.expressions);
+        unresolved ||= nested.unresolved;
+        continue;
+      }
+      const name = ts.isComputedPropertyName(property.name)
+        ? ts.isStringLiteralLike(property.name.expression)
+          ? property.name.expression.text
+          : null
+        : propertyName(property.name);
+      if (name === null) {
+        unresolved = true;
+        continue;
+      }
+      if (!["class", "className"].includes(name)) continue;
+      if (ts.isPropertyAssignment(property)) expressions.push(property.initializer);
+      else if (ts.isShorthandPropertyAssignment(property)) expressions.push(property.name);
+      else unresolved = true;
+    }
+    return { expressions, unresolved };
+  }
+
   let literalCkbV2 = false;
   let dynamicCkbV2 = false;
-  for (const expression of classExpressions) {
+  function classifyClassExpression(expression) {
     const directTemplateLiteral = (() => {
       const current = unwrapExpression(expression);
       if (!ts.isTemplateExpression(current)) return false;
@@ -466,6 +670,12 @@ export function analyzeCkbV2ClassUsage(relativePath, sourceText, { elementName =
       // interpolated beside it. Calls/joins/replacements still count as dynamic.
       if (!directTemplateLiteral && pattern.constructed && couldConstructCkbV2(pattern.value)) dynamicCkbV2 = true;
     }
+  }
+  for (const expression of classExpressions) classifyClassExpression(expression);
+  for (const spreadExpression of classSpreadExpressions) {
+    const spread = classExpressionsFromSpread(spreadExpression);
+    if (spread.unresolved) dynamicCkbV2 = true;
+    for (const expression of spread.expressions) classifyClassExpression(expression);
   }
   return { literalCkbV2, dynamicCkbV2 };
 }
@@ -486,7 +696,7 @@ export function deriveSurfaceV2Observation({ globalShell, roots }) {
   };
 }
 
-function manifestSections(manifest) {
+export function manifestSections(manifest) {
   const componentRows = manifest.components.map(
     (component) =>
       `| \`${component.name}\` | ${component.family} | ${component.built ? "yes" : "no"} | ${component.locallyRegistered ? "yes" : "no"} | ${component.v2ShellMounted ? component.v2MountMode : "no"} | ${component.proofDeclared ? "yes" : "no"} | ${component.baselineCommitted ? "yes" : "no"} | ${component.productImportFiles.length} |`,
@@ -540,11 +750,53 @@ function manifestSections(manifest) {
   return { maturity, adoption };
 }
 
+function extractMarkedSection(document, start, end) {
+  const match = document.match(new RegExp(`${start}[\\s\\S]*?${end}`));
+  return match?.[0] ?? null;
+}
+
+function normalizeMarkedSection(section) {
+  if (!section) return null;
+  return section
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => (/^\|[\s|:-]+\|$/.test(line) ? line.replace(/-+/g, "---") : line))
+    .join("\n")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function checkGeneratedAdoptionDocuments(manifest, { componentsDocument, adoptionDocument }) {
+  const sections = manifestSections(manifest);
+  const failures = [];
+  const componentSection = extractMarkedSection(
+    componentsDocument,
+    "<!-- adoption-manifest:maturity:start -->",
+    "<!-- adoption-manifest:maturity:end -->",
+  );
+  const adoptionSection = extractMarkedSection(
+    adoptionDocument,
+    "<!-- adoption-manifest:adoption:start -->",
+    "<!-- adoption-manifest:adoption:end -->",
+  );
+  if (normalizeMarkedSection(componentSection) !== normalizeMarkedSection(sections.maturity))
+    failures.push("docs/design-system/COMPONENTS.md generated maturity section is out of date");
+  if (normalizeMarkedSection(adoptionSection) !== normalizeMarkedSection(sections.adoption))
+    failures.push("docs/design-system/ADOPTION.md generated adoption section is out of date");
+  return failures;
+}
+
 function replaceMarkedSection(document, start, end, replacement) {
   const expression = new RegExp(`${start}[\\s\\S]*?${end}`);
   return expression.test(document)
     ? document.replace(expression, replacement)
     : `${document.trimEnd()}\n\n${replacement}\n`;
+}
+
+function surfaceRootFiles(surface) {
+  return [...(surface.routeRoots ? surface.routes : []), ...(surface.roots ?? [])]
+    .filter((rootFile, index, files) => files.indexOf(rootFile) === index)
+    .sort();
 }
 
 export function buildAdoptionManifest({ root = ROOT } = {}) {
@@ -569,12 +821,17 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
     ...globalShellUsage,
     observedShellState: globalShellUsage.literalCkbV2 ? "v2" : "compatibility",
   };
+  const productionReachableFiles = reachableSourceFiles(
+    [globalShell.file, ...contract.productionSurfaces.flatMap(surfaceRootFiles)],
+    { root },
+  );
   const componentInventory = Object.keys(contract.componentFamilies)
     .sort()
     .map((name) => {
       const source = sourceMap[name] ?? null;
       const sourceExports = source ? exportedNames(source, root) : [];
-      const productImportFiles = sourceFiles.filter((file) => importFacts(file, sourceMap, root).includes(name));
+      const directImportFiles = sourceFiles.filter((file) => importFacts(file, sourceMap, root).includes(name));
+      const productImportFiles = directImportFiles.filter((file) => productionReachableFiles.has(file));
       const preview = `.design-sync/previews/${name}.tsx`;
       const previewValid =
         exists(preview, root) &&
@@ -593,6 +850,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
         source,
         sourceExported: sourceExports.includes(name),
         entryExported,
+        directImportFiles,
         productImportFiles,
         designSync: {
           listedInSourceMap: Boolean(source),
@@ -605,9 +863,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       };
     });
   const surfaces = contract.productionSurfaces.map((surface) => {
-    const rootFiles = [...(surface.routeRoots ? surface.routes : []), ...(surface.roots ?? [])].filter(
-      (rootFile, index, files) => files.indexOf(rootFile) === index,
-    );
+    const rootFiles = surfaceRootFiles(surface);
     const roots = rootFiles.map((rootFile) => {
       const sourceText = exists(rootFile, root) ? read(rootFile, root) : "";
       const imports = importFacts(rootFile, sourceMap, root);
@@ -630,6 +886,7 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       disposition: surface.disposition,
       documentedDisposition: surface.documentedDisposition ?? null,
       routes: [...surface.routes].sort(),
+      proofApplicability: contract.proofApplicabilityByDisposition?.[surface.disposition] ?? null,
       declaredShellState: surface.expectedShellState,
       ...observation,
       proof: Object.fromEntries(
@@ -698,6 +955,11 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
     baseline: contract.baseline,
     globalShell,
     requiredProofCategories: [...contract.requiredProofCategories],
+    proofPolicy: {
+      applicabilityByDisposition: contract.proofApplicabilityByDisposition,
+      evidence: contract.proofEvidencePolicy,
+      visualBaseline: contract.visualBaselinePolicy,
+    },
     components,
     surfaces,
     routeCoverage: {
@@ -724,13 +986,25 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
   };
 }
 
-export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
+export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = trackedFilesForRoot(root) } = {}) {
   const contract = JSON.parse(read(CONTRACT_PATH, root));
   const failures = [];
-  const globalShellDeclaration = contract.globalShellRoot ?? {
-    file: "src/app/layout.tsx",
-    element: "html",
+  const globalShellDeclaration = contract.globalShellRoot ?? {};
+  if (JSON.stringify(globalShellDeclaration) !== JSON.stringify(CANONICAL_GLOBAL_SHELL_ROOT))
+    failures.push("globalShellRoot must remain src/app/layout.tsx / html");
+  if (JSON.stringify(contract.proofApplicabilityByDisposition) !== JSON.stringify(CANONICAL_PROOF_APPLICABILITY))
+    failures.push("proof applicability policy drifted from the canonical disposition contract");
+  if (JSON.stringify(contract.proofEvidencePolicy) !== JSON.stringify(CANONICAL_PROOF_EVIDENCE_POLICY))
+    failures.push("proof evidence path policy drifted from the canonical contract");
+  if (JSON.stringify(contract.visualBaselinePolicy) !== JSON.stringify(CANONICAL_VISUAL_BASELINE_POLICY))
+    failures.push("Linux visual baseline path policy drifted from the canonical contract");
+  const expectedProofPolicy = {
+    applicabilityByDisposition: contract.proofApplicabilityByDisposition,
+    evidence: contract.proofEvidencePolicy,
+    visualBaseline: contract.visualBaselinePolicy,
   };
+  if (JSON.stringify(manifest.proofPolicy) !== JSON.stringify(expectedProofPolicy))
+    failures.push("generated proof policy drifted from the adoption contract");
   if (!manifest.globalShell || typeof manifest.globalShell !== "object") {
     failures.push("global shell observation is missing");
   } else {
@@ -761,7 +1035,7 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
       failures.push(`${surface.id} has invalid declared shell state: ${String(surface.declaredShellState)}`);
     if (!new Set(["compatibility", "v2"]).has(surface.observedShellState))
       failures.push(`${surface.id} has invalid observed shell state: ${String(surface.observedShellState)}`);
-    if (!new Set(["none", "inherited-global-root", "direct-literal"]).has(surface.v2MountMode))
+    if (!V2_MOUNT_MODES.has(surface.v2MountMode))
       failures.push(`${surface.id} has invalid v2 mount mode: ${String(surface.v2MountMode)}`);
     if (surface.v2ShellMounted !== (surface.observedShellState === "v2"))
       failures.push(`${surface.id} observed shell state and mount boolean disagree`);
@@ -774,6 +1048,18 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
     }
     if (surface.declaredShellState === "v2" && !surface.v2ShellMounted)
       failures.push(`${surface.id} declares v2 but no literal source mount was observed`);
+    const expectedProofApplicability = contract.proofApplicabilityByDisposition?.[surface.disposition] ?? null;
+    if (!PROOF_APPLICABILITY.has(surface.proofApplicability))
+      failures.push(`${surface.id} has invalid proof applicability: ${String(surface.proofApplicability)}`);
+    if (surface.proofApplicability !== expectedProofApplicability)
+      failures.push(`${surface.id} proof applicability drifted from its ${surface.disposition} disposition`);
+    const proofNotApplicable = surface.proofApplicability === "not-applicable";
+    if (
+      proofNotApplicable &&
+      (surface.disposition !== "legacy-redirect" || surface.roots.length !== 0 || !surface.documentedDisposition)
+    ) {
+      failures.push(`${surface.id} may omit visual proof only as a documented rootless legacy redirect`);
+    }
     const proof = surface.proof && typeof surface.proof === "object" ? surface.proof : {};
     const requiredProofCategories = Array.isArray(contract.requiredProofCategories)
       ? contract.requiredProofCategories
@@ -792,11 +1078,19 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
       if (declaration.status === "passed" && (!validEvidence || declaration.evidence.length === 0))
         failures.push(`${surface.id} ${category} proof is passed without evidence`);
       if (declaration.status === "passed" && validEvidence) {
-        for (const evidencePath of declaration.evidence)
-          if (!exists(evidencePath, root))
-            failures.push(`${surface.id} ${category} proof evidence is missing: ${evidencePath}`);
+        for (const evidencePath of declaration.evidence) {
+          for (const reason of validateAdoptionArtifactPath(evidencePath, { root, trackedFiles, kind: "proof" }))
+            failures.push(`${surface.id} ${category} proof evidence ${evidencePath}: ${reason}`);
+        }
       }
-      if (surface.declaredShellState === "v2" && declaration.status !== "passed")
+      if (
+        proofNotApplicable &&
+        (declaration.status !== "not-applicable" || !validEvidence || declaration.evidence.length !== 0)
+      )
+        failures.push(`${surface.id} ${category} proof must remain not-applicable without evidence`);
+      if (!proofNotApplicable && declaration.status === "not-applicable")
+        failures.push(`${surface.id} ${category} proof is required for its visual disposition`);
+      if (surface.declaredShellState === "v2" && !proofNotApplicable && declaration.status !== "passed")
         failures.push(`${surface.id} v2 adoption requires passed ${category} proof`);
     }
     for (const category of Object.keys(proof)) {
@@ -814,11 +1108,23 @@ export function checkAdoptionManifest(manifest, { root = ROOT } = {}) {
       if (surface.baseline.status === "committed" && (!validBaselineFiles || surface.baseline.files.length === 0))
         failures.push(`${surface.id} surface baseline is committed without files`);
       if (surface.baseline.status === "committed" && validBaselineFiles) {
-        for (const baselinePath of surface.baseline.files)
-          if (!exists(baselinePath, root))
-            failures.push(`${surface.id} surface baseline file is missing: ${baselinePath}`);
+        for (const baselinePath of surface.baseline.files) {
+          for (const reason of validateAdoptionArtifactPath(baselinePath, {
+            root,
+            trackedFiles,
+            kind: "visual-baseline",
+          }))
+            failures.push(`${surface.id} surface baseline ${baselinePath}: ${reason}`);
+        }
       }
-      if (surface.declaredShellState === "v2" && surface.baseline.status !== "committed")
+      if (
+        proofNotApplicable &&
+        (surface.baseline.status !== "not-applicable" || !validBaselineFiles || surface.baseline.files.length !== 0)
+      )
+        failures.push(`${surface.id} surface baseline must remain not-applicable without files`);
+      if (!proofNotApplicable && surface.baseline.status === "not-applicable")
+        failures.push(`${surface.id} visual disposition requires a surface baseline`);
+      if (surface.declaredShellState === "v2" && !proofNotApplicable && surface.baseline.status !== "committed")
         failures.push(`${surface.id} v2 adoption requires a committed visual baseline`);
     }
     for (const rootFact of surface.roots) {
@@ -866,6 +1172,14 @@ async function main() {
   if (write === check) throw new Error("Pass exactly one of --write or --check.");
   const manifest = buildAdoptionManifest();
   const failures = checkAdoptionManifest(manifest);
+  if (check) {
+    failures.push(
+      ...checkGeneratedAdoptionDocuments(manifest, {
+        componentsDocument: read("docs/design-system/COMPONENTS.md"),
+        adoptionDocument: read("docs/design-system/ADOPTION.md"),
+      }),
+    );
+  }
   const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
   failures.push(...(await writeOrCheck(MANIFEST_PATH, serialized, write)));
   const sections = manifestSections(manifest);
