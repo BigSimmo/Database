@@ -89,11 +89,219 @@ function importFacts(relativePath, sourceMap, root = ROOT) {
   return result;
 }
 
-function dynamicCkbV2(sourceText) {
-  return (
-    /["'`]ckb[-_]?['"`]\s*\+\s*["'`]v2["'`]/.test(sourceText) ||
-    (/`[^`]*\$\{[^}]+\}[^`]*`/.test(sourceText) && /ckb/.test(sourceText))
-  );
+const UNKNOWN_CLASS_FRAGMENT = "\u0000";
+const CLASS_NAME_HELPERS = new Set(["cn", "clsx", "classnames", "classNames", "cx", "cva", "twMerge"]);
+const MAX_CLASS_PATTERNS = 64;
+
+function classTokenPresent(value) {
+  return value.split(/\s+/).includes("ckb-v2");
+}
+
+function couldConstructCkbV2(value) {
+  if (!value.includes(UNKNOWN_CLASS_FRAGMENT)) return classTokenPresent(value);
+  const staticText = value.replaceAll(UNKNOWN_CLASS_FRAGMENT, "").toLowerCase();
+  if (!staticText.includes("ckb") && !staticText.includes("v2")) return false;
+  const replacements = ["", "ckb-v2", "ckb-", "v2", "-", " ", " ckb-v2 "];
+  let candidates = [value];
+  while (candidates.some((candidate) => candidate.includes(UNKNOWN_CLASS_FRAGMENT))) {
+    const next = [];
+    for (const candidate of candidates) {
+      const marker = candidate.indexOf(UNKNOWN_CLASS_FRAGMENT);
+      if (marker < 0) {
+        next.push(candidate);
+        continue;
+      }
+      for (const replacement of replacements) {
+        next.push(`${candidate.slice(0, marker)}${replacement}${candidate.slice(marker + 1)}`);
+        if (next.length >= MAX_CLASS_PATTERNS) break;
+      }
+      if (next.length >= MAX_CLASS_PATTERNS) break;
+    }
+    candidates = next;
+    if (candidates.length >= MAX_CLASS_PATTERNS) break;
+  }
+  return candidates.some(classTokenPresent);
+}
+
+function unwrapExpression(expression) {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current) ||
+    ts.isAsExpression(current) ||
+    ts.isTypeAssertionExpression(current) ||
+    ts.isNonNullExpression(current) ||
+    (ts.isSatisfiesExpression?.(current) ?? false)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function combineClassPatterns(groups, separator, constructed = false) {
+  let combined = [{ value: "", constructed: false }];
+  for (const group of groups) {
+    const next = [];
+    for (const left of combined) {
+      for (const right of group) {
+        next.push({
+          value: left.value ? `${left.value}${separator}${right.value}` : right.value,
+          constructed: constructed || left.constructed || right.constructed,
+        });
+        if (next.length >= MAX_CLASS_PATTERNS) break;
+      }
+      if (next.length >= MAX_CLASS_PATTERNS) break;
+    }
+    combined = next;
+  }
+  return combined;
+}
+
+/**
+ * Parse only class-bearing expressions. A literal `ckb-v2` token is a normal
+ * opt-in; any concatenation/template/join that can synthesize that token is a
+ * dynamic opt-in and fails the adoption contract.
+ */
+export function analyzeCkbV2ClassUsage(relativePath, sourceText) {
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const bindings = new Map();
+  const classExpressions = [];
+
+  function propertyName(node) {
+    if (ts.isIdentifier(node) || ts.isStringLiteral(node) || ts.isNumericLiteral(node)) return node.text;
+    return null;
+  }
+
+  function collect(node) {
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      bindings.set(node.name.text, node.initializer);
+    }
+    if (ts.isJsxAttribute(node) && ["class", "className"].includes(node.name.getText(source))) {
+      if (node.initializer && ts.isStringLiteral(node.initializer)) classExpressions.push(node.initializer);
+      if (node.initializer && ts.isJsxExpression(node.initializer) && node.initializer.expression)
+        classExpressions.push(node.initializer.expression);
+    }
+    if (ts.isPropertyAssignment(node) && ["class", "className"].includes(propertyName(node.name))) {
+      classExpressions.push(node.initializer);
+    }
+    ts.forEachChild(node, collect);
+  }
+  collect(source);
+
+  function arrayElements(expression, seen) {
+    const current = unwrapExpression(expression);
+    if (ts.isArrayLiteralExpression(current)) return [...current.elements];
+    if (ts.isIdentifier(current) && !seen.has(current.text) && bindings.has(current.text)) {
+      return arrayElements(bindings.get(current.text), new Set(seen).add(current.text));
+    }
+    return null;
+  }
+
+  function patternsFor(expression, seen = new Set()) {
+    const current = unwrapExpression(expression);
+    if (ts.isStringLiteralLike(current)) return [{ value: current.text, constructed: false }];
+    if (ts.isNumericLiteral(current)) return [{ value: current.text, constructed: false }];
+    if (current.kind === ts.SyntaxKind.TrueKeyword || current.kind === ts.SyntaxKind.FalseKeyword)
+      return [{ value: "", constructed: false }];
+    if (ts.isIdentifier(current)) {
+      if (seen.has(current.text) || !bindings.has(current.text))
+        return [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
+      return patternsFor(bindings.get(current.text), new Set(seen).add(current.text));
+    }
+    if (ts.isTemplateExpression(current)) {
+      let combined = [{ value: current.head.text, constructed: true }];
+      for (const span of current.templateSpans) {
+        combined = combineClassPatterns([combined, patternsFor(span.expression, seen)], "", true).map((entry) => ({
+          value: `${entry.value}${span.literal.text}`,
+          constructed: true,
+        }));
+      }
+      return combined;
+    }
+    if (ts.isConditionalExpression(current)) {
+      return [...patternsFor(current.whenTrue, seen), ...patternsFor(current.whenFalse, seen)].slice(
+        0,
+        MAX_CLASS_PATTERNS,
+      );
+    }
+    if (ts.isBinaryExpression(current)) {
+      if (current.operatorToken.kind === ts.SyntaxKind.PlusToken)
+        return combineClassPatterns([patternsFor(current.left, seen), patternsFor(current.right, seen)], "", true);
+      if (
+        current.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken ||
+        current.operatorToken.kind === ts.SyntaxKind.BarBarToken ||
+        current.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken
+      ) {
+        return [
+          { value: "", constructed: false },
+          ...patternsFor(current.left, seen),
+          ...patternsFor(current.right, seen),
+        ].slice(0, MAX_CLASS_PATTERNS);
+      }
+    }
+    if (ts.isCallExpression(current)) {
+      if (ts.isPropertyAccessExpression(current.expression) && current.expression.name.text === "join") {
+        const elements = arrayElements(current.expression.expression, seen);
+        if (elements) {
+          const separators = current.arguments[0]
+            ? patternsFor(current.arguments[0], seen)
+            : [{ value: ",", constructed: false }];
+          const results = [];
+          for (const separator of separators) {
+            results.push(
+              ...combineClassPatterns(
+                elements.map((element) => patternsFor(element, seen)),
+                separator.value,
+                true,
+              ),
+            );
+            if (results.length >= MAX_CLASS_PATTERNS) break;
+          }
+          return results.slice(0, MAX_CLASS_PATTERNS);
+        }
+      }
+      const helperName = ts.isIdentifier(current.expression)
+        ? current.expression.text
+        : ts.isPropertyAccessExpression(current.expression)
+          ? current.expression.name.text
+          : "";
+      if (CLASS_NAME_HELPERS.has(helperName)) {
+        return combineClassPatterns(
+          current.arguments.map((argument) => patternsFor(argument, seen)),
+          " ",
+        );
+      }
+      return [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
+    }
+    if (ts.isArrayLiteralExpression(current)) {
+      return combineClassPatterns(
+        current.elements.map((element) => patternsFor(element, seen)),
+        " ",
+      );
+    }
+    if (ts.isObjectLiteralExpression(current)) {
+      const classKeys = current.properties.flatMap((property) => {
+        if (ts.isPropertyAssignment(property)) {
+          if (ts.isComputedPropertyName(property.name)) return patternsFor(property.name.expression, seen);
+          const name = propertyName(property.name);
+          return name ? [{ value: name, constructed: false }] : [];
+        }
+        if (ts.isShorthandPropertyAssignment(property)) return patternsFor(property.name, seen);
+        return [];
+      });
+      return combineClassPatterns(classKeys, " ");
+    }
+    return [{ value: UNKNOWN_CLASS_FRAGMENT, constructed: false }];
+  }
+
+  let literalCkbV2 = false;
+  let dynamicCkbV2 = false;
+  for (const expression of classExpressions) {
+    for (const pattern of patternsFor(expression)) {
+      if (!pattern.constructed && classTokenPresent(pattern.value)) literalCkbV2 = true;
+      if (pattern.constructed && couldConstructCkbV2(pattern.value)) dynamicCkbV2 = true;
+    }
+  }
+  return { literalCkbV2, dynamicCkbV2 };
 }
 
 function manifestSections(manifest) {
@@ -177,15 +385,14 @@ export function buildAdoptionManifest({ root = ROOT } = {}) {
       const sourceText = exists(rootFile, root) ? read(rootFile, root) : "";
       const imports = importFacts(rootFile, sourceMap, root);
       const importedFamilies = [...new Set(imports.map((name) => contract.componentFamilies[name]))].sort();
-      const literalCkbV2 = /["'`]ckb-v2(?:\s|["'`])/.test(sourceText);
-      const dynamic = dynamicCkbV2(sourceText);
+      const { literalCkbV2, dynamicCkbV2 } = analyzeCkbV2ClassUsage(rootFile, sourceText);
       return {
         file: rootFile,
         exists: Boolean(sourceText),
         imports,
         importedFamilies,
         literalCkbV2,
-        dynamicCkbV2: dynamic,
+        dynamicCkbV2,
         sanctionedPatternsPresent: surface.sanctionedSpecialPatterns.filter((pattern) => sourceText.includes(pattern)),
       };
     });
