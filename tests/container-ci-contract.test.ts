@@ -71,6 +71,21 @@ describe("container delivery contract", () => {
     expect(read("Dockerfile.worker")).toContain("STOPSIGNAL SIGTERM");
   });
 
+  it("keeps Railway Dockerfiles portable across service IDs", () => {
+    expect(read("Dockerfile")).not.toContain("--mount=type=cache");
+    expect(read("Dockerfile.worker")).not.toContain("--mount=type=cache");
+  });
+
+  it("does not fail image verification when the optional GitHub cache export is unavailable", () => {
+    const workflow = read(".github/workflows/docker-image.yml");
+    expect(workflow.match(/cache-to:.*ignore-error=true/g)).toHaveLength(2);
+    expect(workflow.match(/cache-(?:from|to):.*timeout=2m/g)).toHaveLength(4);
+  });
+
+  it("does not bake pip's download cache into the final worker image", () => {
+    expect(read("Dockerfile.worker")).toContain("pip install --no-cache-dir");
+  });
+
   it("runs a provider-free runtime validator inside the worker image", () => {
     expect(read("Dockerfile.worker")).toContain("dist/worker/validate-runtime.mjs");
   });
