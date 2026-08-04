@@ -106,7 +106,7 @@ PLAYWRIGHT_OFFLINE_MODE=true
 Keep OpenAI disabled unless a later task explicitly authorizes it. Do not add provider keys,
 tokens, database URLs, service-role values, E2E credentials, or `ALLOW_PROVIDER_TESTS` to this
 environment. The generated agent profile removes the complete provider-variable inventory in
-both access profiles. Connected access configures the repository profile for scoped OAuth MCP
+both access profiles. Connected access configures the repository profile for audited hosted MCP
 servers and GitHub integration, but it does not expose raw credentials to the shell or guarantee
 that every GitHub capability appears as a direct agent tool. For ordinary Cloud task publishing,
 use the native Cloud diff/PR controls and verify the resulting GitHub branch and PR link. A
@@ -288,8 +288,8 @@ reruns, ingestion, deployment, and release workflows remain separate explicit ac
 
 Project `.codex/config.toml` is the checked-in Codex MCP template. Its URL-only entries
 remain `enabled = false` so offline tasks do not initialize providers. In the connected profile,
-setup copies the audited Railway and constrained Supabase URLs into its managed
-`$CODEX_HOME/config.toml` block with `enabled = true`; the first use completes browser OAuth.
+setup activates audited Figma, Frontend Checklist, Railway, constrained Supabase, and Sentry URLs
+in its managed `$CODEX_HOME/config.toml` block; the first authenticated use completes browser OAuth.
 Hosted ChatGPT still requires the matching installed plugin/connector. In either host, start a fresh
 task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
@@ -300,6 +300,24 @@ Production Supabase stays project-scoped and `read_only=true`, with
 confirmation. Do not use unrestricted SQL or query clinical rows. Railway, Figma, and Sentry
 write-capable tools remain approval-gated. OAuth credentials stay in the host store—never the
 tracked files or agent environment.
+
+Local registrations resolve into Cloud capabilities as follows. Exact machine adapters are not
+copied when the Cloud host already supplies the capability or when copying them would require
+Docker Desktop, a local filesystem path, or a raw secret.
+
+| Local registration                                               | Connected Cloud resolution                                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `figma_cloud`                                                    | Managed `figma_connected` hosted MCP; OAuth remains in the host store                                              |
+| `frontendchecklist`                                              | Managed `frontendchecklist_connected` hosted MCP; provider calls prompt                                            |
+| `github` and Docker `github-official`                            | Native Codex GitHub connector; no PAT is exposed to the shell                                                      |
+| `railway` / `railway_cloud`                                      | Managed `railway_connected` hosted MCP; local CLI state is not reused                                              |
+| `sentry`, `sentry_bridge`, and Docker `sentry-remote`            | Managed `sentry_connected` hosted MCP                                                                              |
+| `supabase` / `supabase_cloud`                                    | Managed project-scoped, read-only `supabase_connected` hosted MCP                                                  |
+| `node_repl`, Docker `playwright`, and `MCP_DOCKER` image servers | Cloud-native agent, shell, and installed browser capabilities; no machine path or Docker Desktop profile is copied |
+
+Other Docker-profile catalog servers are optional local tooling rather than project trust-boundary
+dependencies. Add a hosted endpoint to the audited project surface only when a Database task needs
+it; never copy Docker Desktop secret-store values into Cloud variables.
 
 In a fresh connected task, first run the raw-shell probe and repository acceptance, then inspect
 the actual callable tool inventory. A configured URL or `enabled = false` template is not runtime
@@ -320,15 +338,16 @@ copying credentials into the checkout.
    maintenance as
    `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
    Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
-   `ALLOW_PROVIDER_TESTS`. Connected setup writes only the audited Railway/Supabase endpoints
-   into the managed host MCP block; it never writes OAuth tokens.
+   `ALLOW_PROVIDER_TESTS`. Connected setup writes only the five audited hosted endpoints into the
+   managed host MCP block; it never writes OAuth tokens.
 2. **Grant the host integrations.** Authorize the Codex GitHub connector for
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
    Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
    `sjrfecxgysukkwxsowpy`, `read_only=true`, and the docs/development-only feature allowlist. Do not broaden the
-   production Supabase MCP to write access. Enable Figma or Sentry only for a task that names that
-   provider; their write-capable tools remain approval-gated.
+   production Supabase MCP to write access. Complete Figma and Sentry OAuth only for the intended
+   workspace and organization; their write-capable tools remain approval-gated. Frontend Checklist
+   requires no repository credential and remains prompt-gated.
 3. **Start a fresh task.** OAuth tools and environment values are fixed when the task starts. A
    setup rerun inside an already-running offline task can validate a generated connected profile,
    but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open
@@ -344,7 +363,9 @@ copying credentials into the checkout.
    tokens. For GitHub, read repository metadata and confirm `BigSimmo/Database` plus the intended
    identity. For Railway, read workspace/project/service metadata and confirm the IDs above without
    triggering a deployment. For Supabase, read project/schema metadata and confirm the pinned ref
-   without querying clinical row contents. Report only non-secret identity and status metadata.
+   without querying clinical row contents. For Figma and Sentry, use non-mutating identity or
+   organization metadata. For Frontend Checklist, list or invoke one read-only rule lookup. Report
+   only non-secret identity and status metadata.
    OpenAI has no generic connected-profile credential: leave `RAG_PROVIDER_MODE=offline` until a
    separately approved paid canary or protected workflow supplies its own credential boundary.
 6. **Publish a task branch safely.** Work on a task-specific non-protected branch. Format, stage, and commit

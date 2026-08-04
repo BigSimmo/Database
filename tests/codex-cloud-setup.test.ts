@@ -363,7 +363,10 @@ describe("Codex Cloud environment contract", () => {
     );
     expect(
       validateCodexProjectMcpConfiguration(
-        tracked.replace('default_tools_approval_mode = "prompt"', 'default_tools_approval_mode = "auto"'),
+        tracked.replace(
+          /(\[mcp_servers\.supabase_cloud\][\s\S]*?)default_tools_approval_mode = "prompt"/,
+          '$1default_tools_approval_mode = "auto"',
+        ),
       ),
     ).toContain(
       `.codex/config.toml supabase_cloud must set default_tools_approval_mode = "prompt" because the production server is constrained read-only.`,
@@ -519,6 +522,9 @@ describe("Codex Cloud environment contract", () => {
     expect(config).toContain('inherit = "all"');
     expect(config).not.toContain("[mcp_servers.railway_connected]");
     expect(config).not.toContain("[mcp_servers.supabase_connected]");
+    expect(config).not.toContain("[mcp_servers.figma_connected]");
+    expect(config).not.toContain("[mcp_servers.frontendchecklist_connected]");
+    expect(config).not.toContain("[mcp_servers.sentry_connected]");
     for (const name of requiredPolicyExcludes) {
       expect(config).toContain(`"${name}"`);
     }
@@ -547,10 +553,18 @@ describe("Codex Cloud environment contract", () => {
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
     const connectedConfig = readCodexConfig(connectedHome);
+    expect(connectedConfig).toContain("[mcp_servers.figma_connected]");
+    expect(connectedConfig).toContain('url = "https://mcp.figma.com/mcp"');
+    expect(connectedConfig).toContain("[mcp_servers.frontendchecklist_connected]");
+    expect(connectedConfig).toContain('url = "https://mcp.frontendchecklist.io"');
     expect(connectedConfig).toContain("[mcp_servers.railway_connected]");
     expect(connectedConfig).toContain("[mcp_servers.supabase_connected]");
+    expect(connectedConfig).toContain("[mcp_servers.sentry_connected]");
+    expect(connectedConfig).toContain('url = "https://mcp.sentry.dev/mcp"');
     expect(connectedConfig).toContain("features=docs%2Cdevelopment");
-    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(2);
+    expect(connectedConfig.match(/^enabled = true$/gm)).toHaveLength(5);
+    expect(connectedConfig.match(/^default_tools_approval_mode = "writes"$/gm)).toHaveLength(3);
+    expect(connectedConfig.match(/^default_tools_approval_mode = "prompt"$/gm)).toHaveLength(2);
     expect(connectedConfig).toContain('default_tools_approval_mode = "prompt"');
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');

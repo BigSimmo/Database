@@ -207,6 +207,14 @@ trap 'rm -f "$codex_config_candidate"' EXIT
   printf 'ignore_default_excludes = false\n'
   printf 'exclude = [%s]\n' "$codex_exclude_toml"
   if [[ "$access_profile" = "connected" ]]; then
+    printf '\n%s\n' '[mcp_servers.figma_connected]'
+    printf '%s\n' 'url = "https://mcp.figma.com/mcp"'
+    printf '%s\n' 'enabled = true'
+    printf '%s\n' 'default_tools_approval_mode = "writes"'
+    printf '\n%s\n' '[mcp_servers.frontendchecklist_connected]'
+    printf '%s\n' 'url = "https://mcp.frontendchecklist.io"'
+    printf '%s\n' 'enabled = true'
+    printf '%s\n' 'default_tools_approval_mode = "prompt"'
     printf '\n%s\n' '[mcp_servers.railway_connected]'
     printf '%s\n' 'url = "https://mcp.railway.com"'
     printf '%s\n' 'enabled = true'
@@ -215,6 +223,10 @@ trap 'rm -f "$codex_config_candidate"' EXIT
     printf 'url = "%s"\n' "$connected_supabase_mcp_url"
     printf '%s\n' 'enabled = true'
     printf '%s\n' 'default_tools_approval_mode = "prompt"'
+    printf '\n%s\n' '[mcp_servers.sentry_connected]'
+    printf '%s\n' 'url = "https://mcp.sentry.dev/mcp"'
+    printf '%s\n' 'enabled = true'
+    printf '%s\n' 'default_tools_approval_mode = "writes"'
   fi
   printf '%s\n' "$codex_policy_end"
 } > "$codex_config_candidate"

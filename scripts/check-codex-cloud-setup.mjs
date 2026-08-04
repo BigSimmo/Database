@@ -34,6 +34,10 @@ export const expectedCodexProjectMcpServers = Object.freeze({
     url: "https://mcp.figma.com/mcp",
     approvalMode: "writes",
   }),
+  frontendchecklist_cloud: Object.freeze({
+    url: "https://mcp.frontendchecklist.io",
+    approvalMode: "prompt",
+  }),
   railway_cloud: Object.freeze({
     url: expectedMcpConfiguration.railwayUrl,
     approvalMode: "writes",
@@ -178,7 +182,9 @@ export function validateCodexProjectMcpConfiguration(text) {
       const reason =
         expected.approvalMode === "writes"
           ? "write-capable tools require explicit approval"
-          : "the production server is constrained read-only";
+          : expected.kind === "supabase"
+            ? "the production server is constrained read-only"
+            : "external read tools require explicit approval";
       errors.push(`${label} must set default_tools_approval_mode = "${expected.approvalMode}" because ${reason}.`);
     }
     for (const key of Object.keys(server)) {
