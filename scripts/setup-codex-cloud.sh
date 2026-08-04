@@ -42,8 +42,10 @@ expected_cloud_python="3.12"
 [[ -n "$expected_npm_version" ]] || fail "Could not read the npm version from package.json."
 
 # Codex Cloud supplies standards-based proxy variables as well. Remove npm's
-# deprecated lowercase aliases before the first npm invocation.
+# deprecated lowercase aliases before the first npm invocation, and tell Node
+# subprocesses (including CLI postinstall downloaders) to use the Cloud proxy.
 unset npm_config_http_proxy npm_config_https_proxy npm_config_proxy
+export NODE_USE_ENV_PROXY=1
 
 install_npm_cli() {
   local package_name="$1"
