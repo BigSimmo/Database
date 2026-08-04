@@ -172,6 +172,10 @@ const searchHealthIndexesMigration = readFileSync(
   new URL("../supabase/migrations/20260705180000_reconcile_search_health_indexes.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const restoreRagSearchHealthIndexesMigration = readFileSync(
+  new URL("../supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const searchSchemaHealthM13GuardMigration = readFileSync(
   new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
   "utf8",
@@ -1073,6 +1077,15 @@ describe("Supabase schema Data API grants", () => {
     expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
+    for (const indexName of [
+      "document_labels_label_trgm_idx",
+      "document_summaries_summary_trgm_idx",
+      "document_index_units_owner_chunk_type_idx",
+      "rag_retrieval_logs_miss_idx",
+    ]) {
+      expect(restoreRagSearchHealthIndexesMigration).toContain(`create index if not exists ${indexName}`);
+      expect(schema).toContain(`create index if not exists ${indexName}`);
+    }
   });
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
     expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");
