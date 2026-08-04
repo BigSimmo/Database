@@ -1,10 +1,11 @@
 # Search results bar — decisions
 
 The shared results bar is `SearchResultsHeaderBand`
-(`src/components/clinical-dashboard/search-results-header-band.tsx`). All twelve search
-modes render it, so a change there lands everywhere at once. This file records the
-decisions that are easy to reverse by accident — each was reached by checking what the app
-actually does, not what the surface looks like it should do.
+(`src/components/clinical-dashboard/search-results-header-band.tsx`). All twelve
+`results-band` modes render it (every searchable mode except answer), so a change
+there lands everywhere at once. This file records the decisions that are easy to
+reverse by accident — each was reached by checking what the app actually does, not
+what the surface looks like it should do.
 
 Composer placement, phone dock reserves, and hide/reveal behaviour are a different
 contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
@@ -32,9 +33,16 @@ contract: see [search-chrome-behaviour.md](search-chrome-behaviour.md).
 ## The shelf is scoped to two modes, on purpose
 
 `documents` and `therapy-compass` only. Both have multi-valued filters hidden behind a
-panel, so what is applied is not otherwise visible. The other six result modes
-(differentials, prescribing, specifiers, formulation, services, factsheets) have a
-single-select dimension whose control is already on screen, so a shelf would restate it.
+panel, so what is applied is not otherwise visible. Of the other ten results-band modes:
+
+- Differentials, prescribing, specifiers, formulation, services, and factsheets keep a
+  single-select dimension whose control is already on screen, so a shelf would restate it.
+- Forms still ships a Filter trigger whose panel is a coming-soon placeholder, not applied
+  filter state, so there is nothing for a shelf to show.
+- Favourites renders its own active-filter chips inside `filterControls` rather than the
+  shared shelf props.
+- DSM filters by category through navigation links, and tools through a single category
+  select — neither passes `appliedFilters`.
 
 Two traps met while drawing that line:
 
@@ -57,6 +65,9 @@ Two traps met while drawing that line:
   (`Library` / `Open source library`). Do not remove it before nav has a route that
   preserves the query.
 - **Sort does not move into the phone filter sheet.** Only documents and therapy-compass
-  have sheets. Moving Sort into the sheet from the shared band would remove Sort from
-  phones entirely in the other six modes — the exact defect an earlier round fixed. If
-  this is ever wanted it is per-page work, not a shared-band change.
+  currently have phone filter sheets (`Filter documents` / `TherapyFilterSheet`). Of the
+  four production `onSortChange` consumers, documents already pairs Sort with a sheet;
+  therapy has a sheet but no Sort. Moving Sort into the sheet from the shared band would
+  remove Sort from phones in the three sheetless Sort consumers — differentials, forms,
+  and services — the exact defect an earlier round fixed. If this is ever wanted it is
+  per-page work on those consumers, not a shared-band change.
