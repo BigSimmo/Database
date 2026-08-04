@@ -69,6 +69,10 @@ describe("overlay and global CSS contracts", () => {
   it("defines the shared easing tokens only once", () => {
     expect(occurrenceCount(globalStylesSource, "--ease-standard:")).toBe(1);
     expect(occurrenceCount(globalStylesSource, "--ease-emphasized:")).toBe(1);
+    expect(occurrenceCount(globalStylesSource, "--ease-out-keyword:")).toBe(1);
+    // Tailwind v4 owns --ease-out in @layer theme; unlayered :root must not
+    // shadow it or every bare transition-* utility picks up the CSS-keyword curve.
+    expect(globalStylesSource.replace(/\/\*[\s\S]*?\*\//g, "")).not.toMatch(/^\s*--ease-out\s*:/m);
   });
 
   it("keeps one authoritative 430px composer-action sizing block", () => {

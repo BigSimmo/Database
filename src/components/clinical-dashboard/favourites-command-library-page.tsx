@@ -31,7 +31,7 @@ import {
 } from "@/components/clinical-dashboard/favourites-library-nav";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn } from "@/components/ui-primitives";
+import { cn, EmptyState } from "@/components/ui-primitives";
 import {
   favouriteItems as prototypeFavouriteItems,
   favouriteSets as prototypeFavouriteSets,
@@ -596,6 +596,15 @@ function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
   );
 }
 
+// One empty state, rendered by whichever of the table / mobile-card layouts the
+// breakpoint is showing. Filters and the search term change without a navigation,
+// so the shared primitive's polite announcement is the right default here.
+function FavouritesEmptyMatches() {
+  return (
+    <EmptyState icon={Search} title="No favourites match" body="Clear filters or search to show saved clinical work." />
+  );
+}
+
 function FavouritesTable({
   items,
   searchTerm,
@@ -802,11 +811,7 @@ function FavouritesTable({
                     ]
                 ).map(({ colSpan, className }) => (
                   <td key={`${compact ? "compact" : "full"}-${colSpan}`} colSpan={colSpan} className={className}>
-                    <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
-                    <p className="font-bold text-[color:var(--text-heading)]">No favourites match</p>
-                    <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-                      Clear filters or search to show saved clinical work.
-                    </p>
+                    <FavouritesEmptyMatches />
                   </td>
                 ))}
               </tr>
@@ -819,15 +824,7 @@ function FavouritesTable({
         {tableRows.map((item) => (
           <FavouriteMobileCard key={item.id} item={item} />
         ))}
-        {tableRows.length === 0 ? (
-          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-8 text-center">
-            <Search className="mx-auto mb-2 h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
-            <p className="font-bold text-[color:var(--text-heading)]">No favourites match</p>
-            <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
-              Clear filters or search to show saved clinical work.
-            </p>
-          </div>
-        ) : null}
+        {tableRows.length === 0 ? <FavouritesEmptyMatches /> : null}
       </div>
     </section>
   );

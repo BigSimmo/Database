@@ -1,3 +1,4 @@
+import type { AnswerState, OverdueSource, UngroundedReason } from "@/lib/answer-state-types";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 /**
@@ -7,51 +8,15 @@ import type { ClinicalSourceMetadata } from "@/lib/types";
  * stops being representable.
  */
 
-export type SourceRef = {
-  sourceId: string;
-  title: string;
-  locator?: string;
-};
-
-/** The two governance states that make a source overdue. `unknown` is not one of them. */
-export type OverdueStatus = "review_due" | "outdated";
-
-export type OverdueSource = SourceRef & {
-  /**
-   * ISO review date, or `null` when governance has flagged the source
-   * `review_due`/`outdated` without recording the date it was due.
-   *
-   * COMPONENTS §2 drafted this as a required `string`. It is widened here
-   * deliberately: dropping a dateless overdue source from the banner to satisfy
-   * the narrower type would hide the single most alarming case — a source known
-   * to be past review with no recorded review commitment at all. `DateDisplay`
-   * renders the absence as `Not recorded` rather than inventing a date.
-   */
-  reviewDueOn: string | null;
-  /**
-   * Which governance state made it overdue. Carried rather than collapsed:
-   * `review_due` is a document still in force whose review has come around,
-   * `outdated` is one that has been superseded. Rendering the second in the
-   * first's vocabulary tells a clinician a withdrawn guideline is merely due.
-   */
-  status: OverdueStatus;
-};
-
-/** States an AnswerCard may render. */
-export type AnswerState =
-  | { kind: "ready"; sourceCount: number }
-  | { kind: "stale_evidence"; overdue: OverdueSource[]; sourceCount: number }
-  | { kind: "partial_retrieval"; retrieved: number; requested: number; missing: SourceRef[] }
-  | { kind: "source_only"; reason: "generation_failed" | "quality_gate" };
-
-/** Deliberately NOT an AnswerState: no card may render it. */
-export type NoAnswer = {
-  kind: "no_answer";
-  reason: "offline" | "no_confident_answer";
-  lastSyncAt?: string;
-};
-
-export type DegradedAnswerState = Exclude<AnswerState, { kind: "ready" }>;
+export type {
+  AnswerState,
+  DegradedAnswerState,
+  NoAnswer,
+  OverdueSource,
+  OverdueStatus,
+  SourceRef,
+  UngroundedReason,
+} from "@/lib/answer-state-types";
 
 /**
  * The subset of a retrieval answer that the state projection reads. Structural
@@ -92,6 +57,30 @@ export type AnswerStateInput = {
   answerQualityTier?: "model_synthesis" | "source_only" | "cached" | null;
   fallbackReason?: string | null;
   routingReason?: string | null;
+  /**
+   * The pipeline's own grounding verdict. `false` means the prose is not
+   * supported by the cited evidence — see the `ungrounded` kind.
+   */
+  grounded?: boolean | null;
+  /**
+   * The pipeline's confidence enum. Structurally typed rather than imported from
+   * `RagAnswer` so the design-system bundle does not pull the retrieval layer in;
+   * `tests/answer-state-contract.test.ts` pins that the real payload still fits.
+   */
+  confidence?: "high" | "medium" | "low" | "unsupported" | null;
+  /**
+   * Numeric/dose/threshold tokens asserted in the prose that post-generation
+   * faithfulness verification could not find verbatim in any cited chunk. A
+   * non-empty list is exactly the case where a clinician must read the passages
+   * rather than the numbers.
+   */
+  unverifiedNumericTokens?: readonly string[] | null;
+  /**
+   * Caller-derived weak-evidence flag, for adoption sites that already compute
+   * one from render trust (`ClinicalDashboard`). Optional: the projection never
+   * derives it, because trust policy does not live in this layer.
+   */
+  weakEvidence?: boolean | null;
 };
 
 /**
@@ -179,6 +168,24 @@ function supportingSources(input: AnswerStateInput): AnswerStateSource[] {
 }
 
 /**
+ * Read the pipeline's own grounding signals. Nothing is derived here: each
+ * branch is a field the retrieval layer already set, in the order the live
+ * product gates read them (`evidence-panels.tsx` checks grounding before its
+ * weak-evidence flag).
+ *
+ * `grounded` is only ungrounding when it is explicitly `false`. Absent/null
+ * means the caller has not populated the field — the pre-#207 adoption sites —
+ * and inventing a caution from a missing field would fire on every answer.
+ */
+function ungroundedReasonFrom(input: AnswerStateInput): UngroundedReason | null {
+  if (input.grounded === false) return "grounded_false";
+  if (input.confidence === "unsupported") return "confidence_unsupported";
+  if ((input.unverifiedNumericTokens?.length ?? 0) > 0) return "unverified_numeric";
+  if (input.weakEvidence === true) return "weak_evidence";
+  return null;
+}
+
+/**
  * Project the app-facing retrieval payload onto the state the answer surface
  * renders. This is a projection of fields the retrieval layer has already
  * decided — `document_status` is server-set governance, not a date comparison —
@@ -188,13 +195,24 @@ function supportingSources(input: AnswerStateInput): AnswerStateSource[] {
  *
  *   1. `stale_evidence`  — the cited evidence may no longer be correct.
  *   2. `partial_retrieval` — the evidence base is incomplete.
- *   3. `source_only`     — evidence is current and complete; only the synthesis
+ *   3. `ungrounded`      — the evidence is current and complete, but the prose
+ *                          is not supported by it.
+ *   4. `source_only`     — evidence is current and complete; only the synthesis
  *                          is degraded.
- *   4. `ready`.
+ *   5. `ready`.
  *
  * A source-only answer over overdue sources therefore reports `stale_evidence`
  * here. The source-only disclosure is not lost: `AnswerCard` carries the
  * verification wording as its own required prop, so the call site states both.
+ *
+ * `ungrounded` outranks `source_only` for the same reason: a source-only answer
+ * that is also unsupported must not read as "evidence complete, synthesis
+ * weak". The clinician's act there is to verify the passages and distrust the
+ * numbers, which is the ungrounded instruction, not the source-only one.
+ *
+ * `stale_evidence` stays the outer kind when an answer is both stale and
+ * ungrounded: one banner, the one about evidence that may already be wrong.
+ * Stacking two alarms on one answer degrades both.
  *
  * `partial_retrieval` is never produced today — no app-facing field names which
  * expected sources were unavailable. See `docs/design-system/COMPONENTS.md` §2.
@@ -221,6 +239,9 @@ export function answerStateFromRetrieval(input: AnswerStateInput): AnswerState {
   const overdue = [...overdueByDocument.values()];
 
   if (overdue.length > 0) return { kind: "stale_evidence", overdue, sourceCount };
+
+  const ungroundedReason = ungroundedReasonFrom(input);
+  if (ungroundedReason) return { kind: "ungrounded", reason: ungroundedReason, sourceCount };
 
   if (input.answerQualityTier === "source_only") {
     const marker = `${input.fallbackReason ?? ""} ${input.routingReason ?? ""}`;

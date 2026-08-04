@@ -1263,7 +1263,7 @@ export function MasterSearchHeader({
                     onClick={() => onToggleScope(document.id)}
                     title={cleanDisplayTitle(document.title)}
                     className={cn(
-                      "grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
+                      "grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-[var(--duration-quick)]",
                       selected
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
@@ -1586,8 +1586,8 @@ export function MasterSearchHeader({
             cn(
               "max-sm:transition-[transform,opacity] motion-reduce:transition-none",
               bottomComposerHidden
-                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
             ),
         )}
       >
@@ -1768,7 +1768,7 @@ export function MasterSearchHeader({
           <div
             ref={scopePopoverRef}
             data-testid="scope-command-popover"
-            className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-50 max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
+            className="polished-scroll absolute bottom-[calc(100%+0.75rem)] right-2 z-[95] max-h-[min(70dvh,28rem)] w-[min(28rem,calc(100vw-1.5rem))] overflow-y-auto overscroll-contain rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-2.5 pb-2.5 text-[color:var(--text)] shadow-[var(--shadow-elevated)] backdrop-blur-xl motion-safe:animate-pop-in"
           >
             {scopePreview ? (
               <p className="truncate px-1 text-xs text-[color:var(--text-soft)]">{scopePreview}</p>
@@ -1879,14 +1879,14 @@ export function MasterSearchHeader({
             ? cn(
                 "transition-transform motion-reduce:transition-none",
                 headerChromeHidden
-                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "duration-[var(--duration-slow)] ease-[var(--ease-chrome-hide)]"
+                  : "duration-[var(--duration-moderate)] ease-[var(--ease-chrome-reveal)]",
               )
             : cn(
                 "max-sm:transition-transform motion-reduce:transition-none",
                 headerChromeHidden
-                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                  : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
               )),
         hideStrategy === "overlay" &&
           headerChromeHidden &&
@@ -1998,7 +1998,7 @@ export function MasterSearchHeader({
               aria-label="Choose app mode"
               className={cn(
                 glassOverlaySurface,
-                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
+                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-[60] max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
               )}
             >
               {renderModeMenuOptions()}
@@ -2128,11 +2128,11 @@ export function MasterSearchHeader({
                   : "grid transition-[grid-template-rows]",
                 headerChromeHidden
                   ? phoneOverlayMotion
-                    ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    ? "sm:duration-[var(--duration-slow)] sm:ease-[var(--ease-chrome-hide)]"
+                    : "duration-[var(--duration-slow)] ease-[var(--ease-chrome-hide)]"
                   : phoneOverlayMotion
-                    ? "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]"
-                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    ? "sm:duration-[var(--duration-moderate)] sm:ease-[var(--ease-chrome-reveal)]"
+                    : "duration-[var(--duration-moderate)] ease-[var(--ease-chrome-reveal)]",
                 headerChromeHidden
                   ? phoneOverlayMotion
                     ? "sm:[grid-template-rows:0fr]"
@@ -2144,8 +2144,8 @@ export function MasterSearchHeader({
             : cn(
                 "max-sm:grid max-sm:transition-[grid-template-rows]",
                 headerChromeHidden
-                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                  : "max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
                 headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
               ),
         )}
@@ -2197,8 +2197,8 @@ export function MasterSearchHeader({
             : cn(
                 "max-sm:transition-[height]",
                 headerChromeHidden
-                  ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ? "max-sm:h-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                  : "max-sm:h-[var(--safe-area-top)] max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]",
               ),
           sticksAbovePhones && "sm:sticky sm:top-0",
         )}
@@ -2216,8 +2216,8 @@ export function MasterSearchHeader({
               "phone-overlay-header max-sm:transition-[transform,opacity] motion-reduce:max-sm:transition-none",
             phoneOverlayMotion &&
               (headerChromeHidden
-                ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                : "max-sm:opacity-100 max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]"),
+                ? "max-sm:pointer-events-none max-sm:-translate-y-full max-sm:opacity-0 max-sm:duration-[var(--duration-slow)] max-sm:ease-[var(--ease-chrome-hide)]"
+                : "max-sm:opacity-100 max-sm:duration-[var(--duration-moderate)] max-sm:ease-[var(--ease-chrome-reveal)]"),
           )}
         >
           {chromeSafeAreaTop}

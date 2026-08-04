@@ -24,7 +24,7 @@ import {
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
-import { cn, codeText, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
+import { cn, codeText, EmptyState, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 
 function categoryHref(query: string, category?: string, ids: string[] = []) {
@@ -440,23 +440,19 @@ export function DsmSearchPage({
             </aside>
           </div>
         ) : (
-          <section className="grid justify-items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-12 text-center shadow-[var(--shadow-inset)]">
-            <span className="grid h-12 w-12 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]">
-              <SearchX className="h-6 w-6" aria-hidden />
-            </span>
-            <div>
-              <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">No diagnosis matches</h2>
-              <p className="mt-1 text-sm font-medium text-[color:var(--text-muted)]">
-                Try a diagnosis name, ICD code, symptom phrase, or a broader category.
-              </p>
-            </div>
-            <Link
-              href="/dsm/search"
-              className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
-            >
-              Browse all diagnoses
-            </Link>
-          </section>
+          <EmptyState
+            icon={SearchX}
+            title="No diagnosis matches"
+            body="Try a diagnosis name, ICD code, symptom phrase, or a broader category."
+            actions={
+              <Link
+                href="/dsm/search"
+                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+              >
+                Browse all diagnoses
+              </Link>
+            }
+          />
         )}
       </div>
     </div>

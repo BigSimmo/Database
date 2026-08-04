@@ -1,7 +1,9 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { type InputHTMLAttributes, type ReactNode, useId } from "react";
+import { type InputHTMLAttributes, type ReactNode, type Ref, useId } from "react";
+
+import { FieldError, FieldHint } from "@/components/ui/form-field";
 import { cn, textMuted } from "@/components/ui-primitives";
 
 /*
@@ -22,6 +24,23 @@ import { cn, textMuted } from "@/components/ui-primitives";
 
 const boxBase =
   "grid size-[1.125rem] shrink-0 place-items-center rounded-xs border transition motion-reduce:transition-none";
+
+/**
+ * Option ids are derived from a sanitised key, never the raw value (COMPONENTS
+ * §9.7). A radio value is domain data — `mg/dL`, `SSRI + lithium`, a UUID with a
+ * colon — and dropping it straight into an id produces a fragment a CSS/DOM
+ * selector cannot address and, when two values sanitise alike, a `htmlFor` that
+ * silently points at the wrong input. The index keeps the result unique.
+ */
+function optionId(groupId: string, value: string, index: number): string {
+  const slug = value.replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${groupId}-${index}${slug ? `-${slug}` : ""}`;
+}
+
+/** Caller ids first, then hint, then error — the same order `FormField` uses. */
+function mergeDescribedBy(...ids: Array<string | null | undefined>): string | undefined {
+  return ids.filter(Boolean).join(" ") || undefined;
+}
 
 const rowBase =
   "group flex min-h-tap w-full cursor-pointer items-start gap-3 rounded-md px-1 py-1.5 transition hover:bg-[color:var(--surface-subtle)] has-[:disabled]:cursor-not-allowed has-[:disabled]:hover:bg-transparent";
@@ -66,26 +85,49 @@ function Row({
 export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "id"> & {
   label: ReactNode;
   description?: ReactNode;
+  /** External id supported; generated otherwise. */
+  id?: string;
   /** Mixed state for a parent controlling a partially-selected group. */
   indeterminate?: boolean;
+  ref?: Ref<HTMLInputElement>;
 };
 
-export function Checkbox({ label, description, indeterminate, disabled, className, ...props }: CheckboxProps) {
-  const id = useId();
-  const descId = description ? `${id}-desc` : undefined;
+export function Checkbox({
+  label,
+  description,
+  id,
+  indeterminate,
+  disabled,
+  className,
+  ref,
+  "aria-describedby": callerDescribedBy,
+  ...props
+}: CheckboxProps) {
+  const generatedId = useId();
+  const fieldId = id ?? generatedId;
+  const descId = description ? `${fieldId}-desc` : undefined;
 
   return (
-    <Row label={label} description={description} disabled={disabled} htmlFor={id} describedBy={descId}>
+    <Row label={label} description={description} disabled={disabled} htmlFor={fieldId} describedBy={descId}>
       <span className="relative mt-0.5 flex">
         <input
           {...props}
-          id={id}
+          id={fieldId}
           type="checkbox"
           disabled={disabled}
-          aria-describedby={descId}
+          // Merged, not overwritten: a caller describing the row from outside the
+          // component used to lose that description the moment it passed one in.
+          aria-describedby={mergeDescribedBy(callerDescribedBy, descId)}
           aria-checked={indeterminate ? "mixed" : undefined}
+          // The component owns this ref to drive `indeterminate`, which has no
+          // HTML attribute and can only be set on the node. A caller ref must
+          // therefore be forwarded by hand: spreading it through `...props`
+          // would be overwritten here, silently, while the prop type kept
+          // promising it worked.
           ref={(node) => {
             if (node) node.indeterminate = Boolean(indeterminate);
+            if (typeof ref === "function") ref(node);
+            else if (ref) ref.current = node;
           }}
           className="peer absolute inset-0 size-full cursor-pointer appearance-none rounded-xs disabled:cursor-not-allowed"
         />
@@ -125,6 +167,18 @@ export type RadioGroupProps = {
   label: string;
   name: string;
   options: RadioOption[];
+  /** External id supported; generated otherwise. Seeds every option id. */
+  id?: string;
+  /**
+   * Group-level hint and error. A radio set's rule ("choose the jurisdiction the
+   * guideline applies to") belongs to the group, not to one option, and it stays
+   * in the DOM when the error appears — the same rule `FormField` enforces for
+   * single controls, using the same two nodes.
+   */
+  hint?: string;
+  error?: string;
+  /** Caller ids — merged ahead of the hint, never overwritten. */
+  describedBy?: string;
   hideLabel?: boolean;
   className?: string;
 } & (
@@ -146,6 +200,12 @@ export type RadioGroupProps = {
  * A real `<fieldset>` + `<legend>`. A radio set without one announces each option
  * with no idea what question it answers — "Relevance, radio button, 1 of 3" tells
  * a screen-reader user nothing about what is being sorted.
+ *
+ * The group keeps `<fieldset>`/`<legend>` rather than folding onto `FormField`'s
+ * `<label htmlFor>`: a label pointing at a fieldset names nothing, and the legend
+ * is what actually gets announced with each option. What it does take from the
+ * shell is the part that was missing — `FieldHint` and `FieldError`, both present
+ * at once when invalid, both in the group's `aria-describedby`.
  */
 export function RadioGroup({
   label,
@@ -154,33 +214,46 @@ export function RadioGroup({
   value,
   onChange,
   defaultValue,
+  id,
+  hint,
+  error,
+  describedBy,
   hideLabel,
   className,
 }: RadioGroupProps) {
-  const groupId = useId();
+  const generatedId = useId();
+  const groupId = id ?? generatedId;
+  const hintId = `${groupId}-hint`;
+  const errorId = `${groupId}-error`;
+  const invalid = Boolean(error);
   const controlled = value !== undefined;
 
   return (
-    <fieldset className={cn("min-w-0 border-0 p-0", className)}>
+    <fieldset
+      id={groupId}
+      className={cn("min-w-0 border-0 p-0", className)}
+      aria-invalid={invalid || undefined}
+      aria-describedby={mergeDescribedBy(describedBy?.trim(), hint ? hintId : null, invalid ? errorId : null)}
+    >
       <legend className={cn("mb-1.5 text-sm font-medium text-[color:var(--text)]", hideLabel && "sr-only")}>
         {label}
       </legend>
       <div className="flex flex-col gap-0.5">
-        {options.map((option) => {
-          const id = `${groupId}-${option.value}`;
-          const descId = option.description ? `${id}-desc` : undefined;
+        {options.map((option, index) => {
+          const inputId = optionId(groupId, option.value, index);
+          const descId = option.description ? `${inputId}-desc` : undefined;
           return (
             <Row
               key={option.value}
               label={option.label}
               description={option.description}
               disabled={option.disabled}
-              htmlFor={id}
+              htmlFor={inputId}
               describedBy={descId}
             >
               <span className="relative mt-0.5 flex">
                 <input
-                  id={id}
+                  id={inputId}
                   type="radio"
                   name={name}
                   value={option.value}
@@ -209,6 +282,9 @@ export function RadioGroup({
           );
         })}
       </div>
+      {/* Both stay in the DOM when invalid — the same rule as the single-control shell. */}
+      {hint ? <FieldHint id={hintId}>{hint}</FieldHint> : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
     </fieldset>
   );
 }

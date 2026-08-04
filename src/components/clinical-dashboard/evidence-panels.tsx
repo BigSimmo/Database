@@ -62,6 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import type { AnswerState } from "@/components/ui/answer-state";
 import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
@@ -108,12 +109,29 @@ type AnswerSupportPriority = {
   tone: "priority" | "caution";
 };
 
+/**
+ * PR 13 provenance adoption. `answerState` is the design system's projection of
+ * the same payload (`answerStateFromRetrieval`), and it is read here so the live
+ * "Review source match" caution and the DS `RetrievalStateBanner` cannot drift
+ * apart as the answer surface adopts `AnswerCard`.
+ *
+ * It is an **addition**, never a replacement: the three original signals below
+ * still fire on their own. Deriving the caution from the state alone would lose
+ * cases, because the projection's precedence collapses an answer that is both
+ * stale and ungrounded to `stale_evidence` — and a naive `kind === "ungrounded"`
+ * check would then silently drop the very warning `#207` was raised to protect.
+ *
+ * Any degraded kind asks for source review. That makes the caution a strict
+ * superset of the previous condition; the one case it newly covers is an answer
+ * over overdue sources that is otherwise grounded, which the DS banner already
+ * treats as caution and which a clinician should verify for the same reason.
+ */
 export function answerSupportPriority(
   answer: RagAnswer,
   sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
   table: VisualEvidenceCard | null,
   safetyFindings: ReturnType<typeof extractSafetyFindings>,
-  options: { grounded: boolean; weakEvidence: boolean },
+  options: { grounded: boolean; weakEvidence: boolean; answerState?: AnswerState | null },
 ): AnswerSupportPriority | null {
   const firstSafetyFinding = sortSafetyFindingsBySeverity(safetyFindings)[0];
   if (firstSafetyFinding) {
@@ -124,7 +142,9 @@ export function answerSupportPriority(
     };
   }
 
-  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence) {
+  const degradedState = options.answerState != null && options.answerState.kind !== "ready";
+
+  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence || degradedState) {
     return {
       title: "Review source match",
       detail:

@@ -45,6 +45,13 @@ export type FormFieldProps = {
   autoComplete?: string;
   /** Caller ids — merged, never overwritten. */
   describedBy?: string;
+  /**
+   * Visually hide the label but keep it for assistive technology. Added when the
+   * controls folded on (PR 13): `TextField`, `SearchField` and `Select` each
+   * carried this on their own shell, and a search field whose label is redundant
+   * beside a heading still needs the label to exist.
+   */
+  hideLabel?: boolean;
   children: (field: FormFieldRenderProps) => ReactNode;
   className?: string;
 };
@@ -81,6 +88,7 @@ export function FormField({
   error,
   autoComplete,
   describedBy,
+  hideLabel = false,
   children,
   className,
 }: FormFieldProps) {
@@ -98,11 +106,21 @@ export function FormField({
 
   return (
     <div className={cn("w-full", className)}>
-      <label htmlFor={fieldId} className={fieldLabel}>
+      <label htmlFor={fieldId} className={cn(fieldLabel, hideLabel && "sr-only")}>
         {label}
         {/* The requirement is in the label text, so it survives colour loss and
-            is read as part of the accessible name. */}
-        <span className={cn("ml-1 font-normal", textMuted)}>{required ? "(required)" : "(optional)"}</span>
+            is read as part of the accessible name.
+
+            Only the requirement is marked. Marking both sides was the original
+            shape and it made every ordinary field noisier for no information:
+            in a two- or three-column clinical grid the patient panel's five
+            numeric fields read "Age (years) (optional)", "Weight (kg)
+            (optional)", and so on down the column, where the panel already
+            states that the whole profile is optional. Marking required fields
+            and leaving the rest unmarked is the ordinary convention and carries
+            the same information, because "unmarked" now means exactly one
+            thing. */}
+        {required ? <span className={cn("ml-1 font-normal", textMuted)}>(required)</span> : null}
       </label>
       {children({ id: fieldId, describedBy: mergedDescribedBy, invalid, required, autoComplete })}
       {/* Both stay in the DOM when invalid — that is the defect this shell fixes. */}

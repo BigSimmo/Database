@@ -3,7 +3,7 @@
 import { FileWarning, Info, TriangleAlert } from "lucide-react";
 
 import { cn, toneInfo, toneWarning } from "@/components/ui-primitives";
-import type { DegradedAnswerState, OverdueSource, SourceRef } from "@/components/ui/answer-state";
+import type { DegradedAnswerState, OverdueSource, SourceRef, UngroundedReason } from "@/components/ui/answer-state";
 import { DateDisplay } from "@/components/ui/date-display";
 import { StatusMark } from "@/components/ui/status-mark";
 
@@ -165,6 +165,38 @@ function PartialRetrievalBody({
   );
 }
 
+/**
+ * The DS carrier for the live product's "Review source match" caution
+ * (`evidence-panels.tsx`, `answer-thread-turn.tsx`). Each headline names the
+ * signal that fired; the instruction below is constant, because the clinician's
+ * act is the same in all four cases — read the passages, do not read the prose.
+ *
+ * It never says the answer is wrong. The pipeline established that support could
+ * not be shown, which is a different and honest claim.
+ */
+function UngroundedBody({ reason }: { reason: UngroundedReason }) {
+  const headline =
+    reason === "grounded_false"
+      ? "This answer could not be matched to the sources it cites."
+      : reason === "confidence_unsupported"
+        ? "This answer is reported as unsupported by the sources it cites."
+        : reason === "unverified_numeric"
+          ? "Some clinical values in this answer were not found in the cited sources."
+          : "The evidence supporting this answer is weak.";
+
+  return (
+    <>
+      <p data-testid="retrieval-state-headline" className="font-semibold">
+        {headline}
+      </p>
+      <p className="mt-1">
+        Read the cited passages and confirm every clinical number, dose, route, timing, threshold and monitoring
+        instruction there before acting on this answer.
+      </p>
+    </>
+  );
+}
+
 function SourceOnlyBody({ reason }: { reason: "generation_failed" | "quality_gate" }) {
   return (
     <>
@@ -221,14 +253,19 @@ export function RetrievalStateBanner({ state, onOpenSource, className }: Retriev
     );
   }
 
-  const caution = state.kind === "stale_evidence";
+  // `ungrounded` is caution for the same reason the verification notice makes it
+  // caution: the live product paints "Review source match" amber today, and
+  // adoption must not demote it to an informational note.
+  const caution = state.kind === "stale_evidence" || state.kind === "ungrounded";
   const Icon = caution ? TriangleAlert : state.kind === "partial_retrieval" ? FileWarning : Info;
   const label =
     state.kind === "stale_evidence"
       ? "Source review status"
       : state.kind === "partial_retrieval"
         ? "Source availability"
-        : "How this answer was produced";
+        : state.kind === "ungrounded"
+          ? "Source match status"
+          : "How this answer was produced";
 
   return (
     <div
@@ -258,6 +295,8 @@ export function RetrievalStateBanner({ state, onOpenSource, className }: Retriev
             missing={state.missing}
             onOpenSource={onOpenSource}
           />
+        ) : state.kind === "ungrounded" ? (
+          <UngroundedBody reason={state.reason} />
         ) : (
           <SourceOnlyBody reason={state.reason} />
         )}

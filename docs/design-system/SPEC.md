@@ -16,7 +16,8 @@ restated in prose here is a defect in this document.
 - **Companions:** [TOKENS.md](TOKENS.md) (reconciled inventory) ·
   [COMPONENTS.md](COMPONENTS.md) (the eight new specifications + maturity matrix) ·
   [DECISIONS.md](DECISIONS.md) (C1–C5, Q&A record, assumptions, blocked items) ·
-  [GATES.md](GATES.md) (every rule paired with its enforcement status)
+  [GATES.md](GATES.md) (every rule paired with its enforcement status) ·
+  [ADOPTION.md](ADOPTION.md) (PR 13 registration: order, per-surface allowlists, exclusions, pins)
 
 **Source of truth, ranked.** 1. `AGENTS.md` · 2. `ckb-v2-tokens.css` · 3. committed tests · 4. `.design-sync/conventions.md` · 5. this document set.
 
@@ -681,12 +682,14 @@ is outside the token system entirely.
 | PR 7 · Form foundation               | `FormField` family; merged `describedBy`; hint **and** error in the DOM; required/optional/autocomplete; refs                                                                                                                                                                                  | **done** — built, not registered. Hint and error are both in the DOM and both in `describedBy` when invalid; caller ids merge ahead of them; external ids supported; required/optional is label text, never colour; `ErrorSummary` takes focus rather than announcing. `TextField`/`SearchField`/`Select`/choice controls fold onto the shell in PR 13's adoption, not here                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | PR 8 · Announcements and route focus | `RouteAnnouncer` + `LiveAnnouncer`; focus to `<h1>`; settle-then-announce; fix the visible live region                                                                                                                                                                                         | **done** — built, not registered. Singleton `announce()` with a dedupe window and a queue gap; two visually-hidden regions; route change moves focus to the new `<h1>` unless focus sits inside a dialog or a `data-preserve-focus` workflow, and announces the page title once. Retiring the existing visible `aria-live` nodes (`document-search-results.tsx`, `StageList`) is adoption work in PR 13                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
-**PR 6 step-0 contract pre-check (recorded).** Three of the four `AnswerState`
+**PR 6 step-0 contract pre-check (recorded).** Four of the five `AnswerState`
 variants project cleanly from the payload the app layer already receives, with no
 change to `src/lib/rag/**` or `src/lib/source-review.ts`: `ready` from the source
 count, `stale_evidence` from each source's server-set `document_status`
-(`review_due`/`outdated`) plus its `review_date`, and `source_only` from
-`answerQualityTier` plus `fallbackReason`. **`partial_retrieval` has no
+(`review_due`/`outdated`) plus its `review_date`, `source_only` from
+`answerQualityTier` plus `fallbackReason`, and — added in PR 13 Phase 1 —
+`ungrounded` from `grounded`, `confidence` and `unverifiedNumericTokens`, which
+the payload already carries (blocker 2 below). **`partial_retrieval` has no
 producer** — nothing app-facing names which expected sources were unavailable
 (`retrievalDiagnostics` carries candidate counts, `conflictsOrGaps` carries
 prose). The component is built to its specified contract, but PR 13 can only emit
@@ -712,6 +715,29 @@ constraints below are **adoption blockers**, recorded here so PR 13 cannot read
    policy's own warnings. **PR 13 must not swap `formatAnswerRenderCopyText` out
    for `answerClipboardText`**; either compose the two or extend this one first,
    with the clinical owner's review.
+
+   **RESOLVED in PR 13 Phase 1 (ledger `#208`) — compose, do not replace.**
+   `formatAnswerRenderCopyText()` / `buildAnswerRenderModel().copyText` stays the
+   **primary** product clipboard payload; `src/lib/answer-clipboard.ts`
+   (`composeAnswerClipboardText`) wraps it with the three things it lacks —
+   unconditional attribution, the `AnswerState` caveat (including `ungrounded`
+   from blocker 2), and the single-document provenance line under the
+   multi-source-stale suppression rule. The render string passes through
+   byte-for-byte: warnings, render trust, numbered sources with match strength,
+   clinical tables and displayed table evidence are the render policy's to decide,
+   and the composer neither edits nor re-derives them. Attribution and the caveat
+   sit **above** the render block, because a truncated or quoted paste keeps its
+   head more reliably than its tail. `answerClipboardText()` remains the
+   design-system primitive for `AnswerCard` demos and unit contracts, and now
+   shares one implementation of each rule with the composer rather than carrying a
+   second copy. Rejected: switching product `onCopy` to `answerClipboardText`
+   alone; maintaining two divergent product copy paths.
+   `tests/answer-clipboard-composition.test.ts` pins pass-through, every warning,
+   caveat placement, suppression, and the shared-rule identity. Adoption wires the
+   answer surface's `onCopy` to the composer when that surface is adopted
+   (controller-owned, last); the clinical owner confirms the composed payload
+   reads correctly in an EMR paste at the PR 13 glance.
+
 2. **`AnswerState` has no channel for an ungrounded answer.** `RagAnswer` carries
    `grounded`, `confidence: "unsupported"` and `unverifiedNumericTokens`, and the
    live product already gates on them (`evidence-panels.tsx`,
@@ -720,6 +746,33 @@ constraints below are **adoption blockers**, recorded here so PR 13 cannot read
    would silently retire a warning the product shows today.
    **Must be fixed before PR 13 adopts the answer surface** — it needs a fifth
    state or a companion flag, and the wording is a clinical-owner decision.
+
+   **RESOLVED in PR 13 Phase 1 (ledger `#207`).** A fifth kind, not a companion
+   flag: `{ kind: "ungrounded"; reason: UngroundedReason; sourceCount }`, where
+   `UngroundedReason` is `grounded_false | confidence_unsupported |
+unverified_numeric | weak_evidence`. A companion flag on `ready` was rejected —
+   it keeps the "ready" vocabulary for an answer that is not, and is missable in
+   `AnswerCard`'s exhaustiveness, which is the whole point of the union.
+   `AnswerStateInput` gains optional `grounded`, `confidence`,
+   `unverifiedNumericTokens` and a caller-derived `weakEvidence`, still
+   structurally typed — the design-system bundle does not import `RagAnswer`.
+   Precedence: `stale_evidence` > `partial_retrieval` > **`ungrounded`** >
+   `source_only` > `ready`. Ungrounded outranks source-only because a source-only
+   answer that is also unsupported must not read as "evidence complete, synthesis
+   weak"; `stale_evidence` stays the outer kind on an answer that is both, so one
+   answer never stacks two alarms. Absent grounding fields are **not** ungrounding,
+   so a caller that has not been widened yet does not acquire a caution on every
+   answer. `VerificationNotice` gains an approved `ungrounded` wording in both
+   audiences and joins the caution role; `RetrievalStateBanner` renders one
+   headline per reason under the group label "Source match status";
+   `answerClipboardText()` carries a per-reason caveat, because the banner does not
+   travel with a paste. Wording in both surfaces remains open to the clinical
+   owner's revision at the PR 13 glance — the channel, precedence and test pins do
+   not. Pinned by `tests/answer-state-contract.test.ts` (projection, precedence,
+   the `RagAnswer` assignability proof extended to the three grounding fields) and
+   `tests/ui-v2-answer-safety.dom.test.tsx` (five distinct wordings, caution role,
+   degraded card, per-reason clipboard caveats).
+
 3. **`--warning` as body-text colour** on `VerificationNotice`'s caution variant
    and `DoseLine`'s overdue label is the only place a status hue is used at text
    tier rather than a `--text-*` token. Gate 1 must add that contrast pair
@@ -733,13 +786,13 @@ these components are unregistered; revisit if adoption puts them on a hot path.
 
 ### Phase 4 — architecture, then adoption
 
-| PR                             | Contents                                                                                                                                                                                                                                 | Status               |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open                 |
-| PR 10 · Overlays               | One `OverlayRoot`; mandatory `Sheet` name; portal by default; `Tooltip` composes child handlers; `Toast` splits tone/priority/persistence, pauses on hover and focus                                                                     | open — COMPONENTS §7 |
-| PR 11 · Print and documents    | Print as a tokenised theme; `[data-print-hide]`; print primitives; `DocumentFrame`                                                                                                                                                       | open — COMPONENTS §6 |
-| PR 12 · Design-sync integrity  | Declarations generated from real types; manifest parity in `verify:cheap`; direct tests for every registered component; preview state matrices; `tailwind-merge` or slot props; split `ui-primitives.tsx`                                | open                 |
-| PR 13 · Register, then adopt   | Register only after Phases 1–3 are green. Adopt one surface at a time behind `.ckb-v2`, visual diff each: isolated form → page header and actions → source-provenance block → **answer surface last**. Type-scale retirement last of all | open                 |
+| PR                             | Contents                                                                                                                                                                                                                                 | Status                                                                                         |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| PR 9 · Motion, stacking, edges | Wire `--duration-*`/`--ease-*`/`--z-*` to utilities + lint; `transform` for `Progress`, `LinkAction`, `ToggleSwitch`; edge-rule gate; `Quantity` off the retiring type step; delete `--shadow-focus`, `--shadow-lift`, dead springs      | open                                                                                           |
+| PR 10 · Overlays               | One `OverlayRoot`; mandatory `Sheet` name; portal by default; `Tooltip` composes child handlers; `Toast` splits tone/priority/persistence, pauses on hover and focus                                                                     | open — COMPONENTS §7                                                                           |
+| PR 11 · Print and documents    | Print as a tokenised theme; `[data-print-hide]`; print primitives; `DocumentFrame`                                                                                                                                                       | open — COMPONENTS §6                                                                           |
+| PR 12 · Design-sync integrity  | Declarations generated from real types; manifest parity in `verify:cheap`; direct tests for every registered component; preview state matrices; `tailwind-merge` or slot props; split `ui-primitives.tsx`                                | open                                                                                           |
+| PR 13 · Register, then adopt   | Register only after Phases 1–3 are green. Adopt one surface at a time behind `.ckb-v2`, visual diff each: isolated form → page header and actions → source-provenance block → **answer surface last**. Type-scale retirement last of all | in progress — registration recorded in [ADOPTION.md](ADOPTION.md); blockers 1–2 above resolved |
 
 **Adoption invariants.** Every step reversible and diffable per surface · no adoption
 before the cascade port (dark evidence is void until then) · the most-read text ships

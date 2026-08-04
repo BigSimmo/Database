@@ -1,10 +1,11 @@
 "use client";
 
 import { Eraser, UserRound } from "lucide-react";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
-import { cn, fieldControlPlain, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
+import { TextField } from "@/components/ui/text-field";
+import { cn, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
 import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-patient-alerts";
 import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
@@ -61,8 +62,6 @@ function NumberField({
   min: number;
   max: number;
 }) {
-  const id = useId();
-  const errorId = `${id}-error`;
   const [text, setText] = useState(value == null ? "" : String(value));
   const [syncedValue, setSyncedValue] = useState<number | null>(value ?? null);
 
@@ -78,44 +77,30 @@ function NumberField({
     if (!outOfRange) setText(value == null ? "" : String(value));
   }
 
+  // The unit rides in the label string rather than a styled span: `FormField`
+  // takes a string label so the whole accessible name is one readable phrase
+  // ("Serum creatinine (µmol/L)") instead of a name assembled from two nodes.
   return (
-    <div>
-      <label htmlFor={id} className={fieldLabel}>
-        {label}
-        {unit ? <span className="ml-1 lowercase text-[color:var(--text-soft)]">({unit})</span> : null}
-      </label>
-      <input
-        id={id}
-        type="number"
-        inputMode="decimal"
-        min={min}
-        max={max}
-        value={text}
-        onChange={(event) => {
-          const raw = event.target.value;
-          setText(raw);
-          // Commit only in-range numbers; an empty or out-of-range entry commits
-          // null so the alert engine treats it as a missing input (surfaced as
-          // "unassessed") rather than acting on a physiologically impossible value.
-          const next = parseNumber(raw);
-          onChange(next !== null && next >= min && next <= max ? next : null);
-        }}
-        aria-invalid={outOfRange || undefined}
-        aria-describedby={outOfRange ? errorId : undefined}
-        className={cn(fieldControlPlain, "nums", outOfRange && "border-[color:var(--danger-border)]")}
-        data-testid={testId}
-      />
-      {outOfRange ? (
-        <span
-          id={errorId}
-          role="alert"
-          className="mt-1 block text-2xs font-medium leading-4 text-[color:var(--danger)]"
-        >
-          Enter {min}–{max}
-          {unit ? ` ${unit}` : ""}.
-        </span>
-      ) : null}
-    </div>
+    <TextField
+      label={unit ? `${label} (${unit})` : label}
+      type="number"
+      inputMode="decimal"
+      min={min}
+      max={max}
+      value={text}
+      onChange={(event) => {
+        const raw = event.target.value;
+        setText(raw);
+        // Commit only in-range numbers; an empty or out-of-range entry commits
+        // null so the alert engine treats it as a missing input (surfaced as
+        // "unassessed") rather than acting on a physiologically impossible value.
+        const next = parseNumber(raw);
+        onChange(next !== null && next >= min && next <= max ? next : null);
+      }}
+      error={outOfRange ? `Enter ${min}–${max}${unit ? ` ${unit}` : ""}.` : undefined}
+      className="nums"
+      data-testid={testId}
+    />
   );
 }
 

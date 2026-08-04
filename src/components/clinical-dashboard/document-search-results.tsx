@@ -55,6 +55,7 @@ import {
 } from "@/components/clinical-dashboard/document-ui";
 import {
   cn,
+  EmptyState,
   floatingControl,
   LoadingPanel,
   metadataPill,
@@ -1344,9 +1345,16 @@ function DocumentSearchResultsPanelImpl({
           <div className="grid gap-3 sm:gap-4">
             <div className="min-w-0 space-y-2.5 sm:space-y-3">
               {sortedMatches.length === 0 ? (
-                <div className={cn(panelSubtle, "p-4 text-sm font-semibold text-[color:var(--text-muted)]")}>
-                  No document matches include all selected filters.
-                </div>
+                // Facet toggles empty this list without a navigation, and the filter
+                // sheet covers the results it describes, so the state is introduced
+                // dynamically and the shared primitive's polite announcement is the
+                // point of adopting it here — the local panel it replaces said
+                // nothing at all when the last matching document dropped out.
+                <EmptyState
+                  icon={Funnel}
+                  title="No document matches include all selected filters."
+                  testId="document-filter-empty-results"
+                />
               ) : null}
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 {renderedMatches.map((document, index) => {
