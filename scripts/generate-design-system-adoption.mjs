@@ -310,11 +310,57 @@ export function visualBaselineTargetIds(sourceText, relativePath = "tests/ui-vis
   return ids.sort();
 }
 
-function normalizeVisualSuiteAwaitingDeclaration(sourceText) {
-  const expression = /const\s+AWAITING_BASELINE(?:\s*:\s*[^=]+)?\s*=\s*new Set\(\[[\s\S]*?\]\);/g;
-  const matches = sourceText.match(expression);
-  if (matches?.length !== 1) return null;
-  return sourceText.replace(expression, "const AWAITING_BASELINE = __CANONICAL_AWAITING_BASELINE__;");
+export function visualBaselineAwaitingIds(sourceText, relativePath = "tests/ui-visual-baseline.spec.ts") {
+  const source = ts.createSourceFile(relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declarations = [];
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.name.text === "AWAITING_BASELINE")
+        declarations.push({ declaration, declarationList: statement.declarationList });
+    }
+  }
+  if (declarations.length !== 1)
+    return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must have exactly one declaration" };
+  const { declaration, declarationList } = declarations[0];
+  if (!(declarationList.flags & ts.NodeFlags.Const))
+    return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must be declared const" };
+  const initializer = declaration.initializer ? unwrapExpression(declaration.initializer) : null;
+  if (
+    !initializer ||
+    !ts.isNewExpression(initializer) ||
+    !ts.isIdentifier(initializer.expression) ||
+    initializer.expression.text !== "Set" ||
+    initializer.arguments?.length !== 1
+  ) {
+    return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must be a literal Set" };
+  }
+  const values = unwrapExpression(initializer.arguments[0]);
+  if (!ts.isArrayLiteralExpression(values))
+    return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must use a literal array" };
+  const ids = [];
+  for (const element of values.elements) {
+    if (ts.isSpreadElement(element))
+      return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must not use spread values" };
+    const value = unwrapExpression(element);
+    if (!ts.isStringLiteral(value) && !ts.isNoSubstitutionTemplateLiteral(value))
+      return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must contain only string literals" };
+    ids.push(value.text);
+  }
+  if (new Set(ids).size !== ids.length)
+    return { valid: false, ids: [], arrayStart: null, arrayEnd: null, failure: "must not contain duplicate ids" };
+  return {
+    valid: true,
+    ids: ids.sort(),
+    arrayStart: values.getStart(source),
+    arrayEnd: values.end,
+    failure: null,
+  };
+}
+
+function normalizeVisualSuiteAwaitingValues(sourceText, analysis) {
+  if (!analysis.valid || analysis.arrayStart === null || analysis.arrayEnd === null) return null;
+  return `${sourceText.slice(0, analysis.arrayStart)}[]${sourceText.slice(analysis.arrayEnd)}`;
 }
 
 function gitOutput(root, args) {
@@ -363,11 +409,39 @@ function validateCandidateSourceBinding(candidateSourceHead, { root, policy }) {
   if (JSON.stringify(currentIds) !== JSON.stringify(canonicalIds))
     failures.push("current visual suite targets must exactly match the canonical six ids");
 
+  const candidateAwaiting = candidateSuite === null ? null : visualBaselineAwaitingIds(candidateSuite, visualSuiteFile);
+  const currentAwaiting = currentSuite === null ? null : visualBaselineAwaitingIds(currentSuite, visualSuiteFile);
+  const candidateAwaitingCanonical =
+    candidateAwaiting?.valid && JSON.stringify(candidateAwaiting.ids) === JSON.stringify(canonicalIds);
+  const currentAwaitingEmpty = currentAwaiting?.valid && currentAwaiting.ids.length === 0;
+  if (!candidateAwaiting?.valid) {
+    failures.push(
+      `candidateSourceHead AWAITING_BASELINE must be a static literal Set: ${candidateAwaiting?.failure ?? "missing suite"}`,
+    );
+  } else if (!candidateAwaitingCanonical) {
+    failures.push("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+  }
+  if (!currentAwaiting?.valid) {
+    failures.push(
+      `current AWAITING_BASELINE must be a static literal Set: ${currentAwaiting?.failure ?? "missing suite"}`,
+    );
+  } else if (!currentAwaitingEmpty) {
+    failures.push("current AWAITING_BASELINE must be empty after committing all six baselines");
+  }
+
   const normalizedCandidateSuite =
-    candidateSuite === null ? null : normalizeVisualSuiteAwaitingDeclaration(candidateSuite);
-  const normalizedCurrentSuite = currentSuite === null ? null : normalizeVisualSuiteAwaitingDeclaration(currentSuite);
+    candidateSuite === null || candidateAwaiting === null
+      ? null
+      : normalizeVisualSuiteAwaitingValues(candidateSuite, candidateAwaiting);
+  const normalizedCurrentSuite =
+    currentSuite === null || currentAwaiting === null
+      ? null
+      : normalizeVisualSuiteAwaitingValues(currentSuite, currentAwaiting);
   const visualSuiteOnlyChangedAwaiting =
-    normalizedCandidateSuite !== null && normalizedCandidateSuite === normalizedCurrentSuite;
+    candidateAwaitingCanonical &&
+    currentAwaitingEmpty &&
+    normalizedCandidateSuite !== null &&
+    normalizedCandidateSuite === normalizedCurrentSuite;
   if (!visualSuiteOnlyChangedAwaiting)
     failures.push("visual suite changed after candidate capture beyond the AWAITING_BASELINE declaration");
 

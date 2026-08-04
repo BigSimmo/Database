@@ -56,6 +56,7 @@ const baselineNames = [
   "document-viewer.png",
   "therapy-compass-home.png",
 ];
+const canonicalAwaitingValues = baselineNames.map((name) => JSON.stringify(name.replace(/\.png$/, ""))).join(", ");
 
 function git(fixtureRoot: string, args: string[]) {
   return execFileSync("git", args, {
@@ -71,12 +72,33 @@ function commitFixture(fixtureRoot: string, message: string) {
   return git(fixtureRoot, ["rev-parse", "HEAD"]);
 }
 
-function initialiseCandidateRepository(fixtureRoot: string) {
+function withAwaitingValues(sourceText: string, values: string) {
+  return sourceText.replace(
+    /(const\s+AWAITING_BASELINE(?:\s*:\s*[^=]+)?\s*=\s*new Set\()\[[\s\S]*?\](\);)/,
+    `$1[${values}]$2`,
+  );
+}
+
+function setCurrentAwaitingValues(fixtureRoot: string, values: string) {
+  writeFixtureFile(
+    fixtureRoot,
+    "tests/ui-visual-baseline.spec.ts",
+    withAwaitingValues(read("tests/ui-visual-baseline.spec.ts"), values),
+  );
+}
+
+function initialiseCandidateRepository(fixtureRoot: string, awaitingValues?: string) {
   git(fixtureRoot, ["init", "-q"]);
   git(fixtureRoot, ["config", "user.email", "fixture@example.invalid"]);
   git(fixtureRoot, ["config", "user.name", "Fixture"]);
   writeFixtureFile(fixtureRoot, "src/app/page.tsx", "export default function Page() { return null; }\n");
-  writeFixtureFile(fixtureRoot, "tests/ui-visual-baseline.spec.ts", read("tests/ui-visual-baseline.spec.ts"));
+  writeFixtureFile(
+    fixtureRoot,
+    "tests/ui-visual-baseline.spec.ts",
+    awaitingValues === undefined
+      ? read("tests/ui-visual-baseline.spec.ts")
+      : withAwaitingValues(read("tests/ui-visual-baseline.spec.ts"), awaitingValues),
+  );
   return commitFixture(fixtureRoot, "candidate source");
 }
 
@@ -503,6 +525,7 @@ describe("design-system adoption manifest", () => {
         read("src/app/(search-app)/documents/source/page.tsx"),
       );
       initialiseCandidateRepository(fixtureRoot);
+      setCurrentAwaitingValues(fixtureRoot, "");
       const baselineSet = writeBaselineSet(fixtureRoot);
       const proof = Object.fromEntries(
         current.requiredProofCategories.map((category: string) => [
@@ -658,14 +681,8 @@ describe("design-system adoption manifest", () => {
     try {
       for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
         initialiseCandidateRepository(fixtureRoot);
-      writeFixtureFile(
-        validRoot,
-        "tests/ui-visual-baseline.spec.ts",
-        read("tests/ui-visual-baseline.spec.ts").replace(
-          /const AWAITING_BASELINE(?:\s*:\s*[^=]+)?\s*=\s*new Set\(\[[\s\S]*?\]\);/,
-          "const AWAITING_BASELINE: ReadonlySet<string> = new Set([]);",
-        ),
-      );
+      for (const fixtureRoot of [validRoot, missingRoot, hashRoot, platformRoot, reviewRoot, countRoot])
+        setCurrentAwaitingValues(fixtureRoot, "");
       const valid = writeBaselineSet(validRoot);
       expect(
         validateLinuxVisualBaselineSet(valid.paths, { root: validRoot, trackedFiles: valid.trackedFiles }),
@@ -722,6 +739,7 @@ describe("design-system adoption manifest", () => {
     const extraRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-baseline-target-extra-"));
     try {
       for (const fixtureRoot of [arbitraryRoot, missingRoot, extraRoot]) initialiseCandidateRepository(fixtureRoot);
+      for (const fixtureRoot of [arbitraryRoot, missingRoot, extraRoot]) setCurrentAwaitingValues(fixtureRoot, "");
 
       const arbitrary = writeBaselineSet(arbitraryRoot, {
         candidateNames: ["one.png", "two.png", "three.png", "four.png", "five.png", "six.png"],
@@ -771,6 +789,89 @@ describe("design-system adoption manifest", () => {
     }
   });
 
+  it("requires the exact static AWAITING_BASELINE transition from canonical six to empty", () => {
+    const exactRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-exact-"));
+    const retainedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-retained-"));
+    const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-missing-"));
+    const extraRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-extra-"));
+    const dynamicRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-dynamic-"));
+    const spreadRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-spread-"));
+    const duplicateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-duplicate-"));
+    const fixtureRoots = [exactRoot, retainedRoot, missingRoot, extraRoot, dynamicRoot, spreadRoot, duplicateRoot];
+    try {
+      initialiseCandidateRepository(exactRoot, canonicalAwaitingValues);
+      setCurrentAwaitingValues(exactRoot, "");
+      const exact = writeBaselineSet(exactRoot);
+      expect(
+        validateLinuxVisualBaselineSet(exact.paths, { root: exactRoot, trackedFiles: exact.trackedFiles }),
+      ).toEqual([]);
+
+      initialiseCandidateRepository(retainedRoot, canonicalAwaitingValues);
+      setCurrentAwaitingValues(retainedRoot, JSON.stringify("dashboard-shell"));
+      const retained = writeBaselineSet(retainedRoot);
+      expect(
+        validateLinuxVisualBaselineSet(retained.paths, {
+          root: retainedRoot,
+          trackedFiles: retained.trackedFiles,
+        }),
+      ).toContain("current AWAITING_BASELINE must be empty after committing all six baselines");
+
+      initialiseCandidateRepository(
+        missingRoot,
+        baselineNames
+          .slice(0, 5)
+          .map((name) => JSON.stringify(name.replace(/\.png$/, "")))
+          .join(", "),
+      );
+      setCurrentAwaitingValues(missingRoot, "");
+      const missing = writeBaselineSet(missingRoot);
+      expect(
+        validateLinuxVisualBaselineSet(missing.paths, {
+          root: missingRoot,
+          trackedFiles: missing.trackedFiles,
+        }),
+      ).toContain("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+
+      initialiseCandidateRepository(extraRoot, `${canonicalAwaitingValues}, "extra-target"`);
+      setCurrentAwaitingValues(extraRoot, "");
+      const extra = writeBaselineSet(extraRoot);
+      expect(
+        validateLinuxVisualBaselineSet(extra.paths, { root: extraRoot, trackedFiles: extra.trackedFiles }),
+      ).toContain("candidateSourceHead AWAITING_BASELINE must contain exactly the canonical six ids");
+
+      initialiseCandidateRepository(dynamicRoot, "BASELINE_IDS");
+      setCurrentAwaitingValues(dynamicRoot, "");
+      const dynamic = writeBaselineSet(dynamicRoot);
+      expect(
+        validateLinuxVisualBaselineSet(dynamic.paths, {
+          root: dynamicRoot,
+          trackedFiles: dynamic.trackedFiles,
+        }),
+      ).toContain(
+        "candidateSourceHead AWAITING_BASELINE must be a static literal Set: must contain only string literals",
+      );
+
+      initialiseCandidateRepository(spreadRoot, "...BASELINE_IDS");
+      setCurrentAwaitingValues(spreadRoot, "");
+      const spread = writeBaselineSet(spreadRoot);
+      expect(
+        validateLinuxVisualBaselineSet(spread.paths, { root: spreadRoot, trackedFiles: spread.trackedFiles }),
+      ).toContain("candidateSourceHead AWAITING_BASELINE must be a static literal Set: must not use spread values");
+
+      initialiseCandidateRepository(duplicateRoot, `${canonicalAwaitingValues}, ${JSON.stringify("dashboard-shell")}`);
+      setCurrentAwaitingValues(duplicateRoot, "");
+      const duplicate = writeBaselineSet(duplicateRoot);
+      expect(
+        validateLinuxVisualBaselineSet(duplicate.paths, {
+          root: duplicateRoot,
+          trackedFiles: duplicate.trackedFiles,
+        }),
+      ).toContain("candidateSourceHead AWAITING_BASELINE must be a static literal Set: must not contain duplicate ids");
+    } finally {
+      for (const fixtureRoot of fixtureRoots) fs.rmSync(fixtureRoot, { force: true, recursive: true });
+    }
+  });
+
   it("binds hosted generation and human approval to an existing ancestor candidate source", () => {
     const malformedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-malformed-"));
     const nonexistentRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-nonexistent-"));
@@ -779,6 +880,8 @@ describe("design-system adoption manifest", () => {
     try {
       for (const fixtureRoot of [malformedRoot, nonexistentRoot, nonAncestorRoot, reviewMismatchRoot])
         initialiseCandidateRepository(fixtureRoot);
+      for (const fixtureRoot of [malformedRoot, nonexistentRoot, reviewMismatchRoot])
+        setCurrentAwaitingValues(fixtureRoot, "");
 
       const malformed = writeBaselineSet(malformedRoot, { candidateSourceHead: "not-a-sha" });
       expect(
@@ -801,6 +904,7 @@ describe("design-system adoption manifest", () => {
       writeFixtureFile(nonAncestorRoot, "candidate-marker.txt");
       const siblingHead = commitFixture(nonAncestorRoot, "sibling candidate");
       git(nonAncestorRoot, ["checkout", "-q", "-b", "validation", baseHead]);
+      setCurrentAwaitingValues(nonAncestorRoot, "");
       const nonAncestor = writeBaselineSet(nonAncestorRoot, { candidateSourceHead: siblingHead });
       expect(
         validateLinuxVisualBaselineSet(nonAncestor.paths, {
@@ -833,6 +937,7 @@ describe("design-system adoption manifest", () => {
     const suiteRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-source-suite-drift-"));
     try {
       initialiseCandidateRepository(runtimeRoot);
+      setCurrentAwaitingValues(runtimeRoot, "");
       writeFixtureFile(runtimeRoot, "src/app/page.tsx", "export default function Page() { return <main />; }\n");
       const runtimeDrift = writeBaselineSet(runtimeRoot);
       expect(
@@ -846,7 +951,10 @@ describe("design-system adoption manifest", () => {
       writeFixtureFile(
         suiteRoot,
         "tests/ui-visual-baseline.spec.ts",
-        read("tests/ui-visual-baseline.spec.ts").replace('route: "/therapy-compass"', 'route: "/services"'),
+        withAwaitingValues(
+          read("tests/ui-visual-baseline.spec.ts").replace('route: "/therapy-compass"', 'route: "/services"'),
+          "",
+        ),
       );
       const suiteDrift = writeBaselineSet(suiteRoot);
       expect(
