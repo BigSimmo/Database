@@ -309,7 +309,14 @@ function DocumentFilterPanel({
               deleted: the documents action menu clears the query. */}
           <button
             type="button"
-            onClick={onOpenLibrary}
+            // Dismiss the sheet on the way out. Browsing the corpus is leaving
+            // this surface, not another thing to do on it, and the Sources
+            // drawer would otherwise open underneath a filter sheet that is
+            // still covering the results both of them describe.
+            onClick={() => {
+              onDone();
+              onOpenLibrary();
+            }}
             data-testid="document-filter-browse-library"
             className={cn(
               floatingControl,

@@ -3355,14 +3355,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const filterPanel = page.getByTestId("document-filter-panel");
     await expect(filterPanel).toBeVisible();
     await expect(filterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
+    // Library lives in the sheet footer now, under a rule and below the commit
+    // action. It was first renamed from "Open source filters" — it browses, it
+    // does not refine, and the old name made it read as a duplicate of Filter —
+    // but renaming treated the symptom. It sat adjacent to Filter in the utility
+    // rail answering a different question, occupied the space the pinned Filter
+    // needs, and was the sole reason the phone rail could overflow at all.
+    const libraryButton = filterPanel.getByTestId("document-filter-browse-library");
+    await expect(libraryButton).toBeVisible();
+    await expect(libraryButton).toHaveText(/Browse all sources/);
+    await expectMinTouchTarget(libraryButton);
     await filterPanel.getByTestId("document-filter-done").click();
     await expect(filterPanel).toHaveCount(0);
     await expect(mobileFilterTrigger).toHaveAttribute("aria-expanded", "false");
-    // Renamed from "Open source filters": it browses, it does not refine, and
-    // the old name is what made it read as a duplicate of Filter.
-    const ribbonLibraryButton = queryRibbon.getByRole("button", { name: "Open source library" });
-    await expect(ribbonLibraryButton).toBeVisible();
-    await expectMinTouchTarget(ribbonLibraryButton);
+    // Asserted as an absence, not merely tolerated: putting Library back on the
+    // rail re-creates the overflow it was moved to remove, and both of its new
+    // homes (this sheet, and the zero-result state) preserve the query the way
+    // the rail placement was protecting.
+    await expect(queryRibbon.getByRole("button", { name: "Open source library" })).toHaveCount(0);
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
     await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
@@ -3500,11 +3510,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await wideFilterTrigger.click();
     const wideFilterPanel = page.getByTestId("document-filter-panel");
     await expect(wideFilterPanel.getByRole("radiogroup", { name: "Source type" })).toBeVisible();
-    await wideFilterPanel.getByTestId("document-filter-done").click();
-    await expect(wideFilterPanel).toHaveCount(0);
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
-    await ribbonLibraryButton.click();
+    // The corpus is now reached from the sheet's footer rather than the rail,
+    // and reaching it dismisses the sheet: browsing is leaving this surface, so
+    // the Sources drawer must not open underneath a filter panel still covering
+    // the results both of them describe.
+    await wideFilterPanel.getByTestId("document-filter-browse-library").click();
+    await expect(wideFilterPanel).toHaveCount(0);
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
     // Prefer Playwright's focus waiter over a raw activeElement poll — Sheet
@@ -3518,11 +3531,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
+    // Focus must come back to a real control, never to `body` — closing a modal
+    // into nothing strands a keyboard user at the top of the document.
+    //
+    // It lands on the documents options button rather than on whatever opened
+    // the drawer, because the opener is now the sheet's footer control and the
+    // sheet dismisses itself on the way out, so by the time the drawer closes
+    // its opener has unmounted. That is a fallback, not the ideal — returning to
+    // the filter trigger would be better — but it is a visible, related control
+    // in the same workspace, and it is the app's existing restore target rather
+    // than anything this change introduced.
     await expect
-      .poll(async () => ribbonLibraryButton.evaluate((el) => el === document.activeElement), {
-        timeout: 15_000,
-      })
-      .toBe(true);
+      .poll(
+        async () =>
+          page.evaluate(() => {
+            const active = document.activeElement as HTMLElement | null;
+            if (!active || active === document.body) return "body";
+            return active.getAttribute("aria-label") ?? active.tagName;
+          }),
+        { timeout: 15_000 },
+      )
+      .toBe("Open documents options");
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
