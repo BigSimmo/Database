@@ -24,13 +24,15 @@ function findScrollContainer(start: HTMLElement | null): HTMLElement | null {
 /**
  * Scroll a target into a local container only — `scrollIntoView` would yank every
  * scrollable ancestor, including the mockup review page (see phone-mode-sheet-yes).
- * Honours the target's `scroll-margin-top` so sticky chrome clearance stays single.
+ * Prefer the live sticky chrome height (Important expanded/collapsed) over a fixed
+ * scroll-margin, falling back to the target's computed `scroll-margin-top`.
  */
-function scrollContainerToTarget(container: HTMLElement, target: HTMLElement) {
+function scrollContainerToTarget(container: HTMLElement, target: HTMLElement, stickyChrome: HTMLElement | null) {
   const containerRect = container.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
-  const marginTop = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
-  container.scrollTop += targetRect.top - containerRect.top - marginTop;
+  const chromeHeight =
+    stickyChrome?.getBoundingClientRect().height ?? (Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0);
+  container.scrollTop += targetRect.top - containerRect.top - chromeHeight;
 }
 
 /**
@@ -238,6 +240,7 @@ function StickySignalChrome({
   noticePanelId,
   openId,
   onSelectSection,
+  chromeRef,
 }: {
   phone: boolean;
   noticeOpen: boolean;
@@ -245,9 +248,13 @@ function StickySignalChrome({
   noticePanelId: string;
   openId: string;
   onSelectSection: (heading: string) => void;
+  chromeRef: React.RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <div className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--shadow-tight)] backdrop-blur-xl">
+    <div
+      ref={chromeRef}
+      className="sticky top-0 z-30 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)]/95 shadow-[var(--shadow-tight)] backdrop-blur-xl"
+    >
       <div className={cn(phone ? "px-3 pt-3" : "px-8 pt-5")}>
         <div className={cn("flex min-h-12 items-center gap-3", !phone && "mx-auto max-w-[80rem]")}>
           <BackControl />
@@ -473,6 +480,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
   const noticeId = useId();
   const sectionIdPrefix = useId();
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const stickyChromeRef = useRef<HTMLDivElement | null>(null);
   const pendingScrollHeading = useRef<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [openId, setOpenId] = useState(SECTIONS[0]?.heading ?? "");
@@ -483,7 +491,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
     if (!target) return;
     const container = findScrollContainer(target);
     if (!container) return;
-    scrollContainerToTarget(container, target);
+    scrollContainerToTarget(container, target, stickyChromeRef.current);
   };
 
   const selectSection = (heading: string) => {
@@ -517,6 +525,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
         noticePanelId={noticeId}
         openId={openId}
         onSelectSection={selectSection}
+        chromeRef={stickyChromeRef}
       />
 
       <div
