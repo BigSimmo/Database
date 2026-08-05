@@ -62,16 +62,37 @@ const TOOL_ROWS = [
     icon: FileText,
     category: "reference" as const,
   },
+  {
+    title: "Treatment planner",
+    body: "Structure a care plan from cited sources.",
+    icon: ClipboardList,
+    category: "care" as const,
+  },
+  {
+    title: "Handover notes",
+    body: "Coordinate follow-up across the care team.",
+    icon: MessageSquare,
+    category: "coordination" as const,
+  },
+  {
+    title: "Saved tools",
+    body: "Re-open tools you pinned for clinic.",
+    icon: Grid2X2,
+    category: "saved" as const,
+  },
 ] as const;
 
-/** Fake catalogue sizes so selected-state frames do not contradict the header. */
+/**
+ * Visible row counts for ToolList — must stay in lockstep with the filter
+ * below so selected-state frames never contradict the header count.
+ */
 const RESULT_COUNTS: Record<CategoryId, number> = {
-  all: 12,
-  assessment: 4,
-  reference: 3,
-  care: 2,
-  coordination: 2,
-  saved: 1,
+  all: TOOL_ROWS.length,
+  assessment: TOOL_ROWS.filter((row) => row.category === "assessment").length,
+  reference: TOOL_ROWS.filter((row) => row.category === "reference").length,
+  care: TOOL_ROWS.filter((row) => row.category === "care").length,
+  coordination: TOOL_ROWS.filter((row) => row.category === "coordination").length,
+  saved: TOOL_ROWS.filter((row) => row.category === "saved").length,
 };
 
 function categoryLabel(id: CategoryId) {
@@ -174,8 +195,7 @@ function ResultsHeader({ filter, value }: { filter: ReactNode; value: CategoryId
 }
 
 function ToolList({ value }: { value: CategoryId }) {
-  const rows =
-    value === "all" ? TOOL_ROWS : TOOL_ROWS.filter((row) => row.category === value || row.category === "all");
+  const rows = value === "all" ? TOOL_ROWS : TOOL_ROWS.filter((row) => row.category === value);
   return (
     <div className="grid gap-2" aria-hidden>
       {rows.map((row) => {
@@ -314,7 +334,7 @@ function SoftSheetFilter({
         </span>
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-sm font-bold",
+            "min-w-0 flex-1 truncate text-xs font-bold",
             filtered || open ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
           )}
         >

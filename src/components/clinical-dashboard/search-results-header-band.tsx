@@ -463,7 +463,9 @@ export function SearchResultsHeaderBand({
                 data-testid="search-query-ribbon-mobile-controls"
                 role="group"
                 aria-label={filterLabel}
-                className="min-w-0 shrink-0 sm:hidden"
+                // Allow the slot to compress on tight 320px rails so the value
+                // can truncate; shrink-0 previously forced overflow.
+                className="min-w-0 sm:hidden"
               >
                 {pageMobileControls}
               </div>
@@ -767,13 +769,22 @@ export function MobileResultFilterControl<Value extends string>({
       const gutter = 8;
       const viewportWidth = window.innerWidth || 320;
       const viewportHeight = window.innerHeight || 640;
+      // jsdom reports 0×0 for every element — only close on a real laid-out box
+      // that has left the viewport (native <select> dismisses in that case).
+      const hasBox = rect.width > 0 || rect.height > 0;
+      if (hasBox && (rect.bottom <= 0 || rect.top >= viewportHeight || rect.right <= 0 || rect.left >= viewportWidth)) {
+        closeMenu();
+        return;
+      }
       const width = Math.min(Math.max(rect.width || 12 * 16, 12 * 16), Math.max(gutter, viewportWidth - gutter * 2));
       const left = Math.min(Math.max(rect.left, gutter), Math.max(gutter, viewportWidth - width - gutter));
-      const spaceBelow = viewportHeight - rect.bottom - 6 - gutter;
-      const spaceAbove = rect.top - 6 - gutter;
+      const spaceBelow = Math.max(0, viewportHeight - rect.bottom - 6 - gutter);
+      const spaceAbove = Math.max(0, rect.top - 6 - gutter);
       const flip = spaceBelow < 160 && spaceAbove > spaceBelow;
       const available = flip ? spaceAbove : spaceBelow;
-      const maxHeight = Math.max(96, Math.min(18 * 16, available > 0 ? available : 18 * 16));
+      // Never floor maxHeight above the available side — a 96px floor with
+      // translateY(-100%) would push the first options above the viewport top.
+      const maxHeight = Math.min(18 * 16, Math.max(available, 1));
       setMenuBox({
         top: flip ? Math.max(gutter, rect.top - 6) : rect.bottom + 6,
         left,
@@ -820,7 +831,9 @@ export function MobileResultFilterControl<Value extends string>({
 
   function focusOption(index: number) {
     if (index < 0) return;
-    optionRefs.current[index]?.focus();
+    // preventScroll: pointer opens must not scroll the results band (which
+    // would re-run syncMenuBox and make the menu jump on open).
+    optionRefs.current[index]?.focus({ preventScroll: true });
   }
 
   function openMenu(focusIndex: number) {
@@ -836,7 +849,7 @@ export function MobileResultFilterControl<Value extends string>({
     const index = pendingFocusRef.current;
     if (index === null) return;
     pendingFocusRef.current = null;
-    optionRefs.current[index]?.focus();
+    optionRefs.current[index]?.focus({ preventScroll: true });
   }, [open, menuBox]);
 
   // Clear the typeahead debounce timer on unmount so a late callback cannot
@@ -1010,7 +1023,9 @@ export function MobileResultFilterControl<Value extends string>({
         </span>
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-sm font-bold",
+            // Match the prior native <select> value size (text-xs) so wide
+            // labels still fit the phone utility rail at 320px.
+            "min-w-0 flex-1 truncate text-xs font-bold",
             open || isFiltered ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-heading)]",
           )}
         >

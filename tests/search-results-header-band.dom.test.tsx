@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -505,5 +505,48 @@ describe("MobileResultFilterControl", () => {
     expect(screen.getByRole("button", { name: /Filter by tool category/ })).toHaveAccessibleName(
       "Category All tools. Filter by tool category",
     );
+  });
+
+  it("closes the menu when a laid-out trigger leaves the viewport", async () => {
+    const user = userEvent.setup();
+    render(
+      <MobileResultFilterControl
+        label="Show"
+        ariaLabel="Filter by result type"
+        value="crisis"
+        options={[...options]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Filter by result type/ });
+    // Seed a real box so the off-screen path is not skipped (jsdom is 0×0).
+    let rect: DOMRect = {
+      x: 8,
+      y: 100,
+      top: 100,
+      left: 8,
+      right: 200,
+      bottom: 148,
+      width: 192,
+      height: 48,
+      toJSON: () => ({}),
+    };
+    vi.spyOn(trigger, "getBoundingClientRect").mockImplementation(() => rect);
+
+    await user.click(trigger);
+    expect(screen.getByRole("menu")).toBeVisible();
+
+    rect = {
+      ...rect,
+      y: -200,
+      top: -200,
+      bottom: -152,
+    };
+    window.dispatchEvent(new Event("scroll"));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
   });
 });
