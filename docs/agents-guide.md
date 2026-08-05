@@ -69,21 +69,23 @@ Writes, secret rotations, and hosted mutations stay confirmation-gated per `AGEN
 ### Context7 API key (optional)
 
 1. Create a free key at [context7.com/dashboard](https://context7.com/dashboard) (`ctx7sk…`).
-2. Set `CONTEXT7_API_KEY` as a **user/OS env var** or in Cursor **Settings → MCP → context7**
-   env so `${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` resolves. That expansion is what
-   raises rate limits for the **project** MCP entry (header form
-   `CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}` — leave it; do not switch the committed file to
-   empty `Authorization: Bearer`).
-3. **Does not feed project MCP `${env:}`:** `.env.local` alone, or Cursor Cloud Agent
-   **Secrets** (Secrets inject into the Next app’s `.env.local` / `process.env`, not into
-   `.cursor/mcp.json` header interpolation).
-4. **Project MCP vs host connector:** the checked-in `.cursor/mcp.json` entry is the desktop
-   project path. Cursor Cloud may also expose a **host-injected** Context7 connector — same
-   product, different injection. Cloud quota is not fixed by putting the key only in app
-   Secrets.
-5. The remote URL is **unversioned** (cannot pin like `chrome-devtools-mcp@1.6.0`). Reload MCP
-   servers after key changes. Without a key, Context7 still works at lower rate limits.
-6. Prefer the Cursor `context7-plugin` / `resolve-library-id` + `query-docs` tools over raw
+2. **Desktop project MCP:** set `CONTEXT7_API_KEY` as a **user/OS env var** or in Cursor
+   **Settings → MCP → context7** so `${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json`
+   expands (header form `CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}` — leave it; do not
+   switch the committed file to empty `Authorization: Bearer`).
+3. **Cursor Cloud Agent Secrets:** may inject `CONTEXT7_API_KEY` into the agent shell
+   `process.env` (presence/length checks are fine). That does **not** authenticate the
+   **host-injected** Context7 MCP connector — measured 2026-08-05: key present in shell
+   (`ctx7sk…`) while `resolve-library-id` still returned monthly quota exceeded. Cloud
+   Context7 limits follow the host connector’s own auth, not agent Secrets alone.
+4. **Does not expand project MCP `${env:}`:** `.env.local` alone (Next app / env.ts path).
+5. **Project MCP vs host connector:** checked-in `.cursor/mcp.json` is the desktop project
+   path; Cursor Cloud may also expose a host-injected Context7 connector — same product,
+   different injection.
+6. The remote URL is **unversioned** (cannot pin like `chrome-devtools-mcp@1.6.0`). Reload
+   MCP servers after desktop key changes. Without a key, Context7 still works at lower
+   rate limits.
+7. Prefer the Cursor `context7-plugin` / `resolve-library-id` + `query-docs` tools over raw
    `curl` to `https://context7.com/api/v2/...` unless you are debugging the HTTP API.
 
 Never paste credential values into chat, issues, or commits. Prefer presence/length checks

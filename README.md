@@ -195,11 +195,13 @@ read `node_modules/next/dist/docs/` locally and do not invent App Router APIs fr
 Context7 or training data.
 
 Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://context7.com/dashboard)
-raises rate limits. Set it as a user/OS env var or in Cursor **Settings → MCP** so
-`${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` expands. `.env.local` alone and
-Cursor Cloud Agent Secrets do **not** feed that project MCP header (Secrets feed
-the Next app env only). Context7 works without a key at lower limits. Full setup
-notes: `docs/agents-guide.md`. Never commit the API key.
+raises rate limits. On desktop, set it as a user/OS env var or in Cursor
+**Settings → MCP** so `${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` expands.
+`.env.local` alone does not expand that header. Cursor Cloud Agent Secrets may
+put the key in the agent shell `process.env`, but that does not authenticate the
+host-injected Context7 connector (still separate from project MCP). Context7
+works without a key at lower limits. Full setup notes: `docs/agents-guide.md`.
+Never commit the API key.
 
 ## Documentation
 
