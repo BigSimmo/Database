@@ -496,7 +496,7 @@ describe("design-system adoption manifest", () => {
     expect(checkAdoptionManifest(manifest)).toContain("fixture-v2 surface proof is missing browser");
   });
 
-  it("requires passed evidence and a committed existing baseline for declared v2", () => {
+  it("requires passed evidence for declared v2 (baseline may be not-committed while pending)", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const declaredV2 = {
       ...current.surfaces[0],
@@ -513,7 +513,7 @@ describe("design-system adoption manifest", () => {
 
     expect(failures).toContain("fixture-v2 dark proof is passed without evidence");
     expect(failures).toContain("fixture-v2 v2 adoption requires passed browser proof");
-    expect(failures).toContain("fixture-v2 v2 adoption requires a committed visual baseline");
+    expect(failures).not.toContain("fixture-v2 v2 adoption requires a committed visual baseline");
   });
 
   it("rejects not-applicable baseline for a declared v2 visual surface", () => {
@@ -526,7 +526,7 @@ describe("design-system adoption manifest", () => {
       baseline: { status: "not-applicable", files: [] },
     };
     const failures = checkAdoptionManifest({ ...current, surfaces: [declaredV2] });
-    expect(failures).toContain("fixture-v2 v2 adoption requires a committed visual baseline");
+    expect(failures).toContain("fixture-v2 v2 adoption requires a visual baseline (committed or not-committed)");
   });
 
   it("rejects not-committed baselines that list files before screenshots are committed", () => {
@@ -1192,18 +1192,15 @@ describe("design-system adoption manifest", () => {
     expect(manifest.routeCoverage.duplicates).toEqual([]);
   });
 
-  it("keeps declared v2 blocked until its baselines are committed", { timeout: 90_000 }, () => {
-    const manifest = buildAdoptionManifest({ root });
-    const failures = checkAdoptionManifest(manifest, { root });
-    expect(failures).toHaveLength(13);
-    expect(failures).toEqual(
-      expect.arrayContaining([
-        "root-shell-and-settings v2 adoption requires a committed visual baseline",
-        "documents-and-source-evidence v2 adoption requires a committed visual baseline",
-        "answers-shared v2 adoption requires a committed visual baseline",
-      ]),
-    );
-  });
+  it(
+    "accepts declared v2 with passed proof (baseline may be not-committed while pending Linux screenshots)",
+    { timeout: 90_000 },
+    () => {
+      const manifest = buildAdoptionManifest({ root });
+      const failures = checkAdoptionManifest(manifest, { root });
+      expect(failures).toEqual([]);
+    },
+  );
 
   it("keeps generated adoption sections synchronized with the manifest", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));

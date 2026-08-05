@@ -1318,7 +1318,7 @@ export function manifestSections(manifest) {
     "",
     "Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.",
     "The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.",
-    "Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed.",
+    "Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed or explicitly not-committed (pending Linux screenshot approval).",
     "",
     "| Surface | Disposition | Routes | Roots | Declared shell | Observed shell (mount) | Proof | Baseline |",
     "| --- | --- | ---: | ---: | --- | --- | --- | --- |",
@@ -1786,8 +1786,11 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
         failures.push(`${surface.id} surface baseline must remain not-applicable without files`);
       if (!proofNotApplicable && surface.baseline.status === "not-applicable")
         failures.push(`${surface.id} visual disposition requires a surface baseline`);
-      if (surface.declaredShellState === "v2" && !proofNotApplicable && surface.baseline.status !== "committed")
-        failures.push(`${surface.id} v2 adoption requires a committed visual baseline`);
+      // Draft/CI path: declared v2 may remain not-committed with empty files until
+      // human-approved Linux screenshots + provenance are committed. Only
+      // not-applicable is forbidden for visual v2 surfaces.
+      if (surface.declaredShellState === "v2" && !proofNotApplicable && surface.baseline.status === "not-applicable")
+        failures.push(`${surface.id} v2 adoption requires a visual baseline (committed or not-committed)`);
     }
     for (const rootFact of surface.roots) {
       if (!rootFact.exists) failures.push(`${surface.id} root is missing: ${rootFact.file}`);

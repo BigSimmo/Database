@@ -334,7 +334,7 @@ Declared production page routes: 47/47
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
-Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed.
+Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed or explicitly not-committed (pending Linux screenshot approval).
 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
