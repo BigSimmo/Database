@@ -495,8 +495,16 @@ function DocumentFilterPanel({
                 {/* A heading is only a disclosure control where there is
                     something to disclose. Below the density threshold every
                     group is open and permanently so, and a button advertising a
-                    collapse that never happens is a control that does nothing. */}
-                {dense ? (
+                    collapse that never happens is a control that does nothing.
+
+                    A live needle is the same situation and was missed: the
+                    search forces `isOpen` true, so tapping the heading left
+                    `aria-expanded="true"`, rotated nothing, and hid nothing —
+                    while still writing the group into `collapsed`, so the
+                    collapse ambushed the reader later, once the field was
+                    cleared and the tap forgotten. While searching, the needle
+                    owns what is open, so there is nothing here to disclose. */}
+                {dense && !trimmedNeedle ? (
                   <button
                     type="button"
                     aria-expanded={isOpen}
@@ -1429,6 +1437,25 @@ function DocumentSearchResultsPanelImpl({
   // to offer. Advertising Filter there would open an empty panel.
   const hasFilters = resultTabs.length > 1 || tagFacetGroups.length > 0;
   const showFilterControl = showResultsControls && hasFilters;
+  /* The in-context route to the whole corpus, for the render paths that have no
+     other one. Shared rather than duplicated so a fourth path cannot be added
+     without a Library route: the sheet footer needs `matches.length > 0`, and
+     the zero-result empty state needs `recordMatchCount === 0`, which between
+     them miss the services/forms record-match render entirely. */
+  const browseLibraryControl = (
+    <button
+      type="button"
+      onClick={onOpenLibrary}
+      data-testid="document-results-browse-library"
+      className={cn(floatingControl, "min-h-tap w-fit gap-2 px-3 text-xs sm:min-h-10")}
+    >
+      <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+      Browse all sources
+      {documentCount > 0 ? (
+        <span className="nums text-2xs text-[color:var(--text-muted)]">{documentCount.toLocaleString()}</span>
+      ) : null}
+    </button>
+  );
   const renderFilterTrigger = (testId: string) =>
     showFilterControl ? (
       <DocumentFilterTrigger
@@ -1568,7 +1595,18 @@ function DocumentSearchResultsPanelImpl({
       {loading ? (
         <LoadingPanel label="Finding matching documents" />
       ) : matches.length === 0 ? (
-        recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
+        // A services or forms search that matched records but no documents.
+        // This branch used to render `null`, which stranded the reader: moving
+        // Library off the utility rail left three homes for it — the sheet
+        // footer, the zero-result empty state, and the inline fallback below —
+        // and this path reaches none of them, because the sheet needs
+        // `matches.length > 0` and the empty state needs `recordMatchCount === 0`.
+        // `docs/search-results-bar-decisions.md` requires an in-context route
+        // precisely because the documents action menu calls `setQuery("")` and
+        // discards the search the reader is looking at.
+        recordMatchCount > 0 ? (
+          browseLibraryControl
+        ) : trimmedQuery && !shouldShowHome ? (
           <SearchResultsEmptyState
             modeId="documents"
             query={trimmedQuery}
@@ -1618,20 +1656,7 @@ function DocumentSearchResultsPanelImpl({
               onDone={() => setFilterPanelState({ query, open: false })}
             />
           ) : null}
-          {showResultsControls && !hasFilters ? (
-            <button
-              type="button"
-              onClick={onOpenLibrary}
-              data-testid="document-results-browse-library"
-              className={cn(floatingControl, "min-h-tap w-fit gap-2 px-3 text-xs sm:min-h-10")}
-            >
-              <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
-              Browse all sources
-              {documentCount > 0 ? (
-                <span className="nums text-2xs text-[color:var(--text-muted)]">{documentCount.toLocaleString()}</span>
-              ) : null}
-            </button>
-          ) : null}
+          {showResultsControls && !hasFilters ? browseLibraryControl : null}
           {/* With the panel closed the active filters are otherwise invisible
               apart from the trigger's badge, so the reader needs the count to
               explain why the list is shorter than the ribbon's total. */}

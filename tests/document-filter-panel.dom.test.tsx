@@ -428,6 +428,33 @@ describe("filter sheet — density, exclusivity and reach", () => {
     expect(within(panel).queryByRole("button", { name: /Clozapine/ })).toBeNull();
   });
 
+  it("stops advertising a disclosure while the find field owns what is open", async () => {
+    const { user, panel } = await openPanel(denseProps);
+
+    // With a needle typed, the search decides which groups are open, so the
+    // heading has nothing left to disclose and must stop claiming it does.
+    // Before this guard the button survived: tapping it left `aria-expanded`
+    // true and hid nothing, while still recording the group as collapsed — so
+    // the collapse landed later, after the field was cleared and the tap
+    // forgotten. A control that reports success and does nothing is the defect
+    // the sibling comment in this panel already names.
+    expect(within(panel).getByRole("button", { name: /^Setting/ })).toHaveAttribute("aria-expanded", "false");
+
+    await user.type(within(panel).getByTestId("document-filter-find"), "community");
+    expect(within(panel).queryByRole("button", { name: /^Setting/ })).toBeNull();
+    const heading = within(panel).getByText("Setting", { selector: "span" });
+    expect(heading).toBeVisible();
+    expect(heading.closest("button")).toBeNull();
+    // The search still opens what it matched — that is its job.
+    expect(within(panel).getByRole("button", { name: /Community/ })).toBeVisible();
+
+    // Clearing returns the group to exactly the state it was in before the
+    // search, rather than to a collapse recorded by a tap that appeared to do
+    // nothing at the time.
+    await user.clear(within(panel).getByTestId("document-filter-find"));
+    expect(within(panel).getByRole("button", { name: /^Setting/ })).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("opens a selected group by default but honours an explicit collapse", async () => {
     const { user, panel } = await openPanel(denseProps);
 
