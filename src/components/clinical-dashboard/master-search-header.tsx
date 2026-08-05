@@ -1094,9 +1094,7 @@ export function MasterSearchHeader({
   const handleActionMenuGlobalSearch = useEventCallback(() => {
     retargetActionMenuSheetFocusToSearchInput();
     setActionMenuOpen(false);
-    if (commandDropdownDisplayable) {
-      setCommandDropdownOpen(true);
-    }
+    setCommandDropdownOpen(true);
   });
 
   const phoneLayoutGateRef = useRef<boolean | null>(null);
