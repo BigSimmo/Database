@@ -50,7 +50,10 @@ describe("SearchPinsMenu", () => {
     expect(screen.getByRole("heading", { name: "Your pins" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Search in" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Useful actions" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open Ward essentials pin, 3 destinations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Ward essentials pin, 3 destinations" })).toHaveAttribute(
+      "data-sheet-autofocus",
+      "true",
+    );
   });
 
   it("expands a pin into explicit destination links without changing search mode", async () => {
