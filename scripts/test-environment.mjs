@@ -22,6 +22,8 @@ const providerEnvironmentKeys = Object.freeze([
   "E2E_AUTH_ENABLED",
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
+  "SENTRY_AUTH_TOKEN",
+  "SENTRY_DSN",
   "ALLOW_PROVIDER_TESTS",
 ]);
 
