@@ -344,6 +344,7 @@
       },
       "testFiles": [
         "tests/chip-contract.test.ts",
+        "tests/ckb-v2-token-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-contract-utils.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
