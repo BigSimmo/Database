@@ -533,11 +533,7 @@ describe("SearchResultsEmptyState", () => {
     const onClearSearch = vi.fn();
 
     render(
-      <SearchResultsEmptyState
-        modeId="therapy-compass"
-        query="unmatched therapy"
-        onClearSearch={onClearSearch}
-      />,
+      <SearchResultsEmptyState modeId="therapy-compass" query="unmatched therapy" onClearSearch={onClearSearch} />,
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("No matches for “unmatched therapy”");
