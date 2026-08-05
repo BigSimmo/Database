@@ -294,8 +294,9 @@ Hosted ChatGPT still requires the matching installed plugin/connector. In either
 task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
 Cloud availability unless a plugin manifest or host explicitly imports it. Context7 / library-docs
-MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
-Railway + Supabase allowlist.
+MCP is Cursor-side (`.cursor/mcp.json` local `@upstash/context7-mcp` with `CONTEXT7_API_KEY`, or a
+host-injected connector), not part of this Codex Cloud Railway + Supabase allowlist. When the host
+connector is quota-blocked, use `npx ctx7` with the agent Secret in `process.env`.
 
 Production Supabase stays project-scoped and `read_only=true`, with
 `default_tools_approval_mode = "prompt"` so every production metadata/read call requires

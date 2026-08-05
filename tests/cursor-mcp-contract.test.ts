@@ -14,6 +14,7 @@ type CursorMcpConfig = {
       headers?: Record<string, string>;
       command?: string;
       args?: string[];
+      env?: Record<string, string>;
     }
   >;
 };
@@ -23,10 +24,12 @@ describe("Cursor project MCP contract", () => {
   const config = JSON.parse(raw) as CursorMcpConfig;
   const servers = config.mcpServers ?? {};
 
-  it("keeps Context7 on the remote URL with env-interpolated CONTEXT7_API_KEY header", () => {
-    expect(servers.context7?.url).toBe("https://mcp.context7.com/mcp");
-    expect(servers.context7?.headers?.CONTEXT7_API_KEY).toBe("${env:CONTEXT7_API_KEY}");
-    expect(servers.context7?.headers?.Authorization).toBeUndefined();
+  it("runs Context7 as pinned local stdio MCP with env-interpolated API key", () => {
+    expect(servers.context7?.command).toBe("npx");
+    expect(servers.context7?.args).toEqual(["-y", "@upstash/context7-mcp@3.2.5"]);
+    expect(servers.context7?.env?.CONTEXT7_API_KEY).toBe("${env:CONTEXT7_API_KEY}");
+    expect(servers.context7?.url).toBeUndefined();
+    expect(servers.context7?.headers).toBeUndefined();
   });
 
   it("does not embed Context7 API key literals", () => {
