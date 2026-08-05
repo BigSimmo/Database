@@ -10,6 +10,7 @@ import {
   findDebtPathRegressions,
   findInteractiveTapLiteralsInSource,
   findTextSoftConsumersInSource,
+  LEGACY_TAP_CLASS,
   hasLegacyTapClass,
   jsxClassText,
   rawColorContractSource,
@@ -22,6 +23,8 @@ const PRINT_METRICS = process.argv.includes("--print-metrics");
 const PRINT_BASELINE = process.argv.includes("--print-debt-baseline");
 const SOURCE_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
+/** Whole-file backstop for literal shadow utilities the AST class-root pass can miss. */
+const LITERAL_SHADOW_TEXT = /(?:^|[\s"'`])shadow-\[(?!var\()[^\]]+\]/g;
 const CUSTOM_CONTROL_CLASS_PROP =
   /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
 
@@ -140,6 +143,20 @@ for (const file of files) {
   const classAnalysis = analyzeClassContractsInSource(file.relativePath, source);
   recordDebt("literalShadowClasses", file.relativePath, classAnalysis.literalShadowClasses.length);
   recordDebt("legacyTapClasses", file.relativePath, classAnalysis.legacyTapClasses.length);
+  // Fail closed when a whole-file text scan finds debt the AST class-root pass
+  // cannot see (unresolved identifiers, odd expression shapes). Baselines are 0,
+  // so any miss would otherwise silently weaken the ratchet.
+  const classTextSource = withoutComments(source);
+  const textLegacyTap = countMatches(classTextSource, LEGACY_TAP_CLASS);
+  const textLiteralShadow = countMatches(classTextSource, LITERAL_SHADOW_TEXT);
+  assert(
+    classAnalysis.legacyTapClasses.length >= textLegacyTap,
+    `${file.relativePath} has ${textLegacyTap} legacy tap class text match(es) but the AST class-root pass only saw ${classAnalysis.legacyTapClasses.length}`,
+  );
+  assert(
+    classAnalysis.literalShadowClasses.length >= textLiteralShadow,
+    `${file.relativePath} has ${textLiteralShadow} literal shadow class text match(es) but the AST class-root pass only saw ${classAnalysis.literalShadowClasses.length}`,
+  );
   const fileEdgeFindings = classAnalysis.edgeOwnershipConflicts;
   recordDebt("edgeOwnershipConflicts", file.relativePath, fileEdgeFindings.length);
   recordDebt("legacyPaletteUtilities", file.relativePath, classAnalysis.legacyPaletteUtilities.length);

@@ -350,6 +350,9 @@ describe("OverlayRoot", () => {
     const rootHost = document.querySelector('[data-overlay-root="true"] [data-overlay-host="popover"]');
     expect(rootHost).not.toBeNull();
     expect((await screen.findByText("Portalled hint")).closest('[data-overlay-host="popover"]')).toBe(rootHost);
+    // After consumers leave the synthetic host, the fallback root is removed so
+    // it does not linger for the page lifetime.
+    expect(document.querySelector('[data-overlay-root="fallback"]')).toBeNull();
   });
 });
 

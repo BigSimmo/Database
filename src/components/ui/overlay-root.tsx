@@ -15,6 +15,11 @@ const Z_INDEX: Record<OverlayLayer, string> = {
 
 let mountedRoots = 0;
 
+/** One body observer shared by every OverlayPortal — avoids N×Subtree churn. */
+const hostListeners = new Set<() => void>();
+let sharedHostObserver: MutationObserver | null = null;
+let pruneScheduled = false;
+
 function OverlayHost({ layer }: { layer: OverlayLayer }) {
   return (
     <div
@@ -56,6 +61,28 @@ function getOverlayHost(layer: OverlayLayer) {
   return document.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`);
 }
 
+function pruneFallbackRoot() {
+  if (typeof document === "undefined") return;
+  const preferredRoot = document.querySelector<HTMLElement>('[data-overlay-root="true"]');
+  const fallback = document.querySelector<HTMLElement>('[data-overlay-root="fallback"]');
+  if (!preferredRoot || !fallback) return;
+  // Wait until every fallback host is empty — React re-portals after the
+  // preferred root mounts, so removing earlier would yank open overlays.
+  for (const host of fallback.querySelectorAll<HTMLElement>("[data-overlay-host]")) {
+    if (host.childElementCount > 0) return;
+  }
+  fallback.remove();
+}
+
+function scheduleFallbackPrune() {
+  if (pruneScheduled) return;
+  pruneScheduled = true;
+  queueMicrotask(() => {
+    pruneScheduled = false;
+    pruneFallbackRoot();
+  });
+}
+
 function ensureFallbackHost(layer: OverlayLayer) {
   const existing = getOverlayHost(layer);
   if (existing) return existing;
@@ -80,6 +107,29 @@ function ensureFallbackHost(layer: OverlayLayer) {
   return root.querySelector<HTMLElement>(`[data-overlay-host="${layer}"]`)!;
 }
 
+function subscribeOverlayHosts(onStoreChange: () => void) {
+  hostListeners.add(onStoreChange);
+  if (!sharedHostObserver) {
+    sharedHostObserver = new MutationObserver(() => {
+      for (const listener of hostListeners) listener();
+      scheduleFallbackPrune();
+    });
+    sharedHostObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-overlay-host", "data-overlay-root"],
+    });
+  }
+  return () => {
+    hostListeners.delete(onStoreChange);
+    if (hostListeners.size === 0 && sharedHostObserver) {
+      sharedHostObserver.disconnect();
+      sharedHostObserver = null;
+    }
+  };
+}
+
 function getServerOverlayHost() {
   return null;
 }
@@ -96,16 +146,7 @@ export function OverlayPortal({ layer, name, children }: OverlayPortalProps) {
       // late-mounted <OverlayRoot> (or fallback teardown) re-portals consumers.
       ensureFallbackHost(layer);
       onStoreChange();
-      const observer = new MutationObserver(() => {
-        onStoreChange();
-      });
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["data-overlay-host", "data-overlay-root"],
-      });
-      return () => observer.disconnect();
+      return subscribeOverlayHosts(onStoreChange);
     },
     [layer],
   );
