@@ -2,7 +2,11 @@ import ts from "@typescript/typescript6";
 import postcss from "postcss";
 
 const LEGACY_TAP_TOKEN_SOURCE = String.raw`(?:[^\s:"'\x60]+:)*(?:h|w|min-h|min-w|size)-11`;
-const TEXT_SOFT_CONSUMER = /var\(\s*--text-soft(?:\s*,[^)]*)?\)/g;
+const CSS_WHITESPACE = String.raw`(?:\s|\/\*[\s\S]*?\*\/)*`;
+const TEXT_SOFT_CONSUMER = new RegExp(
+  String.raw`\bvar\s*\(${CSS_WHITESPACE}--text-soft(?=${CSS_WHITESPACE}(?:,|\)))`,
+  "g",
+);
 
 export const LEGACY_TAP_CLASS = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`, "g");
 const LEGACY_TAP_CLASS_TEST = new RegExp(`(?:^|[\\s\"'\\x60])${LEGACY_TAP_TOKEN_SOURCE}(?=[\\s\"'\\x60]|$)`);
@@ -53,17 +57,81 @@ export function hasLegacyTapClass(classText) {
 }
 
 export function findTextSoftConsumersInSource(relativePath, sourceText) {
-  const sourceWithoutComments = sourceText
-    .replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\r\n]/g, " "))
-    .replace(/(^|[^:])\/\/.*$/gm, (comment) => comment.replace(/[^\r\n]/g, " "));
   const findings = [];
 
-  for (const match of sourceWithoutComments.matchAll(TEXT_SOFT_CONSUMER)) {
-    const line = sourceWithoutComments.slice(0, match.index).split(/\r?\n/).length;
-    findings.push(`${relativePath}:${line}`);
+  function recordMatches(fragment, lineOffset = 0) {
+    for (const match of fragment.matchAll(TEXT_SOFT_CONSUMER)) {
+      const line = lineOffset + fragment.slice(0, match.index).split(/\r?\n/).length;
+      findings.push(`${relativePath}:${line}`);
+    }
+  }
+
+  if (relativePath.endsWith(".css")) {
+    for (const declaration of cssDeclarations(sourceText)) {
+      const value = maskCssValueTrivia(declaration.value);
+      const lineOffset =
+        (declaration.source?.start?.line ?? 1) - 1 + (declaration.raws.between.match(/\r?\n/g)?.length ?? 0);
+      recordMatches(value, lineOffset);
+    }
+    return findings;
+  }
+
+  const languageVariant = relativePath.endsWith(".tsx") ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard;
+  const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, languageVariant, sourceText);
+  const commentTokens = new Set([ts.SyntaxKind.SingleLineCommentTrivia, ts.SyntaxKind.MultiLineCommentTrivia]);
+  for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {
+    if (commentTokens.has(token)) continue;
+    const tokenText = scanner.getTokenText();
+    const tokenOffset = scanner.getTokenPos();
+    const tokenLineOffset = sourceText.slice(0, tokenOffset).split(/\r?\n/).length - 1;
+    recordMatches(tokenText, tokenLineOffset);
   }
 
   return findings;
+}
+
+function maskCssValueTrivia(value) {
+  const masked = [...value];
+  let quote = null;
+  let inComment = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    const next = value[index + 1];
+
+    if (inComment) {
+      if (character !== "\r" && character !== "\n") masked[index] = " ";
+      if (character === "*" && next === "/") {
+        masked[index + 1] = " ";
+        index += 1;
+        inComment = false;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (character !== "\r" && character !== "\n") masked[index] = " ";
+      if (character === "\\" && next !== undefined) {
+        if (next !== "\r" && next !== "\n") masked[index + 1] = " ";
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === "/" && next === "*") {
+      masked[index] = " ";
+      masked[index + 1] = " ";
+      index += 1;
+      inComment = true;
+    } else if (character === '"' || character === "'") {
+      masked[index] = " ";
+      quote = character;
+    }
+  }
+
+  return masked.join("");
 }
 
 export function jsxClassSegments(attribute) {

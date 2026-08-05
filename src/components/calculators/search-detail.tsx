@@ -542,7 +542,7 @@ export function ScorePanel({
       <BandLegend calc={calc} activeBand={derived.started ? derived.band : undefined} />
       <div className="grid gap-2 border-t border-[color:var(--border)] pt-3">
         <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-          <Info className="mt-0.5 size-icon-xs shrink-0" aria-hidden="true" />
+          <Info className="mt-0.5 size-icon-xs shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
           {calc.scoringNote}
         </p>
         <div className="flex items-center justify-between gap-2">

@@ -37,19 +37,41 @@ describe("design-system contract helpers", () => {
     ).toEqual([]);
   });
 
-  it("rejects --text-soft consumption while allowing compatibility declarations and comments", () => {
+  it("finds whitespace, fallback, URL, string and template --text-soft consumers in TypeScript", () => {
     const source = [
-      ":root { --text-soft: #8894a6; --decoration-soft: #8894a6; }",
-      "/* var(--text-soft) is retained only as a compatibility declaration. */",
-      'const text = <p className="text-[color:var(--text-soft)]">Unsafe text</p>;',
-      ".icon { color: var(--text-soft); }",
-      "// const documented = 'var(--text-soft)';",
-      ".safe-icon { color: var(--decoration-soft); }",
+      'const spacedClose = "text-[color:var(--text-soft )]";',
+      'const spacedOpen = "text-[color:var( --text-soft )]";',
+      'const fallback = "text-[color:var( --text-soft , var(--text-muted))]";',
+      'const url = "bg-[url(https://example.test/a//b)] text-[color:var(--text-soft)]";',
+      "const runtime = `x // color:var(--text-soft )`;",
+      "// const lineComment = 'var(--text-soft)';",
+      "/* const blockComment = 'var( --text-soft )'; */",
+      'const declaration = "--text-soft: #8894a6";',
     ].join("\n");
 
     expect(findTextSoftConsumersInSource("src/example.tsx", source)).toEqual([
+      "src/example.tsx:1",
+      "src/example.tsx:2",
       "src/example.tsx:3",
       "src/example.tsx:4",
+      "src/example.tsx:5",
+    ]);
+  });
+
+  it("parses CSS declarations while ignoring declarations, comments and quoted content", () => {
+    const source = [
+      ":root { --text-soft: #8894a6; --decoration-soft: #8894a6; }",
+      ".spaced { color: var( --text-soft ); }",
+      '.url { background-image: url("https://example.test/a//b"); color: var(--text-soft, CanvasText); }',
+      '.quoted { content: "var(--text-soft)"; }',
+      "/* .commented { color: var(--text-soft ); } */",
+      ".inline-comment { color: /* var(--text-soft) */ var(--text-muted); }",
+      ".safe { color: var(--decoration-soft); }",
+    ].join("\n");
+
+    expect(findTextSoftConsumersInSource("src/example.css", source)).toEqual([
+      "src/example.css:2",
+      "src/example.css:3",
     ]);
   });
 

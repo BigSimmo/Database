@@ -665,7 +665,7 @@ export function ServicesNavigatorPage() {
             filterControls={
               <div className="flex min-w-0 items-center gap-2">
                 <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-muted)] sm:inline-flex">
-                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" aria-hidden />
                   Quick filters
                 </span>
                 <div className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
