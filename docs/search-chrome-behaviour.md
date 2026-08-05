@@ -65,16 +65,16 @@ chrome and changes to it land on every mode at once. Keep these rules:
    mapping from their own data source; five pages have no async source and are correct on the
    default.
 1. **The query is the only heading element in the band.** It is the sole `<h1>`/`<h2>`; the count
-   is never a heading. Nothing here is bold: the query uses weight 560 (`.search-band-query`) and
-   the figure uses 580 (`.search-band-count`) — two nearby steps of the same scale, separated by
+   is never a heading. Nothing here is bold: the query uses weight 450 (`.search-band-subject`) and
+   the figure uses 600 (`.search-band-count`) — two nearby steps of the same scale, separated by
    tabular numerals and a hairline rather than by shouting. No eyebrow — the magnifier tile
    already says "search", and a `QUERY` / `RESULTS FOR` label costs a line to repeat it. The
    query truncates; the count does not. Weights live as numeric `font-weight` on `.search-band-*`
    classes in `globals.css`, not as Tailwind arbitrary values: `check:type-scale --strict` is a
-   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 470/540/560/580
+   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 450/470/540/560/600
    interpolate rather than snapping to 700. Judge weights only with the app font loaded.
 2. **The count is neutral text, not a success pill.** `text-muted` with the figure itself
-   `.search-band-count` (580, tabular-nums), stepping down to 470 and muted at zero. Success
+   `.search-band-count` (600, tabular-nums), stepping down to 470 and muted at zero. Success
    colour is reserved for states that were actually achieved, so it still carries meaning where
    it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
    while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
@@ -100,16 +100,22 @@ chrome and changes to it land on every mode at once. Keep these rules:
 6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
    constraint on the list is one tap from where it is read. Do not move them into a separate
    strip; `hasUtilities` already suppresses the whole group when nothing is active.
-7. **The accent is the card's `border-top`, never an overlay.** An absolutely-positioned bar
-   inside an `overflow-hidden` 12px-radius card is sliced by the corner arc, so it starts short
-   and tapers while the 1px border curves past it — two lines, two geometries. A border mitres
-   into the side borders and follows the radius by construction, and forced-colors maps it
-   automatically. Under forced colors the rail survives as **thickness** (3px, and 6px `double`
-   for a fault) because `--clinical-accent` resolves to `LinkText` and would otherwise be
-   indistinguishable from the other borders — that is what keeps a failed search visually
-   distinct from a successful one when colour is gone. The band's forced-colors rules **must
-   remain the last block in `globals.css`**: at equal specificity a later rule wins, so an
-   earlier block is silently overridden while still reading correctly.
+7. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
+   rail.** An absolutely-positioned bar inside an `overflow-hidden` 12px-radius card is sliced by
+   the corner arc, so it starts short and tapers while the 1px border curves past it — two lines,
+   two geometries. A border avoids that by construction, and forced-colors maps it automatically.
+   The accent used to be the card's own `border-top`; collapsing the band to one line moved it
+   inside the padding as `.search-band-lead`, a 2 × 18px `border-left` on a zero-width box,
+   because a line spanning the full width read as a divider between the composer and the results
+   rather than as the band's own mark. Under forced colors it survives as **stroke count** rather
+   than hue — one stroke healthy, `6px double` faulted, with the card's own top edge doubling to
+   `4px double` alongside it — because `--clinical-accent` resolves to `LinkText` and would
+   otherwise be indistinguishable from the other borders. That is what keeps a failed search
+   visually distinct from a successful one when colour is gone. Two consequences worth knowing:
+   the mark is `display: block` so it does not depend on flex blockification to paint at all, and
+   the band's forced-colors rules **must remain the last block in `globals.css`** — at equal
+   specificity a later rule wins, so an earlier block is silently overridden while still reading
+   correctly.
 8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
    so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
    `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented

@@ -29,12 +29,6 @@ export const SearchIcon = makeIcon(
     <path d="m20 20-3.5-3.5" />
   </>,
 );
-export const SearchXIcon = makeIcon(
-  <>
-    <circle cx="11" cy="11" r="7" />
-    <path d="m20 20-3.5-3.5M9 9l4 4M13 9l-4 4" />
-  </>,
-);
 export const ClockIcon = makeIcon(
   <>
     <circle cx="12" cy="12" r="9" />
