@@ -35,7 +35,9 @@ table under **Generated maturity snapshot** is the canonical list and product-im
 
 ### 0.3 Specified, not built
 
-_Remaining from the original eight in this document:_ `DocumentFrame` (PR 11).
+_Remaining from the original eight in this document:_ `DocumentFrame` is built locally
+(`src/components/ui/document-frame.tsx`, shell-only in `DocumentViewer`) but is not yet among
+the 53 design-sync registered visual exports — registration and full controls remain follow-up.
 
 `OverlayRoot`, `SegmentedControl`, and the PR 6–8 components are built and represented by the
 local publication contract. Registration proves a source/API/preview/test reference; it does

@@ -1764,6 +1764,10 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
       if (!validBaselineFiles) failures.push(`${surface.id} surface baseline files must be a string array`);
       if (surface.baseline.status === "committed" && (!validBaselineFiles || surface.baseline.files.length === 0))
         failures.push(`${surface.id} surface baseline is committed without files`);
+      if (surface.baseline.status === "not-committed" && validBaselineFiles && surface.baseline.files.length !== 0)
+        failures.push(
+          `${surface.id} surface baseline is not-committed but lists files; keep files empty until screenshots are committed`,
+        );
       if (surface.baseline.status === "committed" && validBaselineFiles) {
         committedBaselinePaths.push(...surface.baseline.files);
         for (const baselinePath of surface.baseline.files) {

@@ -529,6 +529,23 @@ describe("design-system adoption manifest", () => {
     expect(failures).toContain("fixture-v2 v2 adoption requires a committed visual baseline");
   });
 
+  it("rejects not-committed baselines that list files before screenshots are committed", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const declaredV2 = {
+      ...current.surfaces[0],
+      id: "fixture-v2",
+      declaredShellState: "v2",
+      baseline: {
+        status: "not-committed",
+        files: ["tests/__screenshots__/linux/dashboard-shell.png"],
+      },
+    };
+    const failures = checkAdoptionManifest({ ...current, surfaces: [declaredV2] });
+    expect(failures).toContain(
+      "fixture-v2 surface baseline is not-committed but lists files; keep files empty until screenshots are committed",
+    );
+  });
+
   it("allows the documented non-visual redirect to declare v2 without fabricated visual proof", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const fixtureRoot = createCheckerFixture();
@@ -1089,7 +1106,9 @@ describe("design-system adoption manifest", () => {
     }
   });
 
-  it("is deterministic and records declared global v2 adoption", () => {
+  // Full-repo rebuild + deep equality is intentionally heavy; under coverage instrumentation
+  // of scripts/** this exceeds Vitest's default 30s (CI Unit coverage on 4b85f0e2 timed out).
+  it("is deterministic and records declared global v2 adoption", { timeout: 90_000 }, () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
     expect(manifest.schemaVersion).toBe(7);
@@ -1173,7 +1192,7 @@ describe("design-system adoption manifest", () => {
     expect(manifest.routeCoverage.duplicates).toEqual([]);
   });
 
-  it("keeps declared v2 blocked until its baselines are committed", () => {
+  it("keeps declared v2 blocked until its baselines are committed", { timeout: 90_000 }, () => {
     const manifest = buildAdoptionManifest({ root });
     const failures = checkAdoptionManifest(manifest, { root });
     expect(failures).toHaveLength(13);
