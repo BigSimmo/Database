@@ -92,6 +92,19 @@ const targets: readonly BaselineTarget[] = [
       await expect(sourceText).toBeVisible();
       await sourceText.click();
       await expect(sourceText).toHaveAttribute("aria-current", "true");
+
+      const pdfViewport = page.locator('[data-testid="pdf-canvas-scroll"]:visible').first();
+      const renderedPage = pdfViewport.locator('canvas[aria-label$="page 1"]');
+      await expect(renderedPage).toBeVisible();
+      await expect(pdfViewport.getByText(/Loading PDF|Rendering page/)).toHaveCount(0);
+      await expect
+        .poll(() =>
+          renderedPage.evaluate(
+            (canvas) =>
+              canvas.width > 0 && canvas.height > 0 && canvas.style.width !== "" && canvas.style.height !== "",
+          ),
+        )
+        .toBe(true);
     },
   },
   {
