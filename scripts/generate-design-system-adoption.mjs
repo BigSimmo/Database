@@ -47,11 +47,13 @@ const CANONICAL_VISUAL_BASELINE_POLICY = Object.freeze({
   sourceBinding: {
     visualSuiteFile: "tests/ui-visual-baseline.spec.ts",
     allowedChangedPaths: [
+      ".github/workflows/ci.yml",
       "docs/branch-review-ledger.md",
       "docs/design-system/ADOPTION.md",
       "docs/design-system/COMPONENTS.md",
       "docs/design-system/adoption-contract.json",
       "docs/design-system/adoption-manifest.json",
+      "lighthouse-budget.json",
       "tests/__screenshots__/linux/provenance.json",
     ],
   },

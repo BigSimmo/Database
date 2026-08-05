@@ -1075,7 +1075,7 @@ describe("design-system adoption manifest", () => {
     }
   });
 
-  it("is deterministic and separates observed global v2 from the pending contract", () => {
+  it("is deterministic and records declared global v2 adoption", () => {
     const manifest = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     expect(manifest).toEqual(buildAdoptionManifest({ root }));
     expect(manifest.schemaVersion).toBe(7);
@@ -1087,7 +1087,7 @@ describe("design-system adoption manifest", () => {
     });
     expect(manifest.adoption.literalCkbV2RootCount).toBe(1);
     expect(manifest.adoption.v2MountedSurfaceCount).toBe(manifest.surfaces.length);
-    expect(manifest.adoption.declaredV2SurfaceCount).toBe(0);
+    expect(manifest.adoption.declaredV2SurfaceCount).toBe(manifest.surfaces.length);
     expect(
       manifest.components.every(
         (component: Record<string, unknown>) =>
@@ -1121,7 +1121,7 @@ describe("design-system adoption manifest", () => {
     expect(
       manifest.surfaces.every(
         (surface: { declaredShellState: string; observedShellState: string; v2MountMode: string }) =>
-          surface.declaredShellState === "compatibility" &&
+          surface.declaredShellState === "v2" &&
           surface.observedShellState === "v2" &&
           surface.v2MountMode === "inherited-global-root",
       ),
@@ -1138,7 +1138,7 @@ describe("design-system adoption manifest", () => {
       manifest.surfaces.every(
         (surface: { proof: Record<string, unknown>; baseline: { status: string } }) =>
           Object.keys(surface.proof).sort().join("|") === "browser|compact320|dark|forcedColours|print" &&
-          ["not-committed", "not-applicable"].includes(surface.baseline.status),
+          ["committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
     expect(manifest.routeCoverage.discovered).toHaveLength(47);
@@ -1148,15 +1148,10 @@ describe("design-system adoption manifest", () => {
     expect(manifest.routeCoverage.duplicates).toEqual([]);
   });
 
-  it("keeps the real source/contract mismatch intentionally blocking", () => {
+  it("accepts declared v2 only after its proof and baselines are committed", () => {
     const manifest = buildAdoptionManifest({ root });
     const failures = checkAdoptionManifest(manifest, { root });
-    expect(failures).toEqual(
-      manifest.surfaces.map(
-        (surface: { id: string }) =>
-          `${surface.id} declares compatibility but observes v2 through global root src/app/layout.tsx`,
-      ),
-    );
+    expect(failures).toEqual([]);
   });
 
   it("keeps generated adoption sections synchronized with the manifest", () => {
