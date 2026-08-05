@@ -569,21 +569,20 @@ describe("provider-safe test environment", () => {
     expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
     expect(providerEnvironmentKeys).not.toContain("SENTRY_TRACES_SAMPLE_RATE");
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
-    // Explicit inert URL — not deleted — so Next cannot reload a real DSN from
+    // Explicit blank pins the key so Next/Vite cannot reload a live DSN from
     // `.env.local` during Playwright/Lighthouse `next build` / `next start`.
-    expect(environment.SENTRY_DSN).toBe(offlineUrlValues.SENTRY_DSN);
-    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe(offlineUrlValues.NEXT_PUBLIC_SENTRY_DSN);
-    expect(environment.SENTRY_DSN).toBe(environment.NEXT_PUBLIC_SENTRY_DSN);
-    expect(environment.SENTRY_DSN).toMatch(/^https:\/\/offline@127\.0\.0\.1\//);
+    // `optionalUrlEnv` in `src/lib/env.ts` coerces "" to unset for Zod.
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
     expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
     expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
     expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
   });
 
-  it("keeps Sentry DSNs pinned so a repository-local env file cannot restore a live destination", () => {
+  it("keeps Sentry DSNs pinned blank so a repository-local env file cannot restore a live destination", () => {
     // Simulate the inheritance shape Next would see after `.env.local` load:
     // both a live DSN on the parent and a would-be reload candidate. The offline
-    // wrapper must overwrite both names with the same inert loopback value.
+    // wrapper must overwrite both names with an explicit blank (present, falsy).
     const liveDsn = "https://real-key@o123.ingest.sentry.io/456";
     const environment = offlineTestEnvironment({
       SENTRY_DSN: liveDsn,
@@ -593,8 +592,8 @@ describe("provider-safe test environment", () => {
       SENTRY_ENABLE_LOGS: "true",
     });
 
-    expect(environment.SENTRY_DSN).toBe(offlineUrlValues.SENTRY_DSN);
-    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe(offlineUrlValues.NEXT_PUBLIC_SENTRY_DSN);
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
     expect(environment.SENTRY_DSN).not.toBe(liveDsn);
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
     expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");

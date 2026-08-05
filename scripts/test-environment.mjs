@@ -30,19 +30,11 @@ const providerEnvironmentKeys = Object.freeze([
   "ALLOW_PROVIDER_TESTS",
 ]);
 
-// Inert loopback DSN shared by server + client so requireSentryEnv never sees a
-// mismatch, the Zod `.url()` schema still parses, and Next/Vite cannot reload a
-// real DSN from `.env.local` (keys must be present — deletion would let them
-// return). Traffic, if any SDK path still fires, targets 127.0.0.1 only.
-const OFFLINE_SENTRY_DSN = "https://offline@127.0.0.1/0";
-
 const offlineUrlValues = Object.freeze({
   NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:1",
   SUPABASE_URL: "http://127.0.0.1:1",
   SUPABASE_DB_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   DATABASE_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
-  NEXT_PUBLIC_SENTRY_DSN: OFFLINE_SENTRY_DSN,
-  SENTRY_DSN: OFFLINE_SENTRY_DSN,
 });
 
 // Feature flags / sampling, not credentials: force them off in offline wrappers
@@ -54,8 +46,8 @@ const offlineUrlValues = Object.freeze({
 const offlineSentryControlFlags = Object.freeze({
   SENTRY_ENABLE_LOGS: "false",
   SENTRY_SEND_TEST_LOG: "false",
-  // Belt-and-suspenders with the inert DSN: keep DB/perf tracing off even if a
-  // future change stops treating the loopback DSN as non-production.
+  // Belt-and-suspenders with blank DSNs: keep DB/perf tracing off even if a
+  // future change leaves a truthy DSN in the offline environment.
   SENTRY_TRACES_SAMPLE_RATE: "0",
 });
 
@@ -69,9 +61,11 @@ export function offlineTestEnvironment(source = process.env, overrides = {}) {
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.
   //
-  // Sentry DSNs cannot be blanked (`z.string().url().optional()` rejects "") and
-  // cannot be deleted (Next would reload `.env.local`). The inert loopback URL
-  // plus forced-off control flags keeps offline runs provider-free.
+  // Sentry DSNs are blanked (not deleted or faked): an absent key lets Next
+  // reload a live DSN from `.env.local` during Playwright/Lighthouse production
+  // starts, and a truthy inert URL keeps app Sentry gates enabled. Empty string
+  // stays falsy for `SENTRY_DSN?.trim()` and is coerced to unset by optionalUrlEnv
+  // in `src/lib/env.ts`.
   for (const key of providerEnvironmentKeys) {
     environment[key] = offlineUrlValues[key] ?? "";
   }
@@ -108,4 +102,4 @@ export function providerFreeCloudLiveTestGap(environment = process.env) {
   );
 }
 
-export { offlineUrlValues, offlineSentryControlFlags, OFFLINE_SENTRY_DSN, providerEnvironmentKeys };
+export { offlineUrlValues, offlineSentryControlFlags, providerEnvironmentKeys };
