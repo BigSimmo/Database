@@ -237,7 +237,7 @@ export function VerificationNotice({
   const wording = wordingFor(audience, state, attribution);
   const showResponsiveCompact =
     presentation === "responsive-compact" && audience === "clinician" && medium === "screen";
-  const compactWording = RESPONSIVE_COMPACT_WORDING[attribution][state] ?? UNKNOWN_RESPONSIVE_COMPACT_WORDING;
+  const compactWording = RESPONSIVE_COMPACT_WORDING[attribution]?.[state] ?? UNKNOWN_RESPONSIVE_COMPACT_WORDING;
   // An unrecognised state is treated as caution: it wears the warning mark for
   // the same reason it gets the strongest wording.
   const caution = CAUTION_STATES.has(state) || !WORDING[audience][state];
