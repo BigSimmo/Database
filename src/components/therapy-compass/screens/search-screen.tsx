@@ -155,6 +155,10 @@ export function SearchScreen() {
               query={q}
               appliedFilters={appliedFilters}
               onClearFilters={b.clearSearchFilters}
+              // Query-only zero results otherwise have no filter chip, example,
+              // or cross-mode action. Restore a one-tap escape without relabeling
+              // a query reset as a filter operation.
+              onClearSearch={b.clearSearch}
             />
           ) : (
             <div className="flex flex-col gap-3.5">
