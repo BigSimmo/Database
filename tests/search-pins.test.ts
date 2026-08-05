@@ -59,4 +59,20 @@ describe("search pin storage", () => {
   it("preserves an intentionally empty pin collection", () => {
     expect(normalizeSearchPins([])).toEqual([]);
   });
+
+  it("keeps the last normalized pins in memory when storage writes and reads fail", () => {
+    const unavailableStorage = {
+      getItem: () => {
+        throw new Error("storage disabled");
+      },
+      setItem: () => {
+        throw new Error("quota exceeded");
+      },
+    };
+
+    expect(writeSearchPins([], unavailableStorage)).toEqual([]);
+    expect(readSearchPins(unavailableStorage)).toEqual([]);
+
+    writeSearchPins(defaultSearchPins);
+  });
 });

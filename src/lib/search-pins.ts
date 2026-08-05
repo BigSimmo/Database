@@ -35,6 +35,7 @@ const destinationIdSet = new Set<string>(searchPinDestinationIds);
 export const maximumSearchPins = 8;
 const maximumDestinations = 6;
 const maximumNameLength = 48;
+let inMemorySearchPins: SearchPin[] | null = null;
 
 function normalizePin(value: unknown): SearchPin | null {
   if (!value || typeof value !== "object") return null;
@@ -54,12 +55,20 @@ function normalizePin(value: unknown): SearchPin | null {
   return { id, name, destinationIds };
 }
 
-function cloneDefaultSearchPins(): SearchPin[] {
-  return defaultSearchPins.map((pin) => ({
+function cloneSearchPins(pins: readonly SearchPin[]): SearchPin[] {
+  return pins.map((pin) => ({
     id: pin.id,
     name: pin.name,
     destinationIds: [...pin.destinationIds],
   }));
+}
+
+function cloneDefaultSearchPins(): SearchPin[] {
+  return cloneSearchPins(defaultSearchPins);
+}
+
+function cloneStoredOrDefaultSearchPins(): SearchPin[] {
+  return inMemorySearchPins ? cloneSearchPins(inMemorySearchPins) : cloneDefaultSearchPins();
 }
 
 export function normalizeSearchPins(value: unknown): SearchPin[] {
@@ -76,11 +85,20 @@ export function normalizeSearchPins(value: unknown): SearchPin[] {
 }
 
 export function readSearchPins(storage?: Pick<Storage, "getItem">): SearchPin[] {
+  let raw: string | null;
   try {
     const target = storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    if (!target) return cloneDefaultSearchPins();
-    const raw = target.getItem(searchPinsStorageKey);
-    return raw ? normalizeSearchPins(JSON.parse(raw)) : cloneDefaultSearchPins();
+    if (!target) return cloneStoredOrDefaultSearchPins();
+    raw = target.getItem(searchPinsStorageKey);
+  } catch {
+    return cloneStoredOrDefaultSearchPins();
+  }
+
+  if (!raw) return cloneStoredOrDefaultSearchPins();
+  try {
+    const normalized = normalizeSearchPins(JSON.parse(raw));
+    if (!storage) inMemorySearchPins = cloneSearchPins(normalized);
+    return normalized;
   } catch {
     return cloneDefaultSearchPins();
   }
@@ -90,10 +108,16 @@ export function writeSearchPins(pins: SearchPin[], storage?: Pick<Storage, "setI
   const normalized = normalizeSearchPins(pins);
   try {
     const target = storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    target?.setItem(searchPinsStorageKey, JSON.stringify(normalized));
+    if (!target) {
+      inMemorySearchPins = cloneSearchPins(normalized);
+      return normalized;
+    }
+    target.setItem(searchPinsStorageKey, JSON.stringify(normalized));
+    if (!storage) inMemorySearchPins = cloneSearchPins(normalized);
   } catch {
-    // Pins are a progressive enhancement. The caller keeps the normalized
-    // in-memory value when browser storage is unavailable or full.
+    // Pins are a progressive enhancement. Keep this session's normalized value
+    // when browser storage is unavailable or full.
+    inMemorySearchPins = cloneSearchPins(normalized);
   }
   return normalized;
 }

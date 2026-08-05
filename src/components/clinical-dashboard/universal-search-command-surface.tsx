@@ -1010,7 +1010,7 @@ export function UniversalSearchCommandSurface({
             pointerMatches: window.matchMedia(commandDropdownPointerMediaQuery).matches,
             maxTouchPoints: navigator.maxTouchPoints,
           });
-          setEagerDropdownDisplayable(displayable);
+          setEagerDropdownDisplayable(displayable ? true : null);
           if (displayable) onDropdownOpenChange(true);
         }}
         onBlurCapture={(event) => {
