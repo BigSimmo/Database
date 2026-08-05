@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ChevronDown, ShieldAlert } from "lucide-react";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { cn, eyebrowText } from "@/components/ui-primitives";
 
@@ -485,6 +485,20 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [openId, setOpenId] = useState(SECTIONS[0]?.heading ?? "");
   const [expandAll, setExpandAll] = useState(false);
+  // Desktop index sticky offset must track live chrome height (Important open / text zoom).
+  const [stickyChromeHeightPx, setStickyChromeHeightPx] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = stickyChromeRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const update = () => {
+      setStickyChromeHeightPx(el.getBoundingClientRect().height);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [noticeOpen, phone]);
 
   const scrollSectionIntoView = (heading: string) => {
     const target = sectionRefs.current[heading];
@@ -538,7 +552,12 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
         )}
       >
         {!phone ? (
-          <aside className="sticky top-[13.5rem] h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)]">
+          <aside
+            className="sticky h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)]"
+            style={{
+              top: stickyChromeHeightPx != null ? `${stickyChromeHeightPx}px` : "13.5rem",
+            }}
+          >
             <div className="mb-1.5 flex items-center justify-between px-2.5 pt-1.5">
               <p className="text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
                 Signal index
