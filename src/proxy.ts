@@ -29,7 +29,6 @@ const documentFlowRedirects: Record<string, string> = {
 };
 
 const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);
-const nextStaticAssetPrefix = "/_next/static";
 
 export function isPublicPwaPath(pathname: string) {
   return publicPwaPaths.has(pathname) || pathname.startsWith("/icons/");
@@ -42,23 +41,6 @@ const { isDevelopment, isLocalHttpRuntime } = resolveRuntimeFlags();
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Never let malformed non-navigation requests to framework assets reach the
-  // Server Action parser. Those requests cannot be meaningful static fetches and
-  // previously surfaced as opaque 500s when their action reference was invalid.
-  const isNextStaticAsset = pathname === nextStaticAssetPrefix || pathname.startsWith(`${nextStaticAssetPrefix}/`);
-  if (isNextStaticAsset) {
-    if (request.method !== "GET" && request.method !== "HEAD") {
-      return new NextResponse(null, {
-        status: 405,
-        headers: {
-          allow: "GET, HEAD",
-          "cache-control": "no-store",
-        },
-      });
-    }
-    return NextResponse.next();
-  }
 
   // PWA bootstrap assets are public and deliberately independent from a user's
   // auth session. Let next.config.ts apply their stable resource-specific headers
@@ -159,12 +141,8 @@ export function shouldBlockProductionMockups(
 }
 
 export const config = {
-  // Static assets are included solely for the early method guard above; other
-  // static requests remain excluded from the nonce/auth work. API routes stay in
+  // Run on everything except static assets and image files. API routes stay in
   // the matcher so cookie-authenticated requests can return rotated cookies and
   // every response carries the CSP header.
-  matcher: [
-    "/_next/static/:path*",
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };
