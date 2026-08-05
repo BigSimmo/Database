@@ -34,20 +34,35 @@ postinstall can fail when GitHub release downloads are unavailable.
 
 ## Acceptance status
 
-| Surface             | Required proof                                                                                                          | Status                                                                                                                                                                                                                      |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repository boundary | Setup never writes Railway/Supabase MCP servers; local templates stay secret-free                                       | PASS: focused tests and static checker pass; Cloud setup also no longer installs Railway CLI                                                                                                                                |
-| GitHub              | Connector reads `BigSimmo/Database`; exact commit is published and verified                                             | Read PASS via `mcp__codex_apps__github_get_repo`; draft publication pending                                                                                                                                                 |
-| Railway             | Exact tools callable in a fresh ChatGPT chat and fresh Codex Cloud task; read-only identity/project/service checks pass | ChatGPT PASS via `mcp__codex_apps__railway_whoami`, `railway_list_projects`, and `railway_list_services`; exact project and services `app`, `worker`, `Database` visible. Fresh Codex Cloud rerun pending after publication |
-| Supabase            | Existing app exposes only project-scoped read-only metadata without row queries                                         | ChatGPT PASS via `mcp__codex_apps__supabase_list_projects`: `sjrfecxgysukkwxsowpy`, `Clinical KB Database`, `ACTIVE_HEALTHY`; no schema/table/row/log call                                                                  |
-| Raw Cloud shell     | Only five documented non-secret values; `OPENAI_BASE_URL` absent before profiles/shims                                  | Environment UI PASS: exactly the five documented values and no `OPENAI_BASE_URL`; fresh raw-shell PASS pending                                                                                                              |
-| OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | Pending elapsed-time validation; no token workaround added                                                                                                                                                                  |
+| Surface             | Required proof                                                                                                          | Status                                                                                                                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository boundary | Setup never writes Railway/Supabase MCP servers; local templates stay secret-free                                       | PASS: focused tests and static checker pass; Cloud setup also no longer installs Railway CLI                                                                                                                          |
+| GitHub              | Connector reads `BigSimmo/Database`; exact commit is published and verified                                             | ChatGPT PASS via `mcp__codex_apps__github_get_repo`; draft PR #1617 created through the GitHub connector at exact published head `76dfe85fa93787b3845d0bd460aa18ff753ca2ca`. Codex Cloud FAIL: no GitHub tool exposed |
+| Railway             | Exact tools callable in a fresh ChatGPT chat and fresh Codex Cloud task; read-only identity/project/service checks pass | ChatGPT PASS via `mcp__codex_apps__railway_whoami`, `railway_list_projects`, and `railway_list_services`; exact project and services `app`, `worker`, `Database` visible. Codex Cloud FAIL: no Railway tool exposed   |
+| Supabase            | Existing app exposes only project-scoped read-only metadata without row queries                                         | ChatGPT PASS via `mcp__codex_apps__supabase_list_projects`: `sjrfecxgysukkwxsowpy`, `Clinical KB Database`, `ACTIVE_HEALTHY`; no schema/table/row/log call. Codex Cloud FAIL: no Supabase tool exposed                |
+| Raw Cloud shell     | Only five documented non-secret values; `OPENAI_BASE_URL` absent before profiles/shims                                  | Environment UI has exactly the five documented values and no `OPENAI_BASE_URL`, but fresh raw-shell FAIL still reports the inherited name. This is a launcher/workspace defect, not repository state                  |
+| OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | Pending elapsed-time validation; no token workaround added                                                                                                                                                            |
 
 The first fresh Codex Cloud acceptance attempt did not reach the agent: setup failed while
 `@railway/cli@5.30.4` tried to download its binary from GitHub Releases and received
-`ENETUNREACH`. The repository fix removes that unnecessary CLI installation. This is evidence of
-the old setup defect, not evidence that Railway is callable in Codex Cloud; the corrected branch
-must be published and tested in another fresh Cloud task.
+`ENETUNREACH`. The corrected fresh task at
+`https://chatgpt.com/codex/cloud/tasks/task_e_6a7303bcdd988322bc979d5d2c0f946f` passed setup and ran at
+exact head `76dfe85fa93787b3845d0bd460aa18ff753ca2ca`. It reported:
+
+- `[Codex Cloud Check] PASS: static and environment Cloud contracts match.`
+- `[Runtime Check] PASS: Node runtime 24.19.0 matches required Node 24.x.`
+- `[Runtime Check] PASS: npm runtime 11.17.0 matches required npm 11.x.`
+- `[Codex Cloud Check] PASS: static, environment, and runtime Cloud contracts match.`
+- `git.expected_base_ancestor=true` and `git.checkout_freshness=verified` for base
+  `9d4a28c16e189256d2e2b1fc6edfb351138837cc`.
+- `[Codex Cloud Raw Env] FAIL: inherited provider variable names: OPENAI_BASE_URL` before profiles,
+  npm, Node, or shims.
+- No callable Railway, GitHub, or Supabase tools: MCP resources/templates were empty and focused
+  tool discovery returned zero tools. No provider call was attempted.
+
+This proves the repository setup fix and also proves that repository code cannot close either
+remaining hosted blocker. The environment UI and launcher disagree about `OPENAI_BASE_URL`, and
+the Codex Cloud product did not project the installed ChatGPT apps into the task tool inventory.
 
 ## Prior branch and blocked-result disposition
 
@@ -61,9 +76,35 @@ must be published and tested in another fresh Cloud task.
   the optional `gh` shell fallback, while `--self-test` is fully offline. `GH_AUTH_MISSING` therefore
   says nothing about the hosted GitHub connector, which passed independently.
 - The original blocked report's `OPENAI_BASE_URL` condition was removed in Codex environment
-  settings. `Database - connected` now contains exactly the five documented non-secret variables.
-  A new raw-shell probe is still required because only a new task can prove the launcher stopped
-  inheriting the removed value.
+  settings. `Database - connected` now contains exactly the five documented non-secret variables,
+  but a new task still inherited the variable name. Escalate this mismatch to Codex environment
+  support; repository scripts correctly fail closed and must not hide it.
+
+## Tool-only gateway fallback design
+
+Do not deploy this fallback unless OpenAI confirms that Codex Cloud can install the resulting app
+and the user separately approves a hosting target and Railway OAuth registration.
+
+- **Hosting boundary:** a new isolated service outside Railway project `Database`, with its own
+  environment, network policy, secret store, persistence, monitoring, and public HTTPS callback.
+  Do not host it in either production service. The exact provider, region, URL, and data-retention
+  policy remain approval-required choices.
+- **Identity:** one Railway authorization-code grant per ChatGPT user, using PKCE and refresh only
+  if Railway's registered-client requirements allow it. Store client credentials and refresh tokens
+  encrypted server-side; never return them to ChatGPT or place them in repository/Cloud variables.
+  Railway client registration, redirect URIs, supported scopes, and revocation behavior must be
+  confirmed from Railway before implementation. Do not invent endpoints or broader scopes.
+- **Authorization:** hard-code the only allowed project ID as
+  `5deaad0b-675a-4c13-978e-5ca2b5b877f9`; reject every other project/workspace after resolving the
+  authenticated Railway identity. A workspace match alone is insufficient.
+- **v1 tool surface:** expose only `whoami`, `list-projects`, `list-services`,
+  `list-feature-flags`, and `get-feature-flag`. Return bounded non-secret metadata. Do not expose
+  logs, variables, service configuration, deployments, agent tools, mutations, or generic HTTP/API
+  forwarding in v1.
+- **Operational controls:** authenticated per-user sessions, encrypted token storage, append-only
+  audit events, correlation IDs, redaction, per-user/project rate limits, response-size limits,
+  connection and request timeouts, strict schemas, and denial-by-default for new tools. Any later
+  write tool requires a separate review, explicit per-call approval, and a non-production canary.
 
 Do not mark Railway accepted because it appears in workspace settings or repository files. Success
 requires a callable tool in both fresh hosted contexts. If direct Railway exposure or safe project
