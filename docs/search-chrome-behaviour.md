@@ -100,16 +100,22 @@ chrome and changes to it land on every mode at once. Keep these rules:
 6. **Active scopes render as removable chips at the head of that group**, in accent tone, so a
    constraint on the list is one tap from where it is read. Do not move them into a separate
    strip; `hasUtilities` already suppresses the whole group when nothing is active.
-7. **The accent is the card's `border-top`, never an overlay.** An absolutely-positioned bar
-   inside an `overflow-hidden` 12px-radius card is sliced by the corner arc, so it starts short
-   and tapers while the 1px border curves past it — two lines, two geometries. A border mitres
-   into the side borders and follows the radius by construction, and forced-colors maps it
-   automatically. Under forced colors the rail survives as **thickness** (3px, and 6px `double`
-   for a fault) because `--clinical-accent` resolves to `LinkText` and would otherwise be
-   indistinguishable from the other borders — that is what keeps a failed search visually
-   distinct from a successful one when colour is gone. The band's forced-colors rules **must
-   remain the last block in `globals.css`**: at equal specificity a later rule wins, so an
-   earlier block is silently overridden while still reading correctly.
+7. **The accent is a border, never an overlay — and it is now a lead mark, not a full-width
+   rail.** An absolutely-positioned bar inside an `overflow-hidden` 12px-radius card is sliced by
+   the corner arc, so it starts short and tapers while the 1px border curves past it — two lines,
+   two geometries. A border avoids that by construction, and forced-colors maps it automatically.
+   The accent used to be the card's own `border-top`; collapsing the band to one line moved it
+   inside the padding as `.search-band-lead`, a 2 × 18px `border-left` on a zero-width box,
+   because a line spanning the full width read as a divider between the composer and the results
+   rather than as the band's own mark. Under forced colors it survives as **stroke count** rather
+   than hue — one stroke healthy, `6px double` faulted, with the card's own top edge doubling to
+   `4px double` alongside it — because `--clinical-accent` resolves to `LinkText` and would
+   otherwise be indistinguishable from the other borders. That is what keeps a failed search
+   visually distinct from a successful one when colour is gone. Two consequences worth knowing:
+   the mark is `display: block` so it does not depend on flex blockification to paint at all, and
+   the band's forced-colors rules **must remain the last block in `globals.css`** — at equal
+   specificity a later rule wins, so an earlier block is silently overridden while still reading
+   correctly.
 8. **A new search page cannot skip the band.** `AppModeSearchConfig.resultsSurface` is required,
    so a new mode fails `typecheck` until it declares `results-band` or `answer`, and
    `tests/search-results-band-adoption.test.ts` then requires a matching mount plus a documented

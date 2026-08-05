@@ -358,9 +358,16 @@ function DocumentFilterPanel({
               onOpenLibrary();
             }}
             data-testid="document-filter-browse-library"
+            // `border-0 border-t`, not `border-t` alone. `cn` is a plain join,
+            // not tailwind-merge, so `floatingControl`'s own `border` (all four
+            // sides) survives an added `border-t` and the result is a fully
+            // bordered button whose colour is decided by Tailwind's emission
+            // order between two competing arbitrary utilities — the exact hazard
+            // the facet-chip branches in this file are written to avoid. Zeroing
+            // the box first leaves only the separating rule that was intended.
             className={cn(
               floatingControl,
-              "min-h-tap justify-start gap-2 rounded-lg border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
+              "min-h-tap justify-start gap-2 rounded-lg border-0 border-t border-[color:var(--border)] bg-transparent px-1 text-xs sm:min-h-10",
             )}
           >
             <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
@@ -1421,6 +1428,15 @@ function DocumentSearchResultsPanelImpl({
   // to offer. Advertising Filter there would open an empty panel.
   const hasFilters = resultTabs.length > 1 || tagFacetGroups.length > 0;
   const showFilterControl = showResultsControls && hasFilters;
+  /* The registry is still answering. `loading` covers only the document search,
+     so on the services and forms paths the zero-result body used to render
+     "No matches for …" directly beneath a spine reading "Searching…" — the band
+     derives its status from `recordStatus`, this branch did not. The band's
+     clinical invariant is that a search in flight asserts nothing; the body has
+     to hold to it too, or the page contradicts itself. Named here rather than
+     inlined because a comment this long inside the ternary chain below gets
+     reflowed into one line by Prettier on every run. */
+  const recordSearchStillRunning = showRecordMatches && recordStatus === "loading";
   /* The in-context route to the whole corpus, for the render paths that have no
      other one. Shared rather than duplicated so a fourth path cannot be added
      without a Library route: the sheet footer needs `matches.length > 0`, and
@@ -1590,7 +1606,7 @@ function DocumentSearchResultsPanelImpl({
         // discards the search the reader is looking at.
         recordMatchCount > 0 ? (
           browseLibraryControl
-        ) : trimmedQuery && !shouldShowHome ? (
+        ) : recordSearchStillRunning ? null : trimmedQuery && !shouldShowHome ? (
           <SearchResultsEmptyState
             modeId="documents"
             query={trimmedQuery}

@@ -3319,9 +3319,13 @@ html.theme-transitioning *:after {
 }
 
 /* ─── SEARCH RESULTS BAND ──────────────────────────────────────────────────
-   Weight comes down across this surface: nothing is bold, the heaviest step is
-   580, and the query and the figure share it — they are separated by tabular
-   numerals and a hairline rather than by shouting. Expressed here as numeric
+   Weight comes down across this surface: nothing is bold. The one-line anatomy
+   split the two apart rather than sharing a step — the figure carries 600 and
+   the query 450, so the count leads and the query reads as its subject. They
+   are separated by tabular numerals and a hairline rather than by shouting.
+   (This said "the heaviest step is 580, and the query and the figure share it"
+   until the redesign; both numbers changed and the sentence did not.)
+   Expressed here as numeric
    `font-weight` on named classes rather than Tailwind arbitrary values because
    (a) that is the existing idiom in this file, and (b) `check:type-scale
    --strict` is a zero gate on arbitrary `text-[Npx]` utilities. Geist is a

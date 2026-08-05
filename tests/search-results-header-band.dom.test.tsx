@@ -593,6 +593,12 @@ describe("SearchResultsEmptyState", () => {
     expect(screen.queryByRole("button", { name: /^Try:/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Search in / })).toBeNull();
 
+    // The escape hatch sits on the tap floor. It shipped at 36px, which was
+    // survivable while these were secondary actions and is not now that they are
+    // the only offered way out of a zero result — on this mode `Clear search` is
+    // the whole recovery. jsdom cannot measure it, so pin the utility.
+    expect(screen.getByTestId("search-results-empty-clear-search")).toHaveClass("min-h-tap");
+
     await user.click(screen.getByTestId("search-results-empty-clear-search"));
     expect(onClearSearch).toHaveBeenCalledTimes(1);
   });

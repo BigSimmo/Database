@@ -100,26 +100,35 @@ export function SearchScreen() {
             >
               Brief available
             </button>
-            <button
-              type="button"
-              className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
-              // `clearSearchFilters`, not `clearSearch`. This control sits at the
-              // end of the quick-filter chip row and is labelled `Clear`, so it
-              // reads as "clear these filters" — but `clearSearch` also wipes the
-              // query, deleting the search the reader is looking at. Same defect
-              // #1611 fixed on the shelf's Clear; the binding it introduced
-              // (`bindings.tsx:441`) is reused rather than duplicated.
-              // The sheet's `Clear all` is deliberately different and stays on
-              // `clearSearch` — it is labelled for what it does.
-              //
-              // Both sides of the v2 merge agreed on `--text-muted`, so this
-              // hunk reduced to the handler alone; `main` still carries the
-              // query-wiping version because #1616 branched before the fix.
-              onClick={b.clearSearchFilters}
-            >
-              <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
-              Clear
-            </button>
+            {/* Rendered only when there is something to clear. Rewiring this to
+                `clearSearchFilters` fixed the label/handler mismatch but created
+                a second one: with no topics and neither availability toggle on —
+                the ordinary "typed a query, got results" case — clicking `Clear`
+                produced no observable change at all. A control that advertises an
+                action must perform one; the sheet's `Clear all` is already gated
+                on `clearableCount > 0` for the same reason. */}
+            {activeFilterCount > 0 ? (
+              <button
+                type="button"
+                className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
+                // `clearSearchFilters`, not `clearSearch`. This control sits at the
+                // end of the quick-filter chip row and is labelled `Clear`, so it
+                // reads as "clear these filters" — but `clearSearch` also wipes the
+                // query, deleting the search the reader is looking at. Same defect
+                // #1611 fixed on the shelf's Clear; the binding it introduced
+                // (`bindings.tsx:441`) is reused rather than duplicated.
+                // The sheet's `Clear all` is deliberately different and stays on
+                // `clearSearch` — it is labelled for what it does.
+                //
+                // Both sides of the v2 merge agreed on `--text-muted`, so this
+                // hunk reduced to the handler alone; `main` still carries the
+                // query-wiping version because #1616 branched before the fix.
+                onClick={b.clearSearchFilters}
+              >
+                <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
+                Clear
+              </button>
+            ) : null}
           </div>
         }
       />

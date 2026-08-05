@@ -790,8 +790,20 @@ export function MobileResultFilterControl<Value extends string>({
   );
 }
 
+/**
+ * The recovery actions on the no-results panel.
+ *
+ * `min-h-tap`, not the 36px this carried before. The height is pre-existing, but
+ * it stopped being incidental once these became the *designated* way out: on the
+ * documents zero-result and filtered-to-zero paths they are the only offered
+ * escape, and on therapy-compass `Clear search` is the only one for a query-only
+ * zero result. Shipping the escape hatch below the floor the same change raised
+ * the facets, the find field and the disclosure headings to would contradict the
+ * rule this component's own redesign argues for. Relaxes to 36px from `sm`,
+ * exactly like the facets.
+ */
 const emptyStateAction =
-  "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)]";
+  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-3 text-xs font-extrabold text-[color:var(--text-muted)] hover:text-[color:var(--text)] sm:min-h-9";
 
 export function SearchResultsEmptyState({
   modeId,
