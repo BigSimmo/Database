@@ -314,6 +314,46 @@ describe("applied-filter shelf", () => {
   });
 });
 
+describe("document library recovery", () => {
+  it("offers Library when the search itself has no matches", async () => {
+    const user = userEvent.setup();
+    const onOpenLibrary = vi.fn();
+    render(<DocumentSearchResultsPanel {...baseProps} matches={[]} onOpenLibrary={onOpenLibrary} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("No matches for “monitoring”");
+    await user.click(screen.getByRole("button", { name: "Browse all 2 sources" }));
+    expect(onOpenLibrary).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Library reachable when a matched document exposes no filter dimensions", async () => {
+    const user = userEvent.setup();
+    const onOpenLibrary = vi.fn();
+    const plainDoc = match({
+      document_id: "44444444-4444-4444-8444-444444444444",
+      title: "Plain text note",
+      file_name: "plain-note.txt",
+      labels: [],
+      imageCount: 0,
+      tableCount: 0,
+    });
+
+    render(
+      <DocumentSearchResultsPanel
+        {...baseProps}
+        matches={[plainDoc]}
+        documentCount={17}
+        onOpenLibrary={onOpenLibrary}
+      />,
+    );
+
+    expect(screen.queryByTestId("document-filter-trigger-phone")).toBeNull();
+    const browse = screen.getByTestId("document-results-browse-library");
+    expect(browse).toHaveTextContent("17");
+    await user.click(browse);
+    expect(onOpenLibrary).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("filter sheet — density, exclusivity and reach", () => {
   // Enough groups to cross the density threshold. Eleven groups in one phone
   // column is the case F9 is about; below four, collapsing buys nothing.
@@ -384,19 +424,20 @@ describe("filter sheet — density, exclusivity and reach", () => {
     expect(within(panel).queryByRole("button", { name: /Clozapine/ })).toBeNull();
   });
 
-  it("keeps a selected group open and says how many it is holding", async () => {
+  it("opens a selected group by default but honours an explicit collapse", async () => {
     const { user, panel } = await openPanel(denseProps);
 
     await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     await user.click(within(panel).getByRole("button", { name: /Lithium/ }));
 
-    // A closed section silently narrowing the list is worse than the scroll it
-    // saves, so a group carrying a selection cannot be shut.
+    // The selected count keeps a collapsed group honest, while the disclosure
+    // remains a real control instead of snapping open again after every click.
     const medication = within(panel).getByRole("button", { name: /^Medication/ });
     expect(medication).toHaveAttribute("aria-expanded", "true");
     expect(within(medication).getByText("1 selected")).toBeVisible();
     await user.click(medication);
-    expect(within(panel).getByRole("button", { name: /^Medication/ })).toHaveAttribute("aria-expanded", "true");
+    expect(within(panel).getByRole("button", { name: /^Medication/ })).toHaveAttribute("aria-expanded", "false");
+    expect(within(panel).queryByRole("button", { name: /Lithium/ })).toBeNull();
   });
 
   it("forgets the find-a-filter needle when the search query changes", async () => {
@@ -467,14 +508,16 @@ describe("filter sheet — density, exclusivity and reach", () => {
     // The footer no longer prints the number twice: the button carries it.
     expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 3 documents");
 
+    // These facets are individually valid but mutually exclusive across the
+    // fixture documents: Clozapine exists only on one result and Suicide only
+    // on another. This proves the panel's zero state rather than accidentally
+    // selecting three facets that all belong to denseDoc.
     await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
-    await user.click(within(panel).getByRole("button", { name: /Lithium/ }));
+    await user.click(within(panel).getByRole("button", { name: /Clozapine/ }));
     await user.click(within(panel).getByRole("button", { name: /^Risk/ }));
     await user.click(within(panel).getByRole("button", { name: /Suicide/ }));
-    await user.click(within(panel).getByRole("button", { name: /^Care phase/ }));
-    await user.click(within(panel).getByRole("button", { name: /Discharge/ }));
 
-    // Still a real answer, so the readout stays honest rather than hiding.
-    expect(within(panel).getByText(/of 2,014 documents shown/)).toBeVisible();
+    expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 0 documents");
+    expect(within(panel).getByText(/of 2,014 documents shown/)).toHaveTextContent("0 of 2,014 documents shown");
   });
 });
