@@ -322,3 +322,37 @@ describe("ckb-v2 structure", () => {
     expect(structural.get("--text-body-tr")).toMatch(/^-/);
   });
 });
+
+describe("ckb-v2 category chip tones", () => {
+  const families = [
+    "type-document",
+    "type-table",
+    "type-search",
+    "type-source",
+    "type-service",
+    "type-form",
+    "tone-purple",
+    "tone-indigo",
+    "tone-rose",
+    "tone-slate",
+  ] as const;
+
+  it("declares complete text/soft/border triads in light and dark so Chip CATEGORY is not compatibility-only", () => {
+    for (const family of families) {
+      for (const suffix of ["", "-soft", "-border"] as const) {
+        const name = `--${family}${suffix}`;
+        expect(hexOf(lightShell, name)).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(hexOf(darkShell, name)).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+    }
+  });
+
+  it("maps category chip tones under forced-colours so HCM does not fall through to hex", () => {
+    const forced = block("@media (forced-colors: active)");
+    for (const family of families) {
+      expect(forced).toContain(`--${family}: CanvasText;`);
+      expect(forced).toContain(`--${family}-soft: Canvas;`);
+      expect(forced).toContain(`--${family}-border: ButtonBorder;`);
+    }
+  });
+});

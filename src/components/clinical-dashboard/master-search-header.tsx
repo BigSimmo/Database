@@ -69,11 +69,15 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+import {
+  desktopComposerSlotReadyAttr,
+  isDesktopComposerSlotReady,
+  phoneHeaderCollapseAddonSlotId,
+  setModeHomeComposerReservePending,
+} from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
-import { desktopComposerSlotReadyAttr, isDesktopComposerSlotReady } from "@/lib/mode-home-composer";
 import { tagSearchText } from "@/lib/document-tags";
 
 // Shared between the composer input's aria-describedby and the rendered
@@ -1065,13 +1069,17 @@ export function MasterSearchHeader({
     const composerSlotId = desktopHomeComposerSlotId ?? desktopPageComposerSlotId;
     const composerSlotKind = desktopHomeComposerSlotId ? "home" : "page";
 
-    if (!composerSlotId) {
-      // No page-owned slot at this route: reset the portal state. Deferred to a
-      // microtask (not requestAnimationFrame) so it stays off the synchronous
-      // effect body without being frame-gated — headless CI can starve rAF.
+    if (!composerSlotId || !searchComposerVisible) {
+      // No page-owned slot at this route, or the shell suppressed the composer:
+      // reset the portal state and collapse any SSR mode-home reserve band.
+      // Deferred to a microtask (not requestAnimationFrame) so it stays off the
+      // synchronous effect body without being frame-gated — headless CI can starve rAF.
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
+        if (composerSlotKind === "home" && composerSlotId) {
+          setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
+        }
         setDesktopComposerPortalActive(false);
         setDesktopComposerPortalHost(null);
         setDesktopComposerPortalFallback(false);
@@ -1120,7 +1128,8 @@ export function MasterSearchHeader({
       if (composerSlotKind === "home") {
         setHomeComposerMediaEligible(mediaQuery.matches);
       }
-      const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
+      const homeSlot = composerSlotKind === "home" ? document.getElementById(composerSlotId) : null;
+      const slot = mediaQuery.matches ? (homeSlot ?? document.getElementById(composerSlotId)) : null;
       if (slot && isDesktopComposerSlotReady(slot)) {
         if (retryTimeout !== null) {
           window.clearTimeout(retryTimeout);
@@ -1128,6 +1137,8 @@ export function MasterSearchHeader({
         }
         portalFailureStartedAt = null;
         if (host.parentNode !== slot) slot.appendChild(host);
+        // Portal host keeps height via `:not(:empty)`; drop the pending marker.
+        if (composerSlotKind === "home") setModeHomeComposerReservePending(slot, false);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
         setDesktopComposerPortalFallback(false);
@@ -1141,6 +1152,8 @@ export function MasterSearchHeader({
           }
           portalFailureStartedAt = null;
           setDesktopComposerPortalFallback(false);
+          // Viewport never hosts this hero slot — collapse the SSR reserve band.
+          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
           return;
         }
         const now = window.performance.now();
@@ -1159,11 +1172,15 @@ export function MasterSearchHeader({
               Math.min(200, fallbackDelayRemaining),
             );
           }
+          // Keep the SSR pending reserve while we retry adoption.
+          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, true);
         } else {
           // A missing/unhydrated page slot must not remove search forever. Home
           // routes suppress the header fallback during the bounded retry window
           // because ModeHomeTemplate already reserves the settled hero geometry;
           // only surface the fallback after portal adoption has genuinely failed.
+          // Collapse the empty hero band once the header fallback takes over.
+          if (composerSlotKind === "home") setModeHomeComposerReservePending(homeSlot, false);
           setDesktopComposerPortalFallback(true);
         }
       }
@@ -1183,11 +1200,14 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
+      if (composerSlotKind === "home") {
+        setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
+      }
       setDesktopComposerPortalActive(false);
       setDesktopComposerPortalHost(null);
       setDesktopComposerPortalFallback(false);
     };
-  }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint]);
+  }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint, searchComposerVisible]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {

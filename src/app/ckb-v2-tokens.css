@@ -246,6 +246,40 @@
   --clinical-accent-border: #cfe2f6;
   --primary-soft: #f2f8fe;
 
+  /* Category / identity chip tones — canonical under v2 so Chip CATEGORY does
+     not silently lose its palette if the globals.css compatibility layer is
+     trimmed. Values match the live :root compatibility set. */
+  --type-document: #3a5a94;
+  --type-document-soft: #f0f4fa;
+  --type-document-border: #d3dfef;
+  --type-table: #2f6b57;
+  --type-table-soft: #eef5f2;
+  --type-table-border: #cfe3da;
+  --type-search: #4a5568;
+  --type-search-soft: #f4f5f7;
+  --type-search-border: #dfe2e8;
+  --type-source: #634f8f;
+  --type-source-soft: #f4f1fa;
+  --type-source-border: #ded6ee;
+  --type-service: #2b6474;
+  --type-service-soft: #eaf4f7;
+  --type-service-border: #c4dfe7;
+  --type-form: #7d5a2c;
+  --type-form-soft: #f8f4ec;
+  --type-form-border: #e8dbc4;
+  --tone-purple: #634f8f;
+  --tone-purple-soft: #f4f1fa;
+  --tone-purple-border: #ded6ee;
+  --tone-indigo: #43508f;
+  --tone-indigo-soft: #f0f2fa;
+  --tone-indigo-border: #d6dcef;
+  --tone-rose: #8a4a7d;
+  --tone-rose-soft: #f9f0f6;
+  --tone-rose-border: #eed6e6;
+  --tone-slate: #4a5568;
+  --tone-slate-soft: #f4f5f7;
+  --tone-slate-border: #dfe2e8;
+
   --ring-hairline: 0 0 0 1px rgb(13 40 71 / 7%);
   --e0: none;
   --e1: 0 1px 2px rgb(13 40 71 / 5%);
@@ -316,6 +350,38 @@
   --glow-soft: 0 0 0 1px color-mix(in srgb, var(--clinical-accent) 32%, transparent), 0 6px 16px rgb(0 0 0 / 42%);
   --overlay-backdrop: rgb(0 0 0 / 72%);
 
+  /* Category / identity chip tones — dark ramp (mirrors live .dark layer). */
+  --type-document: #9db6dc;
+  --type-document-soft: #1a2438;
+  --type-document-border: #2b3d5e;
+  --type-table: #93c7b3;
+  --type-table-soft: #152820;
+  --type-table-border: #2a4d3d;
+  --type-search: #c3c9d4;
+  --type-search-soft: #1e222a;
+  --type-search-border: #3a4150;
+  --type-source: #bdb0da;
+  --type-source-soft: #241f33;
+  --type-source-border: #3c3352;
+  --type-service: #96c6d4;
+  --type-service-soft: #16262c;
+  --type-service-border: #2b4650;
+  --type-form: #d6bd8a;
+  --type-form-soft: #2b2317;
+  --type-form-border: #4d4028;
+  --tone-purple: #b0a0d8;
+  --tone-purple-soft: #2a2540;
+  --tone-purple-border: #3d3557;
+  --tone-indigo: #9aa5dd;
+  --tone-indigo-soft: #232842;
+  --tone-indigo-border: #343b5a;
+  --tone-rose: #d99cc8;
+  --tone-rose-soft: #3a2434;
+  --tone-rose-border: #52344a;
+  --tone-slate: #9aa4b4;
+  --tone-slate-soft: #22262d;
+  --tone-slate-border: #333a44;
+
   --ring-hairline: 0 0 0 1px rgb(255 255 255 / 9%);
   --e0: none;
   --e1: inset 0 1px 0 rgb(255 255 255 / 4%), 0 1px 2px rgb(0 0 0 / 40%);
@@ -374,6 +440,36 @@
     --danger-solid-hover: Mark;
     --danger-solid-active: Mark;
     --danger-solid-contrast: MarkText;
+    --type-document: CanvasText;
+    --type-document-soft: Canvas;
+    --type-document-border: ButtonBorder;
+    --type-table: CanvasText;
+    --type-table-soft: Canvas;
+    --type-table-border: ButtonBorder;
+    --type-search: CanvasText;
+    --type-search-soft: Canvas;
+    --type-search-border: ButtonBorder;
+    --type-source: CanvasText;
+    --type-source-soft: Canvas;
+    --type-source-border: ButtonBorder;
+    --type-service: CanvasText;
+    --type-service-soft: Canvas;
+    --type-service-border: ButtonBorder;
+    --type-form: CanvasText;
+    --type-form-soft: Canvas;
+    --type-form-border: ButtonBorder;
+    --tone-purple: CanvasText;
+    --tone-purple-soft: Canvas;
+    --tone-purple-border: ButtonBorder;
+    --tone-indigo: CanvasText;
+    --tone-indigo-soft: Canvas;
+    --tone-indigo-border: ButtonBorder;
+    --tone-rose: CanvasText;
+    --tone-rose-soft: Canvas;
+    --tone-rose-border: ButtonBorder;
+    --tone-slate: CanvasText;
+    --tone-slate-soft: Canvas;
+    --tone-slate-border: ButtonBorder;
     --focus: Highlight;
     --ring-hairline: 0 0 0 1px CanvasText;
     --e0: none;

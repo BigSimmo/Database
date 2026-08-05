@@ -183,9 +183,22 @@ describe("shared-search route ownership", () => {
     expect(slotSource).toContain("useEffect");
     expect(headerSource).toContain("isDesktopComposerSlotReady(slot)");
     expect(headerSource).toContain("attributeFilter: [desktopComposerSlotReadyAttr]");
-    expect(homeTemplateSource).toContain("min-h-[var(--spacing-mode-home-composer-phone)]");
-    expect(homeTemplateSource).toContain("sm:min-h-[var(--spacing-mode-home-composer-wide)]");
+    expect(headerSource).toContain("setModeHomeComposerReservePending");
+    expect(headerSource).toContain("searchComposerVisible");
+    expect(composerLibSource).toContain('modeHomeComposerReserveAttr = "data-composer-reserve"');
+    expect(homeTemplateSource).toContain(
+      "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+    );
+    expect(homeTemplateSource).toContain(
+      "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+    );
+    expect(homeTemplateSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
     expect(homeTemplateSource).not.toContain("mode-home-composer-slot hidden");
+    // Unconditional always-on reserve would leave a permanent empty band when
+    // the portal never adopts; pending/filled gating is the CLS-safe contract.
+    expect(homeTemplateSource).not.toMatch(
+      /mode-home-composer-slot block min-h-\[var\(--spacing-mode-home-composer-phone\)\]/,
+    );
     expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 7.625rem");
     expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
   });

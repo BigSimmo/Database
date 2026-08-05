@@ -4,6 +4,7 @@ import { type LucideIcon, ArrowRight } from "lucide-react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 
 export type ModeHomeAction = {
   title: string;
@@ -264,14 +265,15 @@ export function ModeHomeTemplate({
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
-      {/* Always reserve settled composer height (even before the portal attaches)
-          so mode-home first paint does not CLS. Shell hosts that pass a slot id
-          must keep searchComposerVisible for that route — otherwise this band
-          stays empty instead of collapsing. */}
+      {/* Reserve settled composer height only while adoption is pending or the
+          portal host is present. SSR starts pending so first paint does not CLS;
+          MasterSearchHeader clears the attribute when the home media query does
+          not match or portal adoption falls back, collapsing a never-filled band. */}
       {desktopComposerSlotId ? (
         <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
-          className="mode-home-composer-slot block min-h-[var(--spacing-mode-home-composer-phone)] w-full px-4 sm:min-h-[var(--spacing-mode-home-composer-wide)] sm:px-0"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot block w-full px-4 sm:px-0 min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
         />
       ) : null}
 
