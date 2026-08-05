@@ -8,7 +8,7 @@ import {
   panelSubtle,
   textMuted,
   sourceCard,
-  metadataPill,
+  metadataPillDensity,
   floatingControl,
   toneDanger,
   toneInfo,
@@ -448,6 +448,7 @@ export function IndexingMonitor({
               ? "Queued and processing jobs appear here while indexing is running."
               : "Queued uploads and worker progress appear here."
         }
+        live="polite"
       />
     );
   }
@@ -597,6 +598,7 @@ export function IngestionQualityConsole({
         icon={ShieldCheck}
         title={emptyStates.ingestionQuality.title}
         body={emptyStates.ingestionQuality.body}
+        live="polite"
       />
     );
   }
@@ -622,7 +624,7 @@ export function IngestionQualityConsole({
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5">
           {(Object.keys(counts) as IngestionQualityReviewType[]).map((type) => (
-            <span key={type} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+            <span key={type} className={metadataPillDensity.dense}>
               {qualityReviewLabels[type]}: {counts[type]}
             </span>
           ))}
@@ -637,18 +639,16 @@ export function IngestionQualityConsole({
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className={cn(metadataPill, "min-h-6 px-2 text-2xs", qualityReviewTone(item.severity))}>
+                    <span className={cn(metadataPillDensity.compact, qualityReviewTone(item.severity))}>
                       {qualityReviewLabels[item.type]}
                     </span>
                     {item.qualityScore !== null ? (
-                      <span className={cn(metadataPill, "nums min-h-6 px-2 text-2xs")}>
+                      <span className={cn(metadataPillDensity.compact, "nums")}>
                         index {item.qualityScore.toFixed(2)}
                       </span>
                     ) : null}
                     {item.extractionQuality ? (
-                      <span className={cn(metadataPill, "min-h-6 px-2 text-2xs")}>
-                        extraction:{item.extractionQuality}
-                      </span>
+                      <span className={metadataPillDensity.compact}>extraction:{item.extractionQuality}</span>
                     ) : null}
                   </div>
                   <p className="mt-2 truncate text-sm font-semibold text-[color:var(--text)]">
@@ -660,7 +660,7 @@ export function IngestionQualityConsole({
                   {item.reasons.length ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {item.reasons.slice(0, 4).map((reason) => (
-                        <span key={reason} className={cn(metadataPill, "text-2xs")}>
+                        <span key={reason} className={metadataPillDensity.dense}>
                           {reason}
                         </span>
                       ))}

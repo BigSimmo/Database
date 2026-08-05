@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Gate 1 / PR 3 — design-system recipes must not put the decoration tier on
- * text nodes (eyebrows, placeholders). Decorative glyphs may still use
- * `--text-soft` / `--decoration-soft`.
+ * text nodes (eyebrows, placeholders). Decorative glyphs use
+ * `--decoration-soft`; `--text-soft` remains declaration-only compatibility.
  */
 
 const primitives = readFileSync(new URL("../src/components/ui-primitives.tsx", import.meta.url), "utf8");

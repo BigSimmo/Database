@@ -113,7 +113,7 @@ export function SpecifierDiagnosisFilter({
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
-      <span className="shrink-0 text-[color:var(--text-soft)]">Diagnosis</span>
+      <span className="shrink-0 text-[color:var(--text-muted)]">Diagnosis</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -127,7 +127,7 @@ export function SpecifierDiagnosisFilter({
         ))}
       </select>
       <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--decoration-soft)]"
         aria-hidden
       />
     </label>
@@ -165,7 +165,7 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
                 ) : null}
               </div>
               <ArrowRight
-                className="mt-1 size-icon-md shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                className="mt-1 size-icon-md shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                 aria-hidden
               />
             </div>
@@ -361,7 +361,7 @@ const sourceStatusMeta: Record<
   "source-not-applicable": {
     label: "Source n/a",
     icon: Minus,
-    className: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-soft)]",
+    className: "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
   },
 };
 
@@ -410,7 +410,7 @@ export function QuickTile({
         ? "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]"
         : tone === "success"
           ? "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]"
-          : "border-[color:var(--border)] text-[color:var(--text-soft)]";
+          : "border-[color:var(--border)] text-[color:var(--text-muted)]";
   const bodyClass =
     tone === "info"
       ? "text-[color:var(--info)]"

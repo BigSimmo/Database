@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useState, useDeferredValue, type Re
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useTherapyData } from "./data/use-therapy-data";
+import { THERAPY_CATALOGUE_SUMMARY } from "./data/generated-assets";
 import {
   EMPTY_SEARCH,
   RECOMMEND_CONSTRAINTS,
@@ -51,6 +52,7 @@ export type TcBindings = {
   error: string | null;
   retryData: () => void | Promise<void>;
   therapies: Therapy[];
+  therapyCount: number;
   unreviewedTherapies: Therapy[];
   reviewCount: number;
   pathways: Pathway[];
@@ -232,16 +234,19 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { screen, slug: routeSlug } = resolveRoute(pathname);
+  const isHome = screen === "home";
   // Search needs the complete prose corpus to preserve its existing weighted
-  // matches (#1471). Home uses the smallest landing projection; pathways use
-  // the thin browse index — keeping the 2.5 MB full dataset off those paints.
-  const catalogue = screen === "home" ? "home" : screen === "pathways" ? "index" : "full";
+  // matches (#1471). Home paints from generated summary metadata without a
+  // catalogue request; pathways use the thin browse index.
+  const catalogue = screen === "pathways" ? "index" : "full";
   const { data, loading, error, retry } = useTherapyData({
     catalogue,
     includePathways: screen === "pathways",
     includeReference: false,
+    enabled: !isHome,
   });
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
+  const therapyCount = isHome ? THERAPY_CATALOGUE_SUMMARY.totalCount : therapies.length;
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
   // The active screen and therapy are derived from the URL: each workspace route
@@ -352,6 +357,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
       error,
       retryData: retry,
       therapies,
+      therapyCount,
       unreviewedTherapies,
       reviewCount: unreviewedTherapies.length,
       pathways,
@@ -367,14 +373,22 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goBrief: () => {
         const target = hasBrief(effectiveSelectedSlug)
           ? effectiveSelectedSlug
-          : therapies.find((therapy) => therapy.briefInterventionAvailable)?.slug;
-        if (target) openBriefOr(target);
+          : (therapies.find((therapy) => therapy.briefInterventionAvailable)?.slug ??
+            (isHome ? THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug : null));
+        if (target) {
+          if (bySlug.has(target)) openBriefOr(target);
+          else openSlug(target, "brief");
+        }
       },
       goSheets: () => {
         const target = hasSheet(effectiveSelectedSlug)
           ? effectiveSelectedSlug
-          : therapies.find((therapy) => therapy.patientSheetAvailable)?.slug;
-        if (target) openSheetOr(target);
+          : (therapies.find((therapy) => therapy.patientSheetAvailable)?.slug ??
+            (isHome ? THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug : null));
+        if (target) {
+          if (bySlug.has(target)) openSheetOr(target);
+          else openSlug(target, "sheet");
+        }
       },
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
@@ -524,10 +538,12 @@ export function TcProvider({ children }: { children: ReactNode }) {
     retry,
     data,
     therapies,
+    therapyCount,
     bySlug,
     unreviewedTherapies,
     pathways,
     screen,
+    isHome,
     effectiveSelectedSlug,
     selectedTherapy,
     relatedForSelected,

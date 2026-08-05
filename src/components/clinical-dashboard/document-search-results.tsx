@@ -59,7 +59,14 @@ import {
   DocumentBadge,
   documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
-import { cn, floatingControl, LoadingPanel, metadataPill, sourceCard, textMuted } from "@/components/ui-primitives";
+import {
+  cn,
+  floatingControl,
+  LoadingPanel,
+  metadataPillDensity,
+  sourceCard,
+  textMuted,
+} from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   buildSmartDocumentTagFacetIndex,
@@ -73,7 +80,7 @@ import {
 import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
-import type { ClinicalDocument, DocumentMatch, SearchResult, SearchScopeSummary } from "@/lib/types";
+import type { ClinicalDocument, DocumentMatch, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
@@ -404,7 +411,7 @@ function DocumentFilterPanel({
             Find a filter
           </label>
           <div className="flex min-w-0 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]">
-            <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-soft)]" />
+            <Search aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" />
             <input
               id={searchId}
               type="search"
@@ -419,7 +426,7 @@ function DocumentFilterPanel({
                 type="button"
                 onClick={() => setNeedle("")}
                 aria-label="Clear the filter search"
-                className="grid min-h-tap min-w-tap place-items-center text-[color:var(--text-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
+                className="grid min-h-tap min-w-tap place-items-center text-[color:var(--decoration-soft)] hover:text-[color:var(--text)] sm:min-h-8 sm:min-w-8"
               >
                 <X aria-hidden="true" className="h-3.5 w-3.5" />
               </button>
@@ -546,7 +553,7 @@ function DocumentFilterPanel({
                     <ChevronDown
                       aria-hidden="true"
                       className={cn(
-                        "size-icon-sm shrink-0 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                        "size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-transform motion-reduce:transition-none",
                         selectedCount > 0 ? "ml-1.5" : "ml-auto",
                         isOpen ? "rotate-0" : "-rotate-90",
                       )}
@@ -1087,46 +1094,13 @@ function DocumentSearchHome({
       footer={
         <div className="grid w-full gap-3">
           {documentCount > 0 ? (
-            <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
+            <p className="text-xs font-semibold text-[color:var(--text-muted)]" aria-live="polite">
               {documentCount.toLocaleString()} indexed source{documentCount === 1 ? "" : "s"}
             </p>
           ) : null}
         </div>
       }
     />
-  );
-}
-
-export function MatchExplanationChips({ source }: { source: SearchResult }) {
-  const explanation = source.match_explanation;
-  const reasons = explanation?.reasons?.length
-    ? explanation.reasons
-    : [
-        source.score_explanation?.titleBoost ? "title" : "",
-        source.score_explanation?.textRank ? "text" : "",
-        source.score_explanation?.vectorScore ? "vector" : "",
-        source.source_metadata?.document_status ? `status:${source.source_metadata.document_status}` : "",
-      ].filter(Boolean);
-  const score = source.score_explanation?.finalScore ?? source.hybrid_score ?? source.similarity;
-  const chips = [
-    ...reasons.slice(0, 5),
-    Number.isFinite(score) ? `score:${Number(score).toFixed(2)}` : "",
-    explanation?.indexQualityScore !== undefined && explanation.indexQualityScore !== null
-      ? `index:${Number(explanation.indexQualityScore).toFixed(2)}`
-      : "",
-    explanation?.indexQualityIssues?.length ? "index warning" : "",
-    explanation?.tableHit ? "table fact" : "",
-    explanation?.indexUnitType ? `unit:${explanation.indexUnitType.replaceAll("_", " ")}` : "",
-  ].filter(Boolean);
-  if (chips.length === 0) return null;
-  return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {chips.slice(0, 7).map((chip) => (
-        <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-          {chip}
-        </span>
-      ))}
-    </div>
   );
 }
 
@@ -1162,7 +1136,7 @@ function SearchRecordResults({
             </p>
           </div>
         </div>
-        <span className={cn(metadataPill, "min-h-8 px-2.5 text-2xs")}>{copy.chip}</span>
+        <span className={metadataPillDensity.roomyCompact}>{copy.chip}</span>
       </div>
 
       <div className="grid gap-3">
@@ -1216,7 +1190,7 @@ function SearchRecordResults({
               {chips.length ? (
                 <div className="flex flex-wrap gap-1.5">
                   {chips.slice(0, 5).map((chip) => (
-                    <span key={chip} className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
+                    <span key={chip} className={metadataPillDensity.dense}>
                       {chip}
                     </span>
                   ))}
@@ -1245,7 +1219,7 @@ function SearchRecordResults({
               ) : null}
 
               {reasons.length ? (
-                <p className="text-xs font-medium text-[color:var(--text-soft)]">
+                <p className="text-xs font-medium text-[color:var(--text-muted)]">
                   Matched by {reasons.slice(0, 3).join(", ")}.
                 </p>
               ) : null}
@@ -1666,7 +1640,7 @@ function DocumentSearchResultsPanelImpl({
               apart from the trigger's badge, so the reader needs the count to
               explain why the list is shorter than the ribbon's total. */}
           {activeFilterCount > 0 && !filterPanelOpen ? (
-            <div className={cn(metadataPill, "min-h-8 w-fit max-w-full text-2xs")}>
+            <div className={cn(metadataPillDensity.roomyCompact, "w-fit max-w-full")}>
               {sortedMatches.length} result{sortedMatches.length === 1 ? "" : "s"} after filters
             </div>
           ) : null}

@@ -180,7 +180,7 @@ export function AccountSetupDialog({
             </AsyncButton>
 
             <div className="grid gap-3">
-              <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+              <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-muted)]">
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
                 <span>Social sign-in unavailable</span>
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -202,7 +202,7 @@ export function AccountSetupDialog({
             >
               <h3
                 id="account-benefits-title"
-                className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]"
+                className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]"
               >
                 {benefitsHeading}
               </h3>

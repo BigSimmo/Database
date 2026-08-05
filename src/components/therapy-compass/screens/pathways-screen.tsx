@@ -71,7 +71,7 @@ export function PathwaysScreen() {
                       {p.clinicalProblem ?? p.summary ?? "Therapy workflow"}
                     </span>
                     <span className="flex items-center justify-between gap-2">
-                      <span className="text-2xs text-[color:var(--text-soft)]">{p.steps.length} linked steps</span>
+                      <span className="text-2xs text-[color:var(--text-muted)]">{p.steps.length} linked steps</span>
                       <span
                         className={`inline-flex items-center rounded-md border px-2 py-0.5 text-2xs font-semibold ${p.reviewStatus === "reviewed" ? "border-[color:var(--success-border)] bg-[color:var(--success-bg)] text-[color:var(--success-text)]" : "border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"}`}
                       >
@@ -83,7 +83,7 @@ export function PathwaysScreen() {
               );
             })}
           </div>
-          <p className="mt-4 mx-0 mb-0 text-2xs text-[color:var(--text-soft)] italic">
+          <p className="mt-4 mx-0 mb-0 text-2xs text-[color:var(--text-muted)] italic">
             Pathways are generated from imported therapy records.
           </p>
         </div>
@@ -108,8 +108,8 @@ export function PathwaysScreen() {
                 {pathway.summary ??
                   "A source-linked workflow for reviewing therapy options, delivery constraints and cautions before choosing a next step."}
               </p>
-              <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-soft)]">
-                <PathwayIcon size={14} strokeWidth={1.8} />
+              <div className="flex items-center gap-1.5 text-xs text-[color:var(--text-muted)]">
+                <PathwayIcon size={14} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
                 {pathway.steps.length} linked therapy steps
               </div>
             </div>
@@ -138,7 +138,7 @@ export function PathwaysScreen() {
                         {step.description ?? therapy?.bestUsedFor ?? "Review fit, contraindications and source status."}
                       </div>
                     </div>
-                    <span className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-soft)] whitespace-nowrap">
+                    <span className="text-3xs font-bold tracking-eyebrow text-[color:var(--text-muted)] whitespace-nowrap">
                       {step.label ?? "STEP"}
                     </span>
                     {therapy ? (
@@ -153,7 +153,7 @@ export function PathwaysScreen() {
                       <ChevronRightIcon
                         size={16}
                         strokeWidth={1.8}
-                        className="text-[color:var(--text-soft)] flex-none"
+                        className="text-[color:var(--decoration-soft)] flex-none"
                       />
                     )}
                   </div>

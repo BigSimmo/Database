@@ -102,11 +102,6 @@ export function SearchScreen() {
             </button>
             <button
               type="button"
-              // `--text-muted`, not `--text-soft`: this is a button label, and
-              // `--text-soft` is the deprecated decoration alias the v2 token
-              // contract pins below 4.5:1 on purpose. The v2 branch migrates
-              // this exact line, so matching it here leaves only the handler
-              // for that merge to reconcile.
               className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
               // `clearSearchFilters`, not `clearSearch`. This control sits at the
               // end of the quick-filter chip row and is labelled `Clear`, so it
@@ -116,9 +111,13 @@ export function SearchScreen() {
               // (`bindings.tsx:441`) is reused rather than duplicated.
               // The sheet's `Clear all` is deliberately different and stays on
               // `clearSearch` — it is labelled for what it does.
+              //
+              // Both sides of the v2 merge agreed on `--text-muted`, so this
+              // hunk reduced to the handler alone; `main` still carries the
+              // query-wiping version because #1616 branched before the fix.
               onClick={b.clearSearchFilters}
             >
-              <XIcon size={15} strokeWidth={1.8} />
+              <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
               Clear
             </button>
           </div>

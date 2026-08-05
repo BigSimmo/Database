@@ -1,26 +1,28 @@
-# Clinical KB design system — ADOPTION (PR 13 / PR-J step 0 registration)
+# Clinical KB design system — ADOPTION
 
-**The committed contract every adoption commit codes against.** Nothing may be adopted before
-this file exists; every surface below adopts against the allowlist recorded here, and a diff
-that touches a file outside its surface's allowlist is rejected whole rather than trimmed.
+**The committed ownership and disposition contract for every production surface.** The source
+of truth is `adoption-contract.json`; the generated manifest and marked tables in this document
+must match it exactly.
 
-- **Date:** 2 August 2026 · branch `claude/ds-v2-adopt`
-- **Base:** `origin/main` at `706607014` (PR-Arch squash `62dfa3490` is an ancestor)
+- **Date:** 5 August 2026
+- **Current state:** 53 visual references are locally registered; all 47 production page routes
+  are owned across 14 surface families, with 55 route/component roots scanned; every declared
+  root remains on the compatibility shell.
 - **Phase 1 blockers resolved first, in their own commits:** `#207` ungrounded `AnswerState`,
   `#208` clipboard composition. See [SPEC.md](SPEC.md) §13 PR 6 clinical review, blockers 1–2.
 - **Companions:** [SPEC.md](SPEC.md) · [COMPONENTS.md](COMPONENTS.md) ·
   [DECISIONS.md](DECISIONS.md) · [GATES.md](GATES.md) · [TOKENS.md](TOKENS.md)
 
-**Registration means** a component has a proof surface and is product-ready — not that it
-exists on disk. COMPONENTS §0.1 lists 28 already-registered components; §0.2 lists what is
-built but unregistered. A surface may only import a component that is registered by the time
-that surface's commit lands.
+**Local registration means** a visual component has a source map, entry export, deterministic
+source-derived props, preview, and direct publication contract. It is not a claim of remote
+design-project publication, product readiness, root v2 activation, or visual/browser acceptance.
+Support-only APIs are listed in COMPONENTS §0.2 and intentionally have no visual registry row.
 
 ---
 
-## 1 · Adoption order
+## 1 · Historical migration order
 
-Six surfaces, in this order, one commit each, each commit carrying **its own test-pin flips**
+The original adoption playbook used six work lanes, in this order, one commit each, each commit carrying **its own test-pin flips**
 so a surface stays a single revert unit:
 
 | #   | Surface           | Owner                     |
@@ -43,7 +45,7 @@ top model at all.
 
 ---
 
-## 2 · Surface allowlists
+## 2 · Historical migration allowlists
 
 A builder may edit **only** the files listed for its surfaces, plus the test files named in
 that surface's pin set. Everything else — including a file another surface owns — is out of
@@ -73,9 +75,10 @@ error is present, then (2) adopt the hand-rolled product fields onto the folded 
 not invent product mounts that do not exist.
 
 **Leave alone in this surface:** `aria-pressed` segmented groups in `patient-profile-panel`
-and `settings-dialog` (SegmentedControl is specified, not built — do not approximate it with
-`RadioGroup`); `SettingsToggleField` (a switch applies immediately, a checkbox batches —
-COMPONENTS §4); the shell composer query input.
+and `settings-dialog`; `SegmentedControl` is now built and locally registered, but replacing
+those production controls is explicit adoption work, not publication. Also leave
+`SettingsToggleField` (a switch applies immediately, a checkbox batches — COMPONENTS §4) and
+the shell composer query input.
 
 ### 2.2 headers — Builder A
 
@@ -115,8 +118,8 @@ src/components/therapy-compass/screens/home-screen.tsx
 ```
 
 Complete empty/loading gaps with `EmptyState` and `LoadingPanel`; converge local chip
-duplicates onto DS `Chip`. **`FilterBar`, `SegmentedControl` and `DataTable` are specified,
-not built — do not invent them.**
+duplicates onto DS `Chip`. **`FilterBar` and `DataTable` are retired names; use the registered
+`SegmentedControl` for new mutually exclusive choices and the canonical `AccessibleTable`.**
 
 **Coordination:** catalogues share the results ribbon and `search-band` pins with headers.
 `search-results-header-band.tsx` belongs to **headers**; a catalogue commit that needs a ribbon
@@ -129,12 +132,14 @@ src/components/clinical-dashboard/document-search-results.tsx
 src/components/DocumentViewer.tsx
 ```
 
-`DocumentFrame` is specified, **not built** (PR 11) — do not adopt as if present. Until it
-exists, this surface is token/recipe cleanup plus the live-region retirement below. Keep every
-`role="alert"` semantic; route announcements through the announcer policy rather than deleting
-roles, because many `role="status"` sites are implicit polite live regions with no `aria-live`
-attribute and removing the role without an `announce()` call changes what a screen reader
-hears.
+`DocumentFrame` is **built** (`src/components/ui/document-frame.tsx`) and used by
+`DocumentViewer` as a shell-only surround (no `controls` toolbar — PDF chrome stays on
+`PdfCanvasViewer`). It is not yet design-sync registered among the 53 published visual
+exports. Do not invent a second frame or add inversion/filters; route document renders through
+the existing viewer + frame. Keep every `role="alert"` semantic; route announcements through
+the announcer policy rather than deleting roles, because many `role="status"` sites are
+implicit polite live regions with no `aria-live` attribute and removing the role without an
+`announce()` call changes what a screen reader hears.
 
 `DocumentViewer.tsx` owns its own page composer. Do not add a second one, and do not touch the
 shell props that hide the shared composer on document routes.
@@ -205,12 +210,20 @@ over passages no model wrote. `composeAnswerClipboardText()` now takes an explic
 tier flag, which both product callers pass. Pinned in
 `tests/answer-clipboard-product-path.dom.test.tsx` and `tests/answer-clipboard-composition.test.ts`.
 
+**Clinical-owner wording approval (2026-08-05).** The clinical owner formally approved the fixed
+clinician-facing `responsive-compact` phone wording in
+`src/components/ui/verification-notice.tsx` exactly as shipped on this branch. The approval covers
+all model, extractive, degraded-state and unknown-state compact strings selected by
+`RESPONSIVE_COMPACT_WORDING` / `UNKNOWN_RESPONSIVE_COMPACT_WORDING`. It does not replace the full
+wording on larger screens, print or clipboard output, and it does not approve a disclosure,
+clamp, hidden instruction, retrieval change, visual baseline or patient/plain-language variant.
+
 ---
 
-## 3 · Components to register before their surface adopts them
+## 3 · Registration disposition
 
-Built, not registered (COMPONENTS §0.2) — each must have its proof surface before the listed
-surface's commit lands:
+The Phase 1 local registration gap is closed. The visual symbols below are now included in the
+53-component source-derived registry; support APIs remain entry-only by design:
 
 | Module                                        | Symbols                                                         | First adopting surface   |
 | --------------------------------------------- | --------------------------------------------------------------- | ------------------------ |
@@ -226,28 +239,25 @@ surface's commit lands:
 | `ui/answer-card.tsx`                          | `AnswerCard`, `AnswerFooter`, `DoseLine`, `answerClipboardText` | answer                   |
 | `ui/missing-value.tsx`, `ui/date-display.tsx` | `MissingValue`, `DateDisplay`                                   | answer                   |
 
-`TextField` and `SearchField` appear in COMPONENTS §0.1 as registered-experimental with **0**
-product imports while §0.4 still lists field-shell defects against them. Treated here as
-**registered but not adopted**: the fold closes the defects, and the first product mounts are
-this wave's work. Registration is not adoption.
-
-`Select` and `Checkbox` have no design-sync registration and `Select` has no dedicated test —
-that gap is closed in the forms commit, not deferred past it.
+`TextField`, `SearchField`, `Select`, and `Checkbox` are registered references even where product
+imports remain zero. Registration is not adoption. `LiveAnnouncer`, `RouteAnnouncer`, `announce`,
+`AnswerState`, `answerStateFromRetrieval`, and `answerClipboardText` are support-only entry APIs.
 
 ---
 
 ## 4 · Exclusions
 
-| Excluded                                                          | Reason                                                                            |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `src/app/mockups/**`, `*-mockups.tsx`                             | Design scratch; 404 in production; gate-exempt. Never "fixed"                     |
-| `src/lib/rag/**` and the other RAG-ranking protected surfaces     | Read-only; not an adoption surface                                                |
-| Wrapping or remounting `GlobalSearchShell`                        | One production mount exists (`shared-search-app-shell.tsx`); a second is a defect |
-| Half-component adoption                                           | SPEC §13 invariant — a surface adopts a component whole                           |
-| Replacing the product copy path with bare `answerClipboardText()` | `#208`; drops the render policy's warnings                                        |
-| Adopting the answer surface before `#207`                         | SPEC §13 blocker 2                                                                |
-| `SegmentedControl`, `FilterBar`, `DataTable`, `DocumentFrame`     | Specified, not built — do not approximate                                         |
-| `#209` warning-as-body-text contrast                              | P3; not a Phase 1 blocker and not in this wave's scope                            |
+| Excluded                                                          | Reason                                                                                                                      |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/mockups/**`, `*-mockups.tsx`                             | Design scratch; 404 in production; gate-exempt. Never "fixed"                                                               |
+| `src/lib/rag/**` and the other RAG-ranking protected surfaces     | Read-only; not an adoption surface                                                                                          |
+| Wrapping or remounting `GlobalSearchShell`                        | One production mount exists (`shared-search-app-shell.tsx`); a second is a defect                                           |
+| Half-component adoption                                           | SPEC §13 invariant — a surface adopts a component whole                                                                     |
+| Replacing the product copy path with bare `answerClipboardText()` | `#208`; drops the render policy's warnings                                                                                  |
+| Adopting the answer surface before `#207`                         | SPEC §13 blocker 2                                                                                                          |
+| `FilterBar`, `DataTable`                                          | Retired names; use a surface-owned filter pattern and canonical `AccessibleTable`                                           |
+| `DocumentFrame`                                                   | Built shell-only in `DocumentViewer`; not yet design-sync registered — do not invent a second frame or approximate controls |
+| `#209` warning-as-body-text contrast                              | P3; not a Phase 1 blocker and not in this wave's scope                                                                      |
 
 ---
 
@@ -303,3 +313,44 @@ chrome differs between them.
 | docs       | `/documents/search` results + filter shelf · a document detail with section nav · the clinical summary toggle and indexed source panel · a fault/empty search state                                            |
 | provenance | the document-admin source metadata block · the answer support caution (pre-adoption baseline) · a differentials source-status chip · the source preview popover                                                |
 | answer     | a ready grounded answer · an **ungrounded** answer showing the preserved caution (`#207`) · stale-evidence and source-only banners · a copied-clipboard sample (`#208`) · progress / empty / error / streaming |
+
+<!-- adoption-manifest:adoption:start -->
+
+## Generated adoption truth
+
+`generate-design-system-adoption.mjs` discovers every production `src/app/**/page.tsx` and
+requires each route to appear exactly once in `adoption-contract.json`. Undeclared, missing, or
+multiply-owned routes fail the check. `src/app/api/**` and `src/app/mockups/**` are non-page
+product exclusions; the only route-only disposition is the documented legacy document-source
+redirect. Shared shell/component roots carry their own explicit `shared-shell` disposition.
+
+Registered public components: 53
+Declared product roots: 55
+Roots with a literal `.ckb-v2` opt-in: 1
+Roots inheriting `.ckb-v2` from the global `<html>`: 54
+Production surfaces observed under v2: 14/14
+Dynamic `ckb-v2` constructions: 0
+Declared production page routes: 47/47
+
+Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
+The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
+Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed or explicitly not-committed (pending Linux screenshot approval).
+
+| Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
+| ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |
+| `root-shell-and-settings`          | shared-shell    |      1 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `catalogues-forms-and-info`        | owned           |     13 |    13 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `differentials`                    | owned           |      4 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `formulation`                      | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `specifiers`                       | owned           |      5 |     5 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `therapy-compass`                  | owned           |      9 |    10 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `documents-and-source-evidence`    | owned           |      3 |     4 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `documents-source-legacy-redirect` | legacy-redirect |      1 |     0 | v2             | v2 (inherited-global-root) | not-applicable | not-applicable |
+| `favourites`                       | owned           |      1 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `tools-and-calculators`            | owned           |      2 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `privacy-safety-and-reference`     | owned           |      3 |     3 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `search-results-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `answers-shared`                   | shared-shell    |      0 |     2 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+| `source-preview-shared`            | shared-shell    |      0 |     1 | v2             | v2 (inherited-global-root) | passed         | not-committed  |
+
+<!-- adoption-manifest:adoption:end -->
