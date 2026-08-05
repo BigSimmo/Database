@@ -382,10 +382,13 @@ copying credentials into the checkout.
    but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open
    a new task after consent. When the host exposes its app identifiers, pass that non-secret
    inventory to the environment check with
-   `--hosted-app-inventory=github,railway,supabase`. The checker rejects stale `railway_cloud` and
-   unrecognized names (so tokens/secrets are never accepted), reports only allowlisted presence
-   flags in the sanitized capability lines, and leaves the inventory explicitly unverified when the
-   host does not provide it; repository config is never substituted for this evidence.
+   `--hosted-app-inventory=github,railway,supabase`. The exact `=` form is required and the option
+   may appear only once; every other unsupported argument fails closed. The checker rejects stale
+   `railway_cloud`, shared sensitive-token patterns, and identifiers outside its reviewed connector
+   allowlist. It normalizes connector-name case and never echoes supplied values. Invalid input
+   suppresses capability output rather than printing a misleading unverified state. Inventory
+   remains explicitly unverified when the host does not provide it; repository config is never
+   substituted for this evidence.
 4. **Prove the shell boundary before providers.** First run the direct raw-shell command above
    before profiles or command shims. Then run `npm run check:codex-cloud`,
    `npm run check:codex-cloud -- --runtime`, `npm run check:runtime`, and
