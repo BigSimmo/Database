@@ -223,6 +223,21 @@ export function validateCodexProjectMcpConfiguration(text) {
   return errors;
 }
 
+/** Known hosted connector names that may appear in a fresh-task inventory. */
+export const knownHostedAppInventoryNames = Object.freeze([
+  "github",
+  "railway",
+  "supabase",
+  "figma",
+  "sentry",
+  "figma_cloud",
+  "sentry_cloud",
+  "supabase_cloud",
+]);
+
+/** Host-local names that must be removed before a connected task is trusted. */
+export const staleHostedAppInventoryNames = Object.freeze(["railway_cloud"]);
+
 /**
  * Read an explicit, non-secret hosted app inventory supplied by a fresh task.
  * The repository cannot discover this inventory itself.
@@ -238,6 +253,27 @@ export function parseHostedAppInventoryArgument(args) {
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+/**
+ * Format hosted-app inventory for sanitized capability output.
+ * Never echo arbitrary operator-supplied strings — only allowlisted presence flags.
+ * @param {string[] | null} appNames
+ * @returns {string}
+ */
+export function hostedAppInventoryCapabilityLine(appNames) {
+  if (appNames === null) return "hosted_app.inventory=external-unverified-until-fresh-task";
+  const set = new Set(appNames);
+  const unknownCount = appNames.filter(
+    (name) => !knownHostedAppInventoryNames.includes(name) && !staleHostedAppInventoryNames.includes(name),
+  ).length;
+  const parts = [
+    `count=${appNames.length}`,
+    ...knownHostedAppInventoryNames.map((name) => `${name}=${set.has(name)}`),
+    ...staleHostedAppInventoryNames.map((name) => `stale_${name}=${set.has(name)}`),
+    `unknown=${unknownCount}`,
+  ];
+  return `hosted_app.inventory=provided ${parts.join(" ")}`;
 }
 
 /**
@@ -257,7 +293,18 @@ export function validateHostedAppInventory(appNames) {
   if (invalidNames.length > 0) {
     errors.push("Hosted app inventory names may contain only letters, numbers, dot, underscore, and hyphen.");
   }
-  if (appNames.includes("railway_cloud")) {
+  const unrecognizedNames = appNames.filter(
+    (name) =>
+      /^[A-Za-z0-9_.-]+$/.test(name) &&
+      !knownHostedAppInventoryNames.includes(name) &&
+      !staleHostedAppInventoryNames.includes(name),
+  );
+  if (unrecognizedNames.length > 0) {
+    errors.push(
+      `Hosted app inventory contains unrecognized app names; supply only connector names (${knownHostedAppInventoryNames.join(", ")}), never tokens or secrets.`,
+    );
+  }
+  if (appNames.some((name) => staleHostedAppInventoryNames.includes(name))) {
     errors.push(
       "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
     );
@@ -468,14 +515,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
     `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
-  const hostedAppInventory = options.hostedAppInventory ?? null;
-  if (hostedAppInventory === null) {
-    lines.push("hosted_app.inventory=external-unverified-until-fresh-task");
-  } else {
-    lines.push(
-      `hosted_app.inventory=provided count=${hostedAppInventory.length} stale_railway_cloud=${hostedAppInventory.includes("railway_cloud")}`,
-    );
-  }
+  lines.push(hostedAppInventoryCapabilityLine(options.hostedAppInventory ?? null));
   lines.push("provider_route.github=codex-native-connector");
   lines.push("provider_route.railway=chatgpt-official-app");
   lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
