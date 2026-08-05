@@ -187,19 +187,24 @@ hosted Supabase MCP server uses OAuth, not repo secrets.
 
 ### Context7
 
-Workspace config in `.cursor/mcp.json` points at `https://mcp.context7.com/mcp`
-(unversioned remote URL); `.cursor/settings.json` enables the `context7-plugin`.
-Use Context7 for versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest,
-React 19, `@supabase/supabase-js`** (peers; not exhaustive) — not for Next.js 16:
-read `node_modules/next/dist/docs/` locally and do not invent App Router APIs from
+Workspace config in `.cursor/mcp.json` runs pinned local
+`npx -y @upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from `${env:…}`;
+`.cursor/settings.json` enables the `context7-plugin`. Use Context7 for
+versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest, React 19,
+`@supabase/supabase-js`** (peers; not exhaustive) — not for Next.js 16: read
+`node_modules/next/dist/docs/` locally and do not invent App Router APIs from
 Context7 or training data.
 
 Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://context7.com/dashboard)
-raises rate limits. Set it as a user/OS env var or in Cursor **Settings → MCP** so
-`${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` expands. `.env.local` alone and
-Cursor Cloud Agent Secrets do **not** feed that project MCP header (Secrets feed
-the Next app env only). Context7 works without a key at lower limits. Full setup
-notes: `docs/agents-guide.md`. Never commit the API key.
+raises rate limits. Set it as a user/OS env var, Cursor **Settings → MCP**, or a
+Cursor Cloud Agent Secret (shell `process.env`). Local stdio MCP and `npx ctx7`
+use that env; a separate host-injected Context7 connector may still ignore it —
+fall back to `npx ctx7 library|docs …` if host MCP returns quota exceeded.
+Without a key, Cursor expands `${env:CONTEXT7_API_KEY}` to empty and the server
+runs anonymously at lower rate limits. **Reload MCP servers** (or restart Cursor)
+after setting or rotating the key — the stdio child captures env at spawn.
+`.env.local` alone does not expand project MCP `${env:}`. Full setup notes:
+`docs/agents-guide.md`. Never commit the API key.
 
 ## Documentation
 

@@ -312,9 +312,10 @@ the session, then run `codex mcp login railway`. Setup does not copy any MCP ser
 `$CODEX_HOME`. Hosted ChatGPT and Codex Cloud require the separately installed/authenticated
 workspace app. Start a fresh task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client Desktop/CLI template and static allowlist only. It does not
-prove hosted Cloud availability. Context7 / library-docs
-MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
-Railway + Supabase allowlist.
+prove hosted Cloud availability. Context7 / library-docs MCP is Cursor-side
+(`.cursor/mcp.json` local `@upstash/context7-mcp@3.2.5` with `CONTEXT7_API_KEY` from `${env:…}`,
+or a host-injected connector), not part of this Codex Cloud Railway + Supabase allowlist. When the
+host connector is quota-blocked, use `npx ctx7` with the agent Secret in `process.env`.
 
 ### Personal Pro split control plane
 
