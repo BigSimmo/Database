@@ -102,7 +102,12 @@ export function SearchScreen() {
             </button>
             <button
               type="button"
-              className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-soft)] text-sm-minus font-medium cursor-pointer`}
+              // `--text-muted`, not `--text-soft`: this is a button label, and
+              // `--text-soft` is the deprecated decoration alias the v2 token
+              // contract pins below 4.5:1 on purpose. The v2 branch migrates
+              // this exact line, so matching it here leaves only the handler
+              // for that merge to reconcile.
+              className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
               // `clearSearchFilters`, not `clearSearch`. This control sits at the
               // end of the quick-filter chip row and is labelled `Clear`, so it
               // reads as "clear these filters" — but `clearSearch` also wipes the
