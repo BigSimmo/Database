@@ -168,7 +168,11 @@ describe("document search state matrix", () => {
 
     rerender(<DocumentSearchResultsPanel {...documentProps} query="lithium" loading={false} />);
     expect(screen.queryByText("Finding matching documents")).not.toBeInTheDocument();
-    expect(screen.getByText("No matches for “lithium”")).toBeInTheDocument();
+    // A heading, not a paragraph. This state owns its region, so #1612 gave it
+    // `h3`; adopting the shared empty state initially demoted it back to `<p>`
+    // and the only thing that caught it was a Chromium journey. Pin the level
+    // here so the fast gate carries it.
+    expect(screen.getByRole("heading", { level: 3, name: "No matches for “lithium”" })).toBeInTheDocument();
   });
 
   it("renders the document home for an empty query and wires every escape action", async () => {

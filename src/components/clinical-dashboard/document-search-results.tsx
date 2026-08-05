@@ -1572,6 +1572,11 @@ function DocumentSearchResultsPanelImpl({
           <SearchResultsEmptyState
             modeId="documents"
             query={trimmedQuery}
+            // The band above owns `h2` for this region, so the zero-result
+            // state is `h3` — the level #1612 gave it, kept across the move to
+            // the shared state. The inline filtered-to-zero state inside the
+            // results grid stays a paragraph: the grid's heading is the band's.
+            headingLevel={3}
             onBrowseAll={onOpenLibrary}
             browseAllLabel={
               documentCount > 0 ? `Browse all ${documentCount.toLocaleString()} sources` : "Browse all sources"

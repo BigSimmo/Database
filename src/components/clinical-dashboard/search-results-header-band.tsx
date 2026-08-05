@@ -778,6 +778,7 @@ const emptyStateAction =
 export function SearchResultsEmptyState({
   modeId,
   query,
+  headingLevel,
   onTryExample,
   onCrossMode,
   canAccessFavourites = false,
@@ -789,6 +790,19 @@ export function SearchResultsEmptyState({
 }: {
   modeId: AppModeId;
   query: string;
+  /**
+   * Render the title as a heading at this level instead of a paragraph.
+   *
+   * Opt-in and un-defaulted, for the same reason `EmptyState` is (#1612): most
+   * of the twelve modes rendering this state sit inside a region whose heading
+   * the band already owns, so promoting every title would insert a level the
+   * surrounding outline never declared. The states that own their region — the
+   * main document-search zero-result state — pass the level their outline
+   * requires, and their heading is pinned by `ui-smoke`. Dropping it back to a
+   * paragraph when this shared state replaced `EmptyState` is what turned that
+   * assertion red.
+   */
+  headingLevel?: 2 | 3 | 4 | 5 | 6;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
   canAccessFavourites?: boolean;
@@ -816,6 +830,7 @@ export function SearchResultsEmptyState({
   // calling it the most recent would be a claim the data cannot support.
   const lastFilter = appliedFilters.at(-1);
   const filtered = appliedFilters.length > 0;
+  const Title = headingLevel ? (`h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6") : "p";
   const secondary = [
     config?.examples[0] && onTryExample ? (
       <button
@@ -875,13 +890,13 @@ export function SearchResultsEmptyState({
         <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
           {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
         </span>
-        <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
+        <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
           {filtered
             ? appliedFilters.length === 1
               ? `No ${resultNoun} match the selected filter`
               : `No ${resultNoun} match all ${appliedFilters.length} filters`
             : `No matches for “${query.trim() || "your search"}”`}
-        </p>
+        </Title>
         <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
           {filtered
             ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."

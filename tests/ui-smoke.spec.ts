@@ -3672,7 +3672,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await submitDocumentSearch(page);
     await expect(page).toHaveURL(/\/documents\/search\?/);
     await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
-    await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
+    // Still a heading, deliberately: #1612 promoted this state's title to `h3`
+    // because it owns its region, and the move to the shared empty state must
+    // not quietly demote it back to a paragraph. Only the copy changed — the
+    // shared state names the query that found nothing.
+    await expect(
+      page.getByRole("heading", { level: 3, name: /No matches for .what is the best coffee machine/ }).first(),
+    ).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
     await gotoApp(page, `/documents/${demoDocId}?chunk=44444444-4444-4444-8444-444444444442`);
