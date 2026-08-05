@@ -255,6 +255,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     columns: image.tableColumns,
   });
   const tableCaption = tableHeading || cleanCaption || "Document table";
+  const hasSourceTableTitle = Boolean(tableHeading || cleanCaption);
   const warnings = tableQualityWarnings(image, hasStructuredTable);
   const sourceImageFirst =
     !hasStructuredTable ||
@@ -299,6 +300,8 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         columns={image.tableColumns}
         compact={false}
         expandOnMobile
+        // Invented fallbacks ("Document table") are accessible-name only — do not paint a fake heading.
+        hidePreviewCaption={!hasSourceTableTitle}
         dialogTitle={tableCaption}
         lowConfidenceFallback={imageBlock}
       />
@@ -623,7 +626,7 @@ function IndexedSourceText({
             <ul
               key={block.id}
               className={cn(
-                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--text-soft)]",
+                "list-disc space-y-1.5 pl-5 text-base-minus leading-7 text-[color:var(--text)] marker:text-[color:var(--decoration-soft)]",
                 compact && "text-sm leading-6",
               )}
             >
@@ -637,14 +640,17 @@ function IndexedSourceText({
         }
 
         if (block.type === "table") {
+          const tableCaption = block.caption?.trim() || "Document table";
           return (
             <AccessibleTable
               key={block.id}
-              caption={block.caption}
+              caption={tableCaption}
               rows={block.rows}
               compact={false}
               expandOnMobile
-              dialogTitle={block.caption ?? "Document table"}
+              // Invented fallbacks are accessible-name only — do not paint a fake heading.
+              hidePreviewCaption={!block.caption?.trim()}
+              dialogTitle={tableCaption}
             />
           );
         }

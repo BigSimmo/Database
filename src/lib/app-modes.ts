@@ -338,11 +338,14 @@ export const appModeDefinitions = [
     // qualified-clinician sign-off, so Therapy is now a first-class mode in the
     // production sidebar and MODE dropdown (no longer devOnly-gated).
     search: {
-      // Therapy Compass owns its in-tool search over the imported therapy library
-      // (not the document corpus), so it borrows the benign "tools" search kind and
-      // suppresses the universal composer on its route.
+      // Therapy owns its in-tool search over the imported therapy library (not
+      // the document corpus), so the shared composer borrows the benign "tools"
+      // command behavior while routing into Therapy's dedicated search page.
       kind: "tools",
-      placeholder: "Search therapies, symptoms, or skills...",
+      // The longer phrase became the late portal's LCP element on Therapy Home.
+      // Keep the full search scope in the accessible name below; the concise
+      // visible prompt lets the already-painted hero remain the LCP owner.
+      placeholder: "Search therapies…",
       inputAriaLabel: "Search therapies by problem, symptom, skill, or population",
       submitIdleLabel: "Therapy",
       submitBusyLabel: "Therapy",

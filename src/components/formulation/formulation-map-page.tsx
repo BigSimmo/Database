@@ -81,7 +81,7 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
                       </p>
                     </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1 text-2xs font-semibold text-[color:var(--text-soft)]">
+                  <div className="mt-2 flex flex-wrap gap-1 text-2xs font-semibold text-[color:var(--text-muted)]">
                     {group.domains.map((domain) => (
                       <span key={domain}>{domain}</span>
                     ))}
