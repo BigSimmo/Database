@@ -65,6 +65,9 @@ export type ModeActionSetId =
   | "factsheets";
 export type ModeActionPlacement = "up" | "down";
 
+const actionSurfaceId = "daily-actions-sheet";
+const customBodyFocusScopeId = "daily-actions-sheet-body";
+
 type IntegratedSurfaceLayout = {
   placement: ModeActionPlacement;
   left: number;
@@ -448,7 +451,7 @@ export function ModeActionPopup({
 
   function focusActionItem(index: number) {
     if (customBody) {
-      const body = document.getElementById("daily-actions-sheet");
+      const body = document.getElementById(customBodyFocusScopeId);
       const focusable = body?.querySelectorAll<HTMLElement>(
         'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
       );
@@ -540,7 +543,7 @@ export function ModeActionPopup({
   function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
     event.preventDefault();
-    openWithFocus(event.key === "ArrowUp" ? items.length - 1 : 0);
+    openWithFocus(event.key === "ArrowUp" ? -1 : 0);
   }
 
   function handleItemKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
@@ -701,7 +704,7 @@ export function ModeActionPopup({
   function renderActionRows() {
     return (
       <div
-        id="daily-actions-sheet"
+        id={actionSurfaceId}
         data-testid="daily-actions-menu"
         role="menu"
         aria-label={title}
@@ -829,7 +832,8 @@ export function ModeActionPopup({
   // Invoke the default renderer unconditionally so its ref-owning helpers remain
   // ordinary render work even when a richer body replaces the resulting node.
   const defaultPopoverBody = renderPopoverBody();
-  const popoverBody = customBody ?? defaultPopoverBody;
+  const customBodyWithFocusScope = customBody ? <div id={customBodyFocusScopeId}>{customBody}</div> : null;
+  const popoverBody = customBodyWithFocusScope ?? defaultPopoverBody;
 
   // Desktop popover header — same anatomy as the Sheet header the ≤1023px surface
   // uses (accent icon tile + stacked title/subtitle + close), so the menu reads as
@@ -893,6 +897,10 @@ export function ModeActionPopup({
         ref={surfaceRef}
         data-placement={placement}
         style={surfaceStyle}
+        id={customBody ? actionSurfaceId : undefined}
+        data-testid={customBody ? "daily-actions-menu" : undefined}
+        role={customBody ? "dialog" : undefined}
+        aria-label={customBody ? title : undefined}
         className={cn(
           "mode-action-surface z-[60] text-[color:var(--text)]",
           integrated && integratedSurfaceLayout ? "fixed" : "absolute",
@@ -934,6 +942,8 @@ export function ModeActionPopup({
           description={headerSubtitle}
           closeLabel={`Close ${title.toLowerCase()} options`}
           returnFocusRef={buttonRef}
+          id={customBody ? actionSurfaceId : undefined}
+          testId={customBody ? "daily-actions-menu" : undefined}
           headerLeading={
             <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <TitleIcon className="h-5 w-5" aria-hidden="true" />
@@ -943,7 +953,7 @@ export function ModeActionPopup({
           mobileSize="content"
           portal
         >
-          {customBody ?? defaultPopoverBody}
+          {customBodyWithFocusScope ?? defaultPopoverBody}
         </Sheet>
       ) : integrated && open && typeof document !== "undefined" ? (
         createPortal(actionSurface, document.body)
@@ -968,7 +978,7 @@ export function ModeActionPopup({
             open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)] rotate-45",
           )}
           aria-label={buttonLabel}
-          aria-controls={open ? "daily-actions-sheet" : undefined}
+          aria-controls={open ? actionSurfaceId : undefined}
           aria-expanded={open}
           aria-haspopup={customBody ? "dialog" : "menu"}
           title={buttonLabel}

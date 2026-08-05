@@ -111,6 +111,7 @@ export function SearchPinsMenu({
   currentModeId,
   modeOptions,
   actions,
+  globalSearchAvailable = true,
   onClose,
   onCurrentSearch,
   onGlobalSearch,
@@ -120,6 +121,7 @@ export function SearchPinsMenu({
   currentModeId: AppModeId;
   modeOptions: readonly ModeActionModeOption[];
   actions: readonly ModeActionItem[];
+  globalSearchAvailable?: boolean;
   onClose: () => void;
   onCurrentSearch: () => void;
   onGlobalSearch: () => void;
@@ -208,11 +210,7 @@ export function SearchPinsMenu({
 
   if (editor) {
     return (
-      <div
-        id="daily-actions-sheet"
-        className="mode-action-body polished-scroll p-3"
-        aria-describedby={editorDescriptionId}
-      >
+      <div className="mode-action-body polished-scroll p-3" aria-describedby={editorDescriptionId}>
         <div className="mb-3 flex items-start justify-between gap-3 px-1">
           <div>
             <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">
@@ -333,7 +331,7 @@ export function SearchPinsMenu({
 
   if (showModePicker) {
     return (
-      <div id="daily-actions-sheet" className="mode-action-body polished-scroll p-2.5">
+      <div className="mode-action-body polished-scroll p-2.5">
         <div className="mb-1 flex items-center gap-2 px-1">
           <button
             type="button"
@@ -387,7 +385,7 @@ export function SearchPinsMenu({
   }
 
   return (
-    <div id="daily-actions-sheet" className="mode-action-body polished-scroll p-2.5" data-testid="pins-and-search-menu">
+    <div className="mode-action-body polished-scroll p-2.5" data-testid="pins-and-search-menu">
       <SectionHeading
         action={
           <button
@@ -516,25 +514,29 @@ export function SearchPinsMenu({
           </span>
           <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
         </button>
-        <button
-          type="button"
-          onClick={onGlobalSearch}
-          className={cn(
-            "flex min-h-14 w-full items-center gap-3 rounded-xl px-2.5 text-left hover:bg-[color:var(--surface-subtle)]",
-            focusRing,
-          )}
-        >
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]">
-            <Globe2 aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">
-              Search all clinical areas
+        {globalSearchAvailable ? (
+          <button
+            type="button"
+            onClick={onGlobalSearch}
+            className={cn(
+              "flex min-h-14 w-full items-center gap-3 rounded-xl px-2.5 text-left hover:bg-[color:var(--surface-subtle)]",
+              focusRing,
+            )}
+          >
+            <span className="grid h-9 w-9 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]">
+              <Globe2 aria-hidden="true" className="h-4 w-4" />
             </span>
-            <span className="block text-xs text-[color:var(--text-muted)]">Open universal results for this query</span>
-          </span>
-          <Search aria-hidden="true" className="h-4 w-4 text-[color:var(--text-soft)]" />
-        </button>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-extrabold text-[color:var(--text-heading)]">
+                Search all clinical areas
+              </span>
+              <span className="block text-xs text-[color:var(--text-muted)]">
+                Open universal results for this query
+              </span>
+            </span>
+            <Search aria-hidden="true" className="h-4 w-4 text-[color:var(--text-soft)]" />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setShowModePicker(true)}
@@ -560,13 +562,14 @@ export function SearchPinsMenu({
 
       <div className="border-t border-[color:var(--border)] pt-2">
         <SectionHeading>Useful actions</SectionHeading>
-        <div className="grid grid-cols-2 gap-1.5">
-          {actions.slice(0, 4).map((action) => {
+        <div className="grid grid-cols-2 gap-1.5" role="menu" aria-label="Useful actions">
+          {actions.map((action) => {
             const Icon: LucideIcon = action.icon;
             return (
               <button
                 key={action.id}
                 type="button"
+                role="menuitem"
                 onClick={() => onAction(action.id)}
                 className={cn(
                   "flex min-h-12 items-center gap-2 rounded-xl px-2.5 text-left hover:bg-[color:var(--surface-subtle)]",

@@ -18,6 +18,14 @@ const actions: ModeActionItem[] = [
   { id: "documents-recent", label: "Recent documents", icon: FileText },
 ];
 
+const longActionList: ModeActionItem[] = [
+  { id: "documents-search", label: "Search sources", icon: Search },
+  { id: "documents-upload", label: "Upload PDF", icon: FileText },
+  { id: "documents-scope", label: "Scope sources", icon: FileText },
+  { id: "documents-tables", label: "Tables", icon: FileText },
+  { id: "documents-viewer", label: "Open source PDF", icon: FileText },
+];
+
 function renderMenu(overrides: Partial<ComponentProps<typeof SearchPinsMenu>> = {}) {
   const props: ComponentProps<typeof SearchPinsMenu> = {
     currentModeId: "documents",
@@ -118,5 +126,23 @@ describe("SearchPinsMenu", () => {
     await user.click(screen.getByRole("button", { name: /Choose another search area/ }));
     await user.click(screen.getByRole("button", { name: /Answer/ }));
     expect(onModeSelect).toHaveBeenCalledWith("answer");
+  });
+
+  it("omits the universal search action when the command dropdown is unavailable", () => {
+    renderMenu({ globalSearchAvailable: false });
+
+    expect(screen.queryByRole("button", { name: /Search all clinical areas/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Choose another search area/ })).toBeInTheDocument();
+  });
+
+  it("renders every supplied mode action", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    renderMenu({ actions: longActionList, onAction });
+
+    expect(screen.getByRole("menuitem", { name: "Search sources" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Tables" })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Open source PDF" }));
+    expect(onAction).toHaveBeenCalledWith("documents-viewer");
   });
 });

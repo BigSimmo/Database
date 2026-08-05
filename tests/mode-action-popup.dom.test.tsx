@@ -36,6 +36,29 @@ function Harness({ onAction = vi.fn(), onModeSelect = vi.fn() }) {
   );
 }
 
+function CustomBodyHarness() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <ModeActionPopup
+      open={open}
+      title="Pins and search"
+      titleIcon={Search}
+      buttonLabel="Open pins and search"
+      items={modeActionItemsFor("documents")}
+      onOpenChange={setOpen}
+      onAction={vi.fn()}
+      customBody={
+        <div>
+          <button type="button">First custom action</button>
+          <button type="button">Middle custom action</button>
+          <button type="button">Last custom action</button>
+        </div>
+      }
+    />
+  );
+}
+
 describe("ModeActionPopup state transitions", () => {
   it("starts closed, opens its action menu, and closes after an action", async () => {
     const user = userEvent.setup();
@@ -71,6 +94,21 @@ describe("ModeActionPopup state transitions", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("menu", { name: "Documents" })).not.toBeInTheDocument();
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("gives custom bodies dialog semantics and focuses the last custom control from ArrowUp", async () => {
+    const user = userEvent.setup();
+    render(<CustomBodyHarness />);
+
+    const trigger = screen.getByRole("button", { name: "Open pins and search" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+
+    trigger.focus();
+    await user.keyboard("{ArrowUp}");
+
+    const dialog = screen.getByRole("dialog", { name: "Pins and search" });
+    expect(screen.getByTestId("daily-actions-menu")).toBe(dialog);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Last custom action" })).toHaveFocus());
   });
 
   it("selects enabled modes and exposes disabled modes without selecting them", async () => {

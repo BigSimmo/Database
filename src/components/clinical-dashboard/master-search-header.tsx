@@ -1760,6 +1760,7 @@ export function MasterSearchHeader({
                   currentModeId={selectedAppMode.id}
                   modeOptions={actionMenuModeOptions}
                   actions={actionMenuItems}
+                  globalSearchAvailable={!usesPhoneSearchLayout}
                   onClose={() => setActionMenuOpen(false)}
                   onCurrentSearch={() => {
                     setActionMenuOpen(false);
