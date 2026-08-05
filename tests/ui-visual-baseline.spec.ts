@@ -47,6 +47,8 @@ type BaselineTarget = {
   /** Clipped region. Must resolve to exactly one visible element. */
   readonly selector: string;
   readonly viewport: { readonly width: number; readonly height: number };
+  /** Put an interaction-dependent surface into one explicit state before capture. */
+  readonly prepare?: (page: Page) => Promise<void>;
   /**
    * Regions to paint over before comparing. Only for genuinely non-deterministic
    * content — a mask is a hole in the gate, so prefer making the fixture stable.
@@ -84,6 +86,13 @@ const targets: readonly BaselineTarget[] = [
     route: documentPath,
     selector: "#main-content",
     viewport: desktop,
+    prepare: async (page) => {
+      const sectionIndex = page.getByTestId("document-section-index");
+      const sourceText = sectionIndex.getByRole("button", { name: /Indexed source text/ });
+      await expect(sourceText).toBeVisible();
+      await sourceText.click();
+      await expect(sourceText).toHaveAttribute("aria-current", "true");
+    },
   },
   {
     name: "therapy-compass-home",
@@ -108,6 +117,7 @@ async function settle(page: Page, target: BaselineTarget): Promise<Locator> {
   // The promise is mapped to undefined because it resolves to a FontFaceSet, which
   // Playwright cannot serialise back out of the page.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  await target.prepare?.(page);
   return region;
 }
 
