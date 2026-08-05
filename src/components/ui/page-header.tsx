@@ -59,7 +59,10 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
           return (
             <li key={`${item.label}:${index}`} className="flex min-w-0 items-center gap-1">
               {index > 0 ? (
-                <ChevronRight aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--text-soft)]" />
+                <ChevronRight
+                  aria-hidden="true"
+                  className="size-icon-xs shrink-0 text-[color:var(--decoration-soft)]"
+                />
               ) : null}
               {item.href ? (
                 <Link

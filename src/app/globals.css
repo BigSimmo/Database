@@ -59,6 +59,13 @@
      which covers the composer input as well as the icon/send buttons). */
   --spacing-tap: 3rem;
 
+  /* Mode-home composer slots reserve their settled portal geometry before the
+     client host adopts them. Without this structural reserve, Therapy moved the
+     entire action stack when hydration relocated the composer (CLS 0.248).
+     These are layout tokens, not a second v2 colour/theme source. */
+  --spacing-mode-home-composer-phone: 7.625rem;
+  --spacing-mode-home-composer-wide: 5.5rem;
+
   /* Icon glyph size scale. Named spacing tokens so icon sizing is a documented
      scale (size-icon-md is the 16px default) instead of raw `h-4 w-4` literals,
      and so a step can carry a responsive variant: `size-icon-md sm:size-icon-lg`.
@@ -208,6 +215,7 @@
   --text-heading: #080b0f;
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --decoration-soft: var(--neutral-500);
   /* Placeholder is still text (≥4.5:1). Same ink as muted until a distinct step
      is needed; also declared on the v2 layer for opt-in adoption. */
   --text-placeholder: var(--neutral-600);
@@ -288,6 +296,8 @@
   --danger-bg: #fef3f2;
   --danger-border: #fda29b;
   --danger-solid: #a3190f;
+  --danger-solid-hover: #85140d;
+  --danger-solid-active: #6f120c;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -322,6 +332,10 @@
   --disabled: #8794a8;
   --focus: var(--clinical-accent);
   --overlay-backdrop: rgb(4 8 14 / 56%);
+  --z-overlay: 80;
+  --z-popover: 95;
+  --z-modal: 100;
+  --z-toast: 110;
   --panel-gloss: color-mix(in srgb, var(--surface-lux) 82%, transparent);
 
   /* Motion primitives (shared by both themes). The duration values live with
@@ -468,6 +482,7 @@
   --text-heading: var(--neutral-950);
   --text-muted: var(--neutral-600);
   --text-soft: var(--neutral-500);
+  --decoration-soft: var(--neutral-500);
   --text-placeholder: var(--neutral-600);
   /* Per-theme values, not neutral-ramp aliases: tracking --neutral-300 left the
      dark border at ~1.35:1 against --surface, i.e. effectively invisible. */
@@ -535,6 +550,8 @@
   --danger-bg: #401c24;
   --danger-border: #7f2e36;
   --danger-solid: #b42318;
+  --danger-solid-hover: #d92d20;
+  --danger-solid-active: #912018;
   --danger-solid-contrast: #ffffff;
 
   --info: var(--info-text);
@@ -1396,7 +1413,7 @@ summary::-webkit-details-marker {
 }
 
 .chat-composer-input::placeholder {
-  color: var(--text-soft);
+  color: var(--text-placeholder);
 }
 
 .chat-composer-icon-button,
@@ -1512,7 +1529,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-input::placeholder {
-  color: color-mix(in srgb, var(--text-muted) 72%, var(--text-soft));
+  color: var(--text-placeholder);
   font-weight: 560;
   opacity: 1;
 }
@@ -1541,7 +1558,7 @@ summary::-webkit-details-marker {
 .answer-footer-search-send:disabled {
   opacity: 1;
   background: var(--surface-subtle);
-  color: var(--text-soft);
+  color: var(--disabled);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 42%, transparent);
 }
 
@@ -1747,7 +1764,7 @@ summary::-webkit-details-marker {
   justify-content: center;
   gap: 0.35rem;
   padding-inline: 0.25rem;
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1758,7 +1775,7 @@ summary::-webkit-details-marker {
 }
 
 .answer-suggestion-label {
-  color: var(--text-soft);
+  color: var(--text-muted);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -1859,7 +1876,7 @@ summary::-webkit-details-marker {
   height: 0.8125rem;
   flex-shrink: 0;
   margin-right: 0.3125rem;
-  color: var(--text-soft);
+  color: var(--decoration-soft);
 }
 
 .answer-suggestion-chip-label {
@@ -2870,7 +2887,7 @@ td,
 
   .polished-scroll:hover,
   .polished-scroll:focus-within {
-    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--text-soft) 15%) transparent;
+    scrollbar-color: color-mix(in srgb, var(--border-strong) 95%, var(--decoration-soft) 15%) transparent;
   }
 
   .polished-scroll::-webkit-scrollbar {
@@ -2895,7 +2912,7 @@ td,
   }
 
   .polished-scroll:hover::-webkit-scrollbar-thumb {
-    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--text-soft) 15%);
+    background-color: color-mix(in srgb, var(--border-strong) 90%, var(--decoration-soft) 15%);
   }
 
   .polished-scroll::-webkit-scrollbar-thumb:hover {
@@ -3000,6 +3017,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --text: CanvasText;
     --text-muted: CanvasText;
     --text-soft: CanvasText;
+    --decoration-soft: GrayText;
     --text-placeholder: CanvasText;
     --border: ButtonBorder;
     --border-strong: ButtonText;
@@ -3036,6 +3054,8 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --danger: Mark;
     --danger-soft: Canvas;
     --danger-solid: Mark;
+    --danger-solid-hover: Mark;
+    --danger-solid-active: Mark;
     /* Mark's palette-paired foreground — ButtonText is not guaranteed to
        contrast a Mark fill in arbitrary user schemes. */
     --danger-solid-contrast: MarkText;

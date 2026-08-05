@@ -62,7 +62,7 @@ const likelihoodTone: Record<DifferentialLikelihood, string> = {
 const lineTone: Record<DifferentialLikelihood, string> = {
   "most-likely": "var(--clinical-accent)",
   possible: "color-mix(in srgb, var(--clinical-accent) 58%, transparent)",
-  "less-likely": "color-mix(in srgb, var(--text-soft) 58%, transparent)",
+  "less-likely": "color-mix(in srgb, var(--decoration-soft) 58%, transparent)",
   "must-not-miss": "var(--danger)",
 };
 

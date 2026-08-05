@@ -118,7 +118,7 @@ export function SearchScreen() {
               // `clearSearch` — it is labelled for what it does.
               onClick={b.clearSearchFilters}
             >
-              <XIcon size={15} strokeWidth={1.8} />
+              <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
               Clear
             </button>
           </div>
