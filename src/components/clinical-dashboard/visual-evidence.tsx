@@ -273,7 +273,9 @@ export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRec
     <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
       {table.title || table.source ? (
         <div className={cn(tableCardHeader, "flex min-h-10 items-center justify-between gap-2 py-2 text-sm")}>
-          <span className="min-w-0 truncate">{table.title || "Clinical table"}</span>
+          <span aria-hidden="true" className="min-w-0 truncate">
+            {table.title || "Clinical table"}
+          </span>
           {table.source ? (
             <Link
               href={table.source.href}
