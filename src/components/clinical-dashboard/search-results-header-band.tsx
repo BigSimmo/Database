@@ -666,10 +666,7 @@ export function MobileResultFilterControl<Value extends string>({
   // The search-results band is `overflow-hidden`, so the menu is portaled and
   // fixed to the trigger's viewport box instead of being clipped inside the band.
   useLayoutEffect(() => {
-    if (!open) {
-      setMenuBox(null);
-      return undefined;
-    }
+    if (!open) return undefined;
     function syncMenuBox() {
       const trigger = triggerRef.current;
       if (!trigger) return;
@@ -804,7 +801,11 @@ export function MobileResultFilterControl<Value extends string>({
         onKeyDown={handleTriggerKeyDown}
         onClick={() => (open ? setOpen(false) : openMenu(activeIndex))}
         className={cn(
-          "inline-flex min-h-tap w-full min-w-0 items-center gap-1.5 rounded-xl border px-2.5 text-left text-xs font-bold transition",
+          // The sort group next to this control puts min-h-tap on its buttons and
+          // its own border outside them, so it stands 2px taller than a bare
+          // min-h-tap box. The trigger matches that height rather than the token
+          // alone, which is what keeps the phone utility rail on one line.
+          "flex min-h-[calc(var(--spacing-tap)+2px)] w-full min-w-0 items-center gap-1.5 rounded-xl border px-2.5 text-left text-xs font-bold transition",
           focusRing,
           open || isFiltered
             ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"

@@ -492,7 +492,10 @@ test.describe("Medication responsive stress coverage", () => {
             cardRight: cardRect.right,
             cardPaddingLeft: Number.parseFloat(cardStyle.paddingLeft),
             cardPaddingRight: Number.parseFloat(cardStyle.paddingRight),
-            filterLeft: filterRect.left,
+            // The phone control is a button, so its own padding is where its text
+            // starts; the edge inset that matters is the content inset, not the
+            // border box of a control the rail already gutters.
+            filterLeft: filterRect.left + Number.parseFloat(getComputedStyle(firstFilter).paddingLeft),
             filterHeight: filterRect.height,
           };
         }, viewport.width);
