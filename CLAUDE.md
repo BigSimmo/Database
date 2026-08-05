@@ -194,7 +194,7 @@ These fail builds, so they are worth knowing before you write code:
   than the initial production bundle. A mockup-only PR can therefore fail `Build` on bundle budget
   (PR #1580: `+10.1% vs baseline`, tolerance 10%) even though the routes never serve a user. Budget
   scope vs. the "not an initial production bundle" position in `/issues` `#013` is unreconciled —
-  see `#237` before assuming either number governs.
+  see `#252` before assuming either number governs.
 
 ## Repo-specific tooling
 

@@ -37,8 +37,20 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).not.toContain("spawnSync");
     expect(source).toContain("forceLockRelease");
     expect(source).toContain("typescriptBuildInfoPath");
+    expect(source).toContain('"typecheck:source:internal"');
     expect(source).toContain('"--tsBuildInfoFile"');
     expect(source).toContain("await runNpmScript()");
+  });
+
+  it("routes guard-push static checks through the run coordinator", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(repositoryRoot, "package.json"), "utf8"));
+    const source = readFileSync(path.join(repositoryRoot, "scripts/guard-push.mjs"), "utf8");
+
+    expect(packageJson.scripts["lint:changed:internal"]).toContain("eslint");
+    expect(source).toContain('"lint:changed:internal"');
+    expect(source).toContain('"typecheck:source:internal"');
+    expect(source).toContain("run-heavy.mjs");
+    expect(source).not.toContain('"node_modules", "typescript", "bin", "tsc"');
   });
 
   it("keeps Vitest async so shared-lease heartbeats can fire", () => {

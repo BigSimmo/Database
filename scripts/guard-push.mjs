@@ -572,9 +572,17 @@ function staticToolsAvailable(root) {
   );
 }
 
-function runStaticCheck(root, args, label) {
+function runStaticCheck(root, script, forwarded, label) {
   try {
-    execFileSync(process.execPath, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    execFileSync(
+      process.execPath,
+      [path.join(root, "scripts", "run-heavy.mjs"), "--npm-script", script, ...forwarded],
+      {
+        cwd: root,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
     return { ok: true };
   } catch (error) {
     const output = `${error?.stdout ?? ""}${error?.stderr ?? ""}`.trim();
@@ -631,8 +639,8 @@ export function staticGuard(changedFiles) {
   if (present.length > 0) {
     const result = runStaticCheck(
       PROJECT_ROOT,
+      "lint:changed:internal",
       [
-        path.join(PROJECT_ROOT, "node_modules", "eslint", "bin", "eslint.js"),
         ...present,
         "--max-warnings",
         "0",
@@ -647,16 +655,7 @@ export function staticGuard(changedFiles) {
   }
 
   if (wantTypecheck) {
-    const result = runStaticCheck(
-      PROJECT_ROOT,
-      [
-        path.join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc"),
-        "-p",
-        "tsconfig.typecheck.json",
-        "--noEmit",
-      ],
-      "typecheck",
-    );
+    const result = runStaticCheck(PROJECT_ROOT, "typecheck:source:internal", [], "typecheck");
     if (!result.ok) failures.push(result);
   }
 

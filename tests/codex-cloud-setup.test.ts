@@ -25,6 +25,7 @@ import {
   validateCodexCloudEnvironment,
   validateCodexProjectMcpConfiguration,
   validateHostedAppInventory,
+  validateHostedAppInventoryArguments,
   validateMcpConfiguration,
 } from "../scripts/check-codex-cloud-setup.mjs";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
@@ -446,15 +447,25 @@ describe("Codex Cloud environment contract", () => {
       "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
     );
     expect(validateHostedAppInventory(["github", "railway", "supabase"])).toEqual([]);
-    const secretShaped = "sk-abcdef0123456789tokenvalue";
-    expect(validateHostedAppInventory(["github", secretShaped])).toContain(
-      "Hosted app inventory contains unrecognized app names; supply only connector names (github, railway, supabase, figma, sentry, figma_cloud, sentry_cloud, supabase_cloud), never tokens or secrets.",
+    expect(validateHostedAppInventory(["GitHub", "Slack", "Linear"])).toEqual([]);
+    expect(validateHostedAppInventory(["github", "custom-app"])).toContain(
+      "Hosted app inventory contains unrecognized connector identifiers; update the checker allowlist before accepting them as evidence.",
     );
-    const capabilityLine = hostedAppInventoryCapabilityLine(["github", "railway", "supabase"]);
-    expect(capabilityLine).toContain("hosted_app.inventory=provided count=3");
+    const secretShaped = ["xoxb", "12345678"].join("-");
+    expect(validateHostedAppInventory(["github", secretShaped])).toContain(
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
+    const jwtShaped = [["eyJ", "abcdefgh"].join(""), "ijklmnop", "qrstuvwx"].join(".");
+    expect(validateHostedAppInventory(["github", jwtShaped])).toContain(
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
+    const capabilityLine = hostedAppInventoryCapabilityLine(["GitHub", "railway", "supabase", "Slack", "Linear"]);
+    expect(capabilityLine).toContain("hosted_app.inventory=provided count=5");
     expect(capabilityLine).toContain("github=true");
     expect(capabilityLine).toContain("railway=true");
     expect(capabilityLine).toContain("supabase=true");
+    expect(capabilityLine).toContain("slack=true");
+    expect(capabilityLine).toContain("linear=true");
     expect(capabilityLine).toContain("stale_railway_cloud=false");
     expect(capabilityLine).toContain("unknown=0");
     const leaked = hostedAppInventoryCapabilityLine(["github", secretShaped]);
@@ -463,6 +474,29 @@ describe("Codex Cloud environment contract", () => {
     expect(
       sanitizedCloudCapabilityLines({}, { hostedAppInventory: ["github", secretShaped] }).join("\n"),
     ).not.toContain(secretShaped);
+    expect(validateHostedAppInventoryArguments(["--hosted-app-inventory", "github,railway"])).toContain(
+      "Unsupported Cloud-check argument; hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.",
+    );
+    expect(validateHostedAppInventoryArguments(["--hosted-app-inventroy=github,railway"])).toContain(
+      "Unsupported Cloud-check argument; hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.",
+    );
+    expect(
+      validateHostedAppInventoryArguments(["--hosted-app-inventory=github", "--hosted-app-inventory=railway"]),
+    ).toContain("Hosted app inventory may be supplied only once.");
+    expect(validateHostedAppInventoryArguments(["--environment", "--runtime"])).toEqual([]);
+
+    const malformedCli = spawnSync(
+      process.execPath,
+      [
+        fileURLToPath(new URL("../scripts/check-codex-cloud-setup.mjs", import.meta.url)),
+        "--environment",
+        "--hosted-app-inventroy=github",
+      ],
+      { cwd: repoRoot, encoding: "utf8", env: { PATH: process.env.PATH, NODE_ENV: "test" } },
+    );
+    expect(malformedCli.status).toBe(1);
+    expect(malformedCli.stderr).toContain("Unsupported Cloud-check argument");
+    expect(malformedCli.stdout).not.toContain("hosted_app.inventory=");
   });
 
   it("probes the raw task environment without printing credential values", () => {
