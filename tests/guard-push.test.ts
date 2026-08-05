@@ -8,7 +8,9 @@ import {
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  isCoordinatorBusyOutput,
   isEslintPolicyFile,
+  isTypecheckExcludedPath,
   lintableFiles,
   needsRepoWideLint,
   needsTypecheck,
@@ -147,6 +149,24 @@ describe("static guard scope selection", () => {
     expect(needsTypecheck(["src/lib/a.tsx", "src/lib/a.mts"])).toBe(true);
     expect(needsTypecheck(["docs/a.md", "x.png"])).toBe(false);
     expect(needsTypecheck(["src/lib/a.cts"])).toBe(false);
+  });
+
+  it("skips typecheck for paths excluded by tsconfig.typecheck.json", () => {
+    expect(isTypecheckExcludedPath("supabase/functions/foo/index.ts")).toBe(true);
+    expect(isTypecheckExcludedPath("scripts/archive/old.ts")).toBe(true);
+    expect(isTypecheckExcludedPath("src/lib/a.ts")).toBe(false);
+    expect(needsTypecheck(["supabase/functions/foo/index.ts"])).toBe(false);
+    expect(needsTypecheck(["scripts/archive/old.ts", "scratch/x.tsx", "worktrees/a/b.ts"])).toBe(false);
+    expect(needsTypecheck(["supabase/functions/foo/index.ts", "src/lib/a.ts"])).toBe(true);
+  });
+
+  it("treats shared-slot exhaustion as coordinator busy, not a typecheck failure", () => {
+    expect(isCoordinatorBusyOutput("Database focused-test capacity is full (current owner PID 1)")).toBe(true);
+    expect(isCoordinatorBusyOutput("Another Database heavyweight command is active (PID 1)")).toBe(true);
+    expect(isCoordinatorBusyOutput("A Database heavyweight coordinator is being initialized; retry shortly.")).toBe(
+      true,
+    );
+    expect(isCoordinatorBusyOutput("error TS2322: Type 'string' is not assignable")).toBe(false);
   });
 
   it("escalates to repo-wide lint when eslint policy changes", () => {

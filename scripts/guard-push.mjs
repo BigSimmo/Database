@@ -545,6 +545,19 @@ const LINTABLE_EXT = /\.(?:ts|tsx|mts|js|jsx|mjs|cjs)$/;
  * a `.cts`-only push would otherwise spend a typecheck that covers nothing.
  */
 const TYPECHECKABLE_EXT = /\.(?:ts|tsx|mts)$/;
+/**
+ * Directory prefixes excluded by tsconfig.typecheck.json. A push that only
+ * touches these paths must not pay for a source typecheck that inspects none of
+ * the changed work.
+ */
+const TYPECHECK_EXCLUDED_PREFIXES = [
+  "supabase/functions/",
+  "scripts/archive/",
+  "scratch/",
+  "worktrees/",
+  "node_modules/",
+  ".next/",
+];
 /** Guard-private eslint cache — never share writes with `lint:internal`. */
 const STATIC_GUARD_ESLINT_CACHE = "node_modules/.cache/eslint-guard-push/";
 /** Short wait via run-heavy; busy coordinator fails open rather than stalling a push. */
@@ -558,9 +571,19 @@ export function lintableFiles(changedFiles) {
     .filter((f) => LINT_ROOT_FILES.has(f) || LINT_ROOTS.some((root) => f.startsWith(root)));
 }
 
+/** Exported for tests: path prefixes the source-only typecheck config excludes. */
+export function isTypecheckExcludedPath(file) {
+  const normalized = file.replaceAll("\\", "/");
+  return TYPECHECK_EXCLUDED_PREFIXES.some(
+    (prefix) => normalized === prefix.slice(0, -1) || normalized.startsWith(prefix),
+  );
+}
+
 /** Exported for tests: does this push need a typecheck at all? */
 export function needsTypecheck(changedFiles) {
-  return changedFiles.map((f) => f.replaceAll("\\", "/")).some((f) => TYPECHECKABLE_EXT.test(f));
+  return changedFiles
+    .map((f) => f.replaceAll("\\", "/"))
+    .some((f) => TYPECHECKABLE_EXT.test(f) && !isTypecheckExcludedPath(f));
 }
 
 /**
@@ -607,8 +630,17 @@ function staticToolsAvailable(root) {
   );
 }
 
-function isCoordinatorBusyOutput(output) {
-  return /Database heavyweight|coordinator is (?:busy|being initialized)|retry shortly/i.test(output ?? "");
+/**
+ * Match the busy / capacity-full wording from `scripts/test-run-lock.mjs`
+ * (`busyMessage` for exclusive + shared leases, plus the initializing retry).
+ * Shared-slot exhaustion says "Database focused-test capacity is full", not
+ * "heavyweight" — that string must fail open here or pushes are rejected as
+ * fake typecheck failures.
+ */
+export function isCoordinatorBusyOutput(output) {
+  return /Database heavyweight|Database focused-test capacity is full|coordinator is (?:busy|being initialized)|retry shortly/i.test(
+    output ?? "",
+  );
 }
 
 /**
@@ -880,6 +912,26 @@ function selfTest() {
   assert(needsTypecheck(["src/lib/a.ts"]) === true, "a changed .ts triggers typecheck");
   assert(needsTypecheck(["docs/a.md", "x.png"]) === false, "docs-only pushes skip typecheck");
   assert(needsTypecheck(["src/lib/a.cts"]) === false, ".cts is outside the source-only include and does not trigger");
+  assert(
+    needsTypecheck(["supabase/functions/foo/index.ts"]) === false,
+    "excluded edge-function .ts does not trigger typecheck",
+  );
+  assert(
+    needsTypecheck(["scripts/archive/old.ts", "scratch/x.tsx"]) === false,
+    "archive/scratch type files do not trigger typecheck",
+  );
+  assert(
+    isCoordinatorBusyOutput("Database focused-test capacity is full (current owner PID 1)") === true,
+    "shared-slot exhaustion fails open as coordinator busy",
+  );
+  assert(
+    isCoordinatorBusyOutput("Another Database heavyweight command is active (PID 1)") === true,
+    "exclusive heavyweight busy fails open",
+  );
+  assert(
+    isCoordinatorBusyOutput("error TS2322: Type 'string' is not assignable") === false,
+    "real tsc errors still fail",
+  );
   assert(needsRepoWideLint(["eslint.config.mjs"]) === true, "eslint config change escalates to repo-wide lint");
   assert(needsRepoWideLint(["eslint-rules/x.mjs"]) === true, "eslint-rules change escalates to repo-wide lint");
   assert(needsRepoWideLint(["src/lib/a.ts"]) === false, "ordinary source does not escalate lint");
