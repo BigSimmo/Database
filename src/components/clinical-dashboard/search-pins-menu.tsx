@@ -394,7 +394,7 @@ export function SearchPinsMenu({
             disabled={pins.length >= maximumSearchPins}
             title={pins.length >= maximumSearchPins ? `Maximum ${maximumSearchPins} pins reached` : undefined}
             className={cn(
-              "inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] disabled:cursor-not-allowed disabled:opacity-45",
+              "inline-flex min-h-12 items-center gap-1 rounded-lg px-2 text-xs font-extrabold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] disabled:cursor-not-allowed disabled:opacity-45",
               focusRing,
             )}
           >

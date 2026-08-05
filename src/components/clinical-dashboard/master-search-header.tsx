@@ -78,6 +78,12 @@ import {
   setModeHomeComposerReservePending,
 } from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
+import {
+  commandDropdownCanDisplay,
+  commandDropdownMinimumWidthMediaQuery,
+  commandDropdownPointerMediaQuery,
+  type CommandSurfacePlacement,
+} from "@/lib/search-command-surface";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -91,6 +97,7 @@ const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
+const commandSurfacePlacements: readonly CommandSurfacePlacement[] = ["bottom-dock", "inline"];
 
 function splitFilterText(value: string) {
   return value
@@ -355,6 +362,12 @@ export function MasterSearchHeader({
   const [commandDropdownOpen, setCommandDropdownOpen] = useState(false);
   const [commandListboxId, setCommandListboxId] = useState<string>();
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
+  const [commandDropdownDisplayableByPlacement, setCommandDropdownDisplayableByPlacement] = useState<
+    Record<CommandSurfacePlacement, boolean>
+  >({
+    "bottom-dock": false,
+    inline: false,
+  });
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   // Which menuitemradio should receive initial focus when the mode menu opens
   // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
@@ -428,6 +441,39 @@ export function MasterSearchHeader({
       if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
     });
   }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+
+    const minimumWidthMediaByPlacement = Object.fromEntries(
+      commandSurfacePlacements.map((placement) => [
+        placement,
+        window.matchMedia(commandDropdownMinimumWidthMediaQuery(placement)),
+      ]),
+    ) as Record<CommandSurfacePlacement, MediaQueryList>;
+    const pointerMedia = window.matchMedia(commandDropdownPointerMediaQuery);
+    const sync = () => {
+      setCommandDropdownDisplayableByPlacement({
+        "bottom-dock": commandDropdownCanDisplay({
+          minimumWidthMatches: minimumWidthMediaByPlacement["bottom-dock"].matches,
+          pointerMatches: pointerMedia.matches,
+          maxTouchPoints: navigator.maxTouchPoints,
+        }),
+        inline: commandDropdownCanDisplay({
+          minimumWidthMatches: minimumWidthMediaByPlacement.inline.matches,
+          pointerMatches: pointerMedia.matches,
+          maxTouchPoints: navigator.maxTouchPoints,
+        }),
+      });
+    };
+    sync();
+    for (const media of Object.values(minimumWidthMediaByPlacement)) media.addEventListener("change", sync);
+    pointerMedia.addEventListener("change", sync);
+    return () => {
+      for (const media of Object.values(minimumWidthMediaByPlacement)) media.removeEventListener("change", sync);
+      pointerMedia.removeEventListener("change", sync);
+    };
+  }, []);
 
   useEffect(() => {
     const addonHost = phoneHeaderCollapseAddonHost;
@@ -1580,7 +1626,8 @@ export function MasterSearchHeader({
     // Tablet/desktop composers keep the site-wide notice everywhere.
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
-    const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
     // Search sits outside the collapsing top-bar row. Sticky hosts pin an outer
     // top-bar stack; result composers portal into page flow at sm+, so this
     // relative fallback only covers the brief pre-portal default placement (a
@@ -1623,7 +1670,7 @@ export function MasterSearchHeader({
         data-command-open={
           // Phones never show the command dropdown, so the dock scrim must not
           // grow for it — gate the open attribute to widths that can display it.
-          usesBottomComposerPlacement && !usesPhoneSearchLayout && commandDropdownOpen ? "true" : undefined
+          usesBottomComposerPlacement && commandDropdownDisplayable && commandDropdownOpen ? "true" : undefined
         }
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
@@ -1760,7 +1807,7 @@ export function MasterSearchHeader({
                   currentModeId={selectedAppMode.id}
                   modeOptions={actionMenuModeOptions}
                   actions={actionMenuItems}
-                  globalSearchAvailable={!usesPhoneSearchLayout}
+                  globalSearchAvailable={commandDropdownDisplayable}
                   onClose={() => setActionMenuOpen(false)}
                   onCurrentSearch={() => {
                     setActionMenuOpen(false);
