@@ -160,7 +160,7 @@ describe("IndexedTextPanel condensed reveal", () => {
     await waitFor(() => expect(highlighted.open).toBe(true));
 
     // A re-render must not collapse the React-controlled deep-link disclosure.
-    rerender(<IndexedTextPanel {...props} />);
+    rerender(<IndexedTextPanel {...props} chunks={[...props.chunks]} />);
     expect(highlighted.open).toBe(true);
   });
 
