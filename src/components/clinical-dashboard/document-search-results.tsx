@@ -524,7 +524,7 @@ function DocumentFilterPanel({
                         else next.delete(group);
                         return next;
                       });
-                    }
+                    }}
                     className={cn(
                       "flex min-h-tap w-full items-center gap-1.5 text-2xs font-bold uppercase tracking-eyebrow text-[color:var(--text-muted)] sm:min-h-10",
                       "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
