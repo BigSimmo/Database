@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Layers } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
@@ -15,6 +15,10 @@ import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@
 
 function isFavouritesHref(href: string) {
   return href === "/favourites" || href.startsWith("/favourites?");
+}
+
+function matchCountLabel(count: number) {
+  return count === 1 ? "1 related mode" : `${count} related modes`;
 }
 
 export function UniversalSearchAlsoMatches({
@@ -100,16 +104,32 @@ export function UniversalSearchAlsoMatches({
   const currentGroups = universal.query === trimmedQuery ? groups : [];
   const searchPending = searchActive && (universal.loading || universal.query !== trimmedQuery);
   const panelStatus = searchPending ? "Searching other modes" : "No additional matches in other modes.";
+  const matchCount = currentGroups.length;
+  const phoneSubtitle = searchPending
+    ? "Searching…"
+    : !searchActive
+      ? "Tap to browse related modes"
+      : matchCount > 0
+        ? matchCountLabel(matchCount)
+        : "No additional matches";
 
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
   if (isWide && !searchPending && currentGroups.length === 0) return null;
 
+  // Count badge: ellipsis while collapsed/pending/empty so a finished-empty
+  // disclosure does not show a literal "0" next to "No additional matches".
+  const phoneCountBadge = !searchActive || searchPending || matchCount === 0 ? "…" : String(matchCount);
+
   return (
     <section
       className={cn(
-        // Secondary post-answer discovery chrome — quieter than the answer card.
-        "basis-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] p-2 motion-safe:animate-fade-up sm:p-2.5",
+        // Raised card — matches the library rows above, instead of a flat bar
+        // flush against the phone home-indicator / dock edge.
+        "basis-full rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-inset)] motion-safe:animate-fade-up",
+        // Content spacing below the last interactive section on phones — not a
+        // chrome/dock reserve restore (those stay 0rem when scroll-hidden).
+        "max-sm:mb-4",
         className,
       )}
       aria-label="Matches in other modes"
@@ -124,35 +144,55 @@ export function UniversalSearchAlsoMatches({
         aria-controls={panelId}
         tabIndex={isWide ? -1 : undefined}
         className={cn(
-          "flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors",
+          "flex min-h-tap w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors",
           "hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           // On desktop the panel is always open, so the header is inert copy rather than a control.
-          "sm:pointer-events-none sm:mb-1.5 sm:cursor-default sm:py-0 sm:hover:bg-transparent",
+          "sm:pointer-events-none sm:mb-1.5 sm:min-h-0 sm:cursor-default sm:gap-2 sm:px-2 sm:py-1 sm:hover:bg-transparent",
         )}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="text-xs font-bold text-[color:var(--text-heading)]">Also matches in other modes</span>
-          <span className="inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-[color:var(--surface-subtle)] px-1 text-2xs font-bold text-[color:var(--text-muted)] sm:hidden">
-            {currentGroups.length || "…"}
+        <span
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] sm:hidden"
+          aria-hidden
+        >
+          <Layers className="h-4 w-4" aria-hidden />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
+              Also matches in other modes
+            </span>
+            <span
+              className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold tabular-nums text-[color:var(--clinical-accent)] sm:hidden"
+              aria-hidden={phoneCountBadge === "…"}
+            >
+              {phoneCountBadge}
+            </span>
+          </span>
+          {/* Visual cue only — keep the button name to the title (+ optional count). */}
+          <span className="text-2xs font-medium text-[color:var(--text-muted)] sm:hidden" aria-hidden>
+            {phoneSubtitle}
           </span>
         </span>
-        <span className="hidden text-2xs font-semibold text-[color:var(--text-muted)] sm:inline">
-          Across Clinical KB
-        </span>
-        <ChevronDown
+        <span className="hidden text-2xs font-bold text-[color:var(--text-muted)] sm:inline">Across Clinical KB</span>
+        <span
           className={cn(
-            "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-transform sm:hidden",
+            "grid h-8 w-8 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-transform sm:hidden",
             expanded && "rotate-180",
           )}
           aria-hidden
-        />
+        >
+          <ChevronDown className="h-4 w-4" aria-hidden="true" />
+        </span>
       </button>
       <div
         id={panelId}
-        className={cn("gap-1 sm:grid sm:grid-cols-2 xl:grid-cols-4", expanded ? "mt-2 grid sm:mt-0" : "hidden")}
+        className={cn(
+          "gap-2 px-1 pb-1 sm:grid sm:grid-cols-2 sm:px-0 sm:pb-0 xl:grid-cols-4",
+          expanded ? "mt-1.5 grid sm:mt-0" : "hidden",
+        )}
       >
         {searchPending || currentGroups.length === 0 ? (
-          <p className={cn("rounded-md px-2 py-3 text-xs font-semibold", textMuted)} aria-live="polite">
+          <p className={cn("rounded-lg px-2.5 py-3 text-xs font-semibold", textMuted)} aria-live="polite">
             {panelStatus}
           </p>
         ) : null}
@@ -163,20 +203,20 @@ export function UniversalSearchAlsoMatches({
           return (
             <div
               key={targetModeId}
-              className="flex min-w-0 items-start gap-2 rounded-md border border-[color:var(--border)]/60 bg-[color:var(--surface-subtle)] p-2"
+              className="flex min-w-0 items-start gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5"
             >
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
                 <TargetIcon className="h-4 w-4" aria-hidden />
               </span>
               <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block truncate text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                <span className="block truncate text-2xs font-bold uppercase tracking-wide text-[color:var(--clinical-accent)]">
                   {targetMode.label}
                 </span>
                 {group.items.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="block truncate text-xs font-bold text-[color:var(--text)] hover:underline"
+                    className="block truncate text-xs font-extrabold text-[color:var(--text)] hover:underline"
                   >
                     {item.title}
                   </Link>
@@ -184,7 +224,9 @@ export function UniversalSearchAlsoMatches({
               </span>
               <Link
                 href={appModeHomeHref(targetModeId, { query: trimmedQuery, run: true })}
-                className="shrink-0 text-2xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)]"
+                // Top-align the label with the mode title; min-h-tap still grows the
+                // hit box downward so the 48px floor does not pull the text mid-card.
+                className="inline-flex min-h-tap shrink-0 items-start pt-0.5 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] sm:min-h-0 sm:pt-0 sm:items-center"
               >
                 View all
               </Link>
