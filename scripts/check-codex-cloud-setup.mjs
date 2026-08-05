@@ -471,10 +471,10 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const hostedAppInventory = options.hostedAppInventory ?? null;
   if (hostedAppInventory === null) {
     lines.push("hosted_app.inventory=external-unverified-until-fresh-task");
-  } else if (hostedAppInventory.every((name) => /^[A-Za-z0-9_.-]+$/.test(name))) {
-    lines.push(`hosted_app.inventory=provided names=${hostedAppInventory.join(",") || "none"}`);
   } else {
-    lines.push("hosted_app.inventory=provided-invalid-names-redacted");
+    lines.push(
+      `hosted_app.inventory=provided count=${hostedAppInventory.length} stale_railway_cloud=${hostedAppInventory.includes("railway_cloud")}`,
+    );
   }
   lines.push("provider_route.github=codex-native-connector");
   lines.push("provider_route.railway=chatgpt-official-app");

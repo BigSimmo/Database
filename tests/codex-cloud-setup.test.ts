@@ -446,8 +446,12 @@ describe("Codex Cloud environment contract", () => {
     );
     expect(validateHostedAppInventory(["github", "railway", "supabase"])).toEqual([]);
     expect(sanitizedCloudCapabilityLines({}, { hostedAppInventory: ["github", "railway", "supabase"] })).toContain(
-      "hosted_app.inventory=provided names=github,railway,supabase",
+      "hosted_app.inventory=provided count=3 stale_railway_cloud=false",
     );
+    const credentialShapedMistake = "sk-abcdef0123456789";
+    const lines = sanitizedCloudCapabilityLines({}, { hostedAppInventory: [credentialShapedMistake] });
+    expect(lines).toContain("hosted_app.inventory=provided count=1 stale_railway_cloud=false");
+    expect(lines.join("\n")).not.toContain(credentialShapedMistake);
   });
 
   it("probes the raw task environment without printing credential values", () => {
