@@ -38,7 +38,14 @@ type SheetBaseProps = {
   footer?: ReactNode;
   closeLabel?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
+  /** Read at close time (not capture-on-open). Mutating `.current` while open retargets restore. */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /**
+   * Optional late resolver consulted before `returnFocusRef` / prior active element.
+   * Must be referentially stable (e.g. `useCallback`); an inline arrow re-runs the
+   * open-effect and fights the sheet for focus on every parent render.
+   */
+  resolveReturnFocusTarget?: () => HTMLElement | null;
   headerLeading?: ReactNode;
   titleAccessory?: ReactNode;
   descriptionContent?: ReactNode;
@@ -67,8 +74,10 @@ export type SheetProps = SheetBaseProps & SheetAccessibleName;
  * Portals into `OverlayRoot` (`layer="modal"`) by default so stacking and
  * inerting stay consistent across product overlays; pass `portal={false}` to
  * keep the sheet in-tree when an ancestor-scoped style must still apply.
- * Focus is trapped while open and returned to the opener on close; Escape and
- * backdrop click both dismiss.
+ * Focus is trapped while open and returned on close; Escape and backdrop click
+ * both dismiss. Return focus is resolved late from `resolveReturnFocusTarget`
+ * (stable callback), then `returnFocusRef.current`, then the previously focused
+ * element — so callers can retarget restore while the sheet is still open.
  */
 export function Sheet({
   open,
@@ -82,6 +91,7 @@ export function Sheet({
   ariaLabel,
   initialFocusRef,
   returnFocusRef,
+  resolveReturnFocusTarget,
   headerLeading,
   titleAccessory,
   descriptionContent,
@@ -129,6 +139,7 @@ export function Sheet({
     },
     [sheetId],
   );
+  const resolveReturnFocusRefTarget = useCallback(() => returnFocusRef?.current ?? null, [returnFocusRef]);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -189,7 +200,6 @@ export function Sheet({
   useEffect(() => {
     if (!open) return;
 
-    const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const restoreTimers = restoreTimersRef.current;
     // A close-then-reopen inside one frame leaves this instance's own restore
@@ -271,7 +281,10 @@ export function Sheet({
       openFocusRef.current?.cancel();
       openFocusRef.current = null;
       popSheet(sheetId);
-      const restoreTarget = explicitReturnElement ?? previousActiveElement;
+      const resolveConnectedRestoreTarget = () =>
+        [resolveReturnFocusTarget?.() ?? null, resolveReturnFocusRefTarget(), previousActiveElement].find(
+          (target): target is HTMLElement => Boolean(target?.isConnected),
+        ) ?? null;
       if (restoreTimers.frame != null) {
         window.cancelAnimationFrame(restoreTimers.frame);
         restoreTimers.frame = null;
@@ -287,6 +300,7 @@ export function Sheet({
       // the whole suite even when every test assertion passed.
       restoreTimers.frame = window.requestAnimationFrame(() => {
         restoreTimers.frame = null;
+        const restoreTarget = resolveConnectedRestoreTarget();
         if (typeof document === "undefined" || !restoreTarget?.isConnected) return;
         // A sheet opened while this one was closing (switching between two
         // sheets in one tick) now owns focus. Instances cannot cancel each
@@ -298,22 +312,23 @@ export function Sheet({
         restoreTimers.timeout = window.setTimeout(() => {
           restoreTimers.timeout = null;
           if (typeof document === "undefined") return;
+          const retryTarget = resolveConnectedRestoreTarget();
           // Only retry when focus fell through to the document body. If another
           // surface (e.g. a Guide dialog opened from a phone menu sheet) already
           // took focus, do not steal it back.
           if (
-            !restoreTarget.isConnected ||
-            !canRestoreFocusTo(restoreTarget) ||
-            document.activeElement === restoreTarget ||
+            !retryTarget ||
+            !canRestoreFocusTo(retryTarget) ||
+            document.activeElement === retryTarget ||
             (document.activeElement !== document.body && document.activeElement != null)
           ) {
             return;
           }
-          restoreTarget.focus({ preventScroll: true });
+          retryTarget.focus({ preventScroll: true });
         }, 50);
       });
     };
-  }, [open, initialFocusRef, returnFocusRef, sheetId]);
+  }, [open, initialFocusRef, resolveReturnFocusRefTarget, resolveReturnFocusTarget, sheetId]);
 
   if (!open) return null;
 
