@@ -100,6 +100,13 @@ describe("proxy static assets", () => {
     expect(response.headers.get("content-security-policy")).toBeNull();
   });
 
+  it("passes HEAD requests through without dynamic proxy headers", async () => {
+    const response = await proxy(requestFor("/_next/static/chunks/app.js", "HEAD"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toBeNull();
+  });
+
   it("rejects malformed static-asset POST requests before Next parses a Server Action", async () => {
     const response = await proxy(requestFor("/_next/static/chunks/app.js", "POST"));
 
