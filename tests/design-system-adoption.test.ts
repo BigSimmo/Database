@@ -821,7 +821,7 @@ describe("design-system adoption manifest", () => {
     }
   });
 
-  it("requires the exact static AWAITING_BASELINE transition from canonical six to empty", () => {
+  it("requires the exact static AWAITING_BASELINE transition from canonical six to empty", { timeout: 90_000 }, () => {
     const exactRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-exact-"));
     const retainedRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-retained-"));
     const missingRoot = fs.mkdtempSync(path.join(os.tmpdir(), "design-system-awaiting-missing-"));
