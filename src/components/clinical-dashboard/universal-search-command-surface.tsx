@@ -1010,7 +1010,9 @@ export function UniversalSearchCommandSurface({
             pointerMatches: window.matchMedia(commandDropdownPointerMediaQuery).matches,
             maxTouchPoints: navigator.maxTouchPoints,
           });
-          setEagerDropdownDisplayable(displayable);
+          // Only pin an eager true. A false must not stick across resize while
+          // focused — leave null so the shared media hook can flip the panel on.
+          setEagerDropdownDisplayable(displayable ? true : null);
           if (displayable) onDropdownOpenChange(true);
         }}
         onBlurCapture={(event) => {

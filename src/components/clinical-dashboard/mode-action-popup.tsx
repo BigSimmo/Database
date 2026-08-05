@@ -433,6 +433,9 @@ export function ModeActionPopup({
   const [modeSelectorOpen, setModeSelectorOpen] = useState(false);
   const canSwitchMode = Boolean(modeOptions?.length && onModeSelect);
   const selectedModeOption = modeOptions?.find((mode) => mode.id === selectedModeId);
+  // Truthiness only — callers pass inline JSX for customBody, so the element
+  // identity must not invalidate placement measurement every parent render.
+  const hasCustomBody = Boolean(customBody);
 
   const closeAndRestoreFocus = useCallback(() => {
     setModeSelectorOpen(false);
@@ -486,7 +489,7 @@ export function ModeActionPopup({
     // Custom bodies (pins + search) are substantially taller than one row per
     // mode action; size placement against a pin-panel floor so "fits above"
     // is not chosen from an unrelated action-count estimate.
-    const estimatedItemCount = customBody ? Math.max(items.length, 10) : items.length;
+    const estimatedItemCount = hasCustomBody ? Math.max(items.length, 10) : items.length;
     const { minSurfaceHeight, headerHeight } = estimateActionListHeights(estimatedItemCount, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
@@ -541,7 +544,7 @@ export function ModeActionPopup({
     } else {
       setIntegratedSurfaceLayout(null);
     }
-  }, [customBody, integrated, integratedChipRow, items.length]);
+  }, [hasCustomBody, integrated, integratedChipRow, items.length]);
 
   function openWithFocus(index: number) {
     onBeforeOpen?.();

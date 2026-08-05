@@ -6,7 +6,12 @@ import { FileText, Search } from "lucide-react";
 
 import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
 import type { ModeActionItem, ModeActionModeOption } from "@/components/clinical-dashboard/mode-action-popup";
-import { maximumSearchPins, searchPinsChangeEvent, searchPinsStorageKey } from "@/lib/search-pins";
+import {
+  maximumSearchPins,
+  resetSearchPinsSessionForTests,
+  searchPinsChangeEvent,
+  searchPinsStorageKey,
+} from "@/lib/search-pins";
 
 const modeOptions: ModeActionModeOption[] = [
   { id: "documents", label: "Documents", description: "Source documents", icon: FileText },
@@ -43,7 +48,10 @@ function renderMenu(overrides: Partial<ComponentProps<typeof SearchPinsMenu>> = 
 }
 
 describe("SearchPinsMenu", () => {
-  beforeEach(() => window.localStorage.removeItem(searchPinsStorageKey));
+  beforeEach(() => {
+    resetSearchPinsSessionForTests();
+    window.localStorage.removeItem(searchPinsStorageKey);
+  });
 
   it("keeps pins, search choices, and actions as separate sections", () => {
     renderMenu();
