@@ -13,8 +13,10 @@ import { CircleAlert, Info, TriangleAlert } from "lucide-react";
  * owner review and are not proposed here.
  */
 
-const UNGROUNDED =
-  "AI-generated, and the cited sources could not be shown to support every claim in it. Read the cited passages and confirm each clinical number, dose, timing and threshold there before acting on it.";
+const UNGROUNDED_LEAD = "AI-generated, and the cited sources could not be shown to support every claim in it.";
+const UNGROUNDED_TAIL =
+  "Read the cited passages and confirm each clinical number, dose, timing and threshold there before acting on it.";
+const UNGROUNDED = `${UNGROUNDED_LEAD} ${UNGROUNDED_TAIL}`;
 
 const READY =
   "AI-generated from the cited sources. Verify every clinical claim against the linked source before acting on it.";
@@ -175,13 +177,8 @@ function Lockup({ concept }: { concept: ConceptId }) {
         className="mt-0.5 size-icon-sm shrink-0 text-[color:var(--warning)] opacity-55"
       />
       <p>
-        <span className="font-medium text-[color:var(--text-heading)]">
-          AI-generated, and the cited sources could not be shown to support every claim in it.
-        </span>{" "}
-        <span className="text-[color:var(--text-muted)]">
-          Read the cited passages and confirm each clinical number, dose, timing and threshold there before acting on
-          it.
-        </span>
+        <span className="font-medium text-[color:var(--text-heading)]">{UNGROUNDED_LEAD}</span>{" "}
+        <span className="text-[color:var(--text-muted)]">{UNGROUNDED_TAIL}</span>
       </p>
     </aside>
   );
