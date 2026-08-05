@@ -1,6 +1,7 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy, shouldBlockProductionMockups } from "../src/proxy";
+import { config, proxy, shouldBlockProductionMockups } from "../src/proxy";
 import { env } from "@/lib/env";
 import * as ssr from "@supabase/ssr";
 import { vi } from "vitest";
@@ -25,8 +26,8 @@ type ProxyCookieOptions = {
 // shipped nonce policy. With no Supabase env configured the proxy short-circuits
 // on the "no auth cookie" path, which is exactly where the nonce/CSP wiring runs.
 
-function requestFor(path = "/"): NextRequest {
-  return new NextRequest(new URL(`http://localhost${path}`));
+function requestFor(path = "/", method = "GET"): NextRequest {
+  return new NextRequest(new URL(`http://localhost${path}`), { method });
 }
 
 function scriptSrcOf(csp: string): string {
@@ -89,6 +90,28 @@ describe("proxy content-security-policy", () => {
     const overridden = res.headers.get("x-middleware-override-headers") ?? "";
     expect(overridden).toContain("x-nonce");
     expect(res.headers.get("x-middleware-request-x-nonce")).toBe(cspNonce);
+  });
+});
+
+describe("proxy static assets", () => {
+  it("passes GET requests through without dynamic proxy headers", async () => {
+    const response = await proxy(requestFor("/_next/static/chunks/app.js"));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toBeNull();
+  });
+
+  it("rejects malformed static-asset POST requests before Next parses a Server Action", async () => {
+    const response = await proxy(requestFor("/_next/static/chunks/app.js", "POST"));
+
+    expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("GET, HEAD");
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("content-security-policy")).toBeNull();
+  });
+
+  it("includes Next static assets in the proxy matcher for the method guard", () => {
+    expect(config.matcher).toContain("/_next/static/:path*");
   });
 });
 
