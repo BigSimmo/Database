@@ -199,7 +199,6 @@ export function Sheet({
   useEffect(() => {
     if (!open) return;
 
-    const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const restoreTimers = restoreTimersRef.current;
     // A close-then-reopen inside one frame leaves this instance's own restore
@@ -282,7 +281,7 @@ export function Sheet({
       openFocusRef.current = null;
       popSheet(sheetId);
       const resolveConnectedRestoreTarget = () =>
-        [resolveReturnFocusTarget?.() ?? null, explicitReturnElement, previousActiveElement].find(
+        [resolveReturnFocusTarget?.() ?? null, returnFocusRef?.current ?? null, previousActiveElement].find(
           (target): target is HTMLElement => Boolean(target?.isConnected),
         ) ?? null;
       if (restoreTimers.frame != null) {

@@ -101,6 +101,42 @@ function DetachedResolverFallbackHarness() {
   );
 }
 
+function DynamicReturnFocusHarness() {
+  const [open, setOpen] = useState(false);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const updatedTargetRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={openerRef}
+        onClick={() => {
+          returnFocusRef.current = openerRef.current;
+          setOpen(true);
+        }}
+      >
+        Open sheet
+      </button>
+      <button type="button" ref={updatedTargetRef}>
+        Updated return target
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Dynamic return" returnFocusRef={returnFocusRef}>
+        <button
+          type="button"
+          onClick={() => {
+            returnFocusRef.current = updatedTargetRef.current;
+            setOpen(false);
+          }}
+        >
+          Close to updated target
+        </button>
+      </Sheet>
+    </>
+  );
+}
+
 describe("Sheet stacked-overlay coordination", () => {
   it("routes Escape to only the top-most open Sheet", () => {
     const onCloseA = vi.fn();
@@ -243,5 +279,16 @@ describe("Sheet stacked-overlay coordination", () => {
     await user.click(screen.getByRole("button", { name: "Close sheet" }));
 
     await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it("reads returnFocusRef at close time so callers can retarget focus", async () => {
+    const user = userEvent.setup();
+    render(<DynamicReturnFocusHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Open sheet" }));
+    await waitFor(() => expect(document.body.style.overflow).toBe("hidden"));
+    await user.click(screen.getByRole("button", { name: "Close to updated target" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Updated return target" })).toHaveFocus());
   });
 });
