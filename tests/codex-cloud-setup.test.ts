@@ -451,6 +451,8 @@ describe("Codex Cloud environment contract", () => {
     expect(known.stderr).toContain("FAIL-KNOWN:");
     expect(known.stderr).toContain("OPENAI_BASE_URL");
     expect(known.stderr).toContain("CONTINUE-RESTRICTED:");
+    expect(known.stderr).toContain("redirect OpenAI-bound traffic");
+    expect(known.stderr).toContain("bypasses the profile/shim scrub");
     expect(known.stderr).not.toContain("https://example.invalid");
 
     const mixed = spawnSync(bashCommand, ["scripts/check-codex-cloud-raw-env.sh"], {
@@ -574,7 +576,9 @@ describe("Codex Cloud environment contract", () => {
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
     const connectedConfig = readCodexConfig(connectedHome);
+    // Fresh temp $HOME starts without Codex config; setup must not invent MCP tables.
     expect(connectedConfig).not.toContain("[mcp_servers.");
+    expect(connectedConfig).not.toContain("mcp_servers");
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");

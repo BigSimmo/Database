@@ -670,8 +670,10 @@ export function validateCodexCloudSetup() {
   }
   // Reject any executable (non-comment) reference that would write MCP tables.
   // Strip full-line comments and whitespace-prefixed trailing comments so an
-  // inline note cannot false-trip the guard. This remains a text-level contract;
-  // the generated-config behavioural test is the stronger proof.
+  // inline note cannot false-trip the guard. Text-level only: a `#` inside a
+  // quoted shell string is also stripped, and split/concatenated table names
+  // would not match. The generated-config behavioural test (fresh temp $HOME
+  // asserting no `[mcp_servers.` after connected setup) is the stronger proof.
   const setupWithoutComments = setup
     .split("\n")
     .map((line) => {
@@ -749,6 +751,12 @@ export function validateCodexCloudSetup() {
     rawEnvironmentProbe,
     /FAIL-KNOWN: inherited documented launcher defect names/,
     "Raw Cloud environment probe must emit FAIL-KNOWN for the documented launcher defect.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /CONTINUE-RESTRICTED: OPENAI_BASE_URL can redirect OpenAI-bound traffic/,
+    "Raw Cloud environment probe must warn that OPENAI_BASE_URL can redirect provider traffic.",
   );
   requireMatch(
     errors,

@@ -103,10 +103,11 @@ the Codex Cloud product did not project the installed ChatGPT apps into the task
   connected Railway/Supabase MCPs. This repair is isolated from that unrelated PR and does not
   merge, close, or rewrite it.
 - Connector commit search did not find the Cloud-only `fe31128` GitHub preflight commit. The bounded
-  behavior was recreated as `check:github-shell-access`: its normal mode intentionally checks only
-  the optional `gh` shell fallback and fails closed unless `--allow-provider` or
-  `ALLOW_GITHUB_SHELL_ACCESS=true` is set, while `--self-test` is fully offline. `GH_AUTH_MISSING`
-  therefore says nothing about the hosted GitHub connector, which passed independently.
+  behavior was recreated as `check:github-shell-access`: the plain npm entry is offline
+  `--self-test`; the live `gh` shell fallback is `check:github-shell-access:live` (or a direct
+  script invocation with `--allow-provider` / `ALLOW_GITHUB_SHELL_ACCESS=true`, which overrides
+  `--self-test`). `GH_AUTH_MISSING` therefore says nothing about the hosted GitHub connector,
+  which passed independently.
 - The original blocked report's `OPENAI_BASE_URL` condition was removed in Codex environment
   settings. `Database - connected` now contains exactly the five documented non-secret variables,
   but a new task still inherited the variable name. Escalate this mismatch to Codex environment

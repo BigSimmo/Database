@@ -265,8 +265,10 @@ name-scoped in the probe itself:
 When the probe reports `FAIL-KNOWN` for `OPENAI_BASE_URL` alone, preserve that name-only output
 for OpenAI support and continue provider-free work only through the generated profile and command
 shims, followed by a passing `npm run check:codex-cloud`. Do not generalize that restricted path
-to any other inherited name. A sanitized child shell is never proof that the raw-parent boundary
-passed.
+to any other inherited name. An inherited `OPENAI_BASE_URL` can redirect OpenAI-bound traffic, so
+never call OpenAI clients from the raw parent process or from binaries that bypass the
+profile/`node`/`npm`/`npx` shim scrub. A sanitized child shell is never proof that the
+raw-parent boundary passed.
 
 `npm run check:production-readiness` remains useful in the offline profile for local safeguards.
 Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do

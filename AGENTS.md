@@ -896,7 +896,9 @@ Use `docs/codex-cloud.md` as the environment contract:
   profile or entering a login shell. It must report only provider variable names and presence,
   never values. Treat exit `1` / `FAIL`+`STOP` as a hard stop for any unexpected inherited name.
   Only exit `2` / `FAIL-KNOWN` for `OPENAI_BASE_URL` alone may use the restricted
-  profile-and-shim continue path; do not generalize that allowance. Then run
+  profile-and-shim continue path; do not generalize that allowance. That name can redirect
+  OpenAI-bound traffic, so never invoke OpenAI clients from the raw parent or any binary that
+  bypasses the profile/`node`/`npm`/`npx` scrub. Then run
   `npm run check:codex-cloud` directly; it must report the static-and-environment PASS line. Run
   `npm run check:codex-cloud -- --runtime` with `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the
   intended merge/base commit when the checkout has only a task HEAD. Setup and maintenance may
