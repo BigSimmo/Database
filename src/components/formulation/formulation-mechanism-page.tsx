@@ -265,7 +265,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
                   Evidence notes
                 </span>
                 <ChevronDown
-                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-open:rotate-180"
+                  className="h-4 w-4 text-[color:var(--decoration-soft)] transition group-open:rotate-180"
                   aria-hidden
                 />
               </summary>

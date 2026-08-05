@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LiveAnnouncer, RouteAnnouncer, announce, resetAnnouncerForTests } from "@/components/ui/live-announcer";
+import { AppAnnouncements } from "@/components/app-announcements";
 
 const pathname = vi.hoisted(() => ({ current: "/answer" }));
 
@@ -20,6 +21,13 @@ afterEach(() => {
 });
 
 describe("LiveAnnouncer", () => {
+  it("mounts exactly one polite/assertive pair through the app island", () => {
+    render(<AppAnnouncements />);
+
+    expect(screen.getAllByTestId("live-announcer-polite")).toHaveLength(1);
+    expect(screen.getAllByTestId("live-announcer-assertive")).toHaveLength(1);
+  });
+
   it("renders two visually-hidden regions and no visible text", () => {
     render(<LiveAnnouncer />);
 
@@ -238,5 +246,27 @@ describe("RouteAnnouncer", () => {
 
     expect(control).toHaveFocus();
     expect(screen.getByRole("heading", { level: 1 })).not.toHaveFocus();
+  });
+
+  it("focuses the main landmark when the new route has no h1", () => {
+    const { rerender } = render(
+      <>
+        <LiveAnnouncer />
+        <RouteAnnouncer />
+        <main>Answer content</main>
+      </>,
+    );
+
+    pathname.current = "/documents";
+    rerender(
+      <>
+        <LiveAnnouncer />
+        <RouteAnnouncer />
+        <main>Documents content</main>
+      </>,
+    );
+
+    expect(screen.getByRole("main")).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByRole("main")).toHaveFocus();
   });
 });

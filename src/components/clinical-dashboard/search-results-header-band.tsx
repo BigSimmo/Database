@@ -484,7 +484,7 @@ export function SearchResultsHeaderBand({
           aria-label="Applied filters"
           className="flex min-w-0 items-center gap-1.5 overflow-x-auto border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-soft)]">Filtered by</span>
+          <span className="search-band-shelf-label shrink-0 uppercase text-[color:var(--text-muted)]">Filtered by</span>
           {appliedFilters.map((filter) => (
             <button
               key={filter.id}
@@ -511,7 +511,7 @@ export function SearchResultsHeaderBand({
               onClick={onClearFilters}
               data-testid="search-query-ribbon-shelf-clear"
               className={cn(
-                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-soft)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
+                "search-band-ghost shrink-0 rounded-md px-2 py-1 text-[color:var(--text-muted)] underline decoration-transparent underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current",
                 focusRing,
               )}
             >
@@ -629,7 +629,7 @@ export function MobileResultFilterControl<Value extends string>({
         className,
       )}
     >
-      <span className="shrink-0 text-[color:var(--text-soft)] max-[359px]:sr-only">{label}</span>
+      <span className="shrink-0 text-[color:var(--text-muted)] max-[359px]:sr-only">{label}</span>
       {/* Two things keep this readable. `truncate` ends a long option ("Current
           search", a service name) in an ellipsis instead of the mid-word cut it used
           to get. And the weight steps down to semibold because the size cannot: the
@@ -650,7 +650,7 @@ export function MobileResultFilterControl<Value extends string>({
         ))}
       </select>
       <ChevronsUpDown
-        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--decoration-soft)]"
         aria-hidden
       />
     </label>

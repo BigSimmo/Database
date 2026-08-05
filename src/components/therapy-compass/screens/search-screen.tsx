@@ -97,10 +97,10 @@ export function SearchScreen() {
             </button>
             <button
               type="button"
-              className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-soft)] text-sm-minus font-medium cursor-pointer`}
+              className={`${therapyBtn} inline-flex items-center gap-2 min-h-tap py-0 px-4 border border-dashed border-[color:var(--border-strong)] rounded-lg bg-transparent text-[color:var(--text-muted)] text-sm-minus font-medium cursor-pointer`}
               onClick={b.clearSearch}
             >
-              <XIcon size={15} strokeWidth={1.8} />
+              <XIcon size={15} strokeWidth={1.8} className="text-[color:var(--decoration-soft)]" />
               Clear
             </button>
           </div>
