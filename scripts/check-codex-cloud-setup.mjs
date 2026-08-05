@@ -32,7 +32,7 @@ export const expectedMcpConfiguration = Object.freeze({
 export const expectedCodexProjectMcpServers = Object.freeze({
   figma_cloud: Object.freeze({
     url: "https://mcp.figma.com/mcp",
-    approvalMode: "writes",
+    approvalMode: "prompt",
   }),
   frontendchecklist_cloud: Object.freeze({
     url: "https://mcp.frontendchecklist.io",
@@ -44,7 +44,7 @@ export const expectedCodexProjectMcpServers = Object.freeze({
   }),
   sentry_cloud: Object.freeze({
     url: "https://mcp.sentry.dev/mcp",
-    approvalMode: "writes",
+    approvalMode: "prompt",
   }),
   supabase_cloud: Object.freeze({
     // URL validated with the same project/read-only/feature rules as `.mcp.json`.
@@ -664,7 +664,10 @@ export function validateCodexCloudSetup() {
     ],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
-    [/unset SENTRY_AUTH_TOKEN SENTRY_DSN/, "Cloud setup must scrub supported Sentry credentials from the agent shell."],
+    [
+      /unset SENTRY_AUTH_TOKEN SENTRY_DSN NEXT_PUBLIC_SENTRY_DSN/,
+      "Cloud setup must scrub supported Sentry credentials from the agent shell.",
+    ],
     [
       /CODEX_CLOUD_ENABLE_FIGMA/,
       "Connected Cloud setup must gate optional Figma MCP registration behind an explicit opt-in.",

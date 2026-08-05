@@ -289,11 +289,13 @@ reruns, ingestion, deployment, and release workflows remain separate explicit ac
 Project `.codex/config.toml` is the checked-in Codex MCP template. Its URL-only entries
 remain `enabled = false` so offline tasks do not initialize providers. In the connected profile,
 setup activates Railway and constrained Supabase by default. Optional Figma, Frontend Checklist,
-and Sentry hosted endpoints stay off unless the environment sets `CODEX_CLOUD_ENABLE_FIGMA=1`,
-`CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`, or `CODEX_CLOUD_ENABLE_SENTRY=1` for that task; the
-first authenticated use of an enabled endpoint completes browser OAuth. Hosted ChatGPT still
-requires the matching installed plugin/connector. In either host, start a fresh task after consent
-and verify the actual callable inventory.
+and Sentry hosted endpoints stay off unless the Codex environment sets
+`CODEX_CLOUD_ENABLE_FIGMA=1`, `CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`, or
+`CODEX_CLOUD_ENABLE_SENTRY=1` as environment variables consumed at setup/maintenance time. Those
+flags are not agent-shell toggles: export them in the environment settings, re-run setup or open a
+fresh task, then authenticate. The first authenticated use of an enabled endpoint completes browser
+OAuth. Hosted ChatGPT still requires the matching installed plugin/connector. In either host, start
+a fresh task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client template and static allowlist only. It does not prove hosted
 Cloud availability unless a plugin manifest or host explicitly imports it. Context7 / library-docs
 MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
@@ -345,15 +347,18 @@ copying credentials into the checkout.
    Do not add provider keys, database URLs, service-role credentials, test-user credentials, or
    `ALLOW_PROVIDER_TESTS`. Connected setup writes Railway and constrained Supabase into the managed
    host MCP block by default; optional Figma, Frontend Checklist, and Sentry endpoints require the
-   matching `CODEX_CLOUD_ENABLE_*=1` opt-in for that task. Setup never writes OAuth tokens.
+   matching `CODEX_CLOUD_ENABLE_*=1` environment opt-in before setup/maintenance writes the host
+   MCP block (changing the flag mid-task has no effect until re-provision). Setup never writes
+   OAuth tokens.
 2. **Grant the host integrations.** Authorize the Codex GitHub connector for
    `BigSimmo/Database` with repository write access. Complete Railway OAuth only for workspace
    `bigsimmo's Projects` and project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`). Complete
    Supabase OAuth only for the organization containing `Clinical KB Database`; retain project ref
    `sjrfecxgysukkwxsowpy`, `read_only=true`, and the docs/development-only feature allowlist. Do not broaden the
    production Supabase MCP to write access. Complete Figma and Sentry OAuth only when the matching
-   `CODEX_CLOUD_ENABLE_*=1` opt-in is set for the intended workspace and organization; their tools
-   remain prompt-gated. Frontend Checklist requires no repository credential and remains prompt-gated.
+   `CODEX_CLOUD_ENABLE_*=1` environment opt-in is set before setup for the intended workspace and
+   organization; their tools remain prompt-gated. Frontend Checklist requires no repository
+   credential and remains prompt-gated.
 3. **Start a fresh task.** OAuth tools and environment values are fixed when the task starts. A
    setup rerun inside an already-running offline task can validate a generated connected profile,
    but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open

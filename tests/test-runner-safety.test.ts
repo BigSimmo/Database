@@ -561,12 +561,15 @@ describe("provider-safe test environment", () => {
       // Explicit (including blank) values keep Next/Vite from reloading secrets.
       expect(Object.hasOwn(environment, key)).toBe(true);
     }
-    expect(providerEnvironmentKeys).toEqual(expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN"]));
+    expect(providerEnvironmentKeys).toEqual(
+      expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]),
+    );
     expect(providerEnvironmentKeys).not.toContain("SENTRY_ENABLE_LOGS");
     expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
     // Explicit blank pins the key so Next/Vite cannot reload a live DSN from .env.local.
     expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
     expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
     expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
   });

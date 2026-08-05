@@ -873,15 +873,18 @@ Use `docs/codex-cloud.md` as the environment contract:
 - When MCP tools are already callable in a Cloud session and the task needs them, use the host
   plugin/connector inventory. The production Supabase target is limited to prompted, read-only
   `docs` and `development` metadata tools; do not enable database, SQL, row, or log tools.
-  Write-capable Figma, Railway, and Sentry tools still require explicit confirmation. Paid API
+  Figma, Frontend Checklist, and Sentry use `prompt` (reads confirmation-gated); Railway write
+  tools still require explicit confirmation via `writes`. Paid API
   canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
   `test:live`, `check:supabase-project`) still need explicit confirmation. Project
   `.codex/config.toml` keeps MCP entries `enabled = false` so ordinary/offline hosts do not
   initialize them. Connected setup writes enabled Railway (`writes` approval) and constrained
   Supabase (`prompt` approval) entries to the host `$CODEX_HOME/config.toml` by default.
-  Optional Figma, Frontend Checklist, and Sentry hosted entries stay off unless the task sets
-  `CODEX_CLOUD_ENABLE_FIGMA=1`, `CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`, or
-  `CODEX_CLOUD_ENABLE_SENTRY=1`; when enabled they use `prompt` approval so reads stay
+  Optional Figma, Frontend Checklist, and Sentry hosted entries stay off unless the Codex
+  environment configures `CODEX_CLOUD_ENABLE_FIGMA=1`, `CODEX_CLOUD_ENABLE_FRONTENDCHECKLIST=1`,
+  or `CODEX_CLOUD_ENABLE_SENTRY=1` before setup/maintenance runs (re-provision or open a fresh
+  task after changing them — exporting the flag inside a running agent shell does not rewrite
+  `$CODEX_HOME/config.toml`); when enabled they use `prompt` approval so reads stay
   confirmation-gated. Actual availability still requires the installed host plugin/connector to
   complete OAuth and a fresh task to prove the callable inventory with read-only identity calls.
   Root `.mcp.json` is a static cross-client template, not runtime proof.

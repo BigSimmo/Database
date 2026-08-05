@@ -73,6 +73,7 @@ const requiredPolicyExcludes = [
   "INDEXING_V3_AGENT_SECRET",
   "SENTRY_AUTH_TOKEN",
   "SENTRY_DSN",
+  "NEXT_PUBLIC_SENTRY_DSN",
   "E2E_AUTH_ENABLED",
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
@@ -358,10 +359,13 @@ describe("Codex Cloud environment contract", () => {
     );
     expect(
       validateCodexProjectMcpConfiguration(
-        tracked.replace('default_tools_approval_mode = "writes"', 'default_tools_approval_mode = "auto"'),
+        tracked.replace(
+          /(\[mcp_servers\.railway_cloud\][\s\S]*?)default_tools_approval_mode = "writes"/,
+          '$1default_tools_approval_mode = "auto"',
+        ),
       ),
     ).toContain(
-      `.codex/config.toml figma_cloud must set default_tools_approval_mode = "writes" because write-capable tools require explicit approval.`,
+      `.codex/config.toml railway_cloud must set default_tools_approval_mode = "writes" because write-capable tools require explicit approval.`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
@@ -382,6 +386,26 @@ describe("Codex Cloud environment contract", () => {
       ),
     ).toContain(
       `.codex/config.toml frontendchecklist_cloud must set default_tools_approval_mode = "prompt" because external read tools require explicit approval.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          /(\[mcp_servers\.figma_cloud\][\s\S]*?)default_tools_approval_mode = "prompt"/,
+          '$1default_tools_approval_mode = "auto"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml figma_cloud must set default_tools_approval_mode = "prompt" because external read tools require explicit approval.`,
+    );
+    expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          /(\[mcp_servers\.sentry_cloud\][\s\S]*?)default_tools_approval_mode = "prompt"/,
+          '$1default_tools_approval_mode = "auto"',
+        ),
+      ),
+    ).toContain(
+      `.codex/config.toml sentry_cloud must set default_tools_approval_mode = "prompt" because external read tools require explicit approval.`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
@@ -586,7 +610,7 @@ describe("Codex Cloud environment contract", () => {
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).toContain("export NODE_USE_ENV_PROXY=1");
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");
-    expect(connectedProfile).toContain("unset SENTRY_AUTH_TOKEN SENTRY_DSN");
+    expect(connectedProfile).toContain("unset SENTRY_AUTH_TOKEN SENTRY_DSN NEXT_PUBLIC_SENTRY_DSN");
 
     const optedInHome = temporaryDirectory("codex-cloud-connected-opt-in-");
     const optedIn = runSetupPolicyOnly(optedInHome, {

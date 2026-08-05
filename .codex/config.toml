@@ -3,9 +3,9 @@
 #
 # checked-in policy:
 # - enabled = false so ordinary/offline Codex sessions do not initialize providers
-# - production Supabase and Frontend Checklist use "prompt" so every metadata/read
-#   operation requires explicit approval; write-capable Figma/Railway/Sentry tools
-#   use "writes" in this template (connected opt-ins may further tighten to "prompt")
+# - Figma, Frontend Checklist, Supabase, and Sentry use "prompt" so metadata/file/
+#   issue reads require explicit approval (matches connected opt-in posture)
+# - Railway keeps "writes" so only mutating tools need confirmation
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,
 #   test:live, check:supabase-project) still need explicit confirmation per AGENTS.md
 # Hosted Cloud tools come from installed OAuth plugins/connectors; `.mcp.json` is a cross-client template, not runtime proof.
@@ -13,7 +13,7 @@
 [mcp_servers.figma_cloud]
 url = "https://mcp.figma.com/mcp"
 enabled = false
-default_tools_approval_mode = "writes"
+default_tools_approval_mode = "prompt"
 
 [mcp_servers.frontendchecklist_cloud]
 url = "https://mcp.frontendchecklist.io"
@@ -35,4 +35,4 @@ default_tools_approval_mode = "writes"
 [mcp_servers.sentry_cloud]
 url = "https://mcp.sentry.dev/mcp"
 enabled = false
-default_tools_approval_mode = "writes"
+default_tools_approval_mode = "prompt"
