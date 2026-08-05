@@ -559,6 +559,49 @@ describe("provider-safe test environment", () => {
     for (const key of providerEnvironmentKeys) {
       expect(environment[key]).toBe(offlineUrlValues[key as keyof typeof offlineUrlValues] ?? "");
     }
+    // Credentials join the scrub inventory; the control flags deliberately do
+    // not — they are forced off instead, so nothing demands that a non-secret
+    // name be scrubbed from setup and raw-env checks too.
+    expect(providerEnvironmentKeys).toEqual(
+      expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN", "NEXT_PUBLIC_SENTRY_DSN"]),
+    );
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_ENABLE_LOGS");
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_TRACES_SAMPLE_RATE");
+    expect(environment.SENTRY_AUTH_TOKEN).toBe("");
+    // Explicit blank pins the key so Next/Vite cannot reload a live DSN from
+    // `.env.local` during Playwright/Lighthouse `next build` / `next start`.
+    // `optionalUrlEnv` in `src/lib/env.ts` coerces "" to unset for Zod.
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
+    expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
+    expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
+    expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
+  });
+
+  it("keeps Sentry DSNs pinned blank so a repository-local env file cannot restore a live destination", () => {
+    // Simulate the inheritance shape Next would see after `.env.local` load:
+    // both a live DSN on the parent and a would-be reload candidate. The offline
+    // wrapper must overwrite both names with an explicit blank (present, falsy).
+    const liveDsn = "https://real-key@o123.ingest.sentry.io/456";
+    const environment: Record<string, string | undefined> = offlineTestEnvironment({
+      SENTRY_DSN: liveDsn,
+      NEXT_PUBLIC_SENTRY_DSN: liveDsn,
+      SENTRY_AUTH_TOKEN: "sntrys_live_token",
+      SENTRY_TRACES_SAMPLE_RATE: "0.1",
+      SENTRY_ENABLE_LOGS: "true",
+    });
+
+    expect(environment.SENTRY_DSN).toBe("");
+    expect(environment.NEXT_PUBLIC_SENTRY_DSN).toBe("");
+    expect(environment.SENTRY_DSN).not.toBe(liveDsn);
+    expect(environment.SENTRY_AUTH_TOKEN).toBe("");
+    expect(environment.SENTRY_TRACES_SAMPLE_RATE).toBe("0");
+    expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
+    // Presence (not absence) is load-bearing: Next only skips `.env*` reload for
+    // names already set on process.env.
+    expect(Object.hasOwn(environment, "SENTRY_DSN")).toBe(true);
+    expect(Object.hasOwn(environment, "NEXT_PUBLIC_SENTRY_DSN")).toBe(true);
   });
 
   it("requires explicit permission before live tests can run", () => {
