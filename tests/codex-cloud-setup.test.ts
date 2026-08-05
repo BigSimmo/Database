@@ -346,7 +346,7 @@ describe("Codex Cloud environment contract", () => {
     const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
     expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
     expect(validateCodexProjectMcpConfiguration(tracked.replaceAll("enabled = false", "enabled = true"))).toContain(
-      `.codex/config.toml figma_cloud must set enabled = false (trusted Desktop/CLI operators opt in).`,
+      `.codex/config.toml figma_cloud must set enabled = false (opt in via $CODEX_HOME/config.toml or a never-committed local edit; do not commit enabled = true).`,
     );
     expect(
       validateCodexProjectMcpConfiguration(
@@ -569,6 +569,29 @@ describe("Codex Cloud environment contract", () => {
 
   it("pins connected retrieval mode and rejects unsafe shell-policy configs", () => {
     const connectedHome = temporaryDirectory("codex-cloud-connected-");
+    mkdirSync(path.join(connectedHome, ".codex"), { recursive: true });
+    // Seed the previous hosted registration shape between managed markers so re-run
+    // cleanup is proven (fresh empty $HOME alone would not exercise that path).
+    writeFileSync(
+      path.join(connectedHome, ".codex/config.toml"),
+      [
+        "[mcp_servers.keep_outside]",
+        'command = "echo"',
+        "",
+        "# BEGIN clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
+        "[mcp_servers.railway_connected]",
+        'url = "https://mcp.railway.com"',
+        "enabled = true",
+        "[mcp_servers.supabase_connected]",
+        'url = "https://mcp.supabase.com/mcp"',
+        "enabled = true",
+        "[shell_environment_policy]",
+        'inherit = "all"',
+        "exclude = []",
+        "# END clinical-kb-codex-cloud shell policy (managed by setup-codex-cloud.sh)",
+        "",
+      ].join("\n"),
+    );
     const connected = runSetupPolicyOnly(connectedHome, {
       CODEX_CLOUD_ACCESS_PROFILE: "connected",
       RAG_PROVIDER_MODE: "offline",
@@ -576,9 +599,11 @@ describe("Codex Cloud environment contract", () => {
     expect(connected.status, connected.stderr || connected.stdout).toBe(0);
     const connectedProfile = readRuntimeProfile(connectedHome);
     const connectedConfig = readCodexConfig(connectedHome);
-    // Fresh temp $HOME starts without Codex config; setup must not invent MCP tables.
-    expect(connectedConfig).not.toContain("[mcp_servers.");
-    expect(connectedConfig).not.toContain("mcp_servers");
+    expect(connectedConfig).toContain("[mcp_servers.keep_outside]");
+    expect(connectedConfig).not.toContain("[mcp_servers.railway_connected]");
+    expect(connectedConfig).not.toContain("[mcp_servers.supabase_connected]");
+    expect(connectedConfig).not.toContain("mcp_servers.railway");
+    expect(connectedConfig).not.toContain("mcp_servers.supabase");
     expect(connectedProfile).toContain('export CODEX_CLOUD_ACCESS_PROFILE="connected"');
     expect(connectedProfile).toContain('export RAG_PROVIDER_MODE="offline"');
     expect(connectedProfile).not.toContain("${RAG_PROVIDER_MODE:-auto}");

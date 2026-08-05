@@ -3,6 +3,8 @@
 #
 # checked-in policy:
 # - enabled = false so ordinary/offline Codex sessions do not initialize providers
+#   (check:codex-cloud fails if any tracked entry is enabled; opt in via
+#   $CODEX_HOME/config.toml or a never-committed local edit)
 # - production Supabase uses "prompt" so every metadata/read operation requires
 #   explicit approval; write-capable Figma/Railway/Sentry tools use "writes"
 # - Paid API canaries (eval:rag, eval:retrieval:quality, eval:quality, verify:release,

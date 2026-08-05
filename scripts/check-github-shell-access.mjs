@@ -19,10 +19,10 @@ function shellGh(command, args) {
  * Live `gh` API calls require an explicit opt-in (`--allow-provider` or
  * `ALLOW_GITHUB_SHELL_ACCESS=true`) so the provider confirmation boundary is
  * self-enforcing rather than documentation-only. The plain npm script passes
- * `--self-test`, which stays offline unless an opt-in is also present; use
- * `npm run check:github-shell-access:live` for the dedicated provider-backed
- * entry. Opt-in always wins over `--self-test` so env/flag confirmation cannot
- * be silently swallowed by the offline stub.
+ * `--self-test` and always stays offline: an ambient opt-in must not convert a
+ * documentation-safe sweep into provider traffic. Use
+ * `npm run check:github-shell-access:live` (no `--self-test`) for the
+ * dedicated provider-backed entry.
  */
 export function githubShellAccess(run = shellGh) {
   if (run("gh", ["--version"]).status !== 0) {
@@ -74,21 +74,21 @@ function selfTest() {
   if (!providerAccessAuthorized(["node", "script.mjs"], { [allowProviderEnv]: "true" })) {
     throw new Error(`provider access must accept ${allowProviderEnv}=true`);
   }
-  // Opt-in must beat a bundled --self-test so confirmation is never a no-op.
-  if (shouldRunSelfTest(["node", "script.mjs", "--self-test", allowProviderFlag], {})) {
-    throw new Error("--allow-provider must skip the offline --self-test stub");
+  // --self-test always stays offline, even when an ambient opt-in is exported.
+  if (!shouldRunSelfTest(["node", "script.mjs", "--self-test", allowProviderFlag])) {
+    throw new Error("--self-test must stay offline when --allow-provider is also present");
   }
-  if (shouldRunSelfTest(["node", "script.mjs", "--self-test"], { [allowProviderEnv]: "true" })) {
-    throw new Error(`${allowProviderEnv}=true must skip the offline --self-test stub`);
+  if (!shouldRunSelfTest(["node", "script.mjs", "--self-test"])) {
+    throw new Error("plain --self-test must stay offline");
   }
-  if (!shouldRunSelfTest(["node", "script.mjs", "--self-test"], {})) {
-    throw new Error("plain --self-test without opt-in must stay offline");
+  if (shouldRunSelfTest(["node", "script.mjs", allowProviderFlag])) {
+    throw new Error("live entry without --self-test must not run the offline stub");
   }
   console.log("GITHUB_SHELL_ACCESS_SELF_TEST=PASS");
 }
 
-function shouldRunSelfTest(argv = process.argv, env = process.env) {
-  return argv.includes("--self-test") && !providerAccessAuthorized(argv, env);
+function shouldRunSelfTest(argv = process.argv) {
+  return argv.includes("--self-test");
 }
 
 function main() {
@@ -100,8 +100,8 @@ function main() {
     console.error(
       [
         "Refusing live GitHub API calls without confirmation.",
-        `Use npm run check:github-shell-access:live, or invoke node scripts/check-github-shell-access.mjs with ${allowProviderFlag} / ${allowProviderEnv}=true, only after explicit provider approval.`,
-        "The plain npm run check:github-shell-access entry stays offline unless that same opt-in is present (opt-in overrides --self-test).",
+        `Use npm run check:github-shell-access:live, or invoke node scripts/check-github-shell-access.mjs with ${allowProviderFlag} / ${allowProviderEnv}=true (and without --self-test), only after explicit provider approval.`,
+        "The plain npm run check:github-shell-access entry always stays offline (--self-test); ambient opt-in cannot override it.",
       ].join("\n"),
     );
     process.exitCode = 1;

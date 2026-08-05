@@ -366,7 +366,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 - Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/Database` pushes to `main`; the `staging` environment runs the `app` service.
 - The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
 - The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
-- Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects. Desktop/CLI MCP uses the secret-free `railway` entry in `.codex/config.toml` or `.mcp.json` plus `codex mcp login railway`; neither file activates a hosted ChatGPT/Codex app.
+- Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects; Cloud runtime acceptance no longer installs or probes the CLI, so that substitution rule is documentation-enforced until an operator workflow reintroduces CLI checks. Desktop/CLI MCP uses the secret-free `railway` entry (enable in `$CODEX_HOME/config.toml` or via a never-committed local edit — never commit `enabled = true`) plus `codex mcp login railway`; neither repository MCP file activates a hosted ChatGPT/Codex app.
 - Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
 
 <!-- END:railway-project-safety -->
@@ -876,8 +876,9 @@ Use `docs/codex-cloud.md` as the environment contract:
   Write-capable Figma, Railway, and Sentry tools still require explicit confirmation. Paid API
   canaries (`eval:rag`, `eval:retrieval:quality`, `eval:quality`, `verify:release`,
   `test:live`, `check:supabase-project`) still need explicit confirmation. Project
-  `.codex/config.toml` keeps Desktop/CLI MCP entries `enabled = false`; use
-  `codex mcp login railway` locally after enabling the `railway` entry. Cloud setup never writes
+  `.codex/config.toml` keeps Desktop/CLI MCP entries `enabled = false` in git (`check:codex-cloud`
+  fails if any tracked entry is enabled). Opt in locally via `$CODEX_HOME/config.toml` (preferred)
+  or a never-committed project-file edit, then `codex mcp login railway`. Cloud setup never writes
   Railway or Supabase MCP registrations to `$CODEX_HOME`. Hosted ChatGPT/Codex requires an
   installed, workspace-authorized, OAuth-authenticated app, and a fresh task must prove the callable
   inventory with read-only identity calls. Root `.mcp.json` is a static cross-client template, not
@@ -896,9 +897,10 @@ Use `docs/codex-cloud.md` as the environment contract:
   profile or entering a login shell. It must report only provider variable names and presence,
   never values. Treat exit `1` / `FAIL`+`STOP` as a hard stop for any unexpected inherited name.
   Only exit `2` / `FAIL-KNOWN` for `OPENAI_BASE_URL` alone may use the restricted
-  profile-and-shim continue path; do not generalize that allowance. That name can redirect
-  OpenAI-bound traffic, so never invoke OpenAI clients from the raw parent or any binary that
-  bypasses the profile/`node`/`npm`/`npx` scrub. Then run
+  profile-and-shim continue path; do not generalize that allowance. Exit `2` is still a failed raw
+  boundary — future automation must not treat non-1 as success or as a blind retry. That name can
+  redirect OpenAI-bound traffic, so never invoke OpenAI clients from the raw parent or any binary
+  that bypasses the profile/`node`/`npm`/`npx` scrub. Then run
   `npm run check:codex-cloud` directly; it must report the static-and-environment PASS line. Run
   `npm run check:codex-cloud -- --runtime` with `CODEX_CLOUD_EXPECTED_BASE_SHA` set to the
   intended merge/base commit when the checkout has only a task HEAD. Setup and maintenance may

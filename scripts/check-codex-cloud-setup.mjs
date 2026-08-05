@@ -173,7 +173,9 @@ export function validateCodexProjectMcpConfiguration(text) {
     const expected = expectedCodexProjectMcpServers[name];
 
     if (server.enabled !== false) {
-      errors.push(`${label} must set enabled = false (trusted Desktop/CLI operators opt in).`);
+      errors.push(
+        `${label} must set enabled = false (opt in via $CODEX_HOME/config.toml or a never-committed local edit; do not commit enabled = true).`,
+      );
     }
     if (server.default_tools_approval_mode !== expected.approvalMode) {
       const reason =
