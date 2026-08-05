@@ -194,7 +194,11 @@
   }
 }
 
-/* Crisp white light shell (#10, #24) + blue command colour (#1, #12).
+/* Crisp white light shell (#10, #24). Command stays graphite, matching the
+   live compatibility layer and docs/redesign/permanent-colour-direction.md —
+   command (CTA) and clinical-accent (evidence/selected/send) are deliberately
+   different roles; a blue command briefly shipped here and collapsed that
+   distinction (reverted per design-system review, 2026-08-05).
    Light is the default on .ckb-v2 itself - never :not(.dark), which matched a
    subtree inside html.dark and overrode the inherited dark values (DS-01). */
 .ckb-v2.ckb-v2 {
@@ -233,9 +237,9 @@
   --decoration-soft: #8894a6;
   --disabled: #9aa5b5;
 
-  --command: #1a66a8;
-  --command-hover: #185c99;
-  --command-active: #164a7a;
+  --command: #111827;
+  --command-hover: #0b1220;
+  --command-active: #080b0f;
   --command-contrast: #ffffff;
   --danger-solid: #a3190f;
   --danger-solid-hover: #85140d;
@@ -334,10 +338,10 @@
   --decoration-soft: #7d8792;
   --border-dashed: #454e57;
 
-  --command: #3a80c0;
-  --command-hover: #4a91d2;
-  --command-active: #1d6fb8;
-  --command-contrast: #06121e;
+  --command: #f5f7f7;
+  --command-hover: #e6e9e8;
+  --command-active: #cbd1d8;
+  --command-contrast: #0a0c0e;
   --danger-solid: #b42318;
   --danger-solid-hover: #d92d20;
   --danger-solid-active: #912018;
