@@ -132,12 +132,14 @@ src/components/clinical-dashboard/document-search-results.tsx
 src/components/DocumentViewer.tsx
 ```
 
-`DocumentFrame` is specified, **not built** (PR 11) — do not adopt as if present. Until it
-exists, this surface is token/recipe cleanup plus the live-region retirement below. Keep every
-`role="alert"` semantic; route announcements through the announcer policy rather than deleting
-roles, because many `role="status"` sites are implicit polite live regions with no `aria-live`
-attribute and removing the role without an `announce()` call changes what a screen reader
-hears.
+`DocumentFrame` is **built** (`src/components/ui/document-frame.tsx`) and used by
+`DocumentViewer` as a shell-only surround (no `controls` toolbar — PDF chrome stays on
+`PdfCanvasViewer`). It is not yet design-sync registered among the 53 published visual
+exports. Do not invent a second frame or add inversion/filters; route document renders through
+the existing viewer + frame. Keep every `role="alert"` semantic; route announcements through
+the announcer policy rather than deleting roles, because many `role="status"` sites are
+implicit polite live regions with no `aria-live` attribute and removing the role without an
+`announce()` call changes what a screen reader hears.
 
 `DocumentViewer.tsx` owns its own page composer. Do not add a second one, and do not touch the
 shell props that hide the shared composer on document routes.
@@ -245,17 +247,17 @@ imports remain zero. Registration is not adoption. `LiveAnnouncer`, `RouteAnnoun
 
 ## 4 · Exclusions
 
-| Excluded                                                          | Reason                                                                            |
-| ----------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `src/app/mockups/**`, `*-mockups.tsx`                             | Design scratch; 404 in production; gate-exempt. Never "fixed"                     |
-| `src/lib/rag/**` and the other RAG-ranking protected surfaces     | Read-only; not an adoption surface                                                |
-| Wrapping or remounting `GlobalSearchShell`                        | One production mount exists (`shared-search-app-shell.tsx`); a second is a defect |
-| Half-component adoption                                           | SPEC §13 invariant — a surface adopts a component whole                           |
-| Replacing the product copy path with bare `answerClipboardText()` | `#208`; drops the render policy's warnings                                        |
-| Adopting the answer surface before `#207`                         | SPEC §13 blocker 2                                                                |
-| `FilterBar`, `DataTable`                                          | Retired names; use a surface-owned filter pattern and canonical `AccessibleTable` |
-| `DocumentFrame`                                                   | Specified, not built — do not approximate                                         |
-| `#209` warning-as-body-text contrast                              | P3; not a Phase 1 blocker and not in this wave's scope                            |
+| Excluded                                                          | Reason                                                                                                                      |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/mockups/**`, `*-mockups.tsx`                             | Design scratch; 404 in production; gate-exempt. Never "fixed"                                                               |
+| `src/lib/rag/**` and the other RAG-ranking protected surfaces     | Read-only; not an adoption surface                                                                                          |
+| Wrapping or remounting `GlobalSearchShell`                        | One production mount exists (`shared-search-app-shell.tsx`); a second is a defect                                           |
+| Half-component adoption                                           | SPEC §13 invariant — a surface adopts a component whole                                                                     |
+| Replacing the product copy path with bare `answerClipboardText()` | `#208`; drops the render policy's warnings                                                                                  |
+| Adopting the answer surface before `#207`                         | SPEC §13 blocker 2                                                                                                          |
+| `FilterBar`, `DataTable`                                          | Retired names; use a surface-owned filter pattern and canonical `AccessibleTable`                                           |
+| `DocumentFrame`                                                   | Built shell-only in `DocumentViewer`; not yet design-sync registered — do not invent a second frame or approximate controls |
+| `#209` warning-as-body-text contrast                              | P3; not a Phase 1 blocker and not in this wave's scope                                                                      |
 
 ---
 
@@ -332,7 +334,7 @@ Declared production page routes: 47/47
 
 Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.
 The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.
-Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed.
+Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed or explicitly not-committed (pending Linux screenshot approval).
 
 | Surface                            | Disposition     | Routes | Roots | Declared shell | Observed shell (mount)     | Proof          | Baseline       |
 | ---------------------------------- | --------------- | -----: | ----: | -------------- | -------------------------- | -------------- | -------------- |

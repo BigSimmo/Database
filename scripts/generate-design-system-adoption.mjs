@@ -1318,7 +1318,7 @@ export function manifestSections(manifest) {
     "",
     "Source observation and contract declaration are independent. A literal `ckb-v2` on the global `<html>` makes every production surface inherit v2, but it does not approve that adoption.",
     "The Proof column summarizes each surface's dark, forced-colours, 320px, print and browser declarations; exact statuses and evidence paths live in the manifest.",
-    "Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed.",
+    "Observed v2 under a compatibility declaration fails closed. A declared v2 shell also fails closed unless every proof is passed with evidence and its visual baseline is committed or explicitly not-committed (pending Linux screenshot approval).",
     "",
     "| Surface | Disposition | Routes | Roots | Declared shell | Observed shell (mount) | Proof | Baseline |",
     "| --- | --- | ---: | ---: | --- | --- | --- | --- |",
@@ -1764,6 +1764,10 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
       if (!validBaselineFiles) failures.push(`${surface.id} surface baseline files must be a string array`);
       if (surface.baseline.status === "committed" && (!validBaselineFiles || surface.baseline.files.length === 0))
         failures.push(`${surface.id} surface baseline is committed without files`);
+      if (surface.baseline.status === "not-committed" && validBaselineFiles && surface.baseline.files.length !== 0)
+        failures.push(
+          `${surface.id} surface baseline is not-committed but lists files; keep files empty until screenshots are committed`,
+        );
       if (surface.baseline.status === "committed" && validBaselineFiles) {
         committedBaselinePaths.push(...surface.baseline.files);
         for (const baselinePath of surface.baseline.files) {
