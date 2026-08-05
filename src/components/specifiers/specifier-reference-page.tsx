@@ -292,7 +292,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                   >
                     <span className="min-w-0">
                       <span className="block truncate">{entry.label}</span>
-                      <span className="block text-2xs font-semibold text-[color:var(--text-soft)]">
+                      <span className="block text-2xs font-semibold text-[color:var(--text-muted)]">
                         {entry.groupLabel}
                       </span>
                     </span>

@@ -233,7 +233,7 @@ export function ScoreBandBar({
           />
         ) : null}
       </div>
-      <div className="flex justify-between text-3xs font-semibold leading-3 text-[color:var(--text-soft)]">
+      <div className="flex justify-between text-3xs font-semibold leading-3 text-[color:var(--text-muted)]">
         <span>{calc.minScore}</span>
         <span>{calc.maxScore}</span>
       </div>
@@ -322,14 +322,14 @@ function CheckboxRow({
           )}
         >
           {index !== undefined ? (
-            <span className="mr-1.5 font-mono text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+            <span className="mr-1.5 font-mono text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
               {index}.
             </span>
           ) : null}
           {item.text}
         </span>
         {item.detail ? (
-          <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+          <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
             {item.detail}
           </span>
         ) : null}
@@ -377,7 +377,7 @@ function OptionScale({
                 <span
                   className={cn(
                     "font-mono text-2xs font-bold tabular-nums",
-                    active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                    active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
                   )}
                 >
                   {option.points}
@@ -608,13 +608,13 @@ export function CalculatorItems({
                   dense ? "text-sm-minus" : "text-sm",
                 )}
               >
-                <span className="mr-1.5 font-mono text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+                <span className="mr-1.5 font-mono text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
                   {itemIndex + 1}.
                 </span>
                 {item.text}
               </p>
               {item.detail ? (
-                <p className="mt-0.5 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">{item.detail}</p>
+                <p className="mt-0.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">{item.detail}</p>
               ) : null}
             </div>
             <OptionScale

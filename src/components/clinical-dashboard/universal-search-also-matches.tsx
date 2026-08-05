@@ -136,12 +136,12 @@ export function UniversalSearchAlsoMatches({
             {currentGroups.length || "…"}
           </span>
         </span>
-        <span className="hidden text-2xs font-semibold text-[color:var(--text-soft)] sm:inline">
+        <span className="hidden text-2xs font-semibold text-[color:var(--text-muted)] sm:inline">
           Across Clinical KB
         </span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition-transform sm:hidden",
+            "h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition-transform sm:hidden",
             expanded && "rotate-180",
           )}
           aria-hidden

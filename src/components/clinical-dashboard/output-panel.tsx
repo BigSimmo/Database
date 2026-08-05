@@ -16,7 +16,7 @@ import {
   simpleClinicalTableProps,
   sortClinicalDetailSections,
 } from "@/components/clinical-dashboard/clinical-output-helpers";
-import { cn, iconTilePremium, metadataPill, panelSubtle, subtleStatusPill } from "@/components/ui-primitives";
+import { cn, iconTilePremium, metadataPillDensity, panelSubtle, subtleStatusPill } from "@/components/ui-primitives";
 import type { RagAnswer } from "@/lib/types";
 import {
   type AnswerEvidenceMapRow,
@@ -170,7 +170,7 @@ export function ClinicalOutputPanel({
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                      <p className="truncate text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                         {meta.eyebrow}
                       </p>
                       <h3 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
@@ -178,19 +178,21 @@ export function ClinicalOutputPanel({
                       </h3>
                     </div>
                   </div>
-                  <span className={cn(metadataPill, "min-h-7 shrink-0 px-2 text-2xs")}>{itemCount}</span>
+                  <span className={cn(metadataPillDensity.dense, "shrink-0")}>{itemCount}</span>
                 </div>
                 {section.tables?.length ? (
                   <div className="mt-3 grid gap-3">
                     {section.tables.map((table) => (
                       <div key={table.id} data-testid="clinical-detail-table" className="min-w-0 space-y-2">
                         <AccessibleTable
-                          caption={table.caption}
+                          caption={table.caption?.trim() || `${section.title} table`}
                           markdown={table.markdown}
                           rows={table.rows}
                           columns={table.columns}
                           {...simpleClinicalTableProps}
                           clinicalOnly
+                          // Invented fallbacks are accessible-name only — do not paint a fake heading.
+                          hidePreviewCaption={!table.caption?.trim()}
                           dialogTitle={table.caption || "Clinical table"}
                         />
                       </div>

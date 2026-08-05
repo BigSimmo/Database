@@ -31,6 +31,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
+import { Chip as DesignChip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
@@ -171,7 +172,7 @@ function DifferentialsMobileCompareBar({
           data-testid="differentials-compare-selected-mobile"
           className="differentials-mobile-compare-fab__button differentials-mobile-compare-fab__button--empty"
         >
-          <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+          <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
           <span className="truncate">Tick results to compare</span>
         </p>
       )}
@@ -298,7 +299,7 @@ function ResultTypeTabs({
                 "nums rounded-full px-1.5 text-2xs leading-tight",
                 active
                   ? "bg-[color:var(--clinical-accent-contrast)]/15 text-[color:var(--clinical-accent-contrast)]"
-                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]",
+                  : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
               )}
             >
               {tab.count}
@@ -327,26 +328,23 @@ function MatchBadge({ label }: { label: string }) {
 
 function Chip({
   children,
-  className,
+  fixed = false,
   density = "default",
 }: {
   children: string;
-  className?: string;
+  fixed?: boolean;
   /** Comfortable chips use a single exclusive type scale — never dual text-* via cn(). */
   density?: "default" | "comfortable";
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
-        density === "comfortable"
-          ? "px-2.5 py-1 text-xs font-semibold leading-snug"
-          : "px-2 text-2xs font-bold leading-none",
-        className,
-      )}
+    <DesignChip
+      size={density === "comfortable" ? "standard" : "compact"}
+      appearance={{ kind: "information", tone: "quiet" }}
+      wrap
+      className={cn("min-w-0 max-w-full", fixed && "shrink-0")}
     >
-      <span className="min-w-0 truncate">{children}</span>
-    </span>
+      {children}
+    </DesignChip>
   );
 }
 
@@ -361,7 +359,7 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
         "grid h-tap w-tap shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         selected
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-          : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--text-soft)]",
+          : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--decoration-soft)]",
       )}
     >
       <Check className="h-4 w-4" aria-hidden />
@@ -504,13 +502,11 @@ function MobileResultCard({
       </div>
       <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
-          <Chip key={`${result.id}-${tag}`} density="comfortable" className="max-w-full">
+          <Chip key={`${result.id}-${tag}`} density="comfortable">
             {tag}
           </Chip>
         ))}
-        {result.tags.length > 2 ? (
-          <Chip density="comfortable" className="shrink-0">{`+${result.tags.length - 2}`}</Chip>
-        ) : null}
+        {result.tags.length > 2 ? <Chip density="comfortable" fixed>{`+${result.tags.length - 2}`}</Chip> : null}
       </div>
     </article>
   );
@@ -596,12 +592,12 @@ function BestAnswerCard({
       </p>
       <div className={cn("flex min-w-0 max-w-full flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
         {visibleTags.map((tag) => (
-          <Chip key={tag} density={compact ? "comfortable" : "default"} className={compact ? "max-w-full" : undefined}>
+          <Chip key={tag} density={compact ? "comfortable" : "default"}>
             {tag}
           </Chip>
         ))}
         {hiddenTagCount > 0 ? (
-          <Chip density={compact ? "comfortable" : "default"} className={compact ? "shrink-0" : undefined}>
+          <Chip density={compact ? "comfortable" : "default"} fixed={compact}>
             {`+${hiddenTagCount}`}
           </Chip>
         ) : null}
@@ -674,7 +670,7 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
           >
             <StatusBadge status={result.status} />
             <span className="truncate">{result.title}</span>
-            <ChevronRight className="h-4 w-4 text-[color:var(--text-soft)]" aria-hidden />
+            <ChevronRight className="h-4 w-4 text-[color:var(--decoration-soft)]" aria-hidden />
           </Link>
         ))}
       </div>
@@ -1211,7 +1207,7 @@ function SearchResultsView({
               </Link>
             ) : (
               <p className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] lg:inline-flex">
-                <GitCompareArrows className="h-5 w-5 text-[color:var(--text-soft)]" aria-hidden />
+                <GitCompareArrows className="h-5 w-5 text-[color:var(--decoration-soft)]" aria-hidden />
                 Tick results to compare them side by side
               </p>
             )}
