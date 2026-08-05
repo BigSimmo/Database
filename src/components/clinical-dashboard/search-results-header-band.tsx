@@ -878,14 +878,17 @@ export function SearchResultsEmptyState({
   // region would double-speak.
   const [liveMessage, setLiveMessage] = useState("");
   useEffect(() => {
-    if (filtered) {
-      setLiveMessage("");
-      return;
-    }
-    setLiveMessage("");
-    const frame = requestAnimationFrame(() => {
-      setLiveMessage(`${emptyTitle}. ${emptyBody}`);
-    });
+    // The population happens in the frame callback, never in the effect body.
+    // `react-hooks/set-state-in-effect` blocks the synchronous form and is right
+    // to: the deferred render is the entire mechanism here, so doing it
+    // synchronously would both trip the rule and defeat the purpose.
+    //
+    // Neither clearing call this replaced was doing anything. The region is
+    // rendered only when `!filtered`, so the filtered branch had nothing mounted
+    // to clear; and a re-populating region is already unmounted-then-mounted by
+    // that same gate, so it starts empty on its own.
+    if (filtered) return;
+    const frame = requestAnimationFrame(() => setLiveMessage(`${emptyTitle}. ${emptyBody}`));
     return () => cancelAnimationFrame(frame);
   }, [filtered, emptyTitle, emptyBody]);
   const secondary = [
