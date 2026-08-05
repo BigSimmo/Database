@@ -2,6 +2,7 @@
 
 import { useClientTime } from "@/lib/use-client-time";
 import { cn } from "@/components/ui-primitives";
+import { createBoundedDiagnosticRecorder } from "@/components/ui/design-system-diagnostics";
 import { MissingValue, type MissingValueReason } from "@/components/ui/missing-value";
 
 /**
@@ -39,16 +40,17 @@ const DATE_TIME = { ...DATE_ONLY, hour: "2-digit", minute: "2-digit", hour12: fa
  */
 const DATE_ONLY_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
-const loggedInvalidValues = new Set<string>();
+const recordInvalidValue = createBoundedDiagnosticRecorder({
+  emit: (message) => {
+    if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") console.warn(message);
+  },
+});
 
 function noteInvalid(value: string) {
-  if (loggedInvalidValues.has(value)) return;
-  loggedInvalidValues.add(value);
-  if (typeof process === "undefined" || process.env?.NODE_ENV !== "test") {
-    console.warn(
-      JSON.stringify({ level: "warn", message: "date-display: unparseable ISO value", field: "value", value }),
-    );
-  }
+  recordInvalidValue(
+    value,
+    JSON.stringify({ level: "warn", message: "date-display: unparseable ISO value", field: "value", value }),
+  );
 }
 
 /**

@@ -114,7 +114,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+                  <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                     {diagnosis.category.label}
                   </p>
                   <h2 className="mt-1 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
@@ -126,7 +126,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
               <Link
                 href={removeDiagnosisHref(diagnoses, diagnosis.slug)}
                 aria-label={`Remove ${diagnosis.title} from comparison`}
-                className="absolute right-2 top-2 grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-soft)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--danger)]"
+                className="absolute right-2 top-2 grid h-tap w-tap place-items-center rounded-lg text-[color:var(--decoration-soft)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--danger)]"
               >
                 <X className="h-4 w-4" aria-hidden />
               </Link>
@@ -155,7 +155,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
                     <tr className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
                       <th
                         scope="col"
-                        className="w-44 px-4 py-3 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]"
+                        className="w-44 px-4 py-3 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
                       >
                         Compare
                       </th>
@@ -273,7 +273,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
           <span>Comparison is not ranked.</span>
           <span aria-hidden>•</span>
           <span>Open each diagnosis for complete criteria and documentation support.</span>
-          <ListChecks className="ml-auto hidden h-4 w-4 text-[color:var(--text-soft)] sm:block" aria-hidden />
+          <ListChecks className="ml-auto hidden h-4 w-4 text-[color:var(--decoration-soft)] sm:block" aria-hidden />
         </footer>
       </div>
     </div>

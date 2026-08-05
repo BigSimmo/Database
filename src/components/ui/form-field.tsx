@@ -56,7 +56,9 @@ export type FormFieldProps = {
   className?: string;
 };
 
-export function FieldHint({ id, children }: { id: string; children: string }) {
+export type FieldHintProps = { id: string; children: string };
+
+export function FieldHint({ id, children }: FieldHintProps) {
   return (
     <p id={id} data-testid="field-hint" className={cn("mt-1.5 text-xs", textMuted)}>
       {children}
@@ -64,7 +66,9 @@ export function FieldHint({ id, children }: { id: string; children: string }) {
   );
 }
 
-export function FieldError({ id, children }: { id: string; children: string }) {
+export type FieldErrorProps = { id: string; children: string };
+
+export function FieldError({ id, children }: FieldErrorProps) {
   return (
     <p
       id={id}

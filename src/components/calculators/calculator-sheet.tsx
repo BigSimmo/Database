@@ -112,11 +112,11 @@ export function CalculatorSheet({
           <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-2">
               <h2 className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</h2>
-              <span className="hidden truncate text-2xs font-semibold text-[color:var(--text-soft)] sm:inline">
+              <span className="hidden truncate text-2xs font-semibold text-[color:var(--text-muted)] sm:inline">
                 {calc.name}
               </span>
             </div>
-            <p className="truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+            <p className="truncate text-2xs font-semibold text-[color:var(--text-muted)]">
               {domainLabels[calc.domain]} · {calc.items.length} items · {calc.timeEstimate}
             </p>
           </div>
@@ -149,10 +149,10 @@ export function CalculatorSheet({
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
               {derived.started ? derived.score : "—"}
-              <span className="text-sm-minus font-bold text-[color:var(--text-soft)]"> / {calc.maxScore}</span>
+              <span className="text-sm-minus font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
             </span>
             <span className="flex items-center gap-2">
-              <span className="text-2xs font-semibold text-[color:var(--text-soft)]">{progressLabel(derived)}</span>
+              <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{progressLabel(derived)}</span>
               <SeverityPill tone={derived.result.tone} label={derived.started ? derived.result.label : "Not started"} />
             </span>
           </div>

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function DocumentsSearchRoute() {
   return (
-    <section className="mx-auto flex min-h-[55dvh] max-w-3xl flex-col items-center justify-center px-4 py-12 text-center">
+    <main className="mx-auto flex min-h-[55dvh] max-w-3xl flex-col items-center justify-center px-4 py-12 text-center">
       <p className="text-xs font-bold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
         Indexed sources
       </p>
@@ -16,6 +16,6 @@ export default function DocumentsSearchRoute() {
         Enter a query in the Documents composer to search the indexed sources. Results open the source document at the
         matching page and passage.
       </p>
-    </section>
+    </main>
   );
 }

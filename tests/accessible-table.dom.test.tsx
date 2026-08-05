@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { AccessibleTable } from "@/components/AccessibleTable";
@@ -23,6 +23,88 @@ describe("AccessibleTable (jsdom)", () => {
     expect(screen.getAllByText("Monitor observations").length).toBeGreaterThan(0);
     // No mobile-expand affordance on the desktop breakpoint (matchMedia → false).
     expect(screen.queryByTestId("table-expand-button")).not.toBeInTheDocument();
+  });
+
+  it("uses one semantic caption as the table name while keeping visual caption chrome silent", () => {
+    render(<AccessibleTable caption="Clozapine monitoring" columns={columns} rows={rows} />);
+
+    const table = screen.getByRole("table", { name: "Clozapine monitoring" });
+    expect(table).not.toHaveAttribute("aria-label");
+    expect(table.querySelectorAll("caption")).toHaveLength(1);
+    expect(table.querySelector("caption")).toHaveTextContent("Clozapine monitoring");
+
+    const visualCaption = screen
+      .getAllByText("Clozapine monitoring")
+      .find((element) => element.tagName.toLowerCase() === "div");
+    expect(visualCaption).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps the semantic caption when preview caption chrome is hidden", () => {
+    render(<AccessibleTable caption="Clozapine monitoring" columns={columns} rows={rows} hidePreviewCaption />);
+
+    const table = screen.getByRole("table", { name: "Clozapine monitoring" });
+    expect(table.querySelector("caption")).toHaveTextContent("Clozapine monitoring");
+    expect(screen.getAllByText("Clozapine monitoring")).toHaveLength(1);
+  });
+
+  it("does not paint invented fallback captions as visible heading chrome", () => {
+    render(<AccessibleTable caption="Document table" columns={columns} rows={rows} hidePreviewCaption />);
+
+    expect(screen.getByRole("table", { name: "Document table" })).toBeInTheDocument();
+    expect(screen.getAllByText("Document table")).toHaveLength(1);
+    expect(screen.getByText("Document table").tagName.toLowerCase()).toBe("caption");
+  });
+
+  it("does not paint invented caption chrome in the expanded dialog when chrome is hidden", async () => {
+    setMatchMedia(true);
+    const user = userEvent.setup();
+
+    render(
+      <AccessibleTable
+        caption="Document table"
+        dialogTitle="Document table"
+        columns={columns}
+        rows={rows}
+        expandOnMobile
+        hidePreviewCaption
+      />,
+    );
+
+    await user.click(screen.getByTestId("table-expand-button"));
+    const dialog = screen.getByTestId("table-fullscreen-dialog");
+    expect(dialog).toBeInTheDocument();
+    // Sheet title may still name the dialog, but the table surface itself must
+    // not grow a second visible "Document table" heading above the grid.
+    const visualCaptions = Array.from(dialog.querySelectorAll('[aria-hidden="true"]')).filter(
+      (element) => element.textContent === "Document table",
+    );
+    expect(visualCaptions).toHaveLength(0);
+    const dialogTable = within(dialog).getByRole("table", { name: "Document table" });
+    expect(dialogTable.querySelector("caption")).toHaveTextContent("Document table");
+  });
+
+  it("renders explicit missing values and action text instead of ambiguous dashes", () => {
+    render(
+      <AccessibleTable
+        caption="Clozapine monitoring"
+        columns={columns}
+        rows={[
+          ["0", ""],
+          ["1", "Review observations"],
+        ]}
+        rowActions={[
+          null,
+          <button key="review" type="button" onClick={() => {}}>
+            Review
+          </button>,
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByTestId("missing-value")).toHaveLength(1);
+    expect(screen.getByTestId("missing-value")).toHaveTextContent("Not recorded");
+    expect(screen.getByText("No action available")).toBeInTheDocument();
+    expect(screen.queryByText("-")).not.toBeInTheDocument();
   });
 
   it("opens the full-screen dialog when the mobile expand control is clicked", async () => {

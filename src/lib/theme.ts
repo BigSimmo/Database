@@ -10,13 +10,14 @@ export type ThemePreference = ResolvedTheme | "system";
 
 export const DEFAULT_THEME: ResolvedTheme = "dark";
 
-/* Must equal the resolved `--background` for each theme in globals.css. These
-   are painted by the browser (and the pre-hydration script) before any CSS is
-   available, so a drift here shows up as a flash of the wrong page colour and a
-   mismatched browser chrome bar. Re-check both whenever --background moves. */
+/* Must equal the resolved `--background` for each root-mounted v2 theme in
+   ckb-v2-tokens.css. These are painted by the browser (and the pre-hydration
+   script) before any CSS is available, so a drift here shows up as a flash of
+   the wrong page colour and a mismatched browser chrome bar. Re-check both
+   whenever the v2 --background moves. */
 export const APP_THEME_COLORS = {
-  light: "#f1f4f8",
-  dark: "#060708",
+  light: "#ffffff",
+  dark: "#0b0e11",
 } as const satisfies Record<ResolvedTheme, string>;
 
 /** localStorage key for an explicit light/dark pin. */
