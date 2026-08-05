@@ -180,7 +180,9 @@ function productionViolations() {
 }
 
 describe("Chip call-site contract", () => {
-  it("keeps imported Chip aliases and expression-valued className layout-only", () => {
+  // Full-tree AST scan of every production source file; under coverage this
+  // regularly exceeds the default 30s Vitest budget (observed 31s in CI).
+  it("keeps imported Chip aliases and expression-valued className layout-only", { timeout: 90_000 }, () => {
     expect(productionViolations().chip).toEqual([]);
   });
 
@@ -199,7 +201,7 @@ describe("Chip call-site contract", () => {
     ]);
   });
 
-  it("uses named metadata density recipes instead of direct or variable overrides", () => {
+  it("uses named metadata density recipes instead of direct or variable overrides", { timeout: 90_000 }, () => {
     expect(productionViolations().metadata).toEqual([]);
   });
 
