@@ -24,7 +24,6 @@ import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import {
-  defaultSearchPins,
   maximumSearchPins,
   normalizeSearchPins,
   readSearchPins,
@@ -106,9 +105,12 @@ function SectionHeading({ children, action }: { children: string; action?: React
 
 type EditorState = { pinId: string | null; name: string; destinationIds: SearchPinDestinationId[] };
 
+let pinIdFallbackCounter = 0;
+
 function createPinId() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `pin-${Date.now().toString(36)}`;
+  pinIdFallbackCounter += 1;
+  return `pin-${Date.now().toString(36)}-${pinIdFallbackCounter.toString(36)}`;
 }
 
 export function SearchPinsMenu({
@@ -132,13 +134,14 @@ export function SearchPinsMenu({
   onModeSelect: (modeId: string) => void;
   onAction: (actionId: ModeActionId) => void;
 }) {
-  const [pins, setPins] = useState<SearchPin[]>(() =>
-    typeof window === "undefined" ? defaultSearchPins : readSearchPins(),
-  );
+  const [pins, setPins] = useState<SearchPin[]>(() => readSearchPins());
   const [expandedPinId, setExpandedPinId] = useState<string | null>(null);
   const [showModePicker, setShowModePicker] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editorNotice, setEditorNotice] = useState<string | null>(null);
   const editorDescriptionId = useId();
+  const editorNoticeId = useId();
   const currentMode = appModeDefinition(currentModeId);
   const CurrentModeIcon = appModeIcons[currentModeId];
 
@@ -147,8 +150,10 @@ export function SearchPinsMenu({
       if (event.key === null || event.key === searchPinsStorageKey) setPins(readSearchPins());
     };
     const syncPins = (event: Event) => {
+      // CustomEvent without an init object exposes detail === null, not undefined.
+      // Treat both as "re-read storage" so a bare change signal cannot resurrect defaults.
       const detail = event instanceof CustomEvent ? event.detail : undefined;
-      setPins(detail === undefined ? readSearchPins() : normalizeSearchPins(detail));
+      setPins(detail == null ? readSearchPins() : normalizeSearchPins(detail));
     };
     window.addEventListener("storage", syncStoredPins);
     window.addEventListener(searchPinsChangeEvent, syncPins);
@@ -157,6 +162,20 @@ export function SearchPinsMenu({
       window.removeEventListener(searchPinsChangeEvent, syncPins);
     };
   }, []);
+
+  useEffect(() => {
+    if (!editor) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setConfirmDelete(false);
+      setEditorNotice(null);
+      setEditor(null);
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [editor]);
 
   function persistPins(next: SearchPin[]) {
     const normalized = writeSearchPins(next);
@@ -168,12 +187,16 @@ export function SearchPinsMenu({
     if (pins.length >= maximumSearchPins) return;
     setExpandedPinId(null);
     setShowModePicker(false);
+    setConfirmDelete(false);
+    setEditorNotice(null);
     setEditor({ pinId: null, name: "", destinationIds: ["documents"] });
   }
 
   function beginEditPin(pin: SearchPin) {
     setExpandedPinId(null);
     setShowModePicker(false);
+    setConfirmDelete(false);
+    setEditorNotice(null);
     setEditor({ pinId: pin.id, name: pin.name, destinationIds: [...pin.destinationIds] });
   }
 
@@ -194,21 +217,37 @@ export function SearchPinsMenu({
     const name = editor.name.trim();
     if (!name) return;
     if (editor.pinId) {
+      if (!pins.some((pin) => pin.id === editor.pinId)) {
+        setEditorNotice("This pin was removed elsewhere. Close the editor and create it again if needed.");
+        return;
+      }
       persistPins(
         pins.map((pin) => (pin.id === editor.pinId ? { ...pin, name, destinationIds: editor.destinationIds } : pin)),
       );
       setExpandedPinId(editor.pinId);
     } else {
+      if (pins.length >= maximumSearchPins) {
+        setEditorNotice(`Maximum ${maximumSearchPins} pins reached. Delete a pin before creating another.`);
+        return;
+      }
       const pin = { id: createPinId(), name, destinationIds: editor.destinationIds };
       persistPins([...pins, pin]);
       setExpandedPinId(pin.id);
     }
+    setConfirmDelete(false);
+    setEditorNotice(null);
     setEditor(null);
   }
 
   function deleteEditorPin() {
     if (!editor?.pinId) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
     persistPins(pins.filter((pin) => pin.id !== editor.pinId));
+    setConfirmDelete(false);
+    setEditorNotice(null);
     setEditor(null);
   }
 
@@ -226,7 +265,11 @@ export function SearchPinsMenu({
           </div>
           <button
             type="button"
-            onClick={() => setEditor(null)}
+            onClick={() => {
+              setConfirmDelete(false);
+              setEditorNotice(null);
+              setEditor(null);
+            }}
             className={cn("min-h-12 min-w-12 rounded-xl", focusRing)}
             aria-label="Close pin editor"
           >
@@ -292,6 +335,12 @@ export function SearchPinsMenu({
           </div>
         </fieldset>
 
+        {editorNotice ? (
+          <p id={editorNoticeId} role="status" className="mt-3 text-xs font-semibold text-[color:var(--danger)]">
+            {editorNotice}
+          </p>
+        ) : null}
+
         <div className="mt-4 flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-3">
           {editor.pinId ? (
             <button
@@ -303,13 +352,17 @@ export function SearchPinsMenu({
               )}
             >
               <Trash2 aria-hidden="true" className="h-4 w-4" />
-              Delete
+              {confirmDelete ? "Confirm delete" : "Delete"}
             </button>
           ) : null}
           <span className="flex-1" />
           <button
             type="button"
-            onClick={() => setEditor(null)}
+            onClick={() => {
+              setConfirmDelete(false);
+              setEditorNotice(null);
+              setEditor(null);
+            }}
             className={cn(
               "min-h-12 rounded-xl px-4 text-sm font-bold hover:bg-[color:var(--surface-subtle)]",
               focusRing,
@@ -321,6 +374,7 @@ export function SearchPinsMenu({
             type="button"
             onClick={saveEditor}
             disabled={!editor.name.trim()}
+            aria-describedby={editorNotice ? editorNoticeId : undefined}
             className={cn(
               "min-h-12 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] disabled:cursor-not-allowed disabled:opacity-45",
               focusRing,
@@ -429,7 +483,7 @@ export function SearchPinsMenu({
               <div className="flex min-h-14 items-center">
                 <button
                   type="button"
-                  data-mode-action-first-focus={pin === pins[0] ? "true" : undefined}
+                  data-sheet-autofocus={pin === pins[0] ? "true" : undefined}
                   aria-label={`${expanded ? "Close" : "Open"} ${pin.name} pin, ${pin.destinationIds.length} destinations`}
                   aria-expanded={expanded}
                   onClick={() => setExpandedPinId(expanded ? null : pin.id)}
@@ -574,6 +628,7 @@ export function SearchPinsMenu({
                 key={action.id}
                 type="button"
                 role="menuitem"
+                aria-label={action.label}
                 onClick={() => onAction(action.id)}
                 className={cn(
                   "flex min-h-12 items-center gap-2 rounded-xl px-2.5 text-left hover:bg-[color:var(--surface-subtle)]",
@@ -581,7 +636,10 @@ export function SearchPinsMenu({
                 )}
               >
                 <Icon aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
-                <span className="min-w-0 truncate text-xs font-extrabold text-[color:var(--text-heading)]">
+                <span
+                  aria-hidden="true"
+                  className="min-w-0 truncate text-xs font-extrabold text-[color:var(--text-heading)]"
+                >
                   {action.shortLabel ?? action.label}
                 </span>
               </button>

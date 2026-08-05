@@ -30,6 +30,8 @@ import {
   searchCommandSurfaceConfig,
   type CommandSurfacePlacement,
 } from "@/lib/search-command-surface";
+import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
 
@@ -405,31 +407,17 @@ export function UniversalSearchCommandSurface({
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
+  const closeDropdownWhenUndisplayable = useEventCallback(() => {
+    onDropdownOpenChange(false);
+    setActiveIndex(-1);
+  });
+  const mediaDropdownDisplayable = useCommandDropdownDisplayable(placement, closeDropdownWhenUndisplayable);
+  // Local copy so onFocusCapture can eagerly flip true before the shared hook's
+  // post-hydration effect has synchronized the conservative false initial state.
   const [dropdownDisplayable, setDropdownDisplayable] = useState(false);
   useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const minimumWidthMedia = window.matchMedia(dropdownMinimumWidthQuery);
-    const pointerMedia = window.matchMedia(commandDropdownPointerMediaQuery);
-    const sync = () => {
-      const displayable = commandDropdownCanDisplay({
-        minimumWidthMatches: minimumWidthMedia.matches,
-        pointerMatches: pointerMedia.matches,
-        maxTouchPoints: navigator.maxTouchPoints,
-      });
-      setDropdownDisplayable(displayable);
-      if (!displayable) {
-        onDropdownOpenChange(false);
-        setActiveIndex(-1);
-      }
-    };
-    sync();
-    minimumWidthMedia.addEventListener("change", sync);
-    pointerMedia.addEventListener("change", sync);
-    return () => {
-      minimumWidthMedia.removeEventListener("change", sync);
-      pointerMedia.removeEventListener("change", sync);
-    };
-  }, [dropdownMinimumWidthQuery, onDropdownOpenChange]);
+    setDropdownDisplayable(mediaDropdownDisplayable);
+  }, [mediaDropdownDisplayable]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({

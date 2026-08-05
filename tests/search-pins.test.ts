@@ -39,6 +39,14 @@ describe("search pin storage", () => {
     expect(readSearchPins(storage)).toEqual(defaultSearchPins);
   });
 
+  it("returns a copy of the default pins so callers cannot mutate the shared seed", () => {
+    const first = readSearchPins({ getItem: () => null });
+    first[0].name = "Mutated";
+    first[0].destinationIds.push("tools");
+    expect(readSearchPins({ getItem: () => null })).toEqual(defaultSearchPins);
+    expect(defaultSearchPins[0].name).toBe("Ward essentials");
+  });
+
   it("writes only the normalized preference payload", () => {
     const values = new Map<string, string>();
     const storage = { setItem: (key: string, value: string) => values.set(key, value) };

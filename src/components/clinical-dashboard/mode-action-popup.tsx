@@ -483,7 +483,11 @@ export function ModeActionPopup({
     const edgePadding = 12;
     const availableAbove = Math.max(0, rect.top - viewportTop - edgePadding);
     const availableBelow = Math.max(0, viewportBottom - rect.bottom - edgePadding);
-    const { minSurfaceHeight, headerHeight } = estimateActionListHeights(items.length, integrated);
+    // Custom bodies (pins + search) are substantially taller than one row per
+    // mode action; size placement against a pin-panel floor so "fits above"
+    // is not chosen from an unrelated action-count estimate.
+    const estimatedItemCount = customBody ? Math.max(items.length, 10) : items.length;
+    const { minSurfaceHeight, headerHeight } = estimateActionListHeights(estimatedItemCount, integrated);
     const detachedUpOffset = 16;
     const integratedDownOffset = integratedChipRow ? 58 : 14;
     const detachedDownOffset = integrated ? integratedDownOffset : 14;
@@ -537,7 +541,7 @@ export function ModeActionPopup({
     } else {
       setIntegratedSurfaceLayout(null);
     }
-  }, [integrated, integratedChipRow, items.length]);
+  }, [customBody, integrated, integratedChipRow, items.length]);
 
   function openWithFocus(index: number) {
     onBeforeOpen?.();
