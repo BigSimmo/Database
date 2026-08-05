@@ -36,6 +36,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isWarningConsolidationMockup = pathname === "/mockups/warning-consolidation";
   const isWarningLineMockup = pathname === "/mockups/warning-line";
   const isAnswerHomeProposalMockup = pathname === "/mockups/answer-home-proposal";
+  // These studies draw complete app shells and their own search composers, so
+  // shared chrome would make the interaction studies ambiguous.
+  const isSearchLensMenuMockup = pathname === "/mockups/search-lens-menu";
+  const isPinnedPlusMenuMockup = pathname === "/mockups/pinned-plus-menu";
   // Draws its own phone frames with an in-frame Choose mode sheet; shared chrome
   // would read as a second real header over the study.
   const isPhoneModeSheetYesMockup = pathname === "/mockups/phone-mode-sheet-yes";
@@ -80,6 +84,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
+        !isSearchLensMenuMockup &&
+        !isPinnedPlusMenuMockup &&
         !isPhoneModeSheetYesMockup
       }
       chromeVisible={
@@ -92,6 +98,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isWarningConsolidationMockup &&
         !isWarningLineMockup &&
         !isAnswerHomeProposalMockup &&
+        !isSearchLensMenuMockup &&
+        !isPinnedPlusMenuMockup &&
         !isPhoneModeSheetYesMockup
       }
     >
