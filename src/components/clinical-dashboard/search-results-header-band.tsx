@@ -859,7 +859,17 @@ export function SearchResultsEmptyState({
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
-      <div role="status" aria-live="polite">
+      {/* Announced, but NOT `role="status"`. The band renders its own
+          unconditional status region on every search route and Playwright
+          resolves it with a singular `getByRole("status")`, so a second one here
+          makes that query ambiguous everywhere this state can appear — which is
+          every mode that has an empty state, i.e. all of them. A bare
+          `aria-live="polite"` gives the same announcement (the role is just
+          implicit polite + atomic) without adding a second node to the role
+          query. `aria-atomic` is deliberately off: the heading and body change
+          together and reading the whole panel on every keystroke is worse than
+          reading what changed. */}
+      <div aria-live="polite">
         <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
           {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
         </span>

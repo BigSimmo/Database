@@ -536,7 +536,12 @@ describe("SearchResultsEmptyState", () => {
       <SearchResultsEmptyState modeId="therapy-compass" query="unmatched therapy" onClearSearch={onClearSearch} />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("No matches for “unmatched therapy”");
+    // Queried by text, not by role. The panel announces through a bare
+    // `aria-live` region: the band renders an unconditional `role="status"` on
+    // every search route, and giving this one the role too made the singular
+    // `getByRole("status")` queries used across the suite — and by Playwright on
+    // every mode — resolve to two nodes.
+    expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
     await user.click(screen.getByTestId("search-results-empty-clear-search"));
     expect(onClearSearch).toHaveBeenCalledTimes(1);
   });

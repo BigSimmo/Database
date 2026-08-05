@@ -320,7 +320,11 @@ describe("document library recovery", () => {
     const onOpenLibrary = vi.fn();
     render(<DocumentSearchResultsPanel {...baseProps} matches={[]} onOpenLibrary={onOpenLibrary} />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("No matches for “monitoring”");
+    // Queried by text, not by role: the empty state announces through a bare
+    // `aria-live` region rather than `role="status"`, because the band renders
+    // its own status region unconditionally and a second one makes every
+    // singular `getByRole("status")` in the suite ambiguous.
+    expect(screen.getByText("No matches for “monitoring”")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Browse all 2 sources" }));
     expect(onOpenLibrary).toHaveBeenCalledTimes(1);
   });
@@ -508,16 +512,32 @@ describe("filter sheet — density, exclusivity and reach", () => {
     // The footer no longer prints the number twice: the button carries it.
     expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 3 documents");
 
-    // These facets are individually valid but mutually exclusive across the
-    // fixture documents: Clozapine exists only on one result and Suicide only
-    // on another. This proves the panel's zero state rather than accidentally
-    // selecting three facets that all belong to denseDoc.
+    // Clozapine and Suicide sit on different fixture documents, so the pair
+    // would return nothing. The panel does not let you build that: once
+    // Clozapine narrows the set, Suicide re-counts to 0 and becomes a dead end,
+    // and dead ends are click-guarded. Selecting one is the only way to reach a
+    // zero result through this surface, so the surface prevents it.
+    //
+    // That is the behaviour worth pinning. An earlier version of this test
+    // expected "Show 0 documents" here and failed, because it read the dead-end
+    // guard as a bug rather than as the feature stopping it.
     await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
     await user.click(within(panel).getByRole("button", { name: /Clozapine/ }));
     await user.click(within(panel).getByRole("button", { name: /^Risk/ }));
-    await user.click(within(panel).getByRole("button", { name: /Suicide/ }));
 
-    expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 0 documents");
-    expect(within(panel).getByText(/of 2,014 documents shown/)).toHaveTextContent("0 of 2,014 documents shown");
+    const suicide = within(panel).getByRole("button", { name: /Suicide/ });
+    expect(suicide).toHaveAttribute("aria-disabled", "true");
+    expect(suicide).toHaveAccessibleDescription(/No documents match this with the current filters/);
+    await user.click(suicide);
+
+    // Unchanged: the guarded click did not empty the list behind the reader.
+    expect(within(panel).getByTestId("document-filter-done")).toHaveTextContent("Show 1 document");
+    // The number is its own span so it can carry the emphasis, so assert the
+    // containing paragraph rather than the matched node.
+    expect(
+      within(panel)
+        .getByText(/of 2,014 documents shown/)
+        .closest("p"),
+    ).toHaveTextContent("1 of 2,014 documents shown");
   });
 });

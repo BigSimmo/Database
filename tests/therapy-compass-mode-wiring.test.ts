@@ -254,20 +254,28 @@ describe("Therapy Compass production-mode wiring", () => {
     // The sibling of the defect above, missed when #1555 was reviewed. This
     // Clear sits at the end of the quick-filter chip row — among Reviewed only,
     // Brief available and the topic tags — so it reads as "clear these", but it
-    // was wired to `clearSearch` and wiped the query with them. There are three
-    // `clearSearch`-family call sites in this file and only ONE of them should
-    // reset the query: the sheet's `Clear all`, which says so.
+    // was wired to `clearSearch` and wiped the query with them.
     const searchScreenSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
       "utf8",
     );
     expect(searchScreenSrc).toContain("onClick={b.clearSearchFilters}");
-    // Exactly one full reset survives this screen, and it is the sheet's
-    // `Clear all` — the only control whose label says it clears everything.
-    // Anything else calling `clearSearch` is a control promising to clear
-    // filters while deleting the search behind them.
-    const fullResetSites = searchScreenSrc.match(/b\.clearSearch(?![A-Za-z])/g) ?? [];
-    expect(fullResetSites).toHaveLength(1);
+
+    // The rule is about labels matching actions, not about a head-count of
+    // `clearSearch` calls. A full reset is fine wherever the control says so —
+    // the sheet's `Clear all` and the empty state's `Clear search` both do —
+    // and is a defect wherever the control says "filters". Asserting a count
+    // instead made a correctly-labelled `Clear search` look like a regression,
+    // which is the wrong signal from a guard whose whole point is intent.
+    const fullResetProps = Array.from(searchScreenSrc.matchAll(/(\w+)=\{b\.clearSearch\}/g)).map((match) => match[1]);
+    expect(fullResetProps.length).toBeGreaterThan(0);
+    expect(
+      fullResetProps.filter((prop) => !["onClear", "onClearSearch"].includes(prop)),
+      "A control wired to `clearSearch` must be labelled for clearing the search. " +
+        "`onClearFilters`, `onRemove` or a bare `onClick` promising to clear filters must use " +
+        "`clearSearchFilters`, or it deletes the search term the reader is looking at.",
+    ).toEqual([]);
+    // The sheet keeps its deliberate full reset.
     expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
 });
