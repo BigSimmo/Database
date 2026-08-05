@@ -2,7 +2,7 @@
 /**
  * guard-push — pre-push safety net for this repo's known, repeated traps.
  *
- * Runs three independent guards; any one can BLOCK the push (non-zero exit) and
+ * Runs four independent guards; any one can BLOCK the push (non-zero exit) and
  * each honours an explicit override env var so you are never truly stuck:
  *
  *   1. Auto-merge race sentinel (claude/* branches only)
@@ -26,6 +26,15 @@
  *      Editing supabase/schema.sql without regenerating supabase/drift-manifest.json
  *      fails check:drift in CI. Caught here at push time instead. Override:
  *      SKIP_DRIFT_GUARD=1.
+ *
+ *   4. Static gate (lint + source typecheck)
+ *      Neither lint nor typecheck was in the pre-push path, so a plain lint error
+ *      (PR #1606) and a plain type error (PR #1618) each burned a full CI cycle
+ *      for a defect one local command would have caught. Runs eslint over the
+ *      pushed files and tsc over tsconfig.typecheck.json — the source-only
+ *      config, so a stale .next/dev/types validator cannot make it red for a
+ *      defect that is not in the push. Both are incremental (seconds when warm).
+ *      Skips loudly when node_modules is absent. Override: SKIP_STATIC_GUARD=1.
  *
  * The .githooks/pre-push hook invokes this with the raw `git push` stdin (lines of
  * "<localRef> <localSha> <remoteRef> <remoteSha>"). Run `--self-test` for the
@@ -514,6 +523,163 @@ function driftGuard(changedFiles) {
 }
 
 // ---------------------------------------------------------------------------
+// Guard 4: static gate (lint + source typecheck)
+// ---------------------------------------------------------------------------
+/**
+ * Roots that `lint:internal` passes to eslint. A changed file outside these is
+ * not linted by CI either, so it must not trigger the guard.
+ */
+const LINT_ROOTS = ["src/", "tests/", "scripts/", "worker/", "supabase/", "playwright/"];
+const LINT_ROOT_FILES = new Set([
+  "eslint.config.mjs",
+  "next.config.ts",
+  "playwright.config.ts",
+  "playwright.visual.config.ts",
+  "vitest.config.mts",
+]);
+const LINTABLE_EXT = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
+/** Typecheck reads every source file, so any of these changing can break it. */
+const TYPECHECKABLE_EXT = /\.(?:ts|tsx|mts|cts)$/;
+
+/** Exported for tests: which changed paths eslint would actually cover. */
+export function lintableFiles(changedFiles) {
+  return changedFiles
+    .map((f) => f.replaceAll("\\", "/"))
+    .filter((f) => LINTABLE_EXT.test(f))
+    .filter((f) => LINT_ROOT_FILES.has(f) || LINT_ROOTS.some((root) => f.startsWith(root)));
+}
+
+/** Exported for tests: does this push need a typecheck at all? */
+export function needsTypecheck(changedFiles) {
+  return changedFiles.map((f) => f.replaceAll("\\", "/")).some((f) => TYPECHECKABLE_EXT.test(f));
+}
+
+/**
+ * Is the local checkout able to run these tools at all?
+ *
+ * Unlike Prettier, eslint and tsc cannot be borrowed from a sibling worktree —
+ * both resolve plugins, configs and @types from *this* checkout's node_modules,
+ * so a borrowed binary would report a different answer than CI. When the tools
+ * are absent the guard says so loudly and lets the push through rather than
+ * blocking every worktree that has not installed yet: a missing install is not
+ * the failure this guard exists to catch, and blocking on it would push people
+ * straight to GUARD_PUSH_DISABLE=1, losing the format and drift guards too.
+ */
+function staticToolsAvailable(root) {
+  return (
+    existsSync(path.join(root, "node_modules", "eslint", "bin", "eslint.js")) &&
+    existsSync(path.join(root, "node_modules", "typescript", "bin", "tsc"))
+  );
+}
+
+function runStaticCheck(root, args, label) {
+  try {
+    execFileSync(process.execPath, args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return { ok: true };
+  } catch (error) {
+    const output = `${error?.stdout ?? ""}${error?.stderr ?? ""}`.trim();
+    return { ok: false, label, output };
+  }
+}
+
+/**
+ * Catch the two failures that repeatedly reach CI because `verify:cheap` is the
+ * smallest gate anyone remembers to run and neither of these is in the pre-push
+ * path today:
+ *
+ *   - a lint error (PR #1606: `react-hooks/set-state-in-effect` in
+ *     search-results-header-band.tsx, red `Static PR checks`)
+ *   - a type error (PR #1618: `mode.devOnly` on a union member that lacks it,
+ *     red `Build` + four dependent jobs)
+ *
+ * Typecheck runs against tsconfig.typecheck.json, NOT the base config, so a
+ * stale `.next/dev/types/validator.ts` referencing a deleted page cannot make
+ * the guard red for a defect that is not in the push (docs/outstanding-issues.md
+ * #210). Both tools are incremental, so the warm cost is seconds.
+ *
+ * Caveat, deliberate: this reads the working tree, not the pushed blobs. The
+ * format guard materialises the pushed commit because formatting drift between
+ * tree and commit is both silent and common; a lint or type error that exists in
+ * the commit but not the tree implies you edited after committing, which the
+ * dirty-tree note below surfaces. Reproducing a full node_modules-linked
+ * worktree for tsc would cost more than the failure it would catch.
+ *
+ * Override: SKIP_STATIC_GUARD=1.
+ */
+export function staticGuard(changedFiles) {
+  if (process.env.SKIP_STATIC_GUARD === "1") {
+    return { name: "static", ok: true, skipped: "SKIP_STATIC_GUARD=1" };
+  }
+  const toLint = lintableFiles(changedFiles);
+  const wantTypecheck = needsTypecheck(changedFiles);
+  if (toLint.length === 0 && !wantTypecheck) return { name: "static", ok: true };
+
+  if (!staticToolsAvailable(PROJECT_ROOT)) {
+    return {
+      name: "static",
+      ok: true,
+      note:
+        "eslint/typescript not installed in this checkout — lint and typecheck NOT run. " +
+        "CI still enforces both; install with `npm ci --include=dev` to get pre-push coverage.",
+    };
+  }
+
+  const failures = [];
+
+  // Lint only the pushed files that still exist; a deleted path errors out.
+  const present = toLint.filter((f) => existsSync(path.join(PROJECT_ROOT, f)));
+  if (present.length > 0) {
+    const result = runStaticCheck(
+      PROJECT_ROOT,
+      [
+        path.join(PROJECT_ROOT, "node_modules", "eslint", "bin", "eslint.js"),
+        ...present,
+        "--max-warnings",
+        "0",
+        "--no-error-on-unmatched-pattern",
+        "--cache",
+        "--cache-location",
+        "node_modules/.cache/eslint/",
+      ],
+      "lint",
+    );
+    if (!result.ok) failures.push(result);
+  }
+
+  if (wantTypecheck) {
+    const result = runStaticCheck(
+      PROJECT_ROOT,
+      [
+        path.join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc"),
+        "-p",
+        "tsconfig.typecheck.json",
+        "--noEmit",
+      ],
+      "typecheck",
+    );
+    if (!result.ok) failures.push(result);
+  }
+
+  if (failures.length === 0) return { name: "static", ok: true };
+
+  const dirty = tryGit(["status", "--porcelain"]);
+  const dirtyNote = dirty
+    ? "\n  NOTE: your working tree has uncommitted changes, so this may not describe the pushed commit exactly.\n"
+    : "";
+  return {
+    name: "static",
+    ok: false,
+    message:
+      failures
+        .map((f) => `${f.label} failed (CI's "Static PR checks"/"Build" would fail too):\n\n${f.output}\n`)
+        .join("\n") +
+      dirtyNote +
+      `\n  Fix, commit, then push again.\n` +
+      `  To push anyway: SKIP_STATIC_GUARD=1 git push`,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Orchestration
 // ---------------------------------------------------------------------------
 function report(results) {
@@ -537,8 +703,13 @@ function main() {
   if (ranges.length === 0) process.exit(0); // deletion-only push or nothing to do
   const branch = currentBranch();
   const changedFiles = collectChangedFiles(ranges);
-  // formatGuard reads the pushed blobs; driftGuard only needs the paths.
-  const results = [autoMergeGuard(branch), formatGuard(collectChangedBlobs(ranges)), driftGuard(changedFiles)];
+  // formatGuard reads the pushed blobs; drift/static only need the paths.
+  const results = [
+    autoMergeGuard(branch),
+    formatGuard(collectChangedBlobs(ranges)),
+    driftGuard(changedFiles),
+    staticGuard(changedFiles),
+  ];
   process.exit(report(results));
 }
 
@@ -595,6 +766,21 @@ function selfTest() {
     throw new Error("missing fixture dependency");
   });
   assert(missingPrettier.ok === false, "missing Prettier fails the format guard closed");
+
+  // static-gate scope selection
+  assert(
+    lintableFiles(["src/components/a.tsx", "docs/x.md", "package-lock.json"]).length === 1,
+    "only lint-root source files are linted",
+  );
+  assert(lintableFiles(["src\\components\\a.tsx"])[0] === "src/components/a.tsx", "backslash paths are normalized");
+  assert(lintableFiles(["eslint.config.mjs"]).length === 1, "root config files eslint covers are linted");
+  assert(lintableFiles(["public/demo/x.js"]).length === 0, "files outside the lint roots are not linted");
+  assert(needsTypecheck(["src/lib/a.ts"]) === true, "a changed .ts triggers typecheck");
+  assert(needsTypecheck(["docs/a.md", "x.png"]) === false, "docs-only pushes skip typecheck");
+  assert(
+    staticGuard(["docs/only.md"]).ok === true && staticGuard(["docs/only.md"]).message === undefined,
+    "docs-only push is a no-op for the static guard",
+  );
 
   if (process.exitCode !== 1) console.error("[guard-push] self-test passed");
   return process.exitCode ?? 0;
