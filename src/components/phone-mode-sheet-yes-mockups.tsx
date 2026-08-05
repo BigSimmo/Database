@@ -104,7 +104,7 @@ const variants: Array<{
       "Three clinical groups with sticky labels — scan by job, not by alphabet.",
       "Rows are min-h-12 with 44 px icon wells; descriptions use line-clamp-2 instead of truncate.",
       "Pinned ‘Now in Answer’ strip stays visible while the list scrolls.",
-      "Selected row keeps accent soft fill, left rail, Current pill, and check — three cues, one colour.",
+      "Selected row keeps accent soft fill, left rail, and check — the sticky strip already says Current.",
     ],
   },
   {
@@ -340,15 +340,8 @@ function SectionedListSheet() {
                       <Icon aria-hidden="true" className="h-5 w-5" />
                     </span>
                     <span className="min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                          {mode.label}
-                        </span>
-                        {active ? (
-                          <span className="shrink-0 rounded-full bg-[color:var(--surface)] px-1.5 py-0.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
-                            Current
-                          </span>
-                        ) : null}
+                      <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                        {mode.label}
                       </span>
                       <span className="mt-0.5 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
                         {mode.description}
@@ -576,7 +569,31 @@ export function PhoneModeSheetYesMockups() {
           </p>
         </header>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+        <section aria-labelledby="yes-pair-title" className="mt-10">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
+                Large YES pair · Phone
+              </p>
+              <h2
+                id="yes-pair-title"
+                className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
+              >
+                Sectioned list · Icon deck
+              </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
+              Both keep Sheet grip, close, safe-area, and menuitemradio. Pick by intent (left) or browse the catalogue
+              (right).
+            </p>
+          </div>
+          <div className="flex flex-wrap items-start gap-6">
+            <PhoneFrame variant="sections" large caption="YES 01 · Sectioned clinical list" />
+            <PhoneFrame variant="deck" large caption="YES 02 · Icon deck with lane chips" />
+          </div>
+        </section>
+
+        <div className="mt-14 grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
           <section aria-labelledby="current-title" className="space-y-4">
             <div>
               <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
@@ -632,7 +649,7 @@ export function PhoneModeSheetYesMockups() {
               <PhoneFrame
                 variant={variant.id}
                 large
-                caption={variant.id === "sections" ? "Large YES · Sectioned list" : "Large YES · Icon deck"}
+                caption={variant.id === "sections" ? "Detail · Sectioned list" : "Detail · Icon deck"}
               />
             </section>
           ))}
