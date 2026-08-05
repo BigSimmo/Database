@@ -160,13 +160,12 @@ export function shouldBlockProductionMockups(
 }
 
 export const config = {
-  // Run on everything except static assets and image files. API routes stay in
+  // Static assets are included solely for the early method guard above; other
+  // static requests remain excluded from the nonce/auth work. API routes stay in
   // the matcher so cookie-authenticated requests can return rotated cookies and
   // every response carries the CSP header.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: [
+    "/_next/static/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };
-npm notice
-npm notice New minor version of npm available! 11.9.0 -> 11.19.0
-npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.19.0
-npm notice To update run: npm install -g npm@11.19.0
-npm notice
