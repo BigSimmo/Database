@@ -34,8 +34,10 @@ postinstall can fail when GitHub release downloads are unavailable.
 - Railway OAuth metadata advertises `openid`, `profile`, `email`, `offline_access`, and
   `workspace:member`. An elapsed-time follow-up from a new ChatGPT Work task displayed **Your
   Railway connection has expired** before `whoami` could run and offered the normal **Reconnect**
-  flow. Treat reauthentication as required for this Personal Pro app path; never introduce a
-  static-token workaround.
+  flow. The connection error identified the cause as `oauth_refresh_token_missing`. Reauthentication
+  through the normal Railway GitHub login completed successfully, after which `whoami`,
+  `list-projects`, and `get-status` passed immediately. Treat periodic reauthentication as required
+  for this Personal Pro app path; never introduce a static-token workaround.
 
 ## Acceptance status
 
@@ -46,7 +48,7 @@ postinstall can fail when GitHub release downloads are unavailable.
 | Railway             | Exact tools callable in a fresh ChatGPT chat and fresh Codex Cloud task; read-only identity/project/service checks pass | ChatGPT PASS via `railway_whoami`, `railway_get_status`, `railway_list_projects`, and `railway_list_services`; project `Database` and services `Database` and `worker` were visible with `SUCCESS` status. Fresh Codex Cloud FAIL: no Railway tool exposed |
 | Supabase            | Existing app exposes only project-scoped read-only metadata without row queries                                         | ChatGPT PASS via `mcp__codex_apps__supabase_list_projects`: `sjrfecxgysukkwxsowpy`, `Clinical KB Database`, `ACTIVE_HEALTHY`; no schema/table/row/log call. Codex Cloud FAIL: no Supabase tool exposed                                                     |
 | Raw Cloud shell     | Only five documented non-secret values; `OPENAI_BASE_URL` absent before profiles/shims                                  | Environment UI has exactly the five documented values and no `OPENAI_BASE_URL`, but fresh raw-shell FAIL still reports the inherited name. This is a launcher/workspace defect, not repository state                                                       |
-| OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | REAUTH REQUIRED: the elapsed-time task reported that the Railway connection had expired and opened Railway's normal login/OAuth flow; no token workaround was added                                                                                        |
+| OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | REAUTH VERIFIED: the elapsed-time task reported `oauth_refresh_token_missing`; normal Railway GitHub OAuth restored access and immediate read-only validation passed. Periodic reconnect remains required; no token workaround was added                   |
 
 ## Personal Pro operating workarounds
 
@@ -55,7 +57,7 @@ postinstall can fail when GitHub release downloads are unavailable.
 | No Personal Pro group RBAC or per-tool disabling                 | Railway app policy is **Allow read actions**; every change remains approval-gated                                                                                              | Maximum available Pro control; not equivalent to Enterprise/Edu RBAC                                                      |
 | Railway and Supabase absent from Codex Cloud connectors          | Use a split control plane: Codex Cloud for repository/GitHub work; ChatGPT web for official Railway OAuth and project-scoped read-only Supabase                                | Providers remain usable without copying tokens; a single Codex Cloud task still cannot call them                          |
 | Raw `OPENAI_BASE_URL` injected although absent in environment UI | Keep the name-only raw probe fail-closed, then use the generated profile, Codex shell policy, and `node`/`npm`/`npx` shims that remove provider variables before ordinary work | Normal repository commands are sanitized and functional; the raw parent-process defect remains visible for OpenAI support |
-| Railway OAuth expires instead of refreshing in this app path     | Use the app's normal **Reconnect** flow when prompted; never add a static or shared token                                                                                      | Safe continuity workaround; Railway login/consent remains user-controlled                                                 |
+| Railway OAuth expires instead of refreshing in this app path     | Use the app's normal **Reconnect** flow when prompted; the existing GitHub sign-in restored access without static or shared tokens                                             | Safe continuity workaround; Railway login/consent remains user-controlled                                                 |
 
 This operating mode favors maximum safe functionality on Personal Pro. It does not relabel the
 Codex Cloud provider-tool acceptance failure as success.
@@ -90,6 +92,12 @@ reads: GitHub authenticated as `BigSimmo`; Supabase project `Clinical KB Databas
 `Database` was visible, and services `Database` and `worker` were `SUCCESS`. No logs, variables,
 SQL, row contents, or provider writes were requested. This validates the Personal Pro split-control
 plane workaround, not single-task Codex Cloud provider acceptance.
+
+After the Railway token expired, a direct connector call returned `UNAUTHORIZED` with reason
+`oauth_refresh_token_missing`. The normal **Reconnect** flow completed through the existing GitHub
+sign-in, ChatGPT reported **Railway is now connected**, and new read-only calls again authenticated
+as `bigsimmo`. Project `Database` remained visible and both production services remained `SUCCESS`.
+GitHub repository access and project-scoped Supabase health also passed again in the same task.
 
 This proves the repository setup fix and also proves that repository code cannot close either
 remaining hosted blocker. The environment UI and launcher disagree about `OPENAI_BASE_URL`, and
