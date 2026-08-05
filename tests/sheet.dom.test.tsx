@@ -133,6 +133,24 @@ describe("Sheet stacked-overlay coordination", () => {
     expect(classes).not.toContain("sm:max-h-[88dvh]");
   });
 
+  it("keeps the dialog mounted in production when the title resolves empty", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const { getByRole, queryByRole } = render(
+        // Callers can satisfy `title: string` with "" from fetched data.
+        <Sheet open onClose={() => {}} title={"" as string} portal testId="unnamed-sheet">
+          <p>Recoverable body</p>
+        </Sheet>,
+      );
+
+      expect(queryByRole("dialog")).not.toBeNull();
+      expect(getByRole("dialog")).toHaveAttribute("aria-label", "Dialog");
+      expect(getByRole("dialog")).toHaveTextContent("Recoverable body");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("upgrades from the close-button fallback to a late-mounted data-sheet-autofocus target", async () => {
     const onClose = vi.fn();
     const { rerender } = render(

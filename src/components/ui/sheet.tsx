@@ -317,13 +317,14 @@ export function Sheet({
 
   if (!open) return null;
 
-  if (!title && !labelledBy && !ariaLabel) {
-    if (process.env.NODE_ENV !== "production") {
-      throw new Error("Sheet requires an accessible name through title, labelledBy, or ariaLabel.");
-    }
-    return null;
+  // Empty-string titles still satisfy the type-level union (`title: string`) but
+  // leave the dialog unnamed at runtime. Never drop the overlay in production —
+  // keep a generic accessible name so the user can still dismiss and finish.
+  const hasAccessibleName = Boolean(title || labelledBy || ariaLabel);
+  if (!hasAccessibleName && process.env.NODE_ENV !== "production") {
+    throw new Error("Sheet requires an accessible name through title, labelledBy, or ariaLabel.");
   }
-
+  const resolvedAriaLabel = ariaLabel || (!title && !labelledBy ? "Dialog" : undefined);
   const resolvedLabelledBy = labelledBy ?? (title ? titleId : undefined);
   const defaultSheetIsFullscreen = placement !== "left" && mobilePlacement === "fullscreen";
   const defaultSheetIsTopAligned = placement !== "left" && mobilePlacement === "top";
@@ -368,7 +369,7 @@ export function Sheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
-        aria-label={ariaLabel}
+        aria-label={resolvedAriaLabel}
         aria-describedby={description || descriptionContent ? descId : undefined}
         onPointerDown={(event) => {
           backdropPointerDownRef.current = false;
@@ -477,7 +478,7 @@ export function Sheet({
 
   if (portal) {
     return (
-      <OverlayPortal layer="modal" name={title ?? ariaLabel ?? labelledBy ?? "sheet"}>
+      <OverlayPortal layer="modal" name={title ?? resolvedAriaLabel ?? labelledBy ?? "sheet"}>
         {sheet}
       </OverlayPortal>
     );
