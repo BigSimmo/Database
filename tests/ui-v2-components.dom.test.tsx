@@ -138,7 +138,7 @@ describe("Chip", () => {
     expect(onRemove).toHaveBeenCalledOnce();
   });
 
-  it("pins compact to 24px/11px and standard to 28px/12px while the remove target stays 48px", () => {
+  it("pins compact to 24px/11px and standard to 28px/12px while the remove target stays inside the chip", () => {
     render(
       <>
         <Chip
@@ -162,7 +162,9 @@ describe("Chip", () => {
     expect(standard).toHaveClass("h-7", "text-xs");
     expect(standard).not.toHaveClass("min-h-7");
     expect(within(standard).getByText("Long standard content")).toHaveClass("max-h-full", "overflow-hidden");
-    expect(screen.getByRole("button", { name: "Remove source" })).toHaveClass("h-tap", "w-tap");
+    const remove = screen.getByRole("button", { name: "Remove source" });
+    expect(remove).toHaveClass("h-full", "w-8");
+    expect(remove).not.toHaveClass("h-tap", "w-tap");
   });
 });
 

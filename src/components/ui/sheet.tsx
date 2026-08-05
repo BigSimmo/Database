@@ -334,7 +334,9 @@ export function Sheet({
     <div
       ref={setBackdropRef}
       className={cn(
-        "pointer-events-auto fixed inset-0 flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
+        // The modal rung is kept on the backdrop itself so the non-portal
+        // branch still stacks above sibling chrome.
+        "pointer-events-auto fixed inset-0 z-[var(--z-modal)] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         desktopBackdropClassName,
         placement !== "left" && "motion-safe:animate-overlay-in",
         placement === "left"

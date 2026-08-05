@@ -112,12 +112,14 @@ export function Chip({
         {children}
       </span>
       {onRemove ? (
-        <span className="relative h-5 w-5 shrink-0">
+        <span className="relative h-full w-5 shrink-0">
+          {/* The hit area grows only into the chip's own height and padding: a
+              48px target would overhang neighbouring chips and steal their taps. */}
           <button
             type="button"
             onClick={onRemove}
             aria-label={removeLabel}
-            className="absolute left-1/2 top-1/2 grid h-tap w-tap -translate-x-1/2 -translate-y-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+            className="absolute inset-y-0 left-1/2 grid h-full w-8 max-w-full -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
           >
             <span className="grid h-5 w-5 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)]">
               <X aria-hidden="true" className="h-3 w-3" />
