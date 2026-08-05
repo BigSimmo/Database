@@ -839,11 +839,26 @@ export function MobileResultFilterControl<Value extends string>({
     optionRefs.current[index]?.focus();
   }, [open, menuBox]);
 
-  function handleTypeaheadKey(key: string, fromIndex: number, now: number) {
+  // Clear the typeahead debounce timer on unmount so a late callback cannot
+  // mutate state after the control is gone.
+  useEffect(() => {
+    const state = typeaheadRef.current;
+    return () => {
+      if (state.timer !== null) {
+        window.clearTimeout(state.timer);
+        state.timer = null;
+      }
+    };
+  }, []);
+
+  function handleTypeaheadKey(event: ReactKeyboardEvent<HTMLButtonElement>, fromIndex: number) {
+    // Native <select> typeahead ignores modified keystrokes so browser/app
+    // shortcuts (Ctrl/Cmd+F, Alt+…, etc.) are not swallowed by preventDefault.
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
     const matched = matchTypeaheadOptionIndex({
-      key,
+      key: event.key,
       fromIndex,
-      now,
+      now: event.timeStamp,
       options,
       state: typeaheadRef.current,
     });
@@ -863,7 +878,7 @@ export function MobileResultFilterControl<Value extends string>({
       event.preventDefault();
       const lastEnabled = stepEnabledIndex(options.length, -1);
       openMenu(lastEnabled >= 0 ? lastEnabled : 0);
-    } else if (handleTypeaheadKey(event.key, matchedIndex, event.timeStamp)) {
+    } else if (handleTypeaheadKey(event, matchedIndex)) {
       event.preventDefault();
     }
   }
@@ -881,7 +896,7 @@ export function MobileResultFilterControl<Value extends string>({
     } else if (event.key === "End") {
       event.preventDefault();
       focusOption(stepEnabledIndex(options.length, -1));
-    } else if (handleTypeaheadKey(event.key, index, event.timeStamp)) {
+    } else if (handleTypeaheadKey(event, index)) {
       event.preventDefault();
     }
   }

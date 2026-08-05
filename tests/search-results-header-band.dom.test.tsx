@@ -383,6 +383,37 @@ describe("MobileResultFilterControl", () => {
     expect(screen.getByRole("menuitemradio", { name: "Crisis" })).toHaveFocus();
   });
 
+  it("does not treat Ctrl/Cmd/Alt+letter as typeahead", async () => {
+    const user = userEvent.setup();
+    render(
+      <MobileResultFilterControl
+        label="Filter"
+        ariaLabel="Apply a quick service filter"
+        value="current"
+        options={[...options]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Apply a quick service filter/ });
+    trigger.focus();
+    // Modifier chords must fall through to the browser (find-in-page, reload, …)
+    // instead of opening the menu and calling preventDefault.
+    await user.keyboard("{Control>}c{/Control}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    await user.keyboard("{Meta>}y{/Meta}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    await user.keyboard("{Alt>}y{/Alt}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    // Plain letter typeahead still opens and lands on the matching enabled option.
+    await user.keyboard("c");
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(screen.getByRole("menuitemradio", { name: "Crisis" })).toHaveFocus();
+  });
+
   it("does not re-fire onChange when the active option is re-selected", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
