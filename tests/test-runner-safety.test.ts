@@ -515,6 +515,16 @@ describe("focused test admission", () => {
     expect(path.dirname(path.dirname(first))).toBe(path.join(baseDirectory, "clinical-kb-tsc-cache"));
     expect(path.basename(first)).toBe("tsconfig.tsbuildinfo");
   });
+
+  it("keeps distinct buildinfo filenames for base vs source-only typecheck", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-tsc-cache-names-");
+    const root = path.join(baseDirectory, "worktree");
+    const base = typescriptBuildInfoPath(root, baseDirectory, "tsconfig.tsbuildinfo");
+    const source = typescriptBuildInfoPath(root, baseDirectory, "tsconfig.typecheck.tsbuildinfo");
+    expect(path.dirname(base)).toBe(path.dirname(source));
+    expect(base).not.toBe(source);
+    expect(path.basename(source)).toBe("tsconfig.typecheck.tsbuildinfo");
+  });
 });
 
 describe("sensitive diagnostic text", () => {

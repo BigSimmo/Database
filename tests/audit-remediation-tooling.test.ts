@@ -39,6 +39,8 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).toContain("typescriptBuildInfoPath");
     expect(source).toContain('"--tsBuildInfoFile"');
     expect(source).toContain("await runNpmScript()");
+    expect(source).toContain("typecheck:source:internal");
+    expect(source).toContain('sharedTypecheckScripts.has(script) ? "shared"');
   });
 
   it("keeps Vitest async so shared-lease heartbeats can fire", () => {

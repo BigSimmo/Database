@@ -15,12 +15,13 @@
   // typechecks the generated types against the real routes. This config answers
   // the narrower question the pre-push guard needs — "is the source itself
   // sound?" — deterministically, without depending on build-artifact freshness.
+  //
+  // Incremental cache: do NOT pin tsBuildInfoFile here. `scripts/run-heavy.mjs`
+  // injects a per-worktree `--tsBuildInfoFile` under tmp (via
+  // typescriptBuildInfoPath) so several worktrees sharing node_modules cannot
+  // thrash each other's cache. A pinned path under node_modules/.cache would
+  // undo that.
   "extends": "./tsconfig.json",
-  "compilerOptions": {
-    // A separate buildinfo file so source-only and full runs cannot invalidate
-    // each other's incremental cache (they have different file sets).
-    "tsBuildInfoFile": "node_modules/.cache/tsc/tsconfig.typecheck.tsbuildinfo"
-  },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts"],
   "exclude": ["node_modules", ".next/**", "scratch/**", "supabase/functions/**", "worktrees/**", "scripts/archive/**"]
 }

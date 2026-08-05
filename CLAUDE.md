@@ -150,8 +150,9 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 
 `verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
 installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
-It also guards the auto-merge race on `claude/*` branches and drift-manifest staleness. Each
-guard has a documented override env var.
+It also guards the auto-merge race on `claude/*` branches, drift-manifest staleness, and a
+static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). Each guard has a
+documented override env var.
 
 Domain changes (auth, Supabase, ingestion, answer generation, search/ranking, clinical
 output, source governance) additionally want the smallest relevant domain check plus
@@ -194,7 +195,7 @@ These fail builds, so they are worth knowing before you write code:
   than the initial production bundle. A mockup-only PR can therefore fail `Build` on bundle budget
   (PR #1580: `+10.1% vs baseline`, tolerance 10%) even though the routes never serve a user. Budget
   scope vs. the "not an initial production bundle" position in `/issues` `#013` is unreconciled —
-  see `#237` before assuming either number governs.
+  see `#252` before assuming either number governs.
 
 ## Repo-specific tooling
 

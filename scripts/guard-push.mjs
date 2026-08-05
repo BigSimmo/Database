@@ -42,10 +42,12 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { typescriptBuildInfoPath } from "./test-cache-path.mjs";
+import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
 const SCHEMA_PATH = "supabase/schema.sql";
@@ -526,10 +528,11 @@ function driftGuard(changedFiles) {
 // Guard 4: static gate (lint + source typecheck)
 // ---------------------------------------------------------------------------
 /**
- * Roots that `lint:internal` passes to eslint. A changed file outside these is
- * not linted by CI either, so it must not trigger the guard.
+ * Roots that `lint:internal` passes to eslint, plus `eslint-rules/` (custom
+ * rules are not in the lint:internal arg list today but changing one still
+ * re-decides the verdict for every file that loads them).
  */
-const LINT_ROOTS = ["src/", "tests/", "scripts/", "worker/", "supabase/", "playwright/"];
+const LINT_ROOTS = ["src/", "tests/", "scripts/", "worker/", "supabase/", "playwright/", "eslint-rules/"];
 const LINT_ROOT_FILES = new Set([
   "eslint.config.mjs",
   "next.config.ts",
@@ -537,9 +540,32 @@ const LINT_ROOT_FILES = new Set([
   "playwright.visual.config.ts",
   "vitest.config.mts",
 ]);
-const LINTABLE_EXT = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
-/** Typecheck reads every source file, so any of these changing can break it. */
-const TYPECHECKABLE_EXT = /\.(?:ts|tsx|mts|cts)$/;
+/** Same targets as package.json `lint:internal` — used when eslint policy changes. */
+const LINT_REPO_TARGETS = [
+  "src",
+  "tests",
+  "scripts",
+  "worker",
+  "supabase",
+  "playwright",
+  "eslint-rules",
+  "eslint.config.mjs",
+  "next.config.ts",
+  "playwright.config.ts",
+  "playwright.visual.config.ts",
+  "vitest.config.mts",
+];
+const LINTABLE_EXT = /\.(?:ts|tsx|mts|js|jsx|mjs|cjs)$/;
+/**
+ * Extensions that tsconfig.typecheck.json's `include` covers. `.cts` is
+ * deliberately omitted: neither the base nor source-only config includes it, so
+ * a `.cts`-only push would otherwise spend a typecheck that covers nothing.
+ */
+const TYPECHECKABLE_EXT = /\.(?:ts|tsx|mts)$/;
+/** Guard-private eslint cache — never share writes with `lint:internal`. */
+const STATIC_GUARD_ESLINT_CACHE = "node_modules/.cache/eslint-guard-push/";
+/** Short exclusive wait; busy coordinator fails open rather than stalling a push. */
+const STATIC_GUARD_LOCK_WAIT_MS = 30_000;
 
 /** Exported for tests: which changed paths eslint would actually cover. */
 export function lintableFiles(changedFiles) {
@@ -552,6 +578,32 @@ export function lintableFiles(changedFiles) {
 /** Exported for tests: does this push need a typecheck at all? */
 export function needsTypecheck(changedFiles) {
   return changedFiles.map((f) => f.replaceAll("\\", "/")).some((f) => TYPECHECKABLE_EXT.test(f));
+}
+
+/**
+ * Does this path decide eslint's verdict for files other than itself?
+ * Mirrors the format guard's prettier-policy escalation.
+ */
+export function isEslintPolicyFile(file) {
+  const normalized = file.replaceAll("\\", "/");
+  return normalized === "eslint.config.mjs" || normalized.startsWith("eslint-rules/");
+}
+
+/** Exported for tests: policy change ⇒ whole-tree lint, not changed-files only. */
+export function needsRepoWideLint(changedFiles) {
+  return changedFiles.some((f) => isEslintPolicyFile(f));
+}
+
+/**
+ * The static guard reads the working tree. When the pushed tip is not HEAD
+ * (e.g. `git push origin other-branch` from a different checkout), results
+ * describe unrelated content — fail closed rather than false-pass/false-block.
+ */
+export function pushedTipMatchesHead(ranges, headSha = tryGit(["rev-parse", "HEAD"])) {
+  if (!headSha || !Array.isArray(ranges) || ranges.length === 0) return { ok: true };
+  const mismatch = ranges.find((range) => range.localSha && range.localSha !== headSha);
+  if (!mismatch) return { ok: true };
+  return { ok: false, headSha, tipSha: mismatch.localSha, localRef: mismatch.localRef };
 }
 
 /**
@@ -597,22 +649,41 @@ function runStaticCheck(root, args, label) {
  * the guard red for a defect that is not in the push (docs/outstanding-issues.md
  * #210). Both tools are incremental, so the warm cost is seconds.
  *
- * Caveat, deliberate: this reads the working tree, not the pushed blobs. The
- * format guard materialises the pushed commit because formatting drift between
- * tree and commit is both silent and common; a lint or type error that exists in
- * the commit but not the tree implies you edited after committing, which the
- * dirty-tree note below surfaces. Reproducing a full node_modules-linked
- * worktree for tsc would cost more than the failure it would catch.
+ * Coordinator: acquires an exclusive lease (short timeout, fail-open) so a push
+ * cannot race `npm run lint`/`build`/`test` and corrupt shared caches. Eslint
+ * writes a guard-private cache; tsc gets a per-worktree buildinfo path.
  *
- * Override: SKIP_STATIC_GUARD=1.
+ * Caveat: this reads the working tree, not the pushed blobs. When HEAD is not
+ * the pushed tip the guard fails closed. A dirty tree after committing is
+ * surfaced with a note. Override: SKIP_STATIC_GUARD=1.
+ *
+ * @param {string[]} changedFiles
+ * @param {{ ranges?: Array<{ localRef?: string, localSha?: string }> }} [options]
  */
-export function staticGuard(changedFiles) {
+export function staticGuard(changedFiles, options = {}) {
   if (process.env.SKIP_STATIC_GUARD === "1") {
     return { name: "static", ok: true, skipped: "SKIP_STATIC_GUARD=1" };
   }
-  const toLint = lintableFiles(changedFiles);
+
+  const tipCheck = pushedTipMatchesHead(options.ranges ?? []);
+  if (!tipCheck.ok) {
+    return {
+      name: "static",
+      ok: false,
+      message:
+        `static guard reads the working tree at HEAD (${tipCheck.headSha}), ` +
+        `but this push tip is ${tipCheck.tipSha}` +
+        (tipCheck.localRef ? ` (${tipCheck.localRef})` : "") +
+        `.\n` +
+        `  Check out the tip being pushed, then push again.\n` +
+        `  To push anyway: SKIP_STATIC_GUARD=1 git push`,
+    };
+  }
+
+  const repoWide = needsRepoWideLint(changedFiles);
+  const toLint = repoWide ? [] : lintableFiles(changedFiles);
   const wantTypecheck = needsTypecheck(changedFiles);
-  if (toLint.length === 0 && !wantTypecheck) return { name: "static", ok: true };
+  if (!repoWide && toLint.length === 0 && !wantTypecheck) return { name: "static", ok: true };
 
   if (!staticToolsAvailable(PROJECT_ROOT)) {
     return {
@@ -624,40 +695,65 @@ export function staticGuard(changedFiles) {
     };
   }
 
-  const failures = [];
-
-  // Lint only the pushed files that still exist; a deleted path errors out.
-  const present = toLint.filter((f) => existsSync(path.join(PROJECT_ROOT, f)));
-  if (present.length > 0) {
-    const result = runStaticCheck(
-      PROJECT_ROOT,
-      [
-        path.join(PROJECT_ROOT, "node_modules", "eslint", "bin", "eslint.js"),
-        ...present,
-        "--max-warnings",
-        "0",
-        "--no-error-on-unmatched-pattern",
-        "--cache",
-        "--cache-location",
-        "node_modules/.cache/eslint/",
-      ],
-      "lint",
-    );
-    if (!result.ok) failures.push(result);
+  let lock;
+  try {
+    lock = acquireHeavyRunLock({
+      projectRoot: PROJECT_ROOT,
+      command: "guard-push static",
+      mode: "exclusive",
+      waitTimeoutMs: STATIC_GUARD_LOCK_WAIT_MS,
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      name: "static",
+      ok: true,
+      note:
+        `run coordinator busy — lint and typecheck NOT run (${detail}). ` +
+        `CI still enforces both; retry the push once the other heavy run finishes.`,
+    };
   }
 
-  if (wantTypecheck) {
-    const result = runStaticCheck(
-      PROJECT_ROOT,
-      [
-        path.join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc"),
-        "-p",
-        "tsconfig.typecheck.json",
-        "--noEmit",
-      ],
-      "typecheck",
-    );
-    if (!result.ok) failures.push(result);
+  const failures = [];
+  try {
+    const lintTargets = repoWide ? LINT_REPO_TARGETS : toLint.filter((f) => existsSync(path.join(PROJECT_ROOT, f)));
+    if (lintTargets.length > 0) {
+      const result = runStaticCheck(
+        PROJECT_ROOT,
+        [
+          path.join(PROJECT_ROOT, "node_modules", "eslint", "bin", "eslint.js"),
+          ...lintTargets,
+          "--max-warnings",
+          "0",
+          "--no-error-on-unmatched-pattern",
+          "--cache",
+          "--cache-location",
+          STATIC_GUARD_ESLINT_CACHE,
+        ],
+        "lint",
+      );
+      if (!result.ok) failures.push(result);
+    }
+
+    if (wantTypecheck) {
+      const buildInfo = typescriptBuildInfoPath(PROJECT_ROOT, undefined, "tsconfig.typecheck.tsbuildinfo");
+      mkdirSync(path.dirname(buildInfo), { recursive: true });
+      const result = runStaticCheck(
+        PROJECT_ROOT,
+        [
+          path.join(PROJECT_ROOT, "node_modules", "typescript", "bin", "tsc"),
+          "-p",
+          "tsconfig.typecheck.json",
+          "--noEmit",
+          "--tsBuildInfoFile",
+          buildInfo,
+        ],
+        "typecheck",
+      );
+      if (!result.ok) failures.push(result);
+    }
+  } finally {
+    lock.release();
   }
 
   if (failures.length === 0) return { name: "static", ok: true };
@@ -708,7 +804,7 @@ function main() {
     autoMergeGuard(branch),
     formatGuard(collectChangedBlobs(ranges)),
     driftGuard(changedFiles),
-    staticGuard(changedFiles),
+    staticGuard(changedFiles, { ranges }),
   ];
   process.exit(report(results));
 }
@@ -774,12 +870,23 @@ function selfTest() {
   );
   assert(lintableFiles(["src\\components\\a.tsx"])[0] === "src/components/a.tsx", "backslash paths are normalized");
   assert(lintableFiles(["eslint.config.mjs"]).length === 1, "root config files eslint covers are linted");
+  assert(lintableFiles(["eslint-rules/require-button-wiring.mjs"]).length === 1, "eslint-rules are linted");
   assert(lintableFiles(["public/demo/x.js"]).length === 0, "files outside the lint roots are not linted");
   assert(needsTypecheck(["src/lib/a.ts"]) === true, "a changed .ts triggers typecheck");
   assert(needsTypecheck(["docs/a.md", "x.png"]) === false, "docs-only pushes skip typecheck");
+  assert(needsTypecheck(["src/lib/a.cts"]) === false, ".cts is outside the source-only include and does not trigger");
+  assert(needsRepoWideLint(["eslint.config.mjs"]) === true, "eslint config change escalates to repo-wide lint");
+  assert(needsRepoWideLint(["eslint-rules/x.mjs"]) === true, "eslint-rules change escalates to repo-wide lint");
+  assert(needsRepoWideLint(["src/lib/a.ts"]) === false, "ordinary source does not escalate lint");
+  assert(pushedTipMatchesHead([{ localSha: "aaa" }], "aaa").ok === true, "matching tip and HEAD is fine");
+  assert(pushedTipMatchesHead([{ localSha: "aaa" }], "bbb").ok === false, "mismatched tip fails closed");
   assert(
     staticGuard(["docs/only.md"]).ok === true && staticGuard(["docs/only.md"]).message === undefined,
     "docs-only push is a no-op for the static guard",
+  );
+  assert(
+    staticGuard(["src/lib/a.ts"], { ranges: [{ localSha: "deadbeef", localRef: "refs/heads/other" }] }).ok === false,
+    "push tip that is not HEAD fails closed",
   );
 
   if (process.exitCode !== 1) console.error("[guard-push] self-test passed");

@@ -18,8 +18,19 @@ const script = args[1];
 const rawForwarded = args.slice(2);
 const forceLockRelease = rawForwarded.includes("--force-lock-release");
 const forwarded = rawForwarded.filter((argument) => argument !== "--force-lock-release");
-const mode = script === "typecheck:internal" ? "shared" : "exclusive";
-const typecheckBuildInfo = mode === "shared" ? typescriptBuildInfoPath(projectRoot) : null;
+// Read-only typechecks share the capped lease (at most two across worktrees).
+// Both the full and source-only wrappers must match — a hard-coded
+// `typecheck:internal` check left `typecheck:source:internal` exclusive.
+const sharedTypecheckScripts = new Set(["typecheck:internal", "typecheck:source:internal"]);
+const mode = sharedTypecheckScripts.has(script) ? "shared" : "exclusive";
+const typecheckBuildInfo =
+  mode === "shared"
+    ? typescriptBuildInfoPath(
+        projectRoot,
+        undefined,
+        script === "typecheck:source:internal" ? "tsconfig.typecheck.tsbuildinfo" : "tsconfig.tsbuildinfo",
+      )
+    : null;
 if (typecheckBuildInfo) mkdirSync(path.dirname(typecheckBuildInfo), { recursive: true });
 const effectiveForwarded = typecheckBuildInfo ? [...forwarded, "--tsBuildInfoFile", typecheckBuildInfo] : forwarded;
 const lock = acquireHeavyRunLock({

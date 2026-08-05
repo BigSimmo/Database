@@ -8,8 +8,14 @@ import {
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  isEslintPolicyFile,
+  lintableFiles,
+  needsRepoWideLint,
+  needsTypecheck,
   normalizedSchemaSha256 as guardSha,
   parsePushRanges,
+  pushedTipMatchesHead,
+  staticGuard,
 } from "../scripts/guard-push.mjs";
 
 const ZERO = "0".repeat(40);
@@ -120,5 +126,69 @@ describe("format dependency resolution", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("npm ci --include=dev");
     expect(result.message).toContain("SKIP_FORMAT_GUARD=1");
+  });
+});
+
+describe("static guard scope selection", () => {
+  it("lints lint-root sources and eslint-rules, not docs or public assets", () => {
+    expect(lintableFiles(["src/components/a.tsx", "docs/x.md", "package-lock.json"])).toEqual(["src/components/a.tsx"]);
+    expect(lintableFiles(["eslint-rules/require-button-wiring.mjs"])).toEqual([
+      "eslint-rules/require-button-wiring.mjs",
+    ]);
+    expect(lintableFiles(["public/demo/x.js"])).toEqual([]);
+  });
+
+  it("normalizes backslash paths before filtering", () => {
+    expect(lintableFiles(["src\\components\\a.tsx"])).toEqual(["src/components/a.tsx"]);
+  });
+
+  it("triggers typecheck only for extensions the source-only config includes", () => {
+    expect(needsTypecheck(["src/lib/a.ts"])).toBe(true);
+    expect(needsTypecheck(["src/lib/a.tsx", "src/lib/a.mts"])).toBe(true);
+    expect(needsTypecheck(["docs/a.md", "x.png"])).toBe(false);
+    expect(needsTypecheck(["src/lib/a.cts"])).toBe(false);
+  });
+
+  it("escalates to repo-wide lint when eslint policy changes", () => {
+    expect(isEslintPolicyFile("eslint.config.mjs")).toBe(true);
+    expect(isEslintPolicyFile("eslint-rules/no-hardcoded-hex.mjs")).toBe(true);
+    expect(isEslintPolicyFile("src/lib/a.ts")).toBe(false);
+    expect(needsRepoWideLint(["eslint.config.mjs"])).toBe(true);
+    expect(needsRepoWideLint(["eslint-rules/x.mjs"])).toBe(true);
+    expect(needsRepoWideLint(["src/lib/a.ts"])).toBe(false);
+  });
+
+  it("fails closed when the pushed tip is not HEAD", () => {
+    expect(pushedTipMatchesHead([{ localSha: "aaa" }], "aaa").ok).toBe(true);
+    expect(pushedTipMatchesHead([{ localSha: "aaa", localRef: "refs/heads/other" }], "bbb")).toEqual({
+      ok: false,
+      headSha: "bbb",
+      tipSha: "aaa",
+      localRef: "refs/heads/other",
+    });
+
+    const result = staticGuard(["src/lib/a.ts"], {
+      ranges: [{ localSha: "deadbeef", localRef: "refs/heads/other" }],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("SKIP_STATIC_GUARD=1");
+    expect(result.message).toContain("deadbeef");
+  });
+
+  it("skips with SKIP_STATIC_GUARD=1 and is a no-op for docs-only pushes", () => {
+    const previous = process.env.SKIP_STATIC_GUARD;
+    process.env.SKIP_STATIC_GUARD = "1";
+    try {
+      const skipped = staticGuard(["src/lib/a.ts"]);
+      expect(skipped.ok).toBe(true);
+      expect(skipped.skipped).toBe("SKIP_STATIC_GUARD=1");
+    } finally {
+      if (previous === undefined) delete process.env.SKIP_STATIC_GUARD;
+      else process.env.SKIP_STATIC_GUARD = previous;
+    }
+
+    const docsOnly = staticGuard(["docs/only.md"]);
+    expect(docsOnly.ok).toBe(true);
+    expect(docsOnly.message).toBeUndefined();
   });
 });
