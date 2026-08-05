@@ -1,7 +1,15 @@
 "use client";
 
 import { Check, ChevronDown, MessageSquarePlus, Search, X } from "lucide-react";
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -185,6 +193,7 @@ function SheetChrome({
   closeLabel,
   children,
   bodyClassName,
+  bodyRef,
 }: {
   title: string;
   description?: string;
@@ -192,6 +201,7 @@ function SheetChrome({
   closeLabel: string;
   children: ReactNode;
   bodyClassName?: string;
+  bodyRef?: RefObject<HTMLDivElement | null>;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -237,10 +247,25 @@ function SheetChrome({
         </button>
       </div>
       <div aria-hidden="true" className="h-px shrink-0 bg-[color:var(--border)]" />
-      <div className={cn("min-h-0 flex-1 overflow-y-auto polished-scroll", bodyClassName)}>{children}</div>
+      <div ref={bodyRef} className={cn("min-h-0 flex-1 overflow-y-auto polished-scroll", bodyClassName)}>
+        {children}
+      </div>
       <div aria-hidden="true" className="h-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0" />
     </div>
   );
+}
+
+/** Scroll a target into a scroll container without bubbling to document ancestors. */
+function scrollContainerToTarget(container: HTMLElement, target: HTMLElement, block: "start" | "center") {
+  const containerRect = container.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  if (block === "start") {
+    container.scrollTop += targetRect.top - containerRect.top;
+    return;
+  }
+  const targetCenter = targetRect.top + targetRect.height / 2;
+  const containerCenter = containerRect.top + containerRect.height / 2;
+  container.scrollTop += targetCenter - containerCenter;
 }
 
 function CurrentShippingSheet() {
@@ -321,14 +346,18 @@ function ModeRow({
   modeId,
   active,
   index,
+  tabIndex,
   onSelect,
+  onKeyDown,
   buttonRef,
 }: {
   modeId: AppModeId;
   active: boolean;
   index: number;
+  tabIndex: number;
   onSelect: (id: AppModeId) => void;
-  buttonRef?: RefObject<HTMLButtonElement | null>;
+  onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => void;
+  buttonRef?: (element: HTMLButtonElement | null) => void;
 }) {
   const mode = modeOf(modeId);
   const Icon = appModeIcons[modeId];
@@ -339,8 +368,9 @@ function ModeRow({
       type="button"
       role="menuitemradio"
       aria-checked={active}
-      tabIndex={active ? 0 : -1}
+      tabIndex={tabIndex}
       onClick={() => onSelect(modeId)}
+      onKeyDown={(event) => onKeyDown(event, index)}
       style={{ animationDelay: `${Math.min(index, 8) * 28}ms` }}
       className={cn(
         "relative grid min-h-12 w-full grid-cols-[2.75rem_minmax(0,1fr)_1.75rem] items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-safe:animate-[cascade-fade-up_var(--duration-moderate)_var(--ease-out-soft)_both] motion-reduce:animate-none motion-reduce:transition-none",
@@ -387,40 +417,84 @@ function ModeRow({
   );
 }
 
+const SECTIONED_MODE_IDS = GROUPS.flatMap((group) => group.modes);
+
 /**
  * Perfected YES 01. Current mode is header chrome (never a second sticky card).
- * Section labels are the sole sticky layer. Selection is live.
+ * Section labels are the sole sticky layer. Selection is live and controlled by
+ * the phone frame so the top-bar pill stays in sync.
  */
 function SectionedListSheet({
-  initialMode = ACTIVE_MODE,
+  selected,
+  onSelectedChange,
   preview = "rest",
 }: {
-  initialMode?: AppModeId;
+  selected: AppModeId;
+  onSelectedChange: (id: AppModeId) => void;
   preview?: SectionsPreview;
 }) {
-  const [selected, setSelected] = useState(initialMode);
+  const instanceId = useId();
+  const bodyRef = useRef<HTMLDivElement>(null);
   const diagnoseRef = useRef<HTMLElement>(null);
-  const selectedRowRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const selectedIndex = Math.max(0, SECTIONED_MODE_IDS.indexOf(selected));
+  // Roving tabindex: keyboard moves focusIndex; remount (via PhoneFrame key) resets it.
+  const [focusIndex, setFocusIndex] = useState(selectedIndex);
 
   useEffect(() => {
     if (preview === "rest") return;
+    // Constrain preview scroll to the sheet body — scrollIntoView would yank
+    // every scrollable ancestor, including the document, past the study heading.
     const frame = window.requestAnimationFrame(() => {
+      const body = bodyRef.current;
+      if (!body) return;
       if (preview === "scrolled") {
-        diagnoseRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+        const target = diagnoseRef.current;
+        if (target) scrollContainerToTarget(body, target, "start");
         return;
       }
       // Switched: bring the newly current mode into view so selection is not
       // off-screen under Find while the header already says DSM-5 / Care / etc.
-      selectedRowRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
+      const target = optionRefs.current[selectedIndex];
+      if (target) scrollContainerToTarget(body, target, "center");
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [preview]);
+  }, [preview, selectedIndex]);
+
+  function focusModeOption(index: number) {
+    const next = Math.max(0, Math.min(SECTIONED_MODE_IDS.length - 1, index));
+    setFocusIndex(next);
+    optionRefs.current[next]?.focus();
+  }
+
+  function handleModeOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusModeOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusModeOption(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusModeOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusModeOption(SECTIONED_MODE_IDS.length - 1);
+    }
+  }
+
+  function selectMode(id: AppModeId) {
+    onSelectedChange(id);
+    const nextIndex = SECTIONED_MODE_IDS.indexOf(id);
+    if (nextIndex >= 0) setFocusIndex(nextIndex);
+  }
 
   return (
     <SheetChrome
       title="Choose mode"
       descriptionContent={<CurrentlyLine modeId={selected} />}
       closeLabel="Close mode menu"
+      bodyRef={bodyRef}
     >
       <div
         role="menu"
@@ -432,18 +506,14 @@ function SectionedListSheet({
         {GROUPS.map((group, groupIndex) => {
           const sectionRef = group.id === "diagnose" ? diagnoseRef : undefined;
           const rowOffset = GROUPS.slice(0, groupIndex).reduce((total, entry) => total + entry.modes.length, 0);
+          const headingId = `${instanceId}-group-${group.id}`;
           return (
-            <section
-              key={group.id}
-              ref={sectionRef}
-              aria-labelledby={`group-${group.id}-${preview}`}
-              className="pt-3 first:pt-1.5"
-            >
+            <section key={group.id} ref={sectionRef} aria-labelledby={headingId} className="pt-3 first:pt-1.5">
               <div className="sticky top-0 z-[1] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2.5 py-1.5 backdrop-blur-md">
                 <div className="flex items-baseline justify-between gap-3">
                   <div className="min-w-0">
                     <h4
-                      id={`group-${group.id}-${preview}`}
+                      id={headingId}
                       className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
                     >
                       {group.label}
@@ -456,16 +526,23 @@ function SectionedListSheet({
                 </div>
               </div>
               <div className="mt-1.5 grid gap-1">
-                {group.modes.map((modeId, modeIndex) => (
-                  <ModeRow
-                    key={modeId}
-                    modeId={modeId}
-                    active={modeId === selected}
-                    index={rowOffset + modeIndex}
-                    onSelect={setSelected}
-                    buttonRef={modeId === selected ? selectedRowRef : undefined}
-                  />
-                ))}
+                {group.modes.map((modeId, modeIndex) => {
+                  const flatIndex = rowOffset + modeIndex;
+                  return (
+                    <ModeRow
+                      key={modeId}
+                      modeId={modeId}
+                      active={modeId === selected}
+                      index={flatIndex}
+                      tabIndex={flatIndex === focusIndex ? 0 : -1}
+                      onSelect={selectMode}
+                      onKeyDown={handleModeOptionKeyDown}
+                      buttonRef={(element) => {
+                        optionRefs.current[flatIndex] = element;
+                      }}
+                    />
+                  );
+                })}
               </div>
             </section>
           );
@@ -476,6 +553,7 @@ function SectionedListSheet({
 }
 
 function IconDeckSheet() {
+  const instanceId = useId();
   const [lane, setLane] = useState<"all" | GroupId>("all");
   const active = modeOf(ACTIVE_MODE);
   const ActiveIcon = appModeIcons[ACTIVE_MODE];
@@ -536,69 +614,109 @@ function IconDeckSheet() {
         </div>
 
         <div role="menu" aria-label="Choose app mode" className="space-y-4">
-          {visibleGroups.map((group) => (
-            <section key={group.id} aria-labelledby={`deck-${group.id}`}>
-              <div className="mb-1.5 flex items-baseline justify-between gap-2 px-0.5">
-                <h4
-                  id={`deck-${group.id}`}
-                  className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
-                >
-                  {group.label}
-                </h4>
-                <span className="text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {group.modes.map((modeId) => {
-                  const mode = modeOf(modeId);
-                  const Icon = appModeIcons[modeId];
-                  const isActive = modeId === ACTIVE_MODE;
-                  return (
-                    <button
-                      key={modeId}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={isActive}
-                      onClick={() => undefined}
-                      className={cn(
-                        "relative flex min-h-[6.5rem] flex-col items-start gap-2 rounded-2xl border p-3 text-left transition",
-                        focusRing,
-                        isActive
-                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-tight)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
-                      )}
-                    >
-                      {isActive ? (
-                        <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
-                          <Check aria-hidden="true" className="h-3.5 w-3.5" />
-                        </span>
-                      ) : null}
-                      <span
+          {visibleGroups.map((group) => {
+            const headingId = `${instanceId}-deck-${group.id}`;
+            return (
+              <section key={group.id} aria-labelledby={headingId}>
+                <div className="mb-1.5 flex items-baseline justify-between gap-2 px-0.5">
+                  <h4
+                    id={headingId}
+                    className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
+                  >
+                    {group.label}
+                  </h4>
+                  <span className="text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {group.modes.map((modeId) => {
+                    const mode = modeOf(modeId);
+                    const Icon = appModeIcons[modeId];
+                    const isActive = modeId === ACTIVE_MODE;
+                    return (
+                      <button
+                        key={modeId}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={isActive}
+                        onClick={() => undefined}
                         className={cn(
-                          "grid h-10 w-10 place-items-center rounded-xl border",
+                          "relative flex min-h-[6.5rem] flex-col items-start gap-2 rounded-2xl border p-3 text-left transition",
+                          focusRing,
                           isActive
-                            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)]",
+                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] shadow-[var(--shadow-tight)]"
+                            : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)]",
                         )}
                       >
-                        <Icon aria-hidden="true" className="h-5 w-5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-sm font-semibold leading-tight text-[color:var(--text-heading)]">
-                          {mode.label}
+                        {isActive ? (
+                          <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
+                            <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                          </span>
+                        ) : null}
+                        <span
+                          className={cn(
+                            "grid h-10 w-10 place-items-center rounded-xl border",
+                            isActive
+                              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+                              : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text)]",
+                          )}
+                        >
+                          <Icon aria-hidden="true" className="h-5 w-5" />
                         </span>
-                        <span className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-                          {mode.description}
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold leading-tight text-[color:var(--text-heading)]">
+                            {mode.label}
+                          </span>
+                          <span className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+                            {mode.description}
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </div>
       </div>
     </SheetChrome>
+  );
+}
+
+function SectionsPhoneFrame({
+  large = false,
+  caption,
+  sectionsPreview = "rest",
+  initialMode,
+}: {
+  large?: boolean;
+  caption: string;
+  sectionsPreview?: SectionsPreview;
+  initialMode: AppModeId;
+}) {
+  // Owned here so the top-bar pill tracks live sheet selection. Parent keys this
+  // component on preview/initialMode so state resets without a sync effect.
+  const [selectedMode, setSelectedMode] = useState<AppModeId>(initialMode);
+  const modeLabel = modeOf(selectedMode).label;
+
+  return (
+    <figure className={cn("m-0 max-w-full min-w-0", large ? "w-[390px]" : "w-[340px]")}>
+      <figcaption className="mb-2.5">
+        <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{caption}</p>
+      </figcaption>
+      <div
+        data-variant="sections"
+        data-sections-preview={sectionsPreview}
+        className={cn(
+          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          large ? "h-[46rem]" : "h-[30rem]",
+        )}
+      >
+        <UniversalHeader modeLabel={modeLabel} />
+        <DimmedHome modeLabel={modeLabel} />
+        <SectionedListSheet selected={selectedMode} onSelectedChange={setSelectedMode} preview={sectionsPreview} />
+      </div>
+    </figure>
   );
 }
 
@@ -615,7 +733,20 @@ function PhoneFrame({
   sectionsPreview?: SectionsPreview;
   initialMode?: AppModeId;
 }) {
-  const modeLabel = variant === "sections" && initialMode ? modeOf(initialMode).label : modeOf(ACTIVE_MODE).label;
+  if (variant === "sections") {
+    const sectionsInitial = initialMode ?? ACTIVE_MODE;
+    return (
+      <SectionsPhoneFrame
+        key={`${sectionsPreview}-${sectionsInitial}`}
+        large={large}
+        caption={caption}
+        sectionsPreview={sectionsPreview}
+        initialMode={sectionsInitial}
+      />
+    );
+  }
+
+  const modeLabel = modeOf(ACTIVE_MODE).label;
 
   return (
     <figure className={cn("m-0 max-w-full min-w-0", large ? "w-[390px]" : "w-[340px]")}>
@@ -624,7 +755,6 @@ function PhoneFrame({
       </figcaption>
       <div
         data-variant={variant}
-        data-sections-preview={variant === "sections" ? sectionsPreview : undefined}
         className={cn(
           "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
           large ? "h-[46rem]" : "h-[30rem]",
@@ -633,13 +763,6 @@ function PhoneFrame({
         <UniversalHeader modeLabel={modeLabel} />
         <DimmedHome modeLabel={modeLabel} />
         {variant === "current" ? <CurrentShippingSheet /> : null}
-        {variant === "sections" ? (
-          <SectionedListSheet
-            key={`${sectionsPreview}-${initialMode ?? ACTIVE_MODE}`}
-            initialMode={initialMode ?? ACTIVE_MODE}
-            preview={sectionsPreview}
-          />
-        ) : null}
         {variant === "deck" ? <IconDeckSheet /> : null}
       </div>
     </figure>
