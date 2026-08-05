@@ -208,6 +208,14 @@ over passages no model wrote. `composeAnswerClipboardText()` now takes an explic
 tier flag, which both product callers pass. Pinned in
 `tests/answer-clipboard-product-path.dom.test.tsx` and `tests/answer-clipboard-composition.test.ts`.
 
+**Clinical-owner wording approval (2026-08-05).** The clinical owner formally approved the fixed
+clinician-facing `responsive-compact` phone wording in
+`src/components/ui/verification-notice.tsx` exactly as shipped on this branch. The approval covers
+all model, extractive, degraded-state and unknown-state compact strings selected by
+`RESPONSIVE_COMPACT_WORDING` / `UNKNOWN_RESPONSIVE_COMPACT_WORDING`. It does not replace the full
+wording on larger screens, print or clipboard output, and it does not approve a disclosure,
+clamp, hidden instruction, retrieval change, visual baseline or patient/plain-language variant.
+
 ---
 
 ## 3 · Registration disposition
