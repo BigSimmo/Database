@@ -11,6 +11,7 @@ import {
   hasSafeGitHubCredentialHelper,
   inspectOriginRemote,
 } from "./ensure-codex-cloud-git-remote.mjs";
+import { redactSensitiveText } from "./sensitive-text.mjs";
 import { providerEnvironmentKeys } from "./test-environment.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -265,12 +266,13 @@ export function parseHostedAppInventoryArgument(args) {
 export function validateHostedAppInventoryArguments(args) {
   const exactPrefix = "--hosted-app-inventory=";
   const exactArguments = args.filter((value) => value.startsWith(exactPrefix));
-  const malformedArguments = args.filter(
-    (value) => /^--hosted-app-inventor(?:y|ies)/.test(value) && !value.startsWith(exactPrefix),
-  );
+  const supportedArguments = new Set(["--environment", "--runtime"]);
+  const unsupportedArguments = args.filter((value) => !supportedArguments.has(value) && !value.startsWith(exactPrefix));
   const errors = [];
-  if (malformedArguments.length > 0) {
-    errors.push("Hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.");
+  if (unsupportedArguments.length > 0) {
+    errors.push(
+      "Unsupported Cloud-check argument; hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.",
+    );
   }
   if (exactArguments.length > 1) {
     errors.push("Hosted app inventory may be supplied only once.");
@@ -319,11 +321,22 @@ export function validateHostedAppInventory(appNames) {
     errors.push("Hosted app inventory names may contain only letters, numbers, dot, underscore, and hyphen.");
   }
   const credentialShapedNames = normalizedNames.filter(
-    (name) => /^(?:sk-|github_pat_|gh[pousr]_|sb_(?:secret|publishable)_)/.test(name) || name.length > 128,
+    (name) => redactSensitiveText(name) !== name || name.length > 128,
   );
   if (credentialShapedNames.length > 0) {
     errors.push(
       "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
+  }
+  const unrecognizedNames = normalizedNames.filter(
+    (name) =>
+      /^[A-Za-z0-9_.-]+$/.test(name) &&
+      !knownHostedAppInventoryNames.includes(name) &&
+      !staleHostedAppInventoryNames.includes(name),
+  );
+  if (unrecognizedNames.length > 0) {
+    errors.push(
+      "Hosted app inventory contains unrecognized connector identifiers; update the checker allowlist before accepting them as evidence.",
     );
   }
   if (normalizedNames.some((name) => staleHostedAppInventoryNames.includes(name))) {
@@ -1048,9 +1061,11 @@ export async function validateCodexCloudRuntime(env = process.env) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const errors = validateCodexCloudSetup();
   const commandArguments = process.argv.slice(2);
-  errors.push(...validateHostedAppInventoryArguments(commandArguments));
+  const hostedAppArgumentErrors = validateHostedAppInventoryArguments(commandArguments);
   const hostedAppInventory = parseHostedAppInventoryArgument(commandArguments);
-  errors.push(...validateHostedAppInventory(hostedAppInventory));
+  const hostedAppInventoryErrors = validateHostedAppInventory(hostedAppInventory);
+  const hostedAppInputErrors = [...hostedAppArgumentErrors, ...hostedAppInventoryErrors];
+  errors.push(...hostedAppInputErrors);
   const runtime = process.argv.includes("--runtime");
   const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
   if (runtime) errors.push(...(await validateCodexCloudRuntime()));
@@ -1064,7 +1079,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       "[Codex Cloud Check] WARN: checkout freshness is unverified during provisioning; run explicit acceptance with CODEX_CLOUD_EXPECTED_BASE_SHA.",
     );
   }
-  if (environment) {
+  if (environment && hostedAppInputErrors.length === 0) {
     console.log("[Codex Cloud Environment] sanitized effective modes and capabilities:");
     for (const line of sanitizedCloudCapabilityLines(process.env, { hostedAppInventory })) console.log(`  ${line}`);
   }

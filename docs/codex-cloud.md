@@ -383,10 +383,12 @@ copying credentials into the checkout.
    a new task after consent. When the host exposes its app identifiers, pass that non-secret
    inventory to the environment check with
    `--hosted-app-inventory=github,railway,supabase`. The exact `=` form is required and the option
-   may appear only once. The checker rejects stale `railway_cloud` and credential-shaped values,
-   normalizes connector-name case, and reports known connectors as presence flags plus an unknown
-   count without echoing supplied values. Inventory remains explicitly unverified when the host
-   does not provide it; repository config is never substituted for this evidence.
+   may appear only once; every other unsupported argument fails closed. The checker rejects stale
+   `railway_cloud`, shared sensitive-token patterns, and identifiers outside its reviewed connector
+   allowlist. It normalizes connector-name case and never echoes supplied values. Invalid input
+   suppresses capability output rather than printing a misleading unverified state. Inventory
+   remains explicitly unverified when the host does not provide it; repository config is never
+   substituted for this evidence.
 4. **Prove the shell boundary before providers.** First run the direct raw-shell command above
    before profiles or command shims. Then run `npm run check:codex-cloud`,
    `npm run check:codex-cloud -- --runtime`, `npm run check:runtime`, and
