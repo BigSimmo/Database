@@ -31,8 +31,11 @@ function rendersBand(source: string) {
   return source.includes(BAND_ELEMENT);
 }
 
-/** Mockups are design scratch and exempt from production wiring gates. */
-function isMockupPath(relativePath: string) {
+/** Mockups are design scratch and exempt from production wiring gates.
+ * Absolute paths must first be scoped to the repository: a worktree parent can
+ * legitimately contain "mockup" without making every production module one. */
+function isMockupPath(candidatePath: string) {
+  const relativePath = path.isAbsolute(candidatePath) ? path.relative(REPO_ROOT, candidatePath) : candidatePath;
   return /mockup/i.test(relativePath);
 }
 
@@ -572,6 +575,11 @@ describe("search results band adoption", () => {
   const productionComponents = walk(COMPONENTS_DIR)
     .map((abs) => ({ abs, rel: path.relative(REPO_ROOT, abs) }))
     .filter(({ rel }) => !isMockupPath(rel));
+
+  it("scopes mockup detection to the repository-relative path", () => {
+    expect(isMockupPath(path.join(REPO_ROOT, "src", "components", "production-result.tsx"))).toBe(false);
+    expect(isMockupPath(path.join(REPO_ROOT, "src", "app", "mockups", "study", "page.tsx"))).toBe(true);
+  });
 
   it("mounts the shared band on every mode that presents a result list", () => {
     const mounted = new Set<string>();

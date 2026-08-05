@@ -1327,7 +1327,10 @@ summary::-webkit-details-marker {
   outline-offset: 2px;
 }
 
-.mode-action-body {
+/* Cap scrolling only inside the anchored popover surface, which defines
+   --mode-action-body-max-height. Sheet/dialog hosts leave the variable unset;
+   applying max-height there would create a nested non-capping scroll region. */
+.mode-action-surface .mode-action-body {
   max-height: var(--mode-action-body-max-height);
   overflow-y: auto;
   overscroll-behavior: contain;
