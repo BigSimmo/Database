@@ -17,5 +17,5 @@ export const Unclassified = () => <SourceDesignationBadge metadata={{}} />;
 // An off-vocabulary or unrecognised publisher degrades to Unclassified rather
 // than guessing — and, since the browser-safety fix, without unmounting.
 export const OffVocabulary = () => (
-  <SourceDesignationBadge metadata={{ publisher: "Unknown clinic", clinical_validation_status: "validated" }} />
+  <SourceDesignationBadge metadata={{ publisher: "Unknown clinic", clinical_validation_status: "unverified" }} />
 );

@@ -67,7 +67,7 @@ function SheetSection({
         <span className="min-w-0">
           <span className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">{calc.abbrev}</span>
-            <span className="hidden text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)] sm:inline">
+            <span className="hidden text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)] sm:inline">
               {domainLabels[calc.domain]}
             </span>
           </span>
@@ -83,7 +83,7 @@ function SheetSection({
             <SeverityPill tone={derived.result.tone} label={derived.result.label} className="hidden sm:inline-flex" />
           </span>
         ) : (
-          <span className="text-2xs font-semibold text-[color:var(--text-soft)]">{calc.items.length} items</span>
+          <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{calc.items.length} items</span>
         )}
         {derived.flags.length > 0 ? (
           <span
@@ -95,7 +95,7 @@ function SheetSection({
         ) : null}
         <span
           className={cn(
-            "relative grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-soft)] transition before:absolute before:-inset-2 before:content-['']",
+            "relative grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--decoration-soft)] transition before:absolute before:-inset-2 before:content-['']",
             open && "rotate-180",
           )}
         >
@@ -111,7 +111,7 @@ function SheetSection({
 
           <div className="grid gap-2 rounded-lg bg-[color:var(--surface-subtle)] p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-2xs font-semibold text-[color:var(--text-soft)]">{progressLabel(derived)}</span>
+              <span className="text-2xs font-semibold text-[color:var(--text-muted)]">{progressLabel(derived)}</span>
               {derived.started ? <SeverityPill tone={derived.result.tone} label={derived.result.label} /> : null}
             </div>
             <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
@@ -121,7 +121,7 @@ function SheetSection({
             {calc.caution ? (
               <p className="text-2xs font-semibold leading-4 text-[color:var(--warning)]">{calc.caution}</p>
             ) : null}
-            <p className="font-mono text-3xs font-semibold text-[color:var(--text-soft)]">
+            <p className="font-mono text-3xs font-semibold text-[color:var(--text-muted)]">
               {calc.scoringNote} · {calc.source}
             </p>
           </div>
@@ -161,7 +161,7 @@ export function CalculatorsBedsideSheetMockup() {
             </span>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-extrabold text-[color:var(--text-heading)]">Assessment sheet</h1>
-              <p className="truncate text-2xs font-semibold text-[color:var(--text-soft)]">
+              <p className="truncate text-2xs font-semibold text-[color:var(--text-muted)]">
                 Run several scales in one review — a summary builds as you go.
               </p>
             </div>
@@ -261,7 +261,7 @@ export function CalculatorsBedsideSheetMockup() {
               ))}
             </div>
           ) : (
-            <p className="text-2xs font-semibold text-[color:var(--text-soft)]">
+            <p className="text-2xs font-semibold text-[color:var(--text-muted)]">
               No scales started yet — completed scores collect here for your note.
             </p>
           )}

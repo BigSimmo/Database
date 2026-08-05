@@ -38,6 +38,7 @@ describe("EmptyState", () => {
 
     expect(screen.queryByRole("heading")).toBeNull();
     expect(screen.getByText("No matching documents").tagName).toBe("P");
+    expect(screen.getByText("No matching documents").closest("[role]")).toBeNull();
   });
 
   it("promotes the title to the requested heading level without losing the announcement", () => {
@@ -45,7 +46,7 @@ describe("EmptyState", () => {
 
     const heading = screen.getByRole("heading", { level: 3, name: "No matching documents" });
     expect(heading.tagName).toBe("H3");
-    expect(screen.getByTestId("docs-empty")).toHaveAttribute("role", "status");
+    expect(screen.getByTestId("docs-empty")).not.toHaveAttribute("role");
   });
 
   it("honours a level other than the default consumer's", () => {

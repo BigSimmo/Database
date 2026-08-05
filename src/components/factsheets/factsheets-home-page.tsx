@@ -53,7 +53,7 @@ export function FactsheetsHomePage() {
                     {factsheetCategoryGlyph(category, "h-3.5 w-3.5")}
                   </span>
                   {category}
-                  <span className="text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+                  <span className="text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
                     {categoryCount(category)}
                   </span>
                 </Link>
@@ -126,7 +126,7 @@ export function FactsheetsHomePage() {
                       <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                       Updated {sheet.reviewedOn}
                     </span>
-                    <span className="text-xs text-[color:var(--text-soft)]">{sheet.readTime}</span>
+                    <span className="text-xs text-[color:var(--text-muted)]">{sheet.readTime}</span>
                   </div>
                 </Link>
               );

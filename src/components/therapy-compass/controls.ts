@@ -52,7 +52,7 @@ export const softControl = cn(
 
 export const iconControl = cn(
   therapyBtn,
-  "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",
+  "inline-flex h-tap w-tap items-center justify-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--decoration-soft)]",
   "hover:enabled:border-[color:var(--border-strong)] hover:enabled:bg-[color:var(--surface-subtle)] hover:enabled:text-[color:var(--text)]",
 );
 

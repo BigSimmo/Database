@@ -48,14 +48,14 @@ function PickerScreen({ onPick }: { onPick: (id: string) => void }) {
                   <span className="text-base font-extrabold leading-6 text-[color:var(--text-heading)]">
                     {calc.abbrev}
                   </span>
-                  <span className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                  <span className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-muted)]">
                     {domainLabels[calc.domain]}
                   </span>
                 </span>
                 <span className="mt-0.5 block text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
                   {calc.indication}
                 </span>
-                <span className="mt-1.5 flex flex-wrap gap-3 text-2xs font-semibold text-[color:var(--text-soft)]">
+                <span className="mt-1.5 flex flex-wrap gap-3 text-2xs font-semibold text-[color:var(--text-muted)]">
                   <span className="inline-flex items-center gap-1">
                     <ListChecks className="size-icon-xs" aria-hidden="true" />
                     {calc.items.length} questions
@@ -112,7 +112,7 @@ function QuestionScreen({
         </button>
         <div className="min-w-0 text-center">
           <p className="truncate text-sm font-extrabold text-[color:var(--text-heading)]">{calc.abbrev}</p>
-          <p className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+          <p className="font-mono text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
             {stepIndex + 1} / {total}
           </p>
         </div>
@@ -137,7 +137,7 @@ function QuestionScreen({
 
       <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-soft)] sm:p-5">
         {calc.stem ? (
-          <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]">
+          <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
             {calc.stem}
           </p>
         ) : null}
@@ -203,7 +203,7 @@ function QuestionScreen({
                     <span
                       className={cn(
                         "font-mono text-sm-minus font-bold tabular-nums",
-                        active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                        active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
                       )}
                     >
                       +{option.points}
@@ -229,7 +229,7 @@ function QuestionScreen({
           <ArrowLeft className="size-icon-sm" aria-hidden="true" />
           Back
         </button>
-        <span className="text-2xs font-semibold text-[color:var(--text-soft)]">Tap an answer to continue</span>
+        <span className="text-2xs font-semibold text-[color:var(--text-muted)]">Tap an answer to continue</span>
       </div>
     </div>
   );
@@ -251,12 +251,12 @@ function ResultScreen({
   return (
     <div className="mx-auto grid w-full max-w-lg content-start gap-4">
       <div className="grid gap-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 text-center shadow-[var(--shadow-soft)]">
-        <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]">
+        <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
           {calc.abbrev} result
         </p>
         <p className="font-mono text-3xl-minus font-extrabold tabular-nums leading-9 text-[color:var(--text-heading)]">
           {derived.score}
-          <span className="text-lg font-bold text-[color:var(--text-soft)]"> / {calc.maxScore}</span>
+          <span className="text-lg font-bold text-[color:var(--text-muted)]"> / {calc.maxScore}</span>
         </p>
         <div className="justify-self-center">
           <SeverityPill tone={derived.result.tone} label={derived.result.label} />
@@ -272,7 +272,7 @@ function ResultScreen({
           <BandLegend calc={calc} activeBand={derived.band} />
         </div>
         <div className="grid gap-1.5 border-t border-[color:var(--border)] pt-3 text-left">
-          <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]">
+          <p className="text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-muted)]">
             Answer review
           </p>
           <ul className="grid gap-1">
@@ -286,13 +286,13 @@ function ResultScreen({
                   key={item.id}
                   className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-baseline gap-2 text-2xs leading-4"
                 >
-                  <span className="font-mono font-bold tabular-nums text-[color:var(--text-soft)]">
+                  <span className="font-mono font-bold tabular-nums text-[color:var(--text-muted)]">
                     {itemIndex + 1}.
                   </span>
                   <span className="truncate font-medium text-[color:var(--text-muted)]">{item.text}</span>
                   <span className="font-semibold text-[color:var(--text-heading)]">
                     {answerLabel}
-                    <span className="ml-1 font-mono font-bold tabular-nums text-[color:var(--text-soft)]">
+                    <span className="ml-1 font-mono font-bold tabular-nums text-[color:var(--text-muted)]">
                       +{points}
                     </span>
                   </span>
@@ -307,7 +307,7 @@ function ResultScreen({
         {calc.caution ? (
           <p className="text-left text-2xs font-semibold leading-4 text-[color:var(--warning)]">{calc.caution}</p>
         ) : null}
-        <p className="text-left font-mono text-3xs font-semibold text-[color:var(--text-soft)]">{calc.source}</p>
+        <p className="text-left font-mono text-3xs font-semibold text-[color:var(--text-muted)]">{calc.source}</p>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">

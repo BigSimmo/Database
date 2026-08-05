@@ -38,7 +38,7 @@ import {
   EmptyState,
   floatingControl,
   iconTilePremium,
-  metadataPill,
+  metadataPillDensity,
   sourceCard,
   tableCard,
   tableCardHeader,
@@ -118,7 +118,12 @@ function VisualEvidenceStrip({
         compactMobile
       />
       {evidence.length === 0 ? (
-        <EmptyState icon={FileImage} title={emptyStates.indexedVisuals.title} body={emptyStates.indexedVisuals.body} />
+        <EmptyState
+          icon={FileImage}
+          title={emptyStates.indexedVisuals.title}
+          body={emptyStates.indexedVisuals.body}
+          live="polite"
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {evidence.map((item) => {
@@ -164,7 +169,7 @@ function VisualEvidenceStrip({
                   {displayLabels.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {displayLabels.map((label) => (
-                        <span key={`${item.id}:${label}`} className={cn(metadataPill, "min-h-6 px-2 text-2xs")}>
+                        <span key={`${item.id}:${label}`} className={metadataPillDensity.compact}>
                           {label}
                         </span>
                       ))}
@@ -184,9 +189,7 @@ function VisualEvidenceStrip({
                     {cleanDisplayTitle(item.title)}, page {item.page_number ?? "n/a"}
                   </span>
                   {item.image_type && (
-                    <span className={cn(metadataPill, "min-h-7 px-2 text-2xs")}>
-                      {item.image_type.replaceAll("_", " ")}
-                    </span>
+                    <span className={metadataPillDensity.dense}>{item.image_type.replaceAll("_", " ")}</span>
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
                   <Link href={item.viewer_href} className={cn(floatingControl, "min-h-tap px-4 text-xs")}>
@@ -275,7 +278,9 @@ export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRec
     <section className={cn(tableCard, "max-w-lg")} aria-label="Inline table preview">
       {table.title || table.source ? (
         <div className={cn(tableCardHeader, "flex min-h-10 items-center justify-between gap-2 py-2 text-sm")}>
-          <span className="min-w-0 truncate">{table.title || "Clinical table"}</span>
+          <span aria-hidden="true" className="min-w-0 truncate">
+            {table.title || "Clinical table"}
+          </span>
           {table.source ? (
             <Link
               href={table.source.href}
@@ -294,7 +299,7 @@ export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRec
       ) : null}
       <div className="p-1.5 sm:p-2">
         <AccessibleTable
-          caption={table.title}
+          caption={table.title?.trim() || "Clinical table"}
           normalizedTable={normalizedTable}
           compact
           expandOnMobile
@@ -382,7 +387,14 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
     "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0";
 
   if (!claimRows.length) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
+        live="polite"
+      />
+    );
   }
 
   return (
@@ -465,7 +477,12 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
 function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
   if (!warnings.length) {
     return (
-      <EmptyState icon={CircleCheck} title="No evidence gaps" body="No source gaps were attached to this answer." />
+      <EmptyState
+        icon={CircleCheck}
+        title="No evidence gaps"
+        body="No source gaps were attached to this answer."
+        live="polite"
+      />
     );
   }
 
@@ -662,8 +679,8 @@ export function MobileEvidenceSheetContent({
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-soft)]">
-              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--text-muted)]">
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--decoration-soft)]" />
               Source
             </span>
           )}
@@ -742,7 +759,12 @@ function MobileEvidenceTabPanel({
         ))}
       </div>
     ) : (
-      <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
+      <EmptyState
+        icon={ListChecks}
+        title={emptyStates.tablesUsed.title}
+        body={emptyStates.tablesUsed.body}
+        live="polite"
+      />
     );
   }
 
@@ -750,7 +772,12 @@ function MobileEvidenceTabPanel({
     return visualEvidence.length ? (
       <VisualEvidenceStrip evidence={visualEvidence} embedded />
     ) : (
-      <EmptyState icon={FileImage} title={emptyStates.imagesUsed.title} body={emptyStates.imagesUsed.body} />
+      <EmptyState
+        icon={FileImage}
+        title={emptyStates.imagesUsed.title}
+        body={emptyStates.imagesUsed.body}
+        live="polite"
+      />
     );
   }
 

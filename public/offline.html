@@ -6,13 +6,14 @@
     <meta name="robots" content="noindex, nofollow" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060708" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e11" />
     <title>Clinical KB is offline</title>
     <style>
       /* Standalone page: cannot import globals.css, so the Clinical White /
          Aegean Graphite tokens are mirrored here as local custom properties.
          Each value is annotated with its source token from
-         docs/redesign/permanent-colour-direction.md and src/app/globals.css.
+         docs/redesign/permanent-colour-direction.md and
+         src/app/ckb-v2-tokens.css.
          Editing this file requires a new unique CACHE_VERSION in public/sw.js
          (enforced by the pairing guard in tests/pwa-manifest.test.ts). */
       :root {
@@ -27,18 +28,18 @@
           Arial,
           sans-serif;
         --page-background: #ffffff; /* --background */
-        --page-surface: #fcfcfd; /* --surface-raised */
-        --page-border: #e5e7eb; /* --border */
-        --page-border-lux: rgb(205 213 223 / 55%); /* --border-lux */
-        --page-text: #101418; /* --text */
-        --page-heading: #080b0f; /* --text-heading */
-        --page-muted: #475467; /* --text-muted */
-        --page-accent: #0b6f86; /* --clinical-accent */
-        --page-accent-hover: #095d70; /* --clinical-accent-hover */
-        --page-accent-contrast: #ffffff; /* --clinical-accent-contrast */
-        --page-focus: var(--page-accent); /* --focus: var(--clinical-accent) */
-        --page-glow: rgb(11 111 134 / 10%); /* accent at low alpha */
-        --page-shadow: 0 1rem 3rem rgb(16 20 24 / 10%);
+        --page-surface: #ffffff; /* --surface-raised */
+        --page-border: #e6ebf2; /* --border */
+        --page-border-lux: #dde4ee; /* --border-lux */
+        --page-text: #1b2533; /* --text */
+        --page-heading: #0a1220; /* --text-heading */
+        --page-muted: #55627a; /* --text-muted */
+        --page-accent: #1a66a8; /* --command */
+        --page-accent-hover: #185c99; /* --command-hover */
+        --page-accent-contrast: #ffffff; /* --command-contrast */
+        --page-focus: var(--page-accent); /* --focus command channel */
+        --page-glow: rgb(26 102 168 / 10%); /* command at low alpha */
+        --page-shadow: 0 4px 8px rgb(13 40 71 / 5%), 0 32px 56px -20px rgb(13 40 71 / 15%); /* --e4 */
         background: var(--page-background);
         color: var(--page-text);
       }
@@ -127,18 +128,18 @@
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --page-background: #060708; /* dark --background */
-          --page-surface: #171a1d; /* dark --surface-raised */
-          --page-border: rgba(255, 255, 255, 0.08); /* dark --border-lux */
-          --page-border-lux: rgba(255, 255, 255, 0.08); /* dark --border-lux */
-          --page-text: #f5f7f7; /* dark --text */
-          --page-heading: #f5f7f7; /* dark headings share --text */
-          --page-muted: #a7b0ad; /* dark --text-muted */
-          --page-accent: #4ccfd0; /* dark --clinical-accent */
-          --page-accent-hover: #72dcdd; /* dark accent, one step lighter */
-          --page-accent-contrast: #04252a; /* brand dark ink */
-          --page-glow: rgb(76 207 208 / 10%);
-          --page-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
+          --page-background: #0b0e11; /* dark --background */
+          --page-surface: #1c2126; /* dark --surface-raised */
+          --page-border: #333a41; /* dark --border */
+          --page-border-lux: #3a424a; /* dark --border-lux */
+          --page-text: #f4f6f8; /* dark --text */
+          --page-heading: #fbfcfd; /* dark --text-heading */
+          --page-muted: #a8b2bd; /* dark --text-muted */
+          --page-accent: #3a80c0; /* dark --command */
+          --page-accent-hover: #4a91d2; /* dark --command-hover */
+          --page-accent-contrast: #06121e; /* dark --command-contrast */
+          --page-glow: rgb(58 128 192 / 10%);
+          --page-shadow: inset 0 1px 0 rgb(255 255 255 / 7%), 0 32px 56px -20px rgb(0 0 0 / 64%); /* dark --e4 */
         }
       }
 
