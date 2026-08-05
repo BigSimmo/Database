@@ -23,7 +23,7 @@ function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: n
         {criterion.label || index + 1}
       </span>
       <div className="min-w-0 pt-0.5">
-        <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+        <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           Core criterion {criterion.label || index + 1}
         </p>
         <p className="mt-1 text-sm font-medium leading-6 text-[color:var(--text-heading)]">{criterion.text}</p>
@@ -196,7 +196,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                         >
                           <span>{differential}</span>
                           <ChevronRight
-                            className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                            className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
                             aria-hidden
                           />
                         </Link>
