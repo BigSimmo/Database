@@ -1158,8 +1158,11 @@ describe("Supabase schema Data API grants", () => {
     expect(restoreRagSearchHealthIndexesMigration).toContain(
       "create missing indexes concurrently outside the migration transaction",
     );
+    let previousStepOffset = -1;
     for (const sqlStep of INDEX_DEFINITION_NORMALIZER_SQL_STEPS) {
-      expect(restoreRagSearchHealthIndexesMigration, `SQL normalizer step: ${sqlStep}`).toContain(sqlStep);
+      const stepOffset = restoreRagSearchHealthIndexesMigration.indexOf(sqlStep);
+      expect(stepOffset, `SQL normalizer step: ${sqlStep}`).toBeGreaterThan(previousStepOffset);
+      previousStepOffset = stepOffset;
     }
     // Allow the normalizer's replace() literal, but forbid actual IF NOT EXISTS DDL.
     expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/create\s+index\s+if\s+not\s+exists\s+[a-z_]/i);
