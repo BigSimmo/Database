@@ -980,7 +980,9 @@ test.describe("Clinical KB tools launcher", () => {
           timeout: 20_000,
         });
         if (route.ribbonQuery) {
-          const ribbon = page.getByTestId("search-query-ribbon");
+          // Prefer the settled visible ribbon — CI can leave a hidden Next
+          // streaming `#S:1` clone beside the live band (outstanding #093).
+          const ribbon = visibleByTestId(page, "search-query-ribbon");
           await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
           await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
           await expect(ribbon.getByRole("status")).toBeVisible();
