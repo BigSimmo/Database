@@ -1080,6 +1080,9 @@ export function MasterSearchHeader({
       restoreFocusUnlessMoved(actionMenuTriggerRef.current);
     });
   }, []);
+  const handleFocusSearchInput = useEventCallback(() => {
+    queryInputRef?.current?.focus();
+  });
 
   const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
@@ -1767,7 +1770,7 @@ export function MasterSearchHeader({
           onRunModeAction={runModeAction}
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
-          onFocusSearchInput={() => queryInputRef?.current?.focus()}
+          onFocusSearchInput={handleFocusSearchInput}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}

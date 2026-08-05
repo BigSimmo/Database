@@ -439,6 +439,10 @@ export function ModeActionPopup({
     onOpenChange(false);
     window.requestAnimationFrame(() => buttonRef.current?.focus());
   }, [onOpenChange, setModeSelectorOpen]);
+  const resolveSheetReturnFocusTarget = useCallback(
+    () => sheetReturnFocusRef?.current ?? buttonRef.current,
+    [sheetReturnFocusRef],
+  );
 
   // The sheet owns its own focus trap, Escape, and backdrop dismissal; only the
   // anchored popover needs the outside-click dismissable layer.
@@ -944,7 +948,8 @@ export function ModeActionPopup({
           title={title}
           description={headerSubtitle}
           closeLabel={`Close ${title.toLowerCase()} options`}
-          returnFocusRef={sheetReturnFocusRef ?? buttonRef}
+          returnFocusRef={buttonRef}
+          resolveReturnFocusTarget={resolveSheetReturnFocusTarget}
           id={customBody ? actionSurfaceId : undefined}
           testId={customBody ? "daily-actions-menu" : undefined}
           headerLeading={
