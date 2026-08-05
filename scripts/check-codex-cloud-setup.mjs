@@ -406,7 +406,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
   const checkout = options.checkout ?? gitCheckoutFreshness(repoRoot, env);
   const lines = [
-    `hosted_workspace.class=${expectedHostedWorkspaceClass}`,
+    `hosted_workspace.class_documented=${expectedHostedWorkspaceClass}`,
     `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
     `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
     `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["offline"])}`,
@@ -668,7 +668,14 @@ export function validateCodexCloudSetup() {
   for (const name of providerCredentialVariables) {
     if (!setup.includes(name)) errors.push(`Cloud setup must handle provider environment variable ${name}.`);
   }
-  if (/printf[^\n]*mcp_servers\./.test(setup)) {
+  // Reject any executable (non-comment) reference that would write MCP tables.
+  // Comments may mention mcp_servers as preserved host settings; printf/echo/cat/tee
+  // generations must not.
+  const setupWithoutFullLineComments = setup
+    .split("\n")
+    .filter((line) => !/^\s*#/.test(line))
+    .join("\n");
+  if (setupWithoutFullLineComments.includes("mcp_servers.")) {
     errors.push("Cloud setup must not generate MCP registrations; hosted apps are external to the repository.");
   }
   if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {

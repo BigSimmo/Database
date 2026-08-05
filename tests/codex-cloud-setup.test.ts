@@ -246,7 +246,7 @@ describe("Codex Cloud environment contract", () => {
       },
     );
     const report = lines.join("\n");
-    expect(report).toContain("hosted_workspace.class=personal-pro");
+    expect(report).toContain("hosted_workspace.class_documented=personal-pro");
     expect(report).toContain("OPENAI_API_KEY.present=true");
     expect(report).toContain("hosted_app.inventory=external-unverified-until-fresh-task");
     expect(report).toContain("provider_route.github=codex-native-connector");
