@@ -153,7 +153,11 @@ export function SearchPinsMenu({
       // CustomEvent without an init object exposes detail === null, not undefined.
       // Treat both as "re-read storage" so a bare change signal cannot resurrect defaults.
       const detail = event instanceof CustomEvent ? event.detail : undefined;
+<<<<<<< HEAD
       setPins(detail == null ? readSearchPins() : normalizeSearchPins(detail));
+=======
+      setPins(detail === undefined || detail === null ? readSearchPins() : normalizeSearchPins(detail));
+>>>>>>> origin/codex/editable-search-pins
     };
     window.addEventListener("storage", syncStoredPins);
     window.addEventListener(searchPinsChangeEvent, syncPins);
