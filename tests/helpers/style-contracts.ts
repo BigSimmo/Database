@@ -98,10 +98,9 @@ export function parseUnlayeredVisualClasses(css: string): UnlayeredVisualClass[]
     // Any line that opens a rule block, at-rules excluded. Deliberately NOT
     // "starts with a class": a selector list is often split across lines, and an
     // earlier line can carry a class the opening line does not
-    // (`.medication-results-inset,` above `.medication-also-matches,` /
-    // `.medication-filter-strip {`). Keying on the opening line alone silently
-    // left those classes unpoliced, so the gate could pass with an unregistered
-    // unlayered class.
+    // (`.edge-glass-header-backdrop,` above `.edge-glass-header-backdrop::before,`
+    // … `{`). Keying on the opening line alone silently left those classes
+    // unpoliced, so the gate could pass with an unregistered unlayered class.
     if (!line.trimEnd().endsWith("{") || /^\s*@/.test(line)) continue;
     if (insideLayer(index)) continue;
 
