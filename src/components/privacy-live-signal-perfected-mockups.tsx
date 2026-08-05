@@ -120,7 +120,7 @@ function StatusBar() {
   return (
     <div
       aria-hidden="true"
-      className="relative flex h-11 shrink-0 items-end justify-between px-5 pb-1.5 text-[10px] font-semibold tabular-nums text-[color:var(--text-heading)]"
+      className="relative flex h-11 shrink-0 items-end justify-between px-5 pb-1.5 text-3xs font-semibold tabular-nums text-[color:var(--text-heading)]"
     >
       <span>9:41</span>
       <span className="absolute left-1/2 top-2 h-7 w-28 -translate-x-1/2 rounded-full bg-[color:var(--text-heading)]" />
@@ -151,9 +151,9 @@ function RegionTicker({ compact = false }: { compact?: boolean }) {
         <p className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
           Processing map
         </p>
-        <p className="hidden text-3xs font-medium text-[color:var(--text-soft)] sm:block">
-          Operator must verify regions
-        </p>
+        {!compact ? (
+          <p className="text-3xs font-medium text-[color:var(--text-soft)]">Operator must verify regions</p>
+        ) : null}
       </div>
       {compact ? (
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -236,7 +236,7 @@ function StickySignalChrome({
             <h1
               className={cn(
                 "font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]",
-                phone ? "truncate text-[0.95rem]" : "text-xl",
+                phone ? "truncate text-base-minus" : "text-xl",
               )}
             >
               Privacy & data handling
@@ -260,7 +260,12 @@ function StickySignalChrome({
             <p className="text-2xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--warning-text)]">
               Important
             </p>
-            <p className="mt-0.5 text-xs font-semibold leading-5 text-[color:var(--text-heading)] sm:text-sm sm:leading-6">
+            <p
+              className={cn(
+                "mt-0.5 font-semibold text-[color:var(--text-heading)]",
+                phone ? "text-xs leading-5" : "text-sm leading-6",
+              )}
+            >
               {IMPORTANT_SHORT}
             </p>
           </div>
@@ -284,17 +289,17 @@ function StickySignalChrome({
             />
           </button>
         </div>
-        {noticeOpen ? (
-          <div
-            id={noticePanelId}
-            className={cn(
-              "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)]",
-              phone ? "px-3 py-3" : "mx-auto max-w-[80rem] px-8 py-3.5",
-            )}
-          >
-            <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">{IMPORTANT_FULL}</p>
-          </div>
-        ) : null}
+        {/* Keep mounted (hidden) so aria-controls IDREF stays valid when collapsed. */}
+        <div
+          id={noticePanelId}
+          hidden={!noticeOpen}
+          className={cn(
+            "border-t border-[color:var(--warning-border)] bg-[color:var(--surface-raised)]",
+            phone ? "px-3 py-3" : "mx-auto max-w-[80rem] px-8 py-3.5",
+          )}
+        >
+          <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-heading)]">{IMPORTANT_FULL}</p>
+        </div>
       </div>
 
       {phone ? (
@@ -333,25 +338,32 @@ function SectionAccordion({
   setOpenId,
   expandAll,
   sectionRefs,
+  idPrefix,
 }: {
   phone: boolean;
   openId: string;
   setOpenId: (id: string) => void;
   expandAll: boolean;
-  sectionRefs: React.MutableRefObject<Record<string, HTMLDivElement | null>>;
+  sectionRefs: React.RefObject<Record<string, HTMLDivElement | null>>;
+  idPrefix: string;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]">
       {SECTIONS.map((section, index) => {
         const expanded = expandAll || openId === section.heading;
-        const panelId = `privacy-section-${index}`;
+        // Prefix with per-frame useId() so desktop + phone comps on one page never collide.
+        const panelId = `${idPrefix}-section-${index}`;
         return (
           <div
             key={section.heading}
             ref={(node) => {
               sectionRefs.current[section.heading] = node;
             }}
-            className={cn(index > 0 && "border-t border-[color:var(--border)]")}
+            className={cn(
+              // Clear sticky chrome (header + Important [+ phone chips]) when jump-scrolling.
+              phone ? "scroll-mt-[12.5rem]" : "scroll-mt-[10.5rem]",
+              index > 0 && "border-t border-[color:var(--border)]",
+            )}
           >
             <button
               type="button"
@@ -382,11 +394,21 @@ function SectionAccordion({
                 {String(index + 1).padStart(2, "0")}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold tracking-[-0.015em] text-[color:var(--text-heading)] sm:text-[0.95rem]">
+                <span
+                  className={cn(
+                    "block font-semibold tracking-[-0.015em] text-[color:var(--text-heading)]",
+                    phone ? "text-sm" : "text-base-minus",
+                  )}
+                >
                   {section.heading}
                 </span>
                 {!expanded ? (
-                  <span className="mt-1 block text-2xs leading-4 text-[color:var(--text-muted)] sm:text-xs sm:leading-5">
+                  <span
+                    className={cn(
+                      "mt-1 block text-[color:var(--text-muted)]",
+                      phone ? "text-2xs leading-4" : "text-xs leading-5",
+                    )}
+                  >
                     {section.gist}
                   </span>
                 ) : (
@@ -422,6 +444,7 @@ function SectionAccordion({
 
 export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean }) {
   const noticeId = useId();
+  const sectionIdPrefix = useId();
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [openId, setOpenId] = useState(SECTIONS[0]?.heading ?? "");
@@ -431,7 +454,8 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
     setExpandAll(false);
     setOpenId(heading);
     const node = sectionRefs.current[heading];
-    node?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "nearest" });
+    // "start" + section scroll-mt clears the sticky chrome; "nearest" lands under it.
+    node?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
   };
 
   return (
@@ -449,11 +473,13 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
         className={cn(
           phone
             ? "space-y-4 px-3 py-4"
-            : "mx-auto grid max-w-[80rem] gap-8 px-8 py-8 lg:grid-cols-[16.5rem_minmax(0,1fr)]",
+            : // Frame-width layout (not viewport sm:/lg:) so the desktop comp keeps its index rail
+              // even when the reviewer window is narrow.
+              "mx-auto grid max-w-[80rem] grid-cols-[16.5rem_minmax(0,1fr)] gap-8 px-8 py-8",
         )}
       >
         {!phone ? (
-          <aside className="h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)] lg:sticky lg:top-[13.5rem]">
+          <aside className="sticky top-[13.5rem] h-fit rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-2.5 shadow-[var(--shadow-inset)]">
             <div className="mb-1.5 flex items-center justify-between px-2.5 pt-1.5">
               <p className="text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
                 Signal index
@@ -461,6 +487,8 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
               <button
                 type="button"
                 onClick={() => {
+                  // Read expandAll before the queued toggle so on→off can reset openId in the
+                  // same tick (keeps one row open); off→on skips the reset so every row expands.
                   setExpandAll((value) => !value);
                   if (expandAll) setOpenId(SECTIONS[0]?.heading ?? "");
                 }}
@@ -522,6 +550,7 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
           <RegionTicker compact={phone} />
           <SectionAccordion
             phone={phone}
+            idPrefix={sectionIdPrefix}
             openId={openId}
             setOpenId={(id) => {
               setExpandAll(false);
@@ -562,7 +591,15 @@ function DeviceChrome({
         )}
       >
         {phone ? <StatusBar /> : null}
-        <div className="h-[50rem] overflow-y-auto overscroll-contain">{children}</div>
+        <div
+          className={cn(
+            "h-[50rem] overflow-y-auto overscroll-contain",
+            // Match section scroll-mt so jump targets clear the sticky chrome stack.
+            phone ? "scroll-pt-[12.5rem]" : "scroll-pt-[10.5rem]",
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

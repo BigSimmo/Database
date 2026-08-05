@@ -77,10 +77,11 @@ export default function PrivacyPage() {
     <main className={cn(searchPageCanvas)}>
       {/*
         Privacy sits outside the search shell, so this page owns the OS top inset.
-        Replacing searchPageShell's py-3 top pad with max(safe-area-top) keeps the
-        back control below the status bar / Dynamic Island on notched phones
-        (apple-mobile-web-app-status-bar-style=black-translucent) without stacking
-        a second unused pad under the notch.
+        `cn` is a plain join (not tailwind-merge), so searchPageShell's py-3/sm:py-5
+        stay in the class list; the pt-[max(...)] utilities win because Tailwind
+        emits pt-* after py-* in the stylesheet. Effectively replaces the shell's
+        top pad so the back control clears the status bar / Dynamic Island on
+        notched phones (apple-mobile-web-app-status-bar-style=black-translucent).
       */}
       <div
         className={cn(

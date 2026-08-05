@@ -155,7 +155,7 @@ function StatusBar({ invert = false }: { invert?: boolean }) {
     <div
       aria-hidden="true"
       className={cn(
-        "relative flex h-11 shrink-0 items-end justify-between px-5 pb-1.5 text-[10px] font-semibold tabular-nums",
+        "relative flex h-11 shrink-0 items-end justify-between px-5 pb-1.5 text-3xs font-semibold tabular-nums",
         invert ? "text-white/85" : "text-[color:var(--text-heading)]",
       )}
     >
@@ -197,7 +197,15 @@ function DeviceChrome({
         )}
       >
         {phone ? <StatusBar /> : null}
-        <div className="h-[46rem] overflow-y-auto overscroll-contain">{children}</div>
+        <div
+          className={cn(
+            "h-[46rem] overflow-y-auto overscroll-contain",
+            // Live Signal jump chips use section scroll-mt; pad the scroller to match.
+            phone ? "scroll-pt-[12.5rem]" : "scroll-pt-[10.5rem]",
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -270,7 +278,7 @@ function ObligationBand({ density = "full" }: { density?: "full" | "compact" | "
       <p
         className={cn(
           "relative mt-2 max-w-[68ch] font-medium text-[color:var(--text-heading)]",
-          density === "full" ? "text-[0.95rem] leading-7 sm:text-base" : "text-sm leading-6",
+          density === "full" ? "text-base-minus leading-7 sm:text-base" : "text-sm leading-6",
         )}
       >
         {IMPORTANT}
@@ -302,7 +310,7 @@ function TheatreFrame({ phone = false }: { phone?: boolean }) {
           <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
             Privacy
           </p>
-          <h1 className="mt-2 text-balance text-[1.85rem] font-extrabold leading-[1.08] tracking-[-0.035em] text-[color:var(--text-heading)]">
+          <h1 className="mt-2 text-balance text-3xl font-extrabold leading-[1.08] tracking-[-0.035em] text-[color:var(--text-heading)]">
             Privacy & data handling
           </h1>
           <p className="mt-3 max-w-[42ch] text-sm leading-6 text-[color:var(--text-muted)]">{DRAFT}</p>
@@ -336,7 +344,7 @@ function TheatreFrame({ phone = false }: { phone?: boolean }) {
             <BrandMark size="md" />
           </div>
           <p className="mt-10 text-xs font-extrabold uppercase tracking-[0.16em] text-white/55">Clinical KB</p>
-          <h1 className="mt-3 text-balance text-[2rem] font-extrabold leading-[1.05] tracking-[-0.04em]">
+          <h1 className="mt-3 text-balance text-3xl font-extrabold leading-[1.05] tracking-[-0.04em]">
             Privacy & data handling
           </h1>
           <p className="mt-4 text-sm leading-6 text-white/65">{DRAFT}</p>
@@ -367,7 +375,7 @@ function TheatreFrame({ phone = false }: { phone?: boolean }) {
                   <h2 className="text-xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]">
                     {section.heading}
                   </h2>
-                  <p className="mt-2 max-w-[68ch] text-[0.95rem] leading-7 text-[color:var(--text-muted)]">
+                  <p className="mt-2 max-w-[68ch] text-base-minus leading-7 text-[color:var(--text-muted)]">
                     {section.body}
                   </p>
                 </div>
@@ -424,7 +432,8 @@ function PassportFrame({ phone = false }: { phone?: boolean }) {
         >
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute -right-6 top-8 select-none text-[7rem] font-black leading-none tracking-[-0.06em] text-[color:var(--surface-wash)]"
+            className="pointer-events-none absolute -right-6 top-8 select-none font-black leading-none tracking-[-0.06em] text-[color:var(--surface-wash)]"
+            style={{ fontSize: "7rem" }}
           >
             KB
           </div>
