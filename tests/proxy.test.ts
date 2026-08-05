@@ -1,4 +1,3 @@
-npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { config, proxy, shouldBlockProductionMockups } from "../src/proxy";
