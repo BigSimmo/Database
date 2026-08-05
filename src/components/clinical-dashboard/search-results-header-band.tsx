@@ -82,7 +82,10 @@ function useRailOverflow<Element extends HTMLElement>() {
   // and replacement observable.
   const [node, setNode] = useState<Element | null>(null);
   const [overflowing, setOverflowing] = useState(false);
-  const ref = useCallback((next: Element | null) => setNode(next), []);
+  const ref = useCallback((next: Element | null) => {
+    setNode(next);
+    if (!next) setOverflowing(false);
+  }, []);
 
   const measure = useCallback(() => {
     if (!node) {
@@ -94,7 +97,6 @@ function useRailOverflow<Element extends HTMLElement>() {
 
   useEffect(() => {
     if (!node || typeof ResizeObserver === "undefined") return;
-    measure();
     const resizeObserver = new ResizeObserver(measure);
     resizeObserver.observe(node);
     for (const child of Array.from(node.children)) resizeObserver.observe(child);
