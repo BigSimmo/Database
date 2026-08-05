@@ -13,6 +13,7 @@ import {
   gitCheckoutFreshness,
   localGitBaseline,
   obsoleteNpmProxyVariables,
+  parseHostedAppInventoryArgument,
   parseMcpServerMetadata,
   playwrightBrowserErrors,
   providerCredentialVariables,
@@ -22,6 +23,7 @@ import {
   sanitizedCloudCapabilityLines,
   validateCodexCloudEnvironment,
   validateCodexProjectMcpConfiguration,
+  validateHostedAppInventory,
   validateMcpConfiguration,
 } from "../scripts/check-codex-cloud-setup.mjs";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
@@ -431,6 +433,21 @@ describe("Codex Cloud environment contract", () => {
         ),
       ),
     ).toContain(`.codex/config.toml supabase_cloud must keep the production project read-only.`);
+  });
+
+  it("rejects a stale Railway app from an explicitly supplied hosted inventory", () => {
+    const inventory = parseHostedAppInventoryArgument([
+      "--environment",
+      "--hosted-app-inventory=github,railway_cloud,supabase",
+    ]);
+    expect(inventory).toEqual(["github", "railway_cloud", "supabase"]);
+    expect(validateHostedAppInventory(inventory)).toContain(
+      "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
+    );
+    expect(validateHostedAppInventory(["github", "railway", "supabase"])).toEqual([]);
+    expect(sanitizedCloudCapabilityLines({}, { hostedAppInventory: ["github", "railway", "supabase"] })).toContain(
+      "hosted_app.inventory=provided names=github,railway,supabase",
+    );
   });
 
   it("probes the raw task environment without printing credential values", () => {

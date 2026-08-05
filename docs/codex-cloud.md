@@ -380,7 +380,11 @@ copying credentials into the checkout.
 3. **Start a fresh task.** OAuth tools and environment values are fixed when the task starts. A
    setup rerun inside an already-running offline task can validate a generated connected profile,
    but it cannot inject host MCP tools or retroactively grant OAuth. Restart the MCP client or open
-   a new task after consent.
+   a new task after consent. When the host exposes its app identifiers, pass that non-secret
+   inventory to the environment check with
+   `--hosted-app-inventory=github,railway,supabase`. The checker rejects stale `railway_cloud` but
+   leaves the inventory explicitly unverified when the host does not provide it; repository config
+   is never substituted for this evidence.
 4. **Prove the shell boundary before providers.** First run the direct raw-shell command above
    before profiles or command shims. Then run `npm run check:codex-cloud`,
    `npm run check:codex-cloud -- --runtime`, `npm run check:runtime`, and
