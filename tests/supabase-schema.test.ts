@@ -176,6 +176,30 @@ const restoreRagSearchHealthIndexesMigration = readFileSync(
   new URL("../supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const driftManifest = JSON.parse(
+  readFileSync(new URL("../supabase/drift-manifest.json", import.meta.url), "utf8"),
+) as {
+  snapshot: {
+    tables: Array<{
+      indexes?: Array<{ name: string; def: string }>;
+    }>;
+  };
+};
+const driftIndexDefinitions = new Map(
+  driftManifest.snapshot.tables.flatMap((table) => (table.indexes ?? []).map((index) => [index.name, index.def] as const)),
+);
+
+function normalizeIndexDefinition(definition: string) {
+  return definition
+    .toLowerCase()
+    .replace("create index if not exists", "create index")
+    .replace(/ extensions\./g, " ")
+    .replace(/ using btree/g, "")
+    .replace(/where \(([^()]*)\)$/g, "where $1")
+    .replace(/;/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 const searchSchemaHealthM13GuardMigration = readFileSync(
   new URL("../supabase/migrations/20260706010000_search_schema_health_m13_guard.sql", import.meta.url),
   "utf8",
@@ -1083,9 +1107,27 @@ describe("Supabase schema Data API grants", () => {
       "document_index_units_owner_chunk_type_idx",
       "rag_retrieval_logs_miss_idx",
     ]) {
-      expect(restoreRagSearchHealthIndexesMigration).toContain(`create index if not exists ${indexName}`);
-      expect(schema).toContain(`create index if not exists ${indexName}`);
+      const definitionPattern = new RegExp(`create index if not exists ${indexName} .*?;`);
+      const schemaDefinition = schema.match(definitionPattern)?.[0];
+      const canonicalMigrationDefinition = searchHealthIndexesMigration.match(definitionPattern)?.[0];
+      const driftDefinition = driftIndexDefinitions.get(indexName);
+
+      expect(schemaDefinition, `schema definition for ${indexName}`).toBeDefined();
+      expect(canonicalMigrationDefinition, `canonical migration definition for ${indexName}`).toBeDefined();
+      expect(driftDefinition, `drift-manifest definition for ${indexName}`).toBeDefined();
+      expect(normalizeIndexDefinition(canonicalMigrationDefinition ?? "")).toBe(
+        normalizeIndexDefinition(schemaDefinition ?? ""),
+      );
+      expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(normalizeIndexDefinition(schemaDefinition ?? ""));
+      expect(restoreRagSearchHealthIndexesMigration).toContain(`'${indexName}'`);
     }
+
+    // This version records an already-completed, validated repair. It must
+    // fail fast on drift rather than starting a write-blocking transactional
+    // rebuild on ingestion and telemetry tables.
+    expect(restoreRagSearchHealthIndexesMigration).toContain("where to_regclass(format('public.%i', index_name)) is null");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("create missing indexes concurrently outside the migration transaction");
+    expect(restoreRagSearchHealthIndexesMigration).not.toContain("create index if not exists");
   });
   it("mirrors tightened search_document_chunks owner scope in schema and migration", () => {
     expect(searchDocumentChunksOwnerScopeMigration).toContain("(p_owner_id is null and d.owner_id is null)");
