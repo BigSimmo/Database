@@ -22,6 +22,19 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - Include checks run, checks not run, and whether any check was skipped because it could touch an API/provider.
 - Keep summaries secondary to findings.
 
+## GitHub access routing
+
+For an explicitly authorized hosted task, use the GitHub connector or native Cloud controls first.
+Their permissions are independent of `gh` in the agent shell. Run
+`npm run check:github-shell-access:live` (which passes `--allow-provider` and does not pass
+`--self-test`) only before an intentional GitHub CLI fallback.
+`ALLOW_GITHUB_SHELL_ACCESS=true` or `--allow-provider` on a direct
+`node scripts/check-github-shell-access.mjs` invocation (without `--self-test`) authorize the
+same live path. The plain `npm run check:github-shell-access` entry is always offline
+`--self-test`; ambient opt-in cannot convert it into provider traffic.
+`GH_AUTH_MISSING` means shell authentication is absent, not that the hosted connector is
+disconnected. Never add a PAT to an ordinary Cloud task.
+
 ## Mutation Rules
 
 - For a pure review request, do not edit files, stage, commit, push, post PR comments, rerun hosted CI, or call provider-backed services.

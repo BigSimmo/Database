@@ -11,14 +11,16 @@ import {
   hasSafeGitHubCredentialHelper,
   inspectOriginRemote,
 } from "./ensure-codex-cloud-git-remote.mjs";
+import { redactSensitiveText } from "./sensitive-text.mjs";
 import { providerEnvironmentKeys } from "./test-environment.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const expectedCloudCliVersions = Object.freeze({
-  railway: "5.30.4",
   codex: "0.146.0",
 });
+
+export const expectedHostedWorkspaceClass = "personal-pro";
 
 export const expectedMcpConfiguration = Object.freeze({
   // Canonical form matches `.mcp.json` (no trailing slash).
@@ -34,7 +36,7 @@ export const expectedCodexProjectMcpServers = Object.freeze({
     url: "https://mcp.figma.com/mcp",
     approvalMode: "writes",
   }),
-  railway_cloud: Object.freeze({
+  railway: Object.freeze({
     url: expectedMcpConfiguration.railwayUrl,
     approvalMode: "writes",
   }),
@@ -151,8 +153,8 @@ function validateSupabaseMcpUrl(urlString, label, errors) {
 }
 
 /**
- * Project `.codex/config.toml` must register the approved MCP surface as disabled
- * URL-only templates so offline/ordinary Codex hosts do not initialize providers.
+ * Project `.codex/config.toml` must register the approved Desktop/CLI MCP surface
+ * as disabled URL-only templates. Hosted tools require separately installed apps.
  * @param {string} text
  * @returns {string[]}
  */
@@ -162,7 +164,17 @@ export function validateCodexProjectMcpConfiguration(text) {
   const expectedNames = Object.keys(expectedCodexProjectMcpServers).sort();
   const actualNames = Object.keys(servers).sort();
   if (JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
-    errors.push(`.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.`);
+    const unexpectedNames = actualNames.filter((name) => !expectedNames.includes(name));
+    const missingNames = expectedNames.filter((name) => !actualNames.includes(name));
+    const details = [
+      unexpectedNames.length ? `unexpected: ${unexpectedNames.join(", ")}` : null,
+      missingNames.length ? `missing: ${missingNames.join(", ")}` : null,
+    ]
+      .filter(Boolean)
+      .join("; ");
+    errors.push(
+      `.codex/config.toml must register exactly these MCP servers: ${expectedNames.join(", ")}.${details ? ` ${details}.` : ""} Use the canonical railway template name; stale railway_cloud registrations are host-local OAuth apps and must not be reintroduced here.`,
+    );
   }
 
   for (const name of expectedNames) {
@@ -172,7 +184,9 @@ export function validateCodexProjectMcpConfiguration(text) {
     const expected = expectedCodexProjectMcpServers[name];
 
     if (server.enabled !== false) {
-      errors.push(`${label} must set enabled = false (host/connected layers opt in).`);
+      errors.push(
+        `${label} must set enabled = false (opt in via $CODEX_HOME/config.toml or a never-committed local edit; do not commit enabled = true).`,
+      );
     }
     if (server.default_tools_approval_mode !== expected.approvalMode) {
       const reason =
@@ -207,6 +221,127 @@ export function validateCodexProjectMcpConfiguration(text) {
     }
   }
 
+  return errors;
+}
+
+/** Known hosted connector names that may appear in a fresh-task inventory. */
+export const knownHostedAppInventoryNames = Object.freeze([
+  "github",
+  "railway",
+  "supabase",
+  "figma",
+  "sentry",
+  "slack",
+  "linear",
+  "figma_cloud",
+  "sentry_cloud",
+  "supabase_cloud",
+]);
+
+/** Host-local names that must be removed before a connected task is trusted. */
+export const staleHostedAppInventoryNames = Object.freeze(["railway_cloud"]);
+
+/**
+ * Read an explicit, non-secret hosted app inventory supplied by a fresh task.
+ * The repository cannot discover this inventory itself.
+ * @param {string[]} args
+ * @returns {string[] | null}
+ */
+export function parseHostedAppInventoryArgument(args) {
+  const prefix = "--hosted-app-inventory=";
+  const argument = args.find((value) => value.startsWith(prefix));
+  if (!argument) return null;
+  return argument
+    .slice(prefix.length)
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Reject malformed or ambiguous attempts to supply hosted inventory evidence.
+ * @param {string[]} args
+ * @returns {string[]}
+ */
+export function validateHostedAppInventoryArguments(args) {
+  const exactPrefix = "--hosted-app-inventory=";
+  const exactArguments = args.filter((value) => value.startsWith(exactPrefix));
+  const supportedArguments = new Set(["--environment", "--runtime"]);
+  const unsupportedArguments = args.filter((value) => !supportedArguments.has(value) && !value.startsWith(exactPrefix));
+  const errors = [];
+  if (unsupportedArguments.length > 0) {
+    errors.push(
+      "Unsupported Cloud-check argument; hosted app inventory must use exactly --hosted-app-inventory=<comma-separated-apps>.",
+    );
+  }
+  if (exactArguments.length > 1) {
+    errors.push("Hosted app inventory may be supplied only once.");
+  }
+  return errors;
+}
+
+/**
+ * Format hosted-app inventory for sanitized capability output.
+ * Never echo arbitrary operator-supplied strings — only allowlisted presence flags.
+ * @param {string[] | null} appNames
+ * @returns {string}
+ */
+export function hostedAppInventoryCapabilityLine(appNames) {
+  if (appNames === null) return "hosted_app.inventory=external-unverified-until-fresh-task";
+  const normalizedNames = appNames.map((name) => name.toLowerCase());
+  const set = new Set(normalizedNames);
+  const unknownCount = normalizedNames.filter(
+    (name) => !knownHostedAppInventoryNames.includes(name) && !staleHostedAppInventoryNames.includes(name),
+  ).length;
+  const parts = [
+    `count=${appNames.length}`,
+    ...knownHostedAppInventoryNames.map((name) => `${name}=${set.has(name)}`),
+    ...staleHostedAppInventoryNames.map((name) => `stale_${name}=${set.has(name)}`),
+    `unknown=${unknownCount}`,
+  ];
+  return `hosted_app.inventory=provided ${parts.join(" ")}`;
+}
+
+/**
+ * Validate only host-reported app names. This does not turn repository config
+ * into hosted-tool proof or attempt to inspect OAuth state.
+ * @param {string[] | null} appNames
+ * @returns {string[]}
+ */
+export function validateHostedAppInventory(appNames) {
+  if (appNames === null) return [];
+  const errors = [];
+  if (appNames.length === 0) {
+    errors.push("Hosted app inventory was supplied but contained no app names.");
+    return errors;
+  }
+  const normalizedNames = appNames.map((name) => name.toLowerCase());
+  const invalidNames = normalizedNames.filter((name) => !/^[A-Za-z0-9_.-]+$/.test(name));
+  if (invalidNames.length > 0) {
+    errors.push("Hosted app inventory names may contain only letters, numbers, dot, underscore, and hyphen.");
+  }
+  const credentialShapedNames = appNames.filter((name) => redactSensitiveText(name) !== name || name.length > 128);
+  if (credentialShapedNames.length > 0) {
+    errors.push(
+      "Hosted app inventory appears to contain a credential; supply connector names only, never tokens or secrets.",
+    );
+  }
+  const unrecognizedNames = normalizedNames.filter(
+    (name) =>
+      /^[A-Za-z0-9_.-]+$/.test(name) &&
+      !knownHostedAppInventoryNames.includes(name) &&
+      !staleHostedAppInventoryNames.includes(name),
+  );
+  if (unrecognizedNames.length > 0) {
+    errors.push(
+      "Hosted app inventory contains unrecognized connector identifiers; update the checker allowlist before accepting them as evidence.",
+    );
+  }
+  if (normalizedNames.some((name) => staleHostedAppInventoryNames.includes(name))) {
+    errors.push(
+      "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
+    );
+  }
   return errors;
 }
 
@@ -294,16 +429,6 @@ export function validateCodexCloudEnvironment(env = process.env) {
   return errors;
 }
 
-/** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
-export function railwayReadCapability(env = process.env, cliAvailable = false) {
-  return {
-    cliAvailable,
-    dedicatedCredentialPresent: Boolean(env.RAILWAY_API_TOKEN),
-    projectCredentialPresent: Boolean(env.RAILWAY_TOKEN),
-    cliTokenAuthReady: cliAvailable && Boolean(env.RAILWAY_API_TOKEN),
-  };
-}
-
 export function parseMcpServerMetadata(text) {
   const parsed = JSON.parse(text);
   const servers = parsed?.mcpServers;
@@ -347,17 +472,17 @@ export function validateMcpConfiguration(text) {
 
   const serverNames = Object.keys(servers).sort();
   if (JSON.stringify(serverNames) !== JSON.stringify(["railway", "supabase"])) {
-    errors.push("Cloud MCP configuration must contain only Railway and Supabase.");
+    errors.push("Desktop/CLI .mcp.json must contain only Railway and Supabase.");
   }
   for (const name of ["railway", "supabase"]) {
     if (servers[name]?.env !== undefined || servers[name]?.headers !== undefined) {
-      errors.push(`${name} MCP must use hosted OAuth without embedded environment variables or headers.`);
+      errors.push(`${name} MCP must use OAuth without embedded environment variables or headers.`);
     }
   }
 
   const railway = servers.railway;
   if (railway?.type !== "http" || railway?.url !== expectedMcpConfiguration.railwayUrl.replace(/\/$/, "")) {
-    errors.push("Railway MCP must use the hosted OAuth endpoint.");
+    errors.push("Railway MCP must use Railway's official remote OAuth endpoint.");
   }
 
   const supabase = servers.supabase;
@@ -410,12 +535,12 @@ function commandAvailable(command) {
 /** @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env] */
 export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const origin = options.origin ?? inspectOriginRemote(repoRoot);
-  const railway = railwayReadCapability(env, options.railwayCliAvailable ?? commandAvailable("railway"));
   const codexCliAvailable = options.codexCliAvailable ?? commandAvailable("codex");
   const safeGitHelper = options.safeGitHelper ?? hasSafeGitHubCredentialHelper(repoRoot);
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
   const checkout = options.checkout ?? gitCheckoutFreshness(repoRoot, env);
   const lines = [
+    `hosted_workspace.class_documented=${expectedHostedWorkspaceClass}`,
     `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
     `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
     `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["offline"])}`,
@@ -423,11 +548,10 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
     `PLAYWRIGHT_OFFLINE_MODE=${approvedModeValue(env.PLAYWRIGHT_OFFLINE_MODE, ["true", "false"])}`,
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
-  lines.push(`railway.cli_available=${railway.cliAvailable}`);
-  lines.push(`railway.dedicated_credential_present=${railway.dedicatedCredentialPresent}`);
-  lines.push(`railway.project_credential_present=${railway.projectCredentialPresent}`);
-  lines.push(`railway.cli_token_auth_ready=${railway.cliTokenAuthReady}`);
-  lines.push("mcp.runtime_tool_inventory=host-provided-unverified-by-repository");
+  lines.push(hostedAppInventoryCapabilityLine(options.hostedAppInventory ?? null));
+  lines.push("provider_route.github=codex-native-connector");
+  lines.push("provider_route.railway=chatgpt-official-app");
+  lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
   lines.push(pythonWorkerVersionLine(env.CODEX_CLOUD_OCR_PYTHON));
   lines.push(`git.origin_configured=${origin.configured}`);
@@ -442,7 +566,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   lines.push(`git.checkout_freshness=${checkout.freshness}`);
   for (const server of mcpServers) {
     lines.push(
-      `mcp.server=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
+      `desktop_cli_mcp.template=${server.name} type=${server.type} command=${server.command} endpoint=${server.endpoint} query_names=${server.queryNames.join(",") || "none"} environment_names=${server.environmentNames.join(",") || "none"}`,
     );
   }
   return lines;
@@ -648,18 +772,9 @@ export function validateCodexCloudSetup() {
     [/CODEX_CLOUD_OCR_PYTHON/, "Cloud setup must expose the Python worker environment."],
     [/playwright install --with-deps chromium firefox webkit/, "Cloud setup must install every browser."],
     [/CODEX_CLOUD_ACCESS_PROFILE/, "Cloud setup must support explicit access profiles."],
-    [
-      /mcp_servers\.railway_connected/,
-      "Connected Cloud setup must enable the hosted Railway MCP server in the managed host config.",
-    ],
-    [
-      /mcp_servers\.supabase_connected/,
-      "Connected Cloud setup must enable the constrained Supabase MCP server in the managed host config.",
-    ],
     [/RAG_PROVIDER_MODE=offline/, "Cloud setup must default RAG to offline mode."],
     [/unset OPENAI_API_KEY/, "Cloud setup must remove raw provider variables from the agent shell."],
     [/\.bash_profile/, "Cloud setup must cover Bash login-profile precedence."],
-    [/@railway\/cli/, "Cloud setup must install the Railway CLI."],
     [/@openai\/codex/, "Cloud setup must install the Codex CLI."],
     [/ensure-codex-cloud-git-remote\.mjs/, "Cloud setup must restore a safe origin remote."],
     [/check:codex-cloud -- --runtime/, "Cloud setup must run runtime acceptance."],
@@ -681,14 +796,30 @@ export function validateCodexCloudSetup() {
   ]) {
     requireMatch(errors, setup, pattern, message);
   }
-  if (!setup.includes(`railway_cli_version="${expectedCloudCliVersions.railway}"`)) {
-    errors.push("Cloud setup Railway CLI version must match the checked runtime contract.");
-  }
   if (!setup.includes(`codex_cli_version="${expectedCloudCliVersions.codex}"`)) {
     errors.push("Cloud setup Codex CLI version must match the checked runtime contract.");
   }
   for (const name of providerCredentialVariables) {
     if (!setup.includes(name)) errors.push(`Cloud setup must handle provider environment variable ${name}.`);
+  }
+  // Reject any executable (non-comment) reference that would write MCP tables.
+  // Strip full-line comments and whitespace-prefixed trailing comments so an
+  // inline note cannot false-trip the guard. Text-level only: a `#` inside a
+  // quoted shell string is also stripped, and split/concatenated table names
+  // would not match. The generated-config behavioural test (fresh temp $HOME
+  // asserting no `[mcp_servers.` after connected setup) is the stronger proof.
+  const setupWithoutComments = setup
+    .split("\n")
+    .map((line) => {
+      if (/^\s*#/.test(line)) return "";
+      return line.replace(/\s+#.*$/, "");
+    })
+    .join("\n");
+  if (/\bmcp_servers\b/.test(setupWithoutComments)) {
+    errors.push("Cloud setup must not generate MCP registrations; hosted apps are external to the repository.");
+  }
+  if (setup.includes("@railway/cli") || setup.includes('setup_step="railway-cli"')) {
+    errors.push("Cloud setup must not install or invoke Railway CLI; hosted access comes from the authenticated app.");
   }
   const providerScrubIndex = setup.indexOf("unset OPENAI_API_KEY");
   const accessProfileBranchIndex = setup.indexOf('if [ "\\$CODEX_CLOUD_ACCESS_PROFILE" = "connected" ]');
@@ -743,6 +874,30 @@ export function validateCodexCloudSetup() {
     "PAT deletion helper must reject the Codex Cloud agent phase and direct operators to native publication.",
   );
   requireMatch(errors, rawEnvironmentProbe, /never values/, "Raw Cloud environment probe must report names only.");
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /known_launcher_defect_variables=\(OPENAI_BASE_URL\)/,
+    "Raw Cloud environment probe must name-scope the OPENAI_BASE_URL launcher-defect allowance.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /FAIL-KNOWN: inherited documented launcher defect names/,
+    "Raw Cloud environment probe must emit FAIL-KNOWN for the documented launcher defect.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /CONTINUE-RESTRICTED: OPENAI_BASE_URL can redirect OpenAI-bound traffic/,
+    "Raw Cloud environment probe must warn that OPENAI_BASE_URL can redirect provider traffic.",
+  );
+  requireMatch(
+    errors,
+    rawEnvironmentProbe,
+    /STOP: unexpected credential-bearing names require a fresh task/,
+    "Raw Cloud environment probe must hard-stop on unexpected provider names.",
+  );
   for (const name of providerCredentialVariables) {
     if (!rawEnvironmentProbe.includes(name)) {
       errors.push(`Raw Cloud environment probe must cover provider environment variable ${name}.`);
@@ -784,6 +939,8 @@ export function validateCodexCloudSetup() {
   requireMatch(errors, guide, /CODEX_CLOUD_ACCESS_PROFILE=connected/, "The guide must document connected access.");
   requireMatch(errors, guide, /CODEX_CLOUD_GITHUB_PAT/, "The guide must document the narrowly scoped PAT exception.");
   requireMatch(errors, guide, /GitHub connector/, "The guide must document GitHub connector access.");
+  requireMatch(errors, guide, /Personal Pro/, "The guide must identify the active Personal Pro workspace.");
+  requireMatch(errors, guide, /split control plane/, "The guide must document the Personal Pro provider workaround.");
   try {
     parseMcpServerMetadata(mcp);
   } catch (error) {
@@ -846,10 +1003,12 @@ function repositoryCommand(command, args) {
 export async function validateCodexCloudRuntime(env = process.env) {
   const errors = validateCodexCloudEnvironment(env);
 
+  // Hosted Railway access is the OAuth ChatGPT/Codex app, not CLI token auth.
+  // Do not reintroduce `railway --version` or RAILWAY_API_TOKEN-vs-RAILWAY_TOKEN
+  // substitution checks here unless a future workflow restores CLI token auth.
   for (const error of [
     commandVersion("deno", ["--version"], /^deno 2\./m),
     commandVersion("tesseract", ["--version"], /^tesseract \d+\./m),
-    commandVersion("railway", ["--version"], exactVersionPattern(expectedCloudCliVersions.railway)),
     commandVersion("codex", ["--version"], exactVersionPattern(expectedCloudCliVersions.codex)),
   ]) {
     if (error) errors.push(error);
@@ -899,6 +1058,12 @@ export async function validateCodexCloudRuntime(env = process.env) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const errors = validateCodexCloudSetup();
+  const commandArguments = process.argv.slice(2);
+  const hostedAppArgumentErrors = validateHostedAppInventoryArguments(commandArguments);
+  const hostedAppInventory = parseHostedAppInventoryArgument(commandArguments);
+  const hostedAppInventoryErrors = validateHostedAppInventory(hostedAppInventory);
+  const hostedAppInputErrors = [...hostedAppArgumentErrors, ...hostedAppInventoryErrors];
+  errors.push(...hostedAppInputErrors);
   const runtime = process.argv.includes("--runtime");
   const environment = runtime || process.env.CODEX_CLOUD === "1" || process.argv.includes("--environment");
   if (runtime) errors.push(...(await validateCodexCloudRuntime()));
@@ -912,9 +1077,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       "[Codex Cloud Check] WARN: checkout freshness is unverified during provisioning; run explicit acceptance with CODEX_CLOUD_EXPECTED_BASE_SHA.",
     );
   }
-  if (environment) {
+  if (environment && hostedAppInputErrors.length === 0) {
     console.log("[Codex Cloud Environment] sanitized effective modes and capabilities:");
-    for (const line of sanitizedCloudCapabilityLines()) console.log(`  ${line}`);
+    for (const line of sanitizedCloudCapabilityLines(process.env, { hostedAppInventory })) console.log(`  ${line}`);
   }
   if (errors.length > 0) {
     for (const error of errors) console.error(`[Codex Cloud Check] FAIL: ${error}`);

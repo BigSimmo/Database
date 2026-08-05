@@ -149,6 +149,41 @@ describe("document search record path fault reporting", () => {
   });
 });
 
+describe("library reachability on the record-match path", () => {
+  // A services search that matched records but no documents. This render used to
+  // return `null` outright, so once Library moved off the utility rail its three
+  // homes — the sheet footer, the zero-result empty state, the inline fallback —
+  // all missed this path: the footer needs `matches.length > 0` and the empty
+  // state needs `recordMatchCount === 0`. The reader was left with no route to
+  // the corpus that did not first destroy the search they were reading, which is
+  // the exact thing `docs/search-results-bar-decisions.md` requires be kept.
+  const recordOnlyProps = {
+    ...baseProps,
+    matches: [],
+    documentCount: 2014,
+    recordMatches: [
+      {
+        service: { slug: "crisis-line", title: "Crisis line" },
+        score: 0.9,
+        reasons: ["Matched service name"],
+      },
+    ],
+  };
+
+  it("offers Browse all sources when records matched but no documents did", async () => {
+    const user = userEvent.setup();
+    const onOpenLibrary = vi.fn();
+    render(<DocumentSearchResultsPanel {...recordOnlyProps} onOpenLibrary={onOpenLibrary} />);
+
+    const browse = screen.getByTestId("document-results-browse-library");
+    expect(browse).toBeVisible();
+    expect(browse).toHaveTextContent("2,014");
+
+    await user.click(browse);
+    expect(onOpenLibrary).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("document search state matrix", () => {
   const documentProps = {
     ...baseProps,
@@ -161,11 +196,18 @@ describe("document search state matrix", () => {
 
     const loadingLabel = screen.getByText("Finding matching documents");
     expect(loadingLabel.closest('[role="status"]')).toBeInTheDocument();
-    expect(screen.queryByText("No matching documents")).not.toBeInTheDocument();
+    // The zero-match branch adopted `SearchResultsEmptyState` so Library stays
+    // reachable from a search that returned nothing, which changed the heading
+    // from "No matching documents" to the shared "No matches for <query>".
+    expect(screen.queryByText("No matches for “lithium”")).not.toBeInTheDocument();
 
     rerender(<DocumentSearchResultsPanel {...documentProps} query="lithium" loading={false} />);
     expect(screen.queryByText("Finding matching documents")).not.toBeInTheDocument();
-    expect(screen.getByText("No matching documents")).toBeInTheDocument();
+    // A heading, not a paragraph. This state owns its region, so #1612 gave it
+    // `h3`; adopting the shared empty state initially demoted it back to `<p>`
+    // and the only thing that caught it was a Chromium journey. Pin the level
+    // here so the fast gate carries it.
+    expect(screen.getByRole("heading", { level: 3, name: "No matches for “lithium”" })).toBeInTheDocument();
   });
 
   it("renders the document home for an empty query and wires every escape action", async () => {
@@ -196,6 +238,6 @@ describe("document search state matrix", () => {
     render(<DocumentSearchResultsPanel {...documentProps} query="lithium" realDataReady={false} apiUnavailable />);
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText(/No matching documents/)).toBeInTheDocument();
+    expect(screen.getByText(/No matches for/)).toBeInTheDocument();
   });
 });

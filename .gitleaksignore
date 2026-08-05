@@ -26,3 +26,6 @@ d650ecb89bcdfece0af77ad9ea0d62d8eaa42233:scripts/build-ranking-snapshot.ts:gener
 # was parsed as a generic API key. Tip wording no longer matches; historical
 # commit content remains in PR range scans.
 313517ec00f4e965800d1284afaad6a367435a07:docs/error-tracking.md:generic-api-key:13
+# False positive: deliberately credential-shaped test data proving that hosted
+# app inventory reporting never echoes arbitrary operator-supplied values.
+a394d76631c7ea3405037baf58091b1c4c47fa3f:tests/codex-cloud-setup.test.ts:generic-api-key:451
