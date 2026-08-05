@@ -88,8 +88,15 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(offlineHtml).toContain('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e11" />');
     expect(offlineHtml).toContain("--page-background: #ffffff; /* --background */");
     expect(offlineHtml).toContain("--page-accent: #111827; /* --command */");
+    expect(offlineHtml).toContain("--page-accent-hover: #0b1220; /* --command-hover */");
+    expect(offlineHtml).toContain("--page-accent-contrast: #ffffff; /* --command-contrast */");
+    expect(offlineHtml).toContain("--page-glow: rgb(17 24 39 / 10%); /* command at low alpha */");
     expect(offlineHtml).toContain("--page-background: #0b0e11; /* dark --background */");
     expect(offlineHtml).toContain("--page-surface: #1c2126; /* dark --surface-raised */");
+    expect(offlineHtml).toContain("--page-accent: #f5f7f7; /* dark --command */");
+    expect(offlineHtml).toContain("--page-accent-hover: #e6e9e8; /* dark --command-hover */");
+    expect(offlineHtml).toContain("--page-accent-contrast: #0a0c0e; /* dark --command-contrast */");
+    expect(offlineHtml).toContain("--page-glow: rgb(245 247 247 / 10%);");
     expect(offlineHtml).not.toContain("#060708");
   });
 
