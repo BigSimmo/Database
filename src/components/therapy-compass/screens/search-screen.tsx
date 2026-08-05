@@ -31,7 +31,9 @@ export function SearchScreen() {
   const activeFilterCount = b.search.tags.length + availabilityFilterCount;
   // Topics and availability both narrow the same list, so both belong on the
   // shelf. The query is deliberately absent: it is stated in the composer and
-  // removing it is not a filter operation.
+  // removing it is not a filter operation. The shelf's trailing Clear therefore
+  // uses `clearSearchFilters`, not `clearSearch` — a row labelled "Filtered by"
+  // must not delete the search term the user is reading.
   const appliedFilters = [
     ...b.search.tags.map((tag) => ({ id: `topic-${tag}`, label: tag, onRemove: () => b.toggleTag(tag) })),
     ...(b.search.reviewedOnly ? [{ id: "reviewed", label: "Reviewed only", onRemove: b.toggleReviewedOnly }] : []),
@@ -51,7 +53,7 @@ export function SearchScreen() {
         onRetry={b.retryData}
         headingLevel={1}
         appliedFilters={appliedFilters}
-        onClearFilters={b.clearSearch}
+        onClearFilters={b.clearSearchFilters}
         filterLabel="Filter therapy results"
         mobileControls={
           <TherapyFilterTrigger

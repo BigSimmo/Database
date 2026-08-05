@@ -443,6 +443,7 @@ export function DsmSearchPage({
           <EmptyState
             icon={SearchX}
             title="No diagnosis matches"
+            headingLevel={2}
             body="Try a diagnosis name, ICD code, symptom phrase, or a broader category."
             actions={
               <Link
