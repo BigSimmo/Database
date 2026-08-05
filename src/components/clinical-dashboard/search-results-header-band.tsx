@@ -12,7 +12,7 @@ import {
   Table2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
@@ -76,17 +76,23 @@ const sortOptions: ReadonlyArray<{ value: ResultSortValue; label: string }> = [
     edge only while it actually overflows — a permanent mask would dim the last
     control on the common case where everything fits. */
 function useRailOverflow<Element extends HTMLElement>() {
-  const ref = useRef<Element | null>(null);
+  // The rail is conditional in several modes. A stable object ref leaves the
+  // effect with null on the render before the node appears and no dependency
+  // ever changes to attach the observers. Tracking the node itself makes mount
+  // and replacement observable.
+  const [node, setNode] = useState<Element | null>(null);
   const [overflowing, setOverflowing] = useState(false);
+  const ref = useCallback((next: Element | null) => setNode(next), []);
 
   const measure = useCallback(() => {
-    const node = ref.current;
-    if (!node) return;
+    if (!node) {
+      setOverflowing(false);
+      return;
+    }
     setOverflowing(node.scrollWidth - node.clientWidth > 1);
-  }, []);
+  }, [node]);
 
   useEffect(() => {
-    const node = ref.current;
     if (!node || typeof ResizeObserver === "undefined") return;
     measure();
     const resizeObserver = new ResizeObserver(measure);
@@ -106,7 +112,7 @@ function useRailOverflow<Element extends HTMLElement>() {
       resizeObserver.disconnect();
       mutationObserver?.disconnect();
     };
-  }, [measure]);
+  }, [measure, node]);
 
   return { ref, overflowing } as const;
 }
@@ -775,6 +781,7 @@ export function SearchResultsEmptyState({
   canAccessFavourites = false,
   appliedFilters = EMPTY_APPLIED_FILTERS,
   onClearFilters,
+  onClearSearch,
   onBrowseAll,
   browseAllLabel = "Browse all sources",
 }: {
@@ -791,6 +798,8 @@ export function SearchResultsEmptyState({
   appliedFilters?: AppliedFilterChip[];
   /** Clears every filter and keeps the query. Omit to hide that route. */
   onClearFilters?: () => void;
+  /** Clears the query when a mode has no example or cross-mode recovery. */
+  onClearSearch?: () => void;
   /** Reach rather than refinement: the whole corpus, for when narrowing this
       result set is not the answer. */
   onBrowseAll?: () => void;
@@ -828,6 +837,18 @@ export function SearchResultsEmptyState({
         </button>
       ) : null,
     ),
+    onClearSearch ? (
+      <button
+        key="clear-search"
+        type="button"
+        onClick={onClearSearch}
+        data-testid="search-results-empty-clear-search"
+        className={cn(emptyStateAction, focusRing)}
+      >
+        <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        Clear search
+      </button>
+    ) : null,
     onBrowseAll ? (
       <button key="browse" type="button" onClick={onBrowseAll} className={cn(emptyStateAction, focusRing)}>
         <LayoutList className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -838,19 +859,23 @@ export function SearchResultsEmptyState({
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
-      <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-        {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
-      </span>
-      <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
-        {filtered
-          ? `No ${resultNoun} match all ${appliedFilters.length} filter${appliedFilters.length === 1 ? "" : "s"}`
-          : `No matches for “${query.trim() || "your search"}”`}
-      </p>
-      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-        {filtered
-          ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
-          : "Try an example, or jump to another mode."}
-      </p>
+      <div role="status" aria-live="polite">
+        <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+          {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
+        </span>
+        <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
+          {filtered
+            ? appliedFilters.length === 1
+              ? `No ${resultNoun} match the selected filter`
+              : `No ${resultNoun} match all ${appliedFilters.length} filters`
+            : `No matches for “${query.trim() || "your search"}”`}
+        </p>
+        <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
+          {filtered
+            ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
+            : "Try an example, or jump to another mode."}
+        </p>
+      </div>
       {/* Relaxing comes first and is the only accented pair. Naming the filter in
           the label is what makes it a one-tap undo rather than a second thing to
           go and find; `Clear all filters` is separate so each label matches its
@@ -860,6 +885,7 @@ export function SearchResultsEmptyState({
         <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
           {lastFilter ? (
             <button
+              key={lastFilter.id}
               type="button"
               onClick={lastFilter.onRemove}
               data-testid="search-results-empty-remove-filter"
