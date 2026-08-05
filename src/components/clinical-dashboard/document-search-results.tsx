@@ -495,9 +495,7 @@ function DocumentFilterPanel({
           // disclosure button updates expanded while selectedCount > 0
           // immediately forces the panel open again.
           const isOpen =
-            !dense ||
-            Boolean(trimmedNeedle) ||
-            (!collapsed.has(group) && (expanded.has(group) || selectedCount > 0));
+            !dense || Boolean(trimmedNeedle) || (!collapsed.has(group) && (expanded.has(group) || selectedCount > 0));
           const groupPanelId = `${panelId}-${group.replace(/[^A-Za-z0-9_-]/g, "-")}`;
           return (
             <section key={group} className="min-w-0 border-t border-[color:var(--border)] py-1">
@@ -1633,9 +1631,7 @@ function DocumentSearchResultsPanelImpl({
               <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
               Browse all sources
               {documentCount > 0 ? (
-                <span className="nums text-2xs text-[color:var(--text-soft)]">
-                  {documentCount.toLocaleString()}
-                </span>
+                <span className="nums text-2xs text-[color:var(--text-soft)]">{documentCount.toLocaleString()}</span>
               ) : null}
             </button>
           ) : null}
