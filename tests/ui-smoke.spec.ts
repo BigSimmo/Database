@@ -1566,10 +1566,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(modeSheet).toBeVisible();
 
     // Click the dimmed backdrop (outside the dialog panel) to dismiss.
-    await page
-      .locator(".fixed.inset-0.z-\\[100\\]")
-      .first()
-      .click({ position: { x: 8, y: 8 } });
+    await modeSheet.locator("..").click({ position: { x: 8, y: 8 } });
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeTrigger).toBeFocused();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
@@ -3395,11 +3392,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
         const railStyle = getComputedStyle(rail);
         const widths = Array.from(rail.children).map((child) => child.getBoundingClientRect().width);
         const firstActionStyle = getComputedStyle(rail.children[0]);
+        const typeProbe = document.createElement("span");
+        typeProbe.style.fontSize = "var(--text-sm)";
+        document.body.append(typeProbe);
+        const expectedActionFontSize = getComputedStyle(typeProbe).fontSize;
+        typeProbe.remove();
         const card = rail.closest("article")?.getBoundingClientRect();
         return {
           display: railStyle.display,
           widths,
           actionFontSize: firstActionStyle.fontSize,
+          expectedActionFontSize,
           actionFontWeight: firstActionStyle.fontWeight,
           actionDirection: firstActionStyle.flexDirection,
           cardLeft: card?.left ?? 0,
@@ -3411,7 +3414,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(actionGeometry.cardRight).toBeLessThanOrEqual(actionGeometry.viewportWidth + 1);
       expect(actionGeometry.display).toBe("grid");
       expect(Math.max(...actionGeometry.widths) - Math.min(...actionGeometry.widths)).toBeLessThanOrEqual(1);
-      expect(actionGeometry.actionFontSize).toBe("14px");
+      expect(actionGeometry.actionFontSize).toBe(actionGeometry.expectedActionFontSize);
       expect(actionGeometry.actionDirection).toBe("row");
       expect(actionGeometry.actionFontWeight).toBe("800");
       for (const action of await documentResults.getByTestId("document-result-actions").locator(":scope > *").all()) {
