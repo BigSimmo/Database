@@ -183,6 +183,19 @@ const driftManifest = JSON.parse(readFileSync(new URL("../supabase/drift-manifes
 };
 const driftIndexDefinitions = new Map(driftManifest.snapshot.indexes.map((index) => [index.name, index.def] as const));
 
+// Keep in lockstep with the PL/pgSQL chain in
+// supabase/migrations/20260804110240_restore_rag_search_health_indexes.sql.
+// The restore-migration contract below also pins each SQL transform literal.
+const INDEX_DEFINITION_NORMALIZER_SQL_STEPS = [
+  "replace(actual_normalized, 'create index if not exists', 'create index')",
+  "regexp_replace(actual_normalized, ' extensions\\.', ' ', 'g')",
+  "regexp_replace(actual_normalized, ' using btree', '', 'g')",
+  "regexp_replace(actual_normalized, 'where \\(([^()]*)\\)$', 'where \\1')",
+  "replace(actual_normalized, ';', '')",
+  "regexp_replace(actual_normalized, '[[:space:]]+', ' ', 'g')",
+  "regexp_replace(actual_normalized, ' on ([^ ()]+) \\(', ' on \\1(', 'g')",
+] as const;
+
 function normalizeIndexDefinition(definition: string) {
   return (
     definition
@@ -1099,12 +1112,18 @@ describe("Supabase schema Data API grants", () => {
     expect(searchHealthIndexesMigration).toContain("'document_pages_document_id_page_number_key'");
     expect(schema).toContain("index_aliases constant jsonb := jsonb_build_object(");
     expect(schema).toContain("jsonb_array_elements_text(index_aliases -> index_name)");
-    for (const indexName of [
+
+    const restoredIndexNames = [
       "document_labels_label_trgm_idx",
       "document_summaries_summary_trgm_idx",
       "document_index_units_owner_chunk_type_idx",
       "rag_retrieval_logs_miss_idx",
-    ]) {
+    ] as const;
+    const indexAliasKeys = [...searchHealthIndexesMigration.matchAll(/'([a-z0-9_]+)',\s*jsonb_build_array\(/g)].map(
+      (match) => match[1],
+    );
+
+    for (const indexName of restoredIndexNames) {
       const definitionPattern = new RegExp(`create index if not exists ${indexName} .*?;`);
       const schemaDefinition = schema.match(definitionPattern)?.[0];
       const canonicalMigrationDefinition = searchHealthIndexesMigration.match(definitionPattern)?.[0];
@@ -1119,12 +1138,18 @@ describe("Supabase schema Data API grants", () => {
       expect(normalizeIndexDefinition(driftDefinition ?? "")).toBe(normalizeIndexDefinition(schemaDefinition ?? ""));
       expect(restoreRagSearchHealthIndexesMigration).toContain(`'${indexName}'`);
       expect(restoreRagSearchHealthIndexesMigration).toContain(normalizeIndexDefinition(schemaDefinition ?? ""));
+      // Restore guard resolves canonical names only; keep these four out of health aliases.
+      expect(indexAliasKeys, `alias key for restored index ${indexName}`).not.toContain(indexName);
     }
 
     // This version records an already-completed, validated repair. It must
     // fail fast on drift rather than starting a write-blocking transactional
     // rebuild on ingestion and telemetry tables. Presence alone is insufficient:
     // invalid CONCURRENTLY leftovers and non-canonical definitions must also fail.
+    expect(restoreRagSearchHealthIndexesMigration).toContain("set local lock_timeout = '5s'");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("set local statement_timeout = '30s'");
+    expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/\bset (?!local )lock_timeout\b/);
+    expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/\bset (?!local )statement_timeout\b/);
     expect(restoreRagSearchHealthIndexesMigration).toContain("to_regclass(format('public.%I', required.index_name))");
     expect(restoreRagSearchHealthIndexesMigration).toContain("i.indisvalid");
     expect(restoreRagSearchHealthIndexesMigration).toContain("i.indisready");
@@ -1133,6 +1158,9 @@ describe("Supabase schema Data API grants", () => {
     expect(restoreRagSearchHealthIndexesMigration).toContain(
       "create missing indexes concurrently outside the migration transaction",
     );
+    for (const sqlStep of INDEX_DEFINITION_NORMALIZER_SQL_STEPS) {
+      expect(restoreRagSearchHealthIndexesMigration, `SQL normalizer step: ${sqlStep}`).toContain(sqlStep);
+    }
     // Allow the normalizer's replace() literal, but forbid actual IF NOT EXISTS DDL.
     expect(restoreRagSearchHealthIndexesMigration).not.toMatch(/create\s+index\s+if\s+not\s+exists\s+[a-z_]/i);
   });

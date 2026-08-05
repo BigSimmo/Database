@@ -8,10 +8,22 @@
 -- with CREATE INDEX CONCURRENTLY outside a transaction, validate pg_index
 -- indisvalid/indisready plus the canonical definition, and only then mark this
 -- migration applied. This guard fails fast if that operator step was skipped.
+--
+-- Timeouts use SET LOCAL so they do not leak into later migrations applied on
+-- the same CLI session connection (plain SET is session-scoped).
+--
+-- Name resolution is canonical-only for these four indexes: none of them has an
+-- entry in search_schema_health()'s index_aliases map. If an alias is ever added
+-- for one of them, update this guard (and the schema-contract pin) before relying
+-- on the health probe as evidence of repair.
+--
+-- WHERE-clause normalization strips one flat outer paren pair anchored at end of
+-- string — enough for the two pinned partial predicates. Nested-paren predicates
+-- or trailing INCLUDE/TABLESPACE clauses are out of scope for this pin list.
 
-set search_path = public, extensions, pg_catalog;
-set lock_timeout = '5s';
-set statement_timeout = '30s';
+set local search_path = public, extensions, pg_catalog;
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
 
 do $migration$
 declare
@@ -64,6 +76,7 @@ begin
       continue;
     end if;
 
+    -- Keep in lockstep with normalizeIndexDefinition in tests/supabase-schema.test.ts.
     actual_normalized := lower(actual_def);
     actual_normalized := replace(actual_normalized, 'create index if not exists', 'create index');
     actual_normalized := regexp_replace(actual_normalized, ' extensions\.', ' ', 'g');
