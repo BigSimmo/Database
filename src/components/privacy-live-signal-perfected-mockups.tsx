@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ChevronDown, ShieldAlert } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
@@ -446,17 +446,28 @@ export function LiveSignalPerfectedFrame({ phone = false }: { phone?: boolean })
   const noticeId = useId();
   const sectionIdPrefix = useId();
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const pendingScrollHeading = useRef<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [openId, setOpenId] = useState(SECTIONS[0]?.heading ?? "");
   const [expandAll, setExpandAll] = useState(false);
 
   const selectSection = (heading: string) => {
+    pendingScrollHeading.current = heading;
     setExpandAll(false);
     setOpenId(heading);
-    const node = sectionRefs.current[heading];
-    // "start" + section scroll-mt clears the sticky chrome; "nearest" lands under it.
-    node?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
   };
+
+  // Scroll after React commits so collapsing the previous panel (or leaving expand-all)
+  // has already shifted layout; synchronous scrollIntoView measured the stale heights.
+  useLayoutEffect(() => {
+    const heading = pendingScrollHeading.current;
+    if (!heading || openId !== heading || expandAll) return;
+    pendingScrollHeading.current = null;
+    sectionRefs.current[heading]?.scrollIntoView({
+      behavior: resolveScrollBehavior(),
+      block: "start",
+    });
+  }, [openId, expandAll]);
 
   return (
     <div className={cn("min-h-full", atmosphere)}>
