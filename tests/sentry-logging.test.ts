@@ -16,8 +16,10 @@ describe("isSentryLoggingEnabled", () => {
   });
 
   it("requires a DSN and defaults on when the flag is unset", () => {
-    expect(isSentryLoggingEnabled(undefined, undefined)).toBe(false);
-    expect(isSentryLoggingEnabled(undefined, "https://example.ingest.sentry.io/1")).toBe(true);
+    // Pass "" for an explicit unset flag. Calling with `undefined` reads
+    // process.env.SENTRY_ENABLE_LOGS (default param), which offline Vitest forces off.
+    expect(isSentryLoggingEnabled("", undefined)).toBe(false);
+    expect(isSentryLoggingEnabled("", "https://example.ingest.sentry.io/1")).toBe(true);
     expect(isSentryLoggingEnabled("false", "https://example.ingest.sentry.io/1")).toBe(false);
     expect(isSentryLoggingEnabled("0", "https://example.ingest.sentry.io/1")).toBe(false);
     expect(isSentryLoggingEnabled("true", "https://example.ingest.sentry.io/1")).toBe(true);

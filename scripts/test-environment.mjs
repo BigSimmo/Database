@@ -24,8 +24,6 @@ const providerEnvironmentKeys = Object.freeze([
   "E2E_USER_PASSWORD",
   "SENTRY_AUTH_TOKEN",
   "SENTRY_DSN",
-  "SENTRY_ENABLE_LOGS",
-  "SENTRY_SEND_TEST_LOG",
   "ALLOW_PROVIDER_TESTS",
 ]);
 
@@ -34,7 +32,11 @@ const offlineUrlValues = Object.freeze({
   SUPABASE_URL: "http://127.0.0.1:1",
   SUPABASE_DB_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   DATABASE_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
-  SENTRY_DSN: "http://127.0.0.1:1",
+});
+
+// Feature flags, not credentials: force off in offline wrappers without joining
+// the Cloud credential inventory (which would require setup/raw-env scrubbing).
+const offlineSentryControlFlags = Object.freeze({
   SENTRY_ENABLE_LOGS: "false",
   SENTRY_SEND_TEST_LOG: "false",
 });
@@ -48,7 +50,16 @@ export function offlineTestEnvironment(source = process.env, overrides = {}) {
   // Explicit values both scrub inherited secrets and prevent Next/Vite from
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.
-  for (const key of providerEnvironmentKeys) environment[key] = offlineUrlValues[key] ?? "";
+  // SENTRY_DSN is deleted (not blanked or faked): blank fails Zod `.url()`, and a
+  // truthy inert URL keeps app Sentry gates enabled in offline Vitest/Playwright.
+  for (const key of providerEnvironmentKeys) {
+    if (key === "SENTRY_DSN") {
+      delete environment[key];
+      continue;
+    }
+    environment[key] = offlineUrlValues[key] ?? "";
+  }
+  Object.assign(environment, offlineSentryControlFlags);
 
   return {
     ...environment,

@@ -557,13 +557,17 @@ describe("provider-safe test environment", () => {
       NEXT_PUBLIC_DEMO_MODE: "true",
     });
     for (const key of providerEnvironmentKeys) {
+      if (key === "SENTRY_DSN") {
+        expect(environment[key]).toBeUndefined();
+        continue;
+      }
       expect(environment[key]).toBe(offlineUrlValues[key as keyof typeof offlineUrlValues] ?? "");
     }
-    expect(providerEnvironmentKeys).toEqual(
-      expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN", "SENTRY_ENABLE_LOGS", "SENTRY_SEND_TEST_LOG"]),
-    );
+    expect(providerEnvironmentKeys).toEqual(expect.arrayContaining(["SENTRY_AUTH_TOKEN", "SENTRY_DSN"]));
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_ENABLE_LOGS");
+    expect(providerEnvironmentKeys).not.toContain("SENTRY_SEND_TEST_LOG");
     expect(environment.SENTRY_AUTH_TOKEN).toBe("");
-    expect(environment.SENTRY_DSN).toBe("http://127.0.0.1:1");
+    expect(environment.SENTRY_DSN).toBeUndefined();
     expect(environment.SENTRY_ENABLE_LOGS).toBe("false");
     expect(environment.SENTRY_SEND_TEST_LOG).toBe("false");
   });
