@@ -9,6 +9,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   type Ref,
   type RefObject,
 } from "react";
@@ -383,6 +384,7 @@ export function ModeActionPopup({
   useSheet = false,
   triggerRef,
   dismissIgnoreRefs,
+  customBody,
 }: {
   open: boolean;
   title: string;
@@ -407,6 +409,9 @@ export function ModeActionPopup({
   useSheet?: boolean;
   /** Header-owned controls (e.g. app mode trigger) that must stay clickable above the portaled menu. */
   dismissIgnoreRefs?: readonly RefObject<HTMLElement | null>[];
+  /** Optional richer body for the shared + surface. The popup continues to own
+   *  positioning, dismissal, focus restoration, and responsive Sheet behavior. */
+  customBody?: ReactNode;
 }) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -442,6 +447,15 @@ export function ModeActionPopup({
   });
 
   function focusActionItem(index: number) {
+    if (customBody) {
+      const body = document.getElementById("daily-actions-sheet");
+      const focusable = body?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable?.length) return;
+      focusable[index < 0 ? focusable.length - 1 : Math.min(index, focusable.length - 1)]?.focus();
+      return;
+    }
     const nextIndex = (index + items.length) % items.length;
     itemRefs.current[nextIndex]?.focus();
   }
@@ -812,6 +826,11 @@ export function ModeActionPopup({
     return renderActionRows();
   }
 
+  // Invoke the default renderer unconditionally so its ref-owning helpers remain
+  // ordinary render work even when a richer body replaces the resulting node.
+  const defaultPopoverBody = renderPopoverBody();
+  const popoverBody = customBody ?? defaultPopoverBody;
+
   // Desktop popover header — same anatomy as the Sheet header the ≤1023px surface
   // uses (accent icon tile + stacked title/subtitle + close), so the menu reads as
   // one design across breakpoints. The title doubles as the mode switcher; the
@@ -900,7 +919,7 @@ export function ModeActionPopup({
           )}
         >
           {renderPopoverHeader()}
-          {renderPopoverBody()}
+          {popoverBody}
         </div>
       </div>
     ) : null;
@@ -924,7 +943,7 @@ export function ModeActionPopup({
           mobileSize="content"
           portal
         >
-          {renderActionRows()}
+          {customBody ?? defaultPopoverBody}
         </Sheet>
       ) : integrated && open && typeof document !== "undefined" ? (
         createPortal(actionSurface, document.body)
@@ -951,7 +970,7 @@ export function ModeActionPopup({
           aria-label={buttonLabel}
           aria-controls={open ? "daily-actions-sheet" : undefined}
           aria-expanded={open}
-          aria-haspopup="menu"
+          aria-haspopup={customBody ? "dialog" : "menu"}
           title={buttonLabel}
           onKeyDown={handleTriggerKeyDown}
           onClick={() => {

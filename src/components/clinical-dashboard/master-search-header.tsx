@@ -22,6 +22,7 @@ import {
   Filter,
   Globe2,
   Loader2,
+  Layers3,
   Menu,
   MessageSquarePlus,
   Plus,
@@ -38,6 +39,7 @@ import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-d
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
 import {
   ModeActionPopup,
   modeActionItemsFor,
@@ -594,8 +596,6 @@ export function MasterSearchHeader({
                           ? "factsheets"
                           : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
-  const actionMenuTitle = selectedAppMode.label;
-  const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const useMobileBackControl = mobileLeadingAction === "back";
 
@@ -1732,16 +1732,15 @@ export function MasterSearchHeader({
           >
             <ModeActionPopup
               open={actionMenuOpen}
-              title={actionMenuTitle}
-              titleIcon={SelectedAppModeIcon}
-              subtitle={actionMenuSubtitle}
+              title="Pins and search"
+              titleIcon={Layers3}
+              subtitle="Open a pin or choose where this search runs."
               buttonLabel={actionMenuButtonLabel}
               items={actionMenuItems}
-              modeOptions={actionMenuModeOptions}
-              selectedModeId={selectedAppMode.id}
               onOpenChange={setActionMenuOpen}
               onBeforeOpen={() => {
                 setUsesScopeSheet(currentUsesScopeSheet());
+                setCommandDropdownOpen(false);
                 setModeMenuOpen(false);
                 setScopeOpen(false);
                 setScopeSheetOpen(false);
@@ -1755,6 +1754,32 @@ export function MasterSearchHeader({
               integratedChipRow={showFooterSearchChips}
               useSheet={usesScopeSheet}
               dismissIgnoreRefs={[modeMenuRef]}
+              customBody={
+                <SearchPinsMenu
+                  key={actionMenuOpen ? "pins-menu-open" : "pins-menu-closed"}
+                  currentModeId={selectedAppMode.id}
+                  modeOptions={actionMenuModeOptions}
+                  actions={actionMenuItems}
+                  onClose={() => setActionMenuOpen(false)}
+                  onCurrentSearch={() => {
+                    setActionMenuOpen(false);
+                    window.requestAnimationFrame(() => queryInputRef?.current?.focus());
+                  }}
+                  onGlobalSearch={() => {
+                    setActionMenuOpen(false);
+                    setCommandDropdownOpen(true);
+                    window.requestAnimationFrame(() => queryInputRef?.current?.focus());
+                  }}
+                  onModeSelect={(modeId) => {
+                    setActionMenuOpen(false);
+                    selectAppModeById(modeId);
+                  }}
+                  onAction={(actionId) => {
+                    setActionMenuOpen(false);
+                    runModeAction(actionId);
+                  }}
+                />
+              }
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the

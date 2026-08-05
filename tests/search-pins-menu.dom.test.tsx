@@ -1,0 +1,122 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { FileText, Search } from "lucide-react";
+
+import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
+import type { ModeActionItem, ModeActionModeOption } from "@/components/clinical-dashboard/mode-action-popup";
+import { maximumSearchPins, searchPinsChangeEvent, searchPinsStorageKey } from "@/lib/search-pins";
+
+const modeOptions: ModeActionModeOption[] = [
+  { id: "documents", label: "Documents", description: "Source documents", icon: FileText },
+  { id: "answer", label: "Answer", description: "Source-backed answer", icon: Search },
+];
+
+const actions: ModeActionItem[] = [
+  { id: "documents-search", label: "Search sources", icon: Search },
+  { id: "documents-recent", label: "Recent documents", icon: FileText },
+];
+
+function renderMenu(overrides: Partial<ComponentProps<typeof SearchPinsMenu>> = {}) {
+  const props: ComponentProps<typeof SearchPinsMenu> = {
+    currentModeId: "documents",
+    modeOptions,
+    actions,
+    onClose: vi.fn(),
+    onCurrentSearch: vi.fn(),
+    onGlobalSearch: vi.fn(),
+    onModeSelect: vi.fn(),
+    onAction: vi.fn(),
+    ...overrides,
+  };
+  render(<SearchPinsMenu {...props} />);
+  return props;
+}
+
+describe("SearchPinsMenu", () => {
+  beforeEach(() => window.localStorage.removeItem(searchPinsStorageKey));
+
+  it("keeps pins, search choices, and actions as separate sections", () => {
+    renderMenu();
+    expect(screen.getByRole("heading", { name: "Your pins" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Search in" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Useful actions" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Ward essentials pin, 3 destinations" })).toBeInTheDocument();
+  });
+
+  it("expands a pin into explicit destination links without changing search mode", async () => {
+    const user = userEvent.setup();
+    const onModeSelect = vi.fn();
+    renderMenu({ onModeSelect });
+
+    await user.click(screen.getByRole("button", { name: "Open Ward essentials pin, 3 destinations" }));
+    expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute("href", "/?mode=documents");
+    expect(screen.getByRole("link", { name: "Medications" })).toHaveAttribute("href", "/?mode=prescribing");
+    expect(onModeSelect).not.toHaveBeenCalled();
+  });
+
+  it("creates and persists an editable pin", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "New pin" }));
+    const name = screen.getByRole("textbox", { name: "Pin name" });
+    await user.type(name, "My clinic");
+    await user.click(screen.getByRole("button", { name: "Medications" }));
+    await user.click(screen.getByRole("button", { name: "Create pin" }));
+
+    expect(screen.getByText("My clinic")).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(searchPinsStorageKey) ?? "[]")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "My clinic", destinationIds: ["documents", "prescribing"] }),
+      ]),
+    );
+  });
+
+  it("keeps same-window pin changes when browser storage is unavailable", () => {
+    renderMenu();
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(searchPinsChangeEvent, {
+          detail: [{ id: "clinic", name: "My clinic", destinationIds: ["documents", "forms"] }],
+        }),
+      );
+    });
+
+    expect(screen.getByText("My clinic")).toBeInTheDocument();
+  });
+
+  it("disables pin creation at the persisted limit instead of silently truncating", () => {
+    window.localStorage.setItem(
+      searchPinsStorageKey,
+      JSON.stringify(
+        Array.from({ length: maximumSearchPins }, (_, index) => ({
+          id: `pin-${index}`,
+          name: `Pin ${index + 1}`,
+          destinationIds: ["documents"],
+        })),
+      ),
+    );
+
+    renderMenu();
+
+    expect(screen.getByRole("button", { name: "New pin" })).toBeDisabled();
+  });
+
+  it("opens universal search and changes area only through explicit search controls", async () => {
+    const user = userEvent.setup();
+    const onGlobalSearch = vi.fn();
+    const onModeSelect = vi.fn();
+    renderMenu({ onGlobalSearch, onModeSelect });
+
+    await user.click(screen.getByRole("button", { name: /Search all clinical areas/ }));
+    expect(onGlobalSearch).toHaveBeenCalledOnce();
+    expect(onModeSelect).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /Choose another search area/ }));
+    await user.click(screen.getByRole("button", { name: /Answer/ }));
+    expect(onModeSelect).toHaveBeenCalledWith("answer");
+  });
+});
