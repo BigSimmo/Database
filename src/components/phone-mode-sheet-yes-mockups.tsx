@@ -307,8 +307,7 @@ function CurrentlyLine({ modeId }: { modeId: AppModeId }) {
         <Icon aria-hidden="true" className="h-3 w-3" />
       </span>
       <span className="min-w-0 truncate">
-        Currently{" "}
-        <span className="font-semibold text-[color:var(--text-heading)]">{mode.label}</span>
+        Currently <span className="font-semibold text-[color:var(--text-heading)]">{mode.label}</span>
       </span>
     </span>
   );
@@ -601,10 +600,7 @@ function PhoneFrame({
   sectionsPreview?: SectionsPreview;
   initialMode?: AppModeId;
 }) {
-  const modeLabel =
-    variant === "sections" && initialMode
-      ? modeOf(initialMode).label
-      : modeOf(ACTIVE_MODE).label;
+  const modeLabel = variant === "sections" && initialMode ? modeOf(initialMode).label : modeOf(ACTIVE_MODE).label;
 
   return (
     <figure className={cn("m-0 max-w-full min-w-0", large ? "w-[390px]" : "w-[340px]")}>
@@ -721,18 +717,13 @@ export function PhoneModeSheetYesMockups() {
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
-              Open on Answer, scroll into Diagnose with sticky labels, then land on DSM-5 — header and selection stay
-              in sync.
+              Open on Answer, scroll into Diagnose with sticky labels, then land on DSM-5 — header and selection stay in
+              sync.
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-5">
             <PhoneFrame variant="sections" large caption="Rest · Answer selected" sectionsPreview="rest" />
-            <PhoneFrame
-              variant="sections"
-              large
-              caption="Scrolled · Diagnose sticky"
-              sectionsPreview="scrolled"
-            />
+            <PhoneFrame variant="sections" large caption="Scrolled · Diagnose sticky" sectionsPreview="scrolled" />
             <PhoneFrame
               variant="sections"
               large
@@ -751,8 +742,8 @@ export function PhoneModeSheetYesMockups() {
             All issues resolved
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)]">
-            The earlier YES 01 draft still carried a bulky sticky “Now in” card and a fragile `top-[4.6rem]` offset.
-            The perfected sheet removes both.
+            The earlier YES 01 draft still carried a bulky sticky “Now in” card and a fragile `top-[4.6rem]` offset. The
+            perfected sheet removes both.
           </p>
           <div className="mt-4">
             <PerfectedResolutions />
@@ -824,5 +815,3 @@ export function PhoneModeSheetYesMockups() {
     </main>
   );
 }
-
-
