@@ -1,4 +1,7 @@
-import { render, waitFor } from "@testing-library/react";
+import { useRef, useState } from "react";
+
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Sheet } from "@/components/ui/sheet";
@@ -47,6 +50,55 @@ function Stacked({
 
 function pressEscape() {
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+}
+
+function DetachedResolverFallbackHarness() {
+  const [open, setOpen] = useState(false);
+  const [showResolverTarget, setShowResolverTarget] = useState(false);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+  const staleResolverTargetRef = useRef<HTMLButtonElement | null>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={openerRef}
+        onClick={() => {
+          setShowResolverTarget(true);
+          setOpen(true);
+        }}
+      >
+        Open sheet
+      </button>
+      {showResolverTarget ? (
+        <button
+          type="button"
+          ref={(element) => {
+            if (element) staleResolverTargetRef.current = element;
+          }}
+        >
+          Stale resolver target
+        </button>
+      ) : null}
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Return focus"
+        returnFocusRef={openerRef}
+        resolveReturnFocusTarget={() => staleResolverTargetRef.current}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            setShowResolverTarget(false);
+            setOpen(false);
+          }}
+        >
+          Close sheet
+        </button>
+      </Sheet>
+    </>
+  );
 }
 
 describe("Sheet stacked-overlay coordination", () => {
@@ -178,5 +230,18 @@ describe("Sheet stacked-overlay coordination", () => {
       expect(findField).not.toBeNull();
       expect(document.activeElement).toBe(findField);
     });
+  });
+
+  it("falls back to returnFocusRef when a resolver target has detached", async () => {
+    const user = userEvent.setup();
+    render(<DetachedResolverFallbackHarness />);
+
+    const opener = screen.getByRole("button", { name: "Open sheet" });
+    await user.click(opener);
+    await waitFor(() => expect(document.body.style.overflow).toBe("hidden"));
+
+    await user.click(screen.getByRole("button", { name: "Close sheet" }));
+
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 });

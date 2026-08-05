@@ -1085,7 +1085,13 @@ export function MasterSearchHeader({
     queryInputRef?.current?.focus();
   });
   const retargetActionMenuSheetFocusToSearchInput = useEventCallback(() => {
-    actionMenuSheetReturnFocusRef.current = queryInputRef?.current ?? null;
+    const target = queryInputRef?.current ?? null;
+    actionMenuSheetReturnFocusRef.current = target;
+    if (!currentUsesScopeSheet()) {
+      window.requestAnimationFrame(() => {
+        restoreFocusUnlessMoved(target);
+      });
+    }
   });
   const handleActionMenuCurrentSearch = useEventCallback(() => {
     retargetActionMenuSheetFocusToSearchInput();

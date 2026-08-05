@@ -273,7 +273,10 @@ export function Sheet({
       openFocusRef.current?.cancel();
       openFocusRef.current = null;
       popSheet(sheetId);
-      const restoreTarget = resolveReturnFocusTarget?.() ?? explicitReturnElement ?? previousActiveElement;
+      const resolveConnectedRestoreTarget = () =>
+        [resolveReturnFocusTarget?.() ?? null, explicitReturnElement, previousActiveElement].find(
+          (target): target is HTMLElement => Boolean(target?.isConnected),
+        ) ?? null;
       if (restoreTimers.frame != null) {
         window.cancelAnimationFrame(restoreTimers.frame);
         restoreTimers.frame = null;
@@ -289,6 +292,7 @@ export function Sheet({
       // the whole suite even when every test assertion passed.
       restoreTimers.frame = window.requestAnimationFrame(() => {
         restoreTimers.frame = null;
+        const restoreTarget = resolveConnectedRestoreTarget();
         if (typeof document === "undefined" || !restoreTarget?.isConnected) return;
         // A sheet opened while this one was closing (switching between two
         // sheets in one tick) now owns focus. Instances cannot cancel each
@@ -300,18 +304,19 @@ export function Sheet({
         restoreTimers.timeout = window.setTimeout(() => {
           restoreTimers.timeout = null;
           if (typeof document === "undefined") return;
+          const retryTarget = resolveConnectedRestoreTarget();
           // Only retry when focus fell through to the document body. If another
           // surface (e.g. a Guide dialog opened from a phone menu sheet) already
           // took focus, do not steal it back.
           if (
-            !restoreTarget.isConnected ||
-            !canRestoreFocusTo(restoreTarget) ||
-            document.activeElement === restoreTarget ||
+            !retryTarget ||
+            !canRestoreFocusTo(retryTarget) ||
+            document.activeElement === retryTarget ||
             (document.activeElement !== document.body && document.activeElement != null)
           ) {
             return;
           }
-          restoreTarget.focus({ preventScroll: true });
+          retryTarget.focus({ preventScroll: true });
         }, 50);
       });
     };

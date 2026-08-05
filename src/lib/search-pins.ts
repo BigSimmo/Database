@@ -56,9 +56,14 @@ function normalizePin(value: unknown): SearchPin | null {
 
 export function normalizeSearchPins(value: unknown): SearchPin[] {
   if (!Array.isArray(value)) return defaultSearchPins;
+  const seenIds = new Set<string>();
   return value
     .map(normalizePin)
-    .filter((pin): pin is SearchPin => Boolean(pin))
+    .filter((pin): pin is SearchPin => {
+      if (!pin || seenIds.has(pin.id)) return false;
+      seenIds.add(pin.id);
+      return true;
+    })
     .slice(0, maximumSearchPins);
 }
 

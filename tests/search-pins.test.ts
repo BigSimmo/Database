@@ -21,6 +21,19 @@ describe("search pin storage", () => {
     ).toEqual([{ id: "rounds", name: "Ward round", destinationIds: ["documents", "forms"] }]);
   });
 
+  it("keeps the first valid pin when duplicate ids are stored", () => {
+    expect(
+      normalizeSearchPins([
+        { id: "rounds", name: "Ward round", destinationIds: ["documents"] },
+        { id: "rounds", name: "Duplicate round", destinationIds: ["forms"] },
+        { id: "forms", name: "Forms", destinationIds: ["forms"] },
+      ]),
+    ).toEqual([
+      { id: "rounds", name: "Ward round", destinationIds: ["documents"] },
+      { id: "forms", name: "Forms", destinationIds: ["forms"] },
+    ]);
+  });
+
   it("falls back safely for malformed browser data", () => {
     const storage = { getItem: () => "not-json" };
     expect(readSearchPins(storage)).toEqual(defaultSearchPins);
