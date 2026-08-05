@@ -3234,7 +3234,7 @@ export function ClinicalDashboard({
     const returnTarget = documentsDrawerReturnFocusRef.current;
     window.requestAnimationFrame(() => {
       const fallbackTarget = Array.from(
-        document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"][aria-label$=" options"]'),
+        document.querySelectorAll<HTMLElement>('button[aria-haspopup][aria-label$=" options"]'),
       ).find((element) => element.isConnected && element.getClientRects().length > 0);
       const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
       focusTarget?.focus({ preventScroll: true });
