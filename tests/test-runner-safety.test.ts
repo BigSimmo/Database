@@ -584,7 +584,7 @@ describe("provider-safe test environment", () => {
     // both a live DSN on the parent and a would-be reload candidate. The offline
     // wrapper must overwrite both names with an explicit blank (present, falsy).
     const liveDsn = "https://real-key@o123.ingest.sentry.io/456";
-    const environment = offlineTestEnvironment({
+    const environment: Record<string, string | undefined> = offlineTestEnvironment({
       SENTRY_DSN: liveDsn,
       NEXT_PUBLIC_SENTRY_DSN: liveDsn,
       SENTRY_AUTH_TOKEN: "sntrys_live_token",
