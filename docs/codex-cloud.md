@@ -253,13 +253,24 @@ sourcing any profile or invoking node/npm in a fresh task, run:
 bash --noprofile --norc scripts/check-codex-cloud-raw-env.sh
 ```
 
-The probe checks the complete provider-variable inventory and prints names only. A failure is a
-launcher/environment defect; remove the variable in host environment settings and start another
-fresh task. If Personal Pro still injects `OPENAI_BASE_URL` after the environment UI no longer
-contains it, preserve the failing name-only output for OpenAI support and continue provider-free
-work only through the generated profile and command shims, followed by a passing
-`npm run check:codex-cloud`. This keeps normal repository commands functional without treating the
-sanitized child shell as proof that the raw-parent boundary passed.
+The probe checks the complete provider-variable inventory and prints names only. Outcomes are
+name-scoped in the probe itself:
+
+- exit `0` / `PASS` — raw boundary clean
+- exit `1` / `FAIL` + `STOP` — any unexpected provider name (for example
+  `SUPABASE_SERVICE_ROLE_KEY`); start another fresh task and do not continue
+- exit `2` / `FAIL-KNOWN` + `CONTINUE-RESTRICTED` — only the documented Personal Pro launcher
+  defect name `OPENAI_BASE_URL`
+
+Exit `2` is still a failed raw boundary: humans/agents may continue only under this contract.
+Do not treat “non-1” or “retry on any failure” as success in future automation — wire the three
+states explicitly. When the probe reports `FAIL-KNOWN` for `OPENAI_BASE_URL` alone, preserve that
+name-only output for OpenAI support and continue provider-free work only through the generated
+profile and command shims, followed by a passing `npm run check:codex-cloud`. Do not generalize
+that restricted path to any other inherited name. An inherited `OPENAI_BASE_URL` can redirect
+OpenAI-bound traffic, so never call OpenAI clients from the raw parent process or from binaries
+that bypass the profile/`node`/`npm`/`npx` shim scrub. A sanitized child shell is never proof
+that the raw-parent boundary passed.
 
 `npm run check:production-readiness` remains useful in the offline profile for local safeguards.
 Missing Supabase/OpenAI agent-phase credentials are reported as a provider capability gap and do
@@ -278,8 +289,11 @@ only workspace `bigsimmo's Projects` and project `Database`
 (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) where Railway offers that choice. Reduce read results to
 non-secret account, project, workspace, environment, and service metadata. Railway's remote MCP
 does not accept project tokens; install Railway CLI separately only for explicitly approved
-local/operator workflows. Enterprise/Edu custom-app controls are an optional future governance
-upgrade, not the current operating target.
+local/operator workflows (for example `npm run check:env-parity -- --railway`). That CLI path is
+not available in ordinary Cloud tasks and is not part of Cloud runtime acceptance. Prefer
+`RAILWAY_API_TOKEN` for personal CLI auth; never substitute the project-scoped CI
+`RAILWAY_TOKEN`. Enterprise/Edu custom-app controls are an optional future governance upgrade,
+not the current operating target.
 
 The Supabase MCP entry is scoped to production project `sjrfecxgysukkwxsowpy`, forces
 `read_only=true`, and exposes only documentation/development metadata tools. The database and
@@ -291,10 +305,12 @@ broaden the production entry. OpenAI generation, Supabase live data, Railway cha
 reruns, ingestion, deployment, and release workflows remain separate explicit actions.
 
 Project `.codex/config.toml` is the checked-in Codex Desktop/CLI MCP template. Its URL-only entries
-remain `enabled = false`; a trusted local operator can enable `railway` and run
-`codex mcp login railway`. Setup does not copy any MCP server into `$CODEX_HOME`. Hosted ChatGPT and
-Codex Cloud require the separately installed/authenticated workspace app. Start a fresh task after
-consent and verify the actual callable inventory.
+must stay `enabled = false` in git — `npm run check:codex-cloud` hard-fails on any tracked
+`enabled = true`. A trusted local operator opts in outside the committed tree: prefer enabling
+`railway` in `$CODEX_HOME/config.toml`, or make a never-committed local edit to the project file for
+the session, then run `codex mcp login railway`. Setup does not copy any MCP server into
+`$CODEX_HOME`. Hosted ChatGPT and Codex Cloud require the separately installed/authenticated
+workspace app. Start a fresh task after consent and verify the actual callable inventory.
 The root `.mcp.json` is a cross-client Desktop/CLI template and static allowlist only. It does not
 prove hosted Cloud availability. Context7 / library-docs
 MCP is Cursor-side (`.cursor/mcp.json` or a host-injected connector), not part of this Codex Cloud
@@ -310,7 +326,8 @@ credentials into Cloud:
   GitHub connector or Cloud PR controls.
 - **ChatGPT web:** Railway through the official OAuth app and Supabase through the pinned
   project-scoped read-only app. Keep Railway on **Allow read actions** and ask before every change.
-- **Desktop/CLI:** opt-in local MCP from `.codex/config.toml`, followed by
+- **Desktop/CLI:** opt-in local MCP via `$CODEX_HOME/config.toml` (preferred) or a
+  never-committed local enable of the project `.codex/config.toml` `railway` entry, followed by
   `codex mcp login railway`; this is a local operator fallback, never hosted proof.
 
 The repository checker prints these routes as sanitized `provider_route.*` lines. They describe

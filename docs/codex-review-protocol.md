@@ -25,9 +25,15 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 ## GitHub access routing
 
 For an explicitly authorized hosted task, use the GitHub connector or native Cloud controls first.
-Their permissions are independent of `gh` in the agent shell. Run `npm run check:github-shell-access`
-only before an intentional GitHub CLI fallback; `GH_AUTH_MISSING` means shell authentication is
-absent, not that the hosted connector is disconnected. Never add a PAT to an ordinary Cloud task.
+Their permissions are independent of `gh` in the agent shell. Run
+`npm run check:github-shell-access:live` (which passes `--allow-provider` and does not pass
+`--self-test`) only before an intentional GitHub CLI fallback.
+`ALLOW_GITHUB_SHELL_ACCESS=true` or `--allow-provider` on a direct
+`node scripts/check-github-shell-access.mjs` invocation (without `--self-test`) authorize the
+same live path. The plain `npm run check:github-shell-access` entry is always offline
+`--self-test`; ambient opt-in cannot convert it into provider traffic.
+`GH_AUTH_MISSING` means shell authentication is absent, not that the hosted connector is
+disconnected. Never add a PAT to an ordinary Cloud task.
 
 ## Mutation Rules
 
