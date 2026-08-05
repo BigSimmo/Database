@@ -148,7 +148,7 @@ export function SearchPinsMenu({
     };
     const syncPins = (event: Event) => {
       const detail = event instanceof CustomEvent ? event.detail : undefined;
-      setPins(detail === undefined ? readSearchPins() : normalizeSearchPins(detail));
+      setPins(detail === undefined || detail === null ? readSearchPins() : normalizeSearchPins(detail));
     };
     window.addEventListener("storage", syncStoredPins);
     window.addEventListener(searchPinsChangeEvent, syncPins);
