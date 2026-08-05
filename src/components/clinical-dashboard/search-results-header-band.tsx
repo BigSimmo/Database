@@ -660,7 +660,10 @@ function matchTypeaheadOptionIndex<Value extends string>({
   const buffer = state.buffer;
   const total = options.length;
   if (total === 0) return -1;
-  const start = fromIndex >= 0 ? fromIndex : 0;
+  // Unmatched/stale values use fromIndex < 0. Start at -1 so the single-char
+  // advance (`start + step + 1`) begins at option 0 — matching native <select>
+  // when nothing is selected — instead of skipping the first option.
+  const start = fromIndex >= 0 ? fromIndex : -1;
   for (let step = 0; step < total; step += 1) {
     // Same-letter repeats advance to the next match (native <select> behaviour).
     const index = (start + (buffer.length === 1 ? step + 1 : step)) % total;
@@ -758,13 +761,7 @@ export function MobileResultFilterControl<Value extends string>({
       return trigger.isConnected;
     }
 
-    function syncMenuBox() {
-      const trigger = triggerRef.current;
-      if (!trigger) return;
-      if (!isTriggerDisplayed(trigger)) {
-        closeMenu();
-        return;
-      }
+    function measureMenuBox(trigger: HTMLElement): MobileResultFilterMenuBox | "close-offscreen" {
       const rect = trigger.getBoundingClientRect();
       const gutter = 8;
       const viewportWidth = window.innerWidth || 320;
@@ -773,8 +770,7 @@ export function MobileResultFilterControl<Value extends string>({
       // that has left the viewport (native <select> dismisses in that case).
       const hasBox = rect.width > 0 || rect.height > 0;
       if (hasBox && (rect.bottom <= 0 || rect.top >= viewportHeight || rect.right <= 0 || rect.left >= viewportWidth)) {
-        closeMenu();
-        return;
+        return "close-offscreen";
       }
       const width = Math.min(Math.max(rect.width || 12 * 16, 12 * 16), Math.max(gutter, viewportWidth - gutter * 2));
       const left = Math.min(Math.max(rect.left, gutter), Math.max(gutter, viewportWidth - width - gutter));
@@ -785,20 +781,67 @@ export function MobileResultFilterControl<Value extends string>({
       // Never floor maxHeight above the available side — a 96px floor with
       // translateY(-100%) would push the first options above the viewport top.
       const maxHeight = Math.min(18 * 16, Math.max(available, 1));
-      setMenuBox({
+      return {
         top: flip ? Math.max(gutter, rect.top - 6) : rect.bottom + 6,
         left,
         width,
         maxHeight,
         placement: flip ? "above" : "below",
+      };
+    }
+
+    function applyMenuBox(next: MobileResultFilterMenuBox) {
+      // Skip the state write when scroll/resize did not change the box — phones
+      // fire capture-phase scroll frequently while the short menu is open.
+      setMenuBox((previous) => {
+        if (
+          previous &&
+          previous.top === next.top &&
+          previous.left === next.left &&
+          previous.width === next.width &&
+          previous.maxHeight === next.maxHeight &&
+          previous.placement === next.placement
+        ) {
+          return previous;
+        }
+        return next;
       });
     }
-    syncMenuBox();
-    window.addEventListener("resize", syncMenuBox);
-    window.addEventListener("scroll", syncMenuBox, true);
+
+    function syncMenuBox(options?: { checkDisplay?: boolean }) {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      // The display:none ancestor walk is only needed on resize/orientation
+      // (sm:hidden phone control). Scroll just remeasures the box.
+      if (options?.checkDisplay && !isTriggerDisplayed(trigger)) {
+        closeMenu();
+        return;
+      }
+      if (!trigger.isConnected) {
+        closeMenu();
+        return;
+      }
+      const next = measureMenuBox(trigger);
+      if (next === "close-offscreen") {
+        closeMenu();
+        return;
+      }
+      applyMenuBox(next);
+    }
+
+    function onResize() {
+      syncMenuBox({ checkDisplay: true });
+    }
+    function onScroll() {
+      syncMenuBox();
+    }
+
+    syncMenuBox({ checkDisplay: true });
+    window.addEventListener("resize", onResize);
+    window.addEventListener("scroll", onScroll, true);
     return () => {
-      window.removeEventListener("resize", syncMenuBox);
-      window.removeEventListener("scroll", syncMenuBox, true);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open, closeMenu]);
 
@@ -909,6 +952,13 @@ export function MobileResultFilterControl<Value extends string>({
     } else if (event.key === "End") {
       event.preventDefault();
       focusOption(stepEnabledIndex(options.length, -1));
+    } else if (event.key === "Tab") {
+      // Menu is portaled to document.body, so default Tab would leave the page.
+      // Close and return focus to the trigger so the next Tab continues from here
+      // (same outcome as the in-flow DSM category filter).
+      event.preventDefault();
+      closeMenu();
+      triggerRef.current?.focus({ preventScroll: true });
     } else if (handleTypeaheadKey(event, index)) {
       event.preventDefault();
     }
@@ -938,6 +988,11 @@ export function MobileResultFilterControl<Value extends string>({
             role="menu"
             aria-label={ariaLabel}
             onBlur={handleBlur}
+            // Grabbing the menu scrollbar moves focus to body on pointer
+            // platforms; without this, handleBlur closes mid-drag.
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
             style={{
               top: menuBox.top,
               left: menuBox.left,
@@ -1012,7 +1067,17 @@ export function MobileResultFilterControl<Value extends string>({
         onMouseDown={(event) => {
           if (open) event.preventDefault();
         }}
-        onClick={() => (open ? closeMenu() : openMenu(matchedIndex >= 0 ? matchedIndex : 0))}
+        onClick={() => {
+          if (open) {
+            // Safari guard above keeps focus on the focused option; closing
+            // unmounts that option and would drop focus to <body>. Restore the
+            // trigger so Tab continues from the filter.
+            closeMenu();
+            triggerRef.current?.focus({ preventScroll: true });
+            return;
+          }
+          openMenu(matchedIndex >= 0 ? matchedIndex : 0);
+        }}
         className={cn(
           // The sort group next to this control puts min-h-tap on its buttons and
           // its own border outside them, so it stands 2px taller than a bare

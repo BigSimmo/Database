@@ -431,10 +431,58 @@ describe("MobileResultFilterControl", () => {
     expect(screen.getByRole("menu")).toBeVisible();
 
     // Simulate Safari: option is focused, trigger mousedown does not move
-    // focus, then click must close rather than re-open.
+    // focus, then click must close rather than re-open — and restore focus to
+    // the trigger so Tab does not restart at document.body.
     screen.getByRole("menuitemradio", { name: "Crisis" }).focus();
     await user.click(trigger);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("returns focus to the trigger when Tab leaves a portaled option", async () => {
+    const user = userEvent.setup();
+    render(
+      <MobileResultFilterControl
+        label="Show"
+        ariaLabel="Filter by result type"
+        value="crisis"
+        options={[...options]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Filter by result type/ });
+    await user.click(trigger);
+    const option = screen.getByRole("menuitemradio", { name: "Crisis" });
+    option.focus();
+    await user.keyboard("{Tab}");
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("typeahead from an unmatched value starts at the first matching option", async () => {
+    const user = userEvent.setup();
+    render(
+      <MobileResultFilterControl
+        label="Show"
+        ariaLabel="Filter by result type"
+        value="stale"
+        options={[
+          { value: "alpha", label: "Alpha" },
+          { value: "beta", label: "Beta" },
+          { value: "amber", label: "Amber" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Filter by result type/ });
+    trigger.focus();
+    await user.keyboard("a");
+
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(screen.getByRole("menuitemradio", { name: "Alpha" })).toHaveFocus();
   });
 
   it("does not re-fire onChange when the active option is re-selected", async () => {
