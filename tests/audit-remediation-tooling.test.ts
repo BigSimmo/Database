@@ -37,8 +37,25 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).not.toContain("spawnSync");
     expect(source).toContain("forceLockRelease");
     expect(source).toContain("typescriptBuildInfoPath");
+    expect(source).toContain('"typecheck:source:internal"');
     expect(source).toContain('"--tsBuildInfoFile"');
     expect(source).toContain("await runNpmScript()");
+    expect(source).toContain('sharedTypecheckScripts.has(script) ? "shared"');
+    // Pre-push invokes via plain node (no npm_execpath); both spawn paths must
+    // forward effectiveForwarded so --tsBuildInfoFile is not dropped.
+    expect(source).toContain("const npmArgs = effectiveForwarded.length");
+    expect(source).not.toMatch(/\["run", script, \.\.\.\(forwarded\.length/);
+  });
+
+  it("routes guard-push static checks through the run coordinator", () => {
+    const packageJson = JSON.parse(readFileSync(path.join(repositoryRoot, "package.json"), "utf8"));
+    const source = readFileSync(path.join(repositoryRoot, "scripts/guard-push.mjs"), "utf8");
+
+    expect(packageJson.scripts["lint:changed:internal"]).toContain("eslint");
+    expect(source).toContain('"lint:changed:internal"');
+    expect(source).toContain('"typecheck:source:internal"');
+    expect(source).toContain("run-heavy.mjs");
+    expect(source).toContain('runStaticCheck(PROJECT_ROOT, "typecheck:source:internal", [], "typecheck")');
   });
 
   it("keeps Vitest async so shared-lease heartbeats can fire", () => {
