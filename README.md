@@ -187,15 +187,18 @@ hosted Supabase MCP server uses OAuth, not repo secrets.
 
 ### Context7
 
-Workspace config in `.cursor/mcp.json` points at `https://mcp.context7.com/mcp`;
-`.cursor/settings.json` enables the `context7-plugin`. Use Context7 for
-versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest** — not for
-Next.js 16: read `node_modules/next/dist/docs/` locally and do not invent App
-Router APIs from Context7 or training data.
+Workspace config in `.cursor/mcp.json` points at `https://mcp.context7.com/mcp`
+(unversioned remote URL); `.cursor/settings.json` enables the `context7-plugin`.
+Use Context7 for versioned library docs — **Tailwind 4, Zod 4, Playwright, Vitest,
+React 19, `@supabase/supabase-js`** (peers; not exhaustive) — not for Next.js 16:
+read `node_modules/next/dist/docs/` locally and do not invent App Router APIs from
+Context7 or training data.
 
 Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://context7.com/dashboard)
-raises rate limits. Set it as a user/OS env var or in Cursor MCP env (`.env.local`
-alone does not feed MCP). Context7 works without a key at lower limits. Full setup
+raises rate limits. Set it as a user/OS env var or in Cursor **Settings → MCP** so
+`${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` expands. `.env.local` alone and
+Cursor Cloud Agent Secrets do **not** feed that project MCP header (Secrets feed
+the Next app env only). Context7 works without a key at lower limits. Full setup
 notes: `docs/agents-guide.md`. Never commit the API key.
 
 ## Documentation

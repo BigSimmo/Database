@@ -58,22 +58,32 @@ servers** per session (tool-schema token bloat degrades agents).
 Use registered MCPs before opening dashboards when the task is read-only inspection.
 Writes, secret rotations, and hosted mutations stay confirmation-gated per `AGENTS.md`.
 
-| Server                      | Config                                                                           | Use for                                                                                                                                      | Do not                                                                                                                                         |
-| --------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Supabase** (read-only)    | `.cursor/mcp.json` — pinned `project_ref=sjrfecxgysukkwxsowpy`, `read_only=true` | `search_docs`, advisors, read SQL, schema inspection                                                                                         | Print secret values; raw-edit retrieval RPCs via `execute_sql`; Auth DB connection-cap (`#011`) — **dashboard only**                           |
-| **Railway**                 | Root `.mcp.json`                                                                 | Deploy status, service logs, env **names**/presence                                                                                          | Confuse `RAILWAY_API_TOKEN` (personal) with CI `RAILWAY_TOKEN`; mutate without approval                                                        |
-| **Context7**                | `.cursor/mcp.json` → `https://mcp.context7.com/mcp` (+ Cursor `context7-plugin`) | Versioned docs for **Tailwind 4, Zod 4, Playwright, Vitest** (and similar peers). Optional higher limits: set `CONTEXT7_API_KEY` (see below) | Next.js 16 — always use `node_modules/next/dist/docs/` (AGENTS.md). Do not invent App Router APIs from training data; never commit the API key |
-| **Chrome DevTools**         | `.cursor/mcp.json` → `npx -y chrome-devtools-mcp@1.6.0`                          | CLS/LCP/console/network while implementing redesigns (`#147`, `#162`–`#164`, Therapy Compass)                                                | Don't leave it always-on with Browse + Playwright MCP (token bloat). Use for perf/debug passes                                                 |
-| **GitHub Checks / Actions** | Operator approval pending                                                        | PR check visibility when `gh pr checks` returns empty totals                                                                                 | Bot `update-branch`; broaden scopes beyond Checks/Actions read                                                                                 |
+| Server                      | Config                                                                           | Use for                                                                                                                                                                             | Do not                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Supabase** (read-only)    | `.cursor/mcp.json` — pinned `project_ref=sjrfecxgysukkwxsowpy`, `read_only=true` | `search_docs`, advisors, read SQL, schema inspection                                                                                                                                | Print secret values; raw-edit retrieval RPCs via `execute_sql`; Auth DB connection-cap (`#011`) — **dashboard only**                           |
+| **Railway**                 | Root `.mcp.json`                                                                 | Deploy status, service logs, env **names**/presence                                                                                                                                 | Confuse `RAILWAY_API_TOKEN` (personal) with CI `RAILWAY_TOKEN`; mutate without approval                                                        |
+| **Context7**                | `.cursor/mcp.json` → `https://mcp.context7.com/mcp` (+ Cursor `context7-plugin`) | Versioned docs for **Tailwind 4, Zod 4, Playwright, Vitest, React 19, `@supabase/supabase-js`** (peers; not exhaustive). Optional higher limits: set `CONTEXT7_API_KEY` (see below) | Next.js 16 — always use `node_modules/next/dist/docs/` (AGENTS.md). Do not invent App Router APIs from training data; never commit the API key |
+| **Chrome DevTools**         | `.cursor/mcp.json` → `npx -y chrome-devtools-mcp@1.6.0`                          | CLS/LCP/console/network while implementing redesigns (`#147`, `#162`–`#164`, Therapy Compass)                                                                                       | Don't leave it always-on with Browse + Playwright MCP (token bloat). Use for perf/debug passes                                                 |
+| **GitHub Checks / Actions** | Operator approval pending                                                        | PR check visibility when `gh pr checks` returns empty totals                                                                                                                        | Bot `update-branch`; broaden scopes beyond Checks/Actions read                                                                                 |
 
 ### Context7 API key (optional)
 
 1. Create a free key at [context7.com/dashboard](https://context7.com/dashboard) (`ctx7sk…`).
 2. Set `CONTEXT7_API_KEY` as a **user/OS env var** or in Cursor **Settings → MCP → context7**
-   env so `${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` resolves. `.env.local` alone does
-   not feed Cursor MCP.
-3. Reload MCP servers in Cursor. Without a key, Context7 still works at lower rate limits.
-4. Prefer the Cursor `context7-plugin` / `resolve-library-id` + `query-docs` tools over raw
+   env so `${env:CONTEXT7_API_KEY}` in `.cursor/mcp.json` resolves. That expansion is what
+   raises rate limits for the **project** MCP entry (header form
+   `CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}` — leave it; do not switch the committed file to
+   empty `Authorization: Bearer`).
+3. **Does not feed project MCP `${env:}`:** `.env.local` alone, or Cursor Cloud Agent
+   **Secrets** (Secrets inject into the Next app’s `.env.local` / `process.env`, not into
+   `.cursor/mcp.json` header interpolation).
+4. **Project MCP vs host connector:** the checked-in `.cursor/mcp.json` entry is the desktop
+   project path. Cursor Cloud may also expose a **host-injected** Context7 connector — same
+   product, different injection. Cloud quota is not fixed by putting the key only in app
+   Secrets.
+5. The remote URL is **unversioned** (cannot pin like `chrome-devtools-mcp@1.6.0`). Reload MCP
+   servers after key changes. Without a key, Context7 still works at lower rate limits.
+6. Prefer the Cursor `context7-plugin` / `resolve-library-id` + `query-docs` tools over raw
    `curl` to `https://context7.com/api/v2/...` unless you are debugging the HTTP API.
 
 Never paste credential values into chat, issues, or commits. Prefer presence/length checks
