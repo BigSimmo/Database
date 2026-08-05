@@ -21,19 +21,30 @@ const toneClass = {
   inherit: "text-inherit no-underline hover:underline",
 } as const;
 
+export type TextLinkProps = BaseProps & { href: string } & Omit<
+    AnchorHTMLAttributes<HTMLAnchorElement>,
+    "href" | "children" | "className"
+  >;
+
+export type ExternalTextLinkProps = BaseProps & { href: string } & Omit<
+    AnchorHTMLAttributes<HTMLAnchorElement>,
+    "href" | "children" | "className" | "rel" | "target"
+  >;
+
+export type DownloadLinkProps = BaseProps & { href: string; format?: string; size?: string } & Omit<
+    AnchorHTMLAttributes<HTMLAnchorElement>,
+    "href" | "children" | "className"
+  >;
+
+export type LinkActionProps = BaseProps & { href: string };
+
 /**
  * Internal navigation. Wraps `next/link` so a call site never reaches for a raw
  * `<a href="/…">` — which loses client-side routing, prefetch and scroll
  * restoration, and which `docs/wiring-conventions.md` bans without previously
  * offering an alternative.
  */
-export function TextLink({
-  href,
-  children,
-  tone = "accent",
-  className,
-  ...props
-}: BaseProps & { href: string } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "children" | "className">) {
+export function TextLink({ href, children, tone = "accent", className, ...props }: TextLinkProps) {
   return (
     <NextLink href={href} className={cn(base, toneClass[tone], className)} {...props}>
       {children}
@@ -52,16 +63,7 @@ export function TextLink({
  *   - An `sr-only` "opens in a new tab", because an unannounced context switch
  *     is disorienting for screen-reader and switch users.
  */
-export function ExternalTextLink({
-  href,
-  children,
-  tone = "accent",
-  className,
-  ...props
-}: BaseProps & { href: string } & Omit<
-    AnchorHTMLAttributes<HTMLAnchorElement>,
-    "href" | "children" | "className" | "rel" | "target"
-  >) {
+export function ExternalTextLink({ href, children, tone = "accent", className, ...props }: ExternalTextLinkProps) {
   return (
     <a
       href={href}
@@ -82,17 +84,7 @@ export function ExternalTextLink({
  * on hospital wifi deciding whether to tap a 40 MB PDF needs that before the tap,
  * not after.
  */
-export function DownloadLink({
-  href,
-  children,
-  format,
-  size,
-  className,
-  ...props
-}: BaseProps & { href: string; format?: string; size?: string } & Omit<
-    AnchorHTMLAttributes<HTMLAnchorElement>,
-    "href" | "children" | "className"
-  >) {
+export function DownloadLink({ href, children, format, size, className, ...props }: DownloadLinkProps) {
   const detail = [format, size].filter(Boolean).join(", ");
   return (
     <a href={href} download className={cn(base, toneClass.accent, className)} {...props}>
@@ -110,7 +102,7 @@ export function DownloadLink({
  * navigates, so it must be a real anchor for middle-click, copy-link, and the
  * browser's own affordances.
  */
-export function LinkAction({ href, children, className }: BaseProps & { href: string }) {
+export function LinkAction({ href, children, className }: LinkActionProps) {
   return (
     <NextLink
       href={href}

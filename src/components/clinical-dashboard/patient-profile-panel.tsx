@@ -4,6 +4,7 @@ import { Eraser, UserRound } from "lucide-react";
 import { useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
 import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
@@ -152,10 +153,10 @@ export function PatientProfilePanel({
               Active
             </span>
           ) : (
-            <span className="text-2xs font-medium text-[color:var(--text-soft)]">Optional</span>
+            <span className="text-2xs font-medium text-[color:var(--text-muted)]">Optional</span>
           )}
         </span>
-        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+        <span className="text-2xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
           {open ? "Hide" : "Edit"}
         </span>
       </summary>
@@ -213,47 +214,32 @@ export function PatientProfilePanel({
               max={scrBounds.max}
             />
           </div>
-          <fieldset className="col-span-2 min-w-0 sm:col-span-1">
-            <legend className={fieldLabel}>Creatinine unit</legend>
-            <div className="flex gap-1.5">
-              {SCR_UNIT_OPTIONS.map((option) => {
-                const active = (profile.scrUnit ?? "umol/L") === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setScrUnit(option.value)}
-                    className={cn(segmentBase, "flex-1", active ? segmentActive : segmentIdle)}
-                  >
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+          <div className="col-span-2 min-w-0 sm:col-span-1">
+            <span id="patient-scr-unit-label" className={fieldLabel}>
+              Creatinine unit
+            </span>
+            <SegmentedControl
+              ariaLabelledBy="patient-scr-unit-label"
+              value={profile.scrUnit ?? "umol/L"}
+              onChange={setScrUnit}
+              options={SCR_UNIT_OPTIONS}
+              layout="equal"
+            />
+          </div>
         </div>
 
-        <fieldset className="min-w-0">
-          <legend className={fieldLabel}>Hepatic impairment</legend>
-          <div className="flex flex-wrap gap-1.5">
-            {HEPATIC_OPTIONS.map((option) => {
-              const active = (profile.hepatic ?? "none") === option.value;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => updateField("hepatic", option.value === "none" ? null : option.value)}
-                  data-testid={`patient-hepatic-${option.value}`}
-                  className={cn(segmentBase, active ? segmentActive : segmentIdle)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
+        <div className="min-w-0">
+          <span id="patient-hepatic-label" className={fieldLabel}>
+            Hepatic impairment
+          </span>
+          <SegmentedControl
+            ariaLabelledBy="patient-hepatic-label"
+            value={profile.hepatic ?? "none"}
+            onChange={(value) => updateField("hepatic", value === "none" ? null : value)}
+            options={HEPATIC_OPTIONS}
+            layout="fit"
+          />
+        </div>
 
         <fieldset className="min-w-0">
           <legend className={fieldLabel}>Allergies</legend>
@@ -307,7 +293,7 @@ export function PatientProfilePanel({
           </button>
         </div>
 
-        <p className="text-2xs leading-4 text-[color:var(--text-soft)]">
+        <p className="text-2xs leading-4 text-[color:var(--text-muted)]">
           Anonymous values only — no patient‑identifying information is stored. Cleared when the tab closes. Decision
           support, not medical advice.
         </p>
