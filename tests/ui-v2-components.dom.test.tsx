@@ -184,6 +184,28 @@ describe("Chip", () => {
       "break-words",
     );
   });
+
+  it("keeps the remove control tappable when a wrapping tag has no fixed height", () => {
+    render(
+      <Chip
+        size="standard"
+        wrap
+        onRemove={() => {}}
+        removeLabel="Remove persistent depressive disorder with anxious distress"
+      >
+        Persistent depressive disorder with anxious distress
+      </Chip>,
+    );
+
+    const chip = screen.getByTestId("chip");
+    const track = chip.querySelector("span.relative");
+    expect(track).toHaveClass("min-h-5", "self-stretch");
+    expect(track).not.toHaveClass("h-full");
+    const remove = screen.getByRole("button", {
+      name: "Remove persistent depressive disorder with anxious distress",
+    });
+    expect(remove).toHaveClass("min-h-5", "h-full", "w-8");
+  });
 });
 
 describe("Citation", () => {
@@ -755,6 +777,29 @@ describe("Toast", () => {
     await userEvent.click(screen.getByRole("button", { name: "Fill queue" }));
     expect(screen.getAllByTestId("toast")).toHaveLength(5);
     expect(screen.queryByText("Repeated")).not.toBeInTheDocument();
+  });
+
+  it("refreshes a still-visible duplicate so the polite region can re-announce", async () => {
+    function RepeatHarness() {
+      const { push } = useToast();
+      return (
+        <button type="button" onClick={() => push({ tone: "danger", title: "Upload failed", duration: 0 })}>
+          Fail upload
+        </button>
+      );
+    }
+
+    render(
+      <ToastProvider>
+        <RepeatHarness />
+      </ToastProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Fail upload" }));
+    const first = screen.getByTestId("toast");
+    expect(first).toHaveAttribute("data-announce-key", "0");
+    await userEvent.click(screen.getByRole("button", { name: "Fail upload" }));
+    expect(screen.getAllByTestId("toast")).toHaveLength(1);
+    expect(screen.getByTestId("toast")).toHaveAttribute("data-announce-key", "1");
   });
 });
 

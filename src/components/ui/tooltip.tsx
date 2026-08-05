@@ -36,6 +36,13 @@ export function Tooltip({ children, content, placement = "top", className }: Too
   // Keep the first paint invisible until geometry is measured so the tooltip never
   // flashes at the (0, 0) placeholder before requestAnimationFrame repositions it.
   const [positioned, setPositioned] = useState(false);
+  // Reset visibility during render when the tooltip closes — avoid setState inside
+  // the effect body (react-hooks/set-state-in-effect).
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open && positioned) setPositioned(false);
+  }
   const triggerWrapRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
 
@@ -72,10 +79,7 @@ export function Tooltip({ children, content, placement = "top", className }: Too
   }, [placement]);
 
   useEffect(() => {
-    if (!open) {
-      setPositioned(false);
-      return;
-    }
+    if (!open) return;
     const frame = window.requestAnimationFrame(updatePosition);
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);

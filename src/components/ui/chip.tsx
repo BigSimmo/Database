@@ -131,14 +131,15 @@ export function Chip({
         {children}
       </span>
       {onRemove ? (
-        <span className="relative h-full w-5 shrink-0 self-center">
-          {/* The hit area grows only into the chip's own height and padding: a
-              48px target would overhang neighbouring chips and steal their taps. */}
+        // Wrap mode uses min-height only, so `h-full` collapses to 0. Stretch the
+        // track to the flex line (or a 20px floor) so the remove control stays
+        // tappable on multi-line tags without a 48px overhang onto neighbours.
+        <span className={cn("relative w-5 shrink-0", wrap ? "min-h-5 self-stretch" : "h-full self-center")}>
           <button
             type="button"
             onClick={onRemove}
             aria-label={removeLabel}
-            className="absolute inset-y-0 left-1/2 grid h-full w-8 max-w-full -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+            className="absolute inset-y-0 left-1/2 grid h-full min-h-5 w-8 max-w-full -translate-x-1/2 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
           >
             <span className="grid h-5 w-5 place-items-center rounded-sm transition hover:bg-[color:var(--surface-highlight)]">
               <X aria-hidden="true" className="h-3 w-3" />

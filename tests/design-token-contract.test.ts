@@ -36,8 +36,14 @@ function allThemeBlocks(stylesheet: string, selector: string) {
   let combined = "";
   while (start > -1) {
     const end = stylesheet.indexOf("\n}", start);
+    // Missing terminator would otherwise restart at 0 and loop forever.
+    expect(end, `${selector} block is missing a closing brace`).toBeGreaterThan(start);
     combined += stylesheet.slice(start, end);
-    start = stylesheet.indexOf(opener, end);
+    const nextOpener = stylesheet.indexOf(opener, end + 1);
+    const nextGrouped = stylesheet.indexOf(grouped, end + 1);
+    if (nextOpener === -1) start = nextGrouped;
+    else if (nextGrouped === -1) start = nextOpener;
+    else start = Math.min(nextOpener, nextGrouped);
   }
   return combined;
 }

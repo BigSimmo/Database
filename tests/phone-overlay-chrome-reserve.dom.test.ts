@@ -227,7 +227,7 @@ describe("readPhoneOverlayChromeReservePx", () => {
   });
 
   it("attaches the ResizeObserver when the phone header stack mounts after the hook", async () => {
-    let stackHeight = 72;
+    const stackHeight = 72;
     let notifyResize: ResizeObserverCallback | null = null;
     let nextFrameId = 1;
     const pendingFrames = new Map<number, FrameRequestCallback>();

@@ -264,6 +264,10 @@ export function ModeHomeTemplate({
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
+      {/* Always reserve settled composer height (even before the portal attaches)
+          so mode-home first paint does not CLS. Shell hosts that pass a slot id
+          must keep searchComposerVisible for that route — otherwise this band
+          stays empty instead of collapsing. */}
       {desktopComposerSlotId ? (
         <DesktopComposerPortalSlot
           id={desktopComposerSlotId}

@@ -14,6 +14,11 @@ export type Toast = {
   body?: string;
   /** ms before auto-dismiss. Pass 0 to require an explicit dismiss. */
   duration?: number;
+  /**
+   * Bumped when an identical outcome is pushed again while still visible so the
+   * polite region re-announces and the dismiss timer restarts.
+   */
+  announceKey?: number;
 };
 
 export type ToastInput = Omit<Toast, "id">;
@@ -72,13 +77,25 @@ export function ToastProvider({ children }: ToastProviderProps) {
   }, []);
 
   const push = useCallback((toast: ToastInput) => {
-    const duplicate = toastsRef.current.find(
+    const duplicateIndex = toastsRef.current.findIndex(
       (current) => current.tone === toast.tone && current.title === toast.title && current.body === toast.body,
     );
-    if (duplicate) return duplicate.id;
+    if (duplicateIndex >= 0) {
+      const duplicate = toastsRef.current[duplicateIndex]!;
+      const refreshed: Toast = {
+        ...duplicate,
+        duration: toast.duration ?? duplicate.duration,
+        announceKey: (duplicate.announceKey ?? 0) + 1,
+      };
+      const next = toastsRef.current.slice();
+      next[duplicateIndex] = refreshed;
+      toastsRef.current = next;
+      setToasts(next);
+      return duplicate.id;
+    }
     counter.current += 1;
     const id = `toast-${counter.current}`;
-    const next = [...toastsRef.current, { ...toast, id }].slice(-MAX_VISIBLE_TOASTS);
+    const next = [...toastsRef.current, { ...toast, id, announceKey: 0 }].slice(-MAX_VISIBLE_TOASTS);
     toastsRef.current = next;
     setToasts(next);
     return id;
@@ -107,7 +124,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
     if (duration <= 0) return;
     const timer = setTimeout(() => onDismiss(toast.id), duration);
     return () => clearTimeout(timer);
-  }, [duration, onDismiss, toast.id]);
+  }, [duration, onDismiss, toast.id, toast.announceKey]);
 
   const Icon = TONE_ICON[toast.tone];
 
@@ -115,6 +132,7 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
     <div
       data-testid="toast"
       data-tone={toast.tone}
+      data-announce-key={toast.announceKey ?? 0}
       style={{ pointerEvents: "auto" }}
       // Borderless floating surface: a hairline ring is its edge and the shadow is
       // its lift — never a border AND a shadow on one element (register #39/#40).
@@ -127,8 +145,16 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
       />
       <Icon aria-hidden="true" className={cn("mt-0.5 size-icon-md shrink-0", TONE_TEXT[toast.tone])} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-[color:var(--text-heading)]">{toast.title}</p>
-        {toast.body ? <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">{toast.body}</p> : null}
+        {/* Remount on announceKey so a repeated identical outcome re-enters the
+            polite live region instead of staying silent while still visible. */}
+        <p key={toast.announceKey ?? 0} className="text-sm font-semibold text-[color:var(--text-heading)]">
+          {toast.title}
+        </p>
+        {toast.body ? (
+          <p key={`body-${toast.announceKey ?? 0}`} className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+            {toast.body}
+          </p>
+        ) : null}
       </div>
       <button
         type="button"
