@@ -23,7 +23,7 @@ function badgeChipTone(tone: CrossModeLinkBadge["tone"]): SemanticChipTone | nul
   return tone === "clinical" ? "info" : tone;
 }
 
-type CrossModeLinksVariant = "card" | "compact";
+type CrossModeLinksVariant = "card" | "compact" | "responsive-compact";
 
 type CrossModeLinkCardProps = {
   link: CrossModeLink;
@@ -195,6 +195,7 @@ export function CrossModeLinksStrip({
   if (links.length === 0) return null;
 
   const compact = variant === "compact";
+  const responsiveCompact = variant === "responsive-compact";
   const LinkItem = compact ? CrossModeLinkChip : CrossModeLinkCard;
 
   return (
@@ -216,31 +217,65 @@ export function CrossModeLinksStrip({
         ) : null}
       </p>
 
-      <div
-        role="list"
-        tabIndex={compact && links.length > 1 ? 0 : undefined}
-        aria-label={compact && links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
-        className={cn(
-          "cross-mode-links-rail",
-          compact
-            ? "polished-scroll flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 md:pb-0"
-            : "grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2",
-        )}
-        data-testid="cross-mode-links-rail"
-      >
-        {links.map((link) => {
-          const Icon = appModeIcons[link.modeId];
-          return (
+      {responsiveCompact ? (
+        <>
+          <div
+            role="list"
+            tabIndex={links.length > 1 ? 0 : undefined}
+            aria-label={links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
+            className="cross-mode-links-rail polished-scroll flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 md:hidden"
+            data-testid="cross-mode-links-rail"
+          >
+            {links.map((link) => (
+              <CrossModeLinkChip
+                key={`${link.modeId}:${link.slug}`}
+                link={link}
+                Icon={appModeIcons[link.modeId]}
+                query={query}
+                onModeSearch={onModeSearch}
+              />
+            ))}
+          </div>
+          <div
+            role="list"
+            className="cross-mode-links-rail hidden min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2"
+            data-testid="cross-mode-links-card-rail"
+          >
+            {links.map((link) => (
+              <CrossModeLinkCard
+                key={`${link.modeId}:${link.slug}`}
+                link={link}
+                Icon={appModeIcons[link.modeId]}
+                query={query}
+                onModeSearch={onModeSearch}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div
+          role="list"
+          tabIndex={compact && links.length > 1 ? 0 : undefined}
+          aria-label={compact && links.length > 1 ? "Related library matches; scroll horizontally for more" : undefined}
+          className={cn(
+            "cross-mode-links-rail",
+            compact
+              ? "polished-scroll flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 md:pb-0"
+              : "grid min-w-0 gap-1.5 md:flex md:max-w-full md:flex-wrap md:gap-2",
+          )}
+          data-testid="cross-mode-links-rail"
+        >
+          {links.map((link) => (
             <LinkItem
               key={`${link.modeId}:${link.slug}`}
               link={link}
-              Icon={Icon}
+              Icon={appModeIcons[link.modeId]}
               query={query}
               onModeSearch={onModeSearch}
             />
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

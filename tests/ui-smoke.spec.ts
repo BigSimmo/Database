@@ -2365,6 +2365,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await input.click();
     await expect(input).toBeFocused();
+
+    await page.setViewportSize({ width: 320, height: 844 });
+    const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
+    await expect(compactCrossModeRail).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+    const compactCrossModeLinks = compactCrossModeRail.getByRole("link");
+    const compactCrossModeActions = compactCrossModeRail.getByRole("button");
+    expect(await compactCrossModeLinks.count()).toBeGreaterThan(0);
+    expect(await compactCrossModeActions.count()).toBeGreaterThan(0);
+    for (const control of await compactCrossModeLinks.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
+    for (const control of await compactCrossModeActions.all()) {
+      await expectMinTouchTarget(control, 48);
+    }
   });
 
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
@@ -2483,12 +2498,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const strip = answerSurface.getByTestId("cross-mode-links");
     await expect(strip).toBeVisible({ timeout: 15_000 });
     await expect(answerSurface.getByTestId("cross-mode-links")).toHaveCount(1);
-    const rail = strip.getByTestId("cross-mode-links-rail");
+    const rail = strip.getByTestId("cross-mode-links-card-rail");
     await expect(rail).toBeVisible();
-    await expect(rail).toHaveClass(/md:flex/);
+    await expect(rail).toHaveCSS("display", "flex");
     await page.keyboard.press("Escape");
-    await expect(strip.getByText("Medication", { exact: true })).toBeVisible();
-    await expect(strip.getByRole("button", { name: "Search Clozapine in Medication" })).toBeVisible();
+    await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
+    const medicationSearch = strip.getByRole("button", { name: "Search Clozapine in Medication" });
+    await expect(medicationSearch).toBeVisible();
+    await expect(strip.getByText("SGA / TRS", { exact: true }).filter({ visible: true })).toBeVisible();
 
     const followUps = answerSurface.getByTestId("answer-follow-up-suggestions");
     if (await followUps.isVisible()) {
@@ -2501,6 +2518,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
+    await expectMinTouchTarget(medicationLink, 48);
+    await expectMinTouchTarget(medicationSearch, 48);
     await waitForReactEventHandler(medicationLink, "onClick");
     await medicationLink.click();
     await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });

@@ -301,7 +301,11 @@ function StagedAnswerResultSurfaceImpl({
             ) : null}
 
             {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} />
+              <CrossModeLinksSection
+                queries={crossModeQueries}
+                onModeSearch={onCrossModeSearch}
+                variant="responsive-compact"
+              />
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
