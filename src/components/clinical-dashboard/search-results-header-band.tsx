@@ -17,6 +17,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type FocusEvent as ReactFocusEvent,
@@ -617,12 +618,21 @@ export function ResultSortControl({
   );
 }
 
+type MobileResultFilterMenuBox = {
+  top: number;
+  left: number;
+  width: number;
+  maxHeight: number;
+  placement: "above" | "below";
+};
+
 /**
  * Phone Category / Show / Filter control. Soft value button + custom menu —
  * never a native `<select>`, which painted a harsh system-blue highlight over
  * the selected value on mobile. Selection state uses the clinical-accent soft
- * wash (open or non-default value); keyboard behaviour mirrors the DSM
- * category filter (ArrowUp/Down open, roving focus, Escape dismisses).
+ * wash (open or a value other than `restingValue` / options[0]); keyboard
+ * behaviour mirrors the DSM category filter (ArrowUp/Down open, roving focus
+ * that skips disabled options, first-letter typeahead, Escape dismisses).
  */
 export function MobileResultFilterControl<Value extends string>({
   label,
@@ -630,6 +640,7 @@ export function MobileResultFilterControl<Value extends string>({
   value,
   options,
   onChange,
+  restingValue,
   testId,
   className,
 }: {
@@ -638,43 +649,97 @@ export function MobileResultFilterControl<Value extends string>({
   value: Value;
   options: ReadonlyArray<{ value: Value; label: string; disabled?: boolean }>;
   onChange: (value: Value) => void;
+  /**
+   * Value that means "no filter applied" for the accent wash. Defaults to
+   * `options[0]`. Pass explicitly when the resting sentinel is not index 0
+   * (e.g. services quick filters drop the `current` placeholder once active).
+   */
+  restingValue?: Value;
   testId?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [menuBox, setMenuBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [menuBox, setMenuBox] = useState<MobileResultFilterMenuBox | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const typeaheadRef = useRef<{ buffer: string; lastAt: number; timer: ReturnType<typeof setTimeout> | null }>({
+    buffer: "",
+    lastAt: 0,
+    timer: null,
+  });
   const menuId = useId();
-  const activeIndex = Math.max(
-    0,
-    options.findIndex((option) => option.value === value),
-  );
-  const activeLabel = options[activeIndex]?.label ?? value;
-  const defaultValue = options[0]?.value;
-  const isFiltered = Boolean(defaultValue !== undefined && value !== defaultValue);
+  const matchedIndex = options.findIndex((option) => option.value === value);
+  const activeLabel = matchedIndex >= 0 ? (options[matchedIndex]?.label ?? value) : value;
+  const defaultRestingValue = restingValue ?? options[0]?.value;
+  const isFiltered = Boolean(defaultRestingValue !== undefined && value !== defaultRestingValue);
+  // Accessible name must contain the visible label + value (WCAG 2.5.3) while
+  // keeping the descriptive purpose string call sites and Playwright assert.
+  const accessibleName = `${label} ${activeLabel}. ${ariaLabel}`;
+
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setMenuBox(null);
+    setPendingFocus(null);
+  }, []);
+
+  const dismissableRefs = useMemo(() => [rootRef, menuRef], []);
+  const handleDismiss = useCallback(() => {
+    closeMenu();
+  }, [closeMenu]);
 
   useDismissableLayer({
     enabled: open,
-    refs: [rootRef, menuRef],
+    refs: dismissableRefs,
     restoreFocusRef: triggerRef,
-    onDismiss: () => setOpen(false),
+    onDismiss: handleDismiss,
   });
 
   // The search-results band is `overflow-hidden`, so the menu is portaled and
   // fixed to the trigger's viewport box instead of being clipped inside the band.
   useLayoutEffect(() => {
-    if (!open) return undefined;
+    if (!open) {
+      setMenuBox(null);
+      return undefined;
+    }
+    function isTriggerDisplayed(trigger: HTMLElement) {
+      // A zero box alone is not enough — jsdom always reports 0×0. Close only
+      // when an ancestor (or the trigger) is `display: none`, which is what
+      // happens at the sm breakpoint / rotate-to-landscape.
+      let node: HTMLElement | null = trigger;
+      while (node) {
+        if (window.getComputedStyle(node).display === "none") return false;
+        node = node.parentElement;
+      }
+      return trigger.isConnected;
+    }
+
     function syncMenuBox() {
       const trigger = triggerRef.current;
       if (!trigger) return;
+      if (!isTriggerDisplayed(trigger)) {
+        closeMenu();
+        return;
+      }
       const rect = trigger.getBoundingClientRect();
+      const gutter = 8;
+      const viewportWidth = window.innerWidth || 320;
+      const viewportHeight = window.innerHeight || 640;
+      const width = Math.min(Math.max(rect.width || 12 * 16, 12 * 16), Math.max(gutter, viewportWidth - gutter * 2));
+      const left = Math.min(Math.max(rect.left, gutter), Math.max(gutter, viewportWidth - width - gutter));
+      const spaceBelow = viewportHeight - rect.bottom - 6 - gutter;
+      const spaceAbove = rect.top - 6 - gutter;
+      const flip = spaceBelow < 160 && spaceAbove > spaceBelow;
+      const available = flip ? spaceAbove : spaceBelow;
+      const maxHeight = Math.max(96, Math.min(18 * 16, available > 0 ? available : 18 * 16));
       setMenuBox({
-        top: rect.bottom + 6,
-        left: rect.left,
-        width: Math.max(rect.width, 12 * 16),
+        top: flip ? Math.max(gutter, rect.top - 6) : rect.bottom + 6,
+        left,
+        width,
+        maxHeight,
+        placement: flip ? "above" : "below",
       });
     }
     syncMenuBox();
@@ -684,43 +749,113 @@ export function MobileResultFilterControl<Value extends string>({
       window.removeEventListener("resize", syncMenuBox);
       window.removeEventListener("scroll", syncMenuBox, true);
     };
-  }, [open]);
+  }, [open, closeMenu]);
+
+  function isEnabled(index: number) {
+    return Boolean(options[index] && !options[index]?.disabled);
+  }
+
+  /** Nearest enabled index at/after `from` (wrap), or -1 when none. */
+  function nearestEnabledIndex(from: number) {
+    const total = options.length;
+    if (total === 0) return -1;
+    const start = ((from % total) + total) % total;
+    for (let step = 0; step < total; step += 1) {
+      const index = (start + step) % total;
+      if (isEnabled(index)) return index;
+    }
+    return -1;
+  }
+
+  /** Next/previous enabled index from `from` in `direction`, wrapping. */
+  function stepEnabledIndex(from: number, direction: 1 | -1) {
+    const total = options.length;
+    if (total === 0) return -1;
+    for (let step = 1; step <= total; step += 1) {
+      const index = (((from + direction * step) % total) + total) % total;
+      if (isEnabled(index)) return index;
+    }
+    return -1;
+  }
 
   function focusOption(index: number) {
-    const total = options.length;
-    if (total === 0) return;
-    const next = ((index % total) + total) % total;
-    optionRefs.current[next]?.focus();
+    if (index < 0) return;
+    optionRefs.current[index]?.focus();
   }
 
   function openMenu(focusIndex: number) {
+    const next = nearestEnabledIndex(Math.max(0, focusIndex));
     setOpen(true);
-    window.requestAnimationFrame(() => focusOption(focusIndex));
+    setPendingFocus(next >= 0 ? next : null);
+  }
+
+  // Focus after the portaled menu + options commit (menuBox is set in layout).
+  // A single rAF can fire before that second paint, leaving optionRefs empty.
+  useLayoutEffect(() => {
+    if (!open || pendingFocus === null || !menuBox) return;
+    focusOption(pendingFocus);
+    setPendingFocus(null);
+  }, [open, pendingFocus, menuBox]);
+
+  function focusTypeahead(key: string, fromIndex: number) {
+    const character = key.toLocaleLowerCase();
+    if (character.length !== 1 || /\s/.test(character)) return false;
+    const now = Date.now();
+    const state = typeaheadRef.current;
+    if (state.timer !== null) window.clearTimeout(state.timer);
+    state.buffer = now - state.lastAt < 500 ? `${state.buffer}${character}` : character;
+    state.lastAt = now;
+    state.timer = setTimeout(() => {
+      state.buffer = "";
+      state.timer = null;
+    }, 500);
+
+    const buffer = state.buffer;
+    const total = options.length;
+    if (total === 0) return true;
+    const start = fromIndex >= 0 ? fromIndex : 0;
+    for (let step = 0; step < total; step += 1) {
+      // Same-letter repeats advance to the next match (native <select> behaviour).
+      const index = (start + (buffer.length === 1 ? step + 1 : step)) % total;
+      const option = options[index];
+      if (!option || option.disabled) continue;
+      if (option.label.toLocaleLowerCase().startsWith(buffer)) {
+        if (open) focusOption(index);
+        else openMenu(index);
+        return true;
+      }
+    }
+    return true;
   }
 
   function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      openMenu(activeIndex);
+      openMenu(matchedIndex >= 0 ? matchedIndex : 0);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      openMenu(options.length - 1);
+      const lastEnabled = stepEnabledIndex(options.length, -1);
+      openMenu(lastEnabled >= 0 ? lastEnabled : 0);
+    } else if (focusTypeahead(event.key, matchedIndex)) {
+      event.preventDefault();
     }
   }
 
   function handleOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      focusOption(index + 1);
+      focusOption(stepEnabledIndex(index, 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      focusOption(index - 1);
+      focusOption(stepEnabledIndex(index, -1));
     } else if (event.key === "Home") {
       event.preventDefault();
-      focusOption(0);
+      focusOption(nearestEnabledIndex(0));
     } else if (event.key === "End") {
       event.preventDefault();
-      focusOption(options.length - 1);
+      focusOption(stepEnabledIndex(options.length, -1));
+    } else if (focusTypeahead(event.key, index)) {
+      event.preventDefault();
     }
   }
 
@@ -730,7 +865,13 @@ export function MobileResultFilterControl<Value extends string>({
     if (nextTarget && (rootRef.current?.contains(nextTarget) || menuRef.current?.contains(nextTarget))) {
       return;
     }
-    setOpen(false);
+    closeMenu();
+  }
+
+  function selectOption(optionValue: Value) {
+    if (optionValue !== value) onChange(optionValue);
+    closeMenu();
+    window.requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
   }
 
   const menu =
@@ -742,8 +883,14 @@ export function MobileResultFilterControl<Value extends string>({
             role="menu"
             aria-label={ariaLabel}
             onBlur={handleBlur}
-            style={{ top: menuBox.top, left: menuBox.left, width: menuBox.width }}
-            className="fixed z-[95] max-h-[min(18rem,50vh)] overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
+            style={{
+              top: menuBox.top,
+              left: menuBox.left,
+              width: menuBox.width,
+              maxHeight: menuBox.maxHeight,
+              transform: menuBox.placement === "above" ? "translateY(-100%)" : undefined,
+            }}
+            className="fixed z-[95] overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-soft)]"
           >
             {options.map((option, index) => {
               const isActive = option.value === value;
@@ -761,11 +908,15 @@ export function MobileResultFilterControl<Value extends string>({
                   tabIndex={-1}
                   data-value={option.value}
                   onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                  // Safari (macOS/iOS) often does not focus a button on pointer
+                  // press; without this, blur closes the menu before click lands.
+                  onMouseDown={(event) => {
+                    if (option.disabled) return;
+                    event.preventDefault();
+                  }}
                   onClick={() => {
                     if (option.disabled) return;
-                    onChange(option.value);
-                    setOpen(false);
-                    window.requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
+                    selectOption(option.value);
                   }}
                   className={cn(
                     "flex min-h-tap w-full items-center justify-between gap-2 rounded-lg px-2.5 text-left text-sm font-semibold",
@@ -794,12 +945,12 @@ export function MobileResultFilterControl<Value extends string>({
         ref={triggerRef}
         data-testid={testId}
         data-value={value}
-        aria-label={ariaLabel}
+        aria-label={accessibleName}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onKeyDown={handleTriggerKeyDown}
-        onClick={() => (open ? setOpen(false) : openMenu(activeIndex))}
+        onClick={() => (open ? closeMenu() : openMenu(matchedIndex >= 0 ? matchedIndex : 0))}
         className={cn(
           // The sort group next to this control puts min-h-tap on its buttons and
           // its own border outside them, so it stands 2px taller than a bare

@@ -18,14 +18,15 @@ import { cn } from "@/components/ui-primitives";
 
 /**
  * Design scratch for the phone Category filter used on Tools (and shared via
- * `MobileResultFilterControl`). The shipped control wraps a native `<select>`;
- * on mobile that paints a harsh system-blue selection/focus rectangle over the
- * value text that fights the rest of the Clinical White surface.
+ * `MobileResultFilterControl`). Direction A (soft value button) is shipped;
+ * the older native `<select>` painted a harsh system-blue selection/focus
+ * rectangle over the value text that fought the Clinical White surface.
  *
  * Every direction below replaces the native select with a custom control so
  * focus and selection stay inside the design-token system. Mockups 404 in
  * production and sit outside wiring/reachability gates; controls are still
- * interactive so a direction can be judged while using it.
+ * interactive so a direction can be judged while using it. Panels here omit
+ * Escape/outside-click dismissal on purpose — the shipped control owns that.
  */
 
 const focusRing =
@@ -47,18 +48,31 @@ const TOOL_ROWS = [
     title: "Clinical KB Search",
     body: "Ask a clinical question with cited sources.",
     icon: Search,
+    category: "all" as const,
   },
   {
     title: "Differentials",
     body: "Compare likely diagnoses side by side.",
     icon: ClipboardList,
+    category: "assessment" as const,
   },
   {
     title: "Documents",
     body: "Browse and open indexed guidelines.",
     icon: FileText,
+    category: "reference" as const,
   },
 ] as const;
+
+/** Fake catalogue sizes so selected-state frames do not contradict the header. */
+const RESULT_COUNTS: Record<CategoryId, number> = {
+  all: 12,
+  assessment: 4,
+  reference: 3,
+  care: 2,
+  coordination: 2,
+  saved: 1,
+};
 
 function categoryLabel(id: CategoryId) {
   return CATEGORIES.find((item) => item.id === id)?.label ?? "All tools";
@@ -146,22 +160,25 @@ function QuickActions() {
   );
 }
 
-function ResultsHeader({ filter }: { filter: ReactNode }) {
+function ResultsHeader({ filter, value }: { filter: ReactNode; value: CategoryId }) {
+  const heading = value === "all" ? "All tools" : `${categoryLabel(value)} tools`;
   return (
     <div className="mb-3">
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h4 className="text-base font-extrabold text-[color:var(--text-heading)]">All tools</h4>
-        <span className="text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">12</span>
+        <h4 className="text-base font-extrabold text-[color:var(--text-heading)]">{heading}</h4>
+        <span className="text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">{RESULT_COUNTS[value]}</span>
       </div>
       {filter}
     </div>
   );
 }
 
-function ToolList() {
+function ToolList({ value }: { value: CategoryId }) {
+  const rows =
+    value === "all" ? TOOL_ROWS : TOOL_ROWS.filter((row) => row.category === value || row.category === "all");
   return (
     <div className="grid gap-2" aria-hidden>
-      {TOOL_ROWS.map((row) => {
+      {rows.map((row) => {
         const Icon = row.icon;
         return (
           <div
@@ -189,14 +206,14 @@ function ToolList() {
   );
 }
 
-function PhoneScene({ filter }: { filter: ReactNode }) {
+function PhoneScene({ filter, value }: { filter: ReactNode; value: CategoryId }) {
   return (
     <PhoneChrome>
       <ToolsHero />
       <SearchStub />
       <QuickActions />
-      <ResultsHeader filter={filter} />
-      <ToolList />
+      <ResultsHeader filter={filter} value={value} />
+      <ToolList value={value} />
     </PhoneChrome>
   );
 }
@@ -273,6 +290,7 @@ function SoftSheetFilter({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const titleId = useId();
+  const panelId = useId();
   const filtered = value !== "all";
 
   return (
@@ -281,7 +299,7 @@ function SoftSheetFilter({
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-controls={open ? titleId : undefined}
+        aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((current) => !current)}
         className={cn(
           "inline-flex min-h-tap w-full items-center gap-2 rounded-xl border px-3 text-left transition",
@@ -313,6 +331,7 @@ function SoftSheetFilter({
 
       {open ? (
         <div
+          id={panelId}
           role="dialog"
           aria-modal="false"
           aria-labelledby={titleId}
@@ -776,7 +795,10 @@ export function CategoryFilterDirectionsMockupsPage() {
           <StatefulFrame
             label="Baseline · native select (highlight forced on)"
             render={(value, setValue) => (
-              <PhoneScene filter={<BaselineNativeSelect value={value} onChange={setValue} showHighlight />} />
+              <PhoneScene
+                value={value}
+                filter={<BaselineNativeSelect value={value} onChange={setValue} showHighlight />}
+              />
             )}
           />
         </div>
@@ -799,12 +821,14 @@ export function CategoryFilterDirectionsMockupsPage() {
         >
           <StatefulFrame
             label="Resting · All tools"
-            render={(value, setValue) => <PhoneScene filter={<SoftSheetFilter value={value} onChange={setValue} />} />}
+            render={(value, setValue) => (
+              <PhoneScene value={value} filter={<SoftSheetFilter value={value} onChange={setValue} />} />
+            )}
           />
           <StatefulFrame
             label="Open · panel visible"
             render={(value, setValue) => (
-              <PhoneScene filter={<SoftSheetFilter value={value} onChange={setValue} defaultOpen />} />
+              <PhoneScene value={value} filter={<SoftSheetFilter value={value} onChange={setValue} defaultOpen />} />
             )}
           />
         </Direction>
@@ -824,12 +848,16 @@ export function CategoryFilterDirectionsMockupsPage() {
         >
           <StatefulFrame
             label="All selected"
-            render={(value, setValue) => <PhoneScene filter={<ChipRailFilter value={value} onChange={setValue} />} />}
+            render={(value, setValue) => (
+              <PhoneScene value={value} filter={<ChipRailFilter value={value} onChange={setValue} />} />
+            )}
           />
           <StatefulFrame
             label="Assess selected"
             initialValue="assessment"
-            render={(value, setValue) => <PhoneScene filter={<ChipRailFilter value={value} onChange={setValue} />} />}
+            render={(value, setValue) => (
+              <PhoneScene value={value} filter={<ChipRailFilter value={value} onChange={setValue} />} />
+            )}
           />
         </Direction>
 
@@ -848,13 +876,15 @@ export function CategoryFilterDirectionsMockupsPage() {
         >
           <StatefulFrame
             label="Resting"
-            render={(value, setValue) => <PhoneScene filter={<ListboxFilter value={value} onChange={setValue} />} />}
+            render={(value, setValue) => (
+              <PhoneScene value={value} filter={<ListboxFilter value={value} onChange={setValue} />} />
+            )}
           />
           <StatefulFrame
             label="Open · Treat selected"
             initialValue="care"
             render={(value, setValue) => (
-              <PhoneScene filter={<ListboxFilter value={value} onChange={setValue} defaultOpen />} />
+              <PhoneScene value={value} filter={<ListboxFilter value={value} onChange={setValue} defaultOpen />} />
             )}
           />
         </Direction>
@@ -875,13 +905,16 @@ export function CategoryFilterDirectionsMockupsPage() {
           <StatefulFrame
             label="Primary segments"
             render={(value, setValue) => (
-              <PhoneScene filter={<SegmentOverflowFilter value={value} onChange={setValue} />} />
+              <PhoneScene value={value} filter={<SegmentOverflowFilter value={value} onChange={setValue} />} />
             )}
           />
           <StatefulFrame
             label="More menu open"
             render={(value, setValue) => (
-              <PhoneScene filter={<SegmentOverflowFilter value={value} onChange={setValue} defaultOpen />} />
+              <PhoneScene
+                value={value}
+                filter={<SegmentOverflowFilter value={value} onChange={setValue} defaultOpen />}
+              />
             )}
           />
         </Direction>
@@ -901,13 +934,15 @@ export function CategoryFilterDirectionsMockupsPage() {
         >
           <StatefulFrame
             label="Resting"
-            render={(value, setValue) => <PhoneScene filter={<QuietRailFilter value={value} onChange={setValue} />} />}
+            render={(value, setValue) => (
+              <PhoneScene value={value} filter={<QuietRailFilter value={value} onChange={setValue} />} />
+            )}
           />
           <StatefulFrame
             label="Open · Evidence selected"
             initialValue="reference"
             render={(value, setValue) => (
-              <PhoneScene filter={<QuietRailFilter value={value} onChange={setValue} defaultOpen />} />
+              <PhoneScene value={value} filter={<QuietRailFilter value={value} onChange={setValue} defaultOpen />} />
             )}
           />
         </Direction>

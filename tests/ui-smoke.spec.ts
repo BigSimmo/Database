@@ -2891,7 +2891,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const categorySelect = queryRibbon.getByTestId("factsheet-category-select");
       if (viewport.width < 640) {
         await expect(categorySelect).toBeVisible();
-        await expect(categorySelect).toHaveAccessibleName("Filter factsheets by category");
+        await expect(categorySelect).toHaveAccessibleName(/Filter factsheets by category/);
       } else {
         await expect(categorySelect).toBeHidden();
       }

@@ -345,7 +345,7 @@ describe("SearchResultsHeaderBand", () => {
     const pageFilters = screen.getByTestId("search-query-ribbon-mobile-controls");
     expect(utilities.lastElementChild).toBe(pageFilters);
     await user.click(within(utilities).getByRole("button", { name: "A–Z" }));
-    const filterTrigger = within(pageFilters).getByRole("button", { name: "Filter by result type" });
+    const filterTrigger = within(pageFilters).getByRole("button", { name: /Filter by result type/ });
     await user.click(filterTrigger);
     // Menu is portaled to document.body so it is not clipped by the band.
     await user.click(screen.getByRole("menuitemradio", { name: "Diagnoses (7)" }));
@@ -353,5 +353,126 @@ describe("SearchResultsHeaderBand", () => {
     expect(onSortChange).toHaveBeenCalledWith("alpha");
     expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
     expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
+  });
+});
+
+describe("MobileResultFilterControl", () => {
+  const options = [
+    { value: "current", label: "Current search", disabled: true },
+    { value: "crisis", label: "Crisis" },
+    { value: "youth", label: "Youth" },
+  ] as const;
+
+  it("skips disabled options when opening with the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <MobileResultFilterControl
+        label="Filter"
+        ariaLabel="Apply a quick service filter"
+        value="current"
+        options={[...options]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Apply a quick service filter/ });
+    trigger.focus();
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("menu")).toBeVisible();
+    expect(screen.getByRole("menuitemradio", { name: "Crisis" })).toHaveFocus();
+  });
+
+  it("does not re-fire onChange when the active option is re-selected", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <MobileResultFilterControl
+        label="Show"
+        ariaLabel="Filter by result type"
+        value="crisis"
+        options={[...options]}
+        onChange={onChange}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Filter by result type/ }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Crisis" }));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("uses restingValue for the filtered accent, not options[0]", () => {
+    const { rerender } = render(
+      <MobileResultFilterControl
+        label="Filter"
+        ariaLabel="Apply a quick service filter"
+        value="crisis"
+        restingValue="current"
+        options={[
+          { value: "crisis", label: "Crisis" },
+          { value: "youth", label: "Youth" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const trigger = screen.getByRole("button", { name: /Apply a quick service filter/ });
+    expect(trigger.className).toContain("clinical-accent-soft");
+
+    rerender(
+      <MobileResultFilterControl
+        label="Filter"
+        ariaLabel="Apply a quick service filter"
+        value="current"
+        restingValue="current"
+        options={[
+          { value: "current", label: "All services", disabled: true },
+          { value: "crisis", label: "Crisis" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Apply a quick service filter/ }).className).not.toContain(
+      "clinical-accent-soft",
+    );
+  });
+
+  it("keeps an unmatched value's label instead of clamping to options[0]", () => {
+    render(
+      <MobileResultFilterControl
+        label="Show"
+        ariaLabel="Filter by result type"
+        value="stale"
+        options={[
+          { value: "all", label: "All (8)" },
+          { value: "diagnosis", label: "Diagnoses (7)" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Filter by result type/ })).toHaveTextContent("stale");
+    expect(screen.getByRole("button", { name: /Filter by result type/ })).not.toHaveTextContent("All (8)");
+  });
+
+  it("includes the visible label text in the accessible name", () => {
+    render(
+      <MobileResultFilterControl
+        label="Category"
+        ariaLabel="Filter by tool category"
+        value="all"
+        options={[
+          { value: "all", label: "All tools" },
+          { value: "assessment", label: "Assess" },
+        ]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Filter by tool category/ })).toHaveAccessibleName(
+      "Category All tools. Filter by tool category",
+    );
   });
 });

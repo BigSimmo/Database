@@ -104,7 +104,7 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expect(queryRibbon.getByTestId("formulation-pattern-select")).toBeVisible();
   const domainSelect = queryRibbon.getByTestId("formulation-domain-select");
   await expect(domainSelect).toBeVisible();
-  await expect(domainSelect).toHaveAccessibleName("Filter by formulation domain");
+  await expect(domainSelect).toHaveAccessibleName(/Filter by formulation domain/);
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);

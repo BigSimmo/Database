@@ -111,9 +111,9 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   const familySelect = queryRibbon.getByTestId("specifier-family-select");
   const diagnosisSelect = queryRibbon.getByTestId("specifier-diagnosis-select");
   await expect(familySelect).toBeVisible();
-  await expect(familySelect).toHaveAccessibleName("Filter by specifier family");
+  await expect(familySelect).toHaveAccessibleName(/Filter by specifier family/);
   await expect(diagnosisSelect).toBeVisible();
-  await expect(diagnosisSelect).toHaveAccessibleName("Filter by diagnosis");
+  await expect(diagnosisSelect).toHaveAccessibleName(/Filter by diagnosis/);
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);

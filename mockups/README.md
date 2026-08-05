@@ -39,7 +39,7 @@ Some document-search mockups include live handoff routes (for example `document-
 
 ## Category filter directions (phone)
 
-Runnable study at [`/mockups/category-filter-directions`](../src/app/mockups/category-filter-directions/page.tsx): five replacements for the native Category `<select>` blue highlight on Tools (shared `MobileResultFilterControl`). Recommended lean is soft value button (A) or chip rail (B).
+Runnable study at [`/mockups/category-filter-directions`](../src/app/mockups/category-filter-directions/page.tsx): five replacements for the native Category `<select>` blue highlight on Tools (shared `MobileResultFilterControl`). Direction A (soft value button) is shipped as `MobileResultFilterControl`; B (chip rail) remains the alternate.
 
 ## Mode-page redesign comps (2026-07-31)
 

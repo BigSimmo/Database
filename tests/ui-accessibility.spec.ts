@@ -464,7 +464,7 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     const filterSelect = page.getByTestId("differential-result-type-select");
     await expect(filterSelect).toBeVisible();
-    await expect(filterSelect).toHaveAccessibleName("Filter by result type");
+    await expect(filterSelect).toHaveAccessibleName(/Filter by result type/);
     await expect(filterSelect).toHaveAttribute("data-value", "all");
     await expect(page.getByRole("tab")).toHaveCount(0);
 

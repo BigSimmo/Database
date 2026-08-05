@@ -662,6 +662,7 @@ export function ServicesNavigatorPage() {
                 ariaLabel="Apply a quick service filter"
                 testId="service-quick-filter-select"
                 value={activeQuickFilter?.query ?? "current"}
+                restingValue="current"
                 options={[
                   ...(activeQuickFilter
                     ? []

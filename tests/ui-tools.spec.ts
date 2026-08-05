@@ -416,7 +416,7 @@ test.describe("Clinical KB tools launcher", () => {
       if (viewport.name === "mobile") {
         const categorySelect = page.getByTestId("tool-category-select");
         await expect(categorySelect).toBeVisible();
-        await expect(categorySelect).toHaveAccessibleName("Filter by tool category");
+        await expect(categorySelect).toHaveAccessibleName(/Filter by tool category/);
         await categorySelect.click();
         await page.getByRole("menuitemradio", { name: "Assess" }).click();
         await expect(categorySelect).toHaveAttribute("data-value", "assessment");
@@ -819,7 +819,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(input).toBeVisible();
     const quickFilter = page.getByTestId("service-quick-filter-select");
     await expect(quickFilter).toBeVisible();
-    await expect(quickFilter).toHaveAccessibleName("Apply a quick service filter");
+    await expect(quickFilter).toHaveAccessibleName(/Apply a quick service filter/);
     await quickFilter.click();
     await page.getByRole("menuitemradio", { name: "Crisis" }).click();
     await expect(page).toHaveURL(/\/services\?.*q=crisis/);
@@ -1602,7 +1602,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
-    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
+    await expect(typeSelect).toHaveAccessibleName(/Filter by result type/);
     await expect(typeSelect).toHaveAttribute("data-value", "all");
     await typeSelect.click();
     await page.getByRole("menuitemradio", { name: /Diagnoses/ }).click();
@@ -1712,7 +1712,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleByTestId(page, "differentials-search-results")).toBeVisible();
     const typeSelect = page.getByTestId("differential-result-type-select");
     await expect(typeSelect).toBeVisible();
-    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
+    await expect(typeSelect).toHaveAccessibleName(/Filter by result type/);
     await expect(typeSelect).toHaveAttribute("data-value", "all");
     await typeSelect.click();
     await page.getByRole("menuitemradio", { name: /Presentations/ }).click();
@@ -2395,7 +2395,7 @@ test.describe("Responsive layout guards", () => {
     await expect(queryRibbon.getByRole("status")).toBeVisible();
     const resultFilter = queryRibbon.getByTestId("medication-result-filter-select");
     await expect(resultFilter).toBeVisible();
-    await expect(resultFilter).toHaveAccessibleName("Filter medication results");
+    await expect(resultFilter).toHaveAccessibleName(/Filter medication results/);
     await expect(bottomDock).toBeVisible();
     await scrollPrimarySurface(page, "end");
     await expect
