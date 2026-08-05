@@ -139,6 +139,7 @@ export function Sheet({
     },
     [sheetId],
   );
+  const resolveReturnFocusRefTarget = useCallback(() => returnFocusRef?.current ?? null, [returnFocusRef]);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -281,7 +282,7 @@ export function Sheet({
       openFocusRef.current = null;
       popSheet(sheetId);
       const resolveConnectedRestoreTarget = () =>
-        [resolveReturnFocusTarget?.() ?? null, returnFocusRef?.current ?? null, previousActiveElement].find(
+        [resolveReturnFocusTarget?.() ?? null, resolveReturnFocusRefTarget(), previousActiveElement].find(
           (target): target is HTMLElement => Boolean(target?.isConnected),
         ) ?? null;
       if (restoreTimers.frame != null) {
@@ -327,7 +328,7 @@ export function Sheet({
         }, 50);
       });
     };
-  }, [open, initialFocusRef, returnFocusRef, resolveReturnFocusTarget, sheetId]);
+  }, [open, initialFocusRef, resolveReturnFocusRefTarget, resolveReturnFocusTarget, sheetId]);
 
   if (!open) return null;
 
