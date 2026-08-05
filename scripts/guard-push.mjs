@@ -793,15 +793,21 @@ export function staticGuard(changedFiles, options = {}) {
   if (wantTypecheck) {
     const result = runStaticCheck(PROJECT_ROOT, "typecheck:source:internal", [], "typecheck");
     if (result.busy) {
-      return {
-        name: "static",
-        ok: true,
-        note:
-          `run coordinator busy — typecheck NOT run (${result.output}). ` +
-          `CI still enforces it; retry the push once the other heavy run finishes.`,
-      };
+      // Only fail open when nothing has already failed. A prior lint failure
+      // must still block — dropping it would let a proven error through and
+      // waste the CI cycle this guard exists to prevent.
+      if (failures.length === 0) {
+        return {
+          name: "static",
+          ok: true,
+          note:
+            `run coordinator busy — typecheck NOT run (${result.output}). ` +
+            `CI still enforces it; retry the push once the other heavy run finishes.`,
+        };
+      }
+    } else if (!result.ok) {
+      failures.push(result);
     }
-    if (!result.ok) failures.push(result);
   }
 
   const dirty = tryGit(["status", "--porcelain"]);
