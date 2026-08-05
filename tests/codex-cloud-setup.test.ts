@@ -488,7 +488,7 @@ describe("Codex Cloud environment contract", () => {
         "--environment",
         "--hosted-app-inventroy=github",
       ],
-      { cwd: repoRoot, encoding: "utf8", env: { PATH: process.env.PATH } },
+      { cwd: repoRoot, encoding: "utf8", env: { PATH: process.env.PATH ?? "" } },
     );
     expect(malformedCli.status).toBe(1);
     expect(malformedCli.stderr).toContain("Unsupported Cloud-check argument");
