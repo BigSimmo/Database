@@ -1,24 +1,23 @@
 "use client";
 
 import { Check, ChevronDown, MessageSquarePlus, Search, X } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeDefinitions, type AppModeId } from "@/lib/app-modes";
 
 /**
- * Design scratch: phone "Choose mode" sheet — review + two large YES comps.
+ * Design scratch: phone "Choose mode" sheet — review + YES comps.
  *
- * The live sheet in `master-search-header.tsx` is a flat, truncated list inside
- * a content-sized bottom Sheet. These frames keep the same modes, icons, and
- * Sheet anatomy, but fix scan, hierarchy, and thumb reach. Mockups 404 in
- * production and sit outside wiring/reachability gates; controls stay wired so
- * the study can be judged.
+ * YES 01 (sectioned list) is the perfected master: every review finding closed,
+ * sticky offset debt removed, current mode folded into the sheet header, and
+ * selection is interactive so the study can be judged as a real switcher.
  */
 
 type GroupId = "find" | "diagnose" | "care";
 type VariantId = "current" | "sections" | "deck";
+type SectionsPreview = "rest" | "scrolled" | "switched";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -87,6 +86,33 @@ const reviewFindings = [
   },
 ] as const;
 
+const perfectedResolutions = [
+  {
+    issue: "Flat catalogue",
+    fix: "Find / Diagnose / Care sections with sticky labels and counts — scan by clinical job.",
+  },
+  {
+    issue: "Truncated subtitles",
+    fix: "Two-line `line-clamp-2` descriptions; inactive titles stay full `--text-heading` weight.",
+  },
+  {
+    issue: "Lost place mid-scroll",
+    fix: "Current mode lives in the non-scrolling sheet header; section labels stick at `top-0` — no fragile offset.",
+  },
+  {
+    issue: "Dense thumb targets",
+    fix: "`min-h-12` rows, 44 px icon wells, 10 px row gap rhythm — primary switcher, not a desktop menu port.",
+  },
+  {
+    issue: "Generic header",
+    fix: "Header reads “Currently · Answer” with the live icon; updates when you pick another mode.",
+  },
+  {
+    issue: "Duplicate current chrome",
+    fix: "Removed the bulky sticky “Now in” card that stole first-viewport height and repeated the selected row.",
+  },
+] as const;
+
 const variants: Array<{
   id: Exclude<VariantId, "current">;
   title: string;
@@ -96,15 +122,15 @@ const variants: Array<{
 }> = [
   {
     id: "sections",
-    title: "Sectioned clinical list",
-    verdict: "YES · Best for intent",
+    title: "Sectioned clinical list — perfected",
+    verdict: "YES · Master for intent",
     description:
-      "Keep the familiar list, but group by Find / Diagnose / Care. Larger rows, two-line descriptions, a sticky current-mode strip, and a clearer selected state. Closest to shipping with the least behaviour change.",
+      "Every review finding closed. Current mode sits in the sheet header, section labels are the only sticky layer, rows are phone-native, and selection is interactive. This is the direction to land.",
     changes: [
-      "Three clinical groups with sticky labels — scan by job, not by alphabet.",
-      "Rows are min-h-12 with 44 px icon wells; descriptions use line-clamp-2 instead of truncate.",
-      "Pinned ‘Now in Answer’ strip stays visible while the list scrolls.",
-      "Selected row keeps accent soft fill, left rail, and check — the sticky strip already says Current.",
+      "Header carries “Currently · {mode}” — orients without a second card.",
+      "Sticky section labels only (`top-0`); no magic `4.6rem` offset under a strip.",
+      "`min-h-12` rows, 44 px wells, two-line descriptions, readable inactive titles.",
+      "Tap a mode: header and selection update together — proven in the Switched frame.",
     ],
   },
   {
@@ -112,7 +138,7 @@ const variants: Array<{
     title: "Icon deck with lane chips",
     verdict: "YES · Best overview",
     description:
-      "Two-column mode cards plus Find / Diagnose / Care filter chips. More of the catalogue fits in one glance; the current mode owns a large identity card at the top. Prefer this if browsing all modes matters more than a vertical reading order.",
+      "Two-column mode cards plus Find / Diagnose / Care filter chips. Prefer this if browsing all modes matters more than a vertical reading order. YES 01 remains the shipping recommendation.",
     changes: [
       "Lane chips filter the deck without opening a second surface.",
       "Current mode sits in a full-width identity card above the grid.",
@@ -139,12 +165,12 @@ function UniversalHeader({ modeLabel }: { modeLabel: string }) {
   );
 }
 
-function DimmedHome() {
+function DimmedHome({ modeLabel }: { modeLabel: string }) {
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col bg-[color:var(--background)]">
+    <div className="pointer-events-none relative flex min-h-0 flex-1 flex-col bg-[color:var(--background)]">
       <div className="flex flex-1 flex-col items-center justify-center px-6 opacity-40">
-        <p className="text-center text-sm font-semibold text-[color:var(--text-heading)]">Answer</p>
-        <p className="mt-1 text-center text-xs text-[color:var(--text-muted)]">Source-backed clinical answer</p>
+        <p className="text-center text-sm font-semibold text-[color:var(--text-heading)]">{modeLabel}</p>
+        <p className="mt-1 text-center text-xs text-[color:var(--text-muted)]">Clinical workspace</p>
         <div className="mt-6 h-12 w-full max-w-[18rem] rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]" />
       </div>
       <div aria-hidden="true" className="absolute inset-0 bg-[color:var(--text)]/35" />
@@ -155,36 +181,43 @@ function DimmedHome() {
 function SheetChrome({
   title,
   description,
+  descriptionContent,
   closeLabel,
   children,
   bodyClassName,
 }: {
   title: string;
   description?: string;
+  descriptionContent?: ReactNode;
   closeLabel: string;
   children: ReactNode;
   bodyClassName?: string;
 }) {
   const titleId = useId();
   const descriptionId = useId();
+  const hasDescription = Boolean(description || descriptionContent);
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      aria-describedby={description ? descriptionId : undefined}
-      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[88%] flex-col overflow-hidden rounded-t-[1.25rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)]"
+      aria-describedby={hasDescription ? descriptionId : undefined}
+      className="absolute inset-x-0 bottom-0 z-10 flex max-h-[90%] flex-col overflow-hidden rounded-t-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-lux)]"
     >
-      <div className="flex justify-center pt-2" aria-hidden="true">
-        <span className="h-1 w-10 rounded-full bg-[color:var(--border-strong)]/70" />
+      <div className="flex justify-center pt-2.5" aria-hidden="true">
+        <span className="h-1 w-10 rounded-full bg-[color:var(--border-strong)]/65" />
       </div>
-      <div className="flex items-start gap-3 border-b border-[color:var(--border)] px-4 pb-3 pt-2">
+      <div className="flex items-start gap-3 px-4 pb-3 pt-1.5">
         <div className="min-w-0 flex-1">
           <h3 id={titleId} className="text-base font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]">
             {title}
           </h3>
-          {description ? (
+          {descriptionContent ? (
+            <div id={descriptionId} className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+              {descriptionContent}
+            </div>
+          ) : description ? (
             <p id={descriptionId} className="mt-0.5 text-xs leading-5 text-[color:var(--text-muted)]">
               {description}
             </p>
@@ -203,6 +236,7 @@ function SheetChrome({
           <X aria-hidden="true" className="h-4 w-4" />
         </button>
       </div>
+      <div aria-hidden="true" className="h-px shrink-0 bg-[color:var(--border)]" />
       <div className={cn("min-h-0 flex-1 overflow-y-auto polished-scroll", bodyClassName)}>{children}</div>
       <div aria-hidden="true" className="h-[max(0.75rem,env(safe-area-inset-bottom))] shrink-0" />
     </div>
@@ -263,99 +297,165 @@ function CurrentShippingSheet() {
   );
 }
 
-function CurrentModeStrip({ modeId }: { modeId: AppModeId }) {
+function CurrentlyLine({ modeId }: { modeId: AppModeId }) {
   const mode = modeOf(modeId);
   const Icon = appModeIcons[modeId];
 
   return (
-    <div className="sticky top-0 z-[1] border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-2 backdrop-blur-md">
-      <div className="flex items-center gap-2.5 rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 py-2.5 text-[color:var(--clinical-accent)]">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)]">
-          <Icon aria-hidden="true" className="h-5 w-5" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
-            Now in
-          </span>
-          <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">{mode.label}</span>
-        </span>
-        <span className="shrink-0 rounded-full bg-[color:var(--surface)] px-2 py-1 text-3xs font-bold text-[color:var(--clinical-accent)]">
-          Current
-        </span>
-      </div>
-    </div>
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+        <Icon aria-hidden="true" className="h-3 w-3" />
+      </span>
+      <span className="min-w-0 truncate">
+        Currently{" "}
+        <span className="font-semibold text-[color:var(--text-heading)]">{mode.label}</span>
+      </span>
+    </span>
   );
 }
 
-function SectionedListSheet() {
+function ModeRow({
+  modeId,
+  active,
+  index,
+  onSelect,
+}: {
+  modeId: AppModeId;
+  active: boolean;
+  index: number;
+  onSelect: (id: AppModeId) => void;
+}) {
+  const mode = modeOf(modeId);
+  const Icon = appModeIcons[modeId];
+
   return (
-    <SheetChrome title="Choose mode" description="Pick by clinical intent." closeLabel="Close mode menu">
-      <CurrentModeStrip modeId={ACTIVE_MODE} />
-      <div role="menu" aria-label="Choose app mode" className="space-y-4 px-2 pb-3 pt-3">
-        {GROUPS.map((group) => (
-          <section key={group.id} aria-labelledby={`group-${group.id}`}>
-            <div className="sticky top-[4.6rem] z-[1] -mx-2 mb-1.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/95 px-3 py-1.5 backdrop-blur-md">
-              <h4
-                id={`group-${group.id}`}
-                className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
-              >
-                {group.label}
-              </h4>
-              <p className="text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</p>
-            </div>
-            <div className="grid gap-1">
-              {group.modes.map((modeId) => {
-                const mode = modeOf(modeId);
-                const Icon = appModeIcons[modeId];
-                const active = modeId === ACTIVE_MODE;
-                return (
-                  <button
-                    key={modeId}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={active}
-                    onClick={() => undefined}
-                    className={cn(
-                      "relative grid min-h-12 w-full grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition",
-                      focusRing,
-                      active
-                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
-                        : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                    )}
-                  >
-                    {active ? (
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-y-2 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
-                      />
-                    ) : null}
-                    <span
-                      className={cn(
-                        "grid h-11 w-11 place-items-center rounded-xl border",
-                        active
-                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
-                      )}
+    <button
+      type="button"
+      role="menuitemradio"
+      aria-checked={active}
+      tabIndex={active ? 0 : -1}
+      onClick={() => onSelect(modeId)}
+      style={{ animationDelay: `${Math.min(index, 8) * 28}ms` }}
+      className={cn(
+        "relative grid min-h-12 w-full grid-cols-[2.75rem_minmax(0,1fr)_1.75rem] items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] motion-safe:animate-[cascade-fade-up_var(--duration-moderate)_var(--ease-out-soft)_both] motion-reduce:animate-none motion-reduce:transition-none",
+        focusRing,
+        active
+          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)]"
+          : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+      )}
+    >
+      {active ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-2 left-0 w-1 rounded-r-full bg-[color:var(--clinical-accent)]"
+        />
+      ) : null}
+      <span
+        className={cn(
+          "grid h-11 w-11 place-items-center rounded-xl border transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none",
+          active
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+        )}
+      >
+        <Icon aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]">
+          {mode.label}
+        </span>
+        <span className="mt-0.5 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
+          {mode.description}
+        </span>
+      </span>
+      <span className="grid place-items-center">
+        {active ? (
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)]">
+            <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </span>
+        ) : (
+          <span aria-hidden="true" className="h-6 w-6" />
+        )}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Perfected YES 01. Current mode is header chrome (never a second sticky card).
+ * Section labels are the sole sticky layer. Selection is live.
+ */
+function SectionedListSheet({
+  initialMode = ACTIVE_MODE,
+  preview = "rest",
+}: {
+  initialMode?: AppModeId;
+  preview?: SectionsPreview;
+}) {
+  const [selected, setSelected] = useState(initialMode);
+  const diagnoseRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (preview !== "scrolled") return;
+    const frame = window.requestAnimationFrame(() => {
+      diagnoseRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [preview]);
+
+  return (
+    <SheetChrome
+      title="Choose mode"
+      descriptionContent={<CurrentlyLine modeId={selected} />}
+      closeLabel="Close mode menu"
+    >
+      <div
+        role="menu"
+        aria-label="Choose app mode"
+        data-perfected="yes-01"
+        data-preview={preview}
+        className="px-2.5 pb-2 pt-1"
+      >
+        {GROUPS.map((group, groupIndex) => {
+          const sectionRef = group.id === "diagnose" ? diagnoseRef : undefined;
+          const rowOffset = GROUPS.slice(0, groupIndex).reduce((total, entry) => total + entry.modes.length, 0);
+          return (
+            <section
+              key={group.id}
+              ref={sectionRef}
+              aria-labelledby={`group-${group.id}-${preview}`}
+              className="pt-3 first:pt-1.5"
+            >
+              <div className="sticky top-0 z-[1] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2.5 py-1.5 backdrop-blur-md">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4
+                      id={`group-${group.id}-${preview}`}
+                      className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--text-soft)]"
                     >
-                      <Icon aria-hidden="true" className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                        {mode.label}
-                      </span>
-                      <span className="mt-0.5 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-                        {mode.description}
-                      </span>
-                    </span>
-                    {active ? (
-                      <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+                      {group.label}
+                    </h4>
+                    <p className="truncate text-3xs font-medium text-[color:var(--text-muted)]">{group.hint}</p>
+                  </div>
+                  <span className="nums shrink-0 rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-3xs font-bold tabular-nums text-[color:var(--text-soft)]">
+                    {group.modes.length}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-1.5 grid gap-1">
+                {group.modes.map((modeId, modeIndex) => (
+                  <ModeRow
+                    key={modeId}
+                    modeId={modeId}
+                    active={modeId === selected}
+                    index={rowOffset + modeIndex}
+                    onSelect={setSelected}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </SheetChrome>
   );
@@ -488,8 +588,23 @@ function IconDeckSheet() {
   );
 }
 
-function PhoneFrame({ variant, large = false, caption }: { variant: VariantId; large?: boolean; caption: string }) {
-  const modeLabel = modeOf(ACTIVE_MODE).label;
+function PhoneFrame({
+  variant,
+  large = false,
+  caption,
+  sectionsPreview = "rest",
+  initialMode,
+}: {
+  variant: VariantId;
+  large?: boolean;
+  caption: string;
+  sectionsPreview?: SectionsPreview;
+  initialMode?: AppModeId;
+}) {
+  const modeLabel =
+    variant === "sections" && initialMode
+      ? modeOf(initialMode).label
+      : modeOf(ACTIVE_MODE).label;
 
   return (
     <figure className={cn("m-0 max-w-full min-w-0", large ? "w-[390px]" : "w-[340px]")}>
@@ -498,15 +613,22 @@ function PhoneFrame({ variant, large = false, caption }: { variant: VariantId; l
       </figcaption>
       <div
         data-variant={variant}
+        data-sections-preview={variant === "sections" ? sectionsPreview : undefined}
         className={cn(
-          "relative flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
-          large ? "h-[44rem]" : "h-[30rem]",
+          "relative isolate flex flex-col overflow-hidden rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]",
+          large ? "h-[46rem]" : "h-[30rem]",
         )}
       >
         <UniversalHeader modeLabel={modeLabel} />
-        <DimmedHome />
+        <DimmedHome modeLabel={modeLabel} />
         {variant === "current" ? <CurrentShippingSheet /> : null}
-        {variant === "sections" ? <SectionedListSheet /> : null}
+        {variant === "sections" ? (
+          <SectionedListSheet
+            key={`${sectionsPreview}-${initialMode ?? ACTIVE_MODE}`}
+            initialMode={initialMode ?? ACTIVE_MODE}
+            preview={sectionsPreview}
+          />
+        ) : null}
         {variant === "deck" ? <IconDeckSheet /> : null}
       </div>
     </figure>
@@ -544,52 +666,96 @@ function ReviewPanel() {
       </ul>
       <p className="mt-4 flex items-start gap-2 text-xs leading-5 text-[color:var(--text-muted)]">
         <Search aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-        Both YES comps below keep Sheet grip, close, safe-area, and menuitemradio semantics so either can land in
-        `master-search-header` without a new overlay primitive.
+        YES 01 perfected closes every finding above. Prefer it for shipping; YES 02 stays the overview alternate.
       </p>
     </aside>
+  );
+}
+
+function PerfectedResolutions() {
+  return (
+    <ul className="grid gap-2 sm:grid-cols-2">
+      {perfectedResolutions.map((item) => (
+        <li
+          key={item.issue}
+          className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-3.5 py-3"
+        >
+          <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
+            Resolved · {item.issue}
+          </p>
+          <p className="mt-1.5 text-xs leading-5 text-[color:var(--text-muted)]">{item.fix}</p>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 export function PhoneModeSheetYesMockups() {
   return (
     <main className="min-h-dvh bg-[color:var(--background)] px-3 pb-20 pt-7 text-[color:var(--text)] sm:px-6 sm:pt-10 lg:px-8">
-      <div className="mx-auto max-w-[1360px]">
+      <div className="mx-auto max-w-[1400px]">
         <header className="max-w-3xl">
           <p className="text-3xs font-black uppercase tracking-[0.16em] text-[color:var(--clinical-accent)]">
             Phone · Choose mode sheet
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[color:var(--text-heading)] sm:text-4xl">
-            Two polished YES versions
+            YES 01 perfected
           </h1>
           <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)] sm:text-base sm:leading-7">
-            Review of the shipping phone mode sheet, then two large comps that are strong enough to say yes — one
-            sectioned list for intent-led switching, one icon deck for catalogue overview. Tokens only; production tap
-            targets at min-h-12.
+            The sectioned clinical list, taken to master: every review finding closed, no duplicate current chrome, a
+            single sticky layer, phone-native targets, and live selection. YES 02 remains the overview alternate.
           </p>
         </header>
 
-        <section aria-labelledby="yes-pair-title" className="mt-10">
+        <section aria-labelledby="perfected-pair-title" className="mt-10">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
-                Large YES pair · Phone
+                Perfected · Three states
               </p>
               <h2
-                id="yes-pair-title"
+                id="perfected-pair-title"
                 className="mt-1 text-2xl font-semibold tracking-[-0.025em] text-[color:var(--text-heading)]"
               >
-                Sectioned list · Icon deck
+                Rest · Scrolled · Switched
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-[color:var(--text-muted)]">
-              Both keep Sheet grip, close, safe-area, and menuitemradio. Pick by intent (left) or browse the catalogue
-              (right).
+              Open on Answer, scroll into Diagnose with sticky labels, then land on DSM-5 — header and selection stay
+              in sync.
             </p>
           </div>
-          <div className="flex flex-wrap items-start gap-6">
-            <PhoneFrame variant="sections" large caption="YES 01 · Sectioned clinical list" />
-            <PhoneFrame variant="deck" large caption="YES 02 · Icon deck with lane chips" />
+          <div className="flex flex-wrap items-start gap-5">
+            <PhoneFrame variant="sections" large caption="Rest · Answer selected" sectionsPreview="rest" />
+            <PhoneFrame
+              variant="sections"
+              large
+              caption="Scrolled · Diagnose sticky"
+              sectionsPreview="scrolled"
+            />
+            <PhoneFrame
+              variant="sections"
+              large
+              caption="Switched · DSM-5 current"
+              sectionsPreview="switched"
+              initialMode="dsm"
+            />
+          </div>
+        </section>
+
+        <section aria-labelledby="resolutions-title" className="mt-12">
+          <h2
+            id="resolutions-title"
+            className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--text-heading)]"
+          >
+            All issues resolved
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-[color:var(--text-muted)]">
+            The earlier YES 01 draft still carried a bulky sticky “Now in” card and a fragile `top-[4.6rem]` offset.
+            The perfected sheet removes both.
+          </p>
+          <div className="mt-4">
+            <PerfectedResolutions />
           </div>
         </section>
 
@@ -646,11 +812,11 @@ export function PhoneModeSheetYesMockups() {
                 ))}
               </ul>
 
-              <PhoneFrame
-                variant={variant.id}
-                large
-                caption={variant.id === "sections" ? "Detail · Sectioned list" : "Detail · Icon deck"}
-              />
+              {variant.id === "sections" ? (
+                <PhoneFrame variant="sections" large caption="Detail · Perfected sectioned list" />
+              ) : (
+                <PhoneFrame variant="deck" large caption="Detail · Icon deck" />
+              )}
             </section>
           ))}
         </div>
@@ -658,3 +824,5 @@ export function PhoneModeSheetYesMockups() {
     </main>
   );
 }
+
+
