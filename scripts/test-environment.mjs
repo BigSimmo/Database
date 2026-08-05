@@ -24,6 +24,8 @@ const providerEnvironmentKeys = Object.freeze([
   "E2E_USER_PASSWORD",
   "SENTRY_AUTH_TOKEN",
   "SENTRY_DSN",
+  "SENTRY_ENABLE_LOGS",
+  "SENTRY_SEND_TEST_LOG",
   "ALLOW_PROVIDER_TESTS",
 ]);
 
@@ -33,6 +35,8 @@ const offlineUrlValues = Object.freeze({
   SUPABASE_DB_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   DATABASE_URL: "postgresql://offline:offline@127.0.0.1:1/offline",
   SENTRY_DSN: "http://127.0.0.1:1",
+  SENTRY_ENABLE_LOGS: "false",
+  SENTRY_SEND_TEST_LOG: "false",
 });
 
 /**
