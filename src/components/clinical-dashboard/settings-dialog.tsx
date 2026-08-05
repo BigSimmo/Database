@@ -49,6 +49,7 @@ import { cn, floatingControl, InlineNotice, primaryControl, toggleThumbSurface }
 import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Select } from "@/components/ui/select";
 import { Sheet } from "@/components/ui/sheet";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { TextField } from "@/components/ui/text-field";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
@@ -307,8 +308,8 @@ export function SettingsDialog({
               );
             })}
           </nav>
-          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
-            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" />
             Stored on this device. No PHI.
           </p>
         </aside>
@@ -453,7 +454,7 @@ export function SettingsDialog({
                       </form>
                     ) : null}
 
-                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
+                    <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-muted)]">
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
                       <span>or continue with</span>
                       <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -475,7 +476,7 @@ export function SettingsDialog({
                     <p className="flex items-start gap-2 rounded-lg bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                       <LockKeyhole
                         aria-hidden="true"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]"
                       />
                       Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
                     </p>
@@ -568,6 +569,7 @@ export function SettingsDialog({
                   <SegmentedControl
                     ariaLabelledBy="settings-answer-style-label"
                     ariaDescribedBy="settings-clinical-defaults-note"
+                    layout="equal"
                     value={preferences.answerStyle}
                     onChange={(value) => setPreference("answerStyle", value)}
                     options={ANSWER_STYLE_OPTIONS}
@@ -588,6 +590,7 @@ export function SettingsDialog({
                 >
                   <SegmentedControl
                     ariaLabelledBy="settings-appearance-label"
+                    layout="equal"
                     value={themePreference}
                     onChange={setThemePreference}
                     options={APPEARANCE_OPTIONS}
@@ -596,6 +599,7 @@ export function SettingsDialog({
                 <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-density-label"
+                    layout="equal"
                     value={preferences.density}
                     onChange={(value) => setPreference("density", value)}
                     options={DENSITY_OPTIONS}
@@ -604,6 +608,7 @@ export function SettingsDialog({
                 <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-landing-label"
+                    layout="equal"
                     value={preferences.landing}
                     onChange={(value) => setPreference("landing", value)}
                     options={LANDING_OPTIONS}
@@ -823,9 +828,9 @@ function NotYetActiveBadge({ id }: { id?: string }) {
   return (
     <span
       id={id}
-      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-soft)]"
+      className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]"
     >
-      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--text-soft)]" />
+      <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--decoration-soft)]" />
       Not active yet
     </span>
   );
@@ -881,55 +886,6 @@ function SettingsField({
           {valueText}
         </span>
       ) : null}
-    </div>
-  );
-}
-
-function SegmentedControl<T extends string>({
-  value,
-  onChange,
-  options,
-  ariaLabelledBy,
-  ariaDescribedBy,
-}: {
-  value: T;
-  onChange: (value: T) => void;
-  options: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
-  ariaLabelledBy?: string;
-  ariaDescribedBy?: string;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-labelledby={ariaLabelledBy}
-      aria-describedby={ariaDescribedBy}
-      // Segments size to their content and wrap onto a second row on narrow
-      // screens rather than truncating long labels ("Comprehensive"); each row's
-      // items grow to fill the width so the control still reads as a unit.
-      className="flex w-full flex-wrap gap-1 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {options.map((option) => {
-        const checked = option.value === value;
-        const Icon = option.icon;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="radio"
-            aria-checked={checked}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
-              checked
-                ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
-                : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
-            )}
-          >
-            {Icon ? <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span>{option.label}</span>
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -1091,7 +1047,7 @@ function SettingsActionRow({
       {meta ? (
         <span className="shrink-0 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{meta}</span>
       ) : null}
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
     </button>
   );
 }
@@ -1182,7 +1138,7 @@ function SettingsProviderRow({
         </span>
       ) : null}
       {!disabledReason ? (
-        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" />
       ) : null}
     </button>
   );

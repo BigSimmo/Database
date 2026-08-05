@@ -77,7 +77,7 @@ function SlotInk({
             "nums grid h-[1.125rem] min-w-[1.125rem] shrink-0 place-items-center rounded-full border px-1.5 text-3xs font-bold leading-none",
             state === "on"
               ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent-hover)]"
-              : "border-[color:var(--border-strong)] text-[color:var(--text-soft)]",
+              : "border-[color:var(--border-strong)] text-[color:var(--text-muted)]",
           )}
         >
           {count}
@@ -186,7 +186,7 @@ export function ModeNav({
           ) : null}
           <span className="min-w-0 flex-1 truncate">{active ? active.label : label}</span>
           {active ? (
-            <span className="nums shrink-0 text-3xs font-bold text-[color:var(--text-soft)]">
+            <span className="nums shrink-0 text-3xs font-bold text-[color:var(--text-muted)]">
               {activeIndex + 1}/{items.length}
             </span>
           ) : null}
@@ -285,7 +285,9 @@ export function ModeNav({
                   />
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
                   {item.count ? (
-                    <span className="nums shrink-0 text-2xs font-bold text-[color:var(--text-soft)]">{item.count}</span>
+                    <span className="nums shrink-0 text-2xs font-bold text-[color:var(--text-muted)]">
+                      {item.count}
+                    </span>
                   ) : null}
                 </Link>
               </li>

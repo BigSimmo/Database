@@ -12,7 +12,8 @@ export type ConfirmDialogProps = {
   title: string;
   /** What will happen, in plain terms. Say the irreversible part out loud. */
   description: ReactNode;
-  confirmLabel?: string;
+  /** Object-specific action label, e.g. "Delete 3 documents". */
+  confirmLabel: string;
   cancelLabel?: string;
   /** Destructive by default — this is the governance-action preset. */
   tone?: "danger" | "primary";
@@ -35,7 +36,7 @@ export function ConfirmDialog({
   onConfirm,
   title,
   description,
-  confirmLabel = "Confirm",
+  confirmLabel,
   cancelLabel = "Cancel",
   tone = "danger",
   busy = false,
@@ -86,16 +87,11 @@ export function ConfirmDialog({
       }
     >
       <div className="space-y-3">
-        <p className={cn("text-sm leading-6", textMuted)}>{description}</p>
+        <div className={cn("text-sm leading-6", textMuted)}>{description}</div>
         {confirmPhrase ? (
           <div>
             <label htmlFor={inputId} className="mb-1.5 block text-xs font-medium text-[color:var(--text-muted)]">
-              {confirmPhraseLabel ?? (
-                <>
-                  Type <span className="font-mono font-semibold text-[color:var(--text)]">{confirmPhrase}</span> to
-                  confirm
-                </>
-              )}
+              {confirmPhraseLabel ?? `Type ${confirmPhrase} to confirm`}
             </label>
             <input
               id={inputId}

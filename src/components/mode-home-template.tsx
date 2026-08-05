@@ -4,6 +4,7 @@ import { type LucideIcon, ArrowRight } from "lucide-react";
 
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
 
 export type ModeHomeAction = {
   title: string;
@@ -43,7 +44,7 @@ type ModeHomeTemplateProps = {
 const pillToneClass: Record<NonNullable<ModeHomePill["tone"]>, string> = {
   danger: "bg-[color:var(--danger)]",
   info: "bg-[color:var(--info)]",
-  neutral: "bg-[color:var(--text-soft)]",
+  neutral: "bg-[color:var(--text-muted)]",
   primary: "bg-[color:var(--clinical-accent)]",
   purple: "bg-[color:var(--tone-purple)]",
   indigo: "bg-[color:var(--tone-indigo)]",
@@ -264,10 +265,15 @@ export function ModeHomeTemplate({
     >
       <ModeHomeHero testId={testId} title={title} subtitle={subtitle} icon={icon} headingLevel={headingLevel} />
 
+      {/* Reserve settled composer height only while adoption is pending or the
+          portal host is present. SSR starts pending so first paint does not CLS;
+          MasterSearchHeader clears the attribute when the home media query does
+          not match or portal adoption falls back, collapsing a never-filled band. */}
       {desktopComposerSlotId ? (
         <DesktopComposerPortalSlot
           id={desktopComposerSlotId}
-          className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
+          data-composer-reserve={modeHomeComposerReservePendingValue}
+          className="mode-home-composer-slot block w-full px-4 sm:px-0 min-h-0 data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)] sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)] [&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)] sm:[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-wide)]"
         />
       ) : null}
 
@@ -292,7 +298,7 @@ export function ModeHomeTemplate({
                   </span>
                 </span>
                 <ArrowRight
-                  className="h-4 w-4 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="h-4 w-4 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden="true"
                 />
               </>
@@ -340,7 +346,7 @@ export function ModeHomeTemplate({
               {pillsAction}
             </div>
           ) : null}
-          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0 sm:gap-2.5">
+          <div className="answer-suggestion-row-scroll -mx-4 flex w-[calc(100%+2rem)] justify-start gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:justify-center sm:overflow-visible sm:px-0 sm:pb-0">
             {pills.map((pill) => {
               const PillIcon = pill.icon;
               const displayLabel = pill.shortLabel ?? pill.label;

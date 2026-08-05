@@ -250,6 +250,7 @@ export function DocumentViewerRail({
               title="No clinically useful tables or diagrams"
               body="No indexed clinically useful tables or diagrams."
               tone="neutral"
+              live="polite"
             />
           ) : (
             clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)

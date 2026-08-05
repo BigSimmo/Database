@@ -106,7 +106,7 @@ export function DsmDifferentialConsiderationsPage({
         <section aria-labelledby="dsm-differential-filters" className="grid gap-2">
           <h2
             id="dsm-differential-filters"
-            className="inline-flex items-center gap-2 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]"
+            className="inline-flex items-center gap-2 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]"
           >
             <ListFilter className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             Review lens
@@ -142,7 +142,7 @@ export function DsmDifferentialConsiderationsPage({
               aria-label="Differential consideration list"
               className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
             >
-              <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-soft)]">
+              <div className="border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
                 {visible.length} {visible.length === 1 ? "consideration" : "considerations"}
               </div>
               <div className="divide-y divide-[color:var(--border)]">
@@ -179,7 +179,7 @@ export function DsmDifferentialConsiderationsPage({
                       </span>
                       <ChevronRight
                         className={cn(
-                          "mt-1 h-4 w-4 text-[color:var(--text-soft)]",
+                          "mt-1 h-4 w-4 text-[color:var(--decoration-soft)]",
                           active && "text-[color:var(--clinical-accent)]",
                         )}
                         aria-hidden
