@@ -570,7 +570,7 @@ export function SearchResultsHeaderBand({
               The group's accessible name is "Applied filters" either way, so both
               forms are decorative and neither is the label of record. */}
           <Funnel className="h-4 w-4 shrink-0 text-[color:var(--text-soft)] sm:hidden" aria-hidden />
-          <span className="search-band-shelf-label hidden shrink-0 uppercase text-[color:var(--text-soft)] sm:block">
+          <span className="search-band-shelf-label hidden shrink-0 uppercase text-[color:var(--text-muted)] sm:block">
             Filtered by
           </span>
           {/* The chips get their own scroll track so `Clear` can sit outside it.
@@ -626,7 +626,7 @@ export function SearchResultsHeaderBand({
                 // and an underline instead. 48px, not the 44px a generic tap rule
                 // would suggest: `min-h-11` reintroduces a fixed `ui-smoke`
                 // sub-pixel flake, and `--spacing-tap` is this repo's floor.
-                "search-band-ghost inline-flex min-h-tap shrink-0 items-center rounded-md px-2 text-[color:var(--text-soft)] underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current sm:min-h-10",
+                "search-band-ghost inline-flex min-h-tap shrink-0 items-center rounded-md px-2 text-[color:var(--text-muted)] underline decoration-[color:var(--border-strong)] underline-offset-2 hover:text-[color:var(--text)] hover:decoration-current sm:min-h-10",
                 focusRing,
               )}
             >

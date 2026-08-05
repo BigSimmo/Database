@@ -354,7 +354,7 @@ function DocumentFilterPanel({
             <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
             <span>Browse all sources</span>
             {documentCount > 0 ? (
-              <span className="nums ml-auto text-2xs text-[color:var(--text-soft)]">
+              <span className="nums ml-auto text-2xs text-[color:var(--text-muted)]">
                 {documentCount.toLocaleString()}
               </span>
             ) : null}
@@ -407,7 +407,7 @@ function DocumentFilterPanel({
               onChange={(event) => setNeedle(event.target.value)}
               placeholder="Find a filter…"
               data-testid="document-filter-find"
-              className="min-h-10 min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-soft)] sm:min-h-9"
+              className="min-h-10 min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
             />
             {needle ? (
               <button
@@ -470,7 +470,7 @@ function DocumentFilterPanel({
                 >
                   <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">{tab.label}</span>
-                  <span className="nums text-[color:var(--text-soft)]">{tab.count}</span>
+                  <span className="nums text-[color:var(--text-muted)]">{tab.count}</span>
                 </button>
               );
             })}
@@ -608,7 +608,7 @@ function DocumentFilterPanel({
                                 // different KIND of thing rather than a faded one,
                                 // which also survives forced colors: border-style is
                                 // preserved there and opacity is not.
-                                "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]"
+                                "cursor-default border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                               : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
                         )}
                       >
@@ -619,7 +619,7 @@ function DocumentFilterPanel({
                             No documents match this with the current filters.
                           </span>
                         ) : null}
-                        <span className="nums text-[color:var(--text-soft)]">{facet.count}</span>
+                        <span className="nums text-[color:var(--text-muted)]">{facet.count}</span>
                       </button>
                     );
                   })}
@@ -1628,7 +1628,7 @@ function DocumentSearchResultsPanelImpl({
               <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
               Browse all sources
               {documentCount > 0 ? (
-                <span className="nums text-2xs text-[color:var(--text-soft)]">{documentCount.toLocaleString()}</span>
+                <span className="nums text-2xs text-[color:var(--text-muted)]">{documentCount.toLocaleString()}</span>
               ) : null}
             </button>
           ) : null}
