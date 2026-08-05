@@ -456,6 +456,7 @@ function MedicationRecordDetail({
                   icon={ClipboardList}
                   title="Nothing in this view"
                   body="Switch tabs to see dosing, safety, or more detail for this medication."
+                  live="polite"
                 />
               </div>
             )}

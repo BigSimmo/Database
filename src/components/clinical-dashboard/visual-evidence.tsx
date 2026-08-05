@@ -118,7 +118,12 @@ function VisualEvidenceStrip({
         compactMobile
       />
       {evidence.length === 0 ? (
-        <EmptyState icon={FileImage} title={emptyStates.indexedVisuals.title} body={emptyStates.indexedVisuals.body} />
+        <EmptyState
+          icon={FileImage}
+          title={emptyStates.indexedVisuals.title}
+          body={emptyStates.indexedVisuals.body}
+          live="polite"
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {evidence.map((item) => {
@@ -382,7 +387,14 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
     "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0";
 
   if (!claimRows.length) {
-    return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title={emptyStates.evidenceMap.title}
+        body={emptyStates.evidenceMap.body}
+        live="polite"
+      />
+    );
   }
 
   return (
@@ -465,7 +477,12 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
 function EvidenceGapsPanel({ warnings }: { warnings: string[] }) {
   if (!warnings.length) {
     return (
-      <EmptyState icon={CircleCheck} title="No evidence gaps" body="No source gaps were attached to this answer." />
+      <EmptyState
+        icon={CircleCheck}
+        title="No evidence gaps"
+        body="No source gaps were attached to this answer."
+        live="polite"
+      />
     );
   }
 
@@ -742,7 +759,12 @@ function MobileEvidenceTabPanel({
         ))}
       </div>
     ) : (
-      <EmptyState icon={ListChecks} title={emptyStates.tablesUsed.title} body={emptyStates.tablesUsed.body} />
+      <EmptyState
+        icon={ListChecks}
+        title={emptyStates.tablesUsed.title}
+        body={emptyStates.tablesUsed.body}
+        live="polite"
+      />
     );
   }
 
@@ -750,7 +772,12 @@ function MobileEvidenceTabPanel({
     return visualEvidence.length ? (
       <VisualEvidenceStrip evidence={visualEvidence} embedded />
     ) : (
-      <EmptyState icon={FileImage} title={emptyStates.imagesUsed.title} body={emptyStates.imagesUsed.body} />
+      <EmptyState
+        icon={FileImage}
+        title={emptyStates.imagesUsed.title}
+        body={emptyStates.imagesUsed.body}
+        live="polite"
+      />
     );
   }
 

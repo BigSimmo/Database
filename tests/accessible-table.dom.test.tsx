@@ -47,6 +47,14 @@ describe("AccessibleTable (jsdom)", () => {
     expect(screen.getAllByText("Clozapine monitoring")).toHaveLength(1);
   });
 
+  it("does not paint invented fallback captions as visible heading chrome", () => {
+    render(<AccessibleTable caption="Document table" columns={columns} rows={rows} hidePreviewCaption />);
+
+    expect(screen.getByRole("table", { name: "Document table" })).toBeInTheDocument();
+    expect(screen.getAllByText("Document table")).toHaveLength(1);
+    expect(screen.getByText("Document table").tagName.toLowerCase()).toBe("caption");
+  });
+
   it("renders explicit missing values and action text instead of ambiguous dashes", () => {
     render(
       <AccessibleTable

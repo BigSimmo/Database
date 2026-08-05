@@ -179,7 +179,7 @@ function AccessibleTableMarkup({
         expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
-      {!(hidePreviewCaption && !expanded) ? (
+      {!hidePreviewCaption ? (
         <div
           aria-hidden="true"
           className={cn(
@@ -574,6 +574,7 @@ export function AccessibleTable({
               body={body}
               compact={false}
               expanded
+              hidePreviewCaption={hidePreviewCaption}
               rowActions={rowActions}
               actionsHeader={actionsHeader}
               alignEnd={alignEnd}

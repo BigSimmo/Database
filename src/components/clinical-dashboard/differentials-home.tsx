@@ -340,6 +340,7 @@ function Chip({
     <DesignChip
       size={density === "comfortable" ? "standard" : "compact"}
       appearance={{ kind: "information", tone: "quiet" }}
+      wrap
       className={cn("min-w-0 max-w-full", fixed && "shrink-0")}
     >
       {children}
