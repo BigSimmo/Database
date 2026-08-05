@@ -6,6 +6,7 @@ import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/sea
 import {
   THERAPY_CATALOGUE_ASSETS,
   THERAPY_CATALOGUE_ASSETS_PREVIOUS,
+  THERAPY_CATALOGUE_SUMMARY,
 } from "@/components/therapy-compass/data/generated-assets";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
@@ -55,6 +56,8 @@ describe("Therapy Compass production-mode wiring", () => {
     );
 
     expect(appModesSrc).toContain('label: "Therapy"');
+    expect(appModesSrc).toContain('placeholder: "Search therapies…"');
+    expect(appModesSrc).toContain('inputAriaLabel: "Search therapies by problem, symptom, skill, or population"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
     expect(homeSrc).toContain('title="Therapy"');
     // Search route owns filters/results only; the results ribbon is the page h1.
@@ -149,7 +152,7 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(nextConfig).toContain('value: "public, max-age=0, must-revalidate"');
   });
 
-  it("ships a compact browse home/index without narrowing the full-prose search corpus", () => {
+  it("keeps projections available without putting one on the Therapy home paint path", () => {
     const fullSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.full, dataDir)).byteLength;
     const indexSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.index, dataDir)).byteLength;
     const homeSize = readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir)).byteLength;
@@ -160,9 +163,43 @@ describe("Therapy Compass production-mode wiring", () => {
     // pin both halves rather than the old single expression.
     expect(loaderSrc).toContain("fetchCatalogue(options.catalogue)");
     expect(loaderSrc).toContain("THERAPY_CATALOGUE_ASSETS[catalogue]");
-    expect(bindingsSrc).toContain('screen === "home" ? "home"');
+    expect(bindingsSrc).toContain("enabled: !isHome");
+    expect(bindingsSrc).toContain("THERAPY_CATALOGUE_SUMMARY.totalCount");
+    expect(bindingsSrc).not.toContain('screen === "home" ? "home"');
     expect(bindingsSrc).toContain('screen === "pathways" ? "index"');
     expect(bindingsSrc).not.toContain('screen === "search" || screen === "pathways"');
+  });
+
+  it("generates Therapy home count and artifact defaults from the current catalogue", () => {
+    const home = JSON.parse(readFileSync(new URL(THERAPY_CATALOGUE_ASSETS.home, dataDir), "utf8")) as Array<{
+      slug: string;
+      briefInterventionAvailable: boolean;
+      patientSheetAvailable: boolean;
+    }>;
+    expect(THERAPY_CATALOGUE_SUMMARY.totalCount).toBe(home.length);
+    expect(THERAPY_CATALOGUE_SUMMARY.defaultBriefSlug).toBe(
+      home.find((therapy) => therapy.briefInterventionAvailable)?.slug,
+    );
+    expect(THERAPY_CATALOGUE_SUMMARY.defaultSheetSlug).toBe(
+      home.find((therapy) => therapy.patientSheetAvailable)?.slug,
+    );
+  });
+
+  it("uses } as const–terminated parsing for the therapy catalogue summary staleness check", () => {
+    const generatorSrc = readFileSync(new URL("../scripts/build-therapies-index.mjs", import.meta.url), "utf8");
+    expect(generatorSrc).toContain("function extractConstObjectBody");
+    expect(generatorSrc).toContain('extractConstObjectBody(currentManifest, "THERAPY_CATALOGUE_SUMMARY")');
+    // Nested `}` must not truncate the summary parse (previous `[^}]*` hole).
+    expect(generatorSrc).not.toMatch(/THERAPY_CATALOGUE_SUMMARY = \\\{\[\^\}]\*\\\}/);
+
+    const extractConstObjectBody = (source: string, name: string) =>
+      source.match(new RegExp(`${name} = \\{([\\s\\S]*?)\\} as const`))?.[1] ?? "";
+    const nested =
+      'export const THERAPY_CATALOGUE_SUMMARY = {\n  totalCount: 1,\n  note: { nested: "}" },\n  defaultBriefSlug: "a",\n  defaultSheetSlug: "b",\n} as const;\n';
+    const block = extractConstObjectBody(nested, "THERAPY_CATALOGUE_SUMMARY");
+    expect(block).toContain('defaultBriefSlug: "a"');
+    expect(block).toContain('defaultSheetSlug: "b"');
+    expect(block.match(/defaultSheetSlug: (null|"[^"]+")/)?.[1]).toBe('"b"');
   });
 
   it("does not mangle ordinary sk- substrings like task-centred in generated JSON", () => {
@@ -227,5 +264,26 @@ describe("Therapy Compass production-mode wiring", () => {
     // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
     expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
     expect(isStandaloneModeHomePath("/therapy-compass")).toBe(true);
+  });
+
+  it("keeps the results-band shelf Clear filter-only so it cannot delete the query", () => {
+    // Shipped defect (PR #1555): the shelf is labelled "Filtered by" and its
+    // trailing Clear was wired to `clearSearch`, which resets EMPTY_SEARCH —
+    // including `query: ""`. So Clear silently deleted the search term the user
+    // was reading, while the code comment beside it claimed the query was
+    // deliberately excluded. The sheet's own "Clear all" still resets
+    // everything on purpose; only the shelf is filter-only.
+    const searchScreenSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(searchScreenSrc).toContain("onClearFilters={b.clearSearchFilters}");
+    expect(searchScreenSrc).not.toContain("onClearFilters={b.clearSearch}");
+    // The binding must preserve the query rather than reset the whole shape.
+    expect(bindingsSrc).toContain(
+      "clearSearchFilters: () => setSearch((prev) => ({ ...EMPTY_SEARCH, query: prev.query }))",
+    );
+    // The sheet keeps the full reset.
+    expect(searchScreenSrc).toContain("onClear={b.clearSearch}");
   });
 });

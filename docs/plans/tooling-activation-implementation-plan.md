@@ -407,7 +407,11 @@ Return: checklist of done/blocked + evidence lines.
 You are executing WS-B of docs/plans/tooling-activation-implementation-plan.md.
 B3: done 2026-08-01 — Railway + Supabase MCP habit in docs/agents-guide.md; do not redo unless stale.
 B1: done 2026-08-01 — remote Context7 in .cursor/mcp.json (https://mcp.context7.com/mcp); context7-plugin enabled; agents-guide + .env.example; Next 16 stays in node_modules/next/dist/docs/. Do not redo.
+<<<<<<< HEAD
 B1 follow-up: local stdio Context7 (`@upstash/context7-mcp@3.2.5`) + env key + contract test + peer-list docs.
+=======
+B1 follow-up: done 2026-08-04 — contract test + peer-list docs; auth form intentionally unchanged. Pending operator proof: desktop reload + `resolve-library-id` smoke after `CONTEXT7_API_KEY` is configured.
+>>>>>>> origin/cursor/context7-refresh-22b5
 B2: only if user approved — wire GitHub MCP (PRs+Actions toolsets) and/or Checks:Read; verify listing PR checks works.
 Keep active MCP count small.
 Do not mutate GitHub repo settings without approval. Return: diff summary + verify steps run.

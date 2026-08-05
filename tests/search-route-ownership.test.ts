@@ -101,9 +101,17 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toContain("isStandaloneModeHomePath(pathname)");
     expect(shellSource).not.toMatch(/searchMode === "services" && pathname === "\/services"/);
     // changeMode must not optimistic-set searchMode before navigation.
-    expect(shellSource).toMatch(/function changeMode\(mode: AppModeId\) \{[\s\S]*?navigateToMode\(mode\);\n  \}/);
+    // Same-mode picks still navigate to the mode home unless already there;
+    // cross-mode / leaving a detail URL uses router.push with pending state.
+    expect(shellSource).toMatch(/function changeMode\(mode: AppModeId\) \{[\s\S]*?router\.push\(href\);\n  \}/);
     expect(shellSource).not.toMatch(
-      /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?navigateToMode\(mode\);/,
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?router\.push/,
+    );
+    expect(shellSource).toContain("alreadyOnDestination");
+    expect(shellSource).toContain("setPendingModeNavigation");
+    // Blanket mode-equality early return would break same-mode home returns.
+    expect(shellSource).not.toMatch(
+      /function changeMode\(mode: AppModeId\) \{[\s\S]*?if \(mode === searchMode\) return;/,
     );
   });
 
@@ -137,16 +145,28 @@ describe("shared-search route ownership", () => {
     expect(shellSource).toMatch(/main\.scrollTop = 0[\s\S]*\}, \[pathname\]\)/);
   });
 
-  it("keeps the default composer until the hero portal host attaches", () => {
+  it("reserves home geometry without inflating the header while the hero portal attaches", () => {
     const headerSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
       "utf8",
     );
-    expect(headerSource).not.toContain("desktopComposerPortalFallback");
-    expect(headerSource).not.toContain("composerPortalRequested && !desktopComposerPortalFallback");
+    expect(headerSource).toContain("desktopComposerPortalFallback");
+    expect(headerSource).toContain("homeComposerMediaEligible");
     expect(headerSource).toMatch(
-      /desktopComposerPortalActive && desktopComposerPortalHost\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
+      /const homePortalPending =\s*Boolean\(desktopHomeComposerSlotId\) && homeComposerMediaEligible && !desktopComposerPortalFallback/,
     );
+    expect(headerSource).toContain("setHomeComposerMediaEligible(mediaQuery.matches)");
+    expect(headerSource).toContain("const portalFallbackDelayMs = 8_000");
+    expect(headerSource).toContain("let portalFailureStartedAt: number | null = null");
+    expect(headerSource).toContain("portalFailureStartedAt = null");
+    expect(headerSource).toContain("portalFailureStartedAt ??= now");
+    expect(headerSource).toContain("now - portalFailureStartedAt");
+    expect(headerSource).not.toContain("portalRetryStartedAt");
+    expect(headerSource).not.toContain("portalRetryCount");
+    expect(headerSource).toMatch(
+      /desktopComposerPortalActive && desktopComposerPortalHost\s*\?\s*null\s*:\s*homePortalPending\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
+    );
+    expect(headerSource).toContain("setDesktopComposerPortalFallback(true)");
   });
 
   it("waits for page-owned composer slots to hydrate before portal adoption", () => {
@@ -155,12 +175,32 @@ describe("shared-search route ownership", () => {
       "utf8",
     );
     const slotSource = readFileSync(resolve(process.cwd(), "src/components/desktop-composer-portal-slot.tsx"), "utf8");
+    const homeTemplateSource = readFileSync(resolve(process.cwd(), "src/components/mode-home-template.tsx"), "utf8");
+    const globalsSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
     const composerLibSource = readFileSync(resolve(process.cwd(), "src/lib/mode-home-composer.ts"), "utf8");
     expect(composerLibSource).toContain('desktopComposerSlotReadyAttr = "data-composer-slot-ready"');
     expect(slotSource).toContain("desktopComposerSlotReadyAttr");
     expect(slotSource).toContain("useEffect");
     expect(headerSource).toContain("isDesktopComposerSlotReady(slot)");
     expect(headerSource).toContain("attributeFilter: [desktopComposerSlotReadyAttr]");
+    expect(headerSource).toContain("setModeHomeComposerReservePending");
+    expect(headerSource).toContain("searchComposerVisible");
+    expect(composerLibSource).toContain('modeHomeComposerReserveAttr = "data-composer-reserve"');
+    expect(homeTemplateSource).toContain(
+      "data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-phone)]",
+    );
+    expect(homeTemplateSource).toContain(
+      "sm:data-[composer-reserve=pending]:min-h-[var(--spacing-mode-home-composer-wide)]",
+    );
+    expect(homeTemplateSource).toContain("[&:not(:empty)]:min-h-[var(--spacing-mode-home-composer-phone)]");
+    expect(homeTemplateSource).not.toContain("mode-home-composer-slot hidden");
+    // Unconditional always-on reserve would leave a permanent empty band when
+    // the portal never adopts; pending/filled gating is the CLS-safe contract.
+    expect(homeTemplateSource).not.toMatch(
+      /mode-home-composer-slot block min-h-\[var\(--spacing-mode-home-composer-phone\)\]/,
+    );
+    expect(globalsSource).toContain("--spacing-mode-home-composer-phone: 7.625rem");
+    expect(globalsSource).toContain("--spacing-mode-home-composer-wide: 5.5rem");
   });
 
   it("leaves the dashboard shell without eager chrome thrash", () => {

@@ -108,7 +108,7 @@ export function ScopeAndGovernanceNotice({
             <li key={warning.code}>
               {warning.message}
               {warning.titles.length ? (
-                <details className="mt-0.5 text-[color:var(--text-soft)]">
+                <details className="mt-0.5 text-[color:var(--text-muted)]">
                   <summary className="cursor-pointer font-medium hover:text-[color:var(--text-muted)]">
                     Sources affected
                   </summary>

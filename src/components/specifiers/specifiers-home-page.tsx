@@ -124,7 +124,7 @@ function SpecifiersHome() {
 function EmptySearchResults({ query }: { query: string }) {
   return (
     <div className={cn(specifierCard, "grid justify-items-center gap-3 px-5 py-12 text-center")}>
-      <span className="grid h-12 w-12 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]">
+      <span className="grid h-12 w-12 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--decoration-soft)]">
         <Search className="h-6 w-6" aria-hidden />
       </span>
       <div className="grid gap-1">
@@ -180,7 +180,7 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
                   {item.label}
                 </span>
                 <ArrowRight
-                  className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden
                 />
               </div>
