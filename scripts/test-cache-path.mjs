@@ -12,6 +12,14 @@ export function vitestCacheDirectory(projectRoot, baseDirectory = os.tmpdir()) {
   return path.join(baseDirectory, "clinical-kb-vitest-cache", worktreeCacheId(projectRoot));
 }
 
-export function typescriptBuildInfoPath(projectRoot, baseDirectory = os.tmpdir()) {
-  return path.join(baseDirectory, "clinical-kb-tsc-cache", worktreeCacheId(projectRoot), "tsconfig.tsbuildinfo");
+/**
+ * Per-worktree TypeScript incremental cache path.
+ *
+ * @param {string} projectRoot
+ * @param {string} [baseDirectory]
+ * @param {string} [fileName] Distinct filename when two configs share a worktree
+ *   cache directory (e.g. base vs source-only typecheck).
+ */
+export function typescriptBuildInfoPath(projectRoot, baseDirectory = os.tmpdir(), fileName = "tsconfig.tsbuildinfo") {
+  return path.join(baseDirectory, "clinical-kb-tsc-cache", worktreeCacheId(projectRoot), fileName);
 }

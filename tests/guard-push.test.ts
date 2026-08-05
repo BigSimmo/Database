@@ -8,8 +8,19 @@ import {
   driftVerdict,
   findPrettierBin,
   formatGuard,
+  HEAVY_RUN_ADMISSION_BUSY_EXIT,
+  HEAVY_RUN_ADMISSION_BUSY_MARKER,
+  isCoordinatorBusyOutput,
+  isCoordinatorBusyResult,
+  isEslintPolicyFile,
+  isTypecheckExcludedPath,
+  lintableFiles,
+  needsRepoWideLint,
+  needsTypecheck,
   normalizedSchemaSha256 as guardSha,
   parsePushRanges,
+  pushedTipMatchesHead,
+  staticGuard,
 } from "../scripts/guard-push.mjs";
 
 const ZERO = "0".repeat(40);
@@ -120,5 +131,112 @@ describe("format dependency resolution", () => {
     expect(result.ok).toBe(false);
     expect(result.message).toContain("npm ci --include=dev");
     expect(result.message).toContain("SKIP_FORMAT_GUARD=1");
+  });
+});
+
+describe("static guard scope selection", () => {
+  it("lints lint-root sources and eslint-rules, not docs or public assets", () => {
+    expect(lintableFiles(["src/components/a.tsx", "docs/x.md", "package-lock.json"])).toEqual(["src/components/a.tsx"]);
+    expect(lintableFiles(["eslint-rules/require-button-wiring.mjs"])).toEqual([
+      "eslint-rules/require-button-wiring.mjs",
+    ]);
+    expect(lintableFiles(["public/demo/x.js"])).toEqual([]);
+  });
+
+  it("normalizes backslash paths before filtering", () => {
+    expect(lintableFiles(["src\\components\\a.tsx"])).toEqual(["src/components/a.tsx"]);
+  });
+
+  it("triggers typecheck only for extensions the source-only config includes", () => {
+    expect(needsTypecheck(["src/lib/a.ts"])).toBe(true);
+    expect(needsTypecheck(["src/lib/a.tsx", "src/lib/a.mts"])).toBe(true);
+    expect(needsTypecheck(["docs/a.md", "x.png"])).toBe(false);
+    expect(needsTypecheck(["src/lib/a.cts"])).toBe(false);
+  });
+
+  it("skips typecheck for paths excluded by tsconfig.typecheck.json", () => {
+    expect(isTypecheckExcludedPath("supabase/functions/foo/index.ts")).toBe(true);
+    expect(isTypecheckExcludedPath("scripts/archive/old.ts")).toBe(true);
+    expect(isTypecheckExcludedPath("src/lib/a.ts")).toBe(false);
+    expect(needsTypecheck(["supabase/functions/foo/index.ts"])).toBe(false);
+    expect(needsTypecheck(["scripts/archive/old.ts", "scratch/x.tsx", "worktrees/a/b.ts"])).toBe(false);
+    expect(needsTypecheck(["supabase/functions/foo/index.ts", "src/lib/a.ts"])).toBe(true);
+  });
+
+  it("treats shared-slot exhaustion as coordinator busy, not a typecheck failure", () => {
+    expect(isCoordinatorBusyOutput("Database focused-test capacity is full (current owner PID 1)")).toBe(true);
+    expect(isCoordinatorBusyOutput("Another Database heavyweight command is active (PID 1)")).toBe(true);
+    expect(isCoordinatorBusyOutput("A Database heavyweight coordinator is being initialized; retry shortly.")).toBe(
+      true,
+    );
+    expect(isCoordinatorBusyOutput("error TS2322: Type 'string' is not assignable")).toBe(false);
+  });
+
+  it("prefers structured admission-busy exit/marker over prose that tsc can quote", () => {
+    expect(isCoordinatorBusyResult({ status: HEAVY_RUN_ADMISSION_BUSY_EXIT })).toBe(true);
+    expect(isCoordinatorBusyResult({ status: 1, stderr: `${HEAVY_RUN_ADMISSION_BUSY_MARKER}\nbusy` })).toBe(true);
+    expect(
+      isCoordinatorBusyResult({
+        status: 1,
+        stderr: "error TS2304: Another Database heavyweight command is active",
+      }),
+    ).toBe(false);
+  });
+
+  it("escalates to repo-wide lint when eslint policy changes", () => {
+    expect(isEslintPolicyFile("eslint.config.mjs")).toBe(true);
+    expect(isEslintPolicyFile("eslint-rules/no-hardcoded-hex.mjs")).toBe(true);
+    expect(isEslintPolicyFile("src/lib/a.ts")).toBe(false);
+    expect(needsRepoWideLint(["eslint.config.mjs"])).toBe(true);
+    expect(needsRepoWideLint(["eslint-rules/x.mjs"])).toBe(true);
+    expect(needsRepoWideLint(["src/lib/a.ts"])).toBe(false);
+  });
+
+  it("fails closed when the pushed tip is not HEAD", () => {
+    expect(pushedTipMatchesHead([{ localSha: "aaa" }], "aaa").ok).toBe(true);
+    expect(pushedTipMatchesHead([{ localSha: "aaa", localRef: "refs/heads/other" }], "bbb")).toEqual({
+      ok: false,
+      headSha: "bbb",
+      tipSha: "aaa",
+      localRef: "refs/heads/other",
+    });
+    expect(pushedTipMatchesHead([{ localSha: "tagobj", localRef: "refs/tags/v1" }], "bbb").ok).toBe(true);
+
+    const result = staticGuard(["src/lib/a.ts"], {
+      ranges: [{ localSha: "deadbeef", localRef: "refs/heads/other" }],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("SKIP_STATIC_GUARD=1");
+    expect(result.message).toContain("deadbeef");
+  });
+
+  it("does not tip-check docs-only or tag pushes that need no static work", () => {
+    const docsOnly = staticGuard(["docs/only.md"], {
+      ranges: [{ localSha: "deadbeef", localRef: "refs/heads/docs-branch" }],
+    });
+    expect(docsOnly.ok).toBe(true);
+    expect(docsOnly.message).toBeUndefined();
+
+    const tagPush = staticGuard(["README.md"], {
+      ranges: [{ localSha: "tagobj", localRef: "refs/tags/v1.2.3" }],
+    });
+    expect(tagPush.ok).toBe(true);
+  });
+
+  it("skips with SKIP_STATIC_GUARD=1 and is a no-op for docs-only pushes", () => {
+    const previous = process.env.SKIP_STATIC_GUARD;
+    process.env.SKIP_STATIC_GUARD = "1";
+    try {
+      const skipped = staticGuard(["src/lib/a.ts"]);
+      expect(skipped.ok).toBe(true);
+      expect(skipped.skipped).toBe("SKIP_STATIC_GUARD=1");
+    } finally {
+      if (previous === undefined) delete process.env.SKIP_STATIC_GUARD;
+      else process.env.SKIP_STATIC_GUARD = previous;
+    }
+
+    const docsOnly = staticGuard(["docs/only.md"]);
+    expect(docsOnly.ok).toBe(true);
+    expect(docsOnly.message).toBeUndefined();
   });
 });

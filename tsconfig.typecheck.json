@@ -1,0 +1,32 @@
+{
+  // Source-health typecheck. Identical compiler options to tsconfig.json, but it
+  // never reads Next's generated route types under `.next/`.
+  //
+  // Why this file exists (see docs/outstanding-issues.md #210): the base config
+  // includes `.next/types/**/*.ts` and `.next/dev/types/**/*.ts`, which are
+  // gitignored build artifacts. Delete or rename a page — a mockup route, most
+  // often — and the stale generated validator still imports the removed module,
+  // so `npm run typecheck` reports errors that no longer exist in source. CI
+  // never sees it (fresh checkout, no `.next`), so the gate reads as red locally
+  // and green in CI, and gets abandoned. A permanently-red gate is why real type
+  // errors reach CI instead of being caught before push.
+  //
+  // Route-signature validation is NOT lost: `next build` (CI's Build job) still
+  // typechecks the generated types against the real routes. This config answers
+  // the narrower question the pre-push guard needs — "is the source itself
+  // sound?" — deterministically, without depending on build-artifact freshness.
+  //
+  // Incremental cache: pin a distinct buildinfo so a direct
+  // `tsc -p tsconfig.typecheck.json` does not collide with the base config's
+  // `tsconfig.tsbuildinfo` (extends inherits that path and TypeScript discards
+  // the cache when root-file sets differ). `scripts/run-heavy.mjs` still
+  // injects a per-worktree `--tsBuildInfoFile` under tmp for
+  // `typecheck:source:internal`, which overrides this pin across shared
+  // node_modules checkouts.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "node_modules/.cache/tsc/tsconfig.typecheck.tsbuildinfo"
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts"],
+  "exclude": ["node_modules", ".next/**", "scratch/**", "supabase/functions/**", "worktrees/**", "scripts/archive/**"]
+}

@@ -18,34 +18,73 @@ const script = args[1];
 const rawForwarded = args.slice(2);
 const forceLockRelease = rawForwarded.includes("--force-lock-release");
 const forwarded = rawForwarded.filter((argument) => argument !== "--force-lock-release");
-const mode = script === "typecheck:internal" ? "shared" : "exclusive";
-const typecheckBuildInfo = mode === "shared" ? typescriptBuildInfoPath(projectRoot) : null;
+// Read-only typechecks share the capped lease (at most two across worktrees).
+// Both the full and source-only wrappers must match — a hard-coded
+// `typecheck:internal` check left `typecheck:source:internal` exclusive.
+const sharedTypecheckScripts = new Set(["typecheck:internal", "typecheck:source:internal"]);
+const mode = sharedTypecheckScripts.has(script) ? "shared" : "exclusive";
+const typecheckBuildInfo =
+  mode === "shared"
+    ? typescriptBuildInfoPath(
+        projectRoot,
+        undefined,
+        script === "typecheck:source:internal" ? "tsconfig.typecheck.tsbuildinfo" : "tsconfig.tsbuildinfo",
+      )
+    : null;
 if (typecheckBuildInfo) mkdirSync(path.dirname(typecheckBuildInfo), { recursive: true });
 const effectiveForwarded = typecheckBuildInfo ? [...forwarded, "--tsBuildInfoFile", typecheckBuildInfo] : forwarded;
-const lock = acquireHeavyRunLock({
-  projectRoot,
-  command: `npm run ${script}`,
-  forceLockRelease,
-  mode,
-});
+const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
+const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
+/** Keep in sync with `HEAVY_RUN_ADMISSION_BUSY_*` in `scripts/guard-push.mjs`. */
+const ADMISSION_BUSY_EXIT = 75;
+const ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+const ADMISSION_BUSY_PATTERN =
+  /Database (?:focused-test capacity is full|heavyweight)|coordinator is (?:busy|being initialized)|retry shortly/i;
+
+let lock;
+try {
+  lock = acquireHeavyRunLock({
+    projectRoot,
+    command: `npm run ${script}`,
+    forceLockRelease,
+    mode,
+    ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
+  });
+} catch (error) {
+  const message = String(error?.message ?? error);
+  if (ADMISSION_BUSY_PATTERN.test(message)) {
+    // Structured signal for callers (guard-push): tool output can quote the
+    // busy prose and false-match if detection is prose-only.
+    console.error(ADMISSION_BUSY_MARKER);
+    console.error(message);
+    process.exit(ADMISSION_BUSY_EXIT);
+  }
+  throw error;
+}
 
 function runNpmScript() {
   const npmExecPath = process.env.npm_execpath;
+  // Always forward effectiveForwarded (includes injected --tsBuildInfoFile for
+  // shared typechecks). The pre-push hook invokes this via plain `node`, so
+  // npm_execpath is usually unset — dropping the injection there would share
+  // the base config's in-repo buildinfo across different include graphs.
+  const npmArgs = effectiveForwarded.length ? ["--", ...effectiveForwarded] : [];
   const child = npmExecPath
-    ? spawn(
-        process.execPath,
-        [npmExecPath, "run", script, ...(effectiveForwarded.length ? ["--", ...effectiveForwarded] : [])],
-        {
-          cwd: projectRoot,
-          env: lock.environment,
-          stdio: "inherit",
-        },
-      )
+    ? spawn(process.execPath, [npmExecPath, "run", script, ...npmArgs], {
+        cwd: projectRoot,
+        env: lock.environment,
+        stdio: "inherit",
+      })
     : spawn(
         process.platform === "win32" ? "cmd.exe" : "npm",
         process.platform === "win32"
-          ? ["/d", "/s", "/c", `npm run ${script}`]
-          : ["run", script, ...(forwarded.length ? ["--", ...forwarded] : [])],
+          ? [
+              "/d",
+              "/s",
+              "/c",
+              ["npm", "run", script, ...npmArgs].map((part) => (/\s/.test(part) ? `"${part}"` : part)).join(" "),
+            ]
+          : ["run", script, ...npmArgs],
         { cwd: projectRoot, env: lock.environment, stdio: "inherit" },
       );
 
