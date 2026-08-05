@@ -255,6 +255,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     columns: image.tableColumns,
   });
   const tableCaption = tableHeading || cleanCaption || "Document table";
+  const hasSourceTableTitle = Boolean(tableHeading || cleanCaption);
   const warnings = tableQualityWarnings(image, hasStructuredTable);
   const sourceImageFirst =
     !hasStructuredTable ||
@@ -300,7 +301,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         compact={false}
         expandOnMobile
         // Invented fallbacks ("Document table") are accessible-name only — do not paint a fake heading.
-        hidePreviewCaption={!(tableHeading || cleanCaption)}
+        hidePreviewCaption={!hasSourceTableTitle}
         dialogTitle={tableCaption}
         lowConfidenceFallback={imageBlock}
       />

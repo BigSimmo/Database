@@ -99,9 +99,9 @@ const targets: readonly BaselineTarget[] = [
       await expect(pdfViewport.getByText(/Loading PDF|Rendering page/)).toHaveCount(0);
       await expect
         .poll(() =>
-          renderedPage.evaluate((element) => {
-            if (!(element instanceof HTMLCanvasElement)) return false;
-            return element.width > 0 && element.height > 0 && element.style.width !== "" && element.style.height !== "";
+          renderedPage.evaluate((node) => {
+            if (!(node instanceof HTMLCanvasElement)) return false;
+            return node.width > 0 && node.height > 0 && node.style.width !== "" && node.style.height !== "";
           }),
         )
         .toBe(true);
