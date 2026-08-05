@@ -151,10 +151,7 @@ describe("ModeActionPopup state transitions", () => {
   });
 
   it("keeps custom body placement measurement stable across parent renders", () => {
-    const source = readFileSync(
-      new URL("../src/components/clinical-dashboard/mode-action-popup.tsx", import.meta.url),
-      "utf8",
-    );
+    const source = readFileSync("src/components/clinical-dashboard/mode-action-popup.tsx", "utf8");
 
     expect(source).toContain("const hasCustomBody = Boolean(customBody);");
     expect(source).toContain("[hasCustomBody, integrated, integratedChipRow, items.length]");

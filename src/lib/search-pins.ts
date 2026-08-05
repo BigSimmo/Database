@@ -36,6 +36,7 @@ export const maximumSearchPins = 8;
 const maximumDestinations = 6;
 const maximumNameLength = 48;
 let inMemorySearchPins: SearchPin[] | null = null;
+let inMemorySearchPinsFallbackActive = false;
 
 function normalizePin(value: unknown): SearchPin | null {
   if (!value || typeof value !== "object") return null;
@@ -68,7 +69,9 @@ function cloneDefaultSearchPins(): SearchPin[] {
 }
 
 function cloneStoredOrDefaultSearchPins(): SearchPin[] {
-  return inMemorySearchPins ? cloneSearchPins(inMemorySearchPins) : cloneDefaultSearchPins();
+  return inMemorySearchPinsFallbackActive && inMemorySearchPins
+    ? cloneSearchPins(inMemorySearchPins)
+    : cloneDefaultSearchPins();
 }
 
 export function normalizeSearchPins(value: unknown): SearchPin[] {
@@ -97,9 +100,10 @@ export function readSearchPins(storage?: Pick<Storage, "getItem">): SearchPin[] 
   if (!raw) return cloneStoredOrDefaultSearchPins();
   try {
     const normalized = normalizeSearchPins(JSON.parse(raw));
-    if (!storage) inMemorySearchPins = cloneSearchPins(normalized);
+    inMemorySearchPinsFallbackActive = false;
     return normalized;
   } catch {
+    inMemorySearchPinsFallbackActive = false;
     return cloneDefaultSearchPins();
   }
 }
@@ -110,14 +114,16 @@ export function writeSearchPins(pins: SearchPin[], storage?: Pick<Storage, "setI
     const target = storage ?? (typeof window === "undefined" ? null : window.localStorage);
     if (!target) {
       inMemorySearchPins = cloneSearchPins(normalized);
+      inMemorySearchPinsFallbackActive = true;
       return normalized;
     }
     target.setItem(searchPinsStorageKey, JSON.stringify(normalized));
-    if (!storage) inMemorySearchPins = cloneSearchPins(normalized);
+    inMemorySearchPinsFallbackActive = false;
   } catch {
     // Pins are a progressive enhancement. Keep this session's normalized value
     // when browser storage is unavailable or full.
     inMemorySearchPins = cloneSearchPins(normalized);
+    inMemorySearchPinsFallbackActive = true;
   }
   return normalized;
 }
