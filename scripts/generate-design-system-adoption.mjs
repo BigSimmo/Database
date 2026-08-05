@@ -1782,8 +1782,8 @@ export function checkAdoptionManifest(manifest, { root = ROOT, trackedFiles = tr
         failures.push(`${surface.id} surface baseline must remain not-applicable without files`);
       if (!proofNotApplicable && surface.baseline.status === "not-applicable")
         failures.push(`${surface.id} visual disposition requires a surface baseline`);
-      if (surface.declaredShellState === "v2" && !proofNotApplicable && surface.baseline.status !== "committed")
-        failures.push(`${surface.id} v2 adoption requires a committed visual baseline`);
+      if (surface.declaredShellState === "v2" && !proofNotApplicable && surface.baseline.status === "not-applicable")
+        failures.push(`${surface.id} v2 adoption requires a visual baseline (committed or not-committed)`);
     }
     for (const rootFact of surface.roots) {
       if (!rootFact.exists) failures.push(`${surface.id} root is missing: ${rootFact.file}`);

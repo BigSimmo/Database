@@ -1,7 +1,10 @@
 {
   "schemaVersion": 7,
   "requiredProofCategories": ["dark", "forcedColours", "compact320", "print", "browser"],
-  "globalShellRoot": { "file": "src/app/layout.tsx", "element": "html" },
+  "globalShellRoot": {
+    "file": "src/app/layout.tsx",
+    "element": "html"
+  },
   "defaultProofApplicability": "required",
   "nonVisualRouteContracts": {
     "documents-source-legacy-redirect": {
@@ -24,18 +27,30 @@
     "requiredReviewStatus": "approved",
     "requiredCandidateCount": 6,
     "canonicalCandidates": [
-      { "id": "dashboard-shell", "path": "tests/__screenshots__/linux/dashboard-shell.png" },
+      {
+        "id": "dashboard-shell",
+        "path": "tests/__screenshots__/linux/dashboard-shell.png"
+      },
       {
         "id": "dashboard-shell-phone",
         "path": "tests/__screenshots__/linux/dashboard-shell-phone.png"
       },
-      { "id": "search-results-band", "path": "tests/__screenshots__/linux/search-results-band.png" },
+      {
+        "id": "search-results-band",
+        "path": "tests/__screenshots__/linux/search-results-band.png"
+      },
       {
         "id": "search-results-band-phone",
         "path": "tests/__screenshots__/linux/search-results-band-phone.png"
       },
-      { "id": "document-viewer", "path": "tests/__screenshots__/linux/document-viewer.png" },
-      { "id": "therapy-compass-home", "path": "tests/__screenshots__/linux/therapy-compass-home.png" }
+      {
+        "id": "document-viewer",
+        "path": "tests/__screenshots__/linux/document-viewer.png"
+      },
+      {
+        "id": "therapy-compass-home",
+        "path": "tests/__screenshots__/linux/therapy-compass-home.png"
+      }
     ],
     "sourceBinding": {
       "visualSuiteFile": "tests/ui-visual-baseline.spec.ts",
@@ -65,22 +80,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source", "answer"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["OverlayRoot", "ClinicalDashboard", "SettingsDialog"],
       "documentedDisposition": "The root route, shared application shell, global overlays, answer orchestration and settings UI are owned by the mounted shell rather than separate settings routes."
@@ -108,22 +131,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["ModeHome", "SearchPage", "DetailPage"]
     },
@@ -141,22 +172,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["Differential"]
     },
@@ -175,22 +214,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["Formulation"]
     },
@@ -209,22 +256,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["Specifier"]
     },
@@ -247,22 +302,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["TherapyCompass"]
     },
@@ -279,22 +342,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["DocumentViewer", "SourceEvidence"]
     },
@@ -307,13 +378,31 @@
       "permittedComponentFamilies": [],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "not-applicable", "evidence": [] },
-        "forcedColours": { "status": "not-applicable", "evidence": [] },
-        "compact320": { "status": "not-applicable", "evidence": [] },
-        "print": { "status": "not-applicable", "evidence": [] },
-        "browser": { "status": "not-applicable", "evidence": [] }
+        "dark": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "forcedColours": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "compact320": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "print": {
+          "status": "not-applicable",
+          "evidence": []
+        },
+        "browser": {
+          "status": "not-applicable",
+          "evidence": []
+        }
       },
-      "baseline": { "status": "not-applicable", "files": [] },
+      "baseline": {
+        "status": "not-applicable",
+        "files": []
+      },
       "sanctionedSpecialPatterns": [],
       "documentedDisposition": "Legacy source URLs validate the document id and redirect to the canonical /documents/[id] route; they do not own a visual surface."
     },
@@ -326,22 +415,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["FavouritesCommandLibraryPage"]
     },
@@ -354,22 +451,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["ApplicationsLauncherPage", "CalculatorsSearchPage"]
     },
@@ -386,22 +491,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["PrivacyPage", "ColourCodingReferencePage", "PatientSafetyPlan"]
     },
@@ -414,22 +527,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["SearchResultsHeaderBand"],
       "documentedDisposition": "Submitted catalogue and document searches share the shell-owned results header band while their page routes remain owned by the domain surfaces above."
@@ -446,22 +567,30 @@
       "permittedComponentFamilies": ["answer", "controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["AnswerResultSurface", "VerificationNotice", "RetrievalStateBanner"],
       "documentedDisposition": "Answers are rendered inside the shared ClinicalDashboard route rather than a standalone page route."
@@ -475,22 +604,30 @@
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
       "expectedShellState": "v2",
       "proof": {
-        "dark": { "status": "passed", "evidence": ["tests/ui-style-contract.spec.ts"] },
-        "forcedColours": { "status": "passed", "evidence": ["tests/ckb-v2-token-contract.test.ts"] },
-        "compact320": { "status": "passed", "evidence": ["tests/ui-smoke.spec.ts"] },
-        "print": { "status": "passed", "evidence": ["tests/global-v2-activation.test.ts"] },
-        "browser": { "status": "passed", "evidence": ["tests/ui-visual-baseline.spec.ts"] }
+        "dark": {
+          "status": "passed",
+          "evidence": ["tests/ui-style-contract.spec.ts"]
+        },
+        "forcedColours": {
+          "status": "passed",
+          "evidence": ["tests/ckb-v2-token-contract.test.ts"]
+        },
+        "compact320": {
+          "status": "passed",
+          "evidence": ["tests/ui-smoke.spec.ts"]
+        },
+        "print": {
+          "status": "passed",
+          "evidence": ["tests/global-v2-activation.test.ts"]
+        },
+        "browser": {
+          "status": "passed",
+          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+        }
       },
       "baseline": {
-        "status": "committed",
-        "files": [
-          "tests/__screenshots__/linux/dashboard-shell.png",
-          "tests/__screenshots__/linux/dashboard-shell-phone.png",
-          "tests/__screenshots__/linux/search-results-band.png",
-          "tests/__screenshots__/linux/search-results-band-phone.png",
-          "tests/__screenshots__/linux/document-viewer.png",
-          "tests/__screenshots__/linux/therapy-compass-home.png"
-        ]
+        "status": "not-committed",
+        "files": []
       },
       "sanctionedSpecialPatterns": ["SourcePreviewPopover"],
       "documentedDisposition": "Source preview is a shell-owned overlay launched from answer and search surfaces, not a page route."

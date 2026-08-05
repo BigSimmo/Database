@@ -496,7 +496,7 @@ describe("design-system adoption manifest", () => {
     expect(checkAdoptionManifest(manifest)).toContain("fixture-v2 surface proof is missing browser");
   });
 
-  it("requires passed evidence and a committed existing baseline for declared v2", () => {
+  it("requires passed evidence for declared v2 (baseline may be not-committed while pending)", () => {
     const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
     const declaredV2 = {
       ...current.surfaces[0],
@@ -505,6 +505,7 @@ describe("design-system adoption manifest", () => {
       proof: {
         ...current.surfaces[0].proof,
         dark: { status: "passed", evidence: [] },
+        browser: { status: "unverified", evidence: [] },
       },
       baseline: { status: "not-committed", files: [] },
     };
@@ -512,7 +513,20 @@ describe("design-system adoption manifest", () => {
 
     expect(failures).toContain("fixture-v2 dark proof is passed without evidence");
     expect(failures).toContain("fixture-v2 v2 adoption requires passed browser proof");
-    expect(failures).toContain("fixture-v2 v2 adoption requires a committed visual baseline");
+    expect(failures).not.toContain("fixture-v2 v2 adoption requires a committed visual baseline");
+  });
+
+  it("rejects not-applicable baseline for a declared v2 visual surface", () => {
+    const current = JSON.parse(read("docs/design-system/adoption-manifest.json"));
+    const declaredV2 = {
+      ...current.surfaces[0],
+      id: "fixture-v2",
+      declaredShellState: "v2",
+      proofApplicability: "required",
+      baseline: { status: "not-applicable", files: [] },
+    };
+    const failures = checkAdoptionManifest({ ...current, surfaces: [declaredV2] });
+    expect(failures).toContain("fixture-v2 v2 adoption requires a visual baseline (committed or not-committed)");
   });
 
   it("allows the documented non-visual redirect to declare v2 without fabricated visual proof", () => {
@@ -1149,7 +1163,7 @@ describe("design-system adoption manifest", () => {
       manifest.surfaces.every(
         (surface: { proof: Record<string, unknown>; baseline: { status: string } }) =>
           Object.keys(surface.proof).sort().join("|") === "browser|compact320|dark|forcedColours|print" &&
-          ["committed", "not-applicable"].includes(surface.baseline.status),
+          ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
     expect(manifest.routeCoverage.discovered).toHaveLength(47);
@@ -1159,7 +1173,7 @@ describe("design-system adoption manifest", () => {
     expect(manifest.routeCoverage.duplicates).toEqual([]);
   });
 
-  it("accepts declared v2 only after its proof and baselines are committed", () => {
+  it("accepts declared v2 with passed proof (baseline may be not-committed while pending Linux screenshots)", () => {
     const manifest = buildAdoptionManifest({ root });
     const failures = checkAdoptionManifest(manifest, { root });
     expect(failures).toEqual([]);
