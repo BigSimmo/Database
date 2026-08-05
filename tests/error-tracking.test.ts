@@ -61,7 +61,15 @@ describe("production error tracking privacy boundary", () => {
 });
 
 describe("resolveTracesSampleRate", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("defaults to 0.1 and clamps invalid values", () => {
+    // Offline Vitest forces SENTRY_TRACES_SAMPLE_RATE=0; defaults apply when the
+    // argument is omitted *or* explicitly undefined, so clear the ambient value
+    // before exercising the unset/default path.
+    vi.stubEnv("SENTRY_TRACES_SAMPLE_RATE", "");
     expect(resolveTracesSampleRate(undefined)).toBe(0.1);
     expect(resolveTracesSampleRate("")).toBe(0.1);
     expect(resolveTracesSampleRate("0")).toBe(0);

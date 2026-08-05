@@ -16,6 +16,13 @@ describe("isSentryLoggingEnabled", () => {
   });
 
   it("requires a DSN and defaults on when the flag is unset", () => {
+    // Offline Vitest forces SENTRY_ENABLE_LOGS=false and pins an inert
+    // SENTRY_DSN so Next cannot reload a live destination. Defaults apply when
+    // the argument is omitted *or* explicitly undefined, so stub both ambient
+    // names: empty flag (default-on path) and empty DSN (first assertion).
+    // Passing "" positionally instead would only test the explicit-empty path.
+    vi.stubEnv("SENTRY_ENABLE_LOGS", "");
+    vi.stubEnv("SENTRY_DSN", "");
     expect(isSentryLoggingEnabled(undefined, undefined)).toBe(false);
     expect(isSentryLoggingEnabled(undefined, "https://example.ingest.sentry.io/1")).toBe(true);
     expect(isSentryLoggingEnabled("false", "https://example.ingest.sentry.io/1")).toBe(false);
