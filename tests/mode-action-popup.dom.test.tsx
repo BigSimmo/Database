@@ -153,6 +153,7 @@ describe("ModeActionPopup state transitions", () => {
     render(<CustomBodySheetReturnFocusHarness />);
 
     await user.click(screen.getByRole("button", { name: "Open pins and search" }));
+    await waitFor(() => expect(document.body.style.overflow).toBe("hidden"));
     await user.click(screen.getByRole("button", { name: "Search current area" }));
 
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Search composer" })).toHaveFocus());
