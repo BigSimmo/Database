@@ -1125,7 +1125,7 @@ describe("Supabase schema Data API grants", () => {
     // This version records an already-completed, validated repair. It must
     // fail fast on drift rather than starting a write-blocking transactional
     // rebuild on ingestion and telemetry tables.
-    expect(restoreRagSearchHealthIndexesMigration).toContain("where to_regclass(format('public.%i', index_name)) is null");
+    expect(restoreRagSearchHealthIndexesMigration).toContain("where to_regclass(format('public.%I', index_name)) is null");
     expect(restoreRagSearchHealthIndexesMigration).toContain("create missing indexes concurrently outside the migration transaction");
     expect(restoreRagSearchHealthIndexesMigration).not.toContain("create index if not exists");
   });
