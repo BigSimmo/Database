@@ -13,6 +13,7 @@ import {
   gitCheckoutFreshness,
   localGitBaseline,
   obsoleteNpmProxyVariables,
+  hostedAppInventoryCapabilityLine,
   parseHostedAppInventoryArgument,
   parseMcpServerMetadata,
   playwrightBrowserErrors,
@@ -445,9 +446,23 @@ describe("Codex Cloud environment contract", () => {
       "Hosted app inventory contains stale railway_cloud; remove or reconnect that host-local app, then start a fresh task and supply the new inventory.",
     );
     expect(validateHostedAppInventory(["github", "railway", "supabase"])).toEqual([]);
-    expect(sanitizedCloudCapabilityLines({}, { hostedAppInventory: ["github", "railway", "supabase"] })).toContain(
-      "hosted_app.inventory=provided names=github,railway,supabase",
+    const secretShaped = "sk-abcdef0123456789tokenvalue";
+    expect(validateHostedAppInventory(["github", secretShaped])).toContain(
+      "Hosted app inventory contains unrecognized app names; supply only connector names (github, railway, supabase, figma, sentry, figma_cloud, sentry_cloud, supabase_cloud), never tokens or secrets.",
     );
+    const capabilityLine = hostedAppInventoryCapabilityLine(["github", "railway", "supabase"]);
+    expect(capabilityLine).toContain("hosted_app.inventory=provided count=3");
+    expect(capabilityLine).toContain("github=true");
+    expect(capabilityLine).toContain("railway=true");
+    expect(capabilityLine).toContain("supabase=true");
+    expect(capabilityLine).toContain("stale_railway_cloud=false");
+    expect(capabilityLine).toContain("unknown=0");
+    const leaked = hostedAppInventoryCapabilityLine(["github", secretShaped]);
+    expect(leaked).toContain("unknown=1");
+    expect(leaked).not.toContain(secretShaped);
+    expect(
+      sanitizedCloudCapabilityLines({}, { hostedAppInventory: ["github", secretShaped] }).join("\n"),
+    ).not.toContain(secretShaped);
   });
 
   it("probes the raw task environment without printing credential values", () => {
