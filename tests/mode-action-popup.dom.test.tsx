@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { useRef, useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -33,6 +36,66 @@ function Harness({ onAction = vi.fn(), onModeSelect = vi.fn() }) {
       onAction={onAction}
       onModeSelect={onModeSelect}
     />
+  );
+}
+
+function CustomBodyHarness() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <ModeActionPopup
+      open={open}
+      title="Pins and search"
+      titleIcon={Search}
+      buttonLabel="Open pins and search"
+      items={modeActionItemsFor("documents")}
+      onOpenChange={setOpen}
+      onAction={vi.fn()}
+      customBody={
+        <div>
+          <button type="button">First custom action</button>
+          <button type="button">Middle custom action</button>
+          <button type="button">Last custom action</button>
+        </div>
+      }
+    />
+  );
+}
+
+function CustomBodySheetReturnFocusHarness() {
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+
+  return (
+    <>
+      <input ref={inputRef} aria-label="Search composer" />
+      <ModeActionPopup
+        open={open}
+        title="Pins and search"
+        titleIcon={Search}
+        buttonLabel="Open pins and search"
+        items={modeActionItemsFor("documents")}
+        onOpenChange={setOpen}
+        onAction={vi.fn()}
+        useSheet
+        sheetReturnFocusRef={returnFocusRef}
+        onBeforeOpen={() => {
+          returnFocusRef.current = null;
+        }}
+        customBody={
+          <button
+            type="button"
+            onClick={() => {
+              returnFocusRef.current = inputRef.current;
+              setOpen(false);
+            }}
+          >
+            Search current area
+          </button>
+        }
+      />
+    </>
   );
 }
 
@@ -71,6 +134,44 @@ describe("ModeActionPopup state transitions", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("menu", { name: "Documents" })).not.toBeInTheDocument();
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("gives custom bodies dialog semantics and focuses the last custom control from ArrowUp", async () => {
+    const user = userEvent.setup();
+    render(<CustomBodyHarness />);
+
+    const trigger = screen.getByRole("button", { name: "Open pins and search" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+
+    trigger.focus();
+    await user.keyboard("{ArrowUp}");
+
+    const dialog = screen.getByRole("dialog", { name: "Pins and search" });
+    expect(screen.getByTestId("daily-actions-menu")).toBe(dialog);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Last custom action" })).toHaveFocus());
+  });
+
+  it("keeps custom body placement measurement stable across parent renders", () => {
+    // jsdom does not support `new URL(..., import.meta.url)` file resolution.
+    const source = readFileSync(
+      path.join(process.cwd(), "src/components/clinical-dashboard/mode-action-popup.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("const hasCustomBody = Boolean(customBody);");
+    expect(source).toContain("[hasCustomBody, integrated, integratedChipRow, items.length]");
+    expect(source).not.toContain("[customBody, integrated, integratedChipRow, items.length]");
+  });
+
+  it("lets custom sheet actions retarget return focus to the composer", async () => {
+    const user = userEvent.setup();
+    render(<CustomBodySheetReturnFocusHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Open pins and search" }));
+    await waitFor(() => expect(document.body.style.overflow).toBe("hidden"));
+    await user.click(screen.getByRole("button", { name: "Search current area" }));
+
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "Search composer" })).toHaveFocus());
   });
 
   it("selects enabled modes and exposes disabled modes without selecting them", async () => {

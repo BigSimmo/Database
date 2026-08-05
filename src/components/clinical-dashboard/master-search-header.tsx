@@ -22,6 +22,7 @@ import {
   Filter,
   Globe2,
   Loader2,
+  Layers3,
   Menu,
   MessageSquarePlus,
   Plus,
@@ -36,8 +37,10 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
+import { SearchPinsMenu } from "@/components/clinical-dashboard/search-pins-menu";
 import {
   ModeActionPopup,
   modeActionItemsFor,
@@ -76,6 +79,8 @@ import {
   setModeHomeComposerReservePending,
 } from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
+import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
+import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -353,6 +358,7 @@ export function MasterSearchHeader({
   const [commandDropdownOpen, setCommandDropdownOpen] = useState(false);
   const [commandListboxId, setCommandListboxId] = useState<string>();
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
+  const commandDropdownDisplayableByPlacement = useCommandDropdownDisplayableByPlacement();
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   // Which menuitemradio should receive initial focus when the mode menu opens
   // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
@@ -485,6 +491,7 @@ export function MasterSearchHeader({
   const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const actionMenuSheetReturnFocusRef = useRef<HTMLElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
   const touchStartY = useRef<number | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
@@ -594,8 +601,6 @@ export function MasterSearchHeader({
                           ? "factsheets"
                           : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
-  const actionMenuTitle = selectedAppMode.label;
-  const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
   const actionMenuButtonLabel = `Open ${selectedAppMode.label.toLowerCase()} options`;
   const useMobileBackControl = mobileLeadingAction === "back";
 
@@ -1033,6 +1038,27 @@ export function MasterSearchHeader({
       restoreFocusUnlessMoved(actionMenuTriggerRef.current);
     });
   }, []);
+  const handleFocusSearchInput = useEventCallback(() => {
+    queryInputRef?.current?.focus();
+  });
+  const retargetActionMenuSheetFocusToSearchInput = useEventCallback(() => {
+    const target = queryInputRef?.current ?? null;
+    actionMenuSheetReturnFocusRef.current = target;
+    if (!currentUsesScopeSheet()) {
+      window.requestAnimationFrame(() => {
+        restoreFocusUnlessMoved(target);
+      });
+    }
+  });
+  const handleActionMenuCurrentSearch = useEventCallback(() => {
+    retargetActionMenuSheetFocusToSearchInput();
+    setActionMenuOpen(false);
+  });
+  const handleActionMenuGlobalSearch = useEventCallback(() => {
+    retargetActionMenuSheetFocusToSearchInput();
+    setActionMenuOpen(false);
+    setCommandDropdownOpen(true);
+  });
 
   const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
@@ -1580,7 +1606,8 @@ export function MasterSearchHeader({
     // Tablet/desktop composers keep the site-wide notice everywhere.
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
-    const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
     // Search sits outside the collapsing top-bar row. Sticky hosts pin an outer
     // top-bar stack; result composers portal into page flow at sm+, so this
     // relative fallback only covers the brief pre-portal default placement (a
@@ -1623,7 +1650,7 @@ export function MasterSearchHeader({
         data-command-open={
           // Phones never show the command dropdown, so the dock scrim must not
           // grow for it — gate the open attribute to widths that can display it.
-          usesBottomComposerPlacement && !usesPhoneSearchLayout && commandDropdownOpen ? "true" : undefined
+          usesBottomComposerPlacement && commandDropdownDisplayable && commandDropdownOpen ? "true" : undefined
         }
         data-scroll-hidden={shouldHideBottomOnScroll && bottomComposerHidden ? "true" : undefined}
         {...(shouldHideBottomOnScroll ? composerFocusProps : undefined)}
@@ -1719,7 +1746,7 @@ export function MasterSearchHeader({
           onRunModeAction={runModeAction}
           onListboxIdReady={setCommandListboxId}
           onActiveItemIdChange={setCommandActiveItemId}
-          onFocusSearchInput={() => queryInputRef?.current?.focus()}
+          onFocusSearchInput={handleFocusSearchInput}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -1732,29 +1759,49 @@ export function MasterSearchHeader({
           >
             <ModeActionPopup
               open={actionMenuOpen}
-              title={actionMenuTitle}
-              titleIcon={SelectedAppModeIcon}
-              subtitle={actionMenuSubtitle}
+              title="Pins and search"
+              titleIcon={Layers3}
+              subtitle="Open a pin or choose where this search runs."
               buttonLabel={actionMenuButtonLabel}
               items={actionMenuItems}
-              modeOptions={actionMenuModeOptions}
-              selectedModeId={selectedAppMode.id}
               onOpenChange={setActionMenuOpen}
               onBeforeOpen={() => {
+                actionMenuSheetReturnFocusRef.current = null;
                 setUsesScopeSheet(currentUsesScopeSheet());
+                setCommandDropdownOpen(false);
                 setModeMenuOpen(false);
                 setScopeOpen(false);
                 setScopeSheetOpen(false);
               }}
               onAction={runModeAction}
-              onModeSelect={selectAppModeById}
               onPlacementChange={setActionMenuPlacement}
               triggerClassName="answer-footer-search-action"
               triggerRef={actionMenuTriggerRef}
               integrated={usesFooterChipLayout}
               integratedChipRow={showFooterSearchChips}
               useSheet={usesScopeSheet}
+              sheetReturnFocusRef={actionMenuSheetReturnFocusRef}
               dismissIgnoreRefs={[modeMenuRef]}
+              customBody={
+                <SearchPinsMenu
+                  key={actionMenuOpen ? "pins-menu-open" : "pins-menu-closed"}
+                  currentModeId={selectedAppMode.id}
+                  modeOptions={actionMenuModeOptions}
+                  actions={actionMenuItems}
+                  globalSearchAvailable={commandDropdownDisplayable}
+                  onClose={() => setActionMenuOpen(false)}
+                  onCurrentSearch={handleActionMenuCurrentSearch}
+                  onGlobalSearch={handleActionMenuGlobalSearch}
+                  onModeSelect={(modeId) => {
+                    setActionMenuOpen(false);
+                    selectAppModeById(modeId);
+                  }}
+                  onAction={(actionId) => {
+                    setActionMenuOpen(false);
+                    runModeAction(actionId);
+                  }}
+                />
+              }
             />
 
             {/* The clear button is a flex sibling (not absolutely positioned): the
