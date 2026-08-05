@@ -246,8 +246,12 @@ describe("Codex Cloud environment contract", () => {
       },
     );
     const report = lines.join("\n");
+    expect(report).toContain("hosted_workspace.class=personal-pro");
     expect(report).toContain("OPENAI_API_KEY.present=true");
     expect(report).toContain("hosted_app.inventory=external-unverified-until-fresh-task");
+    expect(report).toContain("provider_route.github=codex-native-connector");
+    expect(report).toContain("provider_route.railway=chatgpt-official-app");
+    expect(report).toContain("provider_route.supabase=chatgpt-project-scoped-read-only-app");
     expect(report).toContain(
       "desktop_cli_mcp.template=railway type=http command=none endpoint=https://mcp.railway.com/",
     );

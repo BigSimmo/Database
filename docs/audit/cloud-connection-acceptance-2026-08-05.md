@@ -19,6 +19,10 @@ postinstall can fail when GitHub release downloads are unavailable.
   If Enterprise/Edu governance is required, an admin must enable Developer Mode and either govern
   the official app or create `Railway — Database` at `https://mcp.railway.com`, run Scan Tools,
   restrict it to a dedicated group, and disable write tools individually.
+- A current Codex settings review independently confirmed the **PRO** classification. Its connector
+  page shows GitHub connected to `BigSimmo` and offers GitHub, Slack, and Linear; it provides no
+  Railway or Supabase connector control. This is a product-surface limit, not a repository setup
+  failure.
 - The installed app exposed these read actions: `Fetch-docs`, `Get-feature-flag`, `Get-logs`,
   `Get-service-config`, `Get-service-metrics`, `Get-status`, `List-deployments`, `List-domains`,
   `List-feature-flags`, `List-projects`, `List-services`, `List-variables`, `List-workspaces`,
@@ -42,6 +46,18 @@ postinstall can fail when GitHub release downloads are unavailable.
 | Supabase            | Existing app exposes only project-scoped read-only metadata without row queries                                         | ChatGPT PASS via `mcp__codex_apps__supabase_list_projects`: `sjrfecxgysukkwxsowpy`, `Clinical KB Database`, `ACTIVE_HEALTHY`; no schema/table/row/log call. Codex Cloud FAIL: no Supabase tool exposed                |
 | Raw Cloud shell     | Only five documented non-secret values; `OPENAI_BASE_URL` absent before profiles/shims                                  | Environment UI has exactly the five documented values and no `OPENAI_BASE_URL`, but fresh raw-shell FAIL still reports the inherited name. This is a launcher/workspace defect, not repository state                  |
 | OAuth durability    | Second read-only Railway call succeeds after one hour, or reauthentication is documented                                | Pending elapsed-time validation; no token workaround added                                                                                                                                                            |
+
+## Personal Pro operating workarounds
+
+| Blocker                                                          | Safe workaround applied                                                                                                                                                        | Functional boundary                                                                                                       |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| No Personal Pro group RBAC or per-tool disabling                 | Railway app policy is **Allow read actions**; every change remains approval-gated                                                                                              | Maximum available Pro control; not equivalent to Enterprise/Edu RBAC                                                      |
+| Railway and Supabase absent from Codex Cloud connectors          | Use a split control plane: Codex Cloud for repository/GitHub work; ChatGPT web for official Railway OAuth and project-scoped read-only Supabase                                | Providers remain usable without copying tokens; a single Codex Cloud task still cannot call them                          |
+| Raw `OPENAI_BASE_URL` injected although absent in environment UI | Keep the name-only raw probe fail-closed, then use the generated profile, Codex shell policy, and `node`/`npm`/`npx` shims that remove provider variables before ordinary work | Normal repository commands are sanitized and functional; the raw parent-process defect remains visible for OpenAI support |
+| Railway refresh behavior not yet proven after one hour           | Use normal OAuth reauthentication if a later read returns an authorization error; never add a static or shared token                                                           | Safe continuity workaround until refresh durability is observed                                                           |
+
+This operating mode favors maximum safe functionality on Personal Pro. It does not relabel the
+Codex Cloud provider-tool acceptance failure as success.
 
 The first fresh Codex Cloud acceptance attempt did not reach the agent: setup failed while
 `@railway/cli@5.30.4` tried to download its binary from GitHub Releases and received

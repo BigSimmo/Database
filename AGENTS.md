@@ -916,10 +916,15 @@ Use `docs/codex-cloud.md` as the environment contract:
   `.github/workflows/authenticated-live-tests.yml` GitHub Actions workflow, its explicit
   dispatch confirmation, and the `Database / production` environment, never by exposing
   credentials to the Codex Cloud agent shell.
-- Connected Cloud Railway access uses Railway's installed official app, or an Enterprise/Edu
-  workspace custom app for `https://mcp.railway.com`, plus browser OAuth; prove it with the callable
-  tool inventory and a read-only identity/project-list call. Repository setup and local MCP config
-  cannot activate it.
+- The active hosted workspace is **Personal Pro**. Use Railway's installed official ChatGPT app
+  with browser OAuth and **Allow read actions**; Personal Pro does not provide the dedicated-group
+  RBAC or per-tool action disabling assumed by Enterprise/Edu instructions. Prove Railway with the
+  callable tool inventory and a read-only identity/project-list call. Repository setup and local
+  MCP config cannot activate it, and the Codex Cloud connector page currently offers no Railway
+  connector. Use the documented split control plane: Codex Cloud for code and its native GitHub
+  connector, ChatGPT web for Railway and project-scoped read-only Supabase. Every provider change
+  still requires explicit approval. Enterprise/Edu custom-app controls are a future governance
+  option, not the current workspace classification.
   CLI token auth is a separate operator capability: it requires a separately installed Railway CLI
   and a dedicated
   `RAILWAY_API_TOKEN`, and must never substitute `RAILWAY_TOKEN` or expose either token to an

@@ -19,6 +19,8 @@ export const expectedCloudCliVersions = Object.freeze({
   codex: "0.146.0",
 });
 
+export const expectedHostedWorkspaceClass = "personal-pro";
+
 export const expectedMcpConfiguration = Object.freeze({
   // Canonical form matches `.mcp.json` (no trailing slash).
   railwayUrl: "https://mcp.railway.com",
@@ -404,6 +406,7 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   const mcpServers = options.mcpServers ?? parseMcpServerMetadata(read(".mcp.json"));
   const checkout = options.checkout ?? gitCheckoutFreshness(repoRoot, env);
   const lines = [
+    `hosted_workspace.class=${expectedHostedWorkspaceClass}`,
     `CODEX_CLOUD=${approvedModeValue(env.CODEX_CLOUD, ["1"])}`,
     `CODEX_CLOUD_ACCESS_PROFILE=${approvedModeValue(env.CODEX_CLOUD_ACCESS_PROFILE ?? "offline", ["offline", "connected"])}`,
     `RAG_PROVIDER_MODE=${approvedModeValue(env.RAG_PROVIDER_MODE, ["offline"])}`,
@@ -412,6 +415,9 @@ export function sanitizedCloudCapabilityLines(env = process.env, options = {}) {
   ];
   for (const name of providerCredentialVariables) lines.push(`${name}.present=${Boolean(env[name])}`);
   lines.push("hosted_app.inventory=external-unverified-until-fresh-task");
+  lines.push("provider_route.github=codex-native-connector");
+  lines.push("provider_route.railway=chatgpt-official-app");
+  lines.push("provider_route.supabase=chatgpt-project-scoped-read-only-app");
   lines.push(`codex.cli_available=${codexCliAvailable}`);
   lines.push(pythonWorkerVersionLine(env.CODEX_CLOUD_OCR_PYTHON));
   lines.push(`git.origin_configured=${origin.configured}`);
@@ -762,6 +768,8 @@ export function validateCodexCloudSetup() {
   requireMatch(errors, guide, /CODEX_CLOUD_ACCESS_PROFILE=connected/, "The guide must document connected access.");
   requireMatch(errors, guide, /CODEX_CLOUD_GITHUB_PAT/, "The guide must document the narrowly scoped PAT exception.");
   requireMatch(errors, guide, /GitHub connector/, "The guide must document GitHub connector access.");
+  requireMatch(errors, guide, /Personal Pro/, "The guide must identify the active Personal Pro workspace.");
+  requireMatch(errors, guide, /split control plane/, "The guide must document the Personal Pro provider workaround.");
   try {
     parseMcpServerMetadata(mcp);
   } catch (error) {
