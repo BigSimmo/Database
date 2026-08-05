@@ -937,7 +937,7 @@ export function ModeActionPopup({
 
   return (
     <>
-      {useSheet && open ? (
+      {useSheet ? (
         <Sheet
           open={open}
           onClose={closeAndRestoreFocus}
