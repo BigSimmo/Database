@@ -1,6 +1,6 @@
 import { TriangleAlert, Building2, FileText, Tag } from "lucide-react";
 
-import { cn, metadataPill, toneInfo, toneNeutral, toneWarning } from "@/components/ui-primitives";
+import { cn, metadataPillDensity, toneInfo, toneNeutral, toneWarning } from "@/components/ui-primitives";
 import { canonicalDocumentDisplayTitle } from "@/lib/document-organization";
 import { formatDocumentLabelDisplay } from "@/lib/document-tags";
 import type { DocumentLabel, DocumentOrganizationProfile } from "@/lib/types";
@@ -61,37 +61,37 @@ export function DocumentOrganizationBadges({
   const needsReview = profile?.review_status === "needs_review";
   const manualOverride = profile?.review_status === "manual_override";
   const candidateCount = profile?.site?.candidates?.length ?? 0;
-  const sizeClass = compact ? "min-h-6 px-2 text-2xs" : "min-h-7 px-2 text-2xs";
+  const density = compact ? metadataPillDensity.compact : metadataPillDensity.dense;
 
   if (!siteLabel && !typeLabel && !needsReview && !manualOverride) return null;
 
   return (
     <div className={cn("flex flex-wrap gap-1.5", className)}>
       {siteLabel ? (
-        <span className={cn(metadataPill, toneInfo, sizeClass)} title="Hospital or service site">
+        <span className={cn(density, toneInfo)} title="Hospital or service site">
           <Building2 aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           {compact && siteShortLabel ? siteShortLabel : formatDocumentLabelDisplay(siteLabel, "site")}
         </span>
       ) : needsReview && candidateCount > 0 ? (
-        <span className={cn(metadataPill, toneWarning, sizeClass)} title="Site candidate needs review">
+        <span className={cn(density, toneWarning)} title="Site candidate needs review">
           <TriangleAlert aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           Ambiguous site
         </span>
       ) : null}
       {typeLabel ? (
-        <span className={cn(metadataPill, toneNeutral, sizeClass)} title="Document type">
+        <span className={cn(density, toneNeutral)} title="Document type">
           <FileText aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           {formatDocumentLabelDisplay(typeLabel, "document_type")}
         </span>
       ) : null}
       {needsReview ? (
-        <span className={cn(metadataPill, toneWarning, sizeClass)} title="Organisation profile needs review">
+        <span className={cn(density, toneWarning)} title="Organisation profile needs review">
           <TriangleAlert aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           Needs review
         </span>
       ) : null}
       {manualOverride ? (
-        <span className={cn(metadataPill, toneInfo, sizeClass)} title="Organisation profile was manually curated">
+        <span className={cn(density, toneInfo)} title="Organisation profile was manually curated">
           <Tag aria-hidden="true" className="mr-1 h-3.5 w-3.5" />
           Manual override
         </span>

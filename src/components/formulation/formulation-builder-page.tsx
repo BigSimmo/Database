@@ -89,7 +89,7 @@ function StepProgress({ active, onChange }: { active: BuilderStepId; onChange: (
                 <span
                   className={cn(
                     "hidden text-2xs font-semibold lg:block",
-                    isActive ? "text-[color:var(--text)]" : "text-[color:var(--text-soft)]",
+                    isActive ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)]",
                   )}
                 >
                   {step.description}
@@ -154,11 +154,11 @@ function BuilderThread({
 
           <dl className="grid grid-cols-2 gap-2 border-t border-[color:var(--border)] pt-3">
             <div className="rounded-lg bg-[color:var(--surface-subtle)] p-3">
-              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-soft)]">Framework</dt>
+              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Framework</dt>
               <dd className="mt-1 text-sm font-extrabold text-[color:var(--text-heading)]">{templateId}</dd>
             </div>
             <div className="rounded-lg bg-[color:var(--surface-subtle)] p-3">
-              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-soft)]">Review</dt>
+              <dt className="text-2xs font-bold uppercase tracking-wide text-[color:var(--text-muted)]">Review</dt>
               <dd className="nums mt-1 text-sm font-extrabold text-[color:var(--text-heading)]">
                 {completedQuality}/{formulationQualityPrompts.length}
               </dd>

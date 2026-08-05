@@ -18,12 +18,34 @@ import { describe, expect, it } from "vitest";
  */
 
 const globals = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+const v2Stylesheet = readFileSync(new URL("../src/app/ckb-v2-tokens.css", import.meta.url), "utf8");
 
 function themeBlock(marker: string) {
   const start = globals.indexOf(marker);
   expect(start, `${marker} block is missing from globals.css`).toBeGreaterThan(-1);
   const end = globals.indexOf("\n}", start);
   return globals.slice(start, end);
+}
+
+function allThemeBlocks(stylesheet: string, selector: string) {
+  const opener = `\n${selector} {`;
+  const grouped = `\n${selector},`;
+  let start = stylesheet.indexOf(opener);
+  if (start === -1) start = stylesheet.indexOf(grouped);
+  expect(start, `${selector} block is missing`).toBeGreaterThan(-1);
+  let combined = "";
+  while (start > -1) {
+    const end = stylesheet.indexOf("\n}", start);
+    // Missing terminator would otherwise restart at 0 and loop forever.
+    expect(end, `${selector} block is missing a closing brace`).toBeGreaterThan(start);
+    combined += stylesheet.slice(start, end);
+    const nextOpener = stylesheet.indexOf(opener, end + 1);
+    const nextGrouped = stylesheet.indexOf(grouped, end + 1);
+    if (nextOpener === -1) start = nextGrouped;
+    else if (nextGrouped === -1) start = nextOpener;
+    else start = Math.min(nextOpener, nextGrouped);
+  }
+  return combined;
 }
 
 const lightBlock = themeBlock("\n:root {");
@@ -40,6 +62,8 @@ function declarations(block: string) {
 
 const light = declarations(lightBlock);
 const dark = declarations(darkBlock);
+const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2.ckb-v2"));
+const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2.ckb-v2"));
 const themes = [
   { name: "light", tokens: light },
   { name: "dark", tokens: dark },
@@ -234,13 +258,13 @@ describe("disabled and pre-paint values", () => {
     expect(contrastRatio(colourOf(tokens, "--disabled"), colourOf(tokens, "--surface"))).toBeGreaterThanOrEqual(3);
   });
 
-  it("keeps the pre-paint theme colours equal to --background", () => {
+  it("keeps the pre-paint theme colours equal to the root-mounted v2 --background", () => {
     // APP_THEME_COLORS paints before any stylesheet loads; a drift here is a
     // flash of the wrong page colour and a mismatched browser chrome bar.
     const theme = readFileSync(new URL("../src/lib/theme.ts", import.meta.url), "utf8");
     const appThemeColors = theme.slice(theme.indexOf("export const APP_THEME_COLORS"));
-    expect(appThemeColors).toContain(`light: "${colourOf(light, "--background")}"`);
-    expect(appThemeColors).toContain(`dark: "${colourOf(dark, "--background")}"`);
+    expect(appThemeColors).toContain(`light: "${colourOf(v2Light, "--background")}"`);
+    expect(appThemeColors).toContain(`dark: "${colourOf(v2Dark, "--background")}"`);
   });
 
   it("keeps the brand mark on the current accent", () => {

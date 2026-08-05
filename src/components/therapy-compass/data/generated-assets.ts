@@ -15,3 +15,12 @@ export const THERAPY_CATALOGUE_ASSETS_PREVIOUS = {
   index: "therapies-index.4b4ee988e0ff84e2.json",
   home: "therapies-home.211dab554c4ec62d.json",
 } as const;
+
+// First-paint metadata for the Therapy home. The landing page renders only
+// the catalogue count and trusted default artifact destinations, so it must
+// not download and parse a record projection before its LCP can paint.
+export const THERAPY_CATALOGUE_SUMMARY = {
+  totalCount: 205,
+  defaultBriefSlug: "acceptance-and-commitment-therapy-act",
+  defaultSheetSlug: "acceptance-and-commitment-therapy-act",
+} as const;

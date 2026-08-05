@@ -117,14 +117,14 @@ export function DocumentSectionList({
               <span
                 className={cn(
                   "nums flex shrink-0 items-center gap-1 text-3xs font-semibold",
-                  section.pending ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                  section.pending ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-muted)]",
                 )}
               >
                 {section.pending ? <Loader2 aria-hidden="true" className="h-3 w-3 animate-spin" /> : null}
                 {section.detail}
               </span>
               {section.collapsible ? (
-                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
+                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)]" />
               ) : (
                 <span aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               )}
@@ -144,7 +144,7 @@ function SectionListHeading({ sections, activeId }: { sections: DocumentSection[
       <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
         In this document
       </p>
-      <p className="nums text-3xs font-bold text-[color:var(--text-soft)]">
+      <p className="nums text-3xs font-bold text-[color:var(--text-muted)]">
         {Math.max(position, 1)}/{sections.length}
       </p>
     </div>
