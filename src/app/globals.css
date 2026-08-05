@@ -235,6 +235,8 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #c6dcf2;
   --clinical-accent-contrast: #ffffff;
+  /* Tinted filter-count pill on the results band — quieter than a solid disc. */
+  --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   /* Bespoke chat surfaces with no role-token equivalent: warm sand callouts
      and table headers. Per-theme values, not aliases. */
@@ -489,6 +491,7 @@
   --clinical-accent-soft: var(--primary-soft);
   --clinical-accent-border: #235a7d;
   --clinical-accent-contrast: #082e4d;
+  --search-band-badge-bg: color-mix(in oklab, var(--clinical-accent) 16%, transparent);
 
   --clinical-chat-sand: #2d2418;
   --clinical-chat-sand-border: #5a4427;
@@ -3023,6 +3026,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: ButtonBorder;
     --clinical-accent-contrast: ButtonText;
+    --search-band-badge-bg: Highlight;
     --info: LinkText;
     --info-soft: Canvas;
     --success: CanvasText;
@@ -3319,6 +3323,11 @@ html.theme-transitioning *:after {
    carried in the forced-colors block below, and the one high-contrast
    distinction that matters clinically. */
 .search-band-lead {
+  /* `display: block` so width/height apply even if this mark is ever moved out
+     of a flex/grid formatting context. As a bare inline span those dimensions
+     are ignored and the stroke collapses to nothing while class-presence
+     assertions still pass. */
+  display: block;
   box-sizing: content-box;
   width: 0;
   height: 1.125rem;
@@ -3445,7 +3454,7 @@ html.theme-transitioning *:after {
   .search-band-fault {
     font-weight: 640;
   }
-  /* 3 — selected sort/chip lose their fill, so carry them on the system's own
+  /* 4 — selected sort/chip lose their fill, so carry them on the system's own
      selection pair. forced-color-adjust is required: Highlight resolves
      semi-transparent and Chromium otherwise paints a Canvas backplate straight
      over the label. */

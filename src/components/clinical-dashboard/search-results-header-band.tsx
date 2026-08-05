@@ -262,7 +262,11 @@ export function SearchResultsHeaderBand({
   // See `mobileControlsPlacement`: absent a declaration, a page control is
   // assumed to be a full-width select and keeps its own row, and a band with no
   // page control collapses to one line.
-  const inlineControls = (mobileControlsPlacement ?? (pageMobileControls ? "row" : "inline")) === "inline";
+  // Derive from the raw `mobileControls` prop, not the count-gated
+  // `pageMobileControls`: during `loading`/`faulted` the page control is forced
+  // to null, and keying placement off that flipped six modes between `inline`
+  // (nowrap, 58px) and `row` (wrapping) geometry every search.
+  const inlineControls = (mobileControlsPlacement ?? (mobileControls ? "row" : "inline")) === "inline";
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
   const { ref: railRef, overflowing: railOverflowing } = useRailOverflow<HTMLDivElement>();
   // The shelf gets its own instance rather than sharing the rail's. They overflow
@@ -386,12 +390,16 @@ export function SearchResultsHeaderBand({
                       is unanchored on a deep link or below the fold — and the mode
                       registry already carries the noun. */}
                   {matchCount === 1 ? singularNoun(inlineNoun(resultNoun)) : inlineNoun(resultNoun)}
+                  {/* Nested in the count phrase, not a sibling flex item: the
+                      status row is `flex … gap-1.5`, so a separate span with a
+                      leading space doubled the gap before the middot and still
+                      left the live-region textContent missing that space. */}
+                  {partial ? (
+                    <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
+                      {" · some sources unavailable"}
+                    </span>
+                  ) : null}
                 </span>
-                {partial ? (
-                  <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
-                    {" · some sources unavailable"}
-                  </span>
-                ) : null}
               </>
             )}
           </span>
@@ -417,7 +425,10 @@ export function SearchResultsHeaderBand({
             data-testid="search-query-ribbon-utilities"
             className={cn(
               "flex min-w-0 items-center gap-1.5 lg:flex-1",
-              inlineControls ? "shrink" : "w-full pb-1 sm:w-auto sm:pb-0",
+              // Row placement: wrap so a `w-full` phone select gets its own line
+              // instead of sharing a shrinkable flex line with Sort. At `sm+` the
+              // phone control is hidden and the track returns to a single row.
+              inlineControls ? "shrink" : "w-full flex-wrap pb-1 sm:w-auto sm:flex-nowrap sm:pb-0",
             )}
           >
             {/* Applied scopes have moved to their own labelled shelf below. They are
@@ -529,7 +540,14 @@ export function SearchResultsHeaderBand({
                 data-testid="search-query-ribbon-mobile-controls"
                 role="group"
                 aria-label={filterLabel}
-                className={cn("min-w-0 sm:hidden", inlineControls ? "flex shrink items-center" : "w-full")}
+                className={cn(
+                  "min-w-0 sm:hidden",
+                  // `basis-full shrink-0` forces a full-width second line in row
+                  // mode so the select keeps its intrinsic width and Sort stays
+                  // on the scroll track above it, rather than both compressing
+                  // at 320–390px.
+                  inlineControls ? "flex shrink items-center" : "w-full basis-full shrink-0",
+                )}
               >
                 {pageMobileControls}
               </div>
@@ -839,6 +857,37 @@ export function SearchResultsEmptyState({
   // the same defect class as a label that does not match its handler.
   const hasExample = Boolean(config?.examples[0] && onTryExample);
   const hasCrossMode = crossModes.length > 0 && Boolean(onCrossMode);
+  const emptyTitle = filtered
+    ? appliedFilters.length === 1
+      ? `No ${resultNoun} match the selected filter`
+      : `No ${resultNoun} match all ${appliedFilters.length} filters`
+    : `No matches for “${query.trim() || "your search"}”`;
+  const emptyBody = filtered
+    ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
+    : hasExample && hasCrossMode
+      ? "Try an example, or jump to another mode."
+      : hasExample
+        ? "Try one of the examples below."
+        : hasCrossMode
+          ? "Try another mode."
+          : "Check the spelling, or try a broader term.";
+  // Live regions that mount already populated are silent in most screen readers.
+  // Deferred population makes the query-only path announce. Filtered-to-zero
+  // suppresses the region entirely: the band's `role="status"` already
+  // re-announced the zero count for that interaction, and a second polite
+  // region would double-speak.
+  const [liveMessage, setLiveMessage] = useState("");
+  useEffect(() => {
+    if (filtered) {
+      setLiveMessage("");
+      return;
+    }
+    setLiveMessage("");
+    const frame = requestAnimationFrame(() => {
+      setLiveMessage(`${emptyTitle}. ${emptyBody}`);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [filtered, emptyTitle, emptyBody]);
   const secondary = [
     config?.examples[0] && onTryExample ? (
       <button
@@ -884,39 +933,22 @@ export function SearchResultsEmptyState({
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
-      {/* Announced, but NOT `role="status"`. The band renders its own
-          unconditional status region on every search route and Playwright
-          resolves it with a singular `getByRole("status")`, so a second one here
-          makes that query ambiguous everywhere this state can appear — which is
-          every mode that has an empty state, i.e. all of them. A bare
-          `aria-live="polite"` gives the same announcement (the role is just
-          implicit polite + atomic) without adding a second node to the role
-          query. `aria-atomic` is deliberately off: the heading and body change
-          together and reading the whole panel on every keystroke is worse than
-          reading what changed. */}
-      <div aria-live="polite">
-        <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
-          {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
-        </span>
-        <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">
-          {filtered
-            ? appliedFilters.length === 1
-              ? `No ${resultNoun} match the selected filter`
-              : `No ${resultNoun} match all ${appliedFilters.length} filters`
-            : `No matches for “${query.trim() || "your search"}”`}
-        </Title>
-        <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">
-          {filtered
-            ? "The search itself ran fine — the filters above excluded everything. Remove one to widen it."
-            : hasExample && hasCrossMode
-              ? "Try an example, or jump to another mode."
-              : hasExample
-                ? "Try one of the examples below."
-                : hasCrossMode
-                  ? "Try another mode."
-                  : "Check the spelling, or try a broader term."}
-        </p>
-      </div>
+      {/* Visible copy is never inside the live region: a region that mounts
+          already populated is silent in most screen readers, and wrapping the
+          visible tree would flash empty for a frame. The sr-only live region
+          below is populated after mount (query-only) or omitted (filtered).
+          NOT `role="status"`: the band already owns that role on every search
+          route and a second one makes singular `getByRole("status")` ambiguous. */}
+      <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+        {filtered ? <Funnel className="h-5 w-5" aria-hidden /> : <Search className="h-5 w-5" aria-hidden />}
+      </span>
+      <Title className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">{emptyTitle}</Title>
+      <p className="mt-1 text-xs font-medium text-[color:var(--text-muted)]">{emptyBody}</p>
+      {!filtered ? (
+        <div aria-live="polite" className="sr-only">
+          {liveMessage}
+        </div>
+      ) : null}
       {/* Relaxing comes first and is the only accented pair. Naming the filter in
           the label is what makes it a one-tap undo rather than a second thing to
           go and find; `Clear all filters` is separate so each label matches its

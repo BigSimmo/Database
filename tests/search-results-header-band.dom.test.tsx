@@ -255,6 +255,8 @@ describe("SearchResultsHeaderBand", () => {
     // a two-column grid — and pinning one into a 58px line at 320px makes it
     // unreadable. Unannounced page controls therefore keep today's own row.
     expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("w-full");
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("basis-full");
+    expect(screen.getByTestId("search-query-ribbon-utilities").className).toContain("flex-wrap");
 
     rerender(
       <SearchResultsHeaderBand
@@ -266,6 +268,46 @@ describe("SearchResultsHeaderBand", () => {
       />,
     );
     expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).not.toContain("w-full");
+  });
+
+  it("keeps row geometry while loading even though the page control is gated off", () => {
+    const control = <button type="button">Wide filter</button>;
+    const rowClass = (root: HTMLElement) => (root.firstElementChild as HTMLElement | null)?.className ?? "";
+    const { rerender } = render(
+      <SearchResultsHeaderBand
+        modeId="services"
+        query="CMHT"
+        matchCount={0}
+        status="loading"
+        onSortChange={vi.fn()}
+        mobileControls={control}
+      />,
+    );
+
+    // Placement must key off the raw `mobileControls` prop. Gating on the
+    // count-trusted control flipped six modes between nowrap/58px and wrapping
+    // geometry the moment results arrived. (`sm:flex-nowrap` is always present;
+    // the loading→ready flip was the unprefixed `flex-nowrap` + `min-h-[3.625rem]`.)
+    expect(screen.queryByTestId("search-query-ribbon-mobile-controls")).toBeNull();
+    const loadingRow = rowClass(screen.getByTestId("search-query-ribbon"));
+    expect(loadingRow).toContain("flex-wrap");
+    expect(loadingRow.split(/\s+/)).not.toContain("flex-nowrap");
+    expect(loadingRow).not.toContain("min-h-[3.625rem]");
+
+    rerender(
+      <SearchResultsHeaderBand
+        modeId="services"
+        query="CMHT"
+        matchCount={6}
+        status="ready"
+        onSortChange={vi.fn()}
+        mobileControls={control}
+      />,
+    );
+    const readyRow = rowClass(screen.getByTestId("search-query-ribbon"));
+    expect(readyRow).toContain("flex-wrap");
+    expect(readyRow.split(/\s+/)).not.toContain("flex-nowrap");
+    expect(screen.getByTestId("search-query-ribbon-mobile-controls").className).toContain("basis-full");
   });
 
   it("lets an explicit status override the deprecated loading shim", () => {
@@ -538,11 +580,10 @@ describe("SearchResultsEmptyState", () => {
       <SearchResultsEmptyState modeId="therapy-compass" query="unmatched therapy" onClearSearch={onClearSearch} />,
     );
 
-    // Queried by text, not by role. The panel announces through a bare
-    // `aria-live` region: the band renders an unconditional `role="status"` on
-    // every search route, and giving this one the role too made the singular
-    // `getByRole("status")` queries used across the suite — and by Playwright on
-    // every mode — resolve to two nodes.
+    // Queried by text, not by role. The panel keeps a bare `aria-live` region
+    // (populated after mount) rather than `role="status"`: the band already
+    // owns that role on every search route, and a second one made singular
+    // `getByRole("status")` queries across the suite ambiguous.
     expect(screen.getByText("No matches for “unmatched therapy”")).toBeVisible();
     // `searchCommandSurfaceByMode` is a `Partial<Record<…>>` with no
     // therapy-compass entry, so this mode has neither an example nor a

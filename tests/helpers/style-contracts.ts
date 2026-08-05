@@ -211,10 +211,9 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
     computed: { borderLeftWidth: "2px", borderLeftStyle: "solid" },
     nonInert: ["borderLeftColor"],
     colorToken: { property: "borderLeftColor", token: "--clinical-accent" },
-    distinct: [
-      ["borderLeftColor", "borderTopColor"],
-      ["borderLeftWidth", "borderTopWidth"],
-    ],
+    // Cross-element "accent ≠ card neutral border" lives in
+    // `ui-accessibility.spec.ts`. Same-element distinct pairs against this
+    // mark's own zero-width top border only proved it has no top border.
     // Under forced colors the mark survives as stroke count, not hue:
     // --clinical-accent resolves to LinkText and --warning is not remapped at
     // all, so a healthy search is one stroke and a degraded one is two.

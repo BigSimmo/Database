@@ -247,6 +247,18 @@ function DocumentFilterPanel({
       collapsed: update(current.query === query ? current.collapsed : new Set()),
     }));
   const trimmedNeedle = needle.trim().toLowerCase();
+  // Both the find-a-filter field and collapse-by-default are answers to *eleven*
+  // groups in one phone column, and neither is worth its cost below that. A
+  // sheet showing two groups that are both shut is a scroll saved that did not
+  // exist and two taps added that did. Same threshold for both, so the sheet
+  // never search-but-does-not-collapse or the reverse.
+  const dense = groups.length > 3;
+  const showNeedle = dense;
+  // Only filter when the field is actually shown. Today `groups` maps
+  // one-to-one from the facet index so density cannot change mid-query, but if
+  // zero-count groups ever drop out the needle would keep filtering an
+  // invisible, unclearable field — gate on `dense` so that cannot happen.
+  const activeNeedle = showNeedle ? trimmedNeedle : "";
 
   const ordered = useMemo(() => {
     const selected = new Set(activeKeys);
@@ -255,7 +267,7 @@ function DocumentFilterPanel({
       .filter((item): item is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(item))
       .map(({ group, facets }) => ({
         group,
-        facets: trimmedNeedle
+        facets: activeNeedle
           ? facets.filter(
               (facet) =>
                 // A selected facet must stay reachable while searching: hiding it
@@ -263,23 +275,16 @@ function DocumentFilterPanel({
                 // constraint the reader cannot untoggle without clearing the
                 // field first (or abandoning the sheet for the shelf).
                 selected.has(facet.key) ||
-                facet.label.toLowerCase().includes(trimmedNeedle) ||
-                facet.searchText.toLowerCase().includes(trimmedNeedle) ||
-                group.toLowerCase().includes(trimmedNeedle),
+                facet.label.toLowerCase().includes(activeNeedle) ||
+                facet.searchText.toLowerCase().includes(activeNeedle) ||
+                group.toLowerCase().includes(activeNeedle),
             )
           : facets,
       }))
       .filter(({ facets }) => facets.length > 0);
-  }, [groups, trimmedNeedle, activeKeys]);
+  }, [groups, activeNeedle, activeKeys]);
 
-  // Both the find-a-filter field and collapse-by-default are answers to *eleven*
-  // groups in one phone column, and neither is worth its cost below that. A
-  // sheet showing two groups that are both shut is a scroll saved that did not
-  // exist and two taps added that did. Same threshold for both, so the sheet
-  // never search-but-does-not-collapse or the reverse.
-  const dense = groups.length > 3;
-  const showNeedle = dense;
-  const matchedFacets = trimmedNeedle ? ordered.reduce((total, item) => total + item.facets.length, 0) : 0;
+  const matchedFacets = activeNeedle ? ordered.reduce((total, item) => total + item.facets.length, 0) : 0;
 
   if (groups.length === 0 && !showSourceType) return null;
 
@@ -421,7 +426,7 @@ function DocumentFilterPanel({
             ) : null}
           </div>
           <p aria-live="polite" className="sr-only">
-            {trimmedNeedle ? `${matchedFacets} filter${matchedFacets === 1 ? "" : "s"} match “${needle.trim()}”` : ""}
+            {activeNeedle ? `${matchedFacets} filter${matchedFacets === 1 ? "" : "s"} match “${needle.trim()}”` : ""}
           </p>
         </div>
       ) : null}
@@ -487,7 +492,7 @@ function DocumentFilterPanel({
           // disclosure button updates expanded while selectedCount > 0
           // immediately forces the panel open again.
           const isOpen =
-            !dense || Boolean(trimmedNeedle) || (!collapsed.has(group) && (expanded.has(group) || selectedCount > 0));
+            !dense || Boolean(activeNeedle) || (!collapsed.has(group) && (expanded.has(group) || selectedCount > 0));
           const groupPanelId = `${panelId}-${group.replace(/[^A-Za-z0-9_-]/g, "-")}`;
           return (
             <section key={group} className="min-w-0 border-t border-[color:var(--border)] py-1">
@@ -504,7 +509,7 @@ function DocumentFilterPanel({
                     collapse ambushed the reader later, once the field was
                     cleared and the tap forgotten. While searching, the needle
                     owns what is open, so there is nothing here to disclose. */}
-                {dense && !trimmedNeedle ? (
+                {dense && !activeNeedle ? (
                   <button
                     type="button"
                     aria-expanded={isOpen}
@@ -636,7 +641,7 @@ function DocumentFilterPanel({
             </section>
           );
         })}
-        {trimmedNeedle && ordered.length === 0 ? (
+        {activeNeedle && ordered.length === 0 ? (
           <p className="border-t border-[color:var(--border)] py-4 text-center text-xs font-semibold text-[color:var(--text-muted)]">
             No filter matches “{needle.trim()}”.
           </p>
@@ -699,7 +704,7 @@ function DocumentFilterTrigger({
         // A tinted pill, not a solid disc: a saturated filled circle is the single
         // loudest signal on a bar that is otherwise hairlines and type, and it
         // reads as an alert rather than as a count.
-        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color-mix(in_oklab,var(--clinical-accent)_16%,transparent)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
+        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color:var(--search-band-badge-bg)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
           {activeCount}
         </span>
       ) : null}
@@ -1668,18 +1673,12 @@ function DocumentSearchResultsPanelImpl({
           <div className="grid gap-3 sm:gap-4">
             <div className="min-w-0 space-y-2.5 sm:space-y-3">
               {sortedMatches.length === 0 ? (
-                // Facet toggles empty this list without a navigation, and the filter
-                // sheet covers the results it describes, so the state is introduced
-                // dynamically and the polite announcement is the point — the local
-                // panel this replaced said nothing at all when the last matching
-                // document dropped out.
-                //
-                // Now the shared surface rather than the bare primitive: this is
-                // exactly the reader F11 describes, sitting under a shelf of chips
-                // that caused the emptiness, and the bare primitive named the
-                // problem while offering no route out of it. It gets the chips, so
-                // it can offer to undo one; and Browse, because when narrowing this
-                // result set is not the answer, reaching the whole corpus is.
+                // Facet toggles empty this list without a navigation. The shared
+                // empty state leads with Remove / Clear all against the chips
+                // that caused it (F11); the band's `role="status"` already
+                // re-announced the zero count, so the empty state suppresses its
+                // own live region on the filtered path to avoid a double polite
+                // announcement for one interaction.
                 <div data-testid="document-filter-empty-results">
                   <SearchResultsEmptyState
                     modeId="documents"

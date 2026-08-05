@@ -65,16 +65,16 @@ chrome and changes to it land on every mode at once. Keep these rules:
    mapping from their own data source; five pages have no async source and are correct on the
    default.
 1. **The query is the only heading element in the band.** It is the sole `<h1>`/`<h2>`; the count
-   is never a heading. Nothing here is bold: the query uses weight 560 (`.search-band-query`) and
-   the figure uses 580 (`.search-band-count`) — two nearby steps of the same scale, separated by
+   is never a heading. Nothing here is bold: the query uses weight 450 (`.search-band-subject`) and
+   the figure uses 600 (`.search-band-count`) — two nearby steps of the same scale, separated by
    tabular numerals and a hairline rather than by shouting. No eyebrow — the magnifier tile
    already says "search", and a `QUERY` / `RESULTS FOR` label costs a line to repeat it. The
    query truncates; the count does not. Weights live as numeric `font-weight` on `.search-band-*`
    classes in `globals.css`, not as Tailwind arbitrary values: `check:type-scale --strict` is a
-   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 470/540/560/580
+   zero gate on arbitrary `text-[Npx]`, and Geist is a variable face so 450/470/540/560/600
    interpolate rather than snapping to 700. Judge weights only with the app font loaded.
 2. **The count is neutral text, not a success pill.** `text-muted` with the figure itself
-   `.search-band-count` (580, tabular-nums), stepping down to 470 and muted at zero. Success
+   `.search-band-count` (600, tabular-nums), stepping down to 470 and muted at zero. Success
    colour is reserved for states that were actually achieved, so it still carries meaning where
    it appears. The `role="status"` / `aria-live="polite"` announcement stays either way — except
    while faulted, when the spine goes `aria-live="off"` and the fault panel's `role="alert"`
