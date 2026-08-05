@@ -54,7 +54,7 @@ const destinationTone: Record<SearchPinDestinationId, string> = {
   forms: "border-amber-200 bg-amber-50 text-amber-700",
   services: "border-violet-200 bg-violet-50 text-violet-700",
   differentials: "border-rose-200 bg-rose-50 text-rose-700",
-  tools: "border-slate-200 bg-slate-50 text-slate-700",
+  tools: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
 };
 
 function PinIcons({ pin }: { pin: SearchPin }) {
@@ -94,7 +94,7 @@ function PinIcons({ pin }: { pin: SearchPin }) {
 function SectionHeading({ children, action }: { children: string; action?: ReactNode }) {
   return (
     <div className="mb-1 flex min-h-10 items-center justify-between gap-2 px-2">
-      <h3 className="text-2xs font-extrabold uppercase tracking-[0.11em] text-[color:var(--text-soft)]">{children}</h3>
+      <h3 className="text-2xs font-extrabold uppercase tracking-[0.11em] text-[color:var(--text-muted)]">{children}</h3>
       {action}
     </div>
   );
@@ -230,7 +230,7 @@ export function SearchPinsMenu({
           </button>
         </div>
 
-        <label className="block text-xs font-bold text-[color:var(--text-soft)]">
+        <label className="block text-xs font-bold text-[color:var(--text-muted)]">
           Pin name
           <input
             autoFocus
@@ -245,7 +245,7 @@ export function SearchPinsMenu({
         </label>
 
         <fieldset className="mt-4">
-          <legend className="mb-2 text-xs font-bold text-[color:var(--text-soft)]">App destinations</legend>
+          <legend className="mb-2 text-xs font-bold text-[color:var(--text-muted)]">App destinations</legend>
           <div className="grid gap-1.5">
             {searchPinDestinationIds.map((destinationId) => {
               const Icon = appModeIcons[destinationId];
@@ -276,7 +276,7 @@ export function SearchPinsMenu({
                     className={cn(
                       "grid h-6 w-6 place-items-center rounded-full border",
                       selected
-                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-white"
+                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
                         : "border-[color:var(--border)] text-transparent",
                     )}
                   >
@@ -318,7 +318,7 @@ export function SearchPinsMenu({
             onClick={saveEditor}
             disabled={!editor.name.trim()}
             className={cn(
-              "min-h-12 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:opacity-45",
+              "min-h-12 rounded-xl bg-[color:var(--clinical-accent)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] disabled:cursor-not-allowed disabled:opacity-45",
               focusRing,
             )}
           >
@@ -481,7 +481,7 @@ export function SearchPinsMenu({
                         <span className="truncate">{destinationLabels[destinationId]}</span>
                         <ChevronRight
                           aria-hidden="true"
-                          className="ml-auto h-3.5 w-3.5 text-[color:var(--text-soft)]"
+                          className="ml-auto h-3.5 w-3.5 text-[color:var(--text-muted)]"
                         />
                       </Link>
                     );
@@ -534,7 +534,7 @@ export function SearchPinsMenu({
                 Open universal results for this query
               </span>
             </span>
-            <Search aria-hidden="true" className="h-4 w-4 text-[color:var(--text-soft)]" />
+            <Search aria-hidden="true" className="h-4 w-4 text-[color:var(--text-muted)]" />
           </button>
         ) : null}
         <button
@@ -556,7 +556,7 @@ export function SearchPinsMenu({
               Keep the query and change mode explicitly
             </span>
           </span>
-          <ChevronRight aria-hidden="true" className="h-4 w-4 text-[color:var(--text-soft)]" />
+          <ChevronRight aria-hidden="true" className="h-4 w-4 text-[color:var(--text-muted)]" />
         </button>
       </div>
 
