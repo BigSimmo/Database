@@ -161,11 +161,14 @@ describe("document search state matrix", () => {
 
     const loadingLabel = screen.getByText("Finding matching documents");
     expect(loadingLabel.closest('[role="status"]')).toBeInTheDocument();
-    expect(screen.queryByText("No matching documents")).not.toBeInTheDocument();
+    // The zero-match branch adopted `SearchResultsEmptyState` so Library stays
+    // reachable from a search that returned nothing, which changed the heading
+    // from "No matching documents" to the shared "No matches for <query>".
+    expect(screen.queryByText("No matches for “lithium”")).not.toBeInTheDocument();
 
     rerender(<DocumentSearchResultsPanel {...documentProps} query="lithium" loading={false} />);
     expect(screen.queryByText("Finding matching documents")).not.toBeInTheDocument();
-    expect(screen.getByText("No matching documents")).toBeInTheDocument();
+    expect(screen.getByText("No matches for “lithium”")).toBeInTheDocument();
   });
 
   it("renders the document home for an empty query and wires every escape action", async () => {
@@ -196,6 +199,6 @@ describe("document search state matrix", () => {
     render(<DocumentSearchResultsPanel {...documentProps} query="lithium" realDataReady={false} apiUnavailable />);
 
     expect(screen.getByRole("alert")).toBeInTheDocument();
-    expect(screen.getByText(/No matching documents/)).toBeInTheDocument();
+    expect(screen.getByText(/No matches for/)).toBeInTheDocument();
   });
 });

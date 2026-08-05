@@ -59,14 +59,7 @@ import {
   DocumentBadge,
   documentActionClass,
 } from "@/components/clinical-dashboard/document-ui";
-import {
-  cn,
-  floatingControl,
-  LoadingPanel,
-  metadataPill,
-  sourceCard,
-  textMuted,
-} from "@/components/ui-primitives";
+import { cn, floatingControl, LoadingPanel, metadataPill, sourceCard, textMuted } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   buildSmartDocumentTagFacetIndex,
