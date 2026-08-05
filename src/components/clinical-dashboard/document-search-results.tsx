@@ -187,6 +187,7 @@ const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
 function DocumentFilterPanel({
   open,
   panelId,
+  query,
   groups,
   activeKeys,
   resultTabs,
@@ -201,6 +202,9 @@ function DocumentFilterPanel({
 }: {
   open: boolean;
   panelId: string;
+  /** Result-set identity for transient sheet chrome. A new submit must not keep
+      a prior "Find a filter…" needle or expand set over a different match list. */
+  query: string;
   groups: Array<{ group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] }>;
   activeKeys: string[];
   resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
@@ -218,31 +222,54 @@ function DocumentFilterPanel({
   const active = new Set(activeKeys);
   const showSourceType = resultTabs.length > 1;
   const searchId = useId();
-  const [needle, setNeedle] = useState("");
-  // Collapsed by default, because eleven groups in one phone column means
-  // reaching Document type is a scroll past ten sections. A group that carries a
-  // selection stays open: the reader put it there and it is the first thing they
-  // will want to undo.
-  const [expanded, setExpanded] = useState<ReadonlySet<SmartDocumentTagGroup>>(() => new Set());
+  // Query-scope the find field and expand set the same way open state is scoped
+  // above: the panel stays mounted while closed (`Sheet` returns null), so a
+  // plain useState would otherwise leave "clozapine" typed into the find field
+  // after the reader has already submitted a different search.
+  const [chrome, setChrome] = useState<{
+    query: string;
+    needle: string;
+    expanded: ReadonlySet<SmartDocumentTagGroup>;
+  }>(() => ({ query, needle: "", expanded: new Set() }));
+  if (chrome.query !== query) {
+    setChrome({ query, needle: "", expanded: new Set() });
+  }
+  // Prefer the scoped values even on the transitional render before the
+  // setState above commits — otherwise a typed needle from the previous
+  // query can flash into the find field for one frame.
+  const needle = chrome.query === query ? chrome.needle : "";
+  const expanded = chrome.query === query ? chrome.expanded : new Set<SmartDocumentTagGroup>();
+  const setNeedle = (value: string) => setChrome((current) => ({ ...current, query, needle: value }));
+  const setExpanded = (update: (current: ReadonlySet<SmartDocumentTagGroup>) => ReadonlySet<SmartDocumentTagGroup>) =>
+    setChrome((current) => ({
+      ...current,
+      query,
+      expanded: update(current.query === query ? current.expanded : new Set()),
+    }));
   const trimmedNeedle = needle.trim().toLowerCase();
 
-  const ordered = useMemo(
-    () =>
-      smartDocumentFacetGroups
-        .map((group) => groups.find((item) => item.group === group))
-        .filter((item): item is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(item))
-        .map(({ group, facets }) => ({
-          group,
-          facets: trimmedNeedle
-            ? facets.filter(
-                (facet) =>
-                  facet.label.toLowerCase().includes(trimmedNeedle) || group.toLowerCase().includes(trimmedNeedle),
-              )
-            : facets,
-        }))
-        .filter(({ facets }) => facets.length > 0),
-    [groups, trimmedNeedle],
-  );
+  const ordered = useMemo(() => {
+    const selected = new Set(activeKeys);
+    return smartDocumentFacetGroups
+      .map((group) => groups.find((item) => item.group === group))
+      .filter((item): item is { group: SmartDocumentTagGroup; facets: SmartDocumentTagFacet[] } => Boolean(item))
+      .map(({ group, facets }) => ({
+        group,
+        facets: trimmedNeedle
+          ? facets.filter(
+              (facet) =>
+                // A selected facet must stay reachable while searching: hiding it
+                // because its label does not match the needle leaves an active
+                // constraint the reader cannot untoggle without clearing the
+                // field first (or abandoning the sheet for the shelf).
+                selected.has(facet.key) ||
+                facet.label.toLowerCase().includes(trimmedNeedle) ||
+                group.toLowerCase().includes(trimmedNeedle),
+            )
+          : facets,
+      }))
+      .filter(({ facets }) => facets.length > 0);
+  }, [groups, trimmedNeedle, activeKeys]);
 
   // Both the find-a-filter field and collapse-by-default are answers to *eleven*
   // groups in one phone column, and neither is worth its cost below that. A
@@ -1561,6 +1588,7 @@ function DocumentSearchResultsPanelImpl({
             <DocumentFilterPanel
               open={filterPanelOpen}
               panelId={filterPanelId}
+              query={query}
               groups={tagFacetGroups}
               activeKeys={activeFacetKeys}
               resultTabs={resultTabs}

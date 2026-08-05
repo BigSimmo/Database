@@ -399,6 +399,42 @@ describe("filter sheet — density, exclusivity and reach", () => {
     expect(within(panel).getByRole("button", { name: /^Medication/ })).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("forgets the find-a-filter needle when the search query changes", async () => {
+    // The panel stays mounted while closed (`Sheet` returns null), so a bare
+    // useState for the find field would keep "clozapine" typed in after the
+    // reader has already submitted a different search — hiding the new result
+    // set's facets until they notice and clear the field.
+    const user = userEvent.setup();
+    const { rerender } = render(<DocumentSearchResultsPanel {...denseProps} />);
+
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    await user.type(
+      within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-find"),
+      "clozapine",
+    );
+    expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-find")).toHaveValue(
+      "clozapine",
+    );
+    await user.click(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-done"));
+
+    rerender(<DocumentSearchResultsPanel {...denseProps} query="lithium" />);
+    await user.click(screen.getByTestId("document-filter-trigger-phone"));
+    expect(within(screen.getByTestId("document-filter-panel")).getByTestId("document-filter-find")).toHaveValue("");
+  });
+
+  it("keeps a selected facet reachable while the find field is narrowing the list", async () => {
+    const { user, panel } = await openPanel(denseProps);
+
+    await user.click(within(panel).getByRole("button", { name: /^Medication/ }));
+    await user.click(within(panel).getByRole("button", { name: /Lithium/ }));
+    await user.type(within(panel).getByTestId("document-filter-find"), "community");
+
+    // "Lithium" does not match "community", but it is still narrowing the list —
+    // hiding it here would leave an active constraint with no in-sheet undo.
+    expect(within(panel).getByRole("button", { name: /Lithium/ })).toBeVisible();
+    expect(within(panel).getByRole("button", { name: /Community/ })).toBeVisible();
+  });
+
   it("shows neither the field nor a collapse control for a handful of groups", async () => {
     const { panel } = await openPanel();
 
