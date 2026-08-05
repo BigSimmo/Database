@@ -53,8 +53,11 @@ export function TherapyFilterSheet({
   resultCount: number;
 }) {
   // Include the query so a query-only phone session still gets Clear all.
-  // Wide viewports always show Clear in the ribbon; the sheet is the phone's
-  // equivalent, and onClear already resets query via clearSearch.
+  // The sheet's Clear all is the phone control that resets the query
+  // (`onClear` → `clearSearch`). The wide-viewport quick-filter Clear uses
+  // `clearSearchFilters` and deliberately leaves the query alone — so the
+  // sheet is not "the phone equivalent of the ribbon Clear"; it is the only
+  // Clear that wipes the query, and only on phones.
   const clearableCount = activeTopics.length + Number(reviewedOnly) + Number(briefOnly) + (query.trim() ? 1 : 0);
 
   return (
@@ -153,8 +156,17 @@ export function TherapyFilterTrigger({
       className={softControl}
     >
       <SlidersIcon size={15} strokeWidth={1.8} />
-      Filter
-      {activeCount > 0 ? <span className="nums">{activeCount}</span> : null}
+      {/* The label is the first thing to go when the line is tight — below 430px
+          the count and the query need every pixel and a badged glyph is
+          unambiguous. The accessible name below is unchanged either way. */}
+      <span className="max-[429px]:sr-only">Filter</span>
+      {activeCount > 0 ? (
+        // A tinted pill, not a solid disc: a saturated filled circle is the
+        // loudest signal on a bar that is otherwise hairlines and type.
+        <span className="search-band-badge nums grid h-[1.0625rem] min-w-[1.0625rem] place-items-center rounded-full bg-[color:var(--search-band-badge-bg)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)]">
+          {activeCount}
+        </span>
+      ) : null}
       <span className="sr-only">
         {activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "No filters active"}
       </span>
