@@ -419,7 +419,12 @@ function DocumentFilterPanel({
               onChange={(event) => setNeedle(event.target.value)}
               placeholder="Find a filter…"
               data-testid="document-filter-find"
-              className="min-h-10 min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
+              // `min-h-tap`, matching the facets and the disclosure headings.
+              // This shipped at `min-h-10` — 40px, below the floor — in the same
+              // commit that raised everything around it, so the one control added
+              // to make a long filter list usable was the smallest target in the
+              // sheet. The `sm:min-h-9` relaxation matches the facets exactly.
+              className="min-h-tap min-w-0 flex-1 bg-transparent text-xs font-semibold text-[color:var(--text)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-placeholder)] sm:min-h-9"
             />
             {needle ? (
               <button

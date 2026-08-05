@@ -79,10 +79,21 @@ describe("decoration-on-text contracts", () => {
   });
 
   it("keeps the find-a-filter placeholder on --text-placeholder", () => {
-    const field = lineContaining(documentSearch, 'data-testid="document-filter-find"');
-    const className = documentSearch.slice(documentSearch.indexOf(field), documentSearch.indexOf(field) + 600);
-    expect(className).toContain("placeholder:text-[color:var(--text-placeholder)]");
-    expect(className).not.toContain("placeholder:text-[color:var(--text-soft)]");
+    // Anchored on the element's own `className`, found by walking forward from
+    // the testid, rather than on a fixed slice of characters after it. The
+    // original form took 600 characters and broke the moment a comment was added
+    // between the two — a guard that fails when someone documents the line it
+    // guards trains people to delete the guard.
+    const lines = documentSearch.split("\n");
+    const start = lines.findIndex((line) => line.includes('data-testid="document-filter-find"'));
+    expect(start, "find-a-filter field missing").toBeGreaterThan(-1);
+    const className = lines.slice(start, start + 12).find((line) => line.includes("className="));
+    expect(className, "find-a-filter field has no className within 12 lines of its testid").toBeTruthy();
+    expect(className!).toContain("placeholder:text-[color:var(--text-placeholder)]");
+    expect(className!).not.toContain("placeholder:text-[color:var(--text-soft)]");
+    // The sheet exists for phones, so this field sits on the tap floor with
+    // everything else in it.
+    expect(className!).toContain("min-h-tap");
   });
 
   it("keeps the applied-filter shelf label and its Clear on a text tier", () => {
