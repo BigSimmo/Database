@@ -99,6 +99,55 @@ describe("SearchPinsMenu", () => {
     expect(screen.getByText("My clinic")).toBeInTheDocument();
   });
 
+  it("re-reads storage when a pin-change event carries no payload", () => {
+    window.localStorage.setItem(
+      searchPinsStorageKey,
+      JSON.stringify([{ id: "clinic", name: "Stored clinic", destinationIds: ["documents"] }]),
+    );
+    renderMenu();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(searchPinsChangeEvent));
+    });
+
+    expect(screen.getByText("Stored clinic")).toBeInTheDocument();
+    expect(screen.queryByText("Ward essentials")).not.toBeInTheDocument();
+  });
+
+  it("marks the first pin for sheet autofocus", () => {
+    renderMenu();
+    expect(screen.getByRole("button", { name: "Open Ward essentials pin, 3 destinations" })).toHaveAttribute(
+      "data-sheet-autofocus",
+      "true",
+    );
+  });
+
+  it("closes the pin editor on Escape without dismissing the surrounding menu", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderMenu({ onClose });
+
+    await user.click(screen.getByRole("button", { name: "New pin" }));
+    expect(screen.getByRole("heading", { name: "Create a new pin" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("heading", { name: "Your pins" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("requires a second click before deleting a pin", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(screen.getByRole("button", { name: "Edit Ward essentials" }));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Edit pin" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Confirm delete" }));
+    expect(screen.queryByText("Ward essentials")).not.toBeInTheDocument();
+  });
+
   it("disables pin creation at the persisted limit instead of silently truncating", () => {
     window.localStorage.setItem(
       searchPinsStorageKey,

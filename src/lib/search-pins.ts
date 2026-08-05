@@ -54,8 +54,16 @@ function normalizePin(value: unknown): SearchPin | null {
   return { id, name, destinationIds };
 }
 
+function cloneDefaultSearchPins(): SearchPin[] {
+  return defaultSearchPins.map((pin) => ({
+    id: pin.id,
+    name: pin.name,
+    destinationIds: [...pin.destinationIds],
+  }));
+}
+
 export function normalizeSearchPins(value: unknown): SearchPin[] {
-  if (!Array.isArray(value)) return defaultSearchPins;
+  if (!Array.isArray(value)) return cloneDefaultSearchPins();
   const seenIds = new Set<string>();
   return value
     .map(normalizePin)
@@ -70,11 +78,11 @@ export function normalizeSearchPins(value: unknown): SearchPin[] {
 export function readSearchPins(storage?: Pick<Storage, "getItem">): SearchPin[] {
   try {
     const target = storage ?? (typeof window === "undefined" ? null : window.localStorage);
-    if (!target) return defaultSearchPins;
+    if (!target) return cloneDefaultSearchPins();
     const raw = target.getItem(searchPinsStorageKey);
-    return raw ? normalizeSearchPins(JSON.parse(raw)) : defaultSearchPins;
+    return raw ? normalizeSearchPins(JSON.parse(raw)) : cloneDefaultSearchPins();
   } catch {
-    return defaultSearchPins;
+    return cloneDefaultSearchPins();
   }
 }
 
