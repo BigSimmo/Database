@@ -150,8 +150,9 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 
 `verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
 installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
-It also guards the auto-merge race on `claude/*` branches and drift-manifest staleness. Each
-guard has a documented override env var.
+It also guards the auto-merge race on `claude/*` branches, drift-manifest staleness, and a
+static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). Each guard has a
+documented override env var.
 
 Domain changes (auth, Supabase, ingestion, answer generation, search/ranking, clinical
 output, source governance) additionally want the smallest relevant domain check plus
@@ -187,8 +188,14 @@ These fail builds, so they are worth knowing before you write code:
   clinical-risk diff lacks a complete `## Clinical Governance Preflight` or a RAG-surface
   diff lacks a satisfying `RAG impact:` line. Write those in full prose from
   `.github/pull_request_template.md`, structure verbatim — paraphrasing silently fails.
-- **Mockups are exempt.** `src/app/mockups/**` and `*-mockups.tsx` are design scratch, 404 in
-  production, and outside the wiring/reachability gates.
+- **Mockups are exempt from two gates, not all of them.** `src/app/mockups/**` and `*-mockups.tsx`
+  are design scratch and 404 in production, so they sit outside the **wiring** and **reachability**
+  gates — and nothing else. They are still compiled: they are typechecked like any source, and their
+  client chunks still count toward `check:bundle-budget`, which totals **every** built chunk rather
+  than the initial production bundle. A mockup-only PR can therefore fail `Build` on bundle budget
+  (PR #1580: `+10.1% vs baseline`, tolerance 10%) even though the routes never serve a user. Budget
+  scope vs. the "not an initial production bundle" position in `/issues` `#013` is unreconciled —
+  see `#252` before assuming either number governs.
 
 ## Repo-specific tooling
 
