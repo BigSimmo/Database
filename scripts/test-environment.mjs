@@ -50,10 +50,10 @@ export function offlineTestEnvironment(source = process.env, overrides = {}) {
   // Explicit values both scrub inherited secrets and prevent Next/Vite from
   // repopulating the same names from a repository-local env file. URL-shaped
   // settings use inert loopback values so the runtime env schema still parses.
-  // SENTRY_DSN is blanked (not deleted or faked): delete lets @next/env reload a
-  // real DSN from `.env.local` into Playwright/Lighthouse builds, and a truthy
-  // inert URL keeps app Sentry gates enabled. Empty string stays set so Next will
-  // not override it; `src/lib/env.ts` treats blank Sentry DSNs as unset.
+  // SENTRY_DSN is blanked (not deleted or faked): an absent key lets Next reload
+  // a live DSN from `.env.local` during Playwright/Lighthouse production starts,
+  // and a truthy inert URL keeps app Sentry gates enabled. Empty string stays
+  // falsy for `SENTRY_DSN?.trim()` and is coerced to unset by the env schema.
   for (const key of providerEnvironmentKeys) {
     environment[key] = offlineUrlValues[key] ?? "";
   }

@@ -16,10 +16,13 @@ describe("isSentryLoggingEnabled", () => {
   });
 
   it("requires a DSN and defaults on when the flag is unset", () => {
-    // Stub the env default and pass undefined so the default-parameter path runs.
+    // Default-parameter path: undefined reads process.env.SENTRY_ENABLE_LOGS.
     vi.stubEnv("SENTRY_ENABLE_LOGS", "");
     expect(isSentryLoggingEnabled(undefined, undefined)).toBe(false);
     expect(isSentryLoggingEnabled(undefined, "https://example.ingest.sentry.io/1")).toBe(true);
+    // Explicit empty flag (same semantics as unset) and configured values.
+    expect(isSentryLoggingEnabled("", undefined)).toBe(false);
+    expect(isSentryLoggingEnabled("", "https://example.ingest.sentry.io/1")).toBe(true);
     expect(isSentryLoggingEnabled("false", "https://example.ingest.sentry.io/1")).toBe(false);
     expect(isSentryLoggingEnabled("0", "https://example.ingest.sentry.io/1")).toBe(false);
     expect(isSentryLoggingEnabled("true", "https://example.ingest.sentry.io/1")).toBe(true);

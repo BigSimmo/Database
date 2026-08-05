@@ -28,7 +28,7 @@ describe("requireSentryEnv", () => {
     expect(() => requireSentryEnv()).not.toThrow();
   });
 
-  it("treats blank Sentry DSNs as unset so offline scrubbers can pin empty strings", async () => {
+  it("treats blank DSN env values as unset", async () => {
     const { env, requireSentryEnv } = await loadEnv({
       NEXT_PUBLIC_SENTRY_DSN: "",
       SENTRY_DSN: "",
