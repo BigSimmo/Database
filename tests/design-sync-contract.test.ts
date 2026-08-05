@@ -44,7 +44,7 @@ describe("design-sync public contract", () => {
     expect(config.tsconfig).toBe(".design-sync/tsconfig.previews.json");
     expect(previewTsconfig.extends).toBe("../tsconfig.json");
     expect(previewTsconfig.compilerOptions).not.toHaveProperty("baseUrl");
-    expect(previewTsconfig.compilerOptions.types).toEqual(["node"]);
+    expect(previewTsconfig.compilerOptions.types).toEqual(["node", "react", "react-dom"]);
     expect(previewTsconfig.compilerOptions.paths["@/*"]).toEqual(["../src/*"]);
     expect(previewTsconfig.compilerOptions.paths[config.pkg]).toEqual(["./entry.tsx"]);
   });
