@@ -50,7 +50,7 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).toContain('"lint:changed:internal"');
     expect(source).toContain('"typecheck:source:internal"');
     expect(source).toContain("run-heavy.mjs");
-    expect(source).not.toContain('"node_modules", "typescript", "bin", "tsc"');
+    expect(source).toContain('runStaticCheck(PROJECT_ROOT, "typecheck:source:internal", [], "typecheck")');
   });
 
   it("keeps Vitest async so shared-lease heartbeats can fire", () => {
